@@ -8,7 +8,7 @@ from lawgraph.clients.tk import TKClient
 from lawgraph.config.constants import RAW_KIND_TK_ZAAK, SOURCE_TK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.values import first_str
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 class TKRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for TK Zaak raw sources (``tk-dossiers`` retrieves the documents)."""
 
-    def __init__(self, store: ArangoStore, tk_client: TKClient | None = None) -> None:
+    def __init__(self, store: GraphStore, tk_client: TKClient | None = None) -> None:
         super().__init__(store)
         self.tk = tk_client or TKClient()
 

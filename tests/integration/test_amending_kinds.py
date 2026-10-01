@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
 from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
 from tests.integration.seed import uid
 
@@ -69,7 +69,7 @@ def _paper(number: int, kind: str, subject: str) -> dict[str, Any]:
     }
 
 
-def _write(store: ArangoStore) -> None:
+def _write(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in [
             (RAW_KIND_TK_DOSSIER, DOSSIER),
@@ -86,7 +86,7 @@ def _write(store: ArangoStore) -> None:
             )
 
 
-def _amending_kinds(store: ArangoStore) -> list[str]:
+def _amending_kinds(store: GraphStore) -> list[str]:
     rows = store.query(
         """
         SELECT n.props ->> 'kind' FROM edges e LEFT JOIN nodes n ON n.id = e.from_id
@@ -98,7 +98,7 @@ def _amending_kinds(store: ArangoStore) -> list[str]:
 
 
 def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     law = f"instruments/{make_node_key(BWB_ID)}"
     store.bulk_insert_or_update_nodes(
         "instruments",

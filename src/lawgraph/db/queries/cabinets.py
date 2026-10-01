@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RELATION_SERVED_IN,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -46,7 +46,7 @@ def _person(member: str) -> str:
 _BILL = "d.initiative = false AND d.kind = %(bill)s"
 
 
-def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
+def get_cabinets(store: GraphStore) -> list[dict[str, Any]]:
     """Every cabinet, newest first, with its prime minister and counts: ``members`` (who
     held a post in it), ``bills`` (government bills brought in under it) and
     ``commitments`` (made under it)."""
@@ -126,7 +126,7 @@ WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
 """
 
 
-def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
+def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One cabinet with every member and their posts in it, and per member the counts
     ``dossiers`` (signed first or with others as a bewindspersoon within the cabinet's
     period, directly or through a case), ``bills`` (of those, government bills) and
@@ -300,7 +300,7 @@ def _commitment_filters(
 
 
 def get_commitments(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     status: str | None = None,
     member: str | None = None,
@@ -392,7 +392,7 @@ def get_commitments(
     )
 
 
-def get_commitment(store: ArangoStore, key: str) -> dict[str, Any] | None:
+def get_commitment(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One commitment as a list item; None when unknown."""
     rows = store.query(
         f"SELECT {_COMMITMENT_ITEM} FROM commitments c WHERE c.key = %(key)s",
@@ -401,7 +401,7 @@ def get_commitment(store: ArangoStore, key: str) -> dict[str, Any] | None:
     return cast(dict[str, Any] | None, next(rows, None))
 
 
-def cabinets_with_posts(store: ArangoStore) -> list[dict[str, Any]]:
+def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
     """Every cabinet, oldest first, with every post held in it (``lawgraph verify
     cabinets``): ``{key, props, posts}``, each post with ``member`` (its key) and ``own``
     (a member only Rijksoverheid knows)."""

@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_APPEAL_OF,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
     SEMANTIC_SOURCE as APPEAL_SOURCE,
 )
@@ -148,7 +148,7 @@ APPEALS = {
 }
 
 
-def _load(store: ArangoStore, judgments: dict[str, str]) -> None:
+def _load(store: GraphStore, judgments: dict[str, str]) -> None:
     with RawSourceWriter(store) as writer:
         for ecli, xml in judgments.items():
             writer.add(
@@ -162,7 +162,7 @@ def _load(store: ArangoStore, judgments: dict[str, str]) -> None:
             )
 
 
-def _edges(store: ArangoStore, source: str) -> set[tuple[str, str, str, str | None]]:
+def _edges(store: GraphStore, source: str) -> set[tuple[str, str, str, str | None]]:
     sql = """
     SELECT e.relation, f.ecli AS from_ecli, t.ecli AS to_ecli,
            e.doc -> 'meta' ->> 'basis' AS basis
@@ -181,7 +181,7 @@ def _key(ecli: str) -> str:
 def test_an_earlier_judgment_is_appealed_continued_or_the_referral(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _load(store, APPEALS)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the continuation
@@ -317,7 +317,7 @@ CONCLUSIONS = {
 
 
 def test_a_conclusion_advises_one_way(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _load(store, CONCLUSIONS)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the two judgments
@@ -378,7 +378,7 @@ FOOTNOTES = {
 
 
 def test_a_procedural_link_is_not_also_a_citation(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _load(store, FOOTNOTES)
     cli("normalize", "rechtspraak")
     # as `semantic all` did before: the citations first

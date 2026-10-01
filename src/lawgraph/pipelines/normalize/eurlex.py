@@ -15,7 +15,7 @@ from lawgraph.core.eu_titles import act_names
 from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -28,7 +28,7 @@ _NODE_BATCH_SIZE = 200
 class EurlexNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -183,8 +183,8 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                 continue
             for article in article_nodes:
                 writer.add(
-                    article.arango_id,
-                    instrument.arango_id,
+                    article.node_id,
+                    instrument.node_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,
                 )

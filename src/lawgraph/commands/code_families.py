@@ -18,7 +18,7 @@ from lawgraph.core.bwb_wti import parse_abbreviations
 from lawgraph.core.code_families import DATA, families_from_wti
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import payload_text
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 
@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
     result = PipelineResult()
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    rebuilt = rebuild(ArangoStore(), current)
+    rebuilt = rebuild(GraphStore(), current)
     changes = differences(current["families"], rebuilt["families"])
     for line in changes:
         print(line)
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     return result
 
 
-def rebuild(store: ArangoStore, current: dict[str, Any]) -> dict[str, Any]:
+def rebuild(store: GraphStore, current: dict[str, Any]) -> dict[str, Any]:
     """*current* (the content of ``data/code_families.json``) built again from the stored
     WTI records. Raises when none was stored."""
     rows = raw_queries.iter_raw_records(

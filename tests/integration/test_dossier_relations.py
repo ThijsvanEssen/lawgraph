@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_ZAAK,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 _MILJOENENNOTA = "Nota over de toestand van ’s Rijks Financiën"
@@ -106,7 +106,7 @@ def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
     return records
 
 
-def _relation_edges(store: ArangoStore) -> list[tuple[str, str, str, Any]]:
+def _relation_edges(store: GraphStore) -> list[tuple[str, str, str, Any]]:
     statement = """
     SELECT relation, from_id, to_id, doc -> 'meta' AS meta FROM edges
     WHERE source = 'tk-dossier-relations'
@@ -115,7 +115,7 @@ def _relation_edges(store: ArangoStore) -> list[tuple[str, str, str, Any]]:
     return [tuple(row.values()) for row in store.query(statement)]
 
 
-def _props(store: ArangoStore, key: str) -> dict[str, Any]:
+def _props(store: GraphStore, key: str) -> dict[str, Any]:
     doc = store.get_document("dossiers", key)
     assert doc is not None
     return doc["props"]
@@ -124,7 +124,7 @@ def _props(store: ArangoStore, key: str) -> dict[str, Any]:
 def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     today = dt.date.today()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records(today):

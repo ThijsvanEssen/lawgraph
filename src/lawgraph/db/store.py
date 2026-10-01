@@ -1,6 +1,6 @@
 """LawGraph store on PostgreSQL: the connections, the writes of every pipeline, the reads.
 
-The class keeps the name ``ArangoStore`` until the switch (D5); what it does is the same:
+The class keeps the name ``GraphStore`` until the switch (D5); what it does is the same:
 queries stream, writes are upserts that can be sent again after a restart, and an upsert
 that would change nothing writes nothing.
 """
@@ -195,7 +195,7 @@ def _configure(conn: psycopg.Connection[Any]) -> None:
     conn.commit()
 
 
-class ArangoStore:
+class GraphStore:
     """The PostgreSQL database of the graph: connections, reads, upserts."""
 
     def __init__(self) -> None:

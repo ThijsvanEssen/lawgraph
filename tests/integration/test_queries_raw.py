@@ -11,11 +11,11 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 
 
-def _write(store: ArangoStore, *records: tuple[str, str, str]) -> None:
+def _write(store: GraphStore, *records: tuple[str, str, str]) -> None:
     with RawSourceWriter(store) as writer:
         for source, kind, external_id in records:
             writer.add(
@@ -31,7 +31,7 @@ def _write(store: ArangoStore, *records: tuple[str, str, str]) -> None:
 def test_the_toestand_payloads_are_those_of_the_toestanden_alone(database: str) -> None:
     """The WTI record of the same regulation holds no Staatsblad reference: before, the last
     XML per regulation id won, and that was the WTI."""
-    store = ArangoStore()
+    store = GraphStore()
     _write(
         store,
         (SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0004092"),
@@ -47,7 +47,7 @@ def test_the_toestand_payloads_are_those_of_the_toestanden_alone(database: str) 
 def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(
         store,
         (SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, "stb-2001-1"),
@@ -62,7 +62,7 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(database: str) -> N
     """What bwb-history makes of the toestanden depends on the order it reads them in: each
     law's from the oldest, not in the order they were fetched (BWBR0005290 of the parity
     build had its newest toestanden fetched first)."""
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for bwb_id, start in [
             ("BWBR2", "2020-01-01"),

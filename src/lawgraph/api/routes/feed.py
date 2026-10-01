@@ -26,7 +26,7 @@ from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FEED_KINDS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
 
@@ -121,7 +121,7 @@ def feed_filters(
 
 
 def _page(
-    store: ArangoStore,
+    store: GraphStore,
     filters: FeedFilters,
     cursor: str | None,
     limit: int,
@@ -146,7 +146,7 @@ def _page(
     )
 
 
-def _data_as_of(store: ArangoStore) -> dict[str, DataAsOfDTO]:
+def _data_as_of(store: GraphStore) -> dict[str, DataAsOfDTO]:
     """How current each source is, as ``GET /api/stats`` says."""
     return {
         source: DataAsOfDTO(**row) for source, row in cached_data_as_of(store).items()
@@ -173,7 +173,7 @@ _Limit = Annotated[int, Query(ge=1, le=200)]
     tags=["feed"],
 )
 def get_feed_route(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
     limit: _Limit = 50,
@@ -205,7 +205,7 @@ def get_feed_route(
 )
 def get_feed_atom(
     request: Request,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
     limit: _Limit = 50,
@@ -322,7 +322,7 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
     tags=["feed"],
 )
 def get_feed_summary_route(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     scope: Annotated[FeedFilters, Depends(scope_filters)],
     until: Annotated[
         dt.date | None, Query(description="The last day; default today.")

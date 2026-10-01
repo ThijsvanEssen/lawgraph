@@ -11,7 +11,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import seed, uid
 
 
@@ -25,7 +25,7 @@ def _zaak(number: int, kind: str, dossier: int) -> dict[str, Any]:
     }
 
 
-def _dossier(store: ArangoStore, number: int) -> dict[str, Any]:
+def _dossier(store: GraphStore, number: int) -> dict[str, Any]:
     doc = store.get_document("dossiers", make_node_key(str(number)))
     assert doc is not None
     return doc["props"]
@@ -36,7 +36,7 @@ def test_a_vote_on_many_dossiers_gives_each_only_the_kinds_of_its_own_cases(
 ) -> None:
     """A Stemmingen covers every dossier voted on that day: an initiative bill on the
     agenda made a budget and a policy dossier initiative bills too."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=0)
     votes = {
         "Id": uid(1, 11),

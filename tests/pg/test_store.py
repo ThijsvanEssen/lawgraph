@@ -9,7 +9,7 @@ import psycopg
 import pytest
 
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db import store as store_module
 
 
@@ -18,7 +18,7 @@ def _node(key: str, **props: object) -> dict[str, object]:
 
 
 def test_a_query_gives_the_value_of_one_column_or_a_dict_of_several(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     assert list(store.query("SELECT n FROM generate_series(1, 3) n")) == [1, 2, 3]
     rows = store.query("SELECT 1 AS a, 'x' AS b")
@@ -28,7 +28,7 @@ def test_a_query_gives_the_value_of_one_column_or_a_dict_of_several(
 
 
 def test_an_upsert_creates_updates_and_leaves_what_did_not_change(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     docs = [_node("1", title="a"), _node("2", title="b")]
     assert store.bulk_insert_or_update_nodes("dossiers", docs) == (2, 0)
@@ -47,7 +47,7 @@ def test_an_upsert_creates_updates_and_leaves_what_did_not_change(
 
 
 def test_an_update_merges_props_with_their_keys_in_order_and_labels(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers", [_node("1", zeta=1, b={"y": 1, "x": 2})]
@@ -67,14 +67,14 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
     assert doc["labels"] == ["TK", "EK"]
 
 
-def test_a_key_twice_in_one_batch_is_written_in_its_order(store: ArangoStore) -> None:
+def test_a_key_twice_in_one_batch_is_written_in_its_order(store: GraphStore) -> None:
     docs = [_node("1", a=1), _node("1", b=2), _node("2", c=3), _node("1", a=4)]
     assert store.bulk_insert_or_update_nodes("dossiers", docs) == (2, 2)
     doc = store.get_document("dossiers", "1")
     assert doc is not None and doc["props"] == {"a": 4, "b": 2}
 
 
-def test_an_insert_keeps_the_order_of_the_props(store: ArangoStore) -> None:
+def test_an_insert_keeps_the_order_of_the_props(store: GraphStore) -> None:
     tally = {"voor": 76, "tegen": 74, "niet_deelgenomen": 0}
     store.bulk_insert_or_update_nodes("dossiers", [_node("1", z=1, tally=tally, a=2.5)])
     doc = store.get_document("dossiers", "1")
@@ -82,7 +82,7 @@ def test_an_insert_keeps_the_order_of_the_props(store: ArangoStore) -> None:
     assert json.dumps(doc["props"]) == json.dumps({"z": 1, "tally": tally, "a": 2.5})
 
 
-def test_an_edge_update_keeps_created_at_and_merges_meta(store: ArangoStore) -> None:
+def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> None:
     edge = {
         "_key": "e1",
         "_from": "articles/a",
@@ -105,7 +105,7 @@ def test_an_edge_update_keeps_created_at_and_merges_meta(store: ArangoStore) -> 
     assert row["doc"]["confidence"] is None
 
 
-def test_an_update_that_only_adds_nulls_is_not_written(store: ArangoStore) -> None:
+def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> None:
     """As ArangoDB compared: a prop set to null is the same as a missing one. A step that
     writes ``None`` for what a node lacks (``semantic tk-government`` on a dossier nobody
     signed) leaves it as it is; graph_equal round 1 found 169 dossiers with null props."""
@@ -135,7 +135,7 @@ def test_an_update_that_only_adds_nulls_is_not_written(store: ArangoStore) -> No
     )
 
 
-def test_a_real_change_is_written_whole_nulls_included(store: ArangoStore) -> None:
+def test_a_real_change_is_written_whole_nulls_included(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers", [_node("1", title="a", ministry="bz")]
     )
@@ -152,7 +152,7 @@ def test_a_real_change_is_written_whole_nulls_included(store: ArangoStore) -> No
     )
 
 
-def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: ArangoStore) -> None:
+def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: GraphStore) -> None:
     edge = {
         "_key": "e1",
         "_from": "members/m",
@@ -176,7 +176,7 @@ def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: ArangoStore) 
     }
 
 
-def test_the_data_version_follows_what_the_api_serves(store: ArangoStore) -> None:
+def test_the_data_version_follows_what_the_api_serves(store: GraphStore) -> None:
     first = store.data_version()
     assert len(first) == 16
     store.bulk_insert_or_update_nodes("dossiers", [_node("1", a=1)])
@@ -188,7 +188,7 @@ def test_the_data_version_follows_what_the_api_serves(store: ArangoStore) -> Non
 
 
 def test_raw_records_keep_their_payload_in_the_payload_store(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     doc = raw_source_doc(source="tk", kind="k", external_id="x", payload_text="<xml/>")
     assert store.insert_raw_sources([doc, {**doc, "meta": {"again": True}}]) == []
@@ -198,7 +198,7 @@ def test_raw_records_keep_their_payload_in_the_payload_store(
     assert read["payload_text"] == "<xml/>"
 
 
-def test_single_node_writes_and_lookups(store: ArangoStore) -> None:
+def test_single_node_writes_and_lookups(store: GraphStore) -> None:
     node = Node(
         collection="dossiers", type=NodeType.DOSSIER, key="7", props={"title": "x"}
     )
@@ -216,13 +216,13 @@ def test_single_node_writes_and_lookups(store: ArangoStore) -> None:
     assert store.get_node("dossiers", "8") is None
 
 
-def test_sizes(store: ArangoStore) -> None:
+def test_sizes(store: GraphStore) -> None:
     assert store.disk_usage()["bytesUsed"] > 0
     assert set(store.collection_sizes()) >= {"dossiers", "edges", "raw_sources"}
 
 
 def test_a_write_is_sent_again_when_the_database_was_unreachable(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     waits: list[float] = []
     monkeypatch.setattr(store_module, "_sleep", waits.append)
@@ -240,7 +240,7 @@ def test_a_write_is_sent_again_when_the_database_was_unreachable(
     assert waits == [2.0]
 
 
-def test_indexes_only_holds_for_its_own_statement(store: ArangoStore) -> None:
+def test_indexes_only_holds_for_its_own_statement(store: GraphStore) -> None:
     setting = "SELECT current_setting('enable_seqscan')"
     assert list(store.query(setting, indexes_only=True)) == ["off"]
     # SET LOCAL ends with the statement's transaction: the connection goes back as it was
@@ -248,7 +248,7 @@ def test_indexes_only_holds_for_its_own_statement(store: ArangoStore) -> None:
         assert list(store.query(setting)) == ["on"]
 
 
-def test_the_connections_of_the_pool_run_without_jit(store: ArangoStore) -> None:
+def test_the_connections_of_the_pool_run_without_jit(store: GraphStore) -> None:
     with store.pool.connection() as conn:
         assert conn.execute("SHOW jit").fetchone() == ("off",)
     # and so do the reads of the store, on whichever connection they get

@@ -46,7 +46,7 @@ SOURCE = "test"
 
 
 class _Store(RawSourcesFake):
-    """The slice of ArangoStore the normalizers use, recorded in memory."""
+    """The slice of GraphStore the normalizers use, recorded in memory."""
 
     def __init__(self, existing: dict[str, set[str]] | None = None) -> None:
         self.existing = existing or {}
@@ -707,7 +707,7 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
     nodes = tk_cases.normalize_activities(store, raws)
 
     assert len(nodes) == 700
-    assert nodes["act1"].arango_id == f"{COLLECTION_ACTIVITIES}/act1"
+    assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
     assert nodes["act1"].props["dossier_numbers"] == ["36000"]
     assert store.bulk_node_calls == 2  # 500 + 200, not 700 single upserts
 
@@ -726,7 +726,7 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
     assert written["title"].startswith("Motie") and "raw" in written
     assert set(nodes) == {"doc0", "doc1", "doc2"}
     assert set(nodes["doc1"].props) <= set(tk_cases.LINK_PROPS)
-    assert nodes["doc1"].arango_id == f"{COLLECTION_DOCUMENTS}/doc1"
+    assert nodes["doc1"].node_id == f"{COLLECTION_DOCUMENTS}/doc1"
 
 
 def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(

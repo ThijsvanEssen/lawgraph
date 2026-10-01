@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import tk as queries
 
 GOV = CAPACITY_GOVERNMENT
@@ -38,7 +38,7 @@ def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dic
     }
 
 
-def _seed(store: ArangoStore, collection: str, *docs: dict[str, Any]) -> None:
+def _seed(store: GraphStore, collection: str, *docs: dict[str, Any]) -> None:
     store.bulk_insert_or_update_nodes(collection, list(docs))
 
 
@@ -56,7 +56,7 @@ def _signed(key: str, member: str, document: str, **meta: Any) -> dict[str, Any]
 
 
 def test_case_dossier_numbers_are_the_cases_with_numbers_by_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(
         store,
@@ -76,12 +76,12 @@ def test_case_dossier_numbers_are_the_cases_with_numbers_by_key(
     assert [list(row) for row in rows] == [["id", "dossier_numbers"]] * 3
 
 
-def test_case_dossier_numbers_of_no_cases(store: ArangoStore) -> None:
+def test_case_dossier_numbers_of_no_cases(store: GraphStore) -> None:
     assert list(queries.case_dossier_numbers(store)) == []
 
 
 def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(
         store,
@@ -110,7 +110,7 @@ def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
     assert list(queries.nodes_by_external_id(store, "cases", ["b"])) == []
 
 
-def test_faction_aliases_are_every_alias_once(store: ArangoStore) -> None:
+def test_faction_aliases_are_every_alias_once(store: GraphStore) -> None:
     _seed(
         store,
         "factions",
@@ -133,7 +133,7 @@ def test_faction_aliases_are_every_alias_once(store: ArangoStore) -> None:
 
 
 def test_faction_aliases_of_another_type_fail_as_in_arangodb(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     # ``FOR alias IN "Losse naam"`` raised; so does this
     _seed(store, "factions", _node("w", aliases="Losse naam"))
@@ -141,7 +141,7 @@ def test_faction_aliases_of_another_type_fail_as_in_arangodb(
         list(queries.faction_aliases(store))
 
 
-def test_dossier_case_kinds_of_the_keys_asked(store: ArangoStore) -> None:
+def test_dossier_case_kinds_of_the_keys_asked(store: GraphStore) -> None:
     _seed(
         store,
         "dossiers",
@@ -161,7 +161,7 @@ def test_dossier_case_kinds_of_the_keys_asked(store: ArangoStore) -> None:
     assert list(queries.dossier_case_kinds(store, [])) == []
 
 
-def test_dossiers_of_numbers_compare_strings_only(store: ArangoStore) -> None:
+def test_dossiers_of_numbers_compare_strings_only(store: GraphStore) -> None:
     _seed(
         store,
         "dossiers",
@@ -185,7 +185,7 @@ def test_dossiers_of_numbers_compare_strings_only(store: ArangoStore) -> None:
 # ── members ──────────────────────────────────────────────────────────────────
 
 
-def test_member_identities_of_tk_persons_with_a_surname(store: ArangoStore) -> None:
+def test_member_identities_of_tk_persons_with_a_surname(store: GraphStore) -> None:
     _seed(
         store,
         "members",
@@ -269,7 +269,7 @@ def test_member_identities_of_tk_persons_with_a_surname(store: ArangoStore) -> N
     ]
 
 
-def test_labelled_and_government_members_by_key(store: ArangoStore) -> None:
+def test_labelled_and_government_members_by_key(store: GraphStore) -> None:
     _seed(
         store,
         "members",
@@ -285,7 +285,7 @@ def test_labelled_and_government_members_by_key(store: ArangoStore) -> None:
     assert list(queries.government_members(store)) == ["Zz", "aa", "m1"]
 
 
-def test_members_born_on_compare_strings_only(store: ArangoStore) -> None:
+def test_members_born_on_compare_strings_only(store: GraphStore) -> None:
     _seed(
         store,
         "members",
@@ -307,7 +307,7 @@ def test_members_born_on_compare_strings_only(store: ArangoStore) -> None:
     assert list(queries.members_born_on(store, [])) == []
 
 
-def test_remove_members_removes_them_with_their_edges(store: ArangoStore) -> None:
+def test_remove_members_removes_them_with_their_edges(store: GraphStore) -> None:
     _seed(store, "members", _node("m1"), _node("m2"), _node("m3"))
     _seed(store, "factions", _node("vvd"))
     store.bulk_insert_or_update_edges(
@@ -328,7 +328,7 @@ def test_remove_members_removes_them_with_their_edges(store: ArangoStore) -> Non
 # ── government signatures ────────────────────────────────────────────────────
 
 
-def _signatures_graph(store: ArangoStore) -> None:
+def _signatures_graph(store: GraphStore) -> None:
     minister = {"person_id": "p3", "name": "J. Minister"}
     _seed(
         store,
@@ -418,7 +418,7 @@ def _signatures_graph(store: ArangoStore) -> None:
 
 
 def test_government_signatures_per_person_name_and_function(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _signatures_graph(store)
     rows = list(queries.government_signatures(store))
@@ -474,7 +474,7 @@ def test_government_signatures_per_person_name_and_function(
     assert list(rows[0]) == ["key", "name", "function", "first", "last"]
 
 
-def test_government_signatures_by_month(store: ArangoStore) -> None:
+def test_government_signatures_by_month(store: GraphStore) -> None:
     _signatures_graph(store)
     rows = list(queries.government_signatures_by_month(store))
     x = "minister van X"
@@ -504,7 +504,7 @@ def test_government_signatures_by_month(store: ArangoStore) -> None:
     assert json.dumps(rows[1]["first"]) == "20230401"
 
 
-def test_government_signatures_of_no_edges(store: ArangoStore) -> None:
+def test_government_signatures_of_no_edges(store: GraphStore) -> None:
     assert list(queries.government_signatures(store)) == []
     assert list(queries.government_signatures_by_month(store)) == []
 
@@ -512,7 +512,7 @@ def test_government_signatures_of_no_edges(store: ArangoStore) -> None:
 # ── votes ────────────────────────────────────────────────────────────────────
 
 
-def test_decisions_of_vote_records(store: ArangoStore) -> None:
+def test_decisions_of_vote_records(store: GraphStore) -> None:
     _seed(
         store,
         "decisions",
@@ -604,7 +604,7 @@ def test_decisions_of_vote_records(store: ArangoStore) -> None:
 
 
 def test_faction_names_of_every_faction_but_the_eerste_kamer(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(
         store,
@@ -625,7 +625,7 @@ def test_faction_names_of_every_faction_but_the_eerste_kamer(
     assert list(rows[0]) == ["key", "name", "abbreviation", "aliases"]
 
 
-def test_ek_composition(store: ArangoStore) -> None:
+def test_ek_composition(store: GraphStore) -> None:
     _seed(
         store,
         "factions",
@@ -693,7 +693,7 @@ def test_ek_composition(store: ArangoStore) -> None:
     assert list(state["edges"][0]) == ["from", "to", "meta"]
 
 
-def test_ek_composition_of_an_empty_graph(store: ArangoStore) -> None:
+def test_ek_composition_of_an_empty_graph(store: GraphStore) -> None:
     assert queries.ek_composition(store) == {
         "factions": [],
         "committees": [],

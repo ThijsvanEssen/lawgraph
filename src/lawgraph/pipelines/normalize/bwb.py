@@ -30,7 +30,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -46,7 +46,7 @@ SHORT_TITLE_BATCH_SIZE = 1000
 class BWBNormalizePipeline(NormalizePipelineBase):
     """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -176,15 +176,15 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         for bwb_id, instrument in instruments.items():
             for article in articles.get(bwb_id, []):
                 writer.add(
-                    article.arango_id,
-                    instrument.arango_id,
+                    article.node_id,
+                    instrument.node_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,
                 )
             for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
                 writer.add(
                     f"{COLLECTION_ANNEXES}/{annex_key}",
-                    instrument.arango_id,
+                    instrument.node_id,
                     RELATION_PART_OF,
                     source=ANNEX_EDGE_SOURCE,
                     confidence=1.0,

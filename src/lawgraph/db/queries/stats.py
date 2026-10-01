@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.cache import TTLCache
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 _NODE_COLLECTIONS = (
     COLLECTION_INSTRUMENTS,
@@ -50,7 +50,7 @@ _NODE_COLLECTIONS = (
 )
 
 
-def _count_by(store: ArangoStore, table: str, column: str) -> dict[str, int]:
+def _count_by(store: GraphStore, table: str, column: str) -> dict[str, int]:
     """Number of rows of *table* per value of *column* (``unknown`` when null or empty),
     in the order of the values."""
     statement = sql.SQL(
@@ -65,14 +65,14 @@ def _count_by(store: ArangoStore, table: str, column: str) -> dict[str, int]:
 _STUB_COLLECTIONS = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES, COLLECTION_JUDGMENTS)
 
 
-def _stub_count(store: ArangoStore, collection: str) -> int:
+def _stub_count(store: GraphStore, collection: str) -> int:
     statement = sql.SQL("SELECT count(*)::int FROM {} WHERE stub IS TRUE").format(
         sql.Identifier(collection)
     )
     return int(next(store.query(statement), 0))
 
 
-def _replaced_count(store: ArangoStore) -> int:
+def _replaced_count(store: GraphStore) -> int:
     """The publications of a decision that another loaded publication replaces (``SAME_AS``
     the one kept, ``semantic rechtspraak-duplicates``): the lists show the decision once, by
     the one kept. A stub is never one."""
@@ -86,7 +86,7 @@ def _replaced_count(store: ArangoStore) -> int:
     )
 
 
-def _publication_count(store: ArangoStore) -> int:
+def _publication_count(store: GraphStore) -> int:
     return int(
         next(
             store.query(
@@ -98,7 +98,7 @@ def _publication_count(store: ArangoStore) -> int:
     )
 
 
-def get_db_stats(store: ArangoStore) -> dict[str, Any]:
+def get_db_stats(store: GraphStore) -> dict[str, Any]:
     """Document counts per collection (without stubs, and a decision published twice
     once), stub counts, the replaced publications, edge counts per relation, and source
     breakdowns."""
@@ -131,7 +131,7 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     }
 
 
-def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
+def get_judgment_coverage(store: GraphStore) -> dict[str, Any]:
     """The judgments the graph holds (not the stubs of judgments it only knows as cited),
     per source, court tier and court, with the first and last date of each; how many
     stubs there are; and per court the publications another loaded one replaces
@@ -189,7 +189,7 @@ _NEWEST: dict[str, str] = {
 _data_as_of_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=4, ttl=60.0)
 
 
-def cached_data_as_of(store: ArangoStore) -> dict[str, Any]:
+def cached_data_as_of(store: GraphStore) -> dict[str, Any]:
     """``get_data_as_of``, read at most once a minute per database (``/api/stats`` and every
     page of the feed carry it)."""
     key = store.name
@@ -226,7 +226,7 @@ _RETRIEVED_AT = """
 """
 
 
-def get_data_as_of(store: ArangoStore, *, today: str | None = None) -> dict[str, Any]:
+def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, Any]:
     """Per source the graph holds records of: ``retrieved_at``, the moment its newest raw
     record was fetched (the last retrieve that brought something), and ``newest``, the date
     of its newest dated record on or before *today* (null for a source without one)."""

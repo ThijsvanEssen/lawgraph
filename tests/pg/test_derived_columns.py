@@ -11,7 +11,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.schema import (
     _PROP,
     NODE_COLLECTIONS,
@@ -84,7 +84,7 @@ _TABLES = [c for c in NODE_COLLECTIONS if _derived(c)]
 
 @pytest.mark.parametrize("collection", _TABLES)
 def test_the_derived_columns_follow_props_on_insert_and_update(
-    store: ArangoStore, conn: psycopg.Connection, collection: str
+    store: GraphStore, conn: psycopg.Connection, collection: str
 ) -> None:
     keys = _keys(collection)
     count = len(_VALUES) + 1

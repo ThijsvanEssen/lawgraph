@@ -27,8 +27,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import (
-    ArangoStore,
     EdgeWriter,
+    GraphStore,
     NodeWriter,
     RawSourceWriter,
     raw_source_doc,
@@ -55,7 +55,7 @@ def _member(key: str, name: str, family_name: str, birth_date: str) -> Node:
     )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -191,7 +191,7 @@ def _seed(store: ArangoStore) -> None:
             )
 
 
-def _client(store: ArangoStore) -> TestClient:
+def _client(store: GraphStore) -> TestClient:
     app.dependency_overrides[get_store] = lambda: store
     return TestClient(app)
 
@@ -199,7 +199,7 @@ def _client(store: ArangoStore) -> TestClient:
 def test_cabinets_their_bewindspersonen_and_commitments(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     cli("normalize", "rijksoverheid")

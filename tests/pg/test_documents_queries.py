@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
@@ -80,7 +80,7 @@ def _edge(
 # ── one document ─────────────────────────────────────────────────────────────
 
 
-def test_a_document_is_found_by_its_key_in_any_case(store: ArangoStore) -> None:
+def test_a_document_is_found_by_its_key_in_any_case(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(D, [_doc("abc", ["TK"], kind="Brief")])
 
     assert get_document(store, "ABC") == {
@@ -96,7 +96,7 @@ def test_a_document_is_found_by_its_key_in_any_case(store: ArangoStore) -> None:
 # ── links ────────────────────────────────────────────────────────────────────
 
 
-def _build_links(store: ArangoStore) -> None:
+def _build_links(store: GraphStore) -> None:
     """A dossier 36000 with a memorandum PART_OF it, a motion through its case, an Eerste
     Kamer paper; what the memorandum explains: two versions of one article, the article
     once more directly, another article, the law, and a version without an article."""
@@ -187,7 +187,7 @@ def _build_links(store: ArangoStore) -> None:
 
 
 def test_a_document_links_to_its_dossiers_and_what_it_explains(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _build_links(store)
 
@@ -233,7 +233,7 @@ def test_a_document_links_to_its_dossiers_and_what_it_explains(
 
 
 def test_the_dossiers_of_a_document_are_sorted_once_each_and_need_a_label(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
@@ -269,7 +269,7 @@ def test_the_dossiers_of_a_document_are_sorted_once_each_and_need_a_label(
 
 
 def test_a_version_resolves_to_the_first_article_by_id_even_when_it_is_gone(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """``FIRST(... SORT v._to LIMIT 1 RETURN DOCUMENT(v._to))``: the first VERSION_OF
     target by id; when that article is not there the version is left out, though a later
@@ -329,7 +329,7 @@ def _passage(anchor: str, confidence: float, **more: Any) -> dict[str, Any]:
 
 
 def test_the_passages_of_an_article_come_from_it_and_its_versions_once_each(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """The sections on the edges to the article and to its versions (the same stam_id),
     one row per section with its highest confidence; a version of another stam is not."""
@@ -393,7 +393,7 @@ def test_the_passages_of_an_article_come_from_it_and_its_versions_once_each(
 
 
 def test_of_equally_confident_sections_the_first_edge_by_key_wins(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """Without a stam_id only the edges to the article itself count; sections that are
     not an array are skipped; the edges are read in key order."""
@@ -519,7 +519,7 @@ def _get(client: TestClient, **params: Any) -> Any:
 
 
 def test_the_papers_of_the_chambers_are_listed_counted_and_numbered(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(PAPERS)
@@ -583,7 +583,7 @@ _ITEM_KEYS = [
 
 
 def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         D,
@@ -652,7 +652,7 @@ def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
 
 
 def test_papers_of_one_day_are_settled_by_key_and_paging_reaches_past_the_end(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         D,
@@ -685,7 +685,7 @@ def test_papers_of_one_day_are_settled_by_key_and_paging_reaches_past_the_end(
 
 
 def test_facets_are_the_largest_first_and_equal_counts_by_value(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         D,
@@ -725,7 +725,7 @@ def test_facets_are_the_largest_first_and_equal_counts_by_value(
 
 
 def test_a_dossier_filter_matches_a_label_in_dossier_numbers(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         D,

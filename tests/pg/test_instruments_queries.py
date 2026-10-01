@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import instruments
 
 BWB = "BWBR0001854"
@@ -36,7 +36,7 @@ def _keys(docs: list[dict[str, Any]]) -> list[str]:
 # ── articles ─────────────────────────────────────────────────────────────────
 
 
-def _seed_articles(store: ArangoStore) -> None:
+def _seed_articles(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -58,7 +58,7 @@ def _seed_articles(store: ArangoStore) -> None:
 
 
 def test_articles_in_document_order_without_stubs_and_repealed(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed_articles(store)
     items, total = instruments.get_articles(store, BWB.lower())
@@ -75,7 +75,7 @@ def test_articles_in_document_order_without_stubs_and_repealed(
     }
 
 
-def test_articles_with_stubs_and_repealed_and_paging(store: ArangoStore) -> None:
+def test_articles_with_stubs_and_repealed_and_paging(store: GraphStore) -> None:
     _seed_articles(store)
     items, total = instruments.get_articles(
         store, BWB, include_stubs=True, include_repealed=True
@@ -99,7 +99,7 @@ def test_articles_with_stubs_and_repealed_and_paging(store: ArangoStore) -> None
     assert instruments.get_articles(store, BWB, limit=0) == ([], 7)
 
 
-def test_articles_of_an_eu_act_and_of_nothing(store: ArangoStore) -> None:
+def test_articles_of_an_eu_act_and_of_nothing(store: GraphStore) -> None:
     _seed_articles(store)
     items, total = instruments.get_articles(store, CELEX.lower())
     assert (total, _keys(items)) == (1, ["eu1"])
@@ -109,7 +109,7 @@ def test_articles_of_an_eu_act_and_of_nothing(store: ArangoStore) -> None:
 # ── judgments ────────────────────────────────────────────────────────────────
 
 
-def test_judgments_grouped_by_judgment(store: ArangoStore) -> None:
+def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     _seed_articles(store)
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -189,7 +189,7 @@ def _dossier(key: str, **props: Any) -> dict[str, Any]:
     return _doc(key, "dossier", **props)
 
 
-def test_dossiers_direct_and_through_amending_publications(store: ArangoStore) -> None:
+def test_dossiers_direct_and_through_amending_publications(store: GraphStore) -> None:
     _seed_articles(store)
     store.bulk_insert_or_update_nodes(
         "dossiers",
@@ -274,7 +274,7 @@ def test_dossiers_direct_and_through_amending_publications(store: ArangoStore) -
 
 
 def test_amended_by_grouped_per_instrument_newest_first(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed_articles(store)
     store.bulk_insert_or_update_nodes(
@@ -380,7 +380,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
     assert (beyond.items, beyond.total, beyond.dossier_titles) == ([], 7, {})
 
 
-def test_amended_by_of_nothing_asks_no_titles(store: ArangoStore) -> None:
+def test_amended_by_of_nothing_asks_no_titles(store: GraphStore) -> None:
     data = instruments.get_instrument_amended_by(store, "BWBR9999999")
     assert (data.items, data.total, data.dossier_titles) == ([], 0, {})
 
@@ -388,7 +388,7 @@ def test_amended_by_of_nothing_asks_no_titles(store: ArangoStore) -> None:
 # ── related instruments ──────────────────────────────────────────────────────
 
 
-def test_related_instruments_of_a_bwb_regulation(store: ArangoStore) -> None:
+def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -443,7 +443,7 @@ def test_related_instruments_of_a_bwb_regulation(store: ArangoStore) -> None:
     assert (total, len(items)) == (3, 1)
 
 
-def test_related_instruments_of_an_eu_act(store: ArangoStore) -> None:
+def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -485,7 +485,7 @@ def test_related_instruments_of_an_eu_act(store: ArangoStore) -> None:
 # ── the list ─────────────────────────────────────────────────────────────────
 
 
-def _seed_list(store: ArangoStore) -> None:
+def _seed_list(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -541,7 +541,7 @@ def _seed_list(store: ArangoStore) -> None:
     )
 
 
-def test_the_list_by_title(store: ArangoStore) -> None:
+def test_the_list_by_title(store: GraphStore) -> None:
     _seed_list(store)
     got = instruments.get_instruments_list(store)
     assert list(got) == ["total", "items"]
@@ -608,7 +608,7 @@ def test_the_list_by_title(store: ArangoStore) -> None:
     )
 
 
-def test_the_list_by_article_count_with_filters_and_paging(store: ArangoStore) -> None:
+def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) -> None:
     _seed_list(store)
     got = instruments.get_instruments_list(store, sort="article_count")
     # the most articles first, ties by key descending, none last
@@ -649,7 +649,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: ArangoStore) -
 # ── versions and the law on a date ───────────────────────────────────────────
 
 
-def _seed_versions(store: ArangoStore) -> None:
+def _seed_versions(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instrument_versions",
         [
@@ -736,7 +736,7 @@ def _seed_versions(store: ArangoStore) -> None:
     )
 
 
-def test_versions_newest_first(store: ArangoStore) -> None:
+def test_versions_newest_first(store: GraphStore) -> None:
     _seed_versions(store)
     docs = instruments.get_instrument_versions(store, BWB.lower())
     assert _keys(docs) == ["v2020b", "v2020a", "v2010"]
@@ -744,7 +744,7 @@ def test_versions_newest_first(store: ArangoStore) -> None:
     assert instruments.get_instrument_versions(store, "BWBR9999999") == []
 
 
-def test_articles_at_a_date(store: ArangoStore) -> None:
+def test_articles_at_a_date(store: GraphStore) -> None:
     _seed_versions(store)
     law = instruments.get_articles_at(store, BWB.lower(), "2015-01-01")
     assert law.first_version_from == "2010-01-01"
@@ -772,7 +772,7 @@ def test_articles_at_a_date(store: ArangoStore) -> None:
     )
 
 
-def test_articles_at_a_date_without_a_start_of_the_law(store: ArangoStore) -> None:
+def test_articles_at_a_date_without_a_start_of_the_law(store: GraphStore) -> None:
     _seed_versions(store)
     assert instruments.get_articles_at(store, "BWBR9999999", "2020-01-01") == (
         instruments.LawOnADate(items=[], total=0, first_version_from=None)

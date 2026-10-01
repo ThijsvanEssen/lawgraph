@@ -11,7 +11,7 @@ import pytest
 from lawgraph.core.appeals import APPEAL_PROCEDURE
 from lawgraph.core.judgment_series import summary_fingerprint
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import rechtspraak as normalize_queries
 from lawgraph.db.queries.semantic import rechtspraak as queries
 
@@ -62,11 +62,11 @@ def _edge(source: str, target: str, relation: str, key: str) -> dict[str, Any]:
     }
 
 
-def _seed(store: ArangoStore, *docs: dict[str, Any]) -> None:
+def _seed(store: GraphStore, *docs: dict[str, Any]) -> None:
     store.bulk_insert_or_update_nodes("judgments", list(docs))
 
 
-def _props(store: ArangoStore, ecli: str) -> dict[str, Any]:
+def _props(store: GraphStore, ecli: str) -> dict[str, Any]:
     doc = store.get_document("judgments", _key(ecli))
     assert doc is not None
     return doc["props"]
@@ -76,7 +76,7 @@ def _props(store: ArangoStore, ecli: str) -> dict[str, Any]:
 
 
 def test_judgment_paragraphs_are_slim_documents_in_key_order(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     # props written in an order of their own: the slim props come in byte order
     _seed(
@@ -120,13 +120,13 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
     assert list(queries.judgment_paragraphs(store, eclis=[], batch_size=10)) == []
 
 
-def test_a_judgment_without_the_slim_props_has_empty_props(store: ArangoStore) -> None:
+def test_a_judgment_without_the_slim_props_has_empty_props(store: GraphStore) -> None:
     _seed(store, {"_key": "x", "type": "judgment", "props": {"source": "rechtspraak"}})
     rows = list(queries.judgment_paragraphs(store, eclis=None, batch_size=10))
     assert rows == [{"_key": "x", "type": "judgment", "labels": [], "props": {}}]
 
 
-def test_count_rechtspraak_judgments(store: ArangoStore) -> None:
+def test_count_rechtspraak_judgments(store: GraphStore) -> None:
     assert queries.count_rechtspraak_judgments(store) == 0
     _seed(store, _rs(HR1), _rs(HR2), _judgment(ECHR, source="echr"))
     assert queries.count_rechtspraak_judgments(store) == 2
@@ -135,7 +135,7 @@ def test_count_rechtspraak_judgments(store: ArangoStore) -> None:
 # ── lookups by ECLI ──────────────────────────────────────────────────────────
 
 
-def test_judgment_ids_by_ecli_and_loaded_judgment_ids(store: ArangoStore) -> None:
+def test_judgment_ids_by_ecli_and_loaded_judgment_ids(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR2),
@@ -158,7 +158,7 @@ def test_judgment_ids_by_ecli_and_loaded_judgment_ids(store: ArangoStore) -> Non
 # ── appeals ──────────────────────────────────────────────────────────────────
 
 
-def test_judgments_with_related_eclis(store: ArangoStore) -> None:
+def test_judgments_with_related_eclis(store: GraphStore) -> None:
     _seed(
         store,
         _rs(
@@ -206,7 +206,7 @@ def test_judgments_with_related_eclis(store: ArangoStore) -> None:
     ]
 
 
-def test_judgment_instances(store: ArangoStore) -> None:
+def test_judgment_instances(store: GraphStore) -> None:
     _seed(
         store,
         _rs(
@@ -258,7 +258,7 @@ def test_postgres_regex_turns_word_boundaries() -> None:
     assert queries._postgres_regex(r"\\\b") == r"\\\y"
 
 
-def test_appeals_to_read(store: ArangoStore) -> None:
+def test_appeals_to_read(store: GraphStore) -> None:
     paragraphs = [{"nr": "1", "text": "een"}, {"text": "twee"}, "los", {"text": "drie"}]
     _seed(
         store,
@@ -323,7 +323,7 @@ def test_appeals_to_read(store: ArangoStore) -> None:
     ]
 
 
-def test_decisions_on_dates_leave_out_conclusions(store: ArangoStore) -> None:
+def test_decisions_on_dates_leave_out_conclusions(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR2, date_eff="2020-05-01", case_number="1", court_code="HR"),
@@ -347,7 +347,7 @@ def test_decisions_on_dates_leave_out_conclusions(store: ArangoStore) -> None:
 # ── conclusions ──────────────────────────────────────────────────────────────
 
 
-def test_conclusion_rows(store: ArangoStore) -> None:
+def test_conclusion_rows(store: GraphStore) -> None:
     _seed(
         store,
         _rs(
@@ -404,7 +404,7 @@ def test_conclusion_rows(store: ArangoStore) -> None:
 
 
 def test_judgments_by_case_keys_one_row_per_key_in_the_order_of_the_keys(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _seed(
         store,
@@ -446,7 +446,7 @@ def test_judgments_by_case_keys_one_row_per_key_in_the_order_of_the_keys(
     ]
 
 
-def test_court_decisions_between(store: ArangoStore) -> None:
+def test_court_decisions_between(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR2, court_code="RVS", date_eff="2021-01-01", case_number="2"),
@@ -482,7 +482,7 @@ def test_court_decisions_between(store: ArangoStore) -> None:
 # ── referrals ────────────────────────────────────────────────────────────────
 
 
-def test_preliminary_rulings(store: ArangoStore) -> None:
+def test_preliminary_rulings(store: GraphStore) -> None:
     ruling = {"type": "Prejudiciële beslissing"}
     _seed(
         store,
@@ -510,7 +510,7 @@ def test_preliminary_rulings(store: ArangoStore) -> None:
 # ── series ───────────────────────────────────────────────────────────────────
 
 
-def test_generic_summaries(store: ArangoStore) -> None:
+def test_generic_summaries(store: GraphStore) -> None:
     template = "Uitspraak in de zaak van"
     _seed(
         store,
@@ -537,7 +537,7 @@ def _day(ecli: str, **props: Any) -> dict[str, Any]:
     return _rs(ecli, court_code="RBAMS", date_eff="2020-01-01", **props)
 
 
-def test_judgment_court_days(store: ArangoStore) -> None:
+def test_judgment_court_days(store: GraphStore) -> None:
     _seed(
         store,
         _day(RB2, tier="eerste", court="Rechtbank Amsterdam"),
@@ -568,7 +568,7 @@ def test_judgment_court_days(store: ArangoStore) -> None:
     ]
 
 
-def test_judgments_of_court_day(store: ArangoStore) -> None:
+def test_judgments_of_court_day(store: GraphStore) -> None:
     _seed(
         store,
         _day(
@@ -638,7 +638,7 @@ def test_judgments_of_court_day(store: ArangoStore) -> None:
     assert [r["ecli"] for r in named] == [RB2]
 
 
-def test_judgments_in_series_and_replaced_judgments(store: ArangoStore) -> None:
+def test_judgments_in_series_and_replaced_judgments(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR2, series_id="s1", replaced_by=HR3),
@@ -670,7 +670,7 @@ def test_judgments_in_series_and_replaced_judgments(store: ArangoStore) -> None:
 # ── ECHR ─────────────────────────────────────────────────────────────────────
 
 
-def test_echr_judgments(store: ArangoStore) -> None:
+def test_echr_judgments(store: GraphStore) -> None:
     _seed(
         store,
         {
@@ -706,7 +706,7 @@ def test_echr_judgments(store: ArangoStore) -> None:
 # ── edges and stubs ──────────────────────────────────────────────────────────
 
 
-def test_procedural_neighbours_either_way(store: ArangoStore) -> None:
+def test_procedural_neighbours_either_way(store: GraphStore) -> None:
     a, b, c = _jid(HR1), _jid(HR2), _jid(GH)
     store.bulk_insert_or_update_edges(
         [
@@ -730,7 +730,7 @@ def test_procedural_neighbours_either_way(store: ArangoStore) -> None:
     assert list(queries.procedural_neighbours(store, [], relations)) == []
 
 
-def test_remove_unreached_judgment_stubs(store: ArangoStore) -> None:
+def test_remove_unreached_judgment_stubs(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR1),
@@ -755,7 +755,7 @@ def test_remove_unreached_judgment_stubs(store: ArangoStore) -> None:
 # ── normalize: translations ──────────────────────────────────────────────────
 
 
-def test_translated_judgments(store: ArangoStore) -> None:
+def test_translated_judgments(store: GraphStore) -> None:
     _seed(
         store,
         # the translation itself carries the case number too
@@ -818,7 +818,7 @@ def test_translated_judgments(store: ArangoStore) -> None:
     assert list(normalize_queries.translated_judgments(store, [])) == []
 
 
-def test_update_judgment_props(store: ArangoStore) -> None:
+def test_update_judgment_props(store: GraphStore) -> None:
     _seed(
         store,
         _rs(RB2, summary_en="English", court_code="RBAMS"),
@@ -898,14 +898,14 @@ def test_update_judgment_props(store: ArangoStore) -> None:
 
 @pytest.mark.parametrize("rows", [[{"key": "nothing", "props": {}}]])
 def test_update_with_empty_props_changes_nothing(
-    store: ArangoStore, rows: list[dict[str, Any]]
+    store: GraphStore, rows: list[dict[str, Any]]
 ) -> None:
     _seed(store, {"_key": "nothing", "type": "judgment", "props": {"a": 1}})
     assert normalize_queries.update_judgment_props(store, rows) == 0
     assert _props_raw(store, "nothing") == {"a": 1}
 
 
-def _props_raw(store: ArangoStore, key: str) -> dict[str, Any]:
+def _props_raw(store: GraphStore, key: str) -> dict[str, Any]:
     doc = store.get_document("judgments", key)
     assert doc is not None
     return doc["props"]

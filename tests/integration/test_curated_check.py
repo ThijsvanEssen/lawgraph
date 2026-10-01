@@ -8,7 +8,7 @@ from __future__ import annotations
 from lawgraph.commands.curated import database_notes, database_problems
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_INSTRUMENTS
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.db import GraphStore, NodeWriter
 
 
 def _faction(
@@ -30,7 +30,7 @@ def _faction(
 
 
 def test_a_seated_faction_without_a_place_is_a_problem(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -51,7 +51,7 @@ def test_a_seated_faction_without_a_place_is_a_problem(database: str) -> None:
 def test_a_number_of_seats_other_than_the_plans_is_a_problem_a_new_member_a_note(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -74,7 +74,7 @@ def test_a_number_of_seats_other_than_the_plans_is_a_problem_a_new_member_a_note
 def test_an_abbreviation_of_an_instrument_the_graph_lacks_is_a_problem(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     assert database_problems(store) == [
         "instrument-abbreviations: 32016R0679 (AVG): no instrument in the graph has "
         "this id"

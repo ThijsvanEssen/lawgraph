@@ -286,8 +286,8 @@ class SemanticPipelineBase(PipelineBase):
                 NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
-            if node and node.arango_id:
-                by_ecli[ecli] = node.arango_id
+            if node and node.node_id:
+                by_ecli[ecli] = node.node_id
         return by_ecli
 
     # ------------------------------------------------------------------ config
@@ -375,11 +375,11 @@ class SemanticPipelineBase(PipelineBase):
 
         Returns None when from_node or to_node have no id (skip silently).
         """
-        if not from_node.arango_id or not to_node.arango_id:
+        if not from_node.node_id or not to_node.node_id:
             return None
         return make_edge_doc(
-            from_node.arango_id,
-            to_node.arango_id,
+            from_node.node_id,
+            to_node.node_id,
             relation,
             source=source,
             confidence=confidence,

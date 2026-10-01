@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.articles import get_article_history
 from lawgraph.db.queries.instruments import (
@@ -38,19 +38,19 @@ INSTRUMENT = f"{COLLECTION_INSTRUMENTS}/{make_node_key(LAW)}"
 NEWER, OLDER, ELSEWHERE = "stb-2019-33", "stb-2018-5", "stb-2017-1"
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
-def _article(store: ArangoStore, law: str, number: str, **props: Any) -> str:
+def _article(store: GraphStore, law: str, number: str, **props: Any) -> str:
     key = make_node_key(law, number)
     _put(store, COLLECTION_ARTICLES, key, bwb_id=law, article_number=number, **props)
     return f"{COLLECTION_ARTICLES}/{key}"
 
 
 def _version(
-    store: ArangoStore, key: str, number: str, valid_from: str, **props: Any
+    store: GraphStore, key: str, number: str, valid_from: str, **props: Any
 ) -> None:
     _put(
         store,
@@ -68,11 +68,11 @@ def _edge(from_id: str, to_id: str, relation: str, **meta: Any) -> dict[str, Any
 
 
 @pytest.fixture()
-def store(database: str) -> ArangoStore:
+def store(database: str) -> GraphStore:
     """A law with an article that has a ``stam_id``, one without, and one without
     versions; two publications that change its articles and one that changes another
     law; dossiers linked to the law directly and through the publications."""
-    store = ArangoStore()
+    store = GraphStore()
     _put(store, COLLECTION_INSTRUMENTS, make_node_key(LAW), bwb_id=LAW)
     art_287 = _article(store, LAW, "287", stam_id="stam-1")
     art_300 = _article(store, LAW, "300")
@@ -159,7 +159,7 @@ def store(database: str) -> ArangoStore:
 
 
 def test_the_history_follows_the_stam_id_oldest_first_with_dossier_titles(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     data = get_article_history(store, LAW, "287")
 
@@ -170,7 +170,7 @@ def test_the_history_follows_the_stam_id_oldest_first_with_dossier_titles(
 
 
 def test_an_article_without_stam_id_is_followed_by_its_number(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     assert [v["_key"] for v in get_article_history(store, LAW, "300").versions] == [
         "v300"
@@ -178,13 +178,13 @@ def test_an_article_without_stam_id_is_followed_by_its_number(
 
 
 def test_an_article_without_versions_has_no_history_and_no_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     data = get_article_history(store, LAW, "400")
     assert data.versions == [] and data.dossier_titles == {}
 
 
-def test_the_history_of_an_unknown_article_is_an_error(store: ArangoStore) -> None:
+def test_the_history_of_an_unknown_article_is_an_error(store: GraphStore) -> None:
     with pytest.raises(ValueError):
         get_article_history(store, LAW, "999")
 
@@ -193,7 +193,7 @@ def test_the_history_of_an_unknown_article_is_an_error(store: ArangoStore) -> No
 
 
 def test_the_amending_publications_are_counted_per_relation_newest_first(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     data = get_instrument_amended_by(store, LAW)
 
@@ -217,7 +217,7 @@ def test_the_amending_publications_are_counted_per_relation_newest_first(
 
 
 def test_the_amending_publications_are_paged_with_the_whole_total(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     page = get_instrument_amended_by(store, LAW, limit=1, offset=1)
     assert page.total == 2
@@ -232,7 +232,7 @@ def test_the_amending_publications_are_paged_with_the_whole_total(
 
 
 def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     rows, total = get_instrument_dossiers(store, LAW)
 
@@ -252,7 +252,7 @@ def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
 # ── one query per step, not one per row ─────────────────────────────────────
 
 
-def _count_queries(store: ArangoStore, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def _count_queries(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """The queries *store* runs from here on."""
     calls: list[str] = []
     run = store.query
@@ -266,7 +266,7 @@ def _count_queries(store: ArangoStore, monkeypatch: pytest.MonkeyPatch) -> list[
 
 
 def test_the_dossier_titles_are_looked_up_at_once(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two rows that each name a dossier: a lookup per row would be a third query."""
     calls = _count_queries(store, monkeypatch)
@@ -285,7 +285,7 @@ def test_the_dossier_titles_are_looked_up_at_once(
 
 
 def test_a_history_that_names_no_dossier_skips_the_title_lookup(
-    store: ArangoStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls = _count_queries(store, monkeypatch)
     get_article_history(store, LAW, "400")

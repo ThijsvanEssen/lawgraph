@@ -12,7 +12,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
@@ -30,7 +30,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for Staatsblad AMvB XML documents."""
 
     def __init__(
-        self, store: ArangoStore, client: StaatsbladClient | None = None
+        self, store: GraphStore, client: StaatsbladClient | None = None
     ) -> None:
         super().__init__(store)
         self.client = client or StaatsbladClient()
@@ -41,7 +41,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """Yield the XML of each publication as it is downloaded."""
         yield from self._fetch_publications([(None, i) for i in identifiers or []])
 
-    def run_from_bwb_graph(self, store: ArangoStore) -> PipelineResult:
+    def run_from_bwb_graph(self, store: GraphStore) -> PipelineResult:
         """Retrieve the Staatsblad publications the stored BWB toestand XML refers to.
 
         Each toestand XML names the Staatsblad publication (year and number) it comes
@@ -101,7 +101,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             )
 
     def _candidates_from_bwb(
-        self, store: ArangoStore
+        self, store: GraphStore
     ) -> tuple[list[tuple[str | None, str]], int]:
         """``(bwb_id, identifier)`` per referred publication, and how many toestanden name none.
 
@@ -125,7 +125,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         ], without
 
     def _find_existing_identifiers(
-        self, store: ArangoStore, candidates: list[tuple[str | None, str]]
+        self, store: GraphStore, candidates: list[tuple[str | None, str]]
     ) -> set[str]:
         """Which candidate Staatsblad identifiers are already in raw_sources."""
         if not candidates:

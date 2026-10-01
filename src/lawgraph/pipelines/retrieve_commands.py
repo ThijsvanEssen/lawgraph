@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.command import add_since_argument
 from lawgraph.pipelines.retrieve import _gaps
@@ -86,7 +86,7 @@ def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     pipeline = BWBRetrievePipeline(store=store)
     if args.mode == "full":
         return pipeline.run_full()
@@ -112,7 +112,7 @@ def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    pipeline = BWBRetrievePipeline(store=ArangoStore())
+    pipeline = BWBRetrievePipeline(store=GraphStore())
     return pipeline.run_history(bwb_ids=args.bwb_ids, refetch=args.mode == "full")
 
 
@@ -124,7 +124,7 @@ def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     pipeline = ECHRRetrievePipeline(store)
     if args.mode == "full":
         return pipeline.run_full(respondent=args.respondent)
@@ -159,7 +159,7 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser, extra_modes=("nim", "cjeu", "com", GAPS))
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     pipeline = EurlexRetrievePipeline(store)
     if args.mode == "full":
         return pipeline.run_full(
@@ -191,7 +191,7 @@ def retrieve_eurlex_nim(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    pipeline = EurlexNimRetrievePipeline(ArangoStore())
+    pipeline = EurlexNimRetrievePipeline(GraphStore())
     since = None if args.mode == "full" else _date(args.since)
     return pipeline.run(country_code=args.country, since=since)
 
@@ -205,7 +205,7 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    pipeline = EerstekamerRetrievePipeline(ArangoStore())
+    pipeline = EerstekamerRetrievePipeline(GraphStore())
     since = None if args.mode == "full" else _date(args.since)
     return pipeline.run(since=since, limit=args.max_records)
 
@@ -219,7 +219,7 @@ def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
     since = None if args.mode == "full" or args.since is None else args.since.date()
-    return EerstekamerVotesRetrievePipeline(ArangoStore()).run(since=since)
+    return EerstekamerVotesRetrievePipeline(GraphStore()).run(since=since)
 
 
 def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineResult:
@@ -227,7 +227,7 @@ def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineR
         description="Retrieve the factions and committees of the Eerste Kamer as they are "
         "today (eerstekamer.nl): a snapshot of about 40 pages."
     ).parse_args(argv)
-    return EerstekamerCompositionRetrievePipeline(ArangoStore()).run()
+    return EerstekamerCompositionRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
@@ -250,7 +250,7 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     if args.mode == GAPS:  # the cited and the referring judgments, of whatever court
         return RechtspraakRetrievePipeline(store).run(
             courts=[],
@@ -282,7 +282,7 @@ def retrieve_staatsblad(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument("--mode", choices=["from-graph", "full"], default="from-graph")
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     pipeline = StaatsbladRetrievePipeline(store=store)
     if args.mode == "full":
         return pipeline.run_full()
@@ -298,7 +298,7 @@ def retrieve_staatscourant(argv: list[str] | None = None) -> PipelineResult:
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
-    pipeline = StaatscourantRetrievePipeline(ArangoStore())
+    pipeline = StaatscourantRetrievePipeline(GraphStore())
     if args.identifiers:
         return pipeline.run(identifiers=args.identifiers)
     if args.mode == "full":
@@ -314,7 +314,7 @@ def retrieve_tk(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     since = _TK_EPOCH if args.mode == "full" else args.since
-    return TKRetrievePipeline(ArangoStore()).run(since=since, limit=args.limit)
+    return TKRetrievePipeline(GraphStore()).run(since=since, limit=args.limit)
 
 
 def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
@@ -336,7 +336,7 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    pipeline = TKContentRetrievePipeline(store=ArangoStore())
+    pipeline = TKContentRetrievePipeline(store=GraphStore())
     return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
@@ -367,7 +367,7 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     if args.mode == GAPS:
         return TKDossiersRetrievePipeline(store=store).run_gaps(
             _gaps.tk_dossier_gaps(store)
@@ -397,7 +397,7 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    store = ArangoStore()
+    store = GraphStore()
     if args.mode == GAPS and not _gaps.verdragenbank_gaps(store):
         return PipelineResult()
     return VerdragenbankRetrievePipeline(store).run(max_records=args.max_records)
@@ -407,21 +407,21 @@ def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
     argparse.ArgumentParser(
         description="Retrieve the page of every cabinet since 1945 from rijksoverheid.nl."
     ).parse_args(argv)
-    return RijksoverheidRetrievePipeline(ArangoStore()).run()
+    return RijksoverheidRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_tooi(argv: list[str] | None = None) -> PipelineResult:
     argparse.ArgumentParser(
         description="Retrieve the TOOI value list of every ministry (KOOP)."
     ).parse_args(argv)
-    return TooiRetrievePipeline(ArangoStore()).run()
+    return TooiRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_rechtspraak_instanties(argv: list[str] | None = None) -> PipelineResult:
     argparse.ArgumentParser(
         description="Retrieve the Instanties value list of the Rechtspraak (every court)."
     ).parse_args(argv)
-    return RechtspraakInstantiesRetrievePipeline(ArangoStore()).run()
+    return RechtspraakInstantiesRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_staatscourant_posts(argv: list[str] | None = None) -> PipelineResult:
@@ -429,4 +429,4 @@ def retrieve_staatscourant_posts(argv: list[str] | None = None) -> PipelineResul
         description="Retrieve per cabinet post whose function names no ministry which "
         "ministries issued the publications naming it (KOOP SRU)."
     ).parse_args(argv)
-    return StaatscourantPostsRetrievePipeline(ArangoStore()).run()
+    return StaatscourantPostsRetrievePipeline(GraphStore()).run()

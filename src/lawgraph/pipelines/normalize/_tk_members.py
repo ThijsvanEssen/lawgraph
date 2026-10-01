@@ -264,8 +264,8 @@ def link_members_to_factions(
         record_id = period.pop(_RECORD_ID, "")
         member_node, faction_node = member_nodes[person_id], faction_nodes[faction_id]
         edge = make_edge_doc(
-            member_node.arango_id or "",
-            faction_node.arango_id or "",
+            member_node.node_id or "",
+            faction_node.node_id or "",
             RELATION_MEMBER_OF,
             source=source,
             meta=period,
@@ -279,7 +279,7 @@ def link_members_to_factions(
         seats[key]["meta"]["record_ids"] = ids
         timeline.setdefault(person_id, []).append(
             {
-                "faction_id": faction_node.arango_id,
+                "faction_id": faction_node.node_id,
                 "faction_key": faction_node.key,
                 "name": faction_node.props.get("name"),
                 "abbreviation": faction_node.props.get("abbreviation"),

@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 DOSSIERS = 50
@@ -183,7 +183,7 @@ def _own_title(toestand_xml: str, copy: int) -> str:
 
 
 def seed(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     documents: int = 500,
     judgments: int = 100,

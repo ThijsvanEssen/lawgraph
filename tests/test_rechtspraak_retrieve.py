@@ -403,7 +403,7 @@ def cli(monkeypatch):
 
             return PipelineResult()
 
-    monkeypatch.setattr(retrieve_commands, "ArangoStore", lambda: object())
+    monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
     return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
 

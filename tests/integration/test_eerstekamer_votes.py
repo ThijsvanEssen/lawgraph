@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_votes as ev
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 NUMBERS = ("36791", "36880", "36855", "37999")
@@ -49,8 +49,8 @@ def _dossier(number: str) -> Node:
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> Iterator[GraphStore]:
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(_dossier(n) for n in NUMBERS)
         writer.add(
@@ -91,11 +91,11 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
     yield store
 
 
-def _props(store: ArangoStore, number: str) -> dict[str, Any]:
+def _props(store: GraphStore, number: str) -> dict[str, Any]:
     return store.get_document(COLLECTION_DOSSIERS, number)["props"]
 
 
-def test_the_eerste_kamer_decides_the_bill(store: ArangoStore, cli: Any) -> None:
+def test_the_eerste_kamer_decides_the_bill(store: GraphStore, cli: Any) -> None:
     rent = _props(store, "36791")
     assert (rent["closed"], rent["outcome"], rent["closed_on"]) == (
         True,
@@ -131,7 +131,7 @@ def test_the_eerste_kamer_decides_the_bill(store: ArangoStore, cli: Any) -> None
     assert "0 changed" in done.stderr + done.stdout
 
 
-def test_the_api_shows_the_eerste_kamer(store: ArangoStore) -> None:
+def test_the_api_shows_the_eerste_kamer(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

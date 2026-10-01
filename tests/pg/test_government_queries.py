@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore, CountingStore
+from lawgraph.db import CountingStore, GraphStore
 from lawgraph.db.queries.government import (
     ROLE_FIRST_SIGNATORY,
     cabinet_periods,
@@ -46,7 +46,7 @@ def _signed(key: str, member: str, document: str, capacity: str, **meta: Any) ->
     )
 
 
-def test_the_people_with_a_post_by_their_government_name(store: ArangoStore) -> None:
+def test_the_people_with_a_post_by_their_government_name(store: GraphStore) -> None:
     post = {"cabinet_key": "rutte", "ministry": "fin"}
     store.bulk_insert_or_update_nodes(
         "members",
@@ -85,7 +85,7 @@ def test_the_people_with_a_post_by_their_government_name(store: ArangoStore) -> 
     )
 
 
-def test_the_cabinet_periods(store: ArangoStore) -> None:
+def test_the_cabinet_periods(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [
@@ -105,7 +105,7 @@ def test_the_cabinet_periods(store: ArangoStore) -> None:
     assert list(cabinet_periods(CountingStore(store))) == periods
 
 
-def test_who_made_a_commitment_with_what_is_stored_of_it(store: ArangoStore) -> None:
+def test_who_made_a_commitment_with_what_is_stored_of_it(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "commitments",
         [
@@ -163,7 +163,7 @@ def test_who_made_a_commitment_with_what_is_stored_of_it(store: ArangoStore) -> 
 
 
 @pytest.fixture()
-def signatures(store: ArangoStore) -> ArangoStore:
+def signatures(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [
@@ -212,7 +212,7 @@ def signatures(store: ArangoStore) -> ArangoStore:
 
 
 def test_a_dossier_is_brought_in_by_the_first_signature_of_its_earliest_document(
-    signatures: ArangoStore,
+    signatures: GraphStore,
 ) -> None:
     rows = {r["key"]: r for r in dossier_first_signatures(signatures)}
     assert [r["key"] for r in dossier_first_signatures(signatures)] == [
@@ -247,7 +247,7 @@ def test_a_dossier_is_brought_in_by_the_first_signature_of_its_earliest_document
     assert rows["D0"] == {"key": "D0", "first": None, "props": {"cabinet": "schoof"}}
 
 
-def test_nothing_signed_nothing_found(store: ArangoStore) -> None:
+def test_nothing_signed_nothing_found(store: GraphStore) -> None:
     assert list(dossier_first_signatures(store)) == []
     assert list(government_people(store)) == []
     store.bulk_insert_or_update_nodes("dossiers", [_node("d1")])

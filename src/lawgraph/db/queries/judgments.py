@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.judgments import case_number_keys
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
 
@@ -41,7 +41,7 @@ class JudgmentDetailData:
     series: list[dict[str, Any]] = field(default_factory=list)
 
 
-def get_judgment_with_relations(store: ArangoStore, ecli: str) -> JudgmentDetailData:
+def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailData:
     """Fetch a judgment and the articles it refers to.
 
     One query reads the REFERS_TO edges to articles with each article and, through its
@@ -118,7 +118,7 @@ def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _linked_judgments(
-    store: ArangoStore, judgment_id: str, relation: str, *, both_ways: bool
+    store: GraphStore, judgment_id: str, relation: str, *, both_ways: bool
 ) -> list[dict[str, Any]]:
     """The judgments an edge of *relation* leads to from *judgment_id* (and, *both_ways*,
     leads from to it), each once with its ``_id``, ``_key`` and the ``display_name`` and
@@ -149,7 +149,7 @@ def _linked_judgments(
     return list(rows)
 
 
-def get_series_members(store: ArangoStore, series_id: str) -> list[dict[str, Any]]:
+def get_series_members(store: GraphStore, series_id: str) -> list[dict[str, Any]]:
     """The judgments of a series (``semantic rechtspraak-series``), each with its ``_id``,
     ``_key`` and the ``display_name`` and ``ecli`` of its props (those it has, in the order
     of its props), in the order of their ECLI numbers (one court, one year: a shorter ECLI
@@ -299,7 +299,7 @@ _FACETS: dict[str, tuple[str, frozenset[str]]] = {
 
 
 def get_judgments_list(
-    store: ArangoStore,
+    store: GraphStore,
     filters: JudgmentFilters | None = None,
     *,
     sort: str = "date_desc",
@@ -392,7 +392,7 @@ def get_judgments_list(
 
 
 def _total(
-    store: ArangoStore, names: list[str], where: str, params: dict[str, Any]
+    store: GraphStore, names: list[str], where: str, params: dict[str, Any]
 ) -> int:
     """How many judgments the filters let through. Unfiltered it is the table count less
     the stubs and less the replaced publications, each by its index (a stub that is also

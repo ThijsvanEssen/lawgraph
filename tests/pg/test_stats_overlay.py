@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import overlay, stats
 
 
@@ -28,7 +28,7 @@ def _edge(key: str, to: str, relation: str, **doc: Any) -> dict[str, Any]:
 
 
 def test_counts_per_value_in_order_with_unknown_last_written(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -50,7 +50,7 @@ def test_counts_per_value_in_order_with_unknown_last_written(
     assert got["stubs"]["instruments"] == 1
 
 
-def test_coverage_and_data_as_of(store: ArangoStore) -> None:
+def test_coverage_and_data_as_of(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
@@ -112,7 +112,7 @@ def test_coverage_and_data_as_of(store: ArangoStore) -> None:
     }
 
 
-def test_data_as_of_takes_the_newest_fetch_of_each_source(store: ArangoStore) -> None:
+def test_data_as_of_takes_the_newest_fetch_of_each_source(store: GraphStore) -> None:
     def raw(source: str | None, external_id: str, fetched_at: str | None) -> dict:
         return {
             **raw_source_doc(source="x", kind="k", external_id=external_id),
@@ -141,7 +141,7 @@ def test_data_as_of_takes_the_newest_fetch_of_each_source(store: ArangoStore) ->
     ]
 
 
-def test_overlays_by_node_in_order(store: ArangoStore) -> None:
+def test_overlays_by_node_in_order(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             _edge("1", "articles/b", "AMENDS", status="voorgesteld"),

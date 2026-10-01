@@ -12,15 +12,15 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.qualifiers import Qualifier
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
 
 
 def _find_instrument_for_article(
-    store: ArangoStore, article_id: str
+    store: GraphStore, article_id: str
 ) -> dict[str, Any] | None:
     rows = store.query(
         """
@@ -37,7 +37,7 @@ def _find_instrument_for_article(
 
 
 def _find_judgments_for_article(
-    store: ArangoStore, article_id: str
+    store: GraphStore, article_id: str
 ) -> list[dict[str, Any]]:
     # What the response shows of a judgment, newest first; the id settles judgments of the
     # same day. A much cited article has thousands of them, and whole judgments (text,
@@ -65,7 +65,7 @@ def _find_judgments_for_article(
     return list(rows)
 
 
-def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
+def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
     """The judgment with this ECLI, or the ECHR decision with this item id or appno.
 
     Keys are lower case, so the ECLI in any case is one key lookup; an id nobody loaded
@@ -88,10 +88,10 @@ def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
     return node_doc(row) if row else None
 
 
-def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
+def _load_document_by_ref(store: GraphStore, ref: str | None) -> dict[str, Any] | None:
     if not ref or "/" not in ref:
         return None
-    collection_name, key = parse_arango_id(ref)
+    collection_name, key = parse_node_id(ref)
     if collection_name not in NODE_COLLECTIONS:
         return None
     return store.get_document(collection_name, key)
@@ -177,7 +177,7 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
 
 
 def _resolve_target_from_entry(
-    store: ArangoStore, entry: dict[str, Any]
+    store: GraphStore, entry: dict[str, Any]
 ) -> dict[str, Any] | None:
     bwb_id = entry.get("target_bwb_id")
     article_number = entry.get("target_article_number")

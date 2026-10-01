@@ -14,7 +14,7 @@ from lawgraph.api.schemas.annexes import (
 )
 from lawgraph.api.schemas.common import ArticleRelationDTO
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import (
     get_annex,
     get_annex_referenced_by,
@@ -48,7 +48,7 @@ def _referenced_by_items(rows: list[dict]) -> list[AnnexReferencedByItem]:
 )
 def get_annex_detail(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> AnnexDetailResponse:
     doc = get_annex(store, key)
     if doc is None:

@@ -89,14 +89,14 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 text = body_text(parse_judgment(xml))
             except ValueError:
                 continue
-            if not judgment.arango_id:
+            if not judgment.node_id:
                 continue
-            read.append(judgment.arango_id)
+            read.append(judgment.node_id)
             source_ecli = str(judgment.props["ecli"]).upper()
             for ecli in cited_eclis(text):
                 if ecli == source_ecli:
                     continue
-                pending.append((judgment.arango_id, ecli))
+                pending.append((judgment.node_id, ecli))
                 all_cited_eclis.add(ecli)
         return pending, all_cited_eclis, read
 

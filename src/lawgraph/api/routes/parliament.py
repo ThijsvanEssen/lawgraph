@@ -31,7 +31,7 @@ from lawgraph.core.parties import (
     chamber_colors,
     party_color,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
 router = APIRouter()
@@ -60,7 +60,7 @@ _ORDER = {key: index for index, key in enumerate(SEATING)}
     tags=["parliament"],
 )
 def get_seats(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     date: Annotated[
         dt.date | None, Query(description="The day, YYYY-MM-DD; today when left out.")
     ] = None,
@@ -135,7 +135,7 @@ def _colors(chamber: str, *names: str | None) -> dict[str, Any]:
     }
 
 
-def _ek_seats(store: ArangoStore) -> ParliamentSeatsResponse:
+def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
     factions = [
         doc
         for doc in get_factions(store, active=True, chamber="EK")
@@ -187,7 +187,7 @@ def _ek_seats(store: ArangoStore) -> ParliamentSeatsResponse:
 _BLOCKS = {"left": 0, "chair": 1, "right": 2}
 
 
-def _hall(store: ArangoStore) -> HallDTO | None:
+def _hall(store: GraphStore) -> HallDTO | None:
     """Who sits where in the hall of the Eerste Kamer, from the seats of its members."""
     places = [
         HallPlaceDTO(

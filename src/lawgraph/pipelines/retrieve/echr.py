@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
@@ -69,7 +69,7 @@ def _no_text(exc: Exception) -> bool:
 class ECHRRetrievePipeline(RetrievePipelineBase):
     """Retrieve ECHR HUDOC judgments for a given respondent country."""
 
-    def __init__(self, store: ArangoStore, client: EchrClient | None = None) -> None:
+    def __init__(self, store: GraphStore, client: EchrClient | None = None) -> None:
         super().__init__(store)
         self.client = client or EchrClient()
 

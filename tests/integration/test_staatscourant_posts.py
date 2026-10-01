@@ -9,7 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STCRT_POST_CREATORS,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
@@ -28,7 +28,7 @@ class _Client:
 
 
 def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     store_pages(
         store,
         {

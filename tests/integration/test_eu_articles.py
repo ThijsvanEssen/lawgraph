@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import FIXTURES
 
 ACTS = {
@@ -27,7 +27,7 @@ ACTS = {
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for celex, fixture in ACTS.items():
             writer.add(

@@ -7,7 +7,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries._helpers import _find_judgments_for_article, _load_judgment
 from lawgraph.db.queries.instruments import get_instrument_judgments
@@ -24,7 +24,7 @@ def _size(value: Any) -> int:
 def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=20, judgments=60, regulations=4)  # each cites art. 1 Grondwet
     cli("normalize", "all")
     cli("semantic", "all")
@@ -45,7 +45,7 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
 def test_classified_relationships_are_counted_by_id_and_paged(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=5, judgments=2, regulations=4)
     cli("normalize", "all")
     cli("semantic", "all")
@@ -61,7 +61,7 @@ def test_classified_relationships_are_counted_by_id_and_paged(
 def test_relationships_are_searched_by_several_types_or_without_some(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     types = ["cross_reference", "definitional_reference", "scope_limitation"]
     articles = [
         {"_key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
@@ -104,7 +104,7 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
 ) -> None:
     """An ECLI in any case, an ECHR id or an application number finds its judgment; an ECLI
     nobody loaded (a citation that is a stub elsewhere, a typo in a URL) finds none."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=30, regulations=0)
     cli("normalize", "rechtspraak")
     old = Node(  # an ECHR decision from before the court gave out ECLIs

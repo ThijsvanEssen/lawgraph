@@ -45,7 +45,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter, make_edge_doc
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, make_edge_doc
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
@@ -96,7 +96,7 @@ def _document(key: str, kind: str, date: str, **props: Any) -> Node:
     )
 
 
-def _build(store: ArangoStore) -> None:
+def _build(store: GraphStore) -> None:
     """A dossier 36000; a second dossier 36001 that shares none of it."""
     nodes = [
         _node(
@@ -342,7 +342,7 @@ def _keys(page: dict[str, Any]) -> list[str]:
 
 
 def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _build(store)
 
@@ -355,7 +355,7 @@ def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
 
 
 def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _build(store)
 
@@ -430,7 +430,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
     assert commitment["status"] == "Openstaand"
 
 
-def test_only_an_activity_entry_has_a_committee(store: ArangoStore) -> None:
+def test_only_an_activity_entry_has_a_committee(store: GraphStore) -> None:
     _build(store)
 
     rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=2)
@@ -448,7 +448,7 @@ def test_only_an_activity_entry_has_a_committee(store: ArangoStore) -> None:
 class Graph:
     """Nodes and edges written straight into the test database."""
 
-    def __init__(self, store: ArangoStore) -> None:
+    def __init__(self, store: GraphStore) -> None:
         self.store = store
         self._nodes: dict[str, list[dict[str, Any]]] = {}
         self._edges: list[dict[str, Any]] = []
@@ -486,7 +486,7 @@ class Graph:
         self._nodes, self._edges = {}, []
 
 
-def _hub_graph(store: ArangoStore) -> None:
+def _hub_graph(store: GraphStore) -> None:
     g = Graph(store)
     # a title of its own: a dossier without one takes it from ``normalize tk``'s signals
     dossier = g.node(
@@ -634,7 +634,7 @@ def _hub_graph(store: ArangoStore) -> None:
 
 
 def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _hub_graph(store)
 
@@ -682,7 +682,7 @@ def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
     assert hub["senate"] == {"document_count": 2, "first_date": "2024-04-01"}
 
 
-def test_a_dossier_without_links_has_an_empty_hub(store: ArangoStore) -> None:
+def test_a_dossier_without_links_has_an_empty_hub(store: GraphStore) -> None:
     g = Graph(store)
     g.node("dossiers", "36003", number="36003", label="36003")
     g.write()
@@ -698,7 +698,7 @@ def test_a_dossier_without_links_has_an_empty_hub(store: ArangoStore) -> None:
 
 
 def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """One publication that amends 3,000 articles of 300 laws, and 600 documents."""
     g = Graph(store)
@@ -761,7 +761,7 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
     assert "edges" not in scans, scans
 
 
-def test_the_routes_answer_from_the_real_graph(store: ArangoStore) -> None:
+def test_the_routes_answer_from_the_real_graph(store: GraphStore) -> None:
     _hub_graph(store)
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -845,7 +845,7 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
     return response.json()
 
 
-def test_every_dossier_can_be_listed_found_and_ordered(store: ArangoStore) -> None:
+def test_every_dossier_can_be_listed_found_and_ordered(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(DOSSIERS)
     app.dependency_overrides[get_store] = lambda: store
@@ -908,7 +908,7 @@ def _bare(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
     return Node(collection=collection, type=node_type, key=key, labels=[], props=props)
 
 
-def _laws_seed(store: ArangoStore) -> None:
+def _laws_seed(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -952,7 +952,7 @@ def _laws_seed(store: ArangoStore) -> None:
 
 
 def test_a_law_is_one_item_and_the_laws_of_the_title_are_named(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _laws_seed(store)
     app.dependency_overrides[get_store] = lambda: store
@@ -1011,7 +1011,7 @@ def _link(key: str, source: str, target: str, relation: str, **rest: Any) -> dic
 
 
 def _write(
-    store: ArangoStore,
+    store: GraphStore,
     nodes: dict[str, list[dict[str, Any]]],
     edges: list[dict[str, Any]] | None = None,
 ) -> None:
@@ -1024,7 +1024,7 @@ def _write(
 TIMELINE = f"{COLLECTION_DOSSIERS}/40000"
 
 
-def _timeline_graph(store: ArangoStore) -> None:
+def _timeline_graph(store: GraphStore) -> None:
     _write(
         store,
         {
@@ -1103,7 +1103,7 @@ def _timeline_graph(store: ArangoStore) -> None:
 
 
 def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _timeline_graph(store)
 
@@ -1143,7 +1143,7 @@ def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
     assert list(by_id["promise"]["body"]) == ["minister_name", "status", "text"]
 
 
-def test_a_timeline_row_has_the_keys_of_its_merge(store: ArangoStore) -> None:
+def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
     _timeline_graph(store)
 
     (row,) = get_dossier_timeline(store, TIMELINE, limit=1)
@@ -1165,7 +1165,7 @@ def test_a_timeline_row_has_the_keys_of_its_merge(store: ArangoStore) -> None:
 
 
 def test_an_empty_dossier_has_an_empty_timeline_and_no_documents(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _write(store, {COLLECTION_DOSSIERS: [_doc("40001", "dossier")]})
     dossier = f"{COLLECTION_DOSSIERS}/40001"
@@ -1181,7 +1181,7 @@ def test_an_empty_dossier_has_an_empty_timeline_and_no_documents(
 
 
 def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     dossier = f"{COLLECTION_DOSSIERS}/40002"
     _write(
@@ -1260,7 +1260,7 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
     assert b["title"] == "Bee"  # no title: its display name
 
 
-def test_the_hub_lists_its_parts_in_their_order(store: ArangoStore) -> None:
+def test_the_hub_lists_its_parts_in_their_order(store: GraphStore) -> None:
     dossier = f"{COLLECTION_DOSSIERS}/40003"
     law = f"{COLLECTION_INSTRUMENTS}/law"
     _write(
@@ -1341,7 +1341,7 @@ def test_the_hub_lists_its_parts_in_their_order(store: ArangoStore) -> None:
 
 
 def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     a1, a2 = f"{COLLECTION_ARTICLES}/a1", f"{COLLECTION_ARTICLES}/a2"
     member = f"{COLLECTION_DOCUMENTS}/member"
@@ -1412,7 +1412,7 @@ def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
 
 
 def test_the_related_dossiers_by_relation_direction_and_number(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     here = f"{COLLECTION_DOSSIERS}/50000"
     _write(
@@ -1458,7 +1458,7 @@ def test_the_related_dossiers_by_relation_direction_and_number(
     assert list(rows[1]["dossier"]) == ["_key", "_id", "type", "labels", "props"]
 
 
-def _listed(store: ArangoStore) -> None:
+def _listed(store: GraphStore) -> None:
     _write(
         store,
         {
@@ -1521,7 +1521,7 @@ def _keys_of(page: dict[str, Any]) -> list[str]:
     return [d["_key"] for d in page["items"]]
 
 
-def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: ArangoStore) -> None:
+def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: GraphStore) -> None:
     _listed(store)
     every = DossierFilters()
 
@@ -1550,7 +1550,7 @@ def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: ArangoStore) -> N
 
 
 def test_the_dossier_list_counts_each_facet_without_its_own_filter(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _listed(store)
 
@@ -1584,7 +1584,7 @@ def test_the_dossier_list_counts_each_facet_without_its_own_filter(
     ]
 
 
-def test_the_dossier_list_filters_as_arangodb_compares(store: ArangoStore) -> None:
+def test_the_dossier_list_filters_as_arangodb_compares(store: GraphStore) -> None:
     _listed(store)
 
     def keys(**filters: Any) -> list[str]:
@@ -1602,7 +1602,7 @@ def test_the_dossier_list_filters_as_arangodb_compares(store: ArangoStore) -> No
 
 
 def test_a_subject_matches_the_title_in_any_case_and_a_number_its_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _write(
         store,
@@ -1627,7 +1627,7 @@ def test_a_subject_matches_the_title_in_any_case_and_a_number_its_dossiers(
 
 
 def test_the_committee_filter_keeps_the_dossiers_of_its_activities(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _listed(store)
     _write(
@@ -1667,7 +1667,7 @@ def test_the_committee_filter_keeps_the_dossiers_of_its_activities(
 
 
 def test_the_members_of_a_dossier_are_counted_per_collection(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     dossier = f"{COLLECTION_DOSSIERS}/42000"
     _write(
@@ -1691,7 +1691,7 @@ def test_the_members_of_a_dossier_are_counted_per_collection(
     assert all(isinstance(v, int) for v in counts.values())
 
 
-def test_a_dossier_is_found_by_its_number(store: ArangoStore) -> None:
+def test_a_dossier_is_found_by_its_number(store: GraphStore) -> None:
     _write(
         store,
         {COLLECTION_DOSSIERS: [_doc("37020_xv", "dossier", ["TK"], label="37020-XV")]},
@@ -1705,7 +1705,7 @@ def test_a_dossier_is_found_by_its_number(store: ArangoStore) -> None:
 
 
 def test_the_laws_of_a_title_by_their_name_or_the_one_they_begin(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _write(
         store,
@@ -1740,7 +1740,7 @@ def test_the_laws_of_a_title_by_their_name_or_the_one_they_begin(
     assert get_laws_named(store, []) == []
 
 
-def test_the_values_of_the_tweede_kamer_a_phase_can_name(store: ArangoStore) -> None:
+def test_the_values_of_the_tweede_kamer_a_phase_can_name(store: GraphStore) -> None:
     _write(
         store,
         {
@@ -1769,7 +1769,7 @@ ROWS = 60
 
 
 def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """60 dossiers that share the value every order sorts on (moved from
     ``tests/integration/test_stable_paging.py``; a title each, so the list does not read
@@ -1807,7 +1807,7 @@ def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
 
 
 def test_the_signals_of_a_dossier_are_the_few_fields_used_not_whole_documents(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """Moved from ``tests/integration/test_queries_normalize_tk.py``: a whole document
     (its text, its payload) is never what comes back, only a few fields of each."""
@@ -1866,7 +1866,7 @@ def test_the_signals_of_a_dossier_are_the_few_fields_used_not_whole_documents(
 
 
 def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     here = f"{COLLECTION_DOSSIERS}/43000"
     _write(
@@ -2034,7 +2034,7 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
 
 
 def test_a_dossier_without_a_title_takes_it_and_its_opening_from_its_papers(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     dossier = f"{COLLECTION_DOSSIERS}/38000"
     _write(

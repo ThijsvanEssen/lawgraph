@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.commands.check import check
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from tests.integration.seed import seed
 
 COLLECTIONS = (
@@ -25,18 +25,18 @@ COLLECTIONS = (
 )
 
 
-def _counts(store: ArangoStore) -> dict[str, int]:
+def _counts(store: GraphStore) -> dict[str, int]:
     return {name: store.count(name) for name in COLLECTIONS}
 
 
-def _edge_keys(store: ArangoStore) -> set[str]:
+def _edge_keys(store: GraphStore) -> set[str]:
     return set(store.query("SELECT key FROM edges"))
 
 
 def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=500, judgments=100, regulations=20)
 
     cli("normalize", "all")
@@ -77,7 +77,7 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
 def test_check_says_when_a_source_was_retrieved_and_never_normalized(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=20, judgments=5, regulations=2)
 
     problems = check(store).problems
@@ -89,7 +89,7 @@ def test_check_says_when_a_source_was_retrieved_and_never_normalized(
 
 def test_check_says_when_normalize_is_behind(database: str, cli: Any) -> None:
     """38,577 judgments retrieved and 7,442 normalized looked like a healthy database."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=20, judgments=5, regulations=2)
     cli("normalize", "rechtspraak")
     assert not [p for p in check(store, edges=False).problems if "is behind" in p]
@@ -102,7 +102,7 @@ def test_check_says_when_normalize_is_behind(database: str, cli: Any) -> None:
 
 
 def test_check_finds_an_edge_without_its_node(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=50, judgments=5, regulations=2)
     cli("normalize", "all")
     assert not [p for p in check(store).problems if p.startswith("edges")]
@@ -132,7 +132,7 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     basis_law = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
     for number, named in (("7", "125"), ("82", "133")):
         basis_law = basis_law.replace(f">{number}</nr>", f">{named}</nr>", 1)
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for bwb_id, xml in (
             ("BWBR0001950", amvb),  # "Gelet op artikel 125 en 133 van" BWBR0001947
@@ -177,7 +177,7 @@ def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
     database: str, cli: Any
 ) -> None:
     """The copy on the node is only as good as the run that made it."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=3)
     cli("normalize", "bwb")
     assert not [p for p in check(store, edges=False).problems if "basis" in p]
@@ -192,7 +192,7 @@ def test_check_says_when_a_regulation_lacks_what_the_semantic_steps_read(
 
 
 def test_check_says_when_no_case_names_a_dossier(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(
         store, documents=10, judgments=0, regulations=0
     )  # the seeded cases name theirs
@@ -224,7 +224,7 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
     from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
     from lawgraph.db import RawSourceWriter, raw_source_doc
 
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
@@ -260,7 +260,7 @@ def test_a_law_a_regulation_is_issued_under_is_a_gap_when_it_is_not_loaded(
     that law as a gap: 466 laws of the rebuild, the Wft among them."""
     from lawgraph.pipelines.retrieve import _gaps
 
-    store = ArangoStore()
+    store = GraphStore()
     seed(
         store, documents=0, judgments=0, regulations=2
     )  # the AMvB: "Gelet op" BWBR0001947
@@ -287,7 +287,7 @@ def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
     amvb = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
     link = '<extref doc="32016R0679" reeks="Celex">verordening (EU) 2016/679</extref>'
     amvb = amvb.replace("</toestand>", f"<!-- {link} --></toestand>")
-    store = ArangoStore()
+    store = GraphStore()
 
     def store_raw(source: str, kind: str, external_id: str, text: str) -> None:
         with RawSourceWriter(store) as writer:

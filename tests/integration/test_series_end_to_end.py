@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.tk_mvt import SEMANTIC_SOURCE_SECTIONS
 from tests.integration.seed import FIXTURES, uid
 
@@ -164,7 +164,7 @@ def _tk_payloads() -> Iterator[tuple[str, str, dict[str, Any]]]:
     yield RAW_KIND_TK_ACTIVITEIT, activity["Id"], activity
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for kind, external_id, payload in _tk_payloads():
             writer.add(
@@ -213,7 +213,7 @@ def _seed(store: ArangoStore) -> None:
             )
 
 
-def _explains(store: ArangoStore) -> dict[str, Any]:
+def _explains(store: GraphStore) -> dict[str, Any]:
     sql = """
     SELECT key, from_id AS "from", to_id AS "to", source, doc -> 'confidence' AS confidence,
            doc -> 'meta' AS meta
@@ -223,8 +223,8 @@ def _explains(store: ArangoStore) -> dict[str, Any]:
 
 
 @pytest.fixture()
-def world(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore, Any]]:
-    store = ArangoStore()
+def world(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore, Any]]:
+    store = GraphStore()
     _seed(store)
     cli("normalize", "all")
     cli("semantic", "all")
@@ -242,7 +242,7 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
 
 
 def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
-    world: tuple[TestClient, ArangoStore, Any],
+    world: tuple[TestClient, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 
@@ -299,7 +299,7 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
 
 
 def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
-    world: tuple[TestClient, ArangoStore, Any],
+    world: tuple[TestClient, GraphStore, Any],
 ) -> None:
     client, store, cli = world
 
@@ -358,7 +358,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
 
 
 def test_the_law_its_article_and_the_judgments_that_cite_it(
-    world: tuple[TestClient, ArangoStore, Any],
+    world: tuple[TestClient, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 
@@ -416,7 +416,7 @@ def test_the_law_its_article_and_the_judgments_that_cite_it(
 
 
 def test_what_a_reader_types_resolves_and_every_node_has_its_facets(
-    world: tuple[TestClient, ArangoStore, Any],
+    world: tuple[TestClient, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 

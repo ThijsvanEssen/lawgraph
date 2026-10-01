@@ -15,11 +15,11 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from tests.integration.seed import seed
 
 
-def _get(store: ArangoStore, path: str, **params: Any) -> dict[str, Any]:
+def _get(store: GraphStore, path: str, **params: Any) -> dict[str, Any]:
     app.dependency_overrides[get_store] = lambda: store
     try:
         response = TestClient(app).get(path, params=params)
@@ -39,7 +39,7 @@ def _counts(facet: list[dict[str, Any]]) -> dict[Any, int]:
 def test_normalize_stores_the_kind_of_the_case_a_decision_decided(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     # 96 votes in 8 Besluiten; Besluit 0 and 7 decide a Wetgeving, the others a Motie
     seed(store, documents=96, judgments=0, regulations=0)
     cli("normalize", "tk-dossiers")
@@ -71,7 +71,7 @@ def _decision(key: str, kind: str, passed: bool, date: str, subject: str) -> Nod
     )
 
 
-def _build_decisions(store: ArangoStore) -> None:
+def _build_decisions(store: GraphStore) -> None:
     nodes = [
         _decision("d1", "Motie", True, "2025-03-04", "Motie over de wegen"),
         _decision("d2", "Motie", False, "2025-03-04", "Motie over het spoor"),
@@ -108,7 +108,7 @@ def _build_decisions(store: ArangoStore) -> None:
 def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_decisions(store)
 
     everything = _get(store, "/api/decisions")
@@ -185,7 +185,7 @@ def _judgment(
     )
 
 
-def _build_judgments(store: ArangoStore) -> None:
+def _build_judgments(store: GraphStore) -> None:
     nodes = [
         _judgment(1, "hoge_raad", "HR", "2023-05-01", ["Strafrecht"]),
         _judgment(2, "hoge_raad", "HR", "2024-02-01", ["Civiel recht"]),
@@ -222,7 +222,7 @@ def _build_judgments(store: ArangoStore) -> None:
 def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_judgments(store)
 
     everything = _get(store, "/api/judgments")
@@ -279,7 +279,7 @@ def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
 def test_the_judgments_are_counted_per_source_without_the_source_filter(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_judgments(store)
     with NodeWriter(store) as writer:
         writer.add_all(

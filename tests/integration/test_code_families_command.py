@@ -8,7 +8,7 @@ from pathlib import Path
 from lawgraph.commands import code_families
 from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL, SOURCE_BWB
 from lawgraph.core.code_families import DATA
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 WTI = json.loads(
     (
@@ -24,7 +24,7 @@ def _general_info(abbreviations: list[str]) -> str:
     )
 
 
-def _store(store: ArangoStore, wti: dict[str, list[str]]) -> None:
+def _store(store: GraphStore, wti: dict[str, list[str]]) -> None:
     with RawSourceWriter(store) as writer:
         for bwb_id, abbreviations in wti.items():
             writer.add(
@@ -40,7 +40,7 @@ def _store(store: ArangoStore, wti: dict[str, list[str]]) -> None:
 def test_the_stored_wti_builds_the_table_of_the_repository(
     database: str, tmp_path: Path
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, WTI)
     assert not code_families.main(["check"]).errors
     out = tmp_path / "code_families.json"
@@ -50,6 +50,6 @@ def test_the_stored_wti_builds_the_table_of_the_repository(
 
 
 def test_a_book_that_moved_fails_the_check(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store(store, {**WTI, "BWBR0005289": ["BW"], "BWBR9999999": ["BW", "BW Boek 6"]})
     assert code_families.main(["check"]).errors

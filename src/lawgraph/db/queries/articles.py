@@ -25,7 +25,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._helpers import (
     _coerce_float,
@@ -101,7 +101,7 @@ def _record_article_citation(
 
 
 def get_article_with_relations(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
     article_number: str,
 ) -> ArticleDetailData:
@@ -150,7 +150,7 @@ def _version_identity(
 
 
 def get_article_history(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
     article_number: str,
 ) -> ArticleHistoryData:
@@ -199,7 +199,7 @@ def _json_order(value: str) -> str:
 
 
 def get_article_citations(
-    store: ArangoStore,
+    store: GraphStore,
     article_doc: dict[str, Any],
 ) -> list[ArticleCitationEntry]:
     doc = _ensure_doc(article_doc)
@@ -313,7 +313,7 @@ ORDER BY e.key
 
 
 def get_article_legislative_history(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
     article_number: str,
     article_id: str | None = None,
@@ -458,7 +458,7 @@ SELECT
 
 
 def get_article_explanations(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
     article_number: str,
     *,
@@ -565,7 +565,7 @@ SELECT
 
 
 def get_article_cited_by(
-    store: ArangoStore,
+    store: GraphStore,
     article_id: str,
     *,
     court: str | None = None,

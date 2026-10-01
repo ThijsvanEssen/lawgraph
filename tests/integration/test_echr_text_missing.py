@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     SOURCE_ECHR,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 
 BROKEN = "001-208029"
@@ -56,7 +56,7 @@ def _judgment(item_id: str, number: int) -> dict[str, Any]:
 def test_a_text_hudoc_cannot_convert_is_skipped_and_not_asked_for_again(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for number, item_id in enumerate(("001-200001", BROKEN, "001-200003")):
             writer.add(

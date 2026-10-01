@@ -6,17 +6,17 @@ from typing import Any
 
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import judgment_xml, seed
 
 
-def _stub_flag(store: ArangoStore, ecli: str) -> Any:
+def _stub_flag(store: GraphStore, ecli: str) -> Any:
     node = store.get_document("judgments", make_node_key(ecli))
     return None if node is None else node["props"].get("stub")
 
 
 def test_a_cited_judgment_is_a_stub_until_it_is_loaded(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=10, judgments=5, regulations=2)  # judgment n cites n + 1
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-citations")

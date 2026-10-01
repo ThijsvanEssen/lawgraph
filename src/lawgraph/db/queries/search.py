@@ -19,7 +19,7 @@ from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import SEARCH_FIELDS, search_column
@@ -121,7 +121,7 @@ def tokenize_search_query(q: str) -> list[str]:
 # ── Intent-aware search parser ────────────────────────────────────────────────
 
 
-def load_code_aliases(store: ArangoStore) -> dict[str, str]:
+def load_code_aliases(store: GraphStore) -> dict[str, str]:
     """Law abbreviation (``Sr``, ``AVG``) → BWB id or CELEX number, cached for 60 s
     (``core.aliases.code_aliases``)."""
     cached = _law_cache.get("codes")
@@ -132,7 +132,7 @@ def load_code_aliases(store: ArangoStore) -> dict[str, str]:
     return codes
 
 
-def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
+def _load_law_names(store: GraphStore) -> dict[str, list[str]]:
     """Lower-case law name → the BWB or CELEX ids that carry it (a name may be shared); the
     ids of one name are listed in one order every time."""
     rows = store.query(
@@ -156,7 +156,7 @@ def _load_law_names(store: ArangoStore) -> dict[str, list[str]]:
     return names
 
 
-def load_notation_parser(store: ArangoStore) -> NotationParser:
+def load_notation_parser(store: GraphStore) -> NotationParser:
     """The parser of typed citations over the laws in the graph, cached for 60 s.
 
     Every search and every resolve shares one read of the instruments per minute instead of
@@ -174,7 +174,7 @@ def load_notation_parser(store: ArangoStore) -> NotationParser:
 
 
 def _two_phase_search(
-    store: ArangoStore,
+    store: GraphStore,
     precise: Query,
     text: Query,
     limit: int,
@@ -212,7 +212,7 @@ _BOOSTS: dict[str, dict[str, float]] = {
 
 
 def _text_query(
-    store: ArangoStore,
+    store: GraphStore,
     table: str,
     hit: str,
     tokens: list[str],
@@ -309,7 +309,7 @@ _ARTICLE_HIT = f"""
 
 
 def _search_articles(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     notation: Notation | None,
     limit: int,
@@ -385,7 +385,7 @@ _INSTRUMENT_HIT = f"""
 
 
 def _search_instruments(
-    store: ArangoStore, q: str, tokens: list[str], limit: int
+    store: GraphStore, q: str, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
@@ -433,7 +433,7 @@ _ECLI_HIT = """
 
 
 def _search_judgments(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     notation: Notation | None,
     limit: int,
@@ -477,7 +477,7 @@ _KIND = "AND lower(doc.props ->> 'kind') = ANY(%(kind_filter)s)"
 
 
 def _search_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
@@ -511,7 +511,7 @@ def _search_dossiers(
 
 
 def _search_committees(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     hit = """
         json_build_object(
@@ -531,7 +531,7 @@ def _search_committees(
 
 
 def _search_documents(
-    store: ArangoStore,
+    store: GraphStore,
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
@@ -580,7 +580,7 @@ def _all_words(tokens: list[str]) -> tuple[str, dict[str, Any]]:
 
 
 def _search_members(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     condition, params = _all_words(tokens)
     statement = f"""
@@ -602,7 +602,7 @@ def _search_members(
 
 
 def _search_factions(
-    store: ArangoStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     condition, params = _all_words(tokens)
     statement = f"""
@@ -705,7 +705,7 @@ def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def search_all(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     q: str,
     types: list[str],

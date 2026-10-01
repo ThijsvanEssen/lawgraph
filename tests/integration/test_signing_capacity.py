@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 JETTEN = uid(1, 9)
@@ -97,7 +97,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 def test_each_signature_carries_the_function_and_capacity_of_its_day(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             writer.add(
