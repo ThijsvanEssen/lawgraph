@@ -215,11 +215,15 @@ class Publication:
     signed: str | None  # ISO date
     published: str | None  # ISO date
     dossiers: tuple[str, ...] = ()
+    # the ``urlidentifier`` as the BWB gives it, the id of officielebekendmakingen.nl;
+    # None where it gives none (``identifier`` is then made from kind, year and number)
+    url_identifier: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """JSON-able form stored in node props (``origin_publication`` etc.)."""
         return {
             "id": self.identifier,
+            "url_identifier": self.url_identifier,
             "kind": self.kind,
             "year": self.year,
             "number": self.number,
@@ -352,6 +356,8 @@ def publication_props(publication: Mapping[str, Any]) -> dict[str, Any]:
         "kind": KIND_PUBLICATION,
         "jurisdiction": "nl",
         "source": SOURCE_BWB,
+        # the id of officielebekendmakingen.nl as the BWB gives it: "stb-2019-33"
+        "official_id": publication.get("url_identifier") or None,
         "publication_kind": publication.get("kind") or None,
         "publication_year": publication.get("year"),
         "publication_number": publication.get("number"),
@@ -411,6 +417,7 @@ def _publication(element: ET.Element | None) -> Publication | None:
         year=year,
         number=number,
         identifier=identifier,
+        url_identifier=pub.get("urlidentifier") or None,
         effect=pub.get("effect"),
         signed=_iso(_child(pub, "ondertekeningsdatum")),
         published=_iso(_child(pub, "uitgiftedatum")),
