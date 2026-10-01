@@ -626,6 +626,13 @@ def activity(payload: Payload) -> Record | None:
         "case_kinds_by_dossier": case_kinds_by_dossier(cases),
         "display_name": activity_display_name(date, description or kind),
         "number": str(payload.get("Nummer") or ""),
+        # the activities a moved one was replaced by (Activiteit.VervangenDoor): a moved
+        # activity keeps no agenda, the one that replaced it has it
+        "replaced_by": [
+            str(other["Nummer"])
+            for other in _dicts(payload.get("VervangenDoor"))
+            if other.get("Nummer")
+        ],
     }
 
 

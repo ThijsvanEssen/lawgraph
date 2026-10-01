@@ -411,6 +411,7 @@ class ActivityProps(_CommonProps):
     dossier_numbers: list[str] | None = None
     case_kinds_by_dossier: dict[str, list[str]] | None = None
     number: str | None = None
+    replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
 
 
 # ---------------------------------------------------------------------------
