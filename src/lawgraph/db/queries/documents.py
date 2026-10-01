@@ -156,17 +156,11 @@ _CHAMBER_OF = (
     "CASE WHEN 'EK' = ANY(d.labels) THEN 'EK' WHEN 'TK' = ANY(d.labels) THEN 'TK' END"
 )
 
-# ``props.dossier_numbers OR []``: the value when AQL holds it true (an array or an
-# object, a non-empty string, a number other than 0, true), else [].
+# ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
 _NUMBERS = "d.props -> 'dossier_numbers'"
-_DOSSIER_NUMBERS = f"""CASE WHEN CASE json_typeof({_NUMBERS})
-            WHEN 'array' THEN TRUE
-            WHEN 'object' THEN TRUE
-            WHEN 'string' THEN {_NUMBERS} #>> '{{}}' <> ''
-            WHEN 'number' THEN ({_NUMBERS} #>> '{{}}')::double precision <> 0
-            WHEN 'boolean' THEN ({_NUMBERS} #>> '{{}}')::boolean
-            ELSE FALSE END
-        THEN {_NUMBERS} ELSE '[]'::json END"""
+_DOSSIER_NUMBERS = (
+    f"CASE WHEN lg_truthy({_NUMBERS}) THEN {_NUMBERS} ELSE '[]'::json END"
+)
 
 
 def _not_null(*values: str) -> str:
