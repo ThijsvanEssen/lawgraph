@@ -43,9 +43,7 @@ def _person(member: str) -> str:
 
 
 # The government bills of a dossier ``d``: brought in under a cabinet, not an initiative.
-_BILL = (
-    "lg_bool(d.props -> 'initiative') = false AND lg_str(d.props -> 'kind') = %(bill)s"
-)
+_BILL = "d.initiative = false AND d.kind = %(bill)s"
 
 
 def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
@@ -89,35 +87,39 @@ def get_cabinets(store: ArangoStore) -> list[dict[str, Any]]:
 
 
 # The dossiers a member ``m`` signed as a bewindspersoon within the period of the cabinet
-# ``c`` (from its start, or from any day when it has none, to its end or today), directly
+# ``c`` (from its ``period_start``, or from any day when it has none, to its ``period_end``:
+# its end or today; computed once per cabinet, as reading them from ``props`` parses the
+# whole json again on every comparison), directly
 # or through a case, each once; and how many of them are government bills. The date of a
 # paper is that of its document; an AUTHORED edge to a node of another collection reads
 # it from that node.
 _SIGNED = f"""
 SELECT count(*)::int AS dossiers,
-       (count(*) FILTER (WHERE d.id IS NOT NULL AND lg_str(d.props -> 'kind') = %(bill)s)
+       (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s)
        )::int AS bills
 FROM (
     SELECT DISTINCT CASE WHEN p.to_collection = '{COLLECTION_CASES}'
                          THEN q.to_id ELSE p.to_id END AS target
     FROM (
+        -- each date read once: OFFSET 0 keeps the subquery from being inlined into every
+        -- comparison of the date below, where it would be read again per comparison
         SELECT a.to_id,
-               CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-                    THEN (SELECT doc.date FROM documents doc WHERE doc.id = a.to_id)
+               CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}' THEN doc.date
                     ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
                END AS date
         FROM edges a
+        LEFT JOIN {COLLECTION_DOCUMENTS} doc
+            ON a.to_collection = '{COLLECTION_DOCUMENTS}' AND doc.id = a.to_id
         WHERE a.from_id = m.id AND a.relation = %(authored)s
           AND lg_str(a.doc -> 'meta' -> 'capacity') = %(government)s
+        OFFSET 0
     ) a
     JOIN edges p ON p.from_id = a.to_id AND p.relation = %(part_of)s
     LEFT JOIN edges q ON p.to_collection = '{COLLECTION_CASES}' AND q.from_id = p.to_id
         AND q.relation = %(part_of)s AND q.to_collection = '{COLLECTION_DOSSIERS}'
     WHERE a.date IS NOT NULL
-      AND (lg_str(c.props -> 'from_date') IS NULL
-           OR a.date >= lg_str(c.props -> 'from_date'))
-      AND a.date <= CASE WHEN lg_truthy(c.props -> 'to_date')
-                         THEN lg_str(c.props -> 'to_date') ELSE %(today)s END
+      AND (c.period_start IS NULL OR a.date >= c.period_start)
+      AND a.date <= c.period_end
 ) signed
 LEFT JOIN dossiers d ON d.id = signed.target
 WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
@@ -155,9 +157,15 @@ def get_cabinet(store: ArangoStore, key: str) -> dict[str, Any] | None:
                 WHERE d.cabinet = c.key AND {_BILL}) AS bills,
                (SELECT count(*)::int FROM commitments k
                 WHERE k.cabinet = c.key) AS commitments
-        FROM cabinets c
+        FROM (
+            SELECT c.*, lg_str(c.props -> 'from_date') AS period_start,
+                   CASE WHEN lg_truthy(c.props -> 'to_date')
+                        THEN lg_str(c.props -> 'to_date') ELSE %(today)s END AS period_end
+            FROM cabinets c
+            WHERE c.key = %(key)s
+            OFFSET 0
+        ) c
         LEFT JOIN members pm ON pm.key = lg_str(c.props -> 'prime_minister')
-        WHERE c.key = %(key)s
         """,
         {
             "key": key,

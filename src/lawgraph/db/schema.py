@@ -406,6 +406,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("closed_on"),
         _str("cabinet"),
         _str("ministry"),
+        # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
+        _str("kind"),
+        _bool("initiative"),
     ),
     COLLECTION_ACTIVITIES: (_str("date"),),
     COLLECTION_DECISIONS: (
