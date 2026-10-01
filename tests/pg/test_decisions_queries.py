@@ -388,13 +388,14 @@ def test_the_document_a_decision_was_about(store: ArangoStore) -> None:
 
 
 def test_the_votes_taken_on_a_document(store: ArangoStore) -> None:
-    # a motion (its own case), a bill with a later paper of the same case, and a case
+    # cases keyed as normalize keys them (make_node_key of the Zaak id); a motion (its own
+    # case), a bill with a later paper of the same case, and a case
     # the decision does not name (another motion on the same agenda item)
     store.bulk_insert_or_update_nodes(
         "cases",
         [
             {"_key": k, "type": "case", "labels": [], "props": {"external_id": e}}
-            for k, e in (("zm", "Z-M"), ("zb", "Z-B"), ("zo", "Z-O"))
+            for k, e in (("z_m", "Z-M"), ("z_b", "Z-B"), ("z_o", "Z-O"))
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -442,15 +443,15 @@ def test_the_votes_taken_on_a_document(store: ArangoStore) -> None:
 
     store.bulk_insert_or_update_edges(
         [
-            _part_of("p1", "motie", "zm"),
-            _part_of("p2", "wet", "zb"),
-            _part_of("p3", "nota", "zb"),
-            _part_of("p4", "andere", "zo"),
-            about("a1", "s_motie", "zm"),
-            about("a2", "s_wet_1", "zb"),
-            about("a3", "s_wet_0", "zb"),
-            about("a4", "s_andere", "zm"),
-            about("a5", "s_andere", "zo"),
+            _part_of("p1", "motie", "z_m"),
+            _part_of("p2", "wet", "z_b"),
+            _part_of("p3", "nota", "z_b"),
+            _part_of("p4", "andere", "z_o"),
+            about("a1", "s_motie", "z_m"),
+            about("a2", "s_wet_1", "z_b"),
+            about("a3", "s_wet_0", "z_b"),
+            about("a4", "s_andere", "z_m"),
+            about("a5", "s_andere", "z_o"),
             _vote("v1", "factions/vvd", "s_motie", choice="Voor", seats=24),
         ]
     )
@@ -466,6 +467,20 @@ def test_the_votes_taken_on_a_document(store: ArangoStore) -> None:
     assert keys("wet") == ["s_wet_0", "s_wet_1"]
     assert keys("nota") == []
     assert keys("missing") == []
+    # a decision whose named case has no document takes the first of its other cases
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(
+                "s_leeg",
+                date="2026-09-09",
+                primary_case_id="Z-LEEG",
+                case_ids=["Z-LEEG", "Z-O"],
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges([about("a6", "s_leeg", "z_o")])
+    assert keys("andere") == ["s_andere", "s_leeg"]
     # with how each faction voted, as the decision detail gives it
     (motion,) = get_document_decisions(store, "documents/motie")
     assert motion["votes"][0]["voter_key"] == "vvd"
