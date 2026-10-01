@@ -245,7 +245,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
             response = client.get(f"/api/nodes/{collection}/{make_node_key(key)}")
             assert response.status_code == 404, collection
         dangling = store.query(
-            "FOR e IN edges FILTER e._from IN @ids OR e._to IN @ids RETURN e._key",
+            "SELECT key FROM edges WHERE from_id = ANY(%(ids)s) OR to_id = ANY(%(ids)s)",
             {
                 "ids": [
                     f"documents/{make_node_key(GONE['Id'])}",
@@ -254,7 +254,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
             },
         )
         assert list(dangling) == []
-        kinds = list(store.query("FOR d IN documents RETURN d.props.kind"))
+        kinds = list(store.query("SELECT props -> 'kind' FROM documents"))
         assert len(kinds) == 5 and all(kinds)
     finally:
         app.dependency_overrides.pop(get_store, None)

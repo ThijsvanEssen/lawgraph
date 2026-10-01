@@ -216,16 +216,19 @@ def _graph(store: ArangoStore) -> dict[str, str]:
 
 def _explains(store: ArangoStore) -> dict[str, dict[str, Any]]:
     """Every EXPLAINS edge by key, without what differs between two builds (``created_at``)."""
-    aql = """
-    FOR e IN edges FILTER e.relation == 'EXPLAINS'
-        RETURN {key: e._key, from: e._from, to: e._to, source: e.source,
-                confidence: e.confidence, status: e.status, meta: e.meta}
+    statement = """
+    SELECT key, from_id AS "from", to_id AS "to", doc -> 'source' AS source,
+           doc -> 'confidence' AS confidence, doc -> 'status' AS status,
+           doc -> 'meta' AS meta
+    FROM edges WHERE relation = 'EXPLAINS'
     """
-    return {row["key"]: row for row in store.query(aql)}
+    return {row["key"]: row for row in store.query(statement)}
 
 
 def _revisions(store: ArangoStore) -> dict[str, str]:
-    return dict(store.query("FOR e IN edges RETURN [e._key, e._rev]"))
+    """The row version of every edge: an upsert that changes nothing does not write."""
+    rows = store.query("SELECT key, xmin::text AS rev FROM edges")
+    return {row["key"]: row["rev"] for row in rows}
 
 
 def _by_target(store: ArangoStore, document: str) -> dict[str, dict[str, Any]]:
@@ -295,9 +298,7 @@ def test_the_result_is_the_same_in_either_order_and_a_rerun_writes_nothing(
     }
 
     # the other way round: the edges are removed and both run again, sections first
-    list(
-        store.query("FOR e IN edges FILTER e.relation == 'EXPLAINS' REMOVE e IN edges")
-    )
+    store.execute("DELETE FROM edges WHERE relation = 'EXPLAINS'")
     _run(cli, "tk-mvt-articles", "tk-mvt")
     assert _explains(store) == first
     _run(cli, "tk-mvt-articles", "tk-mvt", "tk-mvt-articles")

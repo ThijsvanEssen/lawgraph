@@ -149,11 +149,11 @@ def _store_raw(store: ArangoStore, judgments: dict[str, str]) -> None:
 
 
 def _series(store: ArangoStore) -> dict[str, tuple[Any, Any]]:
-    aql = """
-    FOR j IN judgments FILTER j.props.source == "rechtspraak"
-        RETURN [j.props.ecli, j.props.series_id, j.props.series_size]
+    sql = """
+    SELECT ecli, props -> 'series_id' AS series, props -> 'series_size' AS size
+    FROM judgments WHERE source = 'rechtspraak'
     """
-    return {ecli: (series, size) for ecli, series, size in store.query(aql)}
+    return {row["ecli"]: (row["series"], row["size"]) for row in store.query(sql)}
 
 
 def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(

@@ -214,7 +214,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert jetten.props["factions"] == ["d66", "vvd"]
     served = list(
         store.query(
-            "FOR e IN edges FILTER e.relation == @r AND e._from == @m RETURN e._to",
+            "SELECT to_id FROM edges WHERE relation = %(r)s AND from_id = %(m)s",
             {"r": RELATION_SERVED_IN, "m": f"{COLLECTION_MEMBERS}/heinen"},
         )
     )

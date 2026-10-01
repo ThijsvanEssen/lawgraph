@@ -27,7 +27,6 @@ from lawgraph.db.queries.search import (
     SCORE_WORDS,
     search_all,
 )
-from lawgraph.db.schema_arango import _VIEW_SPECS, _indexed_fields, _nested_fields
 
 SR = "BWBR0001854"
 UAVG = "BWBR0040940"
@@ -184,19 +183,6 @@ def test_the_short_title_is_an_identifier_and_another_abbreviation_a_name(
         SCORE_IDENTIFIER,
     )
     assert _hits(store, "WvS", "instruments") == [(make_node_key(SR), SCORE_TITLE)]
-
-
-def test_the_views_as_the_server_returns_them_match_their_definition(
-    store: ArangoStore,
-) -> None:
-    # else every start would rebuild them: a nested field comes back nested
-    for view in ("search_articles", "search_instruments"):
-        links = store.db.view(view)["links"]
-        wanted = {
-            collection: {"fields": {"props": {"fields": _nested_fields(fields)}}}
-            for collection, fields in _VIEW_SPECS[view].items()
-        }
-        assert _indexed_fields(links) == _indexed_fields(wanted)
 
 
 def test_a_word_in_the_heading_outweighs_the_same_word_in_the_text(

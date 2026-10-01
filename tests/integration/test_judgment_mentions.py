@@ -91,12 +91,12 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
 
 
 def _edge_to_grondwet_1(store: ArangoStore, ecli_key: str) -> dict[str, Any]:
-    aql = (
-        "FOR e IN edges FILTER e._from == @from AND e._to == @to "
-        "AND e.relation == 'REFERS_TO' RETURN e"
+    sql = (
+        "SELECT doc FROM edges WHERE from_id = %(from)s AND to_id = %(to)s "
+        "AND relation = 'REFERS_TO'"
     )
-    bind = {"from": f"judgments/{ecli_key}", "to": "articles/bwbr0001840_1"}
-    (edge,) = store.query(aql, bind)
+    params = {"from": f"judgments/{ecli_key}", "to": "articles/bwbr0001840_1"}
+    (edge,) = store.query(sql, params)
     return edge
 
 
@@ -105,7 +105,7 @@ def test_the_edge_of_a_judgment_keeps_every_mention_with_its_paragraph_and_span(
 ) -> None:
     store = ArangoStore()
     edge = _edge_to_grondwet_1(store, "ecli_nl_hr_2020_1")
-    judgment = store.judgments.get("ecli_nl_hr_2020_1")
+    judgment = store.get_document("judgments", "ecli_nl_hr_2020_1")
     paragraphs = {p["id"]: p for p in judgment["props"]["paragraphs"]}
 
     assert edge["meta"]["mention_count"] == 3
@@ -247,7 +247,7 @@ def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None
     cli("semantic", "rechtspraak")
 
     cited = store.query(
-        "FOR e IN edges FILTER e._from == 'judgments/ecli_nl_hr_2020_1' "
-        "AND e.relation == 'REFERS_TO' RETURN e._to"
+        "SELECT to_id FROM edges WHERE from_id = 'judgments/ecli_nl_hr_2020_1' "
+        "AND relation = 'REFERS_TO'"
     )
     assert list(cited) == ["articles/bwbr0001840_1"]

@@ -33,8 +33,8 @@ def _put(
 def _cited(store: ArangoStore, document: str) -> set[str]:
     return set(
         store.query(
-            "FOR e IN edges FILTER e._from == @d AND e.relation == @r "
-            "RETURN PARSE_IDENTIFIER(e._to).key",
+            "SELECT split_part(to_id, '/', 2) FROM edges"
+            " WHERE from_id = %(d)s AND relation = %(r)s",
             {"d": f"documents/{document}", "r": RELATION_REFERS_TO},
         )
     )

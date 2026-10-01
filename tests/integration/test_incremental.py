@@ -19,8 +19,8 @@ from tests.integration.seed import FACTIONS, seed, uid
 
 
 def _voted_edges(store: ArangoStore) -> int:
-    aql = "FOR e IN edges FILTER e.relation == @relation COLLECT WITH COUNT INTO n RETURN n"
-    return next(iter(store.query(aql, {"relation": RELATION_VOTED})))
+    statement = "SELECT count(*)::int FROM edges WHERE relation = %(relation)s"
+    return next(store.query(statement, {"relation": RELATION_VOTED}))
 
 
 def test_votes_of_a_new_decision_are_linked_to_factions_loaded_earlier(
@@ -190,7 +190,10 @@ def test_a_rerun_replaces_a_tally_it_does_not_add_to_it(
 
 
 def _edges(store: ArangoStore) -> dict[str, str]:
-    return dict(store.query("FOR e IN edges RETURN [e._key, e._from]"))
+    return {
+        row["key"]: row["from_id"]
+        for row in store.query("SELECT key, from_id FROM edges")
+    }
 
 
 def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
@@ -240,6 +243,13 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     assert not missed
 
 
+def _covered_until(store: ArangoStore) -> str:
+    statement = (
+        "SELECT doc ->> 'covered_until' FROM pipeline_state WHERE key = 'normalize'"
+    )
+    return next(store.query(statement))
+
+
 def test_since_last_goes_on_where_the_last_complete_run_began(
     database: str, cli: Any
 ) -> None:
@@ -249,8 +259,8 @@ def test_since_last_goes_on_where_the_last_complete_run_began(
     assert refused.returncode == 2 and "No complete `normalize all`" in refused.stderr
 
     cli("normalize", "all")
-    mark = store.get_document("pipeline_state", "normalize")["covered_until"]
+    mark = _covered_until(store)
     time.sleep(1.1)
     again = cli("normalize", "all", "--since", "last")
     assert "Since the last complete run" in again.stderr
-    assert store.get_document("pipeline_state", "normalize")["covered_until"] > mark
+    assert _covered_until(store) > mark

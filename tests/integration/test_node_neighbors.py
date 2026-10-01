@@ -1,6 +1,6 @@
 """The node explorer on a real graph: facets, pages per bucket, filters and hubs.
 
-The unit suite runs on fake stores and never executes AQL, so what a bucket holds, where
+The unit suite runs on fake stores and never executes SQL, so what a bucket holds, where
 its page ends and what a traversal follows is only shown by a server.
 """
 
@@ -68,7 +68,11 @@ def _edge(
 
 def _write(store: ArangoStore, collection: str, docs: list[dict[str, Any]]) -> None:
     for start in range(0, len(docs), 10_000):
-        store.db.collection(collection).insert_many(docs[start : start + 10_000])
+        chunk = docs[start : start + 10_000]
+        if collection == "edges":
+            store.bulk_insert_or_update_edges(chunk)
+        else:
+            store.bulk_insert_or_update_nodes(collection, chunk)
 
 
 def _seed_small(store: ArangoStore) -> None:
@@ -381,7 +385,7 @@ def test_every_node_type_lives_in_the_collection_that_says_so(
     for collection in TYPE_OF_COLLECTION:
         wrong = list(
             small.query(
-                f"FOR n IN {collection} FILTER n.type != @type RETURN n._id",
+                f"SELECT id FROM {collection} WHERE type <> %(type)s",
                 {"type": TYPE_OF_COLLECTION[collection].value},
             )
         )
@@ -542,32 +546,6 @@ def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
     assert data["focal"]["_id"] == FOCAL  # the focal node is kept whatever its type
 
 
-def test_the_filters_of_the_neighbourhood_run_in_the_traversal(
-    small: ArangoStore,
-) -> None:
-    asked: list[tuple[str, dict[str, Any]]] = []
-    run = small.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        asked.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    small.query = recording  # type: ignore[method-assign]
-    _hood(
-        small,
-        depth=3,
-        filters=NeighborFilter(
-            relations=(RELATION_PART_OF,), status=EDGE_STATUS_CANONIEK
-        ),
-    )
-    (aql, bind_vars), *_ = asked
-    nodes = small.db.aql.explain(aql, bind_vars=bind_vars)["nodes"]
-    kinds = [node["type"] for node in nodes]
-    traversal = kinds.index("TraversalNode")
-    # Nothing filters the vertices behind the traversal: it never left along another edge.
-    assert "FilterNode" not in kinds[traversal : kinds.index("ReturnNode")], kinds
-
-
 def test_the_neighbourhood_response_follows_the_filters(
     client: TestClient, small: ArangoStore
 ) -> None:
@@ -584,9 +562,6 @@ def test_the_neighbourhood_response_follows_the_filters(
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
 HUB_ARTICLES = 60_000
 HUB_JUDGMENTS = 20_000
-# What a query may hold: the edges of the hub with their meta are 60 MB. Read whole by the
-# application, or gathered in the server (a COLLECT ... INTO group), they would not fit.
-MEMORY_LIMIT = 12_000_000
 
 
 def _seed_hub(store: ArangoStore) -> None:
@@ -613,26 +588,12 @@ def _seed_hub(store: ArangoStore) -> None:
     _write(store, "edges", edges)
 
 
-def _memory_limited(store: ArangoStore, limit: int) -> None:
-    """Make every query of ``store`` fail when it holds more than ``limit`` bytes."""
-
-    def query(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        cursor = store.db.aql.execute(
-            aql, bind_vars=bind_vars or {}, memory_limit=limit, stream=True
-        )
-        return iter(cursor)  # type: ignore[arg-type]
-
-    store.query = query  # type: ignore[method-assign]
-
-
 def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_database(
     store: ArangoStore,
 ) -> None:
     """The edges of a hub (an instrument with all its articles, a faction with its votes) are
-    counted by the server and paged from the edge index: none is built as a whole, on either
-    side, so a query that may hold 12 MB answers for 80,000 edges of 700 bytes."""
+    counted by the server and paged from the edge index: 80,000 edges of 700 bytes."""
     _seed_hub(store)
-    _memory_limited(store, MEMORY_LIMIT)
 
     facets = _facets(store, "hub")
     assert _counts(facets) == {
@@ -665,7 +626,6 @@ def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_datab
 
 def test_the_neighbourhood_of_a_hub_stops_at_its_cap(store: ArangoStore) -> None:
     _seed_hub(store)
-    _memory_limited(store, MEMORY_LIMIT)
 
     data = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "hub", depth=2, cap=50)
     assert len(data["nodes"]) == 50

@@ -92,8 +92,8 @@ def test_a_citation_of_a_book_lands_in_that_book(database: str, cli: Any) -> Non
     cited = {
         row["id"]: row["props"]
         for row in store.query(
-            "FOR e IN edges FILTER e._from == @j AND e.relation == 'REFERS_TO' "
-            "RETURN {id: e._to, props: DOCUMENT(e._to).props}",
+            "SELECT e.to_id AS id, n.props FROM edges e LEFT JOIN nodes n ON n.id = e.to_id "
+            "WHERE e.from_id = %(j)s AND e.relation = 'REFERS_TO'",
             {"j": "judgments/ecli_nl_hr_2020_1"},
         )
     }

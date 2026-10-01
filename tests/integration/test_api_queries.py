@@ -5,11 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from lawgraph.config.constants import (
-    COLLECTION_ARTICLES,
-    COLLECTION_EDGES,
-    RELATION_REFERS_TO,
-)
+from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import ArangoStore
 from lawgraph.db.edges import make_edge_doc
@@ -71,7 +67,7 @@ def test_relationships_are_searched_by_several_types_or_without_some(
         {"_key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
         for n, law in enumerate(["BWBR1", "BWBR1", "BWBR1", "BWBR2"])
     ]
-    store.db.collection(COLLECTION_ARTICLES).insert_many(articles)
+    store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, articles)
     edges = [
         {
             **make_edge_doc(
@@ -84,7 +80,7 @@ def test_relationships_are_searched_by_several_types_or_without_some(
         }
         for n, semantic_type in enumerate(types)
     ]
-    store.db.collection(COLLECTION_EDGES).insert_many(edges)
+    store.bulk_insert_or_update_edges(edges)
 
     def found(**kwargs: Any) -> tuple[list[str], int]:
         rows, total = search_relationships(store, **kwargs)
@@ -103,11 +99,11 @@ def test_relationships_are_searched_by_several_types_or_without_some(
     assert found(exclude_types=["cross_reference"], bwb_id="BWBR1", limit=1)[1] == 2
 
 
-def test_a_judgment_is_found_by_key_or_index_never_by_reading_them_all(
+def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     database: str, cli: Any
 ) -> None:
-    """An ECLI nobody loaded (a citation that is a stub elsewhere, a typo in a URL) read
-    every judgment twice: once comparing ``LOWER(props.ecli)``, once for the ECHR ids."""
+    """An ECLI in any case, an ECHR id or an application number finds its judgment; an ECLI
+    nobody loaded (a citation that is a stub elsewhere, a typo in a URL) finds none."""
     store = ArangoStore()
     seed(store, documents=0, judgments=30, regulations=0)
     cli("normalize", "rechtspraak")
@@ -120,53 +116,7 @@ def test_a_judgment_is_found_by_key_or_index_never_by_reading_them_all(
     )
     store.bulk_insert_or_update_nodes("judgments", [old.to_document()])
 
-    queries: list[tuple[str, dict[str, Any]]] = []
-    run = store.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        queries.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    store.query = recording  # type: ignore[method-assign]
-
     assert _load_judgment(store, "ecli:nl:hr:2020:7")["props"]["ecli"].endswith(":7")
     assert _load_judgment(store, "001-45678")["_key"] == old.key
     assert _load_judgment(store, "12345/67")["_key"] == old.key
     assert _load_judgment(store, "ECLI:NL:HR:1999:1") is None
-
-    for aql, bind_vars in queries:
-        plan = store.db.aql.explain(aql, bind_vars=bind_vars)
-        kinds = {node["type"] for node in plan["nodes"]}
-        assert "EnumerateCollectionNode" not in kinds, aql
-
-
-def test_the_counts_of_the_stats_walk_an_index(database: str) -> None:
-    """`/api/stats` counts per relation, source, kind and jurisdiction, and the stubs. On
-    sparse indexes each count read every document: 13.8 s on the full database, 10.8 s of it for the
-    judgments (their text is in the document)."""
-    from lawgraph.db.queries import stats
-
-    store = ArangoStore()
-    seed(store, documents=20, judgments=5, regulations=2)
-    asked: list[str] = []
-    real_query = store.query
-
-    def recording(aql: str, *args: Any, **kwargs: Any) -> Any:
-        asked.append(aql)
-        return real_query(aql, *args, **kwargs)
-
-    store.query = recording  # type: ignore[method-assign]
-    stats.get_db_stats(store)
-
-    # five counts per value, three counts of stubs, the count of the publications, the
-    # count of the replaced publications
-    assert len(asked) == 10
-    for aql in asked:
-        nodes = store.db.aql.explain(aql)["nodes"]
-        kinds = [node["type"] for node in nodes]
-        assert "EnumerateCollectionNode" not in kinds, (aql, kinds)
-        index = next(node for node in nodes if node["type"] == "IndexNode")
-        # the index has what is read, or nothing is read (a count of an index range)
-        assert (
-            index.get("indexCoversProjections") or index["producesResult"] is False
-        ), aql

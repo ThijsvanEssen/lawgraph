@@ -350,10 +350,11 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
     done = cli("normalize", "rijksoverheid")
 
     posts = {
-        row["function"]: row
+        row["post"]["function"]: {**row["post"], "member": row["member"]}
         for row in store.query(
-            "FOR m IN members FOR f IN m.props.government_functions OR [] "
-            "RETURN MERGE(f, {member: m._key})"
+            "SELECT m.key AS member, f.post FROM members m,"
+            " json_array_elements(CASE WHEN json_typeof(m.props -> 'government_functions')"
+            " = 'array' THEN m.props -> 'government_functions' ELSE '[]' END) AS f(post)"
         )
     }
     found = {

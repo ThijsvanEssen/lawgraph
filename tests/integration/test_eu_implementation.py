@@ -144,14 +144,13 @@ def _seed(store: ArangoStore) -> None:
 
 
 def _links(store: ArangoStore) -> dict[tuple[str, str, str], dict[str, Any]]:
-    aql = """
-    FOR e IN edges FILTER e.relation IN ["IMPLEMENTS", "REFERS_TO"]
-        FILTER STARTS_WITH(e._from, "instruments/")
-        RETURN e
+    statement = """
+    SELECT from_id, to_id, relation, doc -> 'meta' AS meta FROM edges
+    WHERE relation IN ('IMPLEMENTS', 'REFERS_TO') AND from_collection = 'instruments'
     """
     return {
-        (e["_from"].split("/")[1], e["relation"], e["_to"].split("/")[1]): e["meta"]
-        for e in store.query(aql)
+        (e["from_id"].split("/")[1], e["relation"], e["to_id"].split("/")[1]): e["meta"]
+        for e in store.query(statement)
     }
 
 

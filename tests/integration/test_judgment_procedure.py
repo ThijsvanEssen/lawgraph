@@ -163,12 +163,15 @@ def _load(store: ArangoStore, judgments: dict[str, str]) -> None:
 
 
 def _edges(store: ArangoStore, source: str) -> set[tuple[str, str, str, str | None]]:
-    aql = """
-    FOR e IN edges FILTER e.source == @source
-        RETURN [e.relation, DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli,
-                e.meta.basis]
+    sql = """
+    SELECT e.relation, f.ecli AS from_ecli, t.ecli AS to_ecli,
+           e.doc -> 'meta' ->> 'basis' AS basis
+    FROM edges e
+    LEFT JOIN judgments f ON f.id = e.from_id
+    LEFT JOIN judgments t ON t.id = e.to_id
+    WHERE e.source = %(source)s
     """
-    return {tuple(row) for row in store.query(aql, {"source": source})}
+    return {tuple(row.values()) for row in store.query(sql, {"source": source})}
 
 
 def _key(ecli: str) -> str:
@@ -232,10 +235,11 @@ def test_an_earlier_judgment_is_appealed_continued_or_the_referral(
         ("APPEAL_OF", "ECLI:NL:RVS:2026:9", "ECLI:NL:RBDHA:2025:77", "appeal_text"),
     }
     targets = {
-        row[0]: row[1]
+        row["ecli"]: row["targets"]
         for row in store.query(
-            "FOR j IN judgments FILTER j.props.unresolved_appeal_targets != null "
-            "RETURN [j.props.ecli, j.props.unresolved_appeal_targets]"
+            "SELECT ecli, props -> 'unresolved_appeal_targets' AS targets "
+            "FROM judgments "
+            "WHERE json_typeof(props -> 'unresolved_appeal_targets') <> 'null'"
         )
     }
     assert targets == {
@@ -391,9 +395,9 @@ def test_a_procedural_link_is_not_also_a_citation(database: str, cli: Any) -> No
     }
     assert cited == {(RULING, CITED)}
     counts = {
-        row[0]: row[1]
+        row["ecli"]: row["count"]
         for row in store.query(
-            "FOR j IN judgments RETURN [j.props.ecli, j.props.inbound_citation_count]"
+            "SELECT ecli, props -> 'inbound_citation_count' AS count FROM judgments"
         )
     }
     assert counts[APPEALED] == 0 and counts[CONCLUSION] == 0 and counts[CITED] == 1

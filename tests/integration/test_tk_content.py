@@ -11,6 +11,8 @@ import datetime as dt
 import re
 from typing import Any
 
+from psycopg.types.json import Json
+
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -46,12 +48,23 @@ def _xml(name: str) -> str:
 
 
 def _mvt_documents(store: ArangoStore) -> dict[str, dict[str, Any]]:
-    aql = "FOR d IN documents FILTER d.props.sequence IN [1, 26] RETURN d"
-    return {d["props"]["sequence"]: d for d in store.query(aql)}
+    statement = (
+        "SELECT key AS _key, props FROM documents"
+        " WHERE lg_num(props -> 'sequence') IN (1, 26)"
+    )
+    return {d["props"]["sequence"]: d for d in store.query(statement)}
 
 
 def _revisions(store: ArangoStore) -> dict[str, str]:
-    return dict(store.query("FOR d IN documents RETURN [d._key, d._rev]"))
+    """The row version of every document: an upsert that changes nothing does not write."""
+    rows = store.query("SELECT key, xmin::text AS rev FROM documents")
+    return {row["key"]: row["rev"] for row in rows}
+
+
+def _raw(store: ArangoStore, key: str) -> dict[str, Any]:
+    return next(
+        store.query("SELECT doc FROM raw_sources WHERE key = %(key)s", {"key": key})
+    )
 
 
 def _seeded(cli: Any) -> ArangoStore:
@@ -80,12 +93,11 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     missing_key = raw_key(
         SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX, MVT_36025
     )
-    raw = store.db.collection("raw_sources")
-    stored = raw.get(xml_key)
+    stored = _raw(store, xml_key)
     (read,) = store.with_payloads([stored])
     assert read["payload_text"] == _xml("kst_36750_3")
     assert stored["meta"] == {"document": _mvt_documents(store)[1]["_key"]}
-    waiting = raw.get(missing_key)
+    waiting = _raw(store, missing_key)
     assert "payload_ref" not in waiting and waiting["meta"]["status"] == 404
     # this paper is from March 2025: not a week old, so a month
     retry = dt.datetime.fromisoformat(
@@ -99,11 +111,17 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     assert repository.fetched == [MVT_36000, MVT_36025]  # nothing was asked twice
 
     # A wait that is over asks again.
-    raw.update(
+    store.execute(
+        "UPDATE raw_sources SET doc = %(doc)s WHERE key = %(key)s",
         {
-            "_key": missing_key,
-            "meta": {**waiting["meta"], "retry_after": "2000-01-01T00:00:00Z"},
-        }
+            "key": missing_key,
+            "doc": Json(
+                {
+                    **waiting,
+                    "meta": {**waiting["meta"], "retry_after": "2000-01-01T00:00:00Z"},
+                }
+            ),
+        },
     )
     assert [p["identifier"] for p in _gaps.kamerstuk_gaps(store, MEMORANDA)] == [
         MVT_36025
@@ -178,7 +196,7 @@ def test_a_paper_whose_document_does_not_exist_yet_is_left_alone(
         ),
     ).run(kinds=MEMORANDA)
     victim = _mvt_documents(store)[26]["_key"]
-    store.db.collection("documents").delete(victim)
+    store.execute("DELETE FROM documents WHERE key = %(key)s", {"key": victim})
 
     result = cli("normalize", "tk-content")
     assert not (

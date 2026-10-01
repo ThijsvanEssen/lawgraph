@@ -182,15 +182,14 @@ def _get(client: TestClient, path: str) -> Any:
 
 
 def _amending(store: ArangoStore, article: str) -> set[tuple[str, str]]:
-    aql = """
-    FOR a IN articles FILTER a.props.bwb_id == @law AND a.props.article_number == @nr
-        FOR e IN edges FILTER e._to == a._id
-            FILTER e.relation IN ["AMENDS", "INTRODUCES", "REPEALS"]
-            RETURN [e.relation, e._from]
+    statement = """
+    SELECT e.relation, e.from_id FROM articles a JOIN edges e ON e.to_id = a.id
+    WHERE a.props ->> 'bwb_id' = %(law)s AND a.props ->> 'article_number' = %(nr)s
+        AND e.relation IN ('AMENDS', 'INTRODUCES', 'REPEALS')
     """
     return {
-        (relation, source)
-        for relation, source in store.query(aql, {"law": LAW, "nr": article})
+        (row["relation"], row["from_id"])
+        for row in store.query(statement, {"law": LAW, "nr": article})
     }
 
 
@@ -232,7 +231,7 @@ def test_a_version_merged_away_goes_with_its_edges(
     ]
     assert _amending(store, "7") == {("AMENDS", "instruments/stb_2002_144")}
     dangling = """
-    FOR e IN edges FILTER STARTS_WITH(e._from, "article_versions/")
-        FILTER DOCUMENT(e._from) == null RETURN e._key
+    SELECT e.key FROM edges e WHERE e.from_collection = 'article_versions'
+        AND NOT EXISTS (SELECT 1 FROM article_versions v WHERE v.id = e.from_id)
     """
     assert list(store.query(dangling)) == []

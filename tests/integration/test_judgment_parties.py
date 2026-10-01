@@ -49,12 +49,15 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
                 )
             )
     cli("normalize", "rechtspraak")
-    store.db.collection(COLLECTION_JUDGMENTS).insert(
-        {
-            "_key": make_node_key(OLD),
-            "type": "Judgment",
-            "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
-        }
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_JUDGMENTS,
+        [
+            {
+                "_key": make_node_key(OLD),
+                "type": "Judgment",
+                "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
+            }
+        ],
     )
     app.dependency_overrides[get_store] = lambda: store
     try:

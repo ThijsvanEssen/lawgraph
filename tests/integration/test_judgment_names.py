@@ -65,8 +65,6 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     )
     cli("normalize", "rechtspraak")
     cli("semantic", "graph-list-stats")
-    # the names graph-list-stats gave the stub: an update the view commits later
-    list(store.query("FOR d IN search_judgments OPTIONS {waitForSync: true} RETURN 1"))
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)

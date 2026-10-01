@@ -85,7 +85,8 @@ def _members(store: ArangoStore) -> dict[str, dict[str, Any]]:
     return {
         row["ek"]["path"]: row
         for row in store.query(
-            "FOR m IN members FILTER m.props.ek != null RETURN {key: m._key, ek: m.props.ek}"
+            "SELECT key, props -> 'ek' AS ek FROM members"
+            " WHERE coalesce(json_typeof(props -> 'ek'), 'null') <> 'null'"
         )
     }
 
@@ -139,9 +140,9 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     )
     edges = list(
         store.query(
-            "FOR e IN edges FILTER e.relation == 'MEMBER_OF' "
-            "AND e._to == 'factions/ek_democraten_1966' "
-            "RETURN [e._from, e.meta.observed_from, e.meta.observed_until]"
+            "SELECT json_build_array(from_id, doc -> 'meta' -> 'observed_from',"
+            " doc -> 'meta' -> 'observed_until') FROM edges"
+            " WHERE relation = 'MEMBER_OF' AND to_id = 'factions/ek_democraten_1966'"
         )
     )
     assert ["members/ek_mr_r_s_croll_d66", "2026-09-30", "2026-10-07"] in edges
