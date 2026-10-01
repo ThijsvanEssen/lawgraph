@@ -1,4 +1,4 @@
-"""The document, decision and dossier-timeline queries, run for real on a small graph.
+"""The decision, dossier-document and dossier-timeline queries, run for real on a small graph.
 
 The graph is written by hand (a dossier with a Tweede Kamer memorandum, motion and amendment,
 an Eerste Kamer paper, an activity led by a committee and one without), so that every path
@@ -28,10 +28,9 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VERSION_OF,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
 from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
-from lawgraph.db.queries.documents import get_document_links, get_document_passages
 from lawgraph.db.queries.dossiers import get_dossier_documents, get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
@@ -325,45 +324,6 @@ def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
     assert get_dossier_documents(store, f"{COLLECTION_DOSSIERS}/36001")["total"] == 1
 
 
-def test_a_document_links_to_its_dossiers_and_what_it_explains(
-    database: str,
-) -> None:
-    store = ArangoStore()
-    _build(store)
-
-    links = get_document_links(store, f"{COLLECTION_DOCUMENTS}/mvt")
-    assert links["dossier_numbers"] == ["36000"]
-    assert links["explains"] == [
-        {
-            "id": f"{COLLECTION_ARTICLES}/bwbr0001_5",
-            "key": "bwbr0001_5",
-            "collection": "articles",
-            "bwb_id": "BWBR0001",
-            "article_number": "5",
-        },
-        {
-            "id": f"{COLLECTION_ARTICLES}/bwbr0001_6",
-            "key": "bwbr0001_6",
-            "collection": "articles",
-            "bwb_id": "BWBR0001",
-            "article_number": "6",
-        },
-        {
-            "id": f"{COLLECTION_INSTRUMENTS}/bwbr0001",
-            "key": "bwbr0001",
-            "collection": "instruments",
-            "bwb_id": "BWBR0001",
-            "article_number": None,
-        },
-    ]
-
-    # an Eerste Kamer paper reaches its dossier through the same PART_OF edge
-    ek = get_document_links(store, f"{COLLECTION_DOCUMENTS}/ek_1")
-    assert ek == {"dossier_numbers": ["36000"], "explains": []}
-    nothing = get_document_links(store, f"{COLLECTION_DOCUMENTS}/nowhere")
-    assert nothing == {"dossier_numbers": [], "explains": []}
-
-
 def test_the_decisions_of_a_dossier_are_read_from_an_index(database: str) -> None:
     store = ArangoStore()
     _build(store)
@@ -476,79 +436,3 @@ def test_only_an_activity_entry_has_a_committee(database: str) -> None:
         store, DOSSIER, kind_filter=["commissiedebat"], limit=10
     )
     assert [row["committee"]["slug"] for row in kind_filtered] == ["ienw"]
-
-
-def _passage(anchor: str, confidence: float) -> dict[str, Any]:
-    return {
-        "section_anchor": anchor,
-        "heading": anchor,
-        "char_start": 0,
-        "char_end": 1,
-        "match_type": "heading_target",
-        "confidence": confidence,
-    }
-
-
-def test_the_passages_of_an_article_come_from_it_and_its_versions_once_each(
-    database: str,
-) -> None:
-    """The sections on the edges to the article and to its versions (the same stam_id),
-    one row per section with its highest confidence; a version of another stam is not."""
-    store = ArangoStore()
-    article_key = make_node_key("BWBR0009", "5")
-    version = {"bwb_id": "BWBR0009", "article_number": "5"}
-    with NodeWriter(store) as writer:
-        writer.add_all(
-            [
-                _document("mvt_9", "Memorie van toelichting", "2025-01-10"),
-                _node(
-                    COLLECTION_ARTICLES,
-                    NodeType.ARTICLE,
-                    article_key,
-                    ["BWB", "Article"],
-                    stam_id="st1",
-                    **version,
-                ),
-                _node(
-                    COLLECTION_ARTICLE_VERSIONS,
-                    NodeType.ARTICLE_VERSION,
-                    "bwbr0009_av_st1",
-                    ["BWB", "ArticleVersion"],
-                    stam_id="st1",
-                    **version,
-                ),
-                _node(
-                    COLLECTION_ARTICLE_VERSIONS,
-                    NodeType.ARTICLE_VERSION,
-                    "bwbr0009_av_st2",
-                    ["BWB", "ArticleVersion"],
-                    stam_id="st2",
-                    **version,
-                ),
-            ]
-        )
-    document = f"{COLLECTION_DOCUMENTS}/mvt_9"
-    edges = EdgeWriter(store, what=None)
-    for target, sections in [
-        (f"{COLLECTION_ARTICLES}/{article_key}", [_passage("s-2", 0.7)]),
-        (
-            f"{COLLECTION_ARTICLE_VERSIONS}/bwbr0009_av_st1",
-            [_passage("s-1", 0.9), _passage("s-2", 0.9)],
-        ),
-        (f"{COLLECTION_ARTICLE_VERSIONS}/bwbr0009_av_st2", [_passage("s-3", 1.0)]),
-    ]:
-        edges.add(
-            document,
-            target,
-            RELATION_EXPLAINS,
-            source="test",
-            meta={"sections": sections},
-        )
-    edges.flush()
-
-    rows = get_document_passages(store, document, "BWBR0009", "5")
-    assert sorted((r["section_anchor"], r["confidence"]) for r in rows) == [
-        ("s-1", 0.9),
-        ("s-2", 0.9),
-    ]
-    assert get_document_passages(store, document, "BWBR0009", "6") == []
