@@ -25,8 +25,10 @@ from lawgraph.api.routes import (
     government,
     instruments,
     judgments,
+    lookup,
     nodes,
     parliament,
+    paths,
     relationships,
     resolve,
     search,
@@ -269,6 +271,8 @@ for _name, _router in (
     ("decisions", decisions.router),
     ("parliament", parliament.router),
     ("feed", feed.router),
+    ("paths", paths.router),
+    ("lookup", lookup.router),
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])

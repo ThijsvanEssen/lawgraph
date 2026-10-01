@@ -91,6 +91,7 @@ def _client(
         lambda store, document_id: {"dossier_numbers": [], "explains": []},
     )
     monkeypatch.setattr(f"{_ROUTES}.get_document_passages", get_document_passages)
+    monkeypatch.setattr(f"{_ROUTES}.get_document_decisions", lambda store, _id: [])
     return TestClient(app), asked
 
 

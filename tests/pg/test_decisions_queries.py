@@ -15,6 +15,7 @@ from lawgraph.db.queries.decisions import (
     get_decision_detail,
     get_decision_document,
     get_decisions,
+    get_document_decisions,
 )
 
 
@@ -384,3 +385,103 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
         "labels": [],
         "props": {"date": "2020-01-01", "title": "Oud"},
     }
+
+
+def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
+    # cases keyed as normalize keys them (make_node_key of the Zaak id); a motion (its own
+    # case), a bill with a later paper of the same case, and a case
+    # the decision does not name (another motion on the same agenda item)
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [
+            {"_key": k, "type": "case", "labels": [], "props": {"external_id": e}}
+            for k, e in (("z_m", "Z-M"), ("z_b", "Z-B"), ("z_o", "Z-O"))
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {"_key": k, "type": "document", "labels": [], "props": p}
+            for k, p in (
+                ("motie", {"date": "2026-09-01", "kind": "Motie"}),
+                ("wet", {"date": "2026-01-01", "kind": "Voorstel van wet"}),
+                ("nota", {"date": "2026-03-01", "kind": "Nota naar aanleiding"}),
+                ("andere", {"date": "2026-09-01", "kind": "Motie"}),
+            )
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node("s_motie", date="2026-09-08", primary_case_id="Z-M", passed=True),
+            _node("s_wet_1", date="2026-06-02", primary_case_id="Z-B", passed=True),
+            _node("s_wet_0", date="2026-06-01", primary_case_id="Z-B", passed=False),
+            # about both motions, naming the other one
+            _node("s_andere", date="2026-09-08", primary_case_id="Z-O"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            {
+                "_key": "vvd",
+                "type": "faction",
+                "labels": [],
+                "props": {"abbreviation": "VVD"},
+            }
+        ],
+    )
+
+    def about(key: str, decision: str, case: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "_from": f"decisions/{decision}",
+            "_to": f"cases/{case}",
+            "relation": "ABOUT",
+            "source": "test",
+        }
+
+    store.bulk_insert_or_update_edges(
+        [
+            _part_of("p1", "motie", "z_m"),
+            _part_of("p2", "wet", "z_b"),
+            _part_of("p3", "nota", "z_b"),
+            _part_of("p4", "andere", "z_o"),
+            about("a1", "s_motie", "z_m"),
+            about("a2", "s_wet_1", "z_b"),
+            about("a3", "s_wet_0", "z_b"),
+            about("a4", "s_andere", "z_m"),
+            about("a5", "s_andere", "z_o"),
+            _vote("v1", "factions/vvd", "s_motie", choice="Voor", seats=24),
+        ]
+    )
+
+    def keys(document: str) -> list[str]:
+        return [
+            d["_key"] for d in get_document_decisions(store, f"documents/{document}")
+        ]
+
+    assert keys("motie") == ["s_motie"]
+    assert keys("andere") == ["s_andere"]
+    # the bill carries the votes on it, oldest first; a later paper of its case none
+    assert keys("wet") == ["s_wet_0", "s_wet_1"]
+    assert keys("nota") == []
+    assert keys("missing") == []
+    # a decision whose named case has no document takes the first of its other cases
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(
+                "s_leeg",
+                date="2026-09-09",
+                primary_case_id="Z-LEEG",
+                case_ids=["Z-LEEG", "Z-O"],
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges([about("a6", "s_leeg", "z_o")])
+    assert keys("andere") == ["s_andere", "s_leeg"]
+    # with how each faction voted, as the decision detail gives it
+    (motion,) = get_document_decisions(store, "documents/motie")
+    assert motion["votes"][0]["voter_key"] == "vvd"
+    assert motion["votes"][0]["choice"] == "Voor"

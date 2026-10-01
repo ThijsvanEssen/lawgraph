@@ -64,6 +64,8 @@ class InstrumentProps(_CommonProps):
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # a publication (``core.bwb_xml.publication_props``): its id at officielebekendmakingen.nl
+    official_id: str | None = None
     # the abbreviation it is cited by (``core.aliases.abbreviation_of``): EVRM, AVG
     abbreviation: str | None = None
     # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms

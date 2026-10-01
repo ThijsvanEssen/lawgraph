@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
+    RELATION_ABOUT,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
@@ -314,3 +315,87 @@ def get_decision_document(
     )
     row = next(rows, None)
     return node_doc(row) if row else None
+
+
+def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str, Any]]:
+    """The decisions taken on a document (the votes on a motion, an amendment, a bill),
+    oldest first, each with its votes as ``get_decision_detail`` gives them.
+
+    The reverse of ``get_decision_document``: a decision is ABOUT the cases of an agenda
+    item and names one of them (``primary_case_id``); the document it was taken on is the
+    oldest document PART_OF that case (the key settles a tie). So a paper of a bill that is
+    not the bill itself carries none of the votes on the bill. A decision whose named case
+    has no document takes the first document of its other cases, as
+    ``get_decision_document`` finds it: such a decision is asked that.
+    """
+    # the decisions about a case of which this document is the oldest
+    rows = list(
+        store.query(
+            f"""
+            WITH own AS (
+                SELECT d.id, d.date, d.key
+                FROM {COLLECTION_DOCUMENTS} d
+                WHERE d.id = %(id)s
+            ),
+            own_cases AS (
+                SELECT p.to_id AS id
+                FROM edges p
+                CROSS JOIN own
+                WHERE p.from_id = own.id AND p.relation = %(part_of)s
+                  AND p.to_collection = '{COLLECTION_CASES}'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM edges o
+                      JOIN {COLLECTION_DOCUMENTS} od ON od.id = o.from_id
+                      WHERE o.to_id = p.to_id AND o.relation = %(part_of)s
+                        AND od.id <> own.id
+                        AND (
+                            (od.date IS NULL AND own.date IS NOT NULL)
+                            OR od.date < own.date
+                            OR (od.date IS NOT DISTINCT FROM own.date
+                                AND od.key < own.key)
+                        )
+                  )
+            )
+            SELECT dec.key, any_value(dec.props) AS props,
+                   array_agg(a.to_id ORDER BY a.to_id) AS cases
+            FROM own_cases
+            JOIN edges a ON a.to_id = own_cases.id AND a.relation = %(about)s
+            JOIN decisions dec ON dec.id = a.from_id
+            GROUP BY dec.id, dec.key, dec.date
+            ORDER BY dec.date ASC NULLS FIRST, dec.key ASC
+            """,
+            {"id": document_id, "part_of": RELATION_PART_OF, "about": RELATION_ABOUT},
+        )
+    )
+    named = {
+        row["key"]: f"{COLLECTION_CASES}/{make_node_key(str(primary))}"
+        for row in rows
+        if (primary := (row["props"] or {}).get("primary_case_id"))
+    }
+    # the named cases that have a document: a decision naming one of them was taken on
+    # that document, here when it is one of this document's cases
+    with_document = set(
+        store.query(
+            f"""
+            SELECT DISTINCT e.to_id
+            FROM edges e
+            JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+            WHERE e.to_id = ANY(%(cases)s) AND e.relation = %(part_of)s
+            """,
+            {"cases": sorted(set(named.values())), "part_of": RELATION_PART_OF},
+        )
+    )
+    keys = [
+        row["key"]
+        for row in rows
+        if (
+            named.get(row["key"]) in row["cases"]
+            if named.get(row["key"]) in with_document
+            else (get_decision_document(store, {"props": row["props"]}) or {}).get(
+                "_id"
+            )
+            == document_id
+        )
+    ]
+    return [d for key in keys if (d := get_decision_detail(store, key)) is not None]
