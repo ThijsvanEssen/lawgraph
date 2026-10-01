@@ -527,7 +527,7 @@ _DATE_KEYS = f"""CASE WHEN d.date IS NULL THEN {_type_rank("d.props -> 'date'")}
 
 # Newest first, the key settling a day.
 _DOSSIER_DOCUMENT_ORDER = (
-    "d.date_rank DESC, d.date DESC NULLS LAST, d.date_num DESC NULLS LAST,"
+    "d.date_rank DESC NULLS LAST, d.date DESC NULLS LAST, d.date_num DESC NULLS LAST,"
     " d.date_bool DESC NULLS LAST, d.key ASC"
 )
 
@@ -683,7 +683,7 @@ SELECT
     ) AS committees,
     (
         SELECT coalesce(json_object_agg(k.kind_text, k.total ORDER BY
-            k.kind_rank ASC, k.kind_num ASC NULLS FIRST, k.kind_text ASC NULLS FIRST
+            k.kind_rank ASC NULLS FIRST, k.kind_num ASC NULLS FIRST, k.kind_text ASC NULLS FIRST
         ), '{{}}'::json)
         FROM (
             SELECT d.kind_rank, d.kind_num, d.kind_text, count(*)::int AS total
@@ -699,7 +699,7 @@ SELECT
                 SELECT f.date_value
                 FROM docs f
                 WHERE '{CHAMBER_EK}' = ANY(f.labels) AND f.date_rank > 0
-                ORDER BY f.date_rank ASC, f.date ASC NULLS FIRST,
+                ORDER BY f.date_rank ASC NULLS FIRST, f.date ASC NULLS FIRST,
                          f.date_num ASC NULLS FIRST, f.date_bool ASC NULLS FIRST
                 LIMIT 1
             )
@@ -899,7 +899,7 @@ def get_dossier_relations(store: ArangoStore, dossier_id: str) -> list[dict[str,
           AND e.from_collection = '{COLLECTION_DOSSIERS}'
     ) r
     JOIN {COLLECTION_DOSSIERS} d ON d.id = r.other
-    ORDER BY r.side, r.edge_key ASC
+    ORDER BY r.side ASC NULLS FIRST, r.edge_key ASC
     """
     bind = {"dossier_id": dossier_id, "relations": list(DOSSIER_RELATIONS)}
     rows = [
