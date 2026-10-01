@@ -180,7 +180,8 @@ class JudgmentFilters:
     """What ``GET /api/judgments`` narrows the judgments to; None is no filter.
 
     *subject* is one of ``props.subjects`` as the source writes it: ``Strafrecht``,
-    ``Bestuursrecht; Belastingrecht``.
+    ``Bestuursrecht; Belastingrecht``. *procedure* is the procedure (psi:procedure) as the
+    source writes it: ``Hoger beroep``, ``Cassatie``.
     """
 
     q: str | None = None
@@ -189,6 +190,7 @@ class JudgmentFilters:
     court_kind: str | None = None
     source: str | None = None
     subject: str | None = None
+    procedure: str | None = None
     date_from: str | None = None
     date_to: str | None = None
     cited_by_min: int | None = None
@@ -204,6 +206,8 @@ _TIER_FILTERS = frozenset({"tier", "court_kind"})
 _COURT_KIND_FILTERS = frozenset({"court_kind"})
 _SOURCE_FILTERS = frozenset({"source"})
 _YEAR_FILTERS = frozenset({"from", "to"})
+_SUBJECT_FILTERS = frozenset({"subject"})
+_PROCEDURE_FILTERS = frozenset({"procedure"})
 
 # filter -> its condition on the judgment ``j``. Each is served by an index on its column;
 # a value of another type than the column holds (a date that is not a string) matches
@@ -220,6 +224,7 @@ _CLAUSES: dict[str, str] = {
     "court_kind": "j.court_kind = %(court_kind)s",
     "source": "j.source = %(source)s",
     "subject": "j.subjects @> ARRAY[%(subject)s]::text[]",
+    "procedure": "j.procedure = %(procedure)s",
     "from": "j.date_eff >= %(from)s",
     "to": "j.date_eff <= %(to)s",
     "cited_by_min": "j.inbound_citation_count >= %(cited_by_min)s",
@@ -236,6 +241,7 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "court_kind": ("court_kind", filters.court_kind),
         "source": ("source", filters.source),
         "subject": ("subject", filters.subject),
+        "procedure": ("procedure", filters.procedure),
         "from": ("from", filters.date_from),
         "to": ("to", filters.date_to),
     }
@@ -289,13 +295,18 @@ _ITEM = """json_build_object(
 )"""
 
 
-# facet -> the value it counts and the filters it leaves out.
+# facet -> the value it counts and the filters it leaves out. A judgment counts once for
+# each of its areas of law (``subjects``).
 _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "tier": ("j.tier", _TIER_FILTERS),
     "court_kind": ("j.court_kind", _COURT_KIND_FILTERS),
     "source": ("j.source", _SOURCE_FILTERS),
     "year": ("substr(j.date_eff, 1, 4)", _YEAR_FILTERS),
+    "subjects": ("s.value", _SUBJECT_FILTERS),
+    "procedure": ("j.procedure", _PROCEDURE_FILTERS),
 }
+# what a facet reads besides the judgment
+_FACET_JOINS = {"subjects": "CROSS JOIN LATERAL unnest(j.subjects) AS s(value)"}
 
 
 def get_judgments_list(
@@ -317,8 +328,10 @@ def get_judgments_list(
         replaced publications. The frontend uses ``has_more`` for paging.
       * ``facets`` counts per ``tier`` (without the tier and court_kind filters), per
         ``court_kind`` (without the court_kind filter), per ``source`` (without the
-        source filter) and per year of ``date_eff`` (without ``from`` and ``to``); the
-        values by count, most first, then by value; the years by year.
+        source filter), per year of ``date_eff`` (without ``from`` and ``to``), per area of
+        law (``subjects``, without the ``subject`` filter; a judgment counts for each of
+        its areas) and per ``procedure`` (without its filter); the values by count, most
+        first, then by value; the years by year.
     """
     from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 
@@ -365,11 +378,12 @@ def get_judgments_list(
     def facet(name: str) -> Callable[[], list[Any]]:
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
+        join = _FACET_JOINS.get(name, "")
         return lambda: list(
             store.query(
                 f"""
                 SELECT {value} AS value, count(*)::int AS count
-                FROM judgments j {where(leave_out)}
+                FROM judgments j {join} {where(leave_out)}
                 GROUP BY 1
                 ORDER BY {by_count}value NULLS FIRST
                 """,

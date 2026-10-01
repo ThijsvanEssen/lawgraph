@@ -488,6 +488,18 @@ class JudgmentFacets(BaseModel):
         description="Per year of `date` (`2024`), oldest first after null (no date); "
         "counted without `from` and `to`.",
     )
+    subjects: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per area of law, as the source writes it (`Strafrecht`, "
+        "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
+        "areas; counted without the `subject` filter.",
+    )
+    procedure: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per procedure (Rechtspraak `psi:procedure`, as written: `Hoger "
+        "beroep`, `Cassatie`; null when it gives none), most first; counted without the "
+        "`procedure` filter.",
+    )
 
 
 class JudgmentListResponse(BaseModel):

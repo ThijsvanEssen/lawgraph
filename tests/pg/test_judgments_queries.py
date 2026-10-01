@@ -59,6 +59,7 @@ def corpus(store: GraphStore) -> GraphStore:
                 court_code="HR",
                 source="rechtspraak",
                 subjects=["Civiel recht"],
+                judgment_metadata={"type": "Cassatie", "court": "Hoge Raad"},
                 inbound_citation_count=5,
                 outbound_citation_count=2,
                 series_id="s1",
@@ -74,6 +75,7 @@ def corpus(store: GraphStore) -> GraphStore:
                 court_code="HR",
                 source="rechtspraak",
                 subjects=["Civiel recht", "Strafrecht"],
+                judgment_metadata={"type": "Cassatie"},
                 inbound_citation_count=9,
                 series_id="s1",
             ),
@@ -87,6 +89,7 @@ def corpus(store: GraphStore) -> GraphStore:
                 court_code="RBAMS",
                 source="rechtspraak",
                 subjects=["Strafrecht"],
+                judgment_metadata={"type": "Eerste aanleg - meervoudig"},
                 case_number_keys=["18/04298", "c/19/117301"],
             ),
             _judgment(STUB, ecli=STUB, stub=True),
@@ -148,7 +151,14 @@ def test_the_facets_by_count_then_value_and_the_years_by_year(
     corpus: GraphStore,
 ) -> None:
     facets = get_judgments_list(corpus)["facets"]
-    assert list(facets) == ["tier", "court_kind", "source", "year"]
+    assert list(facets) == [
+        "tier",
+        "court_kind",
+        "source",
+        "year",
+        "subjects",
+        "procedure",
+    ]
     assert facets["tier"] == [
         {"value": "hoogste", "count": 2},
         {"value": "ehrm", "count": 1},
@@ -250,7 +260,14 @@ def test_an_empty_table(store: GraphStore) -> None:
     assert get_judgments_list(store) == {
         "total": 0,
         "items": [],
-        "facets": {"tier": [], "court_kind": [], "source": [], "year": []},
+        "facets": {
+            "tier": [],
+            "court_kind": [],
+            "source": [],
+            "year": [],
+            "subjects": [],
+            "procedure": [],
+        },
     }
 
 
@@ -395,3 +412,37 @@ def test_the_series_by_ecli_number(detail: GraphStore) -> None:
 def test_an_unknown_judgment(detail: GraphStore) -> None:
     with pytest.raises(ValueError, match="judgment not found"):
         judgment_queries.get_judgment_with_relations(detail, "ECLI:NL:XX:0000:0")
+
+
+def test_the_areas_of_law_and_the_procedures_are_counted_and_filtered(
+    corpus: GraphStore,
+) -> None:
+    """BE-44: a judgment counts for each of its areas of law; the procedure is the
+    ``psi:procedure`` of its metadata as written; each facet leaves its own filter out."""
+    facets = get_judgments_list(corpus)["facets"]
+    assert facets["subjects"] == [
+        {"value": "Civiel recht", "count": 2},
+        {"value": "Strafrecht", "count": 2},
+    ]
+    assert facets["procedure"] == [
+        {"value": "Cassatie", "count": 2},
+        {"value": None, "count": 1},  # the ECHR decision: no metadata
+        {"value": "Eerste aanleg - meervoudig", "count": 1},
+    ]
+    cassatie = get_judgments_list(corpus, JudgmentFilters(procedure="Cassatie"))
+    assert _ids(cassatie) == [_jid(HR10), _jid(HR1)]
+    assert [f["value"] for f in cassatie["facets"]["procedure"]][:1] == ["Cassatie"]
+    assert len(cassatie["facets"]["procedure"]) == 3  # without its own filter
+    assert cassatie["facets"]["subjects"] == [
+        {"value": "Civiel recht", "count": 2},
+        {"value": "Strafrecht", "count": 1},
+    ]
+    straf = get_judgments_list(corpus, JudgmentFilters(subject="Strafrecht"))
+    assert {f["value"] for f in straf["facets"]["subjects"]} == {
+        "Civiel recht",
+        "Strafrecht",
+    }
+    assert straf["facets"]["procedure"] == [
+        {"value": "Cassatie", "count": 1},
+        {"value": "Eerste aanleg - meervoudig", "count": 1},
+    ]
