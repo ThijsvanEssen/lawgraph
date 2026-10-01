@@ -101,10 +101,11 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     END
 $$;
 
--- A value without the attributes that are null, at every depth, objects inside arrays too;
--- an array keeps its elements, null ones included. What AQL compares: an object with an
--- attribute set to null equals one without it (``jsonb_strip_nulls`` with ``strip_in_arrays``
--- would drop the null elements of an array as well, which AQL does not).
+-- A value without the attributes that are null, at every depth, objects inside arrays too,
+-- and without the nulls an array ends in. What AQL compares: an object with an attribute set
+-- to null equals one without it, and an array compares position by position with what the
+-- shorter one lacks as null (``[1] == [1, null]``); a null between elements stays
+-- (``jsonb_strip_nulls`` with ``strip_in_arrays`` would drop those as well).
 CREATE OR REPLACE FUNCTION lg_strip_nulls(v jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
 DECLARE
@@ -127,6 +128,9 @@ BEGIN
             IF jsonb_typeof(value) IN ('object', 'array') THEN
                 stripped := jsonb_set(stripped, ARRAY[n::text], lg_strip_nulls(value));
             END IF;
+        END LOOP;
+        WHILE jsonb_typeof(stripped -> -1) = 'null' LOOP
+            stripped := stripped - -1;
         END LOOP;
     END IF;
     RETURN stripped;

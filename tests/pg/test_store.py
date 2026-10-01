@@ -121,9 +121,15 @@ def test_an_update_that_only_adds_nulls_is_not_written(store: ArangoStore) -> No
     store.bulk_insert_or_update_nodes("dossiers", [_node("2", **nested)])
     same = {"a": {"b": 1, "x": None}, "list": [{"c": 1, "x": None}]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **same)]) == (0, 0)
-    # ... a null element of an array is not
-    longer = {"list": [{"c": 1}, None]}
-    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **longer)]) == (
+    # ... and so is a null an array ends in (AQL compares what the shorter lacks as null),
+    # but not one before an element
+    ending = {"list": [{"c": 1}, None]}
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **ending)]) == (
+        0,
+        0,
+    )
+    before = {"list": [None, {"c": 1}]}
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **before)]) == (
         0,
         1,
     )

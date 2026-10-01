@@ -75,12 +75,15 @@ def test_merge_keeps_the_order_arangodb_gives(conn: psycopg.Connection) -> None:
 
 def test_same_is_the_equality_of_aql(conn: psycopg.Connection) -> None:
     """An attribute set to null equals a missing one, at every depth and in an object inside
-    an array; a null element of an array is an element."""
+    an array; an array compares position by position, what the shorter lacks as null."""
     cases = [
         ('{"a": 1}', '{"a": 1, "b": null}', True),
         ('{"a": {"b": 1}}', '{"a": {"b": 1, "c": null}}', True),
         ('{"l": [{"c": 1}]}', '{"l": [{"c": 1, "x": null}]}', True),
-        ('{"l": [1]}', '{"l": [1, null]}', False),
+        ('{"l": [1]}', '{"l": [1, null]}', True),
+        ("[]", "[null]", True),
+        ('{"l": [1, 2]}', '{"l": [1, null, 2]}', False),
+        ('{"l": [[1]]}', '{"l": [[1, null], null]}', True),
         ('{"a": 1}', '{"a": 2}', False),
         ('{"a": 1}', '{"a": null}', False),
         ("null", "{}", False),
