@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import ArangoStore
+from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._helpers import (
     _coerce_float,
     _coerce_int,
@@ -36,8 +37,8 @@ from lawgraph.db.queries._helpers import (
     _extract_span,
     _find_instrument_for_article,
     _find_judgments_for_article,
-    _load_document_by_ref,
     _resolve_target_from_entry,
+    run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 
@@ -106,14 +107,18 @@ def get_article_with_relations(
 ) -> ArticleDetailData:
     """Fetch an article with its parent instrument and the judgments citing it."""
     article_key = make_node_key(bwb_id, article_number)
-    article_doc = store.articles.get(article_key)
+    article_doc = store.get_document(COLLECTION_ARTICLES, article_key)
     article_doc = _ensure_doc(article_doc)
     if article_doc is None:
         raise ValueError("article not found")
 
     article_id = article_doc["_id"]
-    instrument_doc = _find_instrument_for_article(store, article_id)
-    judgments = _find_judgments_for_article(store, article_id)
+    found = run_together(
+        lambda: _find_instrument_for_article(store, article_id),
+        lambda: _find_judgments_for_article(store, article_id),
+    )
+    instrument_doc = cast("dict[str, Any] | None", found[0])
+    judgments = cast("list[dict[str, Any]]", found[1])
 
     metadata = {"judgment_count": len(judgments)}
     return ArticleDetailData(
@@ -127,11 +132,11 @@ def get_article_with_relations(
 def _version_identity(
     article: dict[str, Any], bwb_id: str, article_number: str
 ) -> tuple[str, dict[str, Any]]:
-    """The AQL filter on ``v`` (an ArticleVersion) that selects the versions of *article*,
-    and its bind variables.
+    """The SQL condition on ``v`` (an ArticleVersion) that selects the versions of
+    *article*, and its parameters.
 
     The identity of an article inside its regulation is ``(bwb_id, stam_id)``; an article
-    without a ``stam_id`` is matched on ``(bwb_id, article_number)``. Both filters are
+    without a ``stam_id`` is matched on ``(bwb_id, article_number)``. Both conditions are
     served by an index on ``article_versions``.
     """
     props = article.get("props") or {}
@@ -139,9 +144,9 @@ def _version_identity(
     stam_id = props.get("stam_id")
     if stam_id:
         bind["identity"] = stam_id
-        return "FILTER v.props.stam_id == @identity", bind
+        return "v.bwb_id = %(bwb_id)s AND v.stam_id = %(identity)s", bind
     bind["identity"] = props.get("article_number") or article_number
-    return "FILTER v.props.article_number == @identity", bind
+    return "v.bwb_id = %(bwb_id)s AND v.article_number = %(identity)s", bind
 
 
 def get_article_history(
@@ -158,19 +163,21 @@ def get_article_history(
     independent of the number of versions.
     """
     article_key = make_node_key(bwb_id, article_number)
-    article = _ensure_doc(store.articles.get(article_key))
+    article = _ensure_doc(store.get_document(COLLECTION_ARTICLES, article_key))
     if article is None:
         raise ValueError("article not found")
 
-    identity_filter, bind = _version_identity(article, bwb_id, article_number)
-    aql = f"""
-    FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-        FILTER v.props.bwb_id == @bwb_id
-        {identity_filter}
-        SORT v.props.valid_from ASC, v._key ASC
-        RETURN v
-    """
-    versions = list(store.query(aql, bind))
+    identity, bind = _version_identity(article, bwb_id, article_number)
+    rows = store.query(
+        f"""
+        SELECT v.id, v.key, v.type, v.labels, v.props
+        FROM {COLLECTION_ARTICLE_VERSIONS} v
+        WHERE {identity}
+        ORDER BY v.valid_from NULLS FIRST, v.key
+        """,
+        bind,
+    )
+    versions = [node_doc(row) for row in rows]
 
     publications = [
         (v.get("props") or {}).get(field)
@@ -179,6 +186,16 @@ def get_article_history(
     ]
     titles = get_dossier_titles(store, collect_dossier_numbers(publications))
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
+
+
+def _json_order(value: str) -> str:
+    """ORDER BY terms that sort the json *value* as ArangoDB sorts any value: null (or
+    missing), then booleans, numbers, strings, arrays and objects."""
+    return (
+        f"CASE json_typeof({value}) WHEN 'boolean' THEN 1 WHEN 'number' THEN 2"
+        f" WHEN 'string' THEN 3 WHEN 'array' THEN 4 WHEN 'object' THEN 5 ELSE 0 END,"
+        f" lg_bool({value}), lg_num({value}), lg_str({value})"
+    )
 
 
 def get_article_citations(
@@ -195,20 +212,21 @@ def get_article_citations(
     citations: list[ArticleCitationEntry] = []
     seen: set[tuple[str, int | None, int | None, str | None]] = set()
 
-    aql = f"""
-    FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._from == @article_id
-        FILTER edge.relation == @relation
-        // In text order; the key settles which of two equal spans is kept.
-        SORT edge.meta.start, edge._key
-        RETURN edge
-    """
-    for edge in store.query(
-        aql, {"article_id": article_id, "relation": RELATION_REFERS_TO}
-    ):
-        target_doc = _load_document_by_ref(store, edge.get("_to"))
-        if not target_doc:
-            continue
+    # In text order; the key settles which of two equal spans is kept. An edge to a node
+    # that is not there is skipped.
+    rows = store.query(
+        f"""
+        SELECT e.key, e.from_id, e.to_id, e.doc,
+               n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
+        FROM {COLLECTION_EDGES} e JOIN nodes n ON n.id = e.to_id
+        WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+        ORDER BY {_json_order("e.doc -> 'meta' -> 'start'")}, e.key
+        """,
+        {"article_id": article_id, "relation": RELATION_REFERS_TO},
+    )
+    for row in rows:
+        edge = edge_doc(row)
+        target_doc = node_doc({**row, "id": row["node_id"], "key": row["node_key"]})
         start, end, text = _extract_span(edge)
         confidence = _extract_confidence(edge)
         qualifier, reference_kind = _extract_qualifier(edge)
@@ -230,18 +248,68 @@ def get_article_citations(
         for entry in raw_citations:
             if not isinstance(entry, dict):
                 continue
-            target_doc = _resolve_target_from_entry(store, entry)
-            if not target_doc:
+            target = _resolve_target_from_entry(store, entry)
+            if not target:
                 continue
             start = _coerce_int(entry.get("start"))
             end = _coerce_int(entry.get("end"))
             text = _coerce_text(entry.get("text"))
             confidence = _coerce_float(entry.get("confidence"))
             _record_article_citation(
-                citations, seen, target_doc, start, end, text, confidence
+                citations, seen, target, start, end, text, confidence
             )
 
     return citations
+
+
+def _not_null(*values: str) -> str:
+    """``NOT_NULL(a, b, ...)`` of json values: the first that is neither missing nor a
+    json null."""
+    cases = ", ".join(
+        f"CASE WHEN json_typeof({v}) <> 'null' THEN {v} END" for v in values
+    )
+    return f"coalesce({cases})"
+
+
+# The key of a dossier from its id (``PARSE_IDENTIFIER(id).key``).
+_DOSSIER_KEY_FROM = len(COLLECTION_DOSSIERS) + 2
+
+_CHANGES_SQL = f"""
+SELECT
+    ARRAY(
+        SELECT k FROM (
+            SELECT substr(e2.to_id, {_DOSSIER_KEY_FROM}) AS k
+            FROM {COLLECTION_EDGES} e2
+            WHERE e2.from_id = e.from_id
+              AND e2.relation = ANY(%(direct)s)
+              AND e2.to_collection = '{COLLECTION_DOSSIERS}'
+            UNION
+            SELECT substr(e3.to_id, {_DOSSIER_KEY_FROM})
+            FROM {COLLECTION_EDGES} e2
+            JOIN {COLLECTION_EDGES} e3
+              ON e3.from_id = e2.to_id AND e3.relation = %(part_of)s
+             AND e3.to_collection = '{COLLECTION_DOSSIERS}'
+            WHERE e2.from_id = e.from_id
+              AND e2.relation = %(part_of)s
+              AND e2.to_collection = '{COLLECTION_CASES}'
+        ) dossier_keys
+        ORDER BY k
+    ) AS dossier_keys,
+    CASE WHEN s.collection = '{COLLECTION_INSTRUMENTS}'
+        THEN s.props -> 'dossier_numbers' END AS numbers,
+    {_not_null("s.props -> 'date'", "s.props -> 'date_published'", "s.props -> 'date_signed'")}
+        AS date,
+    {_not_null("s.props -> 'kind'", "s.props -> 'publication_kind'")} AS kind,
+    lower(e.relation) AS change,
+    e.doc -> 'status' AS status,
+    s.props -> 'display_name' AS summary,
+    s.id AS document_id
+FROM {COLLECTION_EDGES} e
+JOIN nodes s ON s.id = e.from_id
+WHERE e.to_id = %(article_id)s AND e.relation = ANY(%(changes)s)
+-- The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
+ORDER BY e.key
+"""
 
 
 def get_article_legislative_history(
@@ -267,74 +335,40 @@ def get_article_legislative_history(
     if article_id is None:
         article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
 
-    aql = f"""
-    FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._to == @article_id
-        FILTER edge.relation IN @changes
-        // The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
-        SORT edge._key
-        LET source = DOCUMENT(edge._from)
-        FILTER source != null
-        LET direct = (
-            FOR e2 IN {COLLECTION_EDGES}
-                FILTER e2._from == edge._from
-                FILTER e2.relation IN [@part_of, @legislated_in]
-                FILTER STARTS_WITH(e2._to, '{COLLECTION_DOSSIERS}/')
-                RETURN PARSE_IDENTIFIER(e2._to).key
-        )
-        LET through_case = (
-            FOR e2 IN {COLLECTION_EDGES}
-                FILTER e2._from == edge._from AND e2.relation == @part_of
-                FILTER STARTS_WITH(e2._to, '{COLLECTION_CASES}/')
-                FOR e3 IN {COLLECTION_EDGES}
-                    FILTER e3._from == e2._to AND e3.relation == @part_of
-                    FILTER STARTS_WITH(e3._to, '{COLLECTION_DOSSIERS}/')
-                    RETURN PARSE_IDENTIFIER(e3._to).key
-        )
-        RETURN {{
-            dossier_keys: SORTED(UNION_DISTINCT(direct, through_case)),
-            numbers: IS_SAME_COLLECTION('{COLLECTION_INSTRUMENTS}', source)
-                ? (source.props.dossier_numbers OR []) : [],
-            date: NOT_NULL(
-                source.props.date, source.props.date_published, source.props.date_signed
-            ),
-            kind: NOT_NULL(source.props.kind, source.props.publication_kind),
-            change: LOWER(edge.relation),
-            status: edge.status,
-            summary: source.props.display_name,
-            document_id: source._id
-        }}
-    """
     changes = list(
         store.query(
-            aql,
+            _CHANGES_SQL,
             {
                 "article_id": article_id,
                 "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+                "direct": [RELATION_PART_OF, RELATION_LEGISLATED_IN],
                 "part_of": RELATION_PART_OF,
-                "legislated_in": RELATION_LEGISLATED_IN,
             },
         )
     )
     # A number names the dossier whose key it makes; one lookup for every dossier.
     for change in changes:
-        change["numbers"] = {make_node_key(n): n for n in change["numbers"]}
+        change["numbers"] = {make_node_key(n): n for n in change["numbers"] or []}
         change["dossier_keys"] += [
             key for key in change["numbers"] if key not in change["dossier_keys"]
         ]
     keys = sorted({k for change in changes for k in change["dossier_keys"]})
-    dossiers = {
-        row["key"]: row
-        for row in store.query(
-            f"""
-            FOR key IN @keys
-                LET d = DOCUMENT('{COLLECTION_DOSSIERS}', key)
-                FILTER d != null
-                RETURN {{key, id: d._id, label: d.props.label, title: d.props.title}}
-            """,
-            {"keys": keys},
-        )
-    }
+    dossiers = (
+        {
+            row["key"]: row
+            for row in store.query(
+                f"""
+                SELECT key, id, props -> 'label' AS label, props -> 'title' AS title
+                FROM {COLLECTION_DOSSIERS}
+                WHERE key = ANY(%(keys)s)
+                ORDER BY key
+                """,
+                {"keys": keys},
+            )
+        }
+        if keys
+        else {}
+    )
     entries = []
     for change in changes:
         numbers = change.pop("numbers")
@@ -352,6 +386,75 @@ def get_article_legislative_history(
     entries.sort(key=lambda e: e["date"] or "", reverse=True)
     entries.sort(key=lambda e: e["status"] != EDGE_STATUS_VOORGESTELD)
     return entries
+
+
+# The explanations of an article. ``found``: an EXPLAINS edge from a document to the
+# article (rank 1) or one of its versions (rank 0); ``picked``: per document and section
+# anchor the edge that says most (a version before the article, the newest version
+# first); ``ranked``: the order of the answer, newest document first.
+_EXPLANATIONS_SQL = f"""
+WITH targets AS (
+    SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
+    UNION ALL
+    SELECT v.id, 0, v.valid_from
+    FROM {COLLECTION_ARTICLE_VERSIONS} v
+    WHERE {{identity}}
+),
+found AS (
+    SELECT d.id AS document_id, d.key, d.date, t.rank, t.valid_from,
+           t.id AS target_id, e.doc -> 'confidence' AS confidence,
+           -- a missing anchor and a json null are one group, as in a COLLECT
+           nullif((e.doc -> 'meta' -> 'section_anchor')::jsonb, 'null'::jsonb)
+               AS section_anchor
+    FROM targets t
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = t.id AND e.relation = %(explains)s
+     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+),
+picked AS (
+    SELECT DISTINCT ON (document_id, section_anchor) *
+    FROM found
+    ORDER BY document_id, section_anchor, rank,
+             valid_from DESC NULLS LAST, target_id
+),
+ranked AS (
+    SELECT p.*, row_number() OVER (
+        ORDER BY p.date DESC NULLS LAST, p.key NULLS FIRST,
+                 lg_str(p.section_anchor::json) NULLS FIRST
+    ) AS n
+    FROM picked p
+)
+SELECT
+    (SELECT count(*)::int FROM picked) AS total,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'document_id', r.document_id,
+            'key', r.key,
+            -- columns where there are, so the props (the whole text) are read once
+            'kind', to_json(d.kind),
+            'title', d.props -> 'title',
+            'date', to_json(d.date),
+            'source', to_json(d.source),
+            'labels', to_json(d.labels),
+            'dossier_number', (
+                SELECT ds.label
+                FROM {COLLECTION_EDGES} e
+                JOIN {COLLECTION_DOSSIERS} ds ON ds.id = e.to_id
+                WHERE e.from_id = r.document_id AND e.relation = %(part_of)s
+                  AND e.to_collection = '{COLLECTION_DOSSIERS}'
+                  AND ds.label IS NOT NULL
+                ORDER BY ds.label
+                LIMIT 1
+            ),
+            'target_id', r.target_id,
+            'confidence', r.confidence,
+            'section_anchor', r.section_anchor
+        ) ORDER BY r.n), '[]'::json)
+        FROM ranked r JOIN {COLLECTION_DOCUMENTS} d ON d.id = r.document_id
+        WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
+    ) AS items
+"""
 
 
 def get_article_explanations(
@@ -373,84 +476,16 @@ def get_article_explanations(
     apart from those that do not.
 
     An unknown article has no explanations: the answer is empty. Query budget: one
-    lookup of the article and one query, driven by the ``(_to, relation)`` index of
+    lookup of the article and one query, driven by the ``(to_id, relation)`` index of
     the edges, that reads the documents of the page only.
     """
-    article = _ensure_doc(store.articles.get(make_node_key(bwb_id, article_number)))
+    article = _ensure_doc(
+        store.get_document(COLLECTION_ARTICLES, make_node_key(bwb_id, article_number))
+    )
     if article is None:
         return {"total": 0, "items": []}
 
-    identity_filter, bind = _version_identity(article, bwb_id, article_number)
-    aql = f"""
-    LET targets = UNION(
-        [{{ id: @article_id, rank: 1, valid_from: null }}],
-        (
-            FOR v IN {COLLECTION_ARTICLE_VERSIONS}
-                FILTER v.props.bwb_id == @bwb_id
-                {identity_filter}
-                RETURN {{ id: v._id, rank: 0, valid_from: v.props.valid_from }}
-        )
-    )
-    LET found = (
-        FOR t IN targets
-            FOR e IN {COLLECTION_EDGES}
-                FILTER e._to == t.id AND e.relation == @explains
-                FILTER STARTS_WITH(e._from, '{COLLECTION_DOCUMENTS}/')
-                LET document = DOCUMENT(e._from)
-                FILTER document != null
-                RETURN {{
-                    document_id: document._id,
-                    key: document._key,
-                    date: document.props.date,
-                    rank: t.rank,
-                    valid_from: t.valid_from,
-                    target_id: t.id,
-                    confidence: e.confidence,
-                    section_anchor: e.meta.section_anchor
-                }}
-    )
-    LET picked = (
-        FOR f IN found
-            COLLECT document_id = f.document_id,
-                    section_anchor = f.section_anchor INTO grouped = f
-            RETURN FIRST(
-                FOR g IN grouped
-                    SORT g.rank ASC, g.valid_from DESC, g.target_id ASC
-                    LIMIT 1
-                    RETURN g
-            )
-    )
-    LET items = (
-        FOR p IN picked
-            SORT p.date DESC, p.key ASC, p.section_anchor ASC
-            LIMIT @offset, @limit
-            LET document = DOCUMENT(p.document_id)
-            LET dossier_number = FIRST(
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e._from == p.document_id AND e.relation == @part_of
-                    FILTER STARTS_WITH(e._to, '{COLLECTION_DOSSIERS}/')
-                    LET dossier = DOCUMENT(e._to)
-                    FILTER dossier != null AND dossier.props.label != null
-                    SORT dossier.props.label
-                    LIMIT 1
-                    RETURN dossier.props.label
-            )
-            RETURN {{
-                document_id: p.document_id,
-                key: p.key,
-                kind: document.props.kind,
-                title: document.props.title,
-                date: document.props.date,
-                source: document.props.source,
-                labels: document.labels,
-                dossier_number: dossier_number,
-                target_id: p.target_id,
-                confidence: p.confidence,
-                section_anchor: p.section_anchor
-            }}
-    )
-    RETURN {{ total: LENGTH(picked), items: items }}
-    """
+    identity, bind = _version_identity(article, bwb_id, article_number)
     bind.update(
         {
             "article_id": article["_id"],
@@ -460,7 +495,7 @@ def get_article_explanations(
             "offset": offset,
         }
     )
-    rows = list(store.query(aql, bind))
+    rows = list(store.query(_EXPLANATIONS_SQL.replace("{identity}", identity), bind))
     return rows[0] if rows else {"total": 0, "items": []}
 
 
@@ -472,6 +507,61 @@ class CitedBy:
     rows: list[dict[str, Any]]
     total: int
     judgment_total: int
+
+
+# ``hits``: per edge of a judgment to the article, one row per mention that passes the
+# filters, with only what sorts it; ``ranked``: their order, newest first; the mentions of
+# the page are read whole after the cut.
+_CITED_BY_SQL = f"""
+WITH hits AS (
+    SELECT e.key AS edge, m.position - 1 AS position, j.date_eff AS date, j.ecli
+    FROM {COLLECTION_EDGES} e
+    JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+    CROSS JOIN LATERAL json_array_elements(
+        CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
+            THEN e.doc -> 'meta' -> 'mentions' END
+    ) WITH ORDINALITY AS m(mention, position)
+    WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+      AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+      AND (%(court)s::text IS NULL OR j.court_code = %(court)s::text)
+      AND (%(tier)s::text IS NULL OR j.tier = %(tier)s::text)
+      AND (
+          %(lid)s::text IS NULL
+          OR %(lid)s::text = ANY(lg_text_array(m.mention -> 'leden'))
+      )
+),
+ranked AS (
+    SELECT h.*, row_number() OVER (
+        ORDER BY h.date DESC NULLS LAST, h.ecli NULLS FIRST, h.edge, h.position
+    ) AS n
+    FROM hits h
+)
+SELECT
+    (SELECT count(*)::int FROM hits) AS total,
+    -- one edge per judgment and article
+    (SELECT count(DISTINCT edge)::int FROM hits) AS judgment_total,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'judgment', json_build_object(
+                '_id', j.id,
+                '_key', j.key,
+                'props', json_build_object(
+                    'ecli', j.pj_ecli,
+                    'display_name', j.pj_display_name,
+                    'court_code', j.pj_court_code,
+                    'tier', j.pj_tier,
+                    'court_kind', j.pj_court_kind,
+                    'date_eff', j.pj_date_eff
+                )
+            ),
+            'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
+        ) ORDER BY r.n), '[]'::json)
+        FROM ranked r
+        JOIN {COLLECTION_EDGES} e ON e.key = r.edge
+        JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+        WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
+    ) AS items
+"""
 
 
 def get_article_cited_by(
@@ -492,66 +582,10 @@ def get_article_cited_by(
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
     its text and its paragraphs. The first pass reads the edges of the article by
-    ``(_to, relation)`` and keeps only what filters and sorts a mention (the edge, its
-    position, the date and the ECLI); the mentions of the page, with their snippets, are
-    read after the ``LIMIT``, for ``limit`` rows and not for all of them.
-
-    The judgment is joined through its primary index, not ``DOCUMENT()``: the join reads
-    the few attributes used, where ``DOCUMENT()`` holds the whole judgment in the memory of
-    the query, for every judgment of the article at once.
-    """
-    aql = f"""
-    LET hits = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to == @article_id AND e.relation == @relation
-            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
-            FOR j IN {COLLECTION_JUDGMENTS}
-                FILTER j._id == e._from
-                FILTER @court == null OR j.props.court_code == @court
-                FILTER @tier == null OR j.props.tier == @tier
-                LET count = LENGTH(e.meta.mentions)
-                FILTER count > 0
-                FOR position IN 0..count - 1
-                    FILTER @lid == null OR @lid IN e.meta.mentions[position].leden
-                    RETURN {{
-                        edge: e._id,
-                        position: position,
-                        date: j.props.date_eff,
-                        ecli: j.props.ecli
-                    }}
-    )
-    LET page = (
-        FOR hit IN hits
-            SORT hit.date DESC, hit.ecli ASC, hit.edge ASC, hit.position ASC
-            LIMIT @offset, @limit
-            RETURN hit
-    )
-    RETURN {{
-        total: LENGTH(hits),
-        // one edge per judgment and article
-        judgment_total: COUNT_DISTINCT(hits[*].edge),
-        items: (
-            FOR hit IN page
-                LET e = DOCUMENT(hit.edge)
-                FOR j IN {COLLECTION_JUDGMENTS}
-                    FILTER j._id == e._from
-                    RETURN {{
-                        judgment: {{
-                            _id: j._id,
-                            _key: j._key,
-                            props: {{
-                                ecli: j.props.ecli,
-                                display_name: j.props.display_name,
-                                court_code: j.props.court_code,
-                                tier: j.props.tier,
-                                court_kind: j.props.court_kind,
-                                date_eff: j.props.date_eff
-                            }}
-                        }},
-                        mention: e.meta.mentions[hit.position]
-                    }}
-        )
-    }}
+    ``(to_id, relation)`` and keeps only what filters and sorts a mention (the edge, its
+    position, the date and the ECLI, from the generated columns of the judgment); the
+    mentions of the page, with their snippets, are read after the cut, for ``limit`` rows
+    and not for all of them.
     """
     bind = {
         "article_id": article_id,
@@ -562,7 +596,7 @@ def get_article_cited_by(
         "limit": limit,
         "offset": offset,
     }
-    answer = next(iter(store.query(aql, bind)), None) or {}
+    answer = next(iter(store.query(_CITED_BY_SQL, bind)), None) or {}
     return CitedBy(
         rows=list(answer.get("items") or []),
         total=int(answer.get("total") or 0),

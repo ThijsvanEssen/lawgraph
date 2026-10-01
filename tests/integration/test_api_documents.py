@@ -1,4 +1,4 @@
-"""The decision, dossier-document and dossier-timeline queries, run for real on a small graph.
+"""The dossier-document and dossier-timeline queries, run for real on a small graph.
 
 The graph is written by hand (a dossier with a Tweede Kamer memorandum, motion and amendment,
 an Eerste Kamer paper, an activity led by a committee and one without), so that every path
@@ -30,7 +30,6 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
 from lawgraph.db.queries.dossiers import get_dossier_documents, get_dossier_timeline
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
@@ -322,33 +321,6 @@ def test_the_documents_of_a_dossier_are_direct_and_through_a_case(
     rest = get_dossier_documents(store, DOSSIER, limit=2, offset=2)
     assert _keys(rest) == ["mvt"] and rest["total"] == 3
     assert get_dossier_documents(store, f"{COLLECTION_DOSSIERS}/36001")["total"] == 1
-
-
-def test_the_decisions_of_a_dossier_are_read_from_an_index(database: str) -> None:
-    store = ArangoStore()
-    _build(store)
-
-    page = get_decisions(store, DecisionFilters(dossier="36000"), limit=10)
-    assert page["total"] == 2
-    assert [row["key"] for row in page["items"]] == ["stemming_2", "stemming_1"]
-    assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
-    nothing = get_decisions(store, DecisionFilters(dossier="99999"))
-    assert (nothing["total"], nothing["items"]) == (0, [])
-    together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
-    assert together["total"] == 1
-
-    aql = (
-        "FOR decision IN decisions FILTER @dossier IN decision.props.dossier_numbers "
-        "SORT decision.props.date DESC LIMIT 0, 10 RETURN decision._key"
-    )
-    plan = store.db.aql.explain(aql, bind_vars={"dossier": "36000"})
-    nodes = plan["nodes"]
-    kinds = {node["type"] for node in nodes}
-    assert "EnumerateCollectionNode" not in kinds, kinds
-    index = next(node for node in nodes if node["type"] == "IndexNode")
-    assert any(
-        "dossier_numbers[*]" in ".".join(i["fields"]) for i in index["indexes"]
-    ), index["indexes"]
 
 
 def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
