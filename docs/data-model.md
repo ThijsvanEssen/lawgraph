@@ -486,8 +486,9 @@ van State as its vice-president. So each signature keeps what it was signed as:
 `MEMBER_OF` edges run from a member to a committee (`meta` = the seat's period) and to a
 faction (`meta.from_date`, `meta.to_date`, `meta.role`, `meta.record_ids`: the
 FractieZetelPersoon records it is made of). Edge keys are one per pair, so a
-member who leaves and rejoins keeps one edge with the latest period; the full timeline is in
-`members.props.faction_memberships`. `to_date` is the last day held (`TotEnMet`), so periods
+member who leaves and rejoins keeps one edge with the latest period, whatever order the records
+are read in: the latest `from_date`, of two that start the same day the one without an end,
+then the later `to_date`; the full timeline is in `members.props.faction_memberships`. `to_date` is the last day held (`TotEnMet`), so periods
 that follow each other touch without overlap. Where the Kamer's dates do not hold together its
 later dates are read (`core/seat_periods.py`): an end before the start ends the day before the
 person's next seat (without one the seat is left out), and a fractievoorzitter still chairing
