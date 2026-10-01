@@ -15,6 +15,7 @@ Everything here is idempotent: ``ensure_schema`` runs on every connect.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import psycopg
@@ -982,11 +983,90 @@ def statements() -> list[str]:
     return found
 
 
+class SchemaOutdated(RuntimeError):
+    """The tables of the database are not those of the schema: it needs building again."""
+
+
+_TABLE = re.compile(r"CREATE TABLE IF NOT EXISTS (\w+) \(")
+_COMMENT = re.compile(r"--[^\n]*")
+_NOT_A_COLUMN = ("PRIMARY", "UNIQUE", "CONSTRAINT", "CHECK", "FOREIGN", "EXCLUDE")
+
+
+def _definitions(text: str, start: int) -> list[str]:
+    """The definitions between the parenthesis that opens at *start* in *text* and the one
+    that closes it, split on the commas outside parentheses."""
+    parts: list[str] = []
+    depth, begin = 0, start + 1
+    for i in range(start, len(text)):
+        char = text[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return [*parts, text[begin:i]]
+        elif char == "," and depth == 1:
+            parts.append(text[begin:i])
+            begin = i + 1
+    raise ValueError("a CREATE TABLE without its closing parenthesis")
+
+
+def expected_columns() -> dict[str, set[str]]:
+    """table -> the names of its columns, read from the schema's own CREATE TABLE
+    statements."""
+    found: dict[str, set[str]] = {}
+    for statement in statements():
+        text = _COMMENT.sub("", statement)
+        for match in _TABLE.finditer(text):
+            found[match.group(1)] = {
+                words[0]
+                for part in _definitions(text, match.end() - 1)
+                if (words := part.split()) and words[0].upper() not in _NOT_A_COLUMN
+            }
+    return found
+
+
+def schema_drift(conn: psycopg.Connection) -> list[str]:
+    """What differs between the tables of the database and those of the schema: a column
+    the schema has and the table lacks, or the other way round. A table that is not there
+    yet differs in nothing."""
+    expected = expected_columns()
+    actual: dict[str, set[str]] = {}
+    for table, column in conn.execute(
+        "SELECT table_name, column_name FROM information_schema.columns"
+        " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
+        (list(expected),),
+    ):
+        actual.setdefault(table, set()).add(column)
+    differences = []
+    for table, columns in sorted(expected.items()):
+        present = actual.get(table)
+        if present is None:
+            continue  # not there yet: it is created as the schema says
+        differences += [f"{table}.{c} ontbreekt" for c in sorted(columns - present)]
+        differences += [
+            f"{table}.{c} staat niet in het schema" for c in sorted(present - columns)
+        ]
+    return differences
+
+
 def ensure_schema(conn: psycopg.Connection) -> None:
     """Create what is missing of the schema in the database of *conn*, in one transaction
-    that holds a lock, so two processes that start together do not race."""
+    that holds a lock, so two processes that start together do not race.
+
+    A table that exists keeps its columns: ``CREATE TABLE IF NOT EXISTS`` adds none. When
+    they are not those of the schema any more (a column added to or dropped from the schema
+    since the database was built), this stops with ``SchemaOutdated`` before anything is
+    created, instead of letting queries fail later: the database is built again, there is
+    no migration (clean slate). A changed expression of a generated column is not seen."""
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
+        # before anything is created: an index on a column the table lacks would fail first
+        differences = schema_drift(conn)
+        if differences:
+            raise SchemaOutdated(
+                "schema verouderd: herbouw nodig (" + "; ".join(differences) + ")"
+            )
         for statement in statements():
             conn.execute(statement.encode())
 

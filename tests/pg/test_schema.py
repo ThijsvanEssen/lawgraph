@@ -7,7 +7,13 @@ import json
 import psycopg
 import pytest
 
-from lawgraph.db.schema import NODE_COLLECTIONS, ensure_schema
+from lawgraph.db.schema import (
+    NODE_COLLECTIONS,
+    SchemaOutdated,
+    ensure_schema,
+    expected_columns,
+    schema_drift,
+)
 
 
 def _one(conn: psycopg.Connection, sql: str, *params: object) -> object:
@@ -114,6 +120,29 @@ def test_the_nodes_view_finds_a_node_by_id(conn: psycopg.Connection) -> None:
     assert conn.execute(
         "SELECT collection, key FROM nodes WHERE id = 'members/m'"
     ).fetchall() == [("members", "m")]
+
+
+def test_a_fresh_database_has_the_tables_of_the_schema(
+    conn: psycopg.Connection,
+) -> None:
+    assert schema_drift(conn) == []
+    assert {"articles", "edges", "raw_sources", "lg_data_version"} <= set(
+        expected_columns()
+    )
+
+
+def test_a_column_the_table_lacks_stops_the_start(conn: psycopg.Connection) -> None:
+    conn.execute("ALTER TABLE articles DROP COLUMN stub")
+    with pytest.raises(
+        SchemaOutdated, match=r"herbouw nodig.*articles\.stub ontbreekt"
+    ):
+        ensure_schema(conn)
+
+
+def test_a_column_the_schema_lacks_stops_the_start(conn: psycopg.Connection) -> None:
+    conn.execute("ALTER TABLE edges ADD COLUMN weight int")
+    with pytest.raises(SchemaOutdated, match=r"edges\.weight staat niet in het schema"):
+        ensure_schema(conn)
 
 
 @pytest.mark.parametrize(
