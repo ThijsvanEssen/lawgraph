@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 LAW = "BWBR0099001"
 OLD_TITLE = "Verkeer tussen burgers en bestuursorganen"
@@ -93,7 +93,7 @@ def _toestand(start: str, chapters: Chapters) -> str:
     )
 
 
-def _store(store: ArangoStore, toestanden: list[Toestand]) -> None:
+def _store(store: GraphStore, toestanden: list[Toestand]) -> None:
     with RawSourceWriter(store) as writer:
         for kind, external_id, xml, start, end in toestanden:
             writer.add(
@@ -124,7 +124,7 @@ def _history(start: str, end: str, chapters: Chapters) -> Toestand:
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     _store(
         store,
         [

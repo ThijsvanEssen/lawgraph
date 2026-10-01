@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_NIM, SOURCE_EURLEX
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -16,7 +16,7 @@ class EurlexNimRetrievePipeline(RetrievePipelineBase):
     record per measure, with the EU acts it implements, its official journal, number and
     date. ``semantic bwb-implements`` makes IMPLEMENTS of them."""
 
-    def __init__(self, store: ArangoStore, eu_client: EUClient | None = None) -> None:
+    def __init__(self, store: GraphStore, eu_client: EUClient | None = None) -> None:
         super().__init__(store)
         self.eu = eu_client or EUClient()
 

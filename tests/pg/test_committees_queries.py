@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
-from lawgraph.db import ArangoStore, NodeWriter, make_edge_doc
+from lawgraph.db import GraphStore, NodeWriter, make_edge_doc
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
     get_actor_touched_instruments,
@@ -51,7 +51,7 @@ CO = "Mede ondertekenaar"
 class Graph:
     """Nodes and edges written straight into the test database."""
 
-    def __init__(self, store: ArangoStore) -> None:
+    def __init__(self, store: GraphStore) -> None:
         self.store = store
         self._nodes: dict[str, list[dict[str, Any]]] = {}
         self._edges: list[dict[str, Any]] = []
@@ -94,7 +94,7 @@ def _keys(docs: list[dict[str, Any]]) -> list[str]:
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     committee_routes._faction_dossiers_cache.clear()
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -108,7 +108,7 @@ def client(store: ArangoStore) -> Iterator[TestClient]:
 
 
 def test_the_committees_of_a_chamber_with_a_name_by_name_then_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     g = Graph(store)
     g.node("committees", "c_b", name="Commissie B", slug="b")
@@ -132,7 +132,7 @@ def test_the_committees_of_a_chamber_with_a_name_by_name_then_key(
     assert _keys(get_committees(store, chamber="EK")) == ["ek_fin"]
 
 
-def _committee_graph(store: ArangoStore) -> None:
+def _committee_graph(store: GraphStore) -> None:
     g = Graph(store)
     committee = g.node("committees", "c_b", name="Commissie B", slug="b")
     g.node("committees", "zz", name="Zeta", slug="x")
@@ -190,7 +190,7 @@ def _committee_graph(store: ArangoStore) -> None:
 
 
 def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _committee_graph(store)
     for slug in ("b", "B", "c_b", "C_B"):
@@ -204,7 +204,7 @@ def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
 
 
 def test_the_members_of_a_committee_by_name_then_key_with_their_seat(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _committee_graph(store)
     current = get_committee_detail(store, "b")
@@ -234,7 +234,7 @@ def test_the_members_of_a_committee_by_name_then_key_with_their_seat(
 
 
 def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _committee_graph(store)
     detail = get_committee_detail(store, "b")
@@ -260,7 +260,7 @@ def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
 
 
 def test_the_activities_of_a_committee_newest_first_with_their_fields(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _committee_graph(store)
     page = get_committee_activities(store, "b")
@@ -292,7 +292,7 @@ def test_the_activities_of_a_committee_newest_first_with_their_fields(
 
 
 def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     g = Graph(store)
     committee = g.node("committees", "c_a", name="Commissie A", slug="a")
@@ -383,7 +383,7 @@ D66 = {
 }
 
 
-def _people(store: ArangoStore) -> None:
+def _people(store: GraphStore) -> None:
     g = Graph(store)
     g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
     g.node("members", "m2", name="Anna", faction_memberships=[{**VVD, "to_date": None}])
@@ -416,7 +416,7 @@ def _people(store: ArangoStore) -> None:
     g.write()
 
 
-def test_members_who_held_a_seat_by_name_then_key(store: ArangoStore) -> None:
+def test_members_who_held_a_seat_by_name_then_key(store: GraphStore) -> None:
     _people(store)
     assert _keys(get_members(store)) == ["m1", "m2", "Zz", "m3", "m6"]
     everyone = get_members(store, include_all=True)
@@ -430,7 +430,7 @@ def test_members_who_held_a_seat_by_name_then_key(store: ArangoStore) -> None:
     assert get_members(store, include_all=True, offset=100) == []
 
 
-def test_members_by_party_name_and_seat(store: ArangoStore) -> None:
+def test_members_by_party_name_and_seat(store: GraphStore) -> None:
     _people(store)
     # the party, or an abbreviation, name or alias in the timeline, in any case
     assert _keys(get_members(store, party=" vvd ")) == ["m1", "m2", "Zz", "m3"]
@@ -446,7 +446,7 @@ def test_members_by_party_name_and_seat(store: ArangoStore) -> None:
     assert get_members(store, q="  ") == []
 
 
-def test_the_members_of_the_eerste_kamer(store: ArangoStore) -> None:
+def test_the_members_of_the_eerste_kamer(store: GraphStore) -> None:
     _people(store)
     # one without a name comes first
     assert _keys(get_ek_members(store)) == ["m8", "m6", "m7"]
@@ -459,7 +459,7 @@ def test_the_members_of_the_eerste_kamer(store: ArangoStore) -> None:
     assert _keys(get_ek_members(store, limit=1, offset=1)) == ["m6"]
 
 
-def _plan(store: ArangoStore, call: Any) -> str:
+def _plan(store: GraphStore, call: Any) -> str:
     """The plan PostgreSQL makes for the one statement *call* runs on *store*."""
     seen: list[tuple[Any, Any]] = []
     query = store.query
@@ -481,7 +481,7 @@ def _plan(store: ArangoStore, call: Any) -> str:
 
 
 def test_a_page_of_members_is_read_from_an_index_in_name_order(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """The lists filter and sort on columns (``list_name``, ``in_parliament``, ``in_ek``):
     a page is read from a partial index in name order, not from every member's props."""
@@ -497,7 +497,7 @@ def test_a_page_of_members_is_read_from_an_index_in_name_order(
     assert _keys(get_members(store, limit=2)) == ["m1", "m2"]
 
 
-def _factions(store: ArangoStore) -> None:
+def _factions(store: GraphStore) -> None:
     g = Graph(store)
     g.node("factions", "vvd", name="VVD", abbreviation="VVD", active=True, seats=24)
     g.node("factions", "z", name="Zeta", abbreviation="D66", active=True)
@@ -519,7 +519,7 @@ def _factions(store: ArangoStore) -> None:
 
 
 def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _factions(store)
     factions = get_factions(store)
@@ -545,7 +545,7 @@ def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     assert _keys(ek) == ["ek_vvd"] and ek[0]["member_count"] == 1
 
 
-def test_the_seats_of_each_faction_on_a_day(store: ArangoStore) -> None:
+def test_the_seats_of_each_faction_on_a_day(store: GraphStore) -> None:
     g = Graph(store)
     g.node("members", "m1", faction_memberships=[VVD, D66])
     g.node("members", "m2", faction_memberships=[{**VVD, "to_date": None}])
@@ -564,7 +564,7 @@ def test_the_seats_of_each_faction_on_a_day(store: ArangoStore) -> None:
 # ── votes ────────────────────────────────────────────────────────────────────
 
 
-def _votes(store: ArangoStore) -> None:
+def _votes(store: GraphStore) -> None:
     g = Graph(store)
     g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
     g.node("factions", "vvd", name="VVD")
@@ -599,7 +599,7 @@ def _votes(store: ArangoStore) -> None:
 
 
 def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _votes(store)
     votes = get_member_votes(store, "members/m1")
@@ -635,7 +635,7 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
 
 
 def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     g = Graph(store)
     decisions = {
@@ -713,7 +713,7 @@ def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(
 
 
 def test_the_laws_an_actor_changes_most_by_documents_then_id(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     g = Graph(store)
     g.node("instruments", "i1", display_name="Wet 1", bwb_id="BWBR1", title="Een")
@@ -765,7 +765,7 @@ def test_the_laws_an_actor_changes_most_by_documents_then_id(
     assert get_actor_touched_instruments(store, "members/none") == []
 
 
-def _authorship_graph(store: ArangoStore) -> None:
+def _authorship_graph(store: GraphStore) -> None:
     g = Graph(store)
     vvd = g.node("factions", "vvd", abbreviation="VVD", name="VVD")
     d66 = g.node("factions", "d66", abbreviation="D66", name="D66")
@@ -836,7 +836,7 @@ def _authorship_graph(store: ArangoStore) -> None:
 
 
 def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     _authorship_graph(store)
 
@@ -868,7 +868,7 @@ def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
 
 
 def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     g = Graph(store)
     g.node("members", "m1", name="Anna")
@@ -933,7 +933,7 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
 
 
 def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """60 members who each signed 250 motions in 50 dossiers, and 3,000 debates."""
     g = Graph(store)
@@ -1000,7 +1000,7 @@ def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
 
 
 def test_the_routes_answer_from_the_real_graph(
-    store: ArangoStore, client: TestClient
+    store: GraphStore, client: TestClient
 ) -> None:
     g = Graph(store)
     lead = g.node("committees", "c_a", name="Commissie A", slug="a")
@@ -1032,7 +1032,7 @@ def test_the_routes_answer_from_the_real_graph(
 
 
 def test_walking_the_pages_of_the_members_finds_every_row_once(
-    store: ArangoStore, client: TestClient
+    store: GraphStore, client: TestClient
 ) -> None:
     """Moved from ``tests/integration/test_stable_paging.py``: 60 members of one name."""
     rows = 60

@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 VVD, GLPVDA, PRO = uid(1, 8), uid(2, 8), uid(3, 8)
@@ -103,7 +103,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _load(store: ArangoStore) -> None:
+def _load(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             writer.add(
@@ -124,7 +124,7 @@ def _periods(member: dict) -> list[tuple[str, str | None, str | None, str | None
 
 
 def test_member_and_faction_periods_hold_together(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _load(store)
     cli("normalize", "tk-dossiers")
 

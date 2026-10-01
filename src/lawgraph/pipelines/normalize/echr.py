@@ -18,7 +18,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -46,7 +46,7 @@ def _judgment(ecli: str | None, item_id: str, props: dict[str, Any]) -> Node:
 class ECHRNormalizePipeline(NormalizePipelineBase):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(

@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CROLL = "/persoon/mr_r_s_croll_d66"
@@ -38,7 +38,7 @@ def _pages() -> dict[str, str]:
     }
 
 
-def _store_snapshot(store: ArangoStore, pages: dict[str, str], day: str) -> None:
+def _store_snapshot(store: GraphStore, pages: dict[str, str], day: str) -> None:
     with RawSourceWriter(store) as writer:
         for path, html in pages.items():
             writer.add(
@@ -60,8 +60,8 @@ def _without_croll(html: str) -> str:
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> Iterator[GraphStore]:
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add(
             Node(
@@ -81,7 +81,7 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
     yield store
 
 
-def _members(store: ArangoStore) -> dict[str, dict[str, Any]]:
+def _members(store: GraphStore) -> dict[str, dict[str, Any]]:
     return {
         row["ek"]["path"]: row
         for row in store.query(
@@ -92,7 +92,7 @@ def _members(store: ArangoStore) -> dict[str, dict[str, Any]]:
 
 
 def test_a_snapshot_makes_the_factions_committees_and_members(
-    store: ArangoStore, cli: Any
+    store: GraphStore, cli: Any
 ) -> None:
     faction = store.get_document("factions", "ek_democraten_1966")["props"]
     assert (faction["chamber"], faction["abbreviation"], faction["seats"]) == (
@@ -149,7 +149,7 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     assert ["members/dittrich", "2026-09-30", None] in edges
 
 
-def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: ArangoStore) -> None:
+def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 
 
@@ -17,7 +17,7 @@ def _paper(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
 def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     numbered = {"dossier_number": "37020", "date": "2026-09-15"}
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOCUMENTS,

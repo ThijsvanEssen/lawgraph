@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import nodes as node_queries
 
 
@@ -37,7 +37,7 @@ def _edge(
 
 
 @pytest.fixture()
-def graph(store: ArangoStore) -> ArangoStore:
+def graph(store: GraphStore) -> GraphStore:
     for collection, doc in [
         _node("dossiers", "1"),
         _node("dossiers", "2"),
@@ -62,7 +62,7 @@ def graph(store: ArangoStore) -> ArangoStore:
     return store
 
 
-def test_a_node_with_its_neighbours_in_buckets(graph: ArangoStore) -> None:
+def test_a_node_with_its_neighbours_in_buckets(graph: GraphStore) -> None:
     data = node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
     assert data.node["_id"] == "dossiers/1"
     facets = [
@@ -87,7 +87,7 @@ def test_a_node_with_its_neighbours_in_buckets(graph: ArangoStore) -> None:
     assert [e.doc["_id"] for e in second.buckets[0].entries] == ["documents/c"]
 
 
-def test_filters_on_relation_status_and_type(graph: ArangoStore) -> None:
+def test_filters_on_relation_status_and_type(graph: GraphStore) -> None:
     only = node_queries.NeighborFilter(status="voorgesteld")
     data = node_queries.get_node_with_neighbors(graph, "dossiers", "1", filters=only)
     assert [(b.facet.relation, b.facet.count) for b in data.buckets] == [("PART_OF", 1)]
@@ -96,14 +96,14 @@ def test_filters_on_relation_status_and_type(graph: ArangoStore) -> None:
     assert [b.facet.collection for b in data.buckets] == ["dossiers"]
 
 
-def test_a_missing_node_and_an_unknown_collection(graph: ArangoStore) -> None:
+def test_a_missing_node_and_an_unknown_collection(graph: GraphStore) -> None:
     with pytest.raises(node_queries.NodeNotFoundError):
         node_queries.get_node_with_neighbors(graph, "dossiers", "x")
     with pytest.raises(node_queries.UnsupportedCollectionError):
         node_queries.get_node_with_neighbors(graph, "raw_sources", "x")
 
 
-def test_the_neighbourhood_breadth_first(graph: ArangoStore) -> None:
+def test_the_neighbourhood_breadth_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2)
     assert hood["focal"]["_id"] == "dossiers/1"
     assert [n["_id"] for n in hood["nodes"]] == [
@@ -116,7 +116,7 @@ def test_the_neighbourhood_breadth_first(graph: ArangoStore) -> None:
     assert [e["_key"] for e in hood["edges"]] == ["e1", "e2", "e3", "e4", "e5"]
 
 
-def test_a_capped_neighbourhood_keeps_the_first_level_first(graph: ArangoStore) -> None:
+def test_a_capped_neighbourhood_keeps_the_first_level_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=4)
     assert [n["_id"] for n in hood["nodes"]] == [
         "documents/a",
@@ -127,7 +127,7 @@ def test_a_capped_neighbourhood_keeps_the_first_level_first(graph: ArangoStore) 
 
 
 def test_the_walk_goes_through_the_types_and_relations_asked_for(
-    graph: ArangoStore,
+    graph: GraphStore,
 ) -> None:
     only_documents = node_queries.NeighborFilter(node_types=("document",))
     hood = node_queries.get_node_neighborhood(
@@ -146,7 +146,7 @@ def test_the_walk_goes_through_the_types_and_relations_asked_for(
 
 @pytest.mark.parametrize("cap", [2, 3, 4, 200])
 def test_the_neighbours_looked_up_a_few_at_a_time(
-    graph: ArangoStore, monkeypatch: pytest.MonkeyPatch, cap: int
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch, cap: int
 ) -> None:
     whole = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=cap)
     # a chunk of two: dossiers/9 (gone) and the cap fall in different chunks
@@ -157,7 +157,7 @@ def test_the_neighbours_looked_up_a_few_at_a_time(
     assert chunked == whole
 
 
-def test_no_relation_asked_for_walks_nowhere(graph: ArangoStore) -> None:
+def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
     nothing = node_queries.NeighborFilter(relations=())
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", filters=nothing)
     assert hood["nodes"] == [] and hood["edges"] == []

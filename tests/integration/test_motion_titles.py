@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.integration.seed import FIXTURES, uid
 
@@ -130,7 +130,7 @@ GONE_ACTIVITY = {
 }
 
 
-def _write(store: ArangoStore, records: list[tuple[str, dict[str, Any]]]) -> None:
+def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in records:
             writer.add(
@@ -170,7 +170,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 def test_a_motion_is_named_by_its_subject_with_its_submitters(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
@@ -274,7 +274,7 @@ class _Repository:
 
 
 def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")

@@ -58,7 +58,7 @@ class _Pipeline(NormalizePipelineBase):
         if self._fail_in_edges:
             raise RuntimeError("boom")
         for node in normalized:
-            _link_in_helper(self.store, node.arango_id, "instruments/law")
+            _link_in_helper(self.store, node.node_id, "instruments/law")
 
 
 # ── CountingStore ────────────────────────────────────────────────────────────

@@ -56,7 +56,7 @@ def test_cached_node_is_a_skeleton_without_props() -> None:
 
     node = pipeline._lookup_node(ARTICLES, "a")
 
-    assert node is not None and node.arango_id == f"{ARTICLES}/a"
+    assert node is not None and node.node_id == f"{ARTICLES}/a"
     assert node.props == {}  # the large body is not kept in memory
 
 

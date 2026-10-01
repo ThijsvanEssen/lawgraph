@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
-from lawgraph.db import ArangoStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import checks as check_queries
 
 
@@ -11,7 +11,7 @@ def _instrument(key: str, **props: object) -> dict[str, object]:
     return {"_key": key, "type": "instrument", "labels": [], "props": props}
 
 
-def test_counts_of_nodes_and_derived_props(store: ArangoStore) -> None:
+def test_counts_of_nodes_and_derived_props(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -36,7 +36,7 @@ def test_counts_of_nodes_and_derived_props(store: ArangoStore) -> None:
     }
 
 
-def test_dangling_edges_and_cases(store: ArangoStore) -> None:
+def test_dangling_edges_and_cases(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases",
         [
@@ -66,7 +66,7 @@ def test_dangling_edges_and_cases(store: ArangoStore) -> None:
     }
 
 
-def test_echr_judgments_per_ecli(store: ArangoStore) -> None:
+def test_echr_judgments_per_ecli(store: GraphStore) -> None:
     def record(item: str, ecli: str | None) -> dict[str, object]:
         return raw_source_doc(
             source=SOURCE_ECHR,

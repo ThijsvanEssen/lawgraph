@@ -34,7 +34,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
@@ -72,7 +72,7 @@ Subject = Annotated[
 ]
 
 
-def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
+def _dossier_or_404(store: GraphStore, number: str) -> dict[str, Any]:
     dossier = get_dossier_by_number(store, number)
     if dossier is None:
         raise HTTPException(status_code=404, detail=f"Dossier {number} not found.")
@@ -168,7 +168,7 @@ class _ListParams:
         self.offset = offset
 
 
-def _list(store: ArangoStore, params: _ListParams) -> DossierListResponse:
+def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
     raw = get_dossiers(
         store,
         params.filters,
@@ -205,7 +205,7 @@ _LIST_DESCRIPTION = (
     tags=["dossiers"],
 )
 def list_dossiers(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     params: Annotated[_ListParams, Depends()],
 ) -> DossierListResponse:
     return _list(store, params)
@@ -228,7 +228,7 @@ def list_dossiers(
 )
 def get_dossier(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierDetailResponse:
     dossier = _dossier_or_404(store, number)
     enrich_dossier_docs(store, [dossier])
@@ -257,7 +257,7 @@ def get_dossier(
 )
 def list_dossier_documents(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
@@ -281,7 +281,7 @@ def list_dossier_documents(
 )
 def get_timeline(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     order: Annotated[Literal["asc", "desc"], Query(description="Date order.")] = "desc",
     kind: Annotated[
         str | None, Query(description="Comma-separated document kinds.")
@@ -320,7 +320,7 @@ def get_timeline(
 )
 def get_mutations(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierMutationsResponse:
     dossier = _dossier_or_404(store, number)
     raw = get_dossier_mutations(store, dossier["_id"])

@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
@@ -83,7 +83,7 @@ def _articles_of(prop: str) -> str:
 
 
 def get_articles(
-    store: ArangoStore,
+    store: GraphStore,
     identifier: str,
     *,
     include_stubs: bool = False,
@@ -121,7 +121,7 @@ def get_articles(
 
 
 def get_instrument_judgments(
-    store: ArangoStore, identifier: str, *, limit: int = 500
+    store: GraphStore, identifier: str, *, limit: int = 500
 ) -> tuple[list[dict[str, Any]], int]:
     """Judgments referring to any article of this instrument, grouped by judgment.
 
@@ -202,7 +202,7 @@ def get_instrument_judgments(
 
 
 def get_instrument_dossiers(
-    store: ArangoStore, identifier: str, *, limit: int = 500
+    store: GraphStore, identifier: str, *, limit: int = 500
 ) -> tuple[list[dict[str, Any]], int]:
     """Parliamentary dossiers linked to this regulation, one query.
 
@@ -302,7 +302,7 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_instrument_amended_by(
-    store: ArangoStore, identifier: str, *, limit: int = 50, offset: int = 0
+    store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
     """Amending instruments of a regulation, newest first (2 queries at most).
 
@@ -402,7 +402,7 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
 
 
 def get_instrument_related_instruments(
-    store: ArangoStore, identifier: str, *, limit: int = 100
+    store: GraphStore, identifier: str, *, limit: int = 100
 ) -> tuple[list[dict[str, Any]], int]:
     """Other instruments related by cross-article REFERS_TO links.
 
@@ -479,7 +479,7 @@ _SEARCH_FIELDS = [
 
 
 def get_instruments_list(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     q: str | None = None,
     jurisdiction: str | None = None,
@@ -579,7 +579,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_instrument_versions(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
 ) -> list[dict[str, Any]]:
     """Return all historical versions for an instrument, newest first."""
@@ -605,7 +605,7 @@ class LawOnADate:
 
 
 def get_articles_at(
-    store: ArangoStore,
+    store: GraphStore,
     bwb_id: str,
     at_date: str,
     *,

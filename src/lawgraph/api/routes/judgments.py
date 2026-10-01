@@ -23,7 +23,7 @@ from lawgraph.api.schemas.judgments import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
     JudgmentFilters,
@@ -54,7 +54,7 @@ logger = get_logger(__name__)
     tags=["judgments"],
 )
 def list_judgments(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[
@@ -141,7 +141,7 @@ def list_judgments(
 )
 def get_judgment_detail(
     ecli: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentDetailResponse:
     """Return a judgment plus the articles it mentions."""
     try:

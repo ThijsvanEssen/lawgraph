@@ -16,7 +16,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.judgments import Referral
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve import _gaps
 
 NS = (
@@ -139,7 +139,7 @@ JUDGMENTS = {
 }
 
 
-def _edges(store: ArangoStore, relation: str) -> set[tuple[str, str, str]]:
+def _edges(store: GraphStore, relation: str) -> set[tuple[str, str, str]]:
     sql = """
     SELECT f.ecli AS from_ecli, t.ecli AS to_ecli, e.doc -> 'meta' ->> 'basis' AS basis
     FROM edges e
@@ -156,7 +156,7 @@ def _edges(store: ArangoStore, relation: str) -> set[tuple[str, str, str]]:
 def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, xml in JUDGMENTS.items():
             writer.add(

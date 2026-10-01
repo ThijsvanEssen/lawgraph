@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import publication_props
 from lawgraph.core.judgments import case_number_keys
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 
 TREATY_TITLE = "Verdrag " + "tot bescherming van de rechten van de mens " * 6
 
@@ -60,7 +60,7 @@ def _instrument(key: str, **props: Any) -> Node:
     )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     nodes = [
         _judgment("ECLI:NL:HR:2019:1278", "2019-07-19", "18/04298"),
         _judgment("ECLI:NL:PHR:2019:496", "2019-05-10", "18/04298"),
@@ -134,7 +134,7 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
 def test_the_catalogue_lists_hold_find_and_sort_what_they_should(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("semantic", "graph-list-stats")
     app.dependency_overrides[get_store] = lambda: store

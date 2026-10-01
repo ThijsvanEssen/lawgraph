@@ -23,7 +23,7 @@ from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.relations import RELATION_NAMES
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.nodes import (
     DEFAULT_BUCKET_LIMIT,
     NeighborFilter,
@@ -76,7 +76,7 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
     responses=_COUNT_PER_NODE,
 )
 def bulk_in_flux(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> JSONResponse:
     """Return all nodes that have at least one VOORGESTELD edge, with counts."""
     cached = _overlay_cache.get("in_flux")
@@ -99,7 +99,7 @@ def bulk_in_flux(
     responses=_COUNT_PER_NODE,
 )
 def bulk_heat(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     months: int = Query(
         default=6, ge=1, le=24, description="Terugkijkvenster in maanden"
     ),
@@ -180,7 +180,7 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
 def get_node_graph(
     collection: str,
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: NeighborFilterParams,
     limit: Annotated[
         int,
@@ -254,7 +254,7 @@ def get_node_graph(
 def get_node_neighborhood_route(
     collection: str,
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
     cap: Annotated[int, Query(ge=1, le=1000)] = 200,

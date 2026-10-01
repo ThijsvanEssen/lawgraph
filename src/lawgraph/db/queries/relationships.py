@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_SCOPED_BY,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._helpers import run_together
 
@@ -58,7 +58,7 @@ def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _article_links(
-    store: ArangoStore, article_id: str, own: str, other: str
+    store: GraphStore, article_id: str, own: str, other: str
 ) -> list[dict[str, Any]]:
     """The REFERS_TO edges between *article_id* (the edge's *own* end) and another article
     (its *other* end), by edge key; each ``{edge, target, instrument}``."""
@@ -81,7 +81,7 @@ def _article_links(
 
 
 def get_article_relationship_data(
-    store: ArangoStore,
+    store: GraphStore,
     article_id: str,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return upstream/downstream article relationships plus annex scope links.
@@ -102,7 +102,7 @@ def get_article_relationship_data(
     return {"upstream": upstream, "downstream": downstream, "scope": scope}
 
 
-def _scope_links(store: ArangoStore, article_id: str) -> list[dict[str, Any]]:
+def _scope_links(store: GraphStore, article_id: str) -> list[dict[str, Any]]:
     """The SCOPED_BY edges from *article_id* to an annex, by edge key; each
     ``{edge, annex}``."""
     rows = store.query(
@@ -119,7 +119,7 @@ def _scope_links(store: ArangoStore, article_id: str) -> list[dict[str, Any]]:
 
 
 def search_relationships(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     semantic_types: Collection[str] | None = None,
     exclude_types: Collection[str] | None = None,

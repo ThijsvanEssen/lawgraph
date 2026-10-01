@@ -23,7 +23,7 @@ from lawgraph.config.constants import EXPLANATORY_KIND_MARKER
 from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.retrieve import _gaps
 
@@ -44,11 +44,11 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         "%(default)s); the others are listed below them.",
     )
     args = parser.parse_args(argv)
-    _report(ArangoStore(), args.min_stubs)
+    _report(GraphStore(), args.min_stubs)
     return PipelineResult()
 
 
-def _report(store: ArangoStore, min_stubs: int) -> None:
+def _report(store: GraphStore, min_stubs: int) -> None:
     stub_rows = _gaps.stub_article_counts(store)
     loaded = _gaps.loaded_bwb_ids(store)
     missing = [
@@ -76,7 +76,7 @@ def _report(store: ArangoStore, min_stubs: int) -> None:
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def _build_name_cache(store: ArangoStore) -> dict[str, str]:
+def _build_name_cache(store: GraphStore) -> dict[str, str]:
     """Map bwb_id → best available title from the instruments collection."""
     cache: dict[str, str] = {}
     for row in gap_queries.instrument_titles(store):

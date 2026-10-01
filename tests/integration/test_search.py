@@ -17,20 +17,20 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.search import search_all
 
 BW7 = "BWBR0005290"
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
 @pytest.fixture()
-def store(database: str) -> ArangoStore:
-    store = ArangoStore()
+def store(database: str) -> GraphStore:
+    store = GraphStore()
     _put(
         store,
         COLLECTION_ARTICLES,
@@ -60,7 +60,7 @@ def store(database: str) -> ArangoStore:
     return store
 
 
-def _keys(store: ArangoStore, q: str, kind: str) -> list[str]:
+def _keys(store: GraphStore, q: str, kind: str) -> list[str]:
     return [hit["key"] for hit in search_all(store, q=q, types=[kind])[kind]]
 
 
@@ -68,22 +68,22 @@ def _keys(store: ArangoStore, q: str, kind: str) -> list[str]:
     "q", ["uitspraken", "vorderingen", "huurovereenkomsten", "uitspraak vorderingen"]
 )
 def test_an_article_is_found_by_another_form_of_its_words(
-    store: ArangoStore, q: str
+    store: GraphStore, q: str
 ) -> None:
     assert _keys(store, q, "articles") == [make_node_key(BW7, "7:231")]
 
 
 @pytest.mark.parametrize("q", ["ontslagen", "recht", "wet"])
 def test_a_judgment_is_found_by_another_form_of_the_words_of_its_summary(
-    store: ArangoStore, q: str
+    store: GraphStore, q: str
 ) -> None:
     assert _keys(store, q, "judgments") == ["ecli_nl_hr_2021_1"]
 
 
-def test_a_word_that_is_not_there_finds_nothing(store: ArangoStore) -> None:
+def test_a_word_that_is_not_there_finds_nothing(store: GraphStore) -> None:
     assert _keys(store, "belastingen", "articles") == []
 
 
-def test_a_document_hit_has_its_number_in_the_dossier(store: ArangoStore) -> None:
+def test_a_document_hit_has_its_number_in_the_dossier(store: GraphStore) -> None:
     (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
     assert (hit["extra"]["dossier_number"], hit["extra"]["sequence"]) == ("36000", 12)

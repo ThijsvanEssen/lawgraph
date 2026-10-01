@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, raw_key
+from lawgraph.db import GraphStore, raw_key
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.integration.seed import FIXTURES, seed
@@ -47,7 +47,7 @@ def _xml(name: str) -> str:
     return (FIXTURES / f"{name}.xml").read_text(encoding="utf-8")
 
 
-def _mvt_documents(store: ArangoStore) -> dict[str, dict[str, Any]]:
+def _mvt_documents(store: GraphStore) -> dict[str, dict[str, Any]]:
     statement = (
         "SELECT key AS _key, props FROM documents"
         " WHERE lg_num(props -> 'sequence') IN (1, 26)"
@@ -55,20 +55,20 @@ def _mvt_documents(store: ArangoStore) -> dict[str, dict[str, Any]]:
     return {d["props"]["sequence"]: d for d in store.query(statement)}
 
 
-def _revisions(store: ArangoStore) -> dict[str, str]:
+def _revisions(store: GraphStore) -> dict[str, str]:
     """The row version of every document: an upsert that changes nothing does not write."""
     rows = store.query("SELECT key, xmin::text AS rev FROM documents")
     return {row["key"]: row["rev"] for row in rows}
 
 
-def _raw(store: ArangoStore, key: str) -> dict[str, Any]:
+def _raw(store: GraphStore, key: str) -> dict[str, Any]:
     return next(
         store.query("SELECT doc FROM raw_sources WHERE key = %(key)s", {"key": key})
     )
 
 
-def _seeded(cli: Any) -> ArangoStore:
-    store = ArangoStore()
+def _seeded(cli: Any) -> GraphStore:
+    store = GraphStore()
     seed(store, documents=50, judgments=2, regulations=1)
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")

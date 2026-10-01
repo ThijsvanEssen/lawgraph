@@ -10,7 +10,7 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import ArangoStore, CountingStore, NodeWriter
+from lawgraph.db import CountingStore, GraphStore, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.base import PipelineBase
 
@@ -56,7 +56,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
 
     store: CountingStore
 
-    def __init__(self, store: ArangoStore) -> None:
+    def __init__(self, store: GraphStore) -> None:
         super().__init__(CountingStore(store))
 
     @abstractmethod

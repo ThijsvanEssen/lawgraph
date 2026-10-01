@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 
@@ -45,7 +45,7 @@ def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dic
 
 
 @pytest.fixture()
-def corpus(store: ArangoStore) -> ArangoStore:
+def corpus(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
@@ -110,7 +110,7 @@ def _ids(result: dict[str, Any]) -> list[str]:
 
 
 def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
-    corpus: ArangoStore,
+    corpus: GraphStore,
 ) -> None:
     result = get_judgments_list(corpus)
     assert list(result) == ["total", "items", "facets"]
@@ -145,7 +145,7 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
 
 
 def test_the_facets_by_count_then_value_and_the_years_by_year(
-    corpus: ArangoStore,
+    corpus: GraphStore,
 ) -> None:
     facets = get_judgments_list(corpus)["facets"]
     assert list(facets) == ["tier", "court_kind", "source", "year"]
@@ -171,7 +171,7 @@ def test_the_facets_by_count_then_value_and_the_years_by_year(
     ]
 
 
-def test_each_facet_leaves_its_own_filter_out(corpus: ArangoStore) -> None:
+def test_each_facet_leaves_its_own_filter_out(corpus: GraphStore) -> None:
     result = get_judgments_list(
         corpus, JudgmentFilters(tier="hoogste", court_kind="civiel")
     )
@@ -189,7 +189,7 @@ def test_each_facet_leaves_its_own_filter_out(corpus: ArangoStore) -> None:
     assert years["facets"]["tier"] == [{"value": "hoogste", "count": 2}]
 
 
-def test_the_filters(corpus: ArangoStore) -> None:
+def test_the_filters(corpus: GraphStore) -> None:
     def ids(**kw: Any) -> list[str]:
         return _ids(get_judgments_list(corpus, JudgmentFilters(**kw)))
 
@@ -211,7 +211,7 @@ def test_the_filters(corpus: ArangoStore) -> None:
     assert with_stubs["total"] == 5
 
 
-def test_the_sorts_and_paging(corpus: ArangoStore) -> None:
+def test_the_sorts_and_paging(corpus: GraphStore) -> None:
     asc = get_judgments_list(corpus, sort="date_asc")
     assert _ids(asc) == [_jid(ECHR), _jid(RB), _jid(HR1), _jid(HR10)]
     cited = get_judgments_list(corpus, sort="citation_count")
@@ -223,7 +223,7 @@ def test_the_sorts_and_paging(corpus: ArangoStore) -> None:
     assert get_judgments_list(corpus, limit=2, offset=10)["items"] == []
 
 
-def test_a_query_that_is_an_ecli_or_a_case_number(corpus: ArangoStore) -> None:
+def test_a_query_that_is_an_ecli_or_a_case_number(corpus: GraphStore) -> None:
     # the exact ECLI also finds a replaced publication
     found = get_judgments_list(corpus, JudgmentFilters(q=COPY.lower()))
     assert _ids(found) == [_jid(COPY)]
@@ -234,7 +234,7 @@ def test_a_query_that_is_an_ecli_or_a_case_number(corpus: ArangoStore) -> None:
 
 
 def test_the_unfiltered_total_takes_a_replaced_stub_off_twice(
-    corpus: ArangoStore,
+    corpus: GraphStore,
 ) -> None:
     corpus.bulk_insert_or_update_nodes(
         "judgments",
@@ -246,7 +246,7 @@ def test_the_unfiltered_total_takes_a_replaced_stub_off_twice(
     assert get_judgments_list(corpus, JudgmentFilters(tier="hoogste"))["total"] == 2
 
 
-def test_an_empty_table(store: ArangoStore) -> None:
+def test_an_empty_table(store: GraphStore) -> None:
     assert get_judgments_list(store) == {
         "total": 0,
         "items": [],
@@ -255,7 +255,7 @@ def test_an_empty_table(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def detail(corpus: ArangoStore) -> ArangoStore:
+def detail(corpus: GraphStore) -> GraphStore:
     corpus.bulk_insert_or_update_nodes(
         "articles",
         [
@@ -302,7 +302,7 @@ def detail(corpus: ArangoStore) -> ArangoStore:
     return corpus
 
 
-def test_a_judgment_with_its_articles(detail: ArangoStore) -> None:
+def test_a_judgment_with_its_articles(detail: GraphStore) -> None:
     data = judgment_queries.get_judgment_with_relations(detail, HR1.lower())
     assert data.judgment["_id"] == _jid(HR1)
     assert [a.article["_id"] for a in data.articles] == [
@@ -329,7 +329,7 @@ def test_a_judgment_with_its_articles(detail: ArangoStore) -> None:
     assert data.metadata == {"article_count": 3}
 
 
-def test_the_judgments_it_cites_and_the_same_decision(detail: ArangoStore) -> None:
+def test_the_judgments_it_cites_and_the_same_decision(detail: GraphStore) -> None:
     data = judgment_queries.get_judgment_with_relations(detail, HR1)
     assert data.cited_judgments == [
         {
@@ -353,7 +353,7 @@ def test_the_judgments_it_cites_and_the_same_decision(detail: ArangoStore) -> No
     assert data.same_as[0]["props"] == {"display_name": None, "ecli": COPY}
 
 
-def test_the_series_by_ecli_number(detail: ArangoStore) -> None:
+def test_the_series_by_ecli_number(detail: GraphStore) -> None:
     detail.bulk_insert_or_update_nodes(
         "judgments",
         [
@@ -392,6 +392,6 @@ def test_the_series_by_ecli_number(detail: ArangoStore) -> None:
     assert judgment_queries.get_judgment_with_relations(detail, RB).series == []
 
 
-def test_an_unknown_judgment(detail: ArangoStore) -> None:
+def test_an_unknown_judgment(detail: GraphStore) -> None:
     with pytest.raises(ValueError, match="judgment not found"):
         judgment_queries.get_judgment_with_relations(detail, "ECLI:NL:XX:0000:0")

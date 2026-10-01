@@ -24,7 +24,7 @@ from lawgraph.core.parties import (
     SEATING_SOURCE,
     party_color,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import get_factions, get_seats_on
 
 router = APIRouter()
@@ -53,7 +53,7 @@ _ORDER = {key: index for index, key in enumerate(SEATING)}
     tags=["parliament"],
 )
 def get_seats(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     date: Annotated[
         dt.date | None, Query(description="The day, YYYY-MM-DD; today when left out.")
     ] = None,
@@ -119,7 +119,7 @@ def get_seats(
     )
 
 
-def _ek_seats(store: ArangoStore) -> ParliamentSeatsResponse:
+def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
     factions = [
         doc
         for doc in get_factions(store, active=True, chamber="EK")

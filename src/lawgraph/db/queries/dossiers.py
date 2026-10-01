@@ -39,7 +39,7 @@ from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries.normalize import tk as normalize_tk
 
@@ -191,7 +191,7 @@ class DossierEnrichment:
 
 
 def enrich_dossier_docs(
-    store: ArangoStore, dossiers: list[dict[str, Any]]
+    store: GraphStore, dossiers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Fill the title (and opening date) of a dossier without one from its documents.
 
@@ -222,7 +222,7 @@ def enrich_dossier_docs(
 
 
 def _enrich_dossiers(
-    store: ArangoStore, dossiers: list[dict[str, Any]]
+    store: GraphStore, dossiers: list[dict[str, Any]]
 ) -> dict[str, DossierEnrichment]:
     """Title and opening date for a batch of dossiers, from the signals ``normalize
     tk-dossiers`` reads."""
@@ -248,7 +248,7 @@ def _enrich_dossiers(
 
 
 def get_dossier_by_number(
-    store: ArangoStore, dossier_number: str
+    store: GraphStore, dossier_number: str
 ) -> dict[str, Any] | None:
     """One dossier by its kamerstuk number (``36558``, or ``37020-XV`` for a chapter)."""
     return store.get_document(COLLECTION_DOSSIERS, make_node_key(dossier_number))
@@ -295,7 +295,7 @@ _TIMELINE_BODY = f"""(
 
 
 def get_dossier_timeline(
-    store: ArangoStore,
+    store: GraphStore,
     dossier_id: str,
     *,
     order: Literal["desc", "asc"] = "desc",
@@ -406,7 +406,7 @@ def get_dossier_timeline(
 
 
 def _attach_decision_documents(
-    store: ArangoStore, dossier_id: str, rows: list[dict[str, Any]]
+    store: GraphStore, dossier_id: str, rows: list[dict[str, Any]]
 ) -> None:
     """Inline the document behind every decision row, resolved case by case."""
     decisions = [row for row in rows if row.get("node_type") == "decision"]
@@ -422,9 +422,7 @@ def _attach_decision_documents(
         row["body"] = body
 
 
-def _documents_by_case(
-    store: ArangoStore, dossier_id: str
-) -> dict[str, dict[str, Any]]:
+def _documents_by_case(store: GraphStore, dossier_id: str) -> dict[str, dict[str, Any]]:
     """Case id -> one document PART_OF it, for every document in this dossier."""
     # The oldest document of a case is the one kept for it (the key settles a tie), as
     # ``get_decision_document`` picks it.
@@ -533,7 +531,7 @@ _DOSSIER_DOCUMENT_ORDER = (
 
 
 def get_dossier_documents(
-    store: ArangoStore,
+    store: GraphStore,
     dossier_id: str,
     *,
     limit: int = 100,
@@ -710,7 +708,7 @@ SELECT
 """
 
 
-def get_dossier_hub(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
+def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     """What a dossier is linked to, in one query: instruments, committees, documents.
 
     *instruments* are the parent instruments the dossier is tied to, one row per
@@ -758,7 +756,7 @@ def _side(row: dict[str, Any], prefix: str) -> dict[str, Any] | None:
     )
 
 
-def get_dossier_mutations(store: ArangoStore, dossier_id: str) -> dict[str, Any]:
+def get_dossier_mutations(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     """The pending-change and explanation subgraph of a dossier.
 
     Primary signal: an edge out of anything that belongs to the dossier, with
@@ -877,7 +875,7 @@ def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
     return f"ds.number = %(subject_number)s AND upper({_SUFFIX}) = %(subject_suffix)s"
 
 
-def get_dossier_relations(store: ArangoStore, dossier_id: str) -> list[dict[str, Any]]:
+def get_dossier_relations(store: GraphStore, dossier_id: str) -> list[dict[str, Any]]:
     """The ``REVISES``, ``ACCOMPANIES`` and ``RELATED_TO`` edges between this dossier and
     others, with the other dossier and the direction.
 
@@ -1073,7 +1071,7 @@ def _sort_keys(sort: str) -> tuple[list[str], str]:
 
 
 def get_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
     filters: DossierFilters,
     *,
     sort: str = "opened_on",
@@ -1155,7 +1153,7 @@ _MEMBER_COUNTS = ", ".join(
 )
 
 
-def count_dossier_members(store: ArangoStore, dossier_id: str) -> dict[str, int]:
+def count_dossier_members(store: GraphStore, dossier_id: str) -> dict[str, int]:
     """How many documents, activities, decisions and commitments a dossier has."""
     sql = f"""
     SELECT {_MEMBER_COUNTS}
@@ -1181,7 +1179,7 @@ def collect_dossier_numbers(
 
 
 def get_dossier_titles(
-    store: ArangoStore, numbers: Iterable[str]
+    store: GraphStore, numbers: Iterable[str]
 ) -> dict[str, str | None]:
     """Dossier node key -> title, for many dossier numbers in one query."""
     keys = sorted({make_node_key(str(n)) for n in numbers if str(n).strip()})
@@ -1235,7 +1233,7 @@ ORDER BY n.ord
 """
 
 
-def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]:
+def get_laws_named(store: GraphStore, names: list[str]) -> list[dict[str, Any]]:
     """``{name, loaded, key, bwb_id}`` of each law *names* holds (the laws a dossier title
     names), found by the citation title, title or short title of an instrument; else by
     the one citation title the name begins (a name the title cut at "in")."""
@@ -1244,7 +1242,7 @@ def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]
     return list(store.query(_LAWS_NAMED_SQL, {"names": names}))
 
 
-def tk_values(store: ArangoStore) -> dict[str, set[str]]:
+def tk_values(store: GraphStore) -> dict[str, set[str]]:
     """The values of the Tweede Kamer the database holds that a phase can name:
     ``documents`` (``Document.Soort``), ``activities`` (``Activiteit.Soort``) and
     ``decisions`` (``BesluitSoort``)."""

@@ -23,7 +23,7 @@ from lawgraph.core.feed import (
     ROLE_SUBMITTER,
     person_role,
 )
-from lawgraph.core.models import parse_arango_id
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
@@ -253,7 +253,7 @@ class FeedItemDTO(BaseModel):
     def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
-        collection, key = parse_arango_id(row["id"])
+        collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
         persons = _persons(kind, row)

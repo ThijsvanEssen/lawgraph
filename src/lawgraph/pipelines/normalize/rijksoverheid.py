@@ -69,7 +69,7 @@ from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import tk as normalize_tk
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -122,7 +122,7 @@ def known_as(posts: list[dict[str, Any]]) -> str | None:
 class RijksoverheidNormalizePipeline(NormalizePipelineBase):
     """Write the cabinets and the posts held in them onto the members."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
         # (member key, cabinet key) -> the posts held in it, for ``build_edges``
         self._served: dict[tuple[str, str], list[dict[str, Any]]] = {}

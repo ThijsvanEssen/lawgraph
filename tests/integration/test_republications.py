@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -103,7 +103,7 @@ _HISTORY = [
 ]
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
@@ -135,7 +135,7 @@ def _seed(store: ArangoStore) -> None:
             )
 
 
-def _with_the_2008_text(store: ArangoStore) -> None:
+def _with_the_2008_text(store: GraphStore) -> None:
     """The 2002 toestand again, now with the text of 2008: all three versions are one."""
     with RawSourceWriter(store) as writer:
         start, end, article_7 = _HISTORY[0]
@@ -156,8 +156,8 @@ def _with_the_2008_text(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> ArangoStore:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> GraphStore:
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -167,7 +167,7 @@ def store(database: str, cli: Any) -> ArangoStore:
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -181,7 +181,7 @@ def _get(client: TestClient, path: str) -> Any:
     return response.json()
 
 
-def _amending(store: ArangoStore, article: str) -> set[tuple[str, str]]:
+def _amending(store: GraphStore, article: str) -> set[tuple[str, str]]:
     statement = """
     SELECT e.relation, e.from_id FROM articles a JOIN edges e ON e.to_id = a.id
     WHERE a.props ->> 'bwb_id' = %(law)s AND a.props ->> 'article_number' = %(nr)s
@@ -193,7 +193,7 @@ def _amending(store: ArangoStore, article: str) -> set[tuple[str, str]]:
     }
 
 
-def test_a_republication_amends_no_article(store: ArangoStore) -> None:
+def test_a_republication_amends_no_article(store: GraphStore) -> None:
     assert _amending(store, "7") == {("AMENDS", "instruments/stb_2002_144")}
     assert _amending(store, "82") == set()
 
@@ -219,7 +219,7 @@ def test_a_republication_is_no_amending_publication(client: TestClient) -> None:
 
 
 def test_a_version_merged_away_goes_with_its_edges(
-    store: ArangoStore, cli: Any, client: TestClient
+    store: GraphStore, cli: Any, client: TestClient
 ) -> None:
     _with_the_2008_text(store)
     cli("normalize", "bwb-history")

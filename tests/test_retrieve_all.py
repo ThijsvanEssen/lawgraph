@@ -209,7 +209,7 @@ PRODUCING = (
 def test_the_window_reaches_the_sources_that_keep_producing(
     monkeypatch, recorded
 ) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     for source in PRODUCING:
         assert recorded[source] == ["--mode", "incremental", "--since", WINDOW], source
@@ -220,7 +220,7 @@ def test_the_window_reaches_the_sources_that_keep_producing(
 def test_reference_sources_are_read_in_full_whatever_the_window(
     monkeypatch, recorded
 ) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full", "--window", "2024-09-20"])
     assert recorded["bwb"] == ["--mode", "full"]
     assert recorded["bwb-history"] == ["--mode", "full"]
@@ -229,7 +229,7 @@ def test_reference_sources_are_read_in_full_whatever_the_window(
 
 
 def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full", "--window", "all"])
     for source in PRODUCING:
         assert recorded[source][:2] == ["--mode", "full"], source
@@ -239,7 +239,7 @@ def test_window_all_loads_the_whole_history(monkeypatch, recorded) -> None:
 def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> None:
     import datetime as dt
 
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full"])
     since = dt.datetime.fromisoformat(recorded["tk"][3])
     age = dt.datetime.now(dt.timezone.utc) - since
@@ -247,7 +247,7 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
 
 
 def test_an_incremental_run_ignores_the_window(monkeypatch, recorded) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--since", "7d", "--window", "2024-09-20"])
     assert recorded["staatscourant"][:3] == ["--mode", "incremental", "--since"]
     assert WINDOW not in recorded["staatscourant"]
@@ -266,7 +266,7 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
         events.append("store")
         return PipelineStateFake()
 
-    monkeypatch.setattr(orchestration, "ArangoStore", store)
+    monkeypatch.setattr(orchestration, "GraphStore", store)
     _with_retrieve_commands(
         monkeypatch,
         lambda pipeline: lambda argv: events.append("step") or PipelineResult(),
@@ -340,7 +340,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
 def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_papers(
     monkeypatch, recorded
 ) -> None:
-    monkeypatch.setattr(orchestration, "ArangoStore", PipelineStateFake)
+    monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--since", "7d"])
     assert recorded["bwb-history"] == ["--mode", "incremental"]
     assert recorded["tk-content"] == []
@@ -487,7 +487,7 @@ def test_gaps_mode_runs_the_sources_that_can_fetch_what_the_graph_lacks(
     """Every source fetches its own gaps, in lanes, under its own address: it was one
     `fill-gaps` that fetched them one after the other and normalized in between."""
     store = PipelineStateFake()
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: store)
+    monkeypatch.setattr(orchestration, "GraphStore", lambda: store)
     result = retrieve_all(["--mode", "gaps"])
 
     assert result.errors == []

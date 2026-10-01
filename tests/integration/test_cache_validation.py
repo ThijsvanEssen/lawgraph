@@ -13,12 +13,12 @@ from lawgraph.api import app as app_module
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_JUDGMENTS
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 PATH = "/api/judgments/ECLI:NL:HR:2020:1"
 
 
-def _put(store: ArangoStore, summary: str) -> None:
+def _put(store: GraphStore, summary: str) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_JUDGMENTS,
         [
@@ -36,7 +36,7 @@ def test_a_write_to_the_graph_changes_the_etag(
     database: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(app_module, "DATA_VERSION_TTL", 0.0)  # read it on every request
-    store = ArangoStore()
+    store = GraphStore()
     _put(store, "Oude samenvatting.")
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -62,7 +62,7 @@ def test_a_large_answer_is_compressed_and_still_validated(
     database: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(app_module, "DATA_VERSION_TTL", 0.0)
-    store = ArangoStore()
+    store = GraphStore()
     _put(store, "Een samenvatting. " * 200)
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -96,7 +96,7 @@ def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(
     """A browser that kept an answer of an older release asks with its tag and gets the
     new answer, not a 304: the tag holds the API version. An error is never kept."""
     monkeypatch.setattr(app_module, "DATA_VERSION_TTL", 0.0)
-    store = ArangoStore()
+    store = GraphStore()
     _put(store, "Een samenvatting.")
     app.dependency_overrides[get_store] = lambda: store
     try:

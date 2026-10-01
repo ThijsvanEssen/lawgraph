@@ -38,7 +38,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -91,7 +91,7 @@ def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
 class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
     """Factions, committees and members of the Eerste Kamer from its pages."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
@@ -334,7 +334,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         for listed, page in shot.factions:
             target = f"{COLLECTION_FACTIONS}/{make_node_key('ek', _slug(listed.path))}"
             for person in page.members:
-                wanted[(members[person.path].arango_id or "", target)] = {
+                wanted[(members[person.path].node_id or "", target)] = {
                     "seniority_days": person.seniority_days
                 }
         for listed, page in shot.committees:
@@ -343,7 +343,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             )
             for person in page.members:
                 if person.path in members:
-                    wanted[(members[person.path].arango_id or "", target)] = {
+                    wanted[(members[person.path].node_id or "", target)] = {
                         "role": person.role
                     }
         writer = EdgeWriter(self.store, what="MEMBER_OF edges of the Eerste Kamer")

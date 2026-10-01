@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0005537"
@@ -50,7 +50,7 @@ def _toestand(start: str, *, changed: bool) -> str:
     return xml.replace(CHANGED_LINE, f"{CHANGED_LINE} 2026") if changed else xml
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     toestanden = [
         (RAW_KIND_BWB_TOESTAND, LAW, "2026-08-15", "9999-12-31", True),
         # the history, newest first: a version begins in the first toestand of its text
@@ -96,7 +96,7 @@ def _seed(store: ArangoStore) -> None:
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")

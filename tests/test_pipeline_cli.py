@@ -113,7 +113,7 @@ class _Undated(_Dated):
 def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) -> None:
     """It was said three times (`with_since`, `semantic_accepts_since`, the signature) and
     a step that missed one ran in full without a word, or died on an unknown option."""
-    monkeypatch.setattr(command_module, "ArangoStore", lambda: object())
+    monkeypatch.setattr(command_module, "GraphStore", lambda: object())
     _Dated.calls = []
     dated, undated = PipelineCommand(_Dated, ""), PipelineCommand(_Undated, "")
 

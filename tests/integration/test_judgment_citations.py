@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak_citations import SEMANTIC_SOURCE
 from tests.integration.test_judgment_relations import _relation, _xml
 
@@ -50,7 +50,7 @@ JUDGMENTS = {
 }
 
 
-def _cited(store: ArangoStore) -> set[tuple[str, str]]:
+def _cited(store: GraphStore) -> set[tuple[str, str]]:
     sql = """
     SELECT f.ecli AS from_ecli, t.ecli AS to_ecli
     FROM edges e
@@ -66,7 +66,7 @@ def _cited(store: ArangoStore) -> set[tuple[str, str]]:
 
 
 def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, xml in JUDGMENTS.items():
             writer.add(

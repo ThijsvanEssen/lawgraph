@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 CHAPTER = {"Id": uid(2, 3), "Nummer": 37020, "Toevoeging": "XV"}
@@ -89,7 +89,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _targets(store: ArangoStore, collection: str, relation: str) -> list[str]:
+def _targets(store: GraphStore, collection: str, relation: str) -> list[str]:
     statement = """
     SELECT DISTINCT to_id FROM edges
     WHERE from_collection = %(collection)s AND relation = %(relation)s
@@ -99,7 +99,7 @@ def _targets(store: ArangoStore, collection: str, relation: str) -> list[str]:
     return sorted(rows)
 
 
-def _props(store: ArangoStore, key: str) -> dict[str, Any]:
+def _props(store: GraphStore, key: str) -> dict[str, Any]:
     doc = store.get_document("dossiers", key)
     assert doc is not None
     return doc["props"]
@@ -110,7 +110,7 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
 ) -> None:
     """The Zaak names Nummer 37020 with Toevoeging XV: the case, the bill, the debate
     and the vote belong to 37020-XV, and the Miljoenennota (37020) gets none of them."""
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             writer.add(
@@ -147,7 +147,7 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
         app.dependency_overrides.pop(get_store, None)
 
 
-def _senate_papers(store: ArangoStore, cli: Any) -> None:
+def _senate_papers(store: GraphStore, cli: Any) -> None:
     """Eerste Kamer papers name their dossier as ``37020 XV``: normalize gives them the
     label a Tweede Kamer paper has."""
     with RawSourceWriter(store) as writer:

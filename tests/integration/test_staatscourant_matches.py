@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.models import NodeType
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 TEXT = "Deze regeling berust op de Wet op de proeven (BWBR0000001). " * 3
@@ -33,7 +33,7 @@ def _publication(key: str, date: str, **props: Any) -> dict[str, Any]:
     )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_INSTRUMENTS,
         [
@@ -68,7 +68,7 @@ def _seed(store: ArangoStore) -> None:
     )
 
 
-def _matches(store: ArangoStore, since_date: str | None) -> dict[str, dict[str, Any]]:
+def _matches(store: GraphStore, since_date: str | None) -> dict[str, dict[str, Any]]:
     rows = semantic_bwb.staatscourant_instrument_matches(store, since_date)
     by_publication = {row["pub_key"]: row for row in rows}
     assert len(by_publication) == len(rows)  # one row per publication
@@ -76,7 +76,7 @@ def _matches(store: ArangoStore, since_date: str | None) -> dict[str, dict[str, 
 
 
 def test_every_regulation_is_matched_once(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     matches = _matches(store, None)
@@ -94,7 +94,7 @@ def test_every_regulation_is_matched_once(database: str) -> None:
 
 
 def test_a_date_keeps_the_regulations_of_that_day_and_later(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     assert set(_matches(store, "2026-09-19")) == {"stcrt-1", "stcrt-2", "stcrt-3"}

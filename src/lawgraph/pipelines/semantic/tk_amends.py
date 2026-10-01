@@ -95,7 +95,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         kept: dict[str, set[str]] = {}
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
-            keys = kept.setdefault(doc_node.arango_id or "", set())
+            keys = kept.setdefault(doc_node.node_id or "", set())
             for edge_doc in self._amends_edges(doc_node, instrument_aliases):
                 keys.add(edge_doc["_key"])
                 edges.add_doc(edge_doc)

@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.mentions import Mention
-from lawgraph.core.models import parse_arango_id
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
@@ -500,7 +500,7 @@ class ArticleExplanationDTO(BaseModel):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleExplanationDTO:
         """Build from a row of ``get_article_explanations``."""
-        collection, key = parse_arango_id(row["target_id"])
+        collection, key = parse_node_id(row["target_id"])
         target = _TARGET_OF_COLLECTION[collection]
         section_anchor = row.get("section_anchor") or None
         return cls(

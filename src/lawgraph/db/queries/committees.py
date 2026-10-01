@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 
 # A committee whose name is just a GUID carries no usable identity.
@@ -90,7 +90,7 @@ def _page(source: str, *order: str) -> str:
     """
 
 
-def get_committees(store: ArangoStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
+def get_committees(store: GraphStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
     """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
     the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
     graph-list-stats`` counted."""
@@ -109,7 +109,7 @@ def get_committees(store: ArangoStore, *, chamber: str = "TK") -> list[dict[str,
     return [node_doc(row) for row in rows]
 
 
-def _committee(store: ArangoStore, slug: str) -> dict[str, Any] | None:
+def _committee(store: GraphStore, slug: str) -> dict[str, Any] | None:
     """The committee of the slug or the key *slug*. A slug that is also another
     committee's key: the key picks one every time."""
     rows = store.query(
@@ -139,7 +139,7 @@ _SEAT_FIELDS = ("from_date", "to_date", "role", "observed_from", "observed_until
 
 
 def _committee_members(
-    store: ArangoStore, committee_id: str, *, current_only: bool
+    store: GraphStore, committee_id: str, *, current_only: bool
 ) -> list[dict[str, Any]]:
     """The members of a committee by name, each with its seat (``_SEAT_FIELDS``)."""
     bind: dict[str, Any] = {
@@ -170,7 +170,7 @@ def _committee_members(
 
 
 def get_committee_detail(
-    store: ArangoStore,
+    store: GraphStore,
     slug: str,
     *,
     current_only: bool = True,
@@ -234,7 +234,7 @@ def get_committee_detail(
 
 
 def get_committee_activities(
-    store: ArangoStore, slug: str, *, limit: int = 100, offset: int = 0
+    store: GraphStore, slug: str, *, limit: int = 100, offset: int = 0
 ) -> dict[str, Any] | None:
     """A page of the activities a committee leads, newest first; None when unknown.
 
@@ -316,7 +316,7 @@ _PARTY = f"""
 
 
 def _members_page(
-    store: ArangoStore, filters: list[str], bind: dict[str, Any], seated: str
+    store: GraphStore, filters: list[str], bind: dict[str, Any], seated: str
 ) -> list[dict[str, Any]]:
     """A page of the members *filters* keep (on ``m`` and its name ``n.name``), with
     ``%(active)s`` only those *seated* (or not), in name order."""
@@ -336,7 +336,7 @@ def _members_page(
 
 
 def get_members(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     party: str | None = None,
     active: bool | None = None,
@@ -381,7 +381,7 @@ _EK_NAME = "m.props -> 'ek' ->> 'name'"
 
 
 def get_ek_members(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     party: str | None = None,
     active: bool | None = None,
@@ -412,7 +412,7 @@ _FACTION_ABBREVIATION = "f.props ->> 'abbreviation'"
 
 
 def get_factions(
-    store: ArangoStore,
+    store: GraphStore,
     *,
     active: bool | None = None,
     q: str | None = None,
@@ -453,7 +453,7 @@ def get_factions(
     return [{**node_doc(row), "member_count": row["member_count"]} for row in rows]
 
 
-def get_seats_on(store: ArangoStore, day: str) -> dict[str, int]:
+def get_seats_on(store: GraphStore, day: str) -> dict[str, int]:
     """Faction key -> the seats its members held on *day* (YYYY-MM-DD), from their
     ``faction_memberships``: a member is one seat of a faction, whatever their role."""
     rows = store.query(
@@ -484,7 +484,7 @@ _IN_MEMBERSHIP = f"""
 
 
 def get_member_votes(
-    store: ArangoStore, member_id: str, *, limit: int = 100
+    store: GraphStore, member_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
     """How a member voted, newest first.
 
@@ -555,7 +555,7 @@ def get_member_votes(
 
 
 def get_actor_touched_instruments(
-    store: ArangoStore, actor_id: str, *, limit: int = 10
+    store: GraphStore, actor_id: str, *, limit: int = 10
 ) -> list[dict[str, Any]]:
     """The laws a member most often proposes changes to.
 
@@ -646,7 +646,7 @@ def _distinct(field: str, condition: str) -> str:
 
 
 def get_actor_dossiers(
-    store: ArangoStore,
+    store: GraphStore,
     actor_id: str,
     *,
     limit: int = 100,
@@ -724,7 +724,7 @@ _NAMES = "lg_text_array(d.props -> '{}') @> ARRAY[%(name)s]::text[]"
 
 
 def get_ek_faction_votes(
-    store: ArangoStore,
+    store: GraphStore,
     abbreviation: str,
     *,
     date_from: str | None = None,

@@ -38,7 +38,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.base import (
     RetrievePipelineBase,
     RetrieveRecord,
@@ -51,7 +51,7 @@ logger = get_logger(__name__)
 class TKDossiersRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for all parliamentary dossier entity types."""
 
-    def __init__(self, *, store: ArangoStore, client: TKClient | None = None) -> None:
+    def __init__(self, *, store: GraphStore, client: TKClient | None = None) -> None:
         super().__init__(store)
         self.client = client or TKClient()
 

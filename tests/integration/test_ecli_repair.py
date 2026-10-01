@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import NodeType, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
     SEMANTIC_SOURCE as APPEAL_SOURCE,
 )
@@ -44,12 +44,12 @@ EARLIER_STUBS = (
 APPEALED = "ECLI:NL:GHDHA:2020:7"
 
 
-def _stub_eclis(store: ArangoStore) -> set[str]:
+def _stub_eclis(store: GraphStore) -> set[str]:
     return set(store.query(f"SELECT ecli FROM {COLLECTION_JUDGMENTS} WHERE stub"))
 
 
 def test_malformed_eclis_are_repaired_or_dropped(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
@@ -73,10 +73,10 @@ def test_malformed_eclis_are_repaired_or_dropped(database: str, cli: Any) -> Non
                 NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
-            assert stub is not None and stub.arango_id
+            assert stub is not None and stub.node_id
             relation = RELATION_APPEAL_OF if ecli == APPEALED else RELATION_REFERS_TO
             source = APPEAL_SOURCE if ecli == APPEALED else SEMANTIC_SOURCE
-            edges.add(ruling_id, stub.arango_id, relation, source=source)
+            edges.add(ruling_id, stub.node_id, relation, source=source)
 
     cli("semantic", "rechtspraak-citations")
 

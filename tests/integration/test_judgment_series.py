@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 NS = (
     'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
@@ -134,7 +134,7 @@ JUDGMENTS = {
 }
 
 
-def _store_raw(store: ArangoStore, judgments: dict[str, str]) -> None:
+def _store_raw(store: GraphStore, judgments: dict[str, str]) -> None:
     with RawSourceWriter(store) as writer:
         for ecli, xml in judgments.items():
             writer.add(
@@ -148,7 +148,7 @@ def _store_raw(store: ArangoStore, judgments: dict[str, str]) -> None:
             )
 
 
-def _series(store: ArangoStore) -> dict[str, tuple[Any, Any]]:
+def _series(store: GraphStore) -> dict[str, tuple[Any, Any]]:
     sql = """
     SELECT ecli, props -> 'series_id' AS series, props -> 'series_size' AS size
     FROM judgments WHERE source = 'rechtspraak'
@@ -159,7 +159,7 @@ def _series(store: ArangoStore) -> dict[str, tuple[Any, Any]]:
 def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store_raw(store, JUDGMENTS)
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-series")
@@ -215,7 +215,7 @@ FAUNA = _words(8, 2500)
 def test_long_parallel_cases_with_their_own_facts_are_a_series(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store_raw(
         store,
         {
