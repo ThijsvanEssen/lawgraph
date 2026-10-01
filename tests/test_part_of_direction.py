@@ -1,7 +1,8 @@
 """PART_OF always points child (article / annex) → instrument.
 
 One contract, checked at both ends: every writer produces that direction, and
-every AQL reader filters on it.
+every reader filters on it. The readers in SQL are pinned on a real PostgreSQL
+(``tests/pg/test_graph_stats.py``); those still in AQL here.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.queries.graph_stats import _INSTRUMENTS_BODY
 from lawgraph.db.queries.relationships import _INSTRUMENT_FOR
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
@@ -83,11 +83,6 @@ def test_part_of_endpoints_match_the_catalogue() -> None:
 
 
 # ── readers (AQL strings; a live ArangoDB is needed to execute them) ─────────
-
-
-def test_list_stats_counts_edges_pointing_at_instrument() -> None:
-    assert "e._to == inst._id" in _INSTRUMENTS_BODY
-    assert "e._from == inst._id" not in _INSTRUMENTS_BODY
 
 
 def test_relationship_query_looks_up_instrument_from_article() -> None:
