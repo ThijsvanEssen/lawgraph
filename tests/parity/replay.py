@@ -103,9 +103,15 @@ def _percentile(values: list[float], share: float) -> float:
     return ordered[min(len(ordered) - 1, int(share * len(ordered)))]
 
 
+def _over(ms: float, reference: float) -> bool:
+    """The norm of the switch: at most max(10 %, 5 ms) above the reference."""
+    return ms > reference + max(0.1 * reference, 5.0)
+
+
 def latency(rows: list[dict[str, Any]]) -> list[str]:
     """p50 and p95 per route (ms), and of the reference API when it was timed too; a route
-    whose p95 is more than 10 % slower than the reference's is marked."""
+    whose p50 or p95 lies more than max(10 %, 5 ms) above the reference's is marked
+    SLOWER."""
     by_route: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         by_route.setdefault(row["route"], []).append(row)
@@ -117,9 +123,12 @@ def latency(rows: list[dict[str, Any]]) -> list[str]:
         line = f"{route:44} {_percentile(ms, 0.5):7.1f} {_percentile(ms, 0.95):7.1f}"
         ref = [r["ms_reference"] for r in found if "ms_reference" in r]
         if ref:
-            p95, ref95 = _percentile(ms, 0.95), _percentile(ref, 0.95)
-            line += f"  {_percentile(ref, 0.5):7.1f}  {ref95:7.1f}"
-            line += "  SLOWER" if p95 > ref95 * 1.1 else ""
+            ref50, ref95 = _percentile(ref, 0.5), _percentile(ref, 0.95)
+            line += f"  {ref50:7.1f}  {ref95:7.1f}"
+            slower = _over(_percentile(ms, 0.5), ref50) or _over(
+                _percentile(ms, 0.95), ref95
+            )
+            line += "  SLOWER" if slower else ""
         lines.append(line)
     return lines
 
