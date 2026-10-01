@@ -986,12 +986,11 @@ def get_dossier_titles(
     keys = sorted({make_node_key(str(n)) for n in numbers if str(n).strip()})
     if not keys:
         return {}
-    aql = f"""
-    FOR d IN {COLLECTION_DOSSIERS}
-        FILTER d._key IN @keys
-        RETURN {{ key: d._key, title: d.props.title }}
-    """
-    return {row["key"]: row.get("title") for row in store.query(aql, {"keys": keys})}
+    rows = store.query(
+        "SELECT key, props -> 'title' AS title FROM dossiers WHERE key = ANY(%(keys)s)",
+        {"keys": keys},
+    )
+    return {row["key"]: row["title"] for row in rows}
 
 
 def get_laws_named(store: ArangoStore, names: list[str]) -> list[dict[str, Any]]:

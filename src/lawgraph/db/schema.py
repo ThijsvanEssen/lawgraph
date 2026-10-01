@@ -485,6 +485,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("closed_on"),
         _str("cabinet"),
         _str("ministry"),
+        # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
+        _str("kind"),
+        _bool("initiative"),
     ),
     COLLECTION_ACTIVITIES: (_str("date"),),
     COLLECTION_DECISIONS: (
@@ -792,6 +795,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
         "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
         f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
+    ),
+    # /api/documents, newest first: a page without a kind or dossier reads only itself.
+    COLLECTION_DOCUMENTS: (
+        "CREATE INDEX IF NOT EXISTS documents_list_date"
+        " ON documents (date DESC NULLS LAST, key)",
     ),
 }
 
