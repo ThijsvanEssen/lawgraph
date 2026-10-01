@@ -75,6 +75,8 @@ def test_member_joins_the_name_parts() -> None:
     )
     assert props["name"] == "Mark van der Berg"
     assert props["display_name"] == "Mark van der Berg"
+    # the parts as the Kamer gives them, for a list by surname: Berg, van der
+    assert (props["family_name"], props["name_prefix"]) == ("Berg", "van der")
     # Party is not read here: it comes from the dated seat timeline.
     assert "party" not in props
 

@@ -426,6 +426,17 @@ class MemberDTO(BaseModel):
         None,
         description="``Gerard Adriaan van der Steur``; null when the TK gives none.",
     )
+    family_name: str | None = Field(
+        None,
+        description="The surname without its tussenvoegsel, as the TK gives it "
+        "(``Persoon.Achternaam``): ``Steur``. A list sorted by surname "
+        "(``sort=family_name``) sorts on it, then on ``name_prefix``.",
+    )
+    name_prefix: str | None = Field(
+        None,
+        description="The tussenvoegsel, as the TK gives it (``Persoon.Tussenvoegsel``): "
+        "``van der``; null for none.",
+    )
     party: str | None = None
     active: bool = False
     faction_memberships: list[FactionMembershipDTO] = []
@@ -475,6 +486,8 @@ class MemberDTO(BaseModel):
             or props.get("known_as")
             or props.get("government_name"),
             full_name=props.get("full_name"),
+            family_name=props.get("family_name"),
+            name_prefix=props.get("name_prefix"),
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
