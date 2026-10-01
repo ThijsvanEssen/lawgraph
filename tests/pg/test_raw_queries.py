@@ -111,6 +111,8 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(
             )
             for bwb_id, start, at in toestanden
         ]
+        # without the meta: first, where ArangoDB's SORT puts null
+        + [_raw(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, "x", "2026-01-05T00:00:00Z")]
     )
     rows = raw_queries.iter_raw_records(
         store,
@@ -121,6 +123,7 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(
         chronological=True,
     )
     assert [r["external_id"] for r in rows] == [
+        "x",
         "BWBR1@2005-06-01",
         "BWBR1@2010-01-01",
         "BWBR2@2000-01-01",
