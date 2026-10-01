@@ -54,6 +54,48 @@ def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
     return changed
 
 
+# The abbreviation of each instrument of *rows* (``{key, abbreviation}``), and the same as
+# ``instrument_abbreviation`` on its articles (by ``bwb_id`` or ``celex``); a null one removes
+# the prop. Only what differs is written; keys in order (D11).
+_ABBREVIATION_SQL = f"""
+WITH r AS (
+    SELECT u.value ->> 'key' AS key, u.value -> 'abbreviation' AS abbreviation
+    FROM json_array_elements(%(rows)s::json) AS u(value)
+),
+instruments_set AS (
+    UPDATE instruments t
+    SET props = CASE WHEN coalesce(json_typeof(r.abbreviation), 'null') = 'null'
+                     THEN lg_unset(t.props, ARRAY['abbreviation'])
+                     ELSE lg_update(t.props, json_build_object('abbreviation', r.abbreviation))
+                END
+    FROM r
+    WHERE t.key = r.key AND {differs_sql("t.props -> 'abbreviation'", "r.abbreviation")}
+    RETURNING 1
+),
+articles_set AS (
+    UPDATE articles a
+    SET props = CASE WHEN coalesce(json_typeof(r.abbreviation), 'null') = 'null'
+                     THEN lg_unset(a.props, ARRAY['instrument_abbreviation'])
+                     ELSE lg_update(
+                         a.props, json_build_object('instrument_abbreviation', r.abbreviation)
+                     )
+                END
+    FROM r JOIN instruments i ON i.key = r.key
+    WHERE (a.bwb_id = i.bwb_id OR a.celex = i.celex)
+      AND {differs_sql("a.props -> 'instrument_abbreviation'", "r.abbreviation")}
+    RETURNING 1
+)
+SELECT (SELECT count(*) FROM instruments_set)::int + (SELECT count(*) FROM articles_set)::int
+"""
+
+
+def update_instrument_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Set ``abbreviation`` on the instruments of *rows* (``{key, abbreviation}``) and
+    ``instrument_abbreviation`` on their articles where it differs; how many nodes changed.
+    A null abbreviation removes both props."""
+    return int(next(store.query(_ABBREVIATION_SQL, {"rows": Json(rows)}), 0))
+
+
 _ARTICLES_SQL = """
 SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id
 FROM articles

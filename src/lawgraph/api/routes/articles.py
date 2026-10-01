@@ -138,7 +138,8 @@ def _build_relationship_dtos(
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
         "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
         "(a lid number the passage names) filter; `total` counts all passages that match, "
-        "`judgment_total` the judgments they are in. "
+        "`judgment_total` the judgments they are in, `echr_judgment_total` the ECHR "
+        "judgments that cite the article (no passage: HUDOC names the article). "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -187,6 +188,7 @@ def get_article_cited_by_passages(
         items=items,
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
+        echr_judgment_total=cited_by.echr_judgment_total,
     )
 
 

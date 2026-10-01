@@ -786,6 +786,40 @@ def advocate_general(root: ET.Element) -> str | None:
     return None
 
 
+# Who signs a conclusion: below "De Procureur-Generaal bij de Hoge Raad der Nederlanden," the
+# role, as the Parket writes it: "A-G", "AG", "Advocaat-Generaal", "(a.-g.)", "Wnd. A-G",
+# "plv." (the plaatsvervangend procureur-generaal). The heading of the office at the top reads
+# the same with no role below it. Letters only, lower case -> the role.
+_OFFICE = re.compile(
+    r"procureur[- ]generaal\s+bij\s+de\s+hoge\s+raad(?:\s+der\s+nederlanden)?\s*,?",
+    re.IGNORECASE,
+)
+ADVOCAAT_GENERAAL = "advocaat-generaal"
+WAARNEMEND_ADVOCAAT_GENERAAL = "waarnemend advocaat-generaal"
+PLAATSVERVANGEND_PROCUREUR_GENERAAL = "plaatsvervangend procureur-generaal"
+_SIGNED_ROLES = {
+    "ag": ADVOCAAT_GENERAAL,
+    "advocaatgeneraal": ADVOCAAT_GENERAAL,
+    "agibd": ADVOCAAT_GENERAAL,  # in buitengewone dienst
+    "wndag": WAARNEMEND_ADVOCAAT_GENERAAL,
+    "waarnemendadvocaatgeneraal": WAARNEMEND_ADVOCAAT_GENERAAL,
+    "plv": PLAATSVERVANGEND_PROCUREUR_GENERAAL,
+}
+
+
+def advocate_general_role(text: str | None) -> str | None:
+    """The role of who signs a conclusion, from the line below the office in its signature:
+    ``advocaat-generaal``, ``waarnemend advocaat-generaal`` or ``plaatsvervangend
+    procureur-generaal``. ``None`` when the conclusion writes none, or one that is not
+    clear: an empty line (an A-G signs so too), "plv. AG"."""
+    for match in reversed(list(_OFFICE.finditer(text or ""))):
+        line = (text or "")[match.end() :].lstrip().split("\n", 1)[0]
+        role = _SIGNED_ROLES.get(re.sub(r"[^a-z]", "", line.lower()))
+        if role:
+            return role
+    return None
+
+
 class _Sections:
     """The paragraphs of an ``<uitspraak>``, in reading order."""
 

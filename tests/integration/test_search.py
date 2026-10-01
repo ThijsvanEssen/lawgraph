@@ -107,3 +107,45 @@ def test_a_document_hit_has_its_date_and_chamber(store: GraphStore) -> None:
     is read as /api/documents reads it (BE-39)."""
     (hit,) = search_all(store, q="huurovereenkomst", types=["documents"])["documents"]
     assert (hit["extra"]["date"], hit["extra"]["chamber"]) == ("2025-11-04", "TK")
+
+
+def test_a_cabinet_is_found_by_the_words_of_its_name(store: GraphStore) -> None:
+    """BE-35: the entry Kabinet of the start page."""
+    for key, name, start in (
+        ("schoof", "kabinet-Schoof", "2024-07-02"),
+        ("rutte_iv", "kabinet-Rutte IV", "2022-01-10"),
+        ("rutte_iii", "kabinet-Rutte III", "2017-10-26"),
+    ):
+        _put(store, "cabinets", key, name=name, from_date=start)
+    hits = search_all(store, q="Rutte", types=["cabinets"])["cabinets"]
+    assert [h["key"] for h in hits] == ["rutte_iv", "rutte_iii"]  # newest first
+    (hit,) = search_all(store, q="kabinet schoof", types=["cabinets"])["cabinets"]
+    assert (hit["display_name"], hit["extra"]["from_date"]) == (
+        "kabinet-Schoof",
+        "2024-07-02",
+    )
+
+
+def test_a_commitment_is_found_by_its_words_or_its_number(store: GraphStore) -> None:
+    """BE-35: a commitment by what it promises, or by its number."""
+    _put(
+        store,
+        "commitments",
+        "tz1",
+        number="TZ202609-011",
+        text="De minister zegt toe de Kamer een statusbrief over stikstof te sturen.",
+        display_name="De minister zegt toe de Kamer een statusbrief…",
+        made_on="2026-09-08",
+        status="Openstaand",
+    )
+    _put(store, "commitments", "tz2", number="TZ202501-001", text="Iets anders.")
+    (hit,) = search_all(store, q="statusbrief stikstof", types=["commitments"])[
+        "commitments"
+    ]
+    assert hit["key"] == "tz1"
+    assert (hit["extra"]["number"], hit["extra"]["status"]) == (
+        "TZ202609-011",
+        "Openstaand",
+    )
+    by_number = search_all(store, q="tz202609-011", types=["commitments"])
+    assert [h["key"] for h in by_number["commitments"]] == ["tz1"]

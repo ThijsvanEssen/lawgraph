@@ -23,7 +23,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
-from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
 
 _law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
 
@@ -575,12 +575,14 @@ def _search_documents(
 # ── members and factions: every word in their names ─────────────────────────
 
 
-def _all_words(tokens: list[str]) -> tuple[str, dict[str, Any]]:
-    """Every token is a part of the names (``search_names``, lower case): a trigram lookup
-    each."""
+def _all_words(
+    tokens: list[str], words: str = "doc.search_names"
+) -> tuple[str, dict[str, Any]]:
+    """Every token is a part of *words* (the names of a member or faction, the words of a
+    cabinet or commitment: lower case): a trigram lookup each."""
     params = {f"_word_{i}": token for i, token in enumerate(tokens)}
     condition = " AND ".join(
-        f"doc.search_names LIKE '%%' || lg_like(%({name})s) || '%%'" for name in params
+        f"{words} LIKE '%%' || lg_like(%({name})s) || '%%'" for name in params
     )
     return condition, params
 
@@ -627,6 +629,59 @@ def _search_factions(
         WHERE {condition}
         ORDER BY doc.active DESC NULLS LAST, coalesce(doc.seats, 0) DESC,
                  doc.name NULLS FIRST, doc.key
+        LIMIT %(limit)s
+        """
+    return list(store.query(statement, {**params, "limit": limit}))
+
+
+def _search_cabinets(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """Every word in the name of the cabinet (``kabinet-Schoof``), newest first."""
+    condition, params = _all_words(tokens, search_words("cabinets", "doc"))
+    statement = f"""
+        SELECT json_build_object(
+            'id', doc.id, 'key', doc.key,
+            'collection', 'cabinets', 'type', doc.type,
+            'display_name', doc.props -> 'name',
+            'snippet', doc.props -> 'from_date',
+            'extra', json_build_object(
+                'from_date', doc.props -> 'from_date',
+                'to_date', doc.props -> 'to_date'
+            )
+        )
+        FROM cabinets doc
+        WHERE {condition}
+        ORDER BY lg_str(doc.props -> 'from_date') DESC NULLS LAST, doc.key
+        LIMIT %(limit)s
+        """
+    return list(store.query(statement, {**params, "limit": limit}))
+
+
+def _search_commitments(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """Every word in the text or the number of the commitment (``TZ202609-011``), newest
+    first."""
+    condition, params = _all_words(tokens, search_words("commitments", "doc"))
+    statement = f"""
+        SELECT json_build_object(
+            'id', doc.id, 'key', doc.key,
+            'collection', 'commitments', 'type', doc.type,
+            'display_name', doc.props -> 'display_name',
+            'snippet', doc.props -> 'number',
+            'extra', json_build_object(
+                'number', doc.props -> 'number',
+                'made_on', doc.props -> 'made_on',
+                'status', doc.props -> 'status',
+                'minister_name', doc.props -> 'minister_name',
+                'cabinet', doc.props -> 'cabinet',
+                'ministry', doc.props -> 'ministry'
+            )
+        )
+        FROM commitments doc
+        WHERE {condition}
+        ORDER BY doc.made_on DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
     return list(store.query(statement, {**params, "limit": limit}))
@@ -744,6 +799,8 @@ def search_all(
         "members": lambda: _search_members(store, tokens, limit),
         "factions": lambda: _search_factions(store, tokens, limit),
         "documents": lambda: _search_documents(store, tokens, kinds, limit),
+        "cabinets": lambda: _search_cabinets(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit),
     }
     wanted = [t for t in types if t in searches]
     # The types are searched side by side, each on a connection of its own: the answer

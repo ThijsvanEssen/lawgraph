@@ -179,6 +179,11 @@ statutes made by the legislator:
   (`Datagovernanceverordening`), `display_name` the citation title.
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
+- `abbreviation` of an instrument is the abbreviation it is cited by
+  (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
+  (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
+  `32016R0679`). Its articles carry it as `instrument_abbreviation` (`art. 8 EVRM`). Written
+  by `normalize bwb`.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
@@ -265,7 +270,7 @@ with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `re
 `subjects`; `court_code`, `tier` (the `Type` of its court in the Instanties list), `court_kind`
 (the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
 derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`;
-a conclusion also `advocate_general`.
+a conclusion also `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
 `articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
@@ -355,7 +360,12 @@ number; a number that repeats one before it gets `_<n>`, its occurrence (`rov-1_
 (`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
 behind "mr." (`mr. P.J. Wattel`, "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel": `Wattel`), two
 together as one ("F.F. Langemeijer en M.H. Wissink"); null when they name no one. The signature
-at the end gives only the office.
+at the end gives the office and, below it, the role they sign in: `advocate_general_role`
+(`core.judgments.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
+"Advocaat-Generaal", "(a.-g.)"), `waarnemend advocaat-generaal` ("Wnd. A-G") or
+`plaatsvervangend procureur-generaal` ("plv."); null when the signature writes none (an A-G
+signs so too) or one that is not clear ("plv. AG"). The heading of the office at the top is
+no role.
 
 `parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,
 role, role_stated, side, alias, representatives}`; empty when the kop names none, absent on a

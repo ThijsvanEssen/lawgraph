@@ -587,6 +587,12 @@ class InstrumentDetailDTO(BaseModel):
     official_title: str | None
     citation_title: str | None
     short_title: str | None
+    abbreviation: str | None = Field(
+        None,
+        description="The abbreviation it is cited by: its WTI short title (EVRM), else "
+        "the one kept by hand for it (AVG); the same as `instrument_abbreviation` on its "
+        "articles.",
+    )
     aliases: list[str] = Field(
         default_factory=list,
         description="Every name it is cited by: the official abbreviations and, for a "
@@ -652,6 +658,7 @@ class InstrumentDetailDTO(BaseModel):
             official_title=props.get("official_title"),
             citation_title=props.get("citation_title"),
             short_title=props.get("short_title"),
+            abbreviation=props.get("abbreviation"),
             aliases=list(props.get("aliases") or []),
             display_name=props.get("display_name"),
             jurisdiction=props.get("jurisdiction") or None,

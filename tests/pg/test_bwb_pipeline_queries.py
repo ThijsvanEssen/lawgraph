@@ -914,3 +914,45 @@ def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
     assert list(d.items()) == [("short_title", "D"), ("title", "D"), ("zeta", 1)]
     assert normalize_bwb.update_abbreviations(store, rows) == 0
     assert normalize_bwb.update_abbreviations(store, []) == 0
+
+
+def test_the_abbreviation_goes_to_the_instrument_and_its_articles(
+    store: GraphStore,
+) -> None:
+    """BE-8: EVRM (a treaty of the BWB, by bwb_id) and AVG (an EU act, by celex): the same
+    value on the law (``abbreviation``) and its articles (``instrument_abbreviation``)."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbv0001000", "instrument", bwb_id="BWBV0001000", short_title="EVRM"
+            ),
+            _node("32016r0679", "instrument", celex="32016R0679", title="AVG-titel"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbv0001000_8", "article", bwb_id="BWBV0001000", article_number="8"),
+            _node("32016r0679_6", "article", celex="32016R0679", article_number="6"),
+            _node("other_1", "article", bwb_id="BWBR0001854", article_number="1"),
+        ],
+    )
+    rows = [
+        {"key": "bwbv0001000", "abbreviation": "EVRM"},
+        {"key": "32016r0679", "abbreviation": "AVG"},
+    ]
+    assert normalize_bwb.update_instrument_abbreviations(store, rows) == 4
+    assert _props(store, "instruments", "bwbv0001000")["abbreviation"] == "EVRM"
+    assert _props(store, "instruments", "32016r0679")["abbreviation"] == "AVG"
+    art8 = _props(store, "articles", "bwbv0001000_8")
+    assert art8["instrument_abbreviation"] == "EVRM"
+    assert list(art8) == sorted(art8)  # D11
+    assert _props(store, "articles", "32016r0679_6")["instrument_abbreviation"] == "AVG"
+    assert "instrument_abbreviation" not in _props(store, "articles", "other_1")
+    assert normalize_bwb.update_instrument_abbreviations(store, rows) == 0
+    # an abbreviation that is gone goes from the law and its articles
+    gone = [{"key": "bwbv0001000", "abbreviation": None}]
+    assert normalize_bwb.update_instrument_abbreviations(store, gone) == 2
+    assert "abbreviation" not in _props(store, "instruments", "bwbv0001000")
+    assert "instrument_abbreviation" not in _props(store, "articles", "bwbv0001000_8")
