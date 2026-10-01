@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, cast
+from typing import Any
+
+from psycopg import sql
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
@@ -18,11 +20,9 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
-    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    COLLECTION_RAW_SOURCES,
     SOURCE_BWB,
     SOURCE_EERSTEKAMER,
     SOURCE_RECHTSPRAAK,
@@ -50,14 +50,14 @@ _NODE_COLLECTIONS = (
 )
 
 
-def _count_by(store: ArangoStore, collection: str, field: str) -> dict[str, int]:
-    """Number of documents in *collection* per value of *field* (``unknown`` when null)."""
-    aql = f"""
-    FOR doc IN {collection}
-        COLLECT value = doc.{field} WITH COUNT INTO n
-        RETURN [value, n]
-    """
-    return {value or "unknown": n for value, n in store.query(aql)}
+def _count_by(store: ArangoStore, table: str, column: str) -> dict[str, int]:
+    """Number of rows of *table* per value of *column* (``unknown`` when null or empty),
+    in the order of the values."""
+    statement = sql.SQL(
+        "SELECT {column} AS value, count(*)::int AS n FROM {table}"
+        " GROUP BY {column} ORDER BY {column} NULLS FIRST"
+    ).format(column=sql.Identifier(column), table=sql.Identifier(table))
+    return {row["value"] or "unknown": row["n"] for row in store.query(statement)}
 
 
 # The collections a citation can make a stub in: a node known only because something
@@ -66,37 +66,36 @@ _STUB_COLLECTIONS = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES, COLLECTION_JUD
 
 
 def _stub_count(store: ArangoStore, collection: str) -> int:
-    aql = f"""
-    FOR doc IN {collection}
-        FILTER doc.props.stub == true
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    return cast(int, next(iter(store.query(aql)), 0))
+    statement = sql.SQL("SELECT count(*)::int FROM {} WHERE stub IS TRUE").format(
+        sql.Identifier(collection)
+    )
+    return int(next(store.query(statement), 0))
 
 
 def _replaced_count(store: ArangoStore) -> int:
     """The publications of a decision that another loaded publication replaces (``SAME_AS``
     the one kept, ``semantic rechtspraak-duplicates``): the lists show the decision once, by
-    the one kept. A stub is never one: counted from the sparse index alone."""
-    aql = f"""
-    FOR doc IN {COLLECTION_JUDGMENTS}
-        FILTER doc.props.same_as != null
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    return cast(int, next(iter(store.query(aql)), 0))
+    the one kept. A stub is never one."""
+    return int(
+        next(
+            store.query(
+                "SELECT count(*)::int FROM judgments WHERE same_as IS NOT NULL"
+            ),
+            0,
+        )
+    )
 
 
 def _publication_count(store: ArangoStore) -> int:
-    aql = f"""
-    FOR doc IN {COLLECTION_INSTRUMENTS}
-        FILTER doc.props.kind == '{KIND_PUBLICATION}'
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
-    rows = store.query(aql)
-    return cast(int, next(iter(rows), 0))
+    return int(
+        next(
+            store.query(
+                "SELECT count(*)::int FROM instruments WHERE kind = %(kind)s",
+                {"kind": KIND_PUBLICATION},
+            ),
+            0,
+        )
+    )
 
 
 def get_db_stats(store: ArangoStore) -> dict[str, Any]:
@@ -107,9 +106,7 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
     publications = _publication_count(store)
     replaced = {COLLECTION_JUDGMENTS: _replaced_count(store)}
     nodes = {
-        name: cast(int, store.collection(name).count())
-        - stubs.get(name, 0)
-        - replaced.get(name, 0)
+        name: store.count(name) - stubs.get(name, 0) - replaced.get(name, 0)
         for name in _NODE_COLLECTIONS
     }
     # an instrument node of a publication (Stb. 2019, 33) is no regulation: counted apart
@@ -120,18 +117,16 @@ def get_db_stats(store: ArangoStore) -> dict[str, Any]:
         "stubs": stubs,
         "replaced": replaced,
         "edges": {
-            "total": store.edges.count(),
+            "total": store.count(COLLECTION_EDGES),
             "by_relation": _count_by(store, COLLECTION_EDGES, "relation"),
         },
         "by_source": {
-            "judgments": _count_by(store, COLLECTION_JUDGMENTS, "props.source"),
-            "documents": _count_by(store, COLLECTION_DOCUMENTS, "props.source"),
+            "judgments": _count_by(store, COLLECTION_JUDGMENTS, "source"),
+            "documents": _count_by(store, COLLECTION_DOCUMENTS, "source"),
         },
         "instruments": {
-            "by_kind": _count_by(store, COLLECTION_INSTRUMENTS, "props.kind"),
-            "by_jurisdiction": _count_by(
-                store, COLLECTION_INSTRUMENTS, "props.jurisdiction"
-            ),
+            "by_kind": _count_by(store, COLLECTION_INSTRUMENTS, "kind"),
+            "by_jurisdiction": _count_by(store, COLLECTION_INSTRUMENTS, "jurisdiction"),
         },
     }
 
@@ -143,31 +138,22 @@ def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
     (``replaced``), which the lists leave out. Every field the per-court count reads is in
     one index of ``db/schema.py``, so it counts without reading a judgment; the replaced
     publications, a few, are read by their own index."""
-    aql = f"""
-    FOR j IN {COLLECTION_JUDGMENTS}
-        FILTER j.props.stub == false
-        COLLECT source = j.props.source, tier = j.props.tier,
-                court_code = j.props.court_code
-        AGGREGATE count = COUNT(1), first_date = MIN(j.props.date_eff),
-                  last_date = MAX(j.props.date_eff), court = MAX(j.props.court)
-        RETURN {{source, tier, court_code, court, count, first_date, last_date}}
-    """
-    stubs = f"""
-    FOR j IN {COLLECTION_JUDGMENTS}
-        FILTER j.props.stub == true
-        COLLECT WITH COUNT INTO n
-        RETURN n
-    """
+    group = "source, tier, court_code"
+    order = "source NULLS FIRST, tier NULLS FIRST, court_code NULLS FIRST"
+    courts = f"""
+        SELECT source, tier, court_code, max(court) AS court, count(*)::int AS count,
+               min(date_eff) AS first_date, max(date_eff) AS last_date
+        FROM judgments WHERE stub = false
+        GROUP BY {group} ORDER BY {order}
+        """
     replaced = f"""
-    FOR j IN {COLLECTION_JUDGMENTS}
-        FILTER j.props.same_as != null
-        COLLECT source = j.props.source, tier = j.props.tier,
-                court_code = j.props.court_code WITH COUNT INTO count
-        RETURN {{source, tier, court_code, count}}
-    """
+        SELECT source, tier, court_code, count(*)::int AS count
+        FROM judgments WHERE same_as IS NOT NULL
+        GROUP BY {group} ORDER BY {order}
+        """
     return {
-        "courts": list(store.query(aql)),
-        "stubs": next(iter(store.query(stubs)), 0),
+        "courts": list(store.query(courts)),
+        "stubs": _stub_count(store, COLLECTION_JUDGMENTS),
         "replaced": list(store.query(replaced)),
     }
 
@@ -176,32 +162,27 @@ def get_judgment_coverage(store: ArangoStore) -> dict[str, Any]:
 # from one index each. A source without an entry has only its last retrieve.
 _NEWEST: dict[str, str] = {
     SOURCE_TK: f"""
-        FOR n IN {COLLECTION_DOCUMENTS}
-            FILTER POSITION(n.labels, "{CHAMBER_TK}") AND n.props.date <= @today
-            SORT n.props.date DESC LIMIT 1 RETURN n.props.date""",
+        SELECT date FROM documents WHERE '{CHAMBER_TK}' = ANY(labels) AND date <= %(today)s
+        ORDER BY date DESC LIMIT 1""",
     SOURCE_EERSTEKAMER: f"""
-        FOR n IN {COLLECTION_DOCUMENTS}
-            FILTER POSITION(n.labels, "{CHAMBER_EK}") AND n.props.date <= @today
-            SORT n.props.date DESC LIMIT 1 RETURN n.props.date""",
-    SOURCE_RECHTSPRAAK: f"""
-        FOR n IN {COLLECTION_JUDGMENTS}
-            FILTER n.props.date_eff <= @today
-            SORT n.props.date_eff DESC LIMIT 1 RETURN n.props.date_eff""",
+        SELECT date FROM documents WHERE '{CHAMBER_EK}' = ANY(labels) AND date <= %(today)s
+        ORDER BY date DESC LIMIT 1""",
+    SOURCE_RECHTSPRAAK: """
+        SELECT date_eff FROM judgments WHERE date_eff <= %(today)s
+        ORDER BY date_eff DESC LIMIT 1""",
     SOURCE_STAATSBLAD: f"""
-        FOR n IN {COLLECTION_INSTRUMENTS}
-            FILTER n.props.kind == "{KIND_PUBLICATION}" AND n.props.publication_kind == "Stb"
-            FILTER n.props.date_published <= @today
-            SORT n.props.date_published DESC LIMIT 1 RETURN n.props.date_published""",
+        SELECT date_published FROM instruments
+        WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stb'
+          AND date_published <= %(today)s
+        ORDER BY date_published DESC LIMIT 1""",
     SOURCE_STAATSCOURANT: f"""
-        FOR n IN {COLLECTION_INSTRUMENTS}
-            FILTER n.props.kind == "{KIND_PUBLICATION}"
-                AND n.props.publication_kind == "Stcrt"
-            FILTER n.props.date_published <= @today
-            SORT n.props.date_published DESC LIMIT 1 RETURN n.props.date_published""",
-    SOURCE_BWB: f"""
-        FOR n IN {COLLECTION_INSTRUMENT_VERSIONS}
-            FILTER n.props.valid_from <= @today
-            SORT n.props.valid_from DESC LIMIT 1 RETURN n.props.valid_from""",
+        SELECT date_published FROM instruments
+        WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stcrt'
+          AND date_published <= %(today)s
+        ORDER BY date_published DESC LIMIT 1""",
+    SOURCE_BWB: """
+        SELECT valid_from FROM instrument_versions WHERE valid_from <= %(today)s
+        ORDER BY valid_from DESC LIMIT 1""",
 }
 
 
@@ -211,7 +192,7 @@ _data_as_of_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=4, ttl=60.0)
 def cached_data_as_of(store: ArangoStore) -> dict[str, Any]:
     """``get_data_as_of``, read at most once a minute per database (``/api/stats`` and every
     page of the feed carry it)."""
-    key = str(store.db.name)
+    key = store.name
     hit = _data_as_of_cache.get(key)
     if isinstance(hit, dict):
         return hit
@@ -220,23 +201,41 @@ def cached_data_as_of(store: ArangoStore) -> dict[str, Any]:
     return value
 
 
+# The newest fetch per source, a source without one first. The sources are walked one by
+# one through the index, each from the one before (a skip scan): the records themselves
+# are not read, however many millions there are.
+_RETRIEVED_AT = """
+    WITH RECURSIVE sources AS (
+        (SELECT source FROM raw_sources WHERE source IS NOT NULL ORDER BY source LIMIT 1)
+        UNION ALL
+        SELECT (
+            SELECT r.source FROM raw_sources r
+            WHERE r.source > s.source ORDER BY r.source LIMIT 1
+        )
+        FROM sources s WHERE s.source IS NOT NULL
+    )
+    SELECT source, retrieved_at FROM (
+        SELECT NULL::text AS source, max(fetched_at) AS retrieved_at
+        FROM raw_sources WHERE source IS NULL HAVING count(*) > 0
+        UNION ALL
+        SELECT s.source,
+               (SELECT max(r.fetched_at) FROM raw_sources r WHERE r.source = s.source)
+        FROM sources s WHERE s.source IS NOT NULL
+    ) found
+    ORDER BY source NULLS FIRST
+"""
+
+
 def get_data_as_of(store: ArangoStore, *, today: str | None = None) -> dict[str, Any]:
     """Per source the graph holds records of: ``retrieved_at``, the moment its newest raw
     record was fetched (the last retrieve that brought something), and ``newest``, the date
     of its newest dated record on or before *today* (null for a source without one)."""
     today = today or dt.date.today().isoformat()
-    aql = f"""
-    FOR r IN {COLLECTION_RAW_SOURCES}
-        COLLECT source = r.source AGGREGATE retrieved_at = MAX(r.fetched_at)
-        SORT source
-        RETURN {{ source, retrieved_at }}
-    """
+    rows = store.query(_RETRIEVED_AT)
     result: dict[str, Any] = {}
-    for row in store.query(aql):
+    for row in rows:
         newest = None
         if row["source"] in _NEWEST:
-            newest = next(
-                iter(store.query(_NEWEST[row["source"]], {"today": today})), None
-            )
+            newest = next(store.query(_NEWEST[row["source"]], {"today": today}), None)
         result[row["source"]] = {"retrieved_at": row["retrieved_at"], "newest": newest}
     return result
