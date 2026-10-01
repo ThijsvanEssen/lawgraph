@@ -797,6 +797,7 @@ _OFFICE = re.compile(
 ADVOCAAT_GENERAAL = "advocaat-generaal"
 WAARNEMEND_ADVOCAAT_GENERAAL = "waarnemend advocaat-generaal"
 PLAATSVERVANGEND_PROCUREUR_GENERAAL = "plaatsvervangend procureur-generaal"
+PLAATSVERVANGEND_ADVOCAAT_GENERAAL = "plaatsvervangend advocaat-generaal"
 _SIGNED_ROLES = {
     "ag": ADVOCAAT_GENERAAL,
     "advocaatgeneraal": ADVOCAAT_GENERAAL,
@@ -804,14 +805,16 @@ _SIGNED_ROLES = {
     "wndag": WAARNEMEND_ADVOCAAT_GENERAAL,
     "waarnemendadvocaatgeneraal": WAARNEMEND_ADVOCAAT_GENERAAL,
     "plv": PLAATSVERVANGEND_PROCUREUR_GENERAAL,
+    "plvag": PLAATSVERVANGEND_ADVOCAAT_GENERAAL,
 }
 
 
 def advocate_general_role(text: str | None) -> str | None:
     """The role of who signs a conclusion, from the line below the office in its signature:
-    ``advocaat-generaal``, ``waarnemend advocaat-generaal`` or ``plaatsvervangend
-    procureur-generaal``. ``None`` when the conclusion writes none, or one that is not
-    clear: an empty line (an A-G signs so too), "plv. AG"."""
+    ``advocaat-generaal``, ``waarnemend advocaat-generaal``, ``plaatsvervangend
+    procureur-generaal`` ("plv.") or ``plaatsvervangend advocaat-generaal`` ("plv. AG").
+    ``None`` when the conclusion writes none, or one that is not clear: an empty line (an
+    A-G signs so too)."""
     for match in reversed(list(_OFFICE.finditer(text or ""))):
         line = (text or "")[match.end() :].lstrip().split("\n", 1)[0]
         role = _SIGNED_ROLES.get(re.sub(r"[^a-z]", "", line.lower()))

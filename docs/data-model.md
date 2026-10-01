@@ -363,8 +363,9 @@ together as one ("F.F. Langemeijer en M.H. Wissink"); null when they name no one
 at the end gives the office and, below it, the role they sign in: `advocate_general_role`
 (`core.judgments.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
 "Advocaat-Generaal", "(a.-g.)"), `waarnemend advocaat-generaal` ("Wnd. A-G") or
-`plaatsvervangend procureur-generaal` ("plv."); null when the signature writes none (an A-G
-signs so too) or one that is not clear ("plv. AG"). The heading of the office at the top is
+`plaatsvervangend procureur-generaal` ("plv.") or `plaatsvervangend advocaat-generaal`
+("plv. AG"); null when the signature writes none (an A-G signs so too) or one that is not
+clear. The heading of the office at the top is
 no role.
 
 `parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,

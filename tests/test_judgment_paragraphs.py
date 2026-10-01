@@ -410,9 +410,10 @@ _SIGNED = (
         ("Waarnemend Advocaat-Generaal", "waarnemend advocaat-generaal"),
         ("Plv.", "plaatsvervangend procureur-generaal"),
         ("plv", "plaatsvervangend procureur-generaal"),
-        # not clear: no role (an A-G signs so too), and "plv. AG"
+        ("plv. AG", "plaatsvervangend advocaat-generaal"),
+        ("plv-AG", "plaatsvervangend advocaat-generaal"),
+        # not clear: no role (an A-G signs so too)
         ("", None),
-        ("plv. AG", None),
         ("MR. R.L.H. IJZERMAN", None),
     ],
 )

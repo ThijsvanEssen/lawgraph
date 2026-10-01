@@ -26,7 +26,14 @@ from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import is_bwb_id, is_ecli, parse_celex
 
 NotationKind = Literal[
-    "ecli", "bwb", "celex", "dossier", "document", "article", "commitment"
+    "ecli",
+    "bwb",
+    "celex",
+    "dossier",
+    "document",
+    "article",
+    "commitment",
+    "publication",
 ]
 LawTier = Literal["code", "title", "prefix", "contains"]
 
@@ -41,8 +48,10 @@ _MIN_CONTAINED = 4
 _LAW_LIMIT = 6
 
 # "Kamerstuk 36327", "Kamerstukken II 2020/21, 36327, nr. 3", "kst-36327-3", "36 327",
-# "36327-3", "29684-I", "29684-I-3", "35925 VII". The suffix (a budget chapter) is letters
-# behind a hyphen; a number behind a hyphen is the paper (ondernummer).
+# "36327-3", "29684-I", "29684-I-3", "35925 VII", and a paper of the Eerste Kamer by its
+# letter: "Kamerstukken I 2025/26, 36799, A". The suffix (a budget chapter) is letters
+# behind a hyphen; a number behind a hyphen is the paper (ondernummer), and so are letters
+# behind a comma.
 _KAMERSTUK_RE = re.compile(
     r"""^
     (?:(?P<keyword>kamerstuk(?:ken)?|kst[.-]?|dossier)\s*
@@ -51,9 +60,17 @@ _KAMERSTUK_RE = re.compile(
     )?
     (?P<number>\d{2}\s\d{3}(?!\d)|\d{1,6})
     (?:-(?P<suffix>[A-Z]{1,6})(?![A-Z0-9])|\s+(?P<spaced>[IVXLC]{1,5})(?![A-Z0-9]))?
-    (?:\s*,?\s*nr\.?\s*(?P<nr>\d{1,4}|[A-Z]{1,2})|\s*-\s*(?P<seq>\d{1,4}))?
+    (?:\s*,?\s*nr\.?\s*(?P<nr>\d{1,4}|[A-Z]{1,2})|\s*-\s*(?P<seq>\d{1,4})
+       |\s*,\s*(?P<letter>[A-Z]{1,2})(?![A-Z0-9]))?
     $""",
     re.IGNORECASE | re.VERBOSE,
+)
+
+# "Staatsblad 2026, 94", "Stb. 2026, 94": a publication in the Staatsblad, an instrument of
+# its own (``stb_2026_94``, ``core.bwb_xml.publication_key``).
+_STAATSBLAD_RE = re.compile(
+    r"^(?:staatsblad|stb\.?)\s*(?P<year>\d{4})\s*,?\s*(?:nr\.?\s*)?(?P<number>\d{1,5})$",
+    re.IGNORECASE,
 )
 
 # "Sr 287", "Grondwet 1", "Wetboek van Strafrecht art. 287": the law, then the number.
@@ -85,6 +102,7 @@ class Notation:
     """A recognised notation.
 
     * ``ecli``, ``bwb``, ``celex``: *identifier* (upper case).
+    * ``publication``: *identifier* of a Staatsblad publication (``stb-2026-94``).
     * ``dossier``: *dossier* number and its *suffix* (``29684``, ``I``), or ``None``.
     * ``document``: a dossier and the *sequence* (ondernummer) of one paper in it.
     * ``article``: *articles* (several for ``artikel 36e en 36f Sr``) and their *qualifier*
@@ -117,7 +135,7 @@ def _dossier(text: str) -> Notation | None:
     if not keyword and (len(number) != _BARE_DOSSIER_DIGITS or match["spaced"]):
         return None
     suffix = match["suffix"] or match["spaced"]
-    sequence = match["nr"] or match["seq"]
+    sequence = match["nr"] or match["seq"] or match["letter"]
     return Notation(
         kind="document" if sequence else "dossier",
         dossier=number,
@@ -166,6 +184,11 @@ class NotationParser:
             return Notation(kind="celex", identifier=text.upper())
         if _COMMITMENT_RE.match(text):
             return Notation(kind="commitment", identifier=text.upper())
+        if staatsblad := _STAATSBLAD_RE.match(text):
+            number = str(int(staatsblad["number"]))
+            return Notation(
+                kind="publication", identifier=f"stb-{staatsblad['year']}-{number}"
+            )
         return _dossier(text) or self._article(text)
 
     def law_matches(self, text: str) -> list[LawMatch]:

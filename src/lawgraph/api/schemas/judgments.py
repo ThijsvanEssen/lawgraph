@@ -97,9 +97,9 @@ class JudgmentDTO(BaseNodeDTO):
     advocate_general_role: str | None = Field(
         default=None,
         description="For a conclusion, the role it is signed in, read from its signature: "
-        "`advocaat-generaal`, `waarnemend advocaat-generaal` or `plaatsvervangend "
-        "procureur-generaal`. Null for a judgment, and for a conclusion that writes none "
-        "or one that is not clear.",
+        "`advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend "
+        "procureur-generaal` or `plaatsvervangend advocaat-generaal`. Null for a "
+        "judgment, and for a conclusion that writes none or one that is not clear.",
     )
     unresolved_appeal_targets: list["AppealTarget"] = Field(
         default_factory=list,
