@@ -2,17 +2,17 @@
 
 ``core.notation`` reads the text; this module asks the graph whether the thing exists and
 answers with one best match and the others that fit. Every lookup is a key or an index
-lookup, except an article without a law, which is one query on the search view.
+lookup.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from psycopg import sql
+
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
@@ -20,8 +20,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import collection_from_id, make_node_key
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import ArangoStore
-from lawgraph.db.queries.dossiers import _dossier_documents_aql
 from lawgraph.db.queries.search import load_notation_parser
+from lawgraph.db.schema import search_column
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
@@ -34,10 +34,6 @@ CONFIDENCE_ONE_LAW = 0.5  # an article without a law, found in one law only
 CONFIDENCE_SEVERAL_LAWS = 0.3  # an article without a law, found in several
 
 ALTERNATIVES = 5  # the other matches an answer lists
-_ARTICLE_POOL = (
-    500  # the articles of one number read from the view before the best are picked
-)
-
 _LAW_CONFIDENCE = {
     "code": CONFIDENCE_NAME,
     "title": CONFIDENCE_NAME,
@@ -45,12 +41,22 @@ _LAW_CONFIDENCE = {
     "contains": CONFIDENCE_CONTAINS,
 }
 
+
+def _not_null(*fields: str) -> str:
+    """``NOT_NULL(doc.props.a, …)``: the first of the props that is neither missing nor
+    null."""
+    cases = " ".join(
+        f"WHEN coalesce(json_typeof(doc.props -> '{f}'), 'null') <> 'null'"
+        f" THEN doc.props -> '{f}'"
+        for f in fields
+    )
+    return f"(CASE {cases} END)"
+
+
 _NAME_OF = {
-    COLLECTION_INSTRUMENTS: (
-        "NOT_NULL(doc.props.citation_title, doc.props.display_name, doc.props.title)"
-    ),
+    COLLECTION_INSTRUMENTS: _not_null("citation_title", "display_name", "title"),
 }
-_DEFAULT_NAME = "NOT_NULL(doc.props.display_name, doc.props.title)"
+_DEFAULT_NAME = _not_null("display_name", "title")
 
 NO_MATCH: dict[str, Any] = {
     "kind": "none",
@@ -84,15 +90,13 @@ def _by_keys(
     store: ArangoStore, collection: str, keys: list[str]
 ) -> list[dict[str, Any]]:
     """The nodes with these keys, in the order of *keys*."""
-    aql = f"""
-    FOR doc IN {collection}
-        FILTER doc._key IN @keys
-        RETURN {{
-            id: doc._id, key: doc._key,
-            display_name: {_NAME_OF.get(collection, _DEFAULT_NAME)}
-        }}
-    """
-    rows = list(store.query(aql, {"keys": keys}))
+    statement = sql.SQL(
+        f"""
+        SELECT doc.id, doc.key, {_NAME_OF.get(collection, _DEFAULT_NAME)} AS display_name
+        FROM {{}} doc WHERE doc.key = ANY(%(keys)s)
+        """
+    ).format(sql.Identifier(collection))
+    rows = list(store.query(statement, {"keys": keys}))
     return sorted(rows, key=lambda row: keys.index(row["key"]))
 
 
@@ -142,31 +146,20 @@ def _articles_without_law(
 ) -> list[dict[str, Any]]:
     """The articles with this number in any law, the most cited first.
 
-    Read from the search view (the ``lawgraph_norm`` analyzer makes the number match in any
-    case): a number alone has no index of its own, and a scan of every article is not an
-    answer to a keystroke. A number that every law has (``1``) is read up to a pool.
+    The number matches folded (in any case), on the indexed folded numbers of the search.
     """
-    clause = " OR ".join(
-        f"ANALYZER(hit.props.article_number == @number_{i}, 'lawgraph_norm')"
-        for i in range(len(numbers))
-    )
-    aql = f"""
-    FOR doc IN (
-        FOR hit IN search_articles
-            SEARCH {clause}
-            LIMIT @pool
-            RETURN hit
-    )
-        SORT doc.props.inbound_citation_count DESC, doc.props.bwb_id ASC, doc._key ASC
-        LIMIT @limit
-        RETURN {{
-            id: doc._id, key: doc._key,
-            display_name: {_DEFAULT_NAME}
-        }}
-    """
-    bind: dict[str, Any] = {f"number_{i}": n for i, n in enumerate(numbers)}
-    bind.update(pool=_ARTICLE_POOL, limit=ALTERNATIVES + 1)
-    rows = list(store.query(aql, bind))
+    folded = search_column("article_number", "norm")
+    statement = f"""
+        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+        FROM articles doc
+        WHERE doc.{folded} && (
+            SELECT array_agg(lg_fold(n)) FROM unnest(%(numbers)s::text[]) AS n
+        )
+        ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.bwb_id NULLS FIRST,
+                 doc.key
+        LIMIT %(limit)s
+        """
+    rows = list(store.query(statement, {"numbers": numbers, "limit": ALTERNATIVES + 1}))
     confidence = CONFIDENCE_ONE_LAW if len(rows) == 1 else CONFIDENCE_SEVERAL_LAWS
     return [_target(row, "article", confidence) for row in rows]
 
@@ -185,19 +178,17 @@ def _headed_article(
         ]
         if not law_ids:
             continue
-        aql = f"""
-        FOR law_id IN @law_ids
-            FOR doc IN {COLLECTION_ARTICLES}
-                FILTER law_id != null AND (doc.props.bwb_id == law_id OR doc.props.celex == law_id)
-                FILTER doc.props.article_number == null AND doc.props.label != null
-                FILTER LOWER(doc.props.label) == @heading
-                SORT POSITION(@law_ids, law_id, true), doc._key
-                RETURN {{
-                    id: doc._id, key: doc._key,
-                    display_name: {_DEFAULT_NAME}
-                }}
-        """
-        rows = list(store.query(aql, {"law_ids": law_ids, "heading": heading.lower()}))
+        statement = f"""
+            SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+            FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
+            JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
+            WHERE coalesce(json_typeof(doc.props -> 'article_number'), 'null') = 'null'
+              AND coalesce(json_typeof(doc.props -> 'label'), 'null') <> 'null'
+              AND lower(doc.props ->> 'label') = %(heading)s
+            ORDER BY law.n, doc.key
+            """
+        params = {"law_ids": law_ids, "heading": heading.lower()}
+        rows = list(store.query(statement, params))
         if rows:
             return _capped([_target(r, "article", CONFIDENCE_CITATION) for r in rows])
     return []
@@ -208,17 +199,14 @@ def _headed_article(
 
 def _dossiers(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     """The dossiers with this number: the one with the suffix asked for first."""
-    aql = f"""
-    FOR doc IN {COLLECTION_DOSSIERS}
-        FILTER doc.props.number == @number
-        SORT doc.props.suffix ASC, doc._key ASC
-        RETURN {{
-            id: doc._id, key: doc._key,
-            display_name: {_DEFAULT_NAME},
-            suffix: doc.props.suffix
-        }}
-    """
-    rows = list(store.query(aql, {"number": notation.dossier}))
+    statement = f"""
+        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name,
+               doc.props -> 'suffix' AS suffix
+        FROM dossiers doc
+        WHERE doc.number = %(number)s
+        ORDER BY lg_str(doc.props -> 'suffix') NULLS FIRST, doc.key
+        """
+    rows = list(store.query(statement, {"number": notation.dossier}))
     wanted = notation.suffix or ""
     return sorted(rows, key=lambda row: (row["suffix"] or "").upper() != wanted)
 
@@ -237,14 +225,12 @@ def _dossier_targets(
 
 def _commitment(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
     """A toezegging by its number."""
-    aql = f"""
-    FOR doc IN {COLLECTION_COMMITMENTS}
-        FILTER doc.props.number == @number
-        SORT doc._key
-        LIMIT 1
-        RETURN {{ id: doc._id, key: doc._key, display_name: {_DEFAULT_NAME} }}
-    """
-    rows = store.query(aql, {"number": notation.identifier})
+    statement = f"""
+        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+        FROM commitments doc WHERE doc.number = %(number)s
+        ORDER BY doc.key LIMIT 1
+        """
+    rows = store.query(statement, {"number": notation.identifier})
     return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
 
 
@@ -259,25 +245,40 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
         return []
     wanted = notation.suffix or ""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
-    body = """
-        // the tail of the documents query of a dossier: the paper with this number in it
-        // (a paper of one of its cases may have that number in another dossier)
-        LET dossier = DOCUMENT(dossier_id).props
-        FOR document IN all_documents
-            FILTER (@sequence != null AND document.props.sequence == @sequence
-                    AND TO_STRING(document.props.dossier_number) == dossier.number
-                    AND (document.props.dossier_suffix || "") == (dossier.suffix || ""))
-                OR UPPER(document.props.number) == @text
-            SORT POSITION(@ids, dossier_id, true), document._key
-            LIMIT @limit
-            RETURN {
-                id: document._id, key: document._key,
-                display_name: NOT_NULL(document.props.display_name, document.props.title)
-            }
-    """
+    # The papers of each dossier, directly PART_OF it or of a case of it, each once: the
+    # paper with this number in it (a paper of one of its cases may have that number in
+    # another dossier), or with this number of its own.
+    statement = f"""
+        WITH asked AS (
+            SELECT d.id AS dossier_id, d.n, ds.props AS dossier
+            FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS d(id, n)
+            JOIN dossiers ds ON ds.id = d.id
+        ),
+        papers AS (
+            SELECT a.dossier_id, a.n, a.dossier, e.from_id AS document_id
+            FROM asked a JOIN edges e ON e.to_id = a.dossier_id AND e.relation = %(part_of)s
+            WHERE e.from_collection = 'documents'
+            UNION
+            SELECT a.dossier_id, a.n, a.dossier, e2.from_id
+            FROM asked a
+            JOIN edges e1 ON e1.to_id = a.dossier_id AND e1.relation = %(part_of)s
+                AND e1.from_collection = 'cases'
+            JOIN edges e2 ON e2.to_id = e1.from_id AND e2.relation = %(part_of)s
+                AND e2.from_collection = 'documents'
+        )
+        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+        FROM papers p JOIN documents doc ON doc.id = p.document_id
+        WHERE (%(sequence)s::int IS NOT NULL
+               AND lg_num(doc.props -> 'sequence') = %(sequence)s
+               AND doc.props ->> 'dossier_number' = p.dossier ->> 'number'
+               AND coalesce(doc.props ->> 'dossier_suffix', '')
+                   = coalesce(p.dossier ->> 'suffix', ''))
+           OR upper(coalesce(doc.props ->> 'number', '')) = %(text)s
+        ORDER BY p.n, doc.key
+        LIMIT %(limit)s
+        """
     sequence = notation.sequence or ""
-    aql = f"FOR dossier_id IN @ids\n{_dossier_documents_aql(body)}"
-    bind = {
+    params = {
         "ids": [r["id"] for r in exact or rows],
         "sequence": int(sequence) if sequence.isdigit() else None,
         "text": sequence,
@@ -285,7 +286,8 @@ def _document(store: ArangoStore, notation: Notation) -> list[dict[str, Any]]:
         "part_of": RELATION_PART_OF,
     }
     found = [
-        _target(r, "document", CONFIDENCE_CITATION) for r in store.query(aql, bind)
+        _target(r, "document", CONFIDENCE_CITATION)
+        for r in store.query(statement, params)
     ]
     if found:
         return _capped(found)

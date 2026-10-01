@@ -6,7 +6,8 @@ Headers: the same status, content type and ``Cache-Control``; an ``ETag`` on bot
 neither, of the form ``W/"<api version>-<data version>"``.
 
 The allowed deviations are not silent: ``compare`` names them (``D3`` search ranking, ``D9``
-the neighbourhood over its cap), and the report counts them apart.
+the neighbourhood over its cap, ``ARANGO-LAST-PAGE`` a defect of ArangoDB the new answer
+does not copy), and the report counts them apart.
 """
 
 from __future__ import annotations
@@ -133,7 +134,29 @@ def allowed_deviation(path: str, query: dict[str, str], golden: Any, other: Any)
         a, b = plain(golden), plain(other)
         if _capped(a, cap) and _capped(b, cap) and a["focal_id"] == b["focal_id"]:
             return "D9"
+    if path == "/api/documents" and _arango_last_page(query, golden, other):
+        return "ARANGO-LAST-PAGE"
     return ""
+
+
+def _arango_last_page(query: dict[str, str], golden: Any, other: Any) -> bool:
+    """A defect of the reference, not an allowance for the new answer: ArangoDB leaves the
+    last item of a long ``/api/documents`` list off the last page (``items: []``, while its
+    ``total`` counts it and the page before holds it); PostgreSQL gives the consistent
+    answer. Only that: the items of the last page, and the rest of the two answers the
+    same."""
+    a, b = plain(golden), plain(other)
+    if not (isinstance(a, dict) and isinstance(b, dict)) or a.get("items") != []:
+        return False
+    total, items = a.get("total"), b.get("items")
+    if not isinstance(total, int) or not isinstance(items, list):
+        return False
+    limit, offset = int(query.get("limit", "50")), int(query.get("offset", "0"))
+    rest_same = list(a) == list(b) and {k: v for k, v in a.items() if k != "items"} == {
+        k: v for k, v in b.items() if k != "items"
+    }
+    on_last_page = total - limit <= offset < total
+    return rest_same and on_last_page and len(items) == total - offset
 
 
 def plain(value: Any) -> Any:
