@@ -87,6 +87,9 @@ def dossier_order(number: str | None, suffix: str | None) -> str:
 
 # "Wijziging van ... (Verzamelwet gegevensbescherming)": the name a bill goes by.
 _SHORT_TITLE = re.compile(r"\(([^()]{3,120})\)\s*$")
+# Where the act a bill carries out was published, after its short title: "(PbEU 2022, L
+# 173)", "(Trb. 2021, 52)", "(Stb. 2019, 12)". No name of the bill.
+_PUBLICATION = re.compile(r"\s*\((?:PbEU|PbEG|Trb\.|Stb\.|Stcrt\.)\s[^()]*\)\s*$")
 # "Vaststelling van de begrotingsstaten van het Ministerie van Defensie (X) voor het jaar
 # 2027", "Wijziging van de begrotingsstaat van het gemeentefonds voor het jaar 2026
 # (wijziging samenhangende met de Miljoenennota)": what a budget and a change of it hold.
@@ -127,10 +130,11 @@ def _budget_title(title: str) -> str | None:
 
 def short_title(title: str | None) -> str | None:
     """The name a dossier goes by: of a budget or a change of it its chapter and year
-    (``_budget_title``), else the short title in parentheses that ends the title of a bill;
-    None without one."""
+    (``_budget_title``), else the short title in parentheses that ends the title of a bill,
+    before where the act it carries out was published (``_PUBLICATION``); None without
+    one."""
     budget = _budget_title(title or "")
     if budget:
         return budget
-    match = _SHORT_TITLE.search(title or "")
+    match = _SHORT_TITLE.search(_PUBLICATION.sub("", title or ""))
     return match.group(1).strip() if match else None

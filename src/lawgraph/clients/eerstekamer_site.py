@@ -55,8 +55,9 @@ class EerstekamerSiteClient(BaseClient):
         return pages
 
     def composition_pages(self) -> Iterator[tuple[str, str, str]]:
-        """``(path, url, html)`` of the lists of factions and committees and of the page of
-        every faction and committee they name."""
+        """``(path, url, html)`` of the lists of factions and committees, of the page of
+        every faction and committee they name, and of the plan of the hall (``Wie zit
+        waar``)."""
         for path, entries in (
             (eerstekamer_composition.FACTIONS_PATH, eerstekamer_composition.factions),
             (
@@ -68,6 +69,8 @@ class EerstekamerSiteClient(BaseClient):
             yield path, self.url(path), listing
             for entry in entries(listing):
                 yield entry.path, self.url(entry.path), self._page(self.url(entry.path))
+        hall = eerstekamer_composition.HALL_PATH
+        yield hall, self.url(hall), self._page(self.url(hall))
 
     def _page(self, url: str) -> str:
         response = self._get_raw_absolute_with_retry(

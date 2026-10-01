@@ -411,6 +411,7 @@ class ActivityProps(_CommonProps):
     dossier_numbers: list[str] | None = None
     case_kinds_by_dossier: dict[str, list[str]] | None = None
     number: str | None = None
+    replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
 
 
 # ---------------------------------------------------------------------------
@@ -580,6 +581,7 @@ class MemberProps(_CommonProps):
     party: str | None = None
     faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
+    name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
     birth_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives

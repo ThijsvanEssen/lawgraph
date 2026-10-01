@@ -3,29 +3,36 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.committees import EkSourceDTO
 from lawgraph.api.schemas.parliament import (
+    ChamberColorsDTO,
+    ColorSourceDTO,
     FactionSeatsDTO,
+    HallDTO,
+    HallPlaceDTO,
     ParliamentSeatsResponse,
     PartyColorsResponse,
     SeatingPlanDTO,
 )
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
-from lawgraph.core.eerstekamer_composition import FACTIONS_PATH
+from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
 from lawgraph.core.parties import (
+    CHAMBER_COLOR_SOURCES,
+    CHAMBER_COLORS,
     PARTY_ALIASES,
     PARTY_COLORS,
     SEATING,
     SEATING_SOURCE,
+    chamber_colors,
     party_color,
 )
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import get_factions, get_seats_on
+from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
 router = APIRouter()
 
@@ -101,7 +108,7 @@ def get_seats(
                 abbreviation=props.get("abbreviation"),
                 name=props.get("name"),
                 seats=seats[key],
-                color=party_color(props.get("abbreviation"), props.get("name")),
+                **_colors("TK", props.get("abbreviation"), props.get("name")),
                 order=order,
             )
         )
@@ -116,7 +123,16 @@ def get_seats(
             **{k: SEATING_SOURCE[k] for k in ("title", "dated", "url", "page")}
         ),
         source=None,
+        hall=None,
     )
+
+
+def _colors(chamber: str, *names: str | None) -> dict[str, Any]:
+    """``color`` and ``colors`` of a faction with *names* in *chamber*."""
+    return {
+        "color": party_color(*names, chamber=chamber),
+        "colors": chamber_colors(chamber, *names),
+    }
 
 
 def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
@@ -138,9 +154,7 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             abbreviation=doc["props"].get("abbreviation"),
             name=doc["props"].get("name"),
             seats=int(doc["props"]["seats"]),
-            color=party_color(
-                doc["props"].get("abbreviation"), doc["props"].get("name")
-            ),
+            **_colors("EK", doc["props"].get("abbreviation"), doc["props"].get("name")),
             order=order,
         )
         for order, doc in enumerate(factions)
@@ -165,7 +179,31 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             ),
             attribution=EK_ATTRIBUTION,
         ),
+        hall=_hall(store),
     )
+
+
+# The order of the blocks of the hall of the Eerste Kamer in its plan.
+_BLOCKS = {"left": 0, "chair": 1, "right": 2}
+
+
+def _hall(store: GraphStore) -> HallDTO | None:
+    """Who sits where in the hall of the Eerste Kamer, from the seats of its members."""
+    places = [
+        HallPlaceDTO(
+            **ek["seat"],
+            faction=ek.get("faction") or "",
+            abbreviation=ek.get("abbreviation"),
+            member=doc["_key"],
+            name=ek.get("name"),
+        )
+        for doc in get_ek_members(store, active=True, limit=1000)
+        if (ek := (doc.get("props") or {}).get("ek") or {}).get("seat")
+    ]
+    if not places:
+        return None
+    places.sort(key=lambda p: (_BLOCKS[p.block], p.row, p.column))
+    return HallDTO(url=EERSTEKAMER_SITE.rstrip("/") + HALL_PATH, seats=places)
 
 
 party_router = APIRouter()
@@ -178,8 +216,9 @@ party_router = APIRouter()
     description=(
         "Party to hex colour, from the parties' own house styles, for rendering vote "
         "chips: `colors` by every name and alias (matched without regard to case), "
-        "`aliases` another name of a party -> its name in `colors`. Kept by hand "
-        "(`lawgraph curated set party-colors`): no official source gives them."
+        "`aliases` another name of a party -> its name in `colors`; `chambers` the "
+        "colours each Kamer draws its factions in, with where they were read. Kept by hand "
+        "(`lawgraph curated set party-colors`): no source gives colours as data."
     ),
     tags=["parties"],
 )
@@ -190,4 +229,18 @@ def get_party_colors() -> PartyColorsResponse:
             **{alias: PARTY_COLORS[name] for alias, name in PARTY_ALIASES.items()},
         },
         aliases=dict(PARTY_ALIASES),
+        chambers={
+            chamber: ChamberColorsDTO(
+                colors={
+                    **colors,
+                    **{
+                        alias: colors[name]
+                        for alias, name in PARTY_ALIASES.items()
+                        if name in colors
+                    },
+                },
+                source=ColorSourceDTO(**CHAMBER_COLOR_SOURCES[chamber]),
+            )
+            for chamber, colors in CHAMBER_COLORS.items()
+        },
     )

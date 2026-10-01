@@ -1,30 +1,82 @@
 {
- "about": "By hand: the colour of each party, from its own house style, and the other names the sources give it (an abbreviation, a former name). No official source gives party colours. `lawgraph curated set party-colors`; GET /api/parties/colors.",
+ "about": "By hand: the colour of each party, from its own house style (`color`), the colours each Kamer draws it in (`chambers`: `TK`, `EK`, two for a party drawn in stripes; `sources` says where they were read), and the other names the sources give it (an abbreviation, a former name). A faction only one Kamer draws has no house colour. No source gives colours as data. `lawgraph curated set party-colors`; GET /api/parties/colors, /api/parliament/seats.",
+ "sources": {
+  "TK": {
+   "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+   "what": "the legend of the seat distribution, June 2026 (a PDF)",
+   "read_on": "2026-10-01"
+  },
+  "EK": {
+   "url": "https://www.eerstekamer.nl/wie_zit_waar",
+   "what": "the background colour of each seat in \"Wie zit waar\"",
+   "read_on": "2026-10-01"
+  }
+ },
  "parties": [
   {
    "name": "VVD",
    "color": "#003082",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#E48230"
+    ],
+    "EK": [
+     "#F47621"
+    ]
+   }
   },
   {
    "name": "D66",
    "color": "#1DB954",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#35A948"
+    ],
+    "EK": [
+     "#00D84B"
+    ]
+   }
   },
   {
    "name": "PVV",
    "color": "#002868",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#224665"
+    ],
+    "EK": [
+     "#002F87"
+    ]
+   }
   },
   {
    "name": "CDA",
    "color": "#399E48",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#00745A"
+    ],
+    "EK": [
+     "#00513E"
+    ]
+   }
   },
   {
    "name": "SP",
    "color": "#EE1C25",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#DA3230"
+    ],
+    "EK": [
+     "#A00000"
+    ]
+   }
   },
   {
    "name": "PvdA",
@@ -44,19 +96,44 @@
    "aliases": [
     "GL-PvdA",
     "PRO"
-   ]
+   ],
+   "chambers": {
+    "TK": [
+     "#7AB841",
+     "#D9232A"
+    ],
+    "EK": [
+     "#FFAACC"
+    ]
+   }
   },
   {
    "name": "ChristenUnie",
    "color": "#4F95D4",
    "aliases": [
     "CU"
-   ]
+   ],
+   "chambers": {
+    "TK": [
+     "#1D92C5"
+    ],
+    "EK": [
+     "#00A5E8"
+    ]
+   }
   },
   {
    "name": "Volt",
    "color": "#592D82",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#2A2350"
+    ],
+    "EK": [
+     "#502379"
+    ]
+   }
   },
   {
    "name": "NSC",
@@ -66,29 +143,66 @@
   {
    "name": "BBB",
    "color": "#9ECA3C",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#B1BC53"
+    ],
+    "EK": [
+     "#98C41C"
+    ]
+   }
   },
   {
    "name": "JA21",
    "color": "#CC0000",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#253258"
+    ],
+    "EK": [
+     "#0D6EFD"
+    ]
+   }
   },
   {
    "name": "SGP",
    "color": "#FF6600",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#E05D29"
+    ],
+    "EK": [
+     "#155DA5"
+    ]
+   }
   },
   {
    "name": "FVD",
    "color": "#8B0000",
    "aliases": [
     "FvD"
-   ]
+   ],
+   "chambers": {
+    "TK": [
+     "#7E3134"
+    ],
+    "EK": [
+     "#600910"
+    ]
+   }
   },
   {
    "name": "DENK",
    "color": "#39B54A",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#42B2AB"
+    ]
+   }
   },
   {
    "name": "BIJ1",
@@ -98,12 +212,28 @@
   {
    "name": "50PLUS",
    "color": "#8B008B",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#812C7C"
+    ],
+    "EK": [
+     "#93117E"
+    ]
+   }
   },
   {
    "name": "PvdD",
    "color": "#4CAF50",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#006835"
+    ],
+    "EK": [
+     "#17773C"
+    ]
+   }
   },
   {
    "name": "Groep Van Haga",
@@ -113,12 +243,76 @@
   {
    "name": "Groep Markuszower",
    "color": "#1F2A44",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#60899F"
+    ]
+   }
   },
   {
    "name": "Lid Keijzer",
    "color": "#999999",
-   "aliases": []
+   "aliases": [],
+   "chambers": {
+    "TK": [
+     "#E36C9E"
+    ]
+   }
+  },
+  {
+   "name": "Fractie-Beukering",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#A89D8C"
+    ]
+   }
+  },
+  {
+   "name": "Fractie-Van Gasteren",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#1CCAD8"
+    ]
+   }
+  },
+  {
+   "name": "Fractie-Van de Sanden",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#F4D03F"
+    ]
+   }
+  },
+  {
+   "name": "Fractie-Visseren-Hamakers",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#4992A0"
+    ]
+   }
+  },
+  {
+   "name": "Fractie-Walenkamp",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#C18F32"
+    ]
+   }
+  },
+  {
+   "name": "OPNL",
+   "aliases": [],
+   "chambers": {
+    "EK": [
+     "#D63384"
+    ]
+   }
   }
  ]
 }

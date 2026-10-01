@@ -315,11 +315,25 @@ _PARTY = f"""
 """
 
 
+# The orders of a list of members: by the name they go by, or by surname as the Kamer lists
+# its members (Steur, van der), those without one last.
+MEMBER_ORDERS = {
+    "name": "n.name ASC NULLS FIRST, m.key ASC",
+    "family_name": "lg_str(m.props -> 'family_name') ASC NULLS LAST,"
+    " lg_str(m.props -> 'name_prefix') ASC NULLS FIRST,"
+    " n.name ASC NULLS FIRST, m.key ASC",
+}
+
+
 def _members_page(
-    store: GraphStore, filters: list[str], bind: dict[str, Any], seated: str
+    store: GraphStore,
+    filters: list[str],
+    bind: dict[str, Any],
+    seated: str,
+    sort: str,
 ) -> list[dict[str, Any]]:
     """A page of the members *filters* keep (on ``m`` and its name ``n.name``), with
-    ``%(active)s`` only those *seated* (or not), in name order."""
+    ``%(active)s`` only those *seated* (or not), in the order *sort* (``MEMBER_ORDERS``)."""
     rows = store.query(
         f"""
         SELECT {_NODE.format(t="m")}
@@ -327,7 +341,7 @@ def _members_page(
         CROSS JOIN LATERAL (SELECT m.list_name AS name) n
         WHERE {" AND ".join(f"({f})" for f in filters)}
           AND (%(active)s::boolean IS NULL OR ({seated}) = %(active)s::boolean)
-        ORDER BY n.name ASC NULLS FIRST, m.key ASC
+        ORDER BY {MEMBER_ORDERS[sort]}
         LIMIT %(limit)s OFFSET %(offset)s
         """,
         bind,
@@ -344,10 +358,11 @@ def get_members(
     include_all: bool = False,
     government: bool = False,
     cabinet: str | None = None,
+    sort: str = "name",
     limit: int = 500,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """Members of parliament, in name order; never a record without a name.
+    """Members of parliament, in name order (or *sort*); never a record without a name.
 
     Restricted to people who ever held a seat; *include_all* also returns the
     ministers and other people the TK Persoon endpoint exposes. *government* keeps
@@ -373,7 +388,7 @@ def get_members(
     if q:
         filters.append(_contains("n.name"))
         bind["q"] = q.strip().lower()
-    return _members_page(store, filters, bind, "m.seated")
+    return _members_page(store, filters, bind, "m.seated", sort)
 
 
 # The name a member has in the Eerste Kamer.
@@ -386,10 +401,11 @@ def get_ek_members(
     party: str | None = None,
     active: bool | None = None,
     q: str | None = None,
+    sort: str = "name",
     limit: int = 500,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """The members of the Eerste Kamer (``props.ek``), in name order: those the last
+    """The members of the Eerste Kamer (``props.ek``), in name order (or *sort*): those the last
     snapshot shows (*active*), those it no longer does, or both. *party* matches the
     abbreviation of their faction."""
     filters = ["m.in_ek"]
@@ -403,7 +419,7 @@ def get_ek_members(
         filters.append(f"{_contains('n.name')} OR {_contains(_EK_NAME)}")
         bind["q"] = q.strip().lower()
     seated = _is_null("m.props -> 'ek' -> 'observed_until'")
-    return _members_page(store, filters, bind, seated)
+    return _members_page(store, filters, bind, seated, sort)
 
 
 # What a faction is searched by.
