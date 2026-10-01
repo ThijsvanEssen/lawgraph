@@ -23,10 +23,12 @@ from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
 
 
-def _differs(field: str, value: str) -> str:
-    """``doc.props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``."""
+def _differs(field: str, value: str, *, stored: bool) -> str:
+    """``doc.props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``. With
+    *stored*, the prop is read from its column ``pj_<field>``, not parsed out of the props."""
+    prop = f"t.pj_{field}" if stored else f"(t.props -> '{field}')"
     return (
-        f"coalesce((props -> '{field}')::jsonb, 'null')"
+        f"coalesce({prop}::jsonb, 'null')"
         f" IS DISTINCT FROM coalesce(to_jsonb({value}), 'null')"
     )
 
@@ -39,14 +41,16 @@ def _run(
     bind: dict[str, Any],
     *,
     dry_run: bool,
+    stored: bool = False,
 ) -> int:
     """Count the documents of *table* whose props differ from what *computed* gives (``id``
-    and one column per key), or write the keys into them (``lg_update``, D11)."""
+    and one column per key), or write the keys into them (``lg_update``, D11). *stored*: the
+    table keeps each key in a column ``pj_<key>`` (its props are large)."""
     stale = f"""
         WITH computed AS ({computed}),
         stale AS (
             SELECT c.* FROM computed c JOIN {table} t USING (id)
-            WHERE {" OR ".join(_differs(k, f"c.{k}") for k in keys)}
+            WHERE {" OR ".join(_differs(k, f"c.{k}", stored=stored) for k in keys)}
         )
     """
     if dry_run:
@@ -116,12 +120,12 @@ _JUDGMENTS = """
                        WHEN d.court_code IS NULL THEN NULL
                        WHEN d.court_code = 'XX'
                             AND %(other_court_by_name)s::jsonb
-                                ? coalesce(nullif(lg_str(d.props -> 'court'), ''), '')
-                       THEN %(other_court_by_name)s::jsonb -> lg_str(d.props -> 'court')
+                                ? coalesce(nullif(d.court_name, ''), '')
+                       THEN %(other_court_by_name)s::jsonb -> d.court_name
                        ELSE %(court_by_code)s::jsonb -> d.court_code
                    END AS court
             FROM (
-                SELECT j.id, j.props, j.stub, e.ecli,
+                SELECT j.id, j.stub, j.court AS court_name, e.ecli,
                        CASE WHEN cardinality(string_to_array(e.ecli, ':')) >= 3
                             THEN upper(split_part(e.ecli, ':', 3)) END AS court_code,
                        coalesce(
@@ -131,10 +135,11 @@ _JUDGMENTS = """
                        ) AS date_eff,
                        -- the judgments that cite it or a publication of the same decision
                        -- it keeps (SAME_AS to it), each once
+                       -- (one ``= ANY`` of ids: an OR of the two keeps the index unused)
                        (SELECT count(DISTINCT e2.from_id)::int FROM edges e2
                         WHERE e2.relation = ANY(%(inbound_rels)s)
                           AND e2.from_collection = 'judgments'
-                          AND (e2.to_id = j.id OR e2.to_id IN (
+                          AND e2.to_id = ANY(j.id || ARRAY(
                               SELECT s.from_id FROM edges s
                               WHERE s.to_id = j.id AND s.relation = %(same_as)s
                           ))) AS inbound_citation_count,
@@ -142,10 +147,10 @@ _JUDGMENTS = """
                        (SELECT count(*)::int FROM edges e3
                         WHERE e3.from_id = j.id AND e3.relation = ANY(%(inbound_rels)s)
                           AND e3.to_collection = 'judgments') AS outbound_citation_count,
-                       lg_str(j.props -> 'decision_kind') AS stored_kind,
-                       j.props -> 'names' AS stored_names
+                       lg_str(j.pj_decision_kind) AS stored_kind,
+                       j.pj_names AS stored_names
                 FROM judgments j,
-                     LATERAL (SELECT coalesce(lg_str(j.props -> 'ecli'), j.key) AS ecli) e
+                     LATERAL (SELECT coalesce(lg_str(j.pj_ecli), j.key) AS ecli) e
             ) d
         ) c
     ) j
@@ -180,6 +185,7 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             "curated_names": Jsonb({e: list(n) for e, n in CURATED_NAMES.items()}),
         },
         dry_run=dry_run,
+        stored=True,
     )
 
 
