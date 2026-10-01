@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
+    RELATION_ABOUT,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
@@ -314,3 +315,52 @@ def get_decision_document(
     )
     row = next(rows, None)
     return node_doc(row) if row else None
+
+
+def get_document_decisions(
+    store: ArangoStore, document_id: str
+) -> list[dict[str, Any]]:
+    """The decisions taken on a document (the votes on a motion, an amendment, a bill),
+    oldest first, each with its votes as ``get_decision_detail`` gives them.
+
+    The reverse of ``get_decision_document``: a decision is ABOUT the cases of an agenda
+    item and names one of them (``primary_case_id``); the document it was taken on is the
+    oldest document PART_OF that case (the key settles a tie). So a paper of a bill that is
+    not the bill itself carries none of the votes on the bill.
+    """
+    rows = store.query(
+        f"""
+        WITH own AS (
+            SELECT d.id, d.date, d.key FROM {COLLECTION_DOCUMENTS} d WHERE d.id = %(id)s
+        ),
+        cases AS (
+            SELECT c.id, lg_str(c.props -> 'external_id') AS external_id
+            FROM edges p
+            JOIN {COLLECTION_CASES} c ON c.id = p.to_id
+            CROSS JOIN own
+            WHERE p.from_id = own.id AND p.relation = %(part_of)s
+              -- the document is the oldest of the case: no other comes before it
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM edges o
+                  JOIN {COLLECTION_DOCUMENTS} od ON od.id = o.from_id
+                  WHERE o.to_id = c.id AND o.relation = %(part_of)s
+                    AND od.id <> own.id
+                    AND (
+                        (od.date IS NULL AND own.date IS NOT NULL)
+                        OR od.date < own.date
+                        OR (od.date IS NOT DISTINCT FROM own.date AND od.key < own.key)
+                    )
+              )
+        )
+        SELECT DISTINCT dec.key, dec.date
+        FROM cases
+        JOIN edges a ON a.to_id = cases.id AND a.relation = %(about)s
+        JOIN decisions dec ON dec.id = a.from_id
+        WHERE lg_str(dec.props -> 'primary_case_id') = cases.external_id
+        ORDER BY dec.date ASC NULLS FIRST, dec.key ASC
+        """,
+        {"id": document_id, "part_of": RELATION_PART_OF, "about": RELATION_ABOUT},
+    )
+    keys = [row["key"] for row in rows]
+    return [d for key in keys if (d := get_decision_detail(store, key)) is not None]
