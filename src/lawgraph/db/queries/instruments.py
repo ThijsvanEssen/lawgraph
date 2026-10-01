@@ -52,7 +52,9 @@ INSTRUMENT_SORTS = ("title", "article_count")
 def _document_order(table: str) -> str:
     """The order of the document (``props.position``, a number); a historical article or
     a stub has none: last. The key settles ties."""
-    position = f"lg_num({table}.props -> 'position')"
+    position = (
+        f"{table}.position"  # a column: the props of a law's articles are not read
+    )
     return f"{position} IS NULL, {position} NULLS FIRST, {table}.key"
 
 
@@ -102,7 +104,7 @@ def get_articles(
     if not include_stubs:
         conditions.append("a.stub IS NOT TRUE")
     if not include_repealed:
-        conditions.append("lg_bool(a.props -> 'repealed') IS NOT TRUE")
+        conditions.append("a.repealed IS NOT TRUE")
     matched = f"articles a WHERE {' AND '.join(conditions)}"
     page = f"""
         SELECT a.id, a.key, a.type, a.labels, a.props,
@@ -325,10 +327,17 @@ def get_instrument_amended_by(
             GROUP BY e.from_id
         ),
         grouped AS (
+            -- each amending node looked up by its id (a join with the view would read
+            -- every table whole; LIMIT keeps the planner from turning it into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
                    h.amends, h.introduces, h.repeals, h.articles_affected,
                    h.first_effective_date
-            FROM hits h JOIN nodes d ON d.id = h.from_id
+            FROM hits h
+            CROSS JOIN LATERAL (
+                SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n
+                WHERE n.id = h.from_id
+                LIMIT 1
+            ) d
         )
     """
     page = """
@@ -619,8 +628,8 @@ def get_articles_at(
         WHERE v.bwb_id = %(bwb_id)s
           AND EXISTS (SELECT 1 FROM earliest WHERE earliest.valid_from <= %(at_date)s)
           AND (v.valid_from <= %(at_date)s OR v.valid_from IS NULL)
-          AND (lg_str(v.props -> 'valid_until') > %(at_date)s
-               OR v.props ->> 'valid_until' IS NULL)
+          AND (v.valid_until > %(at_date)s
+               OR v.valid_until_set IS NOT TRUE)
           AND coalesce(v.article_number, '') NOT LIKE 'bijlage %%'
     """
     page = f"""
