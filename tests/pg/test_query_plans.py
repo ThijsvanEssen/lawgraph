@@ -48,6 +48,7 @@ URLS = [
     "/api/search?q=statusbrief&types=commitments",
     "/api/search?q=stemming+abortus&types=decisions",
     "/api/resolve?q=art.+1+BWBR0001",
+    "/api/search?q=art.+1+BWBR0001&resolve=true",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     "/api/judgments",
     "/api/judgments?sort=date_asc",

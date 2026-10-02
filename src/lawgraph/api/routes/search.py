@@ -5,9 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
+from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import SEARCH_TYPES, SearchResponse, SearchResultItem
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.resolve import NO_MATCH
+from lawgraph.db.queries.resolve import resolve as resolve_query
 from lawgraph.db.queries.search import search_all
 
 router = APIRouter()
@@ -26,7 +30,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "document or dossier kinds. Every hit has a `score` between 0 and 1, its rank "
         "tier for the query: the query is an identifier of the hit (1), its whole "
         "name (0.75), the start of its name (0.5), part of its name (0.25) or the hit "
-        "matched on words only (0.1). Hits of a type come best score first."
+        "matched on words only (0.1). Hits of a type come best score first. With "
+        "`resolve=true` the answer also holds `resolved`, what `/api/resolve` answers "
+        "for `q`: one request for a search box that goes to the node a citation names "
+        "and lists the hits otherwise."
     ),
     tags=["search"],
 )
@@ -42,6 +49,9 @@ def search(
         Query(description="Comma-separated kind filter (documents and dossiers)"),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    resolve: Annotated[
+        bool, Query(description="Also resolve `q`, as `/api/resolve` does")
+    ] = False,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -91,4 +101,12 @@ def search(
         types=requested_types,
         total=total,
         results=grouped,
+        resolved=_resolved(store, q) if resolve else None,
     )
+
+
+def _resolved(store: GraphStore, q: str) -> ResolveResponse:
+    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``)."""
+    if len(q) > RESOLVE_MAX_LENGTH:
+        return ResolveResponse(q=q, **NO_MATCH)
+    return ResolveResponse(q=q, **resolve_query(store, q))

@@ -203,6 +203,45 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
     assert articles[0]["extra"]["article_number"] == "287"
 
 
+def test_search_resolves_q_in_the_same_request_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolved = {
+        "kind": "instrument",
+        "confidence": 0.9,
+        "match": {
+            "id": "instruments/32016r0679",
+            "key": "32016r0679",
+            "collection": "instruments",
+            "kind": "instrument",
+            "display_name": "AVG",
+            "confidence": 0.9,
+        },
+        "alternatives": [],
+        "qualifier": None,
+    }
+    asked: list[str] = []
+
+    def resolve_query(store: Any, q: str) -> dict[str, Any]:
+        asked.append(q)
+        return resolved
+
+    monkeypatch.setattr(
+        "lawgraph.api.routes.search.search_all", lambda store, **kwargs: {}
+    )
+    monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
+    client = TestClient(app)
+
+    body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()
+    assert body["resolved"] == {"q": "AVG", **resolved}
+    # without it nothing is resolved; a query too long for resolve is no citation
+    assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
+    long = "woord " * 40
+    body = client.get("/api/search", params={"q": long, "resolve": "true"}).json()
+    assert body["resolved"] == {"q": long, **NO_MATCH, "qualifier": None}
+    assert asked == ["AVG"]
+
+
 def test_an_unknown_type_is_refused_before_the_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
