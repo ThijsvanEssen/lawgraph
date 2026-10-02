@@ -248,11 +248,24 @@ def _walk(value: Any, pools: Pools) -> None:
                 pools.add(f"key:{collection}", node_key)
             elif key in FIELDS:
                 for one in inner if isinstance(inner, list) else [inner]:
-                    pools.add(key, one)
+                    pools.add(_pool_of(key, value), one)
             _walk(inner, pools)
     elif isinstance(value, list):
         for inner in value:
             _walk(inner, pools)
+
+
+def _pool_of(field: str, owner: dict[str, Any]) -> str:
+    """The pool of a value of *field* in *owner*: a member's ``slug`` (``rob-jetten``) is
+    no committee's, whose slugs ``/api/committees/{slug}`` takes."""
+    owner_id = owner.get("id")
+    if (
+        field == "slug"
+        and isinstance(owner_id, str)
+        and owner_id.startswith("members/")
+    ):
+        return "member_slug"
+    return field
 
 
 # ── requests ─────────────────────────────────────────────────────────────────
@@ -281,6 +294,7 @@ QUERY_POOLS = {
     "cabinet": "cabinet",
     "dossier": "dossier",
     "committee": "slug",
+    "slug": "member_slug",  # ``/api/members?slug=``
     "ministry": "ministry",
     "type": "semantic_type",
     "exclude_type": "semantic_type",
