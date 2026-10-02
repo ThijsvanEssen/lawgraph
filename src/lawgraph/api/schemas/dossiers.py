@@ -28,7 +28,7 @@ SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
 DossierOutcome = Literal["aangenomen", "verworpen"]
 
-KindBasis = Literal["case", "document"]
+KindBasis = Literal["case"]
 
 
 class DossierPhaseDTO(BaseModel):
@@ -406,10 +406,9 @@ class DossierSummaryDTO(BaseModel):
 
     ``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of
     the zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,
-    ``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``), else, from a
-    ``Voorstel van wet`` among its papers, ``Wetgeving`` or ``Initiatiefwetgeving``; null
-    for a dossier of letters and motions. ``kind_basis`` says which (``case``,
-    ``document``). A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
+    ``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``); null without
+    one ("zonder soort": no kind is made up from its papers). ``kind_basis`` is ``case``
+    with a kind. A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has
     ``phases``: every phase of the curated list in its order, each done when a paper, an
     activity or a decision of the Kamer marks it; ``current_phase`` is the furthest done
     phase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
@@ -451,8 +450,7 @@ class DossierSummaryDTO(BaseModel):
     )
     kind_basis: KindBasis | None = Field(
         None,
-        description="``case``: a zaak of the dossier gives the kind; ``document``: its "
-        "``Voorstel van wet`` (no zaak of the bill in the graph).",
+        description="``case``: a zaak of the dossier gives the kind; null without a kind.",
     )
     phases: list[DossierPhaseDTO] | None = Field(
         None,
