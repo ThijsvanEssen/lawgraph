@@ -20,6 +20,9 @@ from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_bills import (
+    EerstekamerBillsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
@@ -228,6 +231,18 @@ def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineR
         "today (eerstekamer.nl): a snapshot of about 40 pages."
     ).parse_args(argv)
     return EerstekamerCompositionRetrievePipeline(GraphStore()).run()
+
+
+def retrieve_eerstekamer_bills(argv: list[str] | None = None) -> PipelineResult:
+    parser = argparse.ArgumentParser(
+        description="Retrieve the pages of the bills of the Eerste Kamer (eerstekamer.nl): "
+        "those its committees list and those it voted on since --since."
+    )
+    add_since_argument(parser)
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+    since = None if args.mode == "full" or args.since is None else args.since.date()
+    return EerstekamerBillsRetrievePipeline(GraphStore()).run(since=since)
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
