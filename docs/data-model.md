@@ -50,7 +50,7 @@ they are out of date. Do not edit inside the markers.
 | ArticleVersion | `article_versions` |
 | Annex | `annexes` |
 | Judgment | `judgments` |
-, `last_activity` (the day of its newest paper, activity that took place or decision, refreshed by every `normalize tk-dossiers` that touches the dossier, also over a window: a column, for the sort)| Dossier | `dossiers` |
+| Dossier | `dossiers` |
 | Case | `cases` |
 | Document | `documents` |
 | Activity | `activities` |
