@@ -413,6 +413,11 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "agenda_title": "2025-03-06 - Debat",
         "number": "2025A1",
         "status": None,
+        # of the Tweede Kamer: no time, page or day read of the Eerste Kamer's agenda
+        "chamber": "TK",
+        "time": None,
+        "source_url": None,
+        "retrieved_on": None,
     }
     assert entries["act_plenary"].committee is None  # type: ignore[union-attr]
 
