@@ -30,8 +30,10 @@ jobs:
         run: pytest
 
   # The tests that need a database (tests/pg, tests/integration), against the PostgreSQL of
-  # docker-compose.test.yml (postgres-test). Without it they are skipped above.
+  # docker-compose.test.yml (postgres-test). Without it they are skipped above. On a pull
+  # request and on develop and main, not on every push to a branch.
   database:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     services:

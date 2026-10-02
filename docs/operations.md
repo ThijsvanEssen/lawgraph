@@ -439,7 +439,8 @@ afterwards, so tests stay independent of each other and safe to run in parallel;
 touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
 when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
 stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
-their own (`database`) against a `postgres:18` service with JIT off, as the test server; it has
+their own (`database`, on a pull request and on a push to `develop` or `main`) against a
+`postgres:18` service with JIT off, as the test server; it has
 no S3 server, so the tests of the payload store in a bucket are skipped there.
 
 Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
