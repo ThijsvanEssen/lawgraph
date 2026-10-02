@@ -448,6 +448,13 @@ class MemberDTO(BaseModel):
         None,
         description="``Gerard Adriaan van der Steur``; null when the TK gives none.",
     )
+    slug: str | None = Field(
+        None,
+        description="A stable name for a readable URL: ``rob-jetten``; a namesake who came "
+        "later has the year they were born (``jan-de-vries-1971``), else their number of "
+        "the Tweede Kamer. Never changes once given. ``/api/members?slug=`` and "
+        "``/api/lookup?kind=member`` find the member by it.",
+    )
     family_name: str | None = Field(
         None,
         description="The surname without its tussenvoegsel, as the TK gives it "
@@ -509,6 +516,7 @@ class MemberDTO(BaseModel):
             or props.get("known_as")
             or props.get("government_name"),
             full_name=props.get("full_name"),
+            slug=props.get("slug"),
             family_name=props.get("family_name"),
             name_prefix=props.get("name_prefix"),
             party=party or props.get("party"),

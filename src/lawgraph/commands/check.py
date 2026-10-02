@@ -118,6 +118,7 @@ def check(store: GraphStore, *, edges: bool = True) -> Report:
     _check_papers(store, raw, report)
     _check_cases(store, report)
     _check_protocols(store, report)
+    _check_member_slugs(store, report)
     _check_curated(store, report)
     return report
 
@@ -323,6 +324,18 @@ def _check_cases(store: GraphStore, report: Report) -> None:
         )
     elif total:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
+
+
+def _check_member_slugs(store: GraphStore, report: Report) -> None:
+    """A slug names one member: a URL of a member would else open either."""
+    shared = checks.shared_member_slugs(store)
+    if shared:
+        report.problem(
+            f"{len(shared):,} member slugs are each of more than one member ("
+            + ", ".join(f"{r['slug']} ({r['count']})" for r in shared[:10])
+            + "); a slug is given once and never twice, so two runs that wrote members "
+            "side by side made them: keep the oldest, and normalize the members again"
+        )
 
 
 def _check_protocols(store: GraphStore, report: Report) -> None:

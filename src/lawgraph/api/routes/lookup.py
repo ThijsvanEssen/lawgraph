@@ -27,6 +27,7 @@ _KIND_OF = {
     "factions": "faction",
     "committees": "committee",
     "cabinets": "cabinet",
+    "members": "member",
 }
 
 
@@ -77,6 +78,7 @@ def _finder(
         "faction": lookup.find_faction,
         "committee": lookup.find_committee,
         "cabinet": lookup.find_cabinet,
+        "member": lookup.find_member,
     }
     return lambda: by_id[kind](store, a["id"])
 
@@ -95,7 +97,8 @@ def _finder(
         "`law` (`id`), `judgment` (`ecli`; a judgment only cited is answered, with "
         "`stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), "
         "`official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), "
-        "`commitment` (`number`), `faction`, `committee` (slug) and `cabinet` (`id`)."
+        "`commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` "
+        "(its `slug`, `rob-jetten`) (`id`)."
     ),
     tags=["lookup"],
 )
