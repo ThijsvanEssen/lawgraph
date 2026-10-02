@@ -36,17 +36,27 @@ def parse_abbreviations(general_info_xml: str) -> list[str]:
     """The ``<afkorting>`` values in source order, without case-insensitive repeats.
 
     The source lists ``GW`` and ``Gw`` as two abbreviations; citations are matched without
-    regard to case, so the first spelling is kept. Raises ``ET.ParseError`` on broken XML.
+    regard to case, so one spelling is kept: the form a citation writes, a capital and then
+    lower case (``Gw``, ``_citation_form``), else the first. The source sorts alphabetically,
+    capitals first, so its first spelling says nothing. Raises ``ET.ParseError`` on broken
+    XML.
     """
     root = ET.fromstring(general_info_xml)
-    abbreviations: list[str] = []
-    seen: set[str] = set()
+    kept: dict[str, str] = {}  # upper case -> the spelling kept, in source order
     for element in iter_named(root, "afkorting"):
         value = collapse_ws(element.text)
-        if value and value.upper() not in seen:
-            seen.add(value.upper())
-            abbreviations.append(value)
-    return abbreviations
+        if not value:
+            continue
+        before = kept.setdefault(value.upper(), value)
+        if _citation_form(value) and not _citation_form(before):
+            kept[value.upper()] = value
+    return list(kept.values())
+
+
+def _citation_form(abbreviation: str) -> bool:
+    """Written as a citation writes it: a capital first, lower case in it (``Gw``, ``WvS``;
+    not ``GW`` or ``bw``)."""
+    return abbreviation[:1].isupper() and any(c.islower() for c in abbreviation)
 
 
 def choose_short_titles(
@@ -58,8 +68,9 @@ def choose_short_titles(
     regulations claim never wins, and neither does a code whose books are regulations of
     their own (``CODE_FAMILIES``: every book of the Burgerlijk Wetboek lists ``BW``, also
     when only one book is loaded). Of the remaining ones the shortest wins (``Sr`` over
-    ``WvS`` and ``WvSr``, ``WVW`` over ``WVW 1994``, ``BW1`` over ``BW Boek 1``); equal
-    lengths keep the source order.
+    ``WvS`` and ``WvSr``, ``WVW`` over ``WVW 1994``, ``BW1`` over ``BW Boek 1``); of equal
+    lengths the citation form (``Gw`` over ``GW``, ``_citation_form``), then the source
+    order.
     A regulation left with nothing gets ``None``. Comparison ignores case.
     """
     claims = Counter(
@@ -74,7 +85,9 @@ def choose_short_titles(
             for a in abbreviations
             if claims[a.upper()] == 1 and a.upper() not in CODE_FAMILIES
         ]
-        chosen[regulation_id] = min(own, key=len) if own else None
+        chosen[regulation_id] = (
+            min(own, key=lambda a: (len(a), not _citation_form(a))) if own else None
+        )
     return chosen
 
 
