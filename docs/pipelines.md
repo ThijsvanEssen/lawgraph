@@ -1052,8 +1052,16 @@ already (a small database). **Normalize.** Instrument `verdrag_<id>` (`kind` `ve
 `multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`, `in_force` only for
 `Inwerkinggetreden`, `treaty_number` its id); the item XML adds `place_signed`,
 `tractatenblad` (with `official_id` `trb-1951-154`), `parties`, `kingdom_parts`,
-`kamerstukken`, `parent_treaties` and `child_treaties` to the same node. No edges yet (the
-Tractatenblad, the dossiers and the related treaties are props) and no semantic pipeline.
+`kamerstukken`, `parent_treaties` and `child_treaties` to the same node.
+
+**Semantic (`semantic verdragenbank`).** From what the register names, source `verdragenbank`:
+`PUBLISHED_IN` to each Tractatenblad (`trb_<year>_<number>`, `meta.description` as the register
+writes it; one not in the graph yet becomes a publication with what its id says, one the BWB
+loaded is left as it is); `LEGISLATED_IN` to the dossier of its approval when that dossier is
+in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`);
+`PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
+the article count and the citation count of that treaty leave out. Derived in full on every
+run.
 
 **Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
 (`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes

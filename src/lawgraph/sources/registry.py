@@ -128,6 +128,7 @@ from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 
 Phase = Literal["retrieve", "normalize", "semantic"]
 PHASES: tuple[Phase, ...] = get_args(Phase)
@@ -648,6 +649,13 @@ SEMANTIC: list[Pipeline] = [
             "implementing measures, the regulations they enacted or changed, and the "
             "regulations whose considerans says they implement it; REFERS_TO for the other "
             "EU acts a regulation names."
+        ),
+    ),
+    _pipeline(
+        VerdragenbankSemanticPipeline,
+        (
+            "From the register of a treaty: PUBLISHED_IN to its Tractatenbladen, LEGISLATED_IN "
+            "to the dossier of its approval, PART_OF to the treaty it belongs to."
         ),
     ),
     _pipeline(
