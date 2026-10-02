@@ -926,6 +926,23 @@ a motion rejected), which nothing on it tells apart. A rejected bill gives its d
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
 of that day rejects is logged.
 
+**Retrieve `eerstekamer-agenda`.** The agendas of the Eerste Kamer: each plenary sitting
+(`/plenaire_vergadering/<yyyymmdd>`, record `ek-plenary-html`, external id the path) and each
+day of committee meetings (`/commissievergaderingen_op`, record `ek-committee-day-html`,
+external id the day). From the next sitting and the next day of meetings the pages are walked
+forward (`latere`) to the last one planned and back (`eerdere`) to `--since`; a run without it
+goes back to June 2015, and keeps where its walk back has got to in `pipeline_state`
+(`retrieve eerstekamer-agenda`) so a run that broke off goes on from there. One page at a
+time on the lane of eerstekamer.nl.
+
+**Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
+the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by
+the number it names) and the meetings of a day (committees, kind, time, and the decision
+points: number, reference such as `28.973 / 29.683 / 32.793, AA`, subject and the decision as
+the committee words it, kept, not read). Each is an activity (label `EK`) with `source_url`
+and `retrieved_on`, `ABOUT` the dossiers it names and `LED_BY` the committees of the Eerste
+Kamer a meeting names by abbreviation, each when the graph holds it. The site gives no status.
+
 **Retrieve `eerstekamer-bills`.** The page of each bill of the Eerste Kamer
 (`/wetsvoorstel/<number>_<words>`), one record each (`ek-bill-html`, external id the path,
 `meta.status` the heading it was listed under). The bills are found on the list of every

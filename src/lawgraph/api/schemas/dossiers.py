@@ -202,7 +202,26 @@ class TimelineActivityBody(BaseModel):
         None,
         description="``Activiteit.Status`` as the source writes it: ``Gepland`` (still to "
         "come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, "
-        "``Verplaatst``, ``Vervallen``; null when the source gives none.",
+        "``Verplaatst``, ``Vervallen``; null when the source gives none (the Eerste "
+        "Kamer gives none).",
+    )
+    chamber: Literal["TK", "EK"] = Field(
+        "TK",
+        description="``EK``: a block of a plenary sitting or a committee meeting of the "
+        "Eerste Kamer, from its agenda on eerstekamer.nl.",
+    )
+    time: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: the time its agenda gives (``13.30-13.35``, "
+        "``14.15 uur``).",
+    )
+    source_url: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: the page it was taken over from (reuse with the "
+        "source named: ``EK_ATTRIBUTION``).",
+    )
+    retrieved_on: str | None = Field(
+        None, description="Of the Eerste Kamer: the day that page was read."
     )
 
 

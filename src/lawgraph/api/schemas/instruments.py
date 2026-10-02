@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -800,6 +801,39 @@ ImplementsBasis = Literal["national_implementing_measure", "considerans"]
 IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
 
 
+class ImplementingMeasureDTO(BaseModel):
+    """A national implementing measure as EUR-Lex lists it for the EU act: the publication
+    through which the instrument implements it (the law that changed the Awb to implement a
+    directive)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    publication: str = Field(
+        description="Its id on officielebekendmakingen.nl: `stb-2013-102`."
+    )
+    citation: str = Field(description="How it is cited: `Stb. 2013, 102`.")
+    title: str | None = Field(None, description="Its title, as EUR-Lex gives it.")
+    type: str | None = Field(
+        None, description="The kind of act, as EUR-Lex gives it: `Wet`."
+    )
+
+    @classmethod
+    def from_meta(cls, meta: dict[str, Any]) -> list[ImplementingMeasureDTO]:
+        """The measures of an edge (``meta.measures``); without them only its publications."""
+        measures = meta.get("measures")
+        if isinstance(measures, list):
+            return [
+                cls(**m)
+                for m in measures
+                if isinstance(m, dict) and m.get("publication")
+            ]
+        return [
+            cls(publication=p, citation=publication_citation(p), title=None, type=None)
+            for p in meta.get("publications") or []
+            if isinstance(p, str)
+        ]
+
+
 class EuLinkDTO(BaseModel):
     """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
@@ -832,9 +866,18 @@ class EuLinkDTO(BaseModel):
     source: str | None = Field(
         None, description="The pipeline that wrote the edge (`bwb-implements`)."
     )
+    via: list[ImplementingMeasureDTO] = Field(
+        default_factory=list,
+        description=(
+            "The national implementing measures EUR-Lex lists for the act through which this "
+            "instrument implements it (`national_implementing_measure`): a law that changed "
+            "it to implement the act, or its own enacting publication. Empty for "
+            "`considerans` alone and for `REFERS_TO`."
+        ),
+    )
     meta: dict[str, Any] = Field(
         default_factory=dict,
-        description="Edge evidence as stored (`celex`, `bases`, `publications`).",
+        description="Edge evidence as stored (`celex`, `bases`, `publications`, `measures`).",
     )
 
     @classmethod
@@ -848,6 +891,7 @@ class EuLinkDTO(BaseModel):
             confidence=edge.get("confidence"),
             bases=[b for b in meta.get("bases") or [] if b in IMPLEMENTS_BASES],
             source=edge.get("source"),
+            via=ImplementingMeasureDTO.from_meta(meta),
             meta=meta,
         )
 
