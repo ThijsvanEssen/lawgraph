@@ -1,0 +1,45 @@
+{
+ "about": "By hand: the BWB treaty of each Protocol to the European Convention on Human Rights that HUDOC names by number in the articles of a judgment (`P1-1` is article 1 of Protocol 1). HUDOC gives the number, the BWB the treaty, its title and where and when it was signed (WTI `plaats`, `datum`); no source joins the two. Only the Protocols that hold rights: the others (11, 14, 15, 16) change the procedure of the Court. `lawgraph curated set echr-protocols`.",
+ "source": {
+  "url": "https://zoekservice.overheid.nl/sru/Search?x-connection=BWB&query=overheidbwb.titel%20any%20%22fundamentele%20vrijheden%22",
+  "dated": "2026-10-02"
+ },
+ "protocols": [
+  {
+   "protocol": "P1",
+   "bwb_id": "BWBV0001001",
+   "signed": "Parijs, 1952-03-20",
+   "title": "Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden"
+  },
+  {
+   "protocol": "P4",
+   "bwb_id": "BWBV0001029",
+   "signed": "Straatsburg, 1963-09-16",
+   "title": "Vierde Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden"
+  },
+  {
+   "protocol": "P6",
+   "bwb_id": "BWBV0001037",
+   "signed": "Straatsburg, 1983-04-28",
+   "title": "Zesde Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden, inzake de afschaffing van de doodstraf"
+  },
+  {
+   "protocol": "P7",
+   "bwb_id": "BWBV0006339",
+   "signed": "Straatsburg, 1984-11-22",
+   "title": "Zevende Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden"
+  },
+  {
+   "protocol": "P12",
+   "bwb_id": "BWBV0001676",
+   "signed": "Rome, 2000-11-04",
+   "title": "Protocol nr. 12 bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden"
+  },
+  {
+   "protocol": "P13",
+   "bwb_id": "BWBV0001788",
+   "signed": "Vilnius, 2002-05-03",
+   "title": "Protocol No. 13 bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden, inzake de afschaffing van de doodstraf onder alle omstandigheden"
+  }
+ ]
+}
