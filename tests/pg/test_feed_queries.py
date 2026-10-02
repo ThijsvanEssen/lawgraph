@@ -1468,4 +1468,10 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
         assert _seq_scans(plan) == []
         assert _limit_over_index(plan, "documents")
         assert _limit_over_index(plan, "decisions")
-        assert _limit_over_index(plan, "judgments")
+        # the judgments only when asked for, a page per tier
+        sql, bind = feed_query(
+            FeedFilters(kinds=("uitspraak",)), cursor=cursor, limit=50, facets=False
+        )
+        judgments = _plan(store, sql, bind)
+        assert _seq_scans(judgments) == []
+        assert _limit_over_index(judgments, "judgments")

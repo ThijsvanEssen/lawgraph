@@ -47,8 +47,9 @@ _EVENTS = (
     "``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, "
     "Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in "
     "force)"
-    " and ``uitspraak`` (a judgment or conclusion, on the day it was published; of the "
-    "highest courts and the Parket unless ``tier`` asks for others)"
+    " and ``uitspraak`` (a judgment or conclusion, on the day it was published; only "
+    "with ``kind=uitspraak`` or ``tier``, of the highest courts and the Parket unless "
+    "``tier`` asks for others)"
 )
 
 
