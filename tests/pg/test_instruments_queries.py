@@ -520,6 +520,7 @@ def _seed_list(store: GraphStore) -> None:
                 kind="wet",
                 jurisdiction="nl",
                 article_count=500,
+                inbound_citation_count=7,
                 uri="https://wetten.overheid.nl/BWBR0000002",
             ),
             _doc(
@@ -590,10 +591,12 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "display_name",
         "jurisdiction",
         "article_count",
+        "inbound_citation_count",
         "uri",
         "publication_kind",
         "publication_year",
         "publication_number",
+        "next_version_from",
     ]
     assert by_key["bwbr0000002"] == {
         "_id": "instruments/bwbr0000002",
@@ -607,10 +610,12 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "display_name": "Burgerlijk Wetboek",
         "jurisdiction": "nl",
         "article_count": 500,
+        "inbound_citation_count": 7,
         "uri": "https://wetten.overheid.nl/BWBR0000002",
         "publication_kind": None,
         "publication_year": None,
         "publication_number": None,
+        "next_version_from": None,
     }
     assert (
         by_key["bwbr0000001"]["citation_title"],
@@ -666,6 +671,50 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
     assert (got["total"], [i["_key"] for i in got["items"]]) == (6, ["bare", "dn_only"])
+
+
+def test_the_list_names_the_first_coming_change(store: GraphStore) -> None:
+    _seed_list(store)
+    store.bulk_insert_or_update_nodes(
+        "instrument_versions",
+        [
+            _doc(
+                "a_past",
+                "instrument_version",
+                bwb_id="BWBR0000001",
+                valid_from="2000-01-01",
+            ),
+            _doc(
+                "a_later",
+                "instrument_version",
+                bwb_id="BWBR0000001",
+                valid_from="2999-07-01",
+            ),
+            _doc(
+                "a_next",
+                "instrument_version",
+                bwb_id="BWBR0000001",
+                valid_from="2999-01-01",
+            ),
+            _doc(
+                "b_past",
+                "instrument_version",
+                bwb_id="BWBR0000002",
+                valid_from="2001-01-01",
+            ),
+        ],
+    )
+    got = instruments.get_instruments_list(store)
+    coming = {i["_key"]: i["next_version_from"] for i in got["items"]}
+    # the first toestand after today; none for a law without one, an EU act or no law
+    assert coming == {
+        "bare": None,
+        "dn_only": None,
+        "t_only": None,
+        "bwbr0000001": "2999-01-01",
+        "32016r0679": None,
+        "bwbr0000002": None,
+    }
 
 
 # ── versions and the law on a date ───────────────────────────────────────────
