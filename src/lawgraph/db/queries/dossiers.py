@@ -954,7 +954,7 @@ class DossierFilters:
     status: str | None = None  # open, closed
     outcome: str | None = None
     kinds: tuple[str, ...] | None = None
-    phase: str | None = None
+    phases: tuple[str, ...] | None = None  # the current phase is one of them
     has_phase: tuple[str, ...] | None = None
     ministry: str | None = None
     initiative: bool | None = None
@@ -1010,7 +1010,7 @@ def _dossier_filters(
         ("status", filters.status, f"{_STATUS} = %(status)s"),
         ("outcome", filters.outcome, "lg_str(ds.pj_outcome) = %(outcome)s"),
         ("kind", filters.kinds, "lg_str(ds.pj_kind) = ANY(%(kind)s)"),
-        ("phase", filters.phase, "lg_str(ds.pj_current_phase) = %(phase)s"),
+        ("phase", filters.phases, "lg_str(ds.pj_current_phase) = ANY(%(phase)s)"),
         ("ministry", filters.ministry, "ds.ministry = %(ministry)s"),
     ):
         if value:
