@@ -12,6 +12,7 @@ from lawgraph.api.schemas.common import (
     OFFICIAL_URL,
     VALID_UNTIL,
     DossierRefDTO,
+    FacetCountDTO,
     JudgmentSummaryDTO,
     address_of,
 )
@@ -192,9 +193,32 @@ class InstrumentJudgmentItem(BaseModel):
     date: str | None = Field(
         default=None, description="Date of the judgment, YYYY-MM-DD."
     )
+    advocate_general: str | None = Field(
+        default=None,
+        description="For a conclusion, the advocate-general who wrote it, as on "
+        "`/api/judgments/{ecli}`. Null for a judgment.",
+    )
+    advocate_general_role: str | None = Field(
+        default=None,
+        description="For a conclusion, the role it is signed in (`advocaat-generaal`, "
+        "`waarnemend advocaat-generaal`, ...), as on `/api/judgments/{ecli}`. Null for a "
+        "judgment.",
+    )
     cited_articles: list[CitedArticleRef] = Field(
         default_factory=list,
         description="Articles of the focal instrument that this judgment cites.",
+    )
+
+
+class InstrumentJudgmentFacets(BaseModel):
+    """Every judgment that cites this instrument counted, not the page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per year of the judgment, the oldest first; `value` null counts "
+        "those without a date.",
     )
 
 
@@ -211,6 +235,12 @@ class InstrumentJudgmentsResponse(BaseModel):
             "(independent of ``limit``)."
         ),
     )
+    sort: Literal["date", "cited"] = Field(
+        "date",
+        description="The order of `items`: `date`, the newest first; `cited`, the most "
+        "cited articles of this law first, then the newest. Ties by id.",
+    )
+    facets: InstrumentJudgmentFacets = Field(default_factory=InstrumentJudgmentFacets)
     items: list[InstrumentJudgmentItem]
 
 

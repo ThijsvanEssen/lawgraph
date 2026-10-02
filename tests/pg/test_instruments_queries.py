@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import instruments
 
@@ -148,7 +151,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             _edge("judgments/j_b", "articles/other", "REFERS_TO"),
         ]
     )
-    items, total = instruments.get_instrument_judgments(store, BWB)
+    items, total = instruments.get_instrument_judgments(store, BWB, sort="cited")
     assert total == 6
     # most cited articles first, then the newest (no date last), then the id
     assert [i["judgment"]["_key"] for i in items] == [
@@ -158,6 +161,26 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "j_old",
         "j_b",
     ]
+    # by default the newest first (no date last), then the id
+    by_date, _ = instruments.get_instrument_judgments(store, BWB)
+    assert [i["judgment"]["_key"] for i in by_date] == [
+        "j_new",
+        "j_old",
+        "j_many",
+        "j_a",
+        "j_b",
+    ]
+    paged, _ = instruments.get_instrument_judgments(store, BWB, limit=2, offset=1)
+    assert [i["judgment"]["_key"] for i in paged] == ["j_old", "j_many"]
+    # every citing judgment per year, not the page; a missing one is not counted
+    assert instruments.get_instrument_judgment_years(store, BWB) == [
+        {"value": None, "count": 2},
+        {"value": "1990", "count": 1},
+        {"value": "2001", "count": 1},
+        {"value": "2020", "count": 1},
+    ]
+    found = instruments.get_citing_judgments(store, BWB, limit=1)
+    assert (found.total, len(found.items), len(found.years)) == (6, 1, 4)
     many = items[0]
     assert list(many) == ["judgment", "cited_articles"]
     assert list(many["judgment"]) == ["_id", "_key", "props"]
@@ -171,6 +194,8 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             "tier": "hoge_raad",
             "court_kind": "hoge_raad",
             "date_eff": "1990-01-01",
+            "advocate_general": None,
+            "advocate_general_role": None,
         },
     }
     assert many["cited_articles"] == [
@@ -197,11 +222,62 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "tier": None,
         "court_kind": None,
         "date_eff": None,
+        "advocate_general": None,
+        "advocate_general_role": None,
     }
 
-    items, total = instruments.get_instrument_judgments(store, BWB, limit=1)
+    items, total = instruments.get_instrument_judgments(
+        store, BWB, sort="cited", limit=1
+    )
     assert (total, [i["judgment"]["_key"] for i in items]) == (6, ["j_many"])
     assert instruments.get_instrument_judgments(store, "BWBR9999999") == ([], 0)
+
+
+def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> None:
+    _seed_articles(store)
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _doc(
+                "c1",
+                "judgment",
+                ecli="ECLI:C",
+                decision_kind="conclusie",
+                advocate_general="T. Hartlief",
+                advocate_general_role="advocaat-generaal",
+            ),
+            # only a conclusion is read for it
+            _doc("u1", "judgment", ecli="ECLI:U", advocate_general="X"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("judgments/c1", "articles/a1", "REFERS_TO"),
+            _edge("judgments/u1", "articles/a1", "REFERS_TO"),
+        ]
+    )
+    items, _ = instruments.get_instrument_judgments(store, BWB)
+    props = {i["judgment"]["_key"]: i["judgment"]["props"] for i in items}
+    assert (
+        props["c1"]["advocate_general"],
+        props["c1"]["advocate_general_role"],
+    ) == ("T. Hartlief", "advocaat-generaal")
+    assert props["u1"]["advocate_general"] is None
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = (
+            TestClient(app).get(f"/api/instruments/{BWB}/judgments?sort=cited").json()
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert (body["sort"], body["total"]) == ("cited", 2)
+    assert body["facets"] == {"year": [{"value": None, "count": 2}]}
+    item = next(i for i in body["items"] if i["key"] == "c1")
+    assert (item["advocate_general"], item["advocate_general_role"]) == (
+        "T. Hartlief",
+        "advocaat-generaal",
+    )
 
 
 # ── dossiers ─────────────────────────────────────────────────────────────────
