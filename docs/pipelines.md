@@ -1031,11 +1031,25 @@ Verdragenbank id (`verdragsnummer`), about 8,800 treaties. The former SPARQL end
 (`linkeddata.overheid.nl`) holds no treaty data. Records of amendments (`wijziging`) are
 not read. An empty result raises: the endpoint or its data model has changed.
 
-**Retrieve.** `--max-records` stops early. **Normalize.** Instrument `verdrag_<id>`
-(`kind` `verdrag`, `multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`,
-`in_force` only for `Inwerkinggetreden`, `treaty_number` its id). No edges and no semantic
-pipeline. Not ingested: the Trb references (`dcterms:isPartOf`), the parties and the place of
-signing.
+**The item XML.** The SRU record links (`gzd:url`) to the item XML of the treaty
+(`repository.overheid.nl/frbr/vd/<id>/1/xml-nl/<id>.xml`), which holds the rest of the
+register's page: the place of signing, the Tractatenblad publications ("1951, 154" with what
+they publish), the parties with the dates of signature, ratification (or another consent),
+provisional application, entry into force, denunciation and termination and whether they made
+reservations or objections, the parts of the Kingdom it applies to and from when, the dossiers
+of its approval, and the treaties it belongs to (a Protocol to its Convention) or that belong
+to it. The text of a reservation is not kept, only that there is one.
+
+**Retrieve.** The SRU records (`verdrag-json`), then the item XML (`verdrag-xml`) of every
+treaty that is not stored yet or that the register `modified` since; a 404 is remembered as
+missing, a page that is no XML is not kept. `--max-records` stops early (and bounds the item
+XML to those treaties); `--only-stored` keeps the run to the treaties whose record is stored
+already (a small database). **Normalize.** Instrument `verdrag_<id>` (`kind` `verdrag`,
+`multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`, `in_force` only for
+`Inwerkinggetreden`, `treaty_number` its id); the item XML adds `place_signed`,
+`tractatenblad` (with `official_id` `trb-1951-154`), `parties`, `kingdom_parts`,
+`kamerstukken`, `parent_treaties` and `child_treaties` to the same node. No edges yet (the
+Tractatenblad, the dossiers and the related treaties are props) and no semantic pipeline.
 
 **Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
 (`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes

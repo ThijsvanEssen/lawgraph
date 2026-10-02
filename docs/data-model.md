@@ -174,7 +174,11 @@ statutes made by the legislator:
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records
   (`verdrag_<id>`), two nodes for a treaty that is in both. They share `treaty_number`, the
   six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`; no edge
-  joins them (see [pipelines](pipelines.md#verdragenbank)).
+  joins them (see [pipelines](pipelines.md#verdragenbank)). A Verdragenbank treaty also
+  carries what its item XML registers: `place_signed`, `tractatenblad` (`official_id`,
+  `text`, `description`), `parties` (`name` and its dates, `consent`, `reservation`,
+  `objection`), `kingdom_parts`, `kamerstukken` and `parent_treaties`/`child_treaties`
+  (Verdragenbank `id`, `title`, `date`, `place`).
 - EU directives, regulations and decisions (`celex`). `title` is the printed title
   (`Verordening (EU) 2022/868 van het Europees Parlement en de Raad van 30 mei 2022
   betreffende …`), `citation_title` the form the act is cited by in its era (`Richtlijn
@@ -552,7 +556,7 @@ record is skipped like one without a payload.
 | `staatscourant` | `stcrt-regeling-xml` |
 | `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html` |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
-| `verdragenbank` | `verdrag-json` |
+| `verdragenbank` | `verdrag-json` (the SRU record), `verdrag-xml` (the item XML: parties, Tractatenbladen, dossiers, related treaties; `meta.item_url` and `meta.modified`) |
 | `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
