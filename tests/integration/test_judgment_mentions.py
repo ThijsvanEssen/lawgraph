@@ -215,6 +215,7 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
         "items": [],
         "total": 5,
         "judgment_total": 3,
+        "echr_judgment_total": 0,
     }
 
 
