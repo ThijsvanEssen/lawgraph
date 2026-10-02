@@ -131,16 +131,25 @@ INSTRUMENT_JUDGMENT_SORTS = {
 }
 
 
-def _citing_judgments(prop: str) -> str:
+def _citing_judgments(prop: str, *, of_year: bool = False) -> str:
     """``cites`` (judgment, article) and ``grouped`` (judgment, how many of the articles of
-    the law it cites): the judgments that cite the law of ``%(bwb)s``."""
+    the law it cites): the judgments that cite the law of ``%(bwb)s``; *of_year*: those of
+    the year ``%(year)s`` alone (of ``date_eff``, as the year facet counts them)."""
+    year = (
+        f"""
+              AND EXISTS (SELECT 1 FROM {COLLECTION_JUDGMENTS} j
+                          WHERE j.id = e.from_id
+                            AND substr(j.date_eff, 1, 4) = %(year)s)"""
+        if of_year
+        else ""
+    )
     return f"""
         WITH cites AS (
             SELECT DISTINCT e.from_id AS judgment_id, e.to_id AS article_id
             FROM edges e
             WHERE e.relation = %(refers_to)s
               AND e.to_id IN ({_articles_of(prop)})
-              AND e.from_collection = %(judgments)s
+              AND e.from_collection = %(judgments)s{year}
         ),
         grouped AS (
             SELECT judgment_id, count(*)::int AS cited_count
@@ -156,6 +165,7 @@ def get_instrument_judgments(
     sort: str = "date",
     limit: int = 500,
     offset: int = 0,
+    year: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Judgments referring to any article of this instrument, grouped by judgment, in the
     order of *sort* (``INSTRUMENT_JUDGMENT_SORTS``).
@@ -174,7 +184,7 @@ def get_instrument_judgments(
     # judgments that exist. Only the date is read before the LIMIT: whole judgments in the
     # sort are every citing judgment of the law in memory at once.
     ctes = (
-        _citing_judgments(scope.prop)
+        _citing_judgments(scope.prop, of_year=year is not None)
         + f""",
         top AS (
             SELECT g.judgment_id, row_number() OVER (ORDER BY {order}) AS n
@@ -228,6 +238,7 @@ def get_instrument_judgments(
             "conclusion": KIND_CONCLUSIE,
             "limit": limit,
             "offset": offset,
+            "year": year,
         },
     )
     items, total = _split_page(rows)
@@ -250,11 +261,13 @@ def get_citing_judgments(
     sort: str = "date",
     limit: int = 500,
     offset: int = 0,
+    year: str | None = None,
 ) -> CitingJudgments:
-    """``get_instrument_judgments`` and ``get_instrument_judgment_years`` at once."""
+    """``get_instrument_judgments`` and ``get_instrument_judgment_years`` at once; the
+    years count every year, also under *year* (a facet without its own filter)."""
     page, years = run_together(
         lambda: get_instrument_judgments(
-            store, identifier, sort=sort, limit=limit, offset=offset
+            store, identifier, sort=sort, limit=limit, offset=offset, year=year
         ),
         lambda: get_instrument_judgment_years(store, identifier),
     )

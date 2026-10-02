@@ -285,7 +285,8 @@ def list_articles(
         "Meant for the case-law layer of the graph. ``total`` is the absolute "
         "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
         "first; ``cited``, the most cited articles of the law first, then the newest. "
-        "``facets.year`` counts every citing judgment per year, not the page."
+        "``facets.year`` counts every citing judgment per year, not the page; ``year`` "
+        "keeps the judgments of one year (``total`` and the page)."
     ),
     tags=["instruments"],
 )
@@ -295,11 +296,22 @@ def get_instrument_judgments_route(
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: Annotated[Literal["date", "cited"], Query()] = "date",
+    year: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d{4}$",
+            description="The judgments of this year (of their date) alone; "
+            "``facets.year`` still counts every year.",
+        ),
+    ] = None,
 ) -> InstrumentJudgmentsResponse:
-    found = get_citing_judgments(store, bwb_id, sort=sort, limit=limit, offset=offset)
+    found = get_citing_judgments(
+        store, bwb_id, sort=sort, limit=limit, offset=offset, year=year
+    )
     return InstrumentJudgmentsResponse(
         bwb_id=bwb_id,
         total=found.total,
+        year=year,
         sort=sort,
         facets=InstrumentJudgmentFacets(
             year=[FacetCountDTO(**year) for year in found.years]
