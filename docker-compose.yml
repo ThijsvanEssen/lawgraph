@@ -56,13 +56,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # ArangoDB stays next to PostgreSQL until the rollback window has closed (plan, PR 5.4).
+  # ArangoDB stays next to PostgreSQL until the rollback window has closed (plan, PR 5.4). Only
+  # with its profile (`docker compose --profile arango up -d arangodb`): a bare `docker compose
+  # up` starts PostgreSQL alone, as on the server, and only this machine reaches it.
   arangodb:
     image: arangodb:3.12
     container_name: arango-lawgraph
+    profiles: [arango]
     restart: unless-stopped
     ports:
-      - "8529:8529"
+      - "127.0.0.1:8529:8529"
     environment:
       - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
     # ArangoDB sizes its caches from the memory it sees (the whole Docker VM) and has no limit
