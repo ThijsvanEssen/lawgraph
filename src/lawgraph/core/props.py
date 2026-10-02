@@ -379,6 +379,8 @@ class DossierProps(_CommonProps):
     opened_on_basis: str | None = None
     # the day of its newest paper, held activity or decision (``dossier_stages``)
     last_activity: str | None = None
+    # the GestartOp of its own zaak of a bill (Wetgeving, Initiatiefwetgeving, Begroting)
+    submitted_on_tk: str | None = None
     closed_on: str | None = None
     case_kinds: list[str] | None = None
     # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and
@@ -683,6 +685,7 @@ class CaseProps(_CommonProps):
     # Zaak.Soort: Wetgeving, Motie, Brief regering, ...
     kind: str | None = None
     dossier_numbers: list[str] | None = None
+    started_on: str | None = None  # Zaak.GestartOp
     # Zaak.GerelateerdNaar: the cases the Kamer relates this one to
     related_cases: list[RelatedCase] | None = None
 

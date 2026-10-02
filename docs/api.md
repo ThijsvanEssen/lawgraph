@@ -136,7 +136,7 @@ adopted law),
 `opened_on` (the day it opened, as the Kamer dates its papers: of nr. 1 of its own numbering,
 the paper whose own dossier (`Document.Kamerstukdossier`) it is; else of its Koninklijke
 boodschap; else of its first paper or activity) with `opened_on_basis` (`first_paper`,
-`royal_message`, `earliest_record`), `last_activity` (the day of its newest paper, activity that
+`royal_message`, `earliest_record`), `submitted_on_tk` (the day the bill was submitted to the Tweede Kamer, as it dates it: `Zaak.GestartOp` of the dossier's own zaak of a bill), `last_activity` (the day of its newest paper, activity that
 took place or decision; `sort=last_activity` lists by it, newest first), and `closed_on`. A
 `subject` filter takes a number (`37035`: every dossier of that
 number), a dossier (`37035-XXII`, `37035 xxii`) or words of the title.

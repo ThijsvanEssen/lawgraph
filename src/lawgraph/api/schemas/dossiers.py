@@ -478,6 +478,12 @@ class DossierSummaryDTO(BaseModel):
     opened_on_basis: (
         Literal["first_paper", "royal_message", "earliest_record"] | None
     ) = None
+    submitted_on_tk: str | None = Field(
+        None,
+        description="The day the bill was submitted to the Tweede Kamer, as it dates it: "
+        "the ``Zaak.GestartOp`` of the dossier's own zaak of a bill (``Wetgeving``, "
+        "``Initiatiefwetgeving``, ``Begroting``); null for another dossier.",
+    )
     last_activity: str | None = Field(
         None,
         description="The day of its newest paper, activity that took place (not one only "
@@ -771,6 +777,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         ),
         "opened_on": props.get("opened_on"),
         "opened_on_basis": props.get("opened_on_basis"),
+        "submitted_on_tk": props.get("submitted_on_tk"),
         "last_activity": props.get("last_activity"),
         "closed_on": props.get("closed_on"),
         "ministry": props.get("ministry"),
