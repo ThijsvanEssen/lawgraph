@@ -922,6 +922,21 @@ a motion rejected), which nothing on it tells apart. A rejected bill gives its d
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
 of that day rejects is logged.
 
+**Retrieve `eerstekamer-bills`.** The page of each bill of the Eerste Kamer
+(`/wetsvoorstel/<number>_<words>`), one record each (`ek-bill-html`, external id the path,
+`meta.status` the heading it was listed under). The bills are found on the list of every
+committee (`/wetsvoorstellen_bij_commissie?key=…`, linked from its page; `robots.txt` allows
+it, `/zoeken` it does not) and in the list of votes (`bill_url` of the decisions of `normalize
+eerstekamer-votes`). A run over a window reads the bills a committee still handles and those
+voted on since `--since`; a run without it every listed bill, the older pages of the lists
+too. Pages are read one at a time on the lane of eerstekamer.nl.
+
+**Normalize `eerstekamer-bills`.** `core/eerstekamer_bills.py` reads the page's structure:
+its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
+`Kerngegevens`, and the progress module block by block (phase, house, the state class the
+page gives it, and its papers with kind, date and number); never a sentence. The result is
+`ek_bill` on the dossier of that number, when the graph holds it.
+
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
 (`/fractie/<slug>`: its board and members; `/commissies/<slug>`: its members with faction and
