@@ -28,8 +28,8 @@ def test_committee_without_a_name_is_not_named_by_its_id() -> None:
     assert tk_records.committee(record) is None
 
 
-def test_committee_seats_collect_every_period_per_person() -> None:
-    periods = tk_records.committee_seats(
+def test_committee_seats_collect_every_seat_per_person() -> None:
+    seats = tk_records.committee_seats(
         {
             "CommissieZetel": [
                 {
@@ -38,30 +38,73 @@ def test_committee_seats_collect_every_period_per_person() -> None:
                             "Persoon_Id": "p1",
                             "Van": "2020-01-01",
                             "TotEnMet": "2021-01-01",
+                            "Functie": "Lid",
                         },
-                        {"Persoon_Id": "p1", "Van": "2022-01-01", "TotEnMet": None},
+                        {
+                            "Persoon_Id": "p1",
+                            "Van": "2022-01-01",
+                            "TotEnMet": None,
+                            "Functie": "Voorzitter",
+                        },
                         {"Persoon_Id": "p2", "Van": "2019-01-01", "TotEnMet": None},
-                    ]
+                        {"Persoon_Id": "p3", "Van": "2019-01-01", "Verwijderd": True},
+                    ],
+                    "CommissieZetelVervangerPersoon": [
+                        {"Persoon_Id": "p2", "Van": "2018-01-01", "Functie": "Plv. lid"}
+                    ],
                 }
             ]
         }
     )
-    assert periods["p1"] == [("2020-01-01", "2021-01-01"), ("2022-01-01", None)]
-    assert periods["p2"] == [("2019-01-01", None)]
+    Seat = tk_records.CommitteeSeat
+    assert seats["p1"] == [
+        Seat("2020-01-01", "2021-01-01", "Lid"),
+        Seat("2022-01-01", None, "Voorzitter"),
+    ]
+    assert seats["p2"] == [
+        Seat("2019-01-01", None),
+        Seat("2018-01-01", None, "Plv. lid", substitute=True),
+    ]
+    # a seat the Kamer deleted is none
+    assert "p3" not in seats
 
 
-def test_representative_period_prefers_an_open_one() -> None:
+def test_representative_period_prefers_an_open_one_with_its_role() -> None:
+    Seat = tk_records.CommitteeSeat
     meta = tk_records.representative_period(
-        [("2020-01-01", "2021-01-01"), ("2022-01-01", None)]
+        [
+            Seat("2020-01-01", "2021-01-01", "Lid"),
+            Seat("2022-01-01", None, "Voorzitter"),
+        ]
     )
-    assert meta == {"from_date": "2022-01-01"}
+    assert meta == {
+        "from_date": "2022-01-01",
+        "role": "Voorzitter",
+        "periods": [
+            {"from_date": "2020-01-01", "to_date": "2021-01-01", "role": "Lid"},
+            {"from_date": "2022-01-01", "role": "Voorzitter"},
+        ],
+    }
 
 
 def test_representative_period_takes_the_latest_closed_one() -> None:
+    Seat = tk_records.CommitteeSeat
     meta = tk_records.representative_period(
-        [("2015-01-01", "2016-01-01"), ("2019-01-01", "2020-01-01")]
+        [Seat("2015-01-01", "2016-01-01"), Seat("2019-01-01", "2020-01-01")]
     )
-    assert meta == {"from_date": "2019-01-01", "to_date": "2020-01-01"}
+    assert meta["from_date"] == "2019-01-01" and meta["to_date"] == "2020-01-01"
+    # one seat without a role: no periods
+    assert tk_records.representative_period([Seat("2019-01-01", None)]) == {
+        "from_date": "2019-01-01"
+    }
+
+
+def test_a_members_seat_represents_before_a_substitutes() -> None:
+    Seat = tk_records.CommitteeSeat
+    meta = tk_records.representative_period(
+        [Seat("2018-01-01", None, "Lid"), Seat("2023-01-01", None, "Plv. lid", True)]
+    )
+    assert (meta["role"], meta.get("substitute")) == ("Lid", None)
 
 
 def test_member_joins_the_name_parts() -> None:

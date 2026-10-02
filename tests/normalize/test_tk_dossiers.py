@@ -388,7 +388,16 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
                                 "TotEnMet": "2020-01-01",
                             },
                             {"Persoon_Id": "p-missing", "Van": "2019-01-01"},
-                        ]
+                        ],
+                        # a substitute's seat, later: the member's open seat represents
+                        "CommissieZetelVervangerPersoon": [
+                            {
+                                "Persoon_Id": "p1",
+                                "Van": "2023-01-01",
+                                "TotEnMet": None,
+                                "Functie": "Plv. lid",
+                            }
+                        ],
                     }
                 ],
             }
@@ -403,7 +412,14 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
             f"{COLLECTION_COMMITTEES}/c1",
-        ): {"from_date": "2022-01-01"},
+        ): {
+            "from_date": "2022-01-01",
+            "periods": [
+                {"from_date": "2020-01-01", "to_date": "2021-01-01"},
+                {"from_date": "2022-01-01"},
+                {"from_date": "2023-01-01", "role": "Plv. lid", "substitute": True},
+            ],
+        },
         (
             f"{COLLECTION_MEMBERS}/p2",
             RELATION_MEMBER_OF,

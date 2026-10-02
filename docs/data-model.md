@@ -502,7 +502,7 @@ van State as its vice-president. So each signature keeps what it was signed as:
   otherwise (the griffier, the Raad van State, the Algemene Rekenkamer, the Nationale
   ombudsman). No minister or staatssecretaris signs for a faction in the source.
 
-`MEMBER_OF` edges run from a member to a committee (`meta` = the seat's period) and to a
+`MEMBER_OF` edges run from a member to a committee (`meta` = the seat that represents the membership: `from_date`, `to_date`, `role` (`Functie` of `CommissieZetelVastPersoon` or `CommissieZetelVervangerPersoon` as the Kamer writes it: `Lid`, `Voorzitter`, `OnderVz`, `Plv. lid`), `substitute` for a substitute's seat, and `periods`, every seat oldest first, when there is more than one or it has a role; an open seat represents before a closed one, a member's before a substitute's) and to a
 faction (`meta.from_date`, `meta.to_date`, `meta.role`, `meta.record_ids`: the
 FractieZetelPersoon records it is made of). Edge keys are one per pair, so a
 member who leaves and rejoins keeps one edge with the latest period, whatever order the records
