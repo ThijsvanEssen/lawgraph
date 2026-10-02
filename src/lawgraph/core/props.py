@@ -194,8 +194,10 @@ class JudgmentParagraphProps(_StrictBase):
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
-    kind: Literal["heading", "subheading", "body", "signature"]
+    kind: Literal["heading", "subheading", "body", "signature", "toc"]
     text: str
+    # of a paragraph without a number: the numbered consideration it goes on with
+    continues: str | None = None
 
 
 class JudgmentRepresentativeProps(_StrictBase):
