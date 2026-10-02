@@ -35,7 +35,11 @@ one law has it there (`WvSr` is the Wetboek van Strafrecht's, `BW` no single boo
 or treaty whose source gives no abbreviation gets one from
 `src/lawgraph/data/curated/instrument_abbreviations.json` (`lawgraph curated set
 instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an instrument in the graph
-only; the EVRM is the BWB treaty `BWBV0001000`. The same table serves `/api/resolve`, the
+only; the EVRM is the BWB treaty `BWBV0001000`. Its First Protocol (`BWBV0001001`) is cited as
+`EP EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the
+Europees Parlement: it is the Protocol in a judgment that also names the EVRM or the Eerste
+Protocol (`in_context` of the curated entry; `semantic rechtspraak` only), or that names the
+Protocol so itself (`art. 1 Eerste Protocol EVRM (hierna: EP)`). The same table serves `/api/resolve`, the
 search, and the instrument-level matches of `semantic tk`. A code split over books
 (`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
 Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites

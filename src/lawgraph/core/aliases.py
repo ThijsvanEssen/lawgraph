@@ -20,6 +20,16 @@ def curated_abbreviations() -> dict[str, list[str]]:
     }
 
 
+def curated_context_abbreviations() -> dict[str, dict[str, list[str]]]:
+    """Law id -> {abbreviation: the words a text must also name for it to stand for the law}
+    (``in_context`` of ``curated instrument-abbreviations``: "EP" beside "EVRM")."""
+    return {
+        law_id.upper(): dict(in_context)
+        for law_id, value in LISTS["instrument-abbreviations"].entries().items()
+        if (in_context := (value or {}).get("in_context"))
+    }
+
+
 def abbreviation_of(
     law_id: str, short_title: str | None, curated: Mapping[str, Sequence[str]]
 ) -> str | None:

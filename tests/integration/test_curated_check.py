@@ -75,6 +75,16 @@ def test_an_abbreviation_of_an_instrument_the_graph_lacks_is_a_problem(
     database: str,
 ) -> None:
     store = GraphStore()
+    # the First Protocol to the ECHR is in the graph: only the AVG's law is missing
+    with NodeWriter(store) as writer:
+        writer.add(
+            Node(
+                collection=COLLECTION_INSTRUMENTS,
+                type=NodeType.INSTRUMENT,
+                key="bwbv0001001",
+                props={"bwb_id": "BWBV0001001", "title": "Protocol bij het EVRM"},
+            )
+        )
     assert database_problems(store) == [
         "instrument-abbreviations: 32016R0679 (AVG): no instrument in the graph has "
         "this id"
