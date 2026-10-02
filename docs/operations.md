@@ -438,7 +438,9 @@ Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and
 afterwards, so tests stay independent of each other and safe to run in parallel; none of them
 touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
 when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
-stays green.
+stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
+their own (`database`) against a `postgres:18` service with JIT off, as the test server; it has
+no S3 server, so the tests of the payload store in a bucket are skipped there.
 
 Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
 `test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure

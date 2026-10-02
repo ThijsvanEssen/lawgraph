@@ -28,3 +28,49 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+  # The tests that need a database (tests/pg, tests/integration), against the PostgreSQL of
+  # docker-compose.test.yml (postgres-test). Without it they are skipped above.
+  database:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: lawgraph
+          POSTGRES_PASSWORD: lawgraph-test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U lawgraph"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      ALLOW_DB_TESTS: '1'
+      LAWGRAPH_TEST_DB_URL: postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph
+      PGPASSWORD: lawgraph-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # postgres-test runs with `-c jit=off`; a service takes no command, so set it here.
+      - name: Turn off JIT
+        run: |
+          psql -h localhost -p 5433 -U lawgraph -d postgres -c "ALTER SYSTEM SET jit = off"
+          psql -h localhost -p 5433 -U lawgraph -d postgres -c "SELECT pg_reload_conf()"
+
+      - name: Run the PostgreSQL tests
+        run: pytest tests/pg
+
+      - name: Run the integration tests
+        run: pytest tests/integration
