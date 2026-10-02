@@ -53,6 +53,17 @@ def test_case_variants_count_once_and_absence_is_an_empty_list() -> None:
     assert parse_abbreviations(without) == []
 
 
+def test_of_two_spellings_the_one_a_citation_writes_is_kept() -> None:
+    # the Grondwet: the source lists "GW" and "Gw", sorted, capitals first
+    grondwet = BW1_GENERAL.replace(">BW<", ">GW<").replace(">BW Boek 1<", ">Gw<")
+    grondwet = grondwet.replace(">BW1<", ">GW<")
+
+    assert parse_abbreviations(grondwet) == ["Gw"]
+    assert choose_short_titles({"BWBR0001840": parse_abbreviations(grondwet)}) == {
+        "BWBR0001840": "Gw"
+    }
+
+
 def test_broken_xml_raises() -> None:
     with pytest.raises(ET.ParseError):
         parse_abbreviations("<algemene-informatie>")
@@ -97,7 +108,7 @@ def test_an_abbreviation_claimed_by_several_regulations_never_wins() -> None:
 
 
 def test_case_variants_of_one_regulation_are_one_claim() -> None:
-    assert choose_short_titles({"BWBR0001840": ["GW", "Gw"]}) == {"BWBR0001840": "GW"}
+    assert choose_short_titles({"BWBR0001840": ["GW", "Gw"]}) == {"BWBR0001840": "Gw"}
 
 
 def test_a_code_of_books_never_wins_even_when_one_book_is_loaded() -> None:

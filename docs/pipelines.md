@@ -664,11 +664,12 @@ After the nodes, `normalize bwb` sets `short_title` on existing instruments from
 WTI records (`core/bwb_wti.py`). A regulation can have several abbreviations, listed
 alphabetically by the source, so their order means nothing. The rule:
 
-1. Case is ignored (`GW` and `Gw` are one abbreviation; the first spelling is kept).
+1. Case is ignored (`GW` and `Gw` are one abbreviation). The spelling kept is the one a
+   citation writes, a capital and then lower case (`Gw`), else the first.
 2. An abbreviation that several loaded regulations claim never wins: every book of the
    Burgerlijk Wetboek lists `BW`, and a short title must lead to one regulation.
 3. Of the rest the shortest wins (`Sr` over `WvS` and `WvSr`, `WVW` over `WVW 1994`, `BW1`
-   over `BW Boek 1`); equal lengths keep the source order.
+   over `BW Boek 1`); of equal lengths the citation form, then the source order.
 4. A regulation left with nothing has no `short_title`; one it had is removed.
 
 Rule 2 depends on the other regulations, so every WTI record is read on every run, whatever
