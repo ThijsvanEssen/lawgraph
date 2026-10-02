@@ -69,6 +69,7 @@ URLS = [
     f"/api/instruments/{BWB}/amended-by",
     f"/api/instruments/{BWB}/judgments",
     f"/api/instruments/{BWB}/judgments?sort=cited&offset=1",
+    f"/api/instruments/{BWB}/judgments?year=2020",
     f"/api/instruments/{BWB}/dossiers",
     f"/api/instruments/{BWB}/related-instruments",
     f"/api/instruments/{BWB}/versions",

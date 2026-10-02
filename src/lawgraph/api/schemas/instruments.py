@@ -235,6 +235,9 @@ class InstrumentJudgmentsResponse(BaseModel):
             "(independent of ``limit``)."
         ),
     )
+    year: str | None = Field(
+        None, description="The year asked for (`year`), null for every year."
+    )
     sort: Literal["date", "cited"] = Field(
         "date",
         description="The order of `items`: `date`, the newest first; `cited`, the most "

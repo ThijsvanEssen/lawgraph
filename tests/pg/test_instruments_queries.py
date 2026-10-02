@@ -181,6 +181,14 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     ]
     found = instruments.get_citing_judgments(store, BWB, limit=1)
     assert (found.total, len(found.items), len(found.years)) == (6, 1, 4)
+    # a year keeps its judgments, total and page; the years still count every year
+    of_2001 = instruments.get_citing_judgments(store, BWB, year="2001")
+    assert (of_2001.total, [i["judgment"]["_key"] for i in of_2001.items]) == (
+        1,
+        ["j_old"],
+    )
+    assert of_2001.years == found.years
+    assert instruments.get_citing_judgments(store, BWB, year="1800").total == 0
     many = items[0]
     assert list(many) == ["judgment", "cited_articles"]
     assert list(many["judgment"]) == ["_id", "_key", "props"]
@@ -271,7 +279,7 @@ def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> No
         )
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert (body["sort"], body["total"]) == ("cited", 2)
+    assert (body["sort"], body["total"], body["year"]) == ("cited", 2, None)
     assert body["facets"] == {"year": [{"value": None, "count": 2}]}
     item = next(i for i in body["items"] if i["key"] == "c1")
     assert (item["advocate_general"], item["advocate_general_role"]) == (
