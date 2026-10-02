@@ -224,7 +224,18 @@ def _instrument_abbreviations(entries: Entries) -> list[str]:
         ):
             found.append(f"{law_id}: abbreviations must be non-empty and trimmed")
             continue
-        for abbreviation in abbreviations:
+        in_context = (value or {}).get("in_context") or {}
+        if not isinstance(in_context, dict) or any(
+            not isinstance(words, list)
+            or not words
+            or any(not isinstance(w, str) or not w.strip() for w in words)
+            for words in in_context.values()
+        ):
+            found.append(
+                f"{law_id}: in_context maps an abbreviation to the words beside it"
+            )
+            continue
+        for abbreviation in [*abbreviations, *in_context]:
             other = claimed.setdefault(abbreviation.upper(), law_id)
             if other != law_id:
                 found.append(

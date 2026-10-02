@@ -2,15 +2,20 @@
 
 The sentences are taken from real judgments (tax and property cases). Its WTI gives no
 abbreviation, so its aliases are kept by hand (``curated instrument-abbreviations``). "EP"
-alone is no alias: it is also the Europees Parlement. A judgment that names the Protocol
-"EP" itself ("(hierna: EP)") is followed in that judgment.
+alone is also the Europees Parlement: it is the Protocol in a judgment that also names the
+EVRM or the Eerste Protocol (``in_context``), or that names the Protocol "EP" itself
+("(hierna: EP)").
 """
 
 from __future__ import annotations
 
 import pytest
 
-from lawgraph.core.aliases import code_aliases, curated_abbreviations
+from lawgraph.core.aliases import (
+    code_aliases,
+    curated_abbreviations,
+    curated_context_abbreviations,
+)
 from lawgraph.core.citations import DutchCitationExtractor
 
 EVRM, P1 = "BWBV0001000", "BWBV0001001"
@@ -21,10 +26,20 @@ ROWS = [
 ]
 
 
+def _extractor() -> DutchCitationExtractor:
+    context = {
+        abbreviation: (law_id, words)
+        for law_id, in_context in curated_context_abbreviations().items()
+        for abbreviation, words in in_context.items()
+    }
+    return DutchCitationExtractor(
+        code_aliases=code_aliases(ROWS, curated_abbreviations()),
+        context_aliases=context,
+    )
+
+
 def _ids(text: str) -> list[tuple[str | None, str]]:
-    codes = code_aliases(ROWS, curated_abbreviations())
-    hits = DutchCitationExtractor(code_aliases=codes).extract(text)
-    return [(hit.bwb_id, hit.article_number) for hit in hits]
+    return [(hit.bwb_id, hit.article_number) for hit in _extractor().extract(text)]
 
 
 @pytest.mark.parametrize(
@@ -74,19 +89,37 @@ def test_a_judgment_that_names_it_ep_is_followed() -> None:
     )
 
 
+def test_ep_alone_in_a_judgment_that_names_the_evrm() -> None:
+    # ECLI:NL:HR:2014:1523: "art. 1 EP" throughout, the EVRM named elsewhere
+    text = (
+        "Belanghebbende stelt dat de wetgeving in strijd is met het EVRM. "
+        "Dat om die reden deze wetgeving als geheel in strijd is met artikel 1 EP. 5.2. "
+        "Artikel 1 EP brengt onder meer mee dat een inbreuk op het recht op ongestoord "
+        "genot van eigendom slechts is toegestaan indien een redelijke mate van evenredigheid "
+        "bestaat."
+    )
+    assert _ids(text) == [(P1, "1")]
+    assert len(_extractor().extract(text, every_occurrence=True)) == 2
+    # the Eerste Protocol named in words elsewhere
+    assert _ids("Het Eerste Protocol beschermt eigendom. Art. 1 EP is geschonden.") == [
+        (P1, "1")
+    ]
+
+
 @pytest.mark.parametrize(
     "text",
     [
-        # ECLI:NL:HR:2014:1523: "EP" alone, without a name the judgment gives it
+        # ECLI:NL:HR:2014:1523 without the rest of the judgment: nothing names the EVRM
         "dat om die reden deze wetgeving als geheel in strijd is met artikel 1 EP. 5.2.",
         # the Europees Parlement
         "Het Europees Parlement (hierna: het EP) stelt op grond van artikel 14 EP en artikel "
         "225 VWEU een verzoek op.",
         "Richtlijn 2008/104/EG van het Europees Parlement en de Raad; artikel 3 EP",
+        # a word that merely contains the context ("EVRMX") is no context
+        "Zie het EVRMX-rapport; artikel 1 EP.",
     ],
 )
-def test_ep_alone_is_no_first_protocol(text: str) -> None:
-    assert (P1, "1") not in _ids(text)
+def test_ep_alone_without_the_evrm_is_no_first_protocol(text: str) -> None:
     assert all(law != P1 for law, _ in _ids(text))
 
 

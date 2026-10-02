@@ -52,7 +52,10 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         mapping = self._load_code_aliases()
         instrument_aliases = self._load_instrument_aliases()
-        extractor = build_extractor(mapping, instrument_aliases)
+        # "EP" is the First Protocol in a judgment that also names the EVRM
+        extractor = build_extractor(
+            mapping, instrument_aliases, self._load_context_aliases(mapping)
+        )
 
         def detect(text: str) -> list[CitationHit]:
             hits = detect_in_text(

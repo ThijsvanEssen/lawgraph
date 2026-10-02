@@ -1,5 +1,5 @@
 {
- "about": "By hand: the abbreviation lawyers cite an instrument by where its own source gives none. A BWB regulation or treaty has its abbreviations in its WTI (`afkortingen`) and needs no entry; EUR-Lex gives an EU act a short title in words (`algemene verordening gegevensbescherming`), never the abbreviation. An entry is keyed by the BWB id or CELEX number of the instrument and counts only while that instrument is in the graph; a source abbreviation of another instrument wins over it. `lawgraph curated set instrument-abbreviations`.",
+ "about": "By hand: the abbreviation lawyers cite an instrument by where its own source gives none. A BWB regulation or treaty has its abbreviations in its WTI (`afkortingen`) and needs no entry; EUR-Lex gives an EU act a short title in words (`algemene verordening gegevensbescherming`), never the abbreviation. An entry is keyed by the BWB id or CELEX number of the instrument and counts only while that instrument is in the graph; a source abbreviation of another instrument wins over it. `in_context`: an abbreviation that stands for the instrument only in a text that also names one of the words given (\"EP\" beside \"EVRM\"). `lawgraph curated set instrument-abbreviations`.",
  "instruments": [
   {
    "id": "32016R0679",
@@ -19,7 +19,14 @@
     "Eerste Protocol",
     "Protocol nr. 1"
    ],
-   "note": "Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden (Parijs, 20 maart 1952), its WTI gives no abbreviation. \"EP\" alone is no abbreviation of it: it is also the Europees Parlement; \"(hierna: EP)\" after a citation names it in that judgment."
+   "note": "Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden (Parijs, 20 maart 1952), its WTI gives no abbreviation. \"EP\" alone is also the Europees Parlement: it is this Protocol only in a text that also names the EVRM or the Eerste Protocol (`in_context`), as every Dutch judgment that writes \"art. 1 EP\" does.",
+   "in_context": {
+    "EP": [
+     "EVRM",
+     "Eerste Protocol",
+     "Europees Verdrag tot bescherming van de rechten van de mens"
+    ]
+   }
   }
  ]
 }
