@@ -21,8 +21,9 @@ class NodeWriter:
 
     Same merge semantics as ``GraphStore.insert_or_update`` (props merged,
     labels unioned) but one round-trip per ``batch_size`` nodes. Nodes with the
-    same collection and key are de-duplicated (last wins). Because the stored
-    document is not returned, keep working from the in-memory node.
+    same collection and key are merged the same way before they are written (a later
+    prop wins), so two records that each give part of one node may share a batch.
+    Because the stored document is not returned, keep working from the in-memory node.
 
         with NodeWriter(self.store) as writer:
             for ...:
@@ -41,9 +42,14 @@ class NodeWriter:
         if node.key is None:
             raise ValueError("Node must have a deterministic key.")
         bucket = self._pending.setdefault(node.collection, {})
-        if node.key not in bucket:
+        doc = node.to_document()
+        queued = bucket.get(node.key)
+        if queued is None:
             self._queued += 1
-        bucket[node.key] = node.to_document()
+        else:
+            doc["labels"] = list(dict.fromkeys([*queued["labels"], *doc["labels"]]))
+            doc["props"] = {**queued["props"], **doc["props"]}
+        bucket[node.key] = doc
         self._bytes += sum(len(v) for v in node.props.values() if isinstance(v, str))
         if self._queued >= self._batch_size or self._bytes >= MAX_BATCH_BYTES:
             self.flush()

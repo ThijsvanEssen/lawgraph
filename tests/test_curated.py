@@ -153,6 +153,16 @@ def test_an_abbreviation_needs_the_id_of_an_instrument(copy: Path) -> None:
     assert not command.main(
         ["set", "instrument-abbreviations", "32016R0680", '{"abbreviations": ["RHD"]}']
     ).errors
+    # an abbreviation in context: the words beside it, and not another instrument's
+    for in_context in ('{"EP": []}', '{"EP": "EVRM"}', '["EP"]', '{"AVG": ["x"]}'):
+        value = f'{{"abbreviations": ["RHD"], "in_context": {in_context}}}'
+        assert command.main(
+            ["set", "instrument-abbreviations", "32016R0680", value]
+        ).errors, in_context
+    value = '{"abbreviations": ["RHD"], "in_context": {"RH": ["Richtlijn"]}}'
+    assert not command.main(
+        ["set", "instrument-abbreviations", "32016R0680", value]
+    ).errors
 
 
 def test_place() -> None:

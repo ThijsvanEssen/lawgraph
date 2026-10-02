@@ -226,6 +226,8 @@ RAW_KIND_EK_BILL = "ek-bill-html"
 RAW_KIND_EK_PLENARY = "ek-plenary-html"
 RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
 RAW_KIND_VERDRAG = "verdrag-json"
+# the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
+RAW_KIND_VERDRAG_XML = "verdrag-xml"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 # The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
@@ -273,7 +275,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_PLENARY,
         RAW_KIND_EK_COMMITTEE_DAY,
     ),
-    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
+    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
 }

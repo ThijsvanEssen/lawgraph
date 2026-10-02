@@ -74,6 +74,51 @@ class PolicyDomainProps(BaseModel):
     uri: str | None = None
 
 
+class TreatyPublicationProps(_StrictBase):
+    """A Tractatenblad of a treaty (``core.verdragenbank_xml``)."""
+
+    official_id: str | None = None  # trb-1951-154
+    text: str  # as the register writes it: "1951, 154"
+    description: str | None = None  # "goedkeuring, inwerkingtreding"
+
+
+class TreatyPartyProps(_StrictBase):
+    """A state party to a treaty, with its dates as the register gives them."""
+
+    name: str
+    signed: str | None = None
+    ratified: str | None = None
+    consent: str | None = None  # TypeInstemming: R, T (toetreding), A, …
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    denounced: str | None = None
+    terminated: str | None = None
+    reservation: bool | None = None
+    objection: bool | None = None
+
+
+class TreatyKingdomPartProps(_StrictBase):
+    part: str | None = None  # "Nederland (in Europa)", "Aruba"
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    terminated: str | None = None
+
+
+class TreatyDossierProps(_StrictBase):
+    dossier: str
+    rijks_number: str | None = None
+    sub_number: str | None = None
+
+
+class RelatedTreatyProps(_StrictBase):
+    id: str | None = None  # the Verdragenbank id: 005132
+    title: str | None = None
+    date: str | None = None
+    place: str | None = None
+
+
 class InstrumentProps(_CommonProps):
     legal_areas: list[LegalAreaProps] | None = None
     policy_domains: list[PolicyDomainProps] | None = None
@@ -105,7 +150,14 @@ class InstrumentProps(_CommonProps):
     date_signed: str | None = None  # of the instrument itself, not of an amendment
     date_in_force: str | None = None
     version_date_in_force: str | None = None  # BWB: the start of the toestand in force
-    parties: list[str] | None = None
+    # a treaty of the Verdragenbank (its item XML, ``core.verdragenbank_xml``)
+    place_signed: str | None = None
+    tractatenblad: list[TreatyPublicationProps] | None = None
+    parties: list[TreatyPartyProps] | None = None
+    kingdom_parts: list[TreatyKingdomPartProps] | None = None
+    kamerstukken: list[TreatyDossierProps] | None = None
+    parent_treaties: list[RelatedTreatyProps] | None = None
+    child_treaties: list[RelatedTreatyProps] | None = None
     article_count: int | None = None
     inbound_citation_count: int | None = None
     date_eff: str | None = None

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Verdragenbank>
+        <meta>
+            <owmskern>
+                <dcterms:identifier xmlns:dcterms="http://purl.org/dc/terms/">004630</dcterms:identifier>
+                <dcterms:title xmlns:dcterms="http://purl.org/dc/terms/">Tweede Protocol bij het Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden, waarbij aan het Europese Hof voor de rechten van de mens de bevoegdheid wordt verleend advies uit te brengen over de betekenis van de bepalingen van het Verdrag</dcterms:title>
+                <dcterms:language xmlns:dcterms="http://purl.org/dc/terms/">nl</dcterms:language>
+                <dcterms:type scheme="overheid:Informatietype" xmlns:dcterms="http://purl.org/dc/terms/">Verdrag</dcterms:type>
+                <dcterms:creator scheme="overheid:Ministerie" xmlns:dcterms="http://purl.org/dc/terms/">Ministerie van Buitenlandse Zaken</dcterms:creator>
+                <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/">2022-09-14</dcterms:modified>
+            </owmskern>
+            <owmsmantel>
+                <dcterms:issued xmlns:dcterms="http://purl.org/dc/terms/">2014-01-14</dcterms:issued>
+                <Tractatenbladen>
+                    <Tractatenblad>
+                        <TractatenbladText>1963, 123</TractatenbladText>
+                        <Omschrijving>En, Fr</Omschrijving>
+                    </Tractatenblad>
+                    <Tractatenblad>
+                        <TractatenbladText>1964, 34</TractatenbladText>
+                        <Omschrijving>vert. Ne</Omschrijving>
+                    </Tractatenblad>
+                    <Tractatenblad>
+                        <TractatenbladText>1966, 276</TractatenbladText>
+                        <Omschrijving>goedkeuring</Omschrijving>
+                    </Tractatenblad>
+                    <Tractatenblad>
+                        <TractatenbladText>1970, 182</TractatenbladText>
+                        <Omschrijving>inwerkingtreding</Omschrijving>
+                    </Tractatenblad>
+                    <Tractatenblad>
+                        <TractatenbladText>1990, 158</TractatenbladText>
+                        <Omschrijving>herziene vert. Ne; inwerkingtreding Aruba</Omschrijving>
+                    </Tractatenblad>
+                    <Tractatenblad>
+                        <TractatenbladText>1998, 89</TractatenbladText>
+                        <Omschrijving>vervanging door protocol nr. 11</Omschrijving>
+                    </Tractatenblad>
+                </Tractatenbladen>
+                <Kamerstukken>
+                    <Kamerstuk>
+                        <KamerstukDossier>8689 (R542)</KamerstukDossier>
+                        <KamerstukNummer>0000248431</KamerstukNummer>
+                    </Kamerstuk>
+                </Kamerstukken>
+                <dcterms:subject xmlns:dcterms="http://purl.org/dc/terms/">Mensenrechten</dcterms:subject>
+            </owmsmantel>
+            <verdragipm>
+                <overheidvd:sluitingsDatum xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">1963-05-06</overheidvd:sluitingsDatum>
+                <overheidvd:sluitingsPlaats xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">Straatsburg</overheidvd:sluitingsPlaats>
+                <overheidvd:voorlopigeToepassingDatum xsi:nil="true" xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                <overheidvd:inwerkingtredingDatum xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">1970-09-21</overheidvd:inwerkingtredingDatum>
+                <overheidvd:terugwerkendeKrachtDatum xsi:nil="true" xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                <overheidvd:uitwerkingtredingDatum xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">1998-11-01</overheidvd:uitwerkingtredingDatum>
+                <overheidvd:isNLDepositair xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">false</overheidvd:isNLDepositair>
+                <overheidvd:isHaagseConferentiePrivaatrecht xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">false</overheidvd:isHaagseConferentiePrivaatrecht>
+                <overheidvd:verdragType xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">Multilateraal</overheidvd:verdragType>
+                <overheidvd:verdragStatus xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/">Buitenwerkinggetreden</overheidvd:verdragStatus>
+                <overheidvd:gepubliceerdeWijzigingsDatum xsi:nil="true" xmlns:overheidvd="http://standaarden.overheid.nl/vd/meta/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            </verdragipm>
+        </meta>
+        <body>
+            <verdrag>
+                <Opmerking>Het Protocol gold voor de Nederlandse Antillen vanaf 21-09-1970 tot 01-11-1998.</Opmerking>
+                <Koninkrijksdelen>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Nederland (in Europa)</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding>1970-09-21</DatumInwerkingtreding>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding>1998-11-01</DatumBuitenwerkingtreding>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Nederland (Bonaire)</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Nederland (Sint Eustatius)</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Nederland (Saba)</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Aruba</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding>1986-01-01</DatumInwerkingtreding>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding>1998-11-01</DatumBuitenwerkingtreding>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Curaçao</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                    </Koninkrijksdeel>
+                    <Koninkrijksdeel>
+                        <NaamKoninkrijksdeel>Sint Maarten</NaamKoninkrijksdeel>
+                        <DatumVoorlopigeToepassing xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumInwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumTerugwerkendeKracht xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                        <DatumBuitenwerkingtreding xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+                    </Koninkrijksdeel>
+                </Koninkrijksdelen>
+                <Partijen/>
+                <Moederverdragen>
+                    <Moederverdrag>
+                        <MoederVerdragID>005132</MoederVerdragID>
+                        <TitelMoederVerdrag>Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden</TitelMoederVerdrag>
+                        <DatumMoederVerdrag>1950-11-04</DatumMoederVerdrag>
+                        <PlaatsMoederVerdrag>Rome</PlaatsMoederVerdrag>
+                    </Moederverdrag>
+                </Moederverdragen>
+                <Kindverdragen/>
+                <DepositaireGegevens/>
+            </verdrag>
+        </body>
+    </Verdragenbank>

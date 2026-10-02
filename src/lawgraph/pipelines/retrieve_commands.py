@@ -426,12 +426,20 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
         help="gaps: only when a treaty is referred to that is not loaded (the register "
         "has no fetch per treaty, so it is read again in full).",
     )
+    parser.add_argument(
+        "--only-stored",
+        action="store_true",
+        help="only the treaties whose record is stored already (their changes and item "
+        "XML); no new treaties",
+    )
     args = parser.parse_args(argv)
 
     store = GraphStore()
     if args.mode == GAPS and not _gaps.verdragenbank_gaps(store):
         return PipelineResult()
-    return VerdragenbankRetrievePipeline(store).run(max_records=args.max_records)
+    return VerdragenbankRetrievePipeline(store).run(
+        max_records=args.max_records, only_stored=args.only_stored
+    )
 
 
 def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:

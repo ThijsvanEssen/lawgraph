@@ -53,6 +53,28 @@ def test_groups_by_collection_and_deduplicates_by_key() -> None:
     assert len(by_collection["judgments"]) == 1
 
 
+def test_two_nodes_with_one_key_in_a_batch_merge_as_the_store_does() -> None:
+    store = _Store()
+    writer = NodeWriter(store)
+
+    first = _node("a", title="Verdrag", status="Inwerkinggetreden")
+    first.labels = ["Verdrag"]
+    second = _node("a", status=None, parties=[{"name": "België"}])
+    second.labels = ["Verdrag", "NL"]
+    writer.add(first)
+    writer.add(second)
+    writer.flush()
+
+    [(_, [doc])] = store.calls
+    assert doc["props"] == {
+        "title": "Verdrag",
+        "status": None,
+        "parties": [{"name": "België"}],
+    }
+    assert doc["labels"] == ["Verdrag", "NL"]
+    assert writer.written == 1
+
+
 def test_node_without_key_is_rejected() -> None:
     node = Node(
         collection="documents",

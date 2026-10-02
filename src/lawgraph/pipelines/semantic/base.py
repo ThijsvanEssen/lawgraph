@@ -14,6 +14,7 @@ from lawgraph.core.aliases import (
     InstrumentAliasMap,
     code_aliases,
     curated_abbreviations,
+    curated_context_abbreviations,
     normalize_instrument_id,
 )
 from lawgraph.core.citations import number_shape
@@ -324,6 +325,19 @@ class SemanticPipelineBase(PipelineBase):
         return code_aliases(
             semantic_bwb.code_alias_rows(self.store), curated_abbreviations()
         )
+
+    def _load_context_aliases(
+        self, codes: CodeMapping
+    ) -> dict[str, tuple[str, list[str]]]:
+        """Abbreviation -> (law id, the words a text must also name) for the laws among
+        *codes* (``in_context`` of ``curated instrument-abbreviations``: "EP" beside "EVRM")."""
+        present = {normalize_instrument_id(law_id) for law_id in codes.values()}
+        return {
+            abbreviation: (law_id, list(words))
+            for law_id, in_context in curated_context_abbreviations().items()
+            if law_id in present
+            for abbreviation, words in in_context.items()
+        }
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
         """Query the instruments collection to build a name → (bwb_id, celex) map.

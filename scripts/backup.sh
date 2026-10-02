@@ -44,7 +44,10 @@ dump() {
     LC_ALL=C sort "/backups/$2.partial/counts.unsorted" > "/backups/$2.partial/counts" &&
     rm "/backups/$2.partial/counts.unsorted"' sh "$DATABASE" "$NAME" \
     < scripts/_counts.sql >> "$LAWGRAPH_LOG_FILE" 2>&1 || return 1
-  in_container 'mv "/backups/$2.partial" "/backups/$2"' "$DATABASE" "$NAME" || return 1
+  # pg_dump makes the directory readable to the container's user alone (0700, whatever the
+  # umask); the upload command runs as another user on the host and must read it
+  in_container 'chmod -R a+rX "/backups/$2.partial" && mv "/backups/$2.partial" "/backups/$2"' \
+    "$DATABASE" "$NAME" || return 1
   size=$(docker exec "$CONTAINER" du -sh "/backups/$NAME" | cut -f1)
   note "dumped $DATABASE to $BACKUP_DIR/$NAME ($size in $(($(date +%s) - started)) s)"
 }
