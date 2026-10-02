@@ -56,6 +56,7 @@ URLS = [
     "/api/judgments?court=HR",
     "/api/judgments?tier=hoge_raad&from=2000-01-01",
     "/api/judgments?subject=Strafrecht",
+    "/api/judgments?subject_area=Strafrecht",
     "/api/judgments?procedure=Cassatie",
     "/api/judgments?q=onrechtmatige+daad",
     f"/api/judgments/{ECLI}",

@@ -159,6 +159,18 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) END
 $$;
 
+-- The main areas of law of a judgment's subjects (``Bestuursrecht; Belastingrecht`` is in
+-- ``Bestuursrecht``): each subject up to its first ';', trimmed, each area once, in order.
+CREATE OR REPLACE FUNCTION lg_subject_areas(subjects text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(area ORDER BY first), '{}'::text[]) FROM (
+        SELECT btrim(split_part(s, ';', 1)) AS area, min(n) AS first
+        FROM unnest(subjects) WITH ORDINALITY AS u(s, n)
+        WHERE btrim(split_part(s, ';', 1)) <> ''
+        GROUP BY 1
+    ) areas
+$$;
+
 -- A member is seated: one of their faction memberships has no end date.
 CREATE OR REPLACE FUNCTION lg_member_seated(props json) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -996,6 +1008,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_DOCUMENTS: (
         "CREATE INDEX IF NOT EXISTS documents_list_date"
         " ON documents (date DESC NULLS LAST, key)",
+    ),
+    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
+    COLLECTION_JUDGMENTS: (
+        "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
+        " ON judgments USING gin (public.lg_subject_areas(subjects))",
     ),
     # the member lists in name order: those who held a seat, and the Eerste Kamer's
     COLLECTION_MEMBERS: (
