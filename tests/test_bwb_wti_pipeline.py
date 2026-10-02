@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 from typing import Any
 
@@ -11,7 +12,10 @@ from lawgraph.clients.bwb import WTI_CHUNK_SIZE, BWBClient, ToestandMeta
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
+    RAW_KIND_TOOI_THESAURUS,
     SOURCE_BWB,
+    TOOI_BWB_LEGAL_AREAS,
+    TOOI_BWB_THEMES,
 )
 from lawgraph.core.bwb_wti import extract_general_info
 from lawgraph.core.models import PipelineResult, make_node_key
@@ -183,8 +187,15 @@ def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand(
 class _WtiStore(RawSourcesFake):
     """The stored WTI records and the instruments their short titles go to."""
 
-    def __init__(self, wti: dict[str, str], instruments: dict[str, dict]) -> None:
+    def __init__(
+        self,
+        wti: dict[str, str],
+        instruments: dict[str, dict],
+        thesauri: dict[str, list[dict[str, Any]]] | None = None,
+    ) -> None:
         self.wti = wti
+        self.thesauri = thesauri or {}
+        self.subjects: dict[str, dict[str, Any]] = {}
         self.nodes: dict[str, dict[str, dict]] = {
             "instruments": {
                 make_node_key(b): {"props": p} for b, p in instruments.items()
@@ -215,6 +226,18 @@ class _WtiStore(RawSourcesFake):
             changed += 1
         return changed
 
+    def thesaurus_records(self) -> list[dict[str, Any]]:
+        return [
+            {"external_id": name, "payload_json": {"items": items}}
+            for name, items in self.thesauri.items()
+        ]
+
+    def update_subjects(self, rows: list[dict[str, Any]]) -> int:
+        """Records what the pipeline asks to write; the query itself is tested on
+        PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
+        self.subjects = {row["key"]: row for row in rows}
+        return 0
+
     def update_instrument_abbreviations(self, rows: list[dict[str, Any]]) -> int:
         """Records what the pipeline asks to write; the query itself is tested on
         PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
@@ -232,8 +255,10 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The raw records and the short-title update, served by a ``_WtiStore``."""
 
     def iter_raw_records(store: _WtiStore, *, kinds, since_iso, **_kw):
-        assert kinds == [RAW_KIND_BWB_WTI_GENERAL]
         assert since_iso is None  # the rule needs every regulation
+        if kinds == [RAW_KIND_TOOI_THESAURUS]:
+            return iter(store.thesaurus_records())
+        assert kinds == [RAW_KIND_BWB_WTI_GENERAL]
         return iter(store.wti_records())
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
@@ -247,6 +272,11 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         normalize_bwb,
         "update_instrument_abbreviations",
         lambda store, rows: store.update_instrument_abbreviations(rows),
+    )
+    monkeypatch.setattr(
+        normalize_bwb,
+        "update_subjects",
+        lambda store, rows: store.update_subjects(rows),
     )
 
 
@@ -332,3 +362,35 @@ def test_the_abbreviation_is_the_wti_short_title_else_the_curated_one() -> None:
     _normalize(store)
     assert store.abbreviations[make_node_key(SR)] == store.short_title(SR) == "Sr"
     assert store.abbreviations[make_node_key("32016R0679")] == "AVG"
+
+
+def test_normalize_writes_the_legal_areas_and_themes_with_their_tooi_concepts() -> None:
+    thesauri = {
+        TOOI_BWB_LEGAL_AREAS: json.loads(
+            (FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text()
+        ),
+        TOOI_BWB_THEMES: json.loads((FIXTURES / "tooi_bwb_themas.json").read_text()),
+    }
+    store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}}, thesauri)
+
+    _normalize(store)
+
+    row = store.subjects[make_node_key(BW1)]
+    assert [(a["main"], a["specific"]) for a in row["legal_areas"]] == [
+        ("Personen- en familierecht", "Familierecht"),
+        ("Personen- en familierecht", "Personenrecht"),
+    ]
+    assert all(a["main_uri"] and a["specific_uri"] for a in row["legal_areas"])
+    assert [d["label"] for d in row["policy_domains"]] == ["Familie, jeugd en gezin"]
+    assert row["policy_domains"][0]["uri"]
+
+
+def test_without_the_thesauri_the_labels_are_written_without_a_uri() -> None:
+    store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}})
+
+    _normalize(store)
+
+    row = store.subjects[make_node_key(BW1)]
+    assert row["legal_areas"][0]["main"] == "Personen- en familierecht"
+    assert row["legal_areas"][0]["main_uri"] is None
+    assert row["policy_domains"] == [{"label": "Familie, jeugd en gezin", "uri": None}]

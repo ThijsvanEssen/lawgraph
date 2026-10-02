@@ -183,6 +183,11 @@ statutes made by the legislator:
   (`Datagovernanceverordening`), `display_name` the citation title.
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
+- `legal_areas` and `policy_domains` of a BWB regulation are how its WTI files it: `{main,
+  main_uri, specific, specific_uri}` per legal area ("Staats- en bestuursrecht",
+  "Bestuursrecht") and `{label, uri}` per government theme ("Overheid, bestuur en
+  koninkrijk"), the URIs those of the TOOI concepts (`scw_bwb_rechtsgebieden`,
+  `scw_bwb_themas`). Written by `normalize bwb`.
 - `abbreviation` of an instrument is the abbreviation it is cited by
   (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
@@ -554,6 +559,7 @@ record is skipped like one without a payload.
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` |
 | `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |
+| `tooi` | `tooi-ministries-jsonld` (the ministries list, external id `rwc_ministeries_compleet`), `tooi-thesaurus-jsonld` (a thesaurus of the BWB, external id `scw_bwb_rechtsgebieden` or `scw_bwb_themas`); each `meta.url` and `meta.read_on` |
 
 A document the source answered HTTP 404 for is remembered as a record without payload of
 kind `<kind>-missing` (`eu-celex-html-missing`, `rs-content-missing`, ...); the retrieve

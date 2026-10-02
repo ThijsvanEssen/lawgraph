@@ -1,0 +1,1714 @@
+[ {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_003c1dd9",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b26c78e3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "15.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ontwikkelingssamenwerking"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_02a7f1c4",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "echtscheiding"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_03d15325",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "verkeersrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_052899f0",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_da370768"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "26.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "bestuursrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_093f785e",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_82b0ce3b"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "23.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "strafprocesrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_0aa457e4",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8ad05f6d"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "25.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "milieurecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_0c246a16",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_1dbae688"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "19.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "fusies en overnames"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_0f0673b6",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_6755aa64"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "18.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "vreemdelingenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_149a4823",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.6"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationale regelingen"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_1dbae688",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "19"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ondernemingspraktijk"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_21e7f286",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22.5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "jeugdrecht (m.u.v. jeugdstrafrecht)"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "contracten, schade en aansprakelijkheid"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3c8b7fa0",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_6755aa64"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "18.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "nationaliteitsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3d087471",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_674c0ac7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "13.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "faillissement"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3dbe5325",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3e6b35e2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "31.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "huurrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3e6b35e2",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "31"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "wonen, onroerend goed, bouwrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_4361689d",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_674c0ac7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "13.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "schuldsanering"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_43c42162",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3e6b35e2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "31.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "onroerend goedrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_459e5366",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f381106e"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "4.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "financiering en zekerheden"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_4641d131",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.6"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "strafrecht (algemeen)"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_47a56149",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "BTW en accijns"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_4921283c",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "heffingen lokale overheden"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_49a0d743",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "formeel belastingrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_4a3402ad",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5092de31"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "12.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "telecomrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_4b09a861",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.8"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "invorderingsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5090ae6f",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.9"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "loonbelasting en premieheffing"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5092de31",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "12"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "informatierecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_50a06faa",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "arbeidsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5bbb3a9b",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "8"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "financieel en economisch recht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "personen- en familierecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "strafrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5fa8cb44",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3e6b35e2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "31.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationaal onroerend goedrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_60fb2eb8",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e98c35be"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "10.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "erfdienstbaarheid"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_638d8062",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8ad05f6d"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "25.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "omgevingsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_63c42465",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6.5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "verzekeringsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_65b2367c",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_674c0ac7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "13.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "surseance"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_66ad74bd",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "24"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "privacy"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_674c0ac7",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "13"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "insolventierecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_6755aa64",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "18"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "migratierecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_69b82af6",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "verbintenissenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_6ac30ccf",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "erfrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_6e38f3bc",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.11"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "successie- en schenkingsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_771aa828",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "dividendbelasting"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_77eb3af8",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_da370768"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "26.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "staatsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_79f2c282",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "cultureel recht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "arbeidsrecht en sociaal-zekerheidsrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7ed87355",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "30"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "vervoersrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8054d6b3",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "agrarisch recht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8173a6ff",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "inkomstenbelasting"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_825c930b",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "arbitrage"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8285b37e",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_1dbae688"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "19.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "stichtingen en verenigingen"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_82b0ce3b",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "23"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "procesrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_84d3929c",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "20"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "onderwijsrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8a460f2d",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "penitentiair recht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8a8c5620",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3e6b35e2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "31.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "bouwrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8ad05f6d",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "25"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ruimtelijke ordening en milieu"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8b3782ea",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a9160582"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "11.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "auteursrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8e783db5",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e98c35be"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "10.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "eigendomsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8fbe4664",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5092de31"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "12.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ICT-recht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_96ed7748",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "16"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "levensmiddelenrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_9a7dd375",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3.5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "sociaal zekerheidsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a11eaa90",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "consumentenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a1d2e8d4",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.7"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "invoer en douane"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a9160582",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "11"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "intellectuele eigendom"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a93f5f66",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f381106e"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "4.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "toezicht bank- en kredietwezen"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b24639c1",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "militaire ambtenarenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b26c78e3",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "15"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationaal publiekrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b47c724c",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_8ad05f6d"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "25.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "waterrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b52af7e9",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_82b0ce3b"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "23.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "bestuursprocesrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b69dc535",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ambtenarenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b84f1591",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "milieustrafrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "belastingrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_bc9292d4",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a9160582"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "11.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "octrooirecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c05c1523",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f381106e"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "4.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "bankrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c06fcca1",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "21"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "openbare orde en veiligheidsrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c220f66c",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_a9160582"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "11.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "intellectueel eigendomsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c2b43841",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_da370768"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "26.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "militair recht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c43a7334",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e98c35be"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "10.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "hypotheekrecht en pandrecht (zekerheidsrechten)"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c4534511",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.12"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "vennootschapsbelastingrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c531a512",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "aansprakelijkheidsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c60b9092",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_82b0ce3b"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "23.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "burgerlijk procesrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_c7ca5138",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f381106e"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "4.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "effectenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_cc3cbecb",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b26c78e3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "15.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "volkenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_cf521795",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_3405e4a1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "6.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationaal contractrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_d05d9921",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "personenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_d14a17d5",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e98c35be"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "10.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "erfpacht, vruchtgebruik"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_da370768",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "26"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "staats- en bestuursrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_dd17dae0",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationaal strafrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e1b8b455",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "jeugdstrafrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e49bce03",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "22.3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "familierecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e77951d0",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_7cca4bd5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "3.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "pensioenrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e79db34a",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ba9504e5"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "5.10"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "milieubelasting"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e80b3672",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_1dbae688"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "19.2"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "ondernemingsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e98c35be",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "10"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "goederenrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ea564774",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_b26c78e3"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "15.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "mensenrechten"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ee165cc3",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "17"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "mededingingsrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ef8758fb",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "14"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "internationaal privaatrecht Inclusief internationaal procesrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f0f885e5",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5f2f0b55"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "27.1"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "financieel-economisch strafrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f3405203",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#broader" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_1dbae688"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "19.4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "vennootschapsrecht"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f381106e",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "4"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "bank- en effectenrecht, financiering"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f3d7c872",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "28"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "sportrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_f4d3b2e1",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "9"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "gezondheidsrecht en farmaceutisch recht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/c_ff938556",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#Concept" ],
+  "http://www.w3.org/2004/02/skos/core#inScheme" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#notation" : [ {
+    "@value" : "29"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "tuchtrecht"
+  } ],
+  "http://www.w3.org/2004/02/skos/core#topConceptOf" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied",
+  "@type" : [ "http://www.w3.org/2004/02/skos/core#ConceptScheme" ],
+  "http://www.w3.org/2004/02/skos/core#definition" : [ {
+    "@language" : "nl",
+    "@value" : "De BWB-rechtsgebiedlijst is vastgesteld door de BWB-redactie, en kan daarom niet door KOOP zelfstandig worden gewijzigd. "
+  } ],
+  "http://www.w3.org/2004/02/skos/core#prefLabel" : [ {
+    "@language" : "nl",
+    "@value" : "rechtsgebied"
+  } ]
+}, {
+  "@id" : "https://identifier.overheid.nl/tooi/set/scw_bwb_rechtsgebieden/2",
+  "@type" : [ "http://www.w3.org/2002/07/owl#Ontology", "https://identifier.overheid.nl/tooi/def/wl/SchemagebaseerdeConceptwaardelijst" ],
+  "http://purl.org/dc/terms/description" : [ {
+    "@value" : "Waardelijst met rechtsgebieden in het Basis wettenbestand."
+  } ],
+  "http://purl.org/pav/derivedFrom" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb"
+  } ],
+  "http://www.w3.org/2002/07/owl#imports" : [ {
+    "@id" : "http://www.w3.org/2004/02/skos/core"
+  }, {
+    "@id" : "https://identifier.overheid.nl/tooi/def/ont"
+  }, {
+    "@id" : "https://identifier.overheid.nl/tooi/def/wl"
+  }, {
+    "@id" : "http://purl.org/pav"
+  } ],
+  "http://www.w3.org/2002/07/owl#versionInfo" : [ {
+    "@value" : "Toevoeging van enkele codes"
+  } ],
+  "http://www.w3.org/ns/prov#generatedAtTime" : [ {
+    "@type" : "http://www.w3.org/2001/XMLSchema#dateTime",
+    "@value" : "2024-01-29T09:26:08.325Z"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/ont/publicatiedatum" : [ {
+    "@value" : "2024-01-29"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/ont/titel" : [ {
+    "@value" : "Rechtsgebieden Basis wettenbestand"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/ont/verantwoordelijke" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/id/ministerie/mnre1034"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/ont/zichtdatum" : [ {
+    "@type" : "http://www.w3.org/2001/XMLSchema#date",
+    "@value" : "2024-01-29"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/wl/afgeleidVanVersie" : [ {
+    "@value" : ""
+  } ],
+  "https://identifier.overheid.nl/tooi/def/wl/bronversie" : [ {
+    "@value" : ""
+  } ],
+  "https://identifier.overheid.nl/tooi/def/wl/schema" : [ {
+    "@id" : "https://identifier.overheid.nl/tooi/def/thes/bwb/rechtsgebied"
+  } ],
+  "https://identifier.overheid.nl/tooi/def/wl/volgnummer" : [ {
+    "@type" : "http://www.w3.org/2001/XMLSchema#integer",
+    "@value" : "2"
+  } ]
+} ]

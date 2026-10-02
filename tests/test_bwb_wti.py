@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import xml.etree.ElementTree as ET
 
@@ -9,9 +10,12 @@ import pytest
 
 from lawgraph.core.bwb_wti import (
     choose_short_titles,
+    concept_index,
     extract_general_info,
     instrument_aliases,
     parse_abbreviations,
+    parse_subjects,
+    with_concepts,
 )
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
@@ -146,3 +150,62 @@ def test_every_book_of_a_code_is_named_by_the_code_and_every_form_of_its_number(
 
 def test_aliases_that_differ_in_case_only_are_one() -> None:
     assert instrument_aliases({"BWBR0001840": ["GW", "Gw"]})["BWBR0001840"] == ["GW"]
+
+
+# ── legal areas and government themes ────────────────────────────────────────
+
+LEGAL_AREAS = concept_index(
+    json.loads((FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text())
+)  # TOOI scw_bwb_rechtsgebieden, version 2
+THEMES = concept_index(
+    json.loads((FIXTURES / "tooi_bwb_themas.json").read_text())
+)  # TOOI scw_bwb_themas, version 2
+
+
+def test_the_legal_areas_and_themes_of_a_regulation() -> None:
+    areas, domains = parse_subjects(BW1_GENERAL)
+
+    assert areas == [
+        {"main": "Personen- en familierecht", "specific": "Familierecht"},
+        {"main": "Personen- en familierecht", "specific": "Personenrecht"},
+    ]
+    assert domains == ["Familie, jeugd en gezin"]
+
+
+def test_each_label_has_its_tooi_concept() -> None:
+    assert len(LEGAL_AREAS) == 104 and len(THEMES) == 21
+    areas, domains = with_concepts(*parse_subjects(BW1_GENERAL), LEGAL_AREAS, THEMES)
+
+    assert areas[0] == {
+        "main": "Personen- en familierecht",
+        "main_uri": "https://identifier.overheid.nl/tooi/def/thes/bwb/c_5d8350bb",
+        "specific": "Familierecht",
+        "specific_uri": "https://identifier.overheid.nl/tooi/def/thes/bwb/c_e49bce03",
+    }
+    assert domains[0]["label"] == "Familie, jeugd en gezin"
+    assert domains[0]["uri"].startswith(
+        "https://identifier.overheid.nl/tooi/def/thes/bwb/"
+    )
+
+
+def test_a_label_the_thesaurus_lacks_has_no_uri_and_a_repeat_is_kept_once() -> None:
+    general = (
+        "<algemene-informatie><rechtsgebieden>"
+        "<rechtsgebied><hoofdgebied>Nieuw recht</hoofdgebied></rechtsgebied>"
+        "<rechtsgebied><hoofdgebied>Nieuw recht</hoofdgebied></rechtsgebied>"
+        "</rechtsgebieden><overheidsdomeinen><overheidsdomein>Belastingen</overheidsdomein>"
+        "<overheidsdomein>Belastingen</overheidsdomein></overheidsdomeinen>"
+        "</algemene-informatie>"
+    )
+    areas, domains = with_concepts(*parse_subjects(general), LEGAL_AREAS, THEMES)
+
+    assert areas == [
+        {
+            "main": "Nieuw recht",
+            "main_uri": None,
+            "specific": None,
+            "specific_uri": None,
+        }
+    ]
+    assert len(domains) == 1 and domains[0]["uri"] is not None  # "belastingen"
+    assert parse_subjects("<algemene-informatie/>") == ([], [])

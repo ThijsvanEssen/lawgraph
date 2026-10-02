@@ -613,6 +613,28 @@ class InstrumentArticlesAtResponse(BaseModel):
 # ── /api/instruments/{identifier} and /eu-links ───────────────────────────
 
 
+class LegalAreaDTO(BaseModel):
+    """A legal area of a regulation (WTI ``rechtsgebied``) and its TOOI concepts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    main: str = Field(description="The main area: `Staats- en bestuursrecht`.")
+    main_uri: str | None = None
+    specific: str | None = Field(
+        None, description="The specific area: `Bestuursrecht`."
+    )
+    specific_uri: str | None = None
+
+
+class PolicyDomainDTO(BaseModel):
+    """A government theme of a regulation (WTI ``overheidsdomein``) and its TOOI concept."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(description="`Overheid, bestuur en koninkrijk`.")
+    uri: str | None = None
+
+
 class InstrumentDetailDTO(BaseModel):
     """One instrument: its identifiers, names, classification and dates."""
 
@@ -645,6 +667,17 @@ class InstrumentDetailDTO(BaseModel):
         "book of a code, `Boek 6 BW`, `6 BW`, `BW 6`, `BW6`, `BW`.",
     )
     display_name: str | None
+    legal_areas: list[LegalAreaDTO] = Field(
+        default_factory=list,
+        description="The legal areas of a BWB regulation as its WTI files it (`main`, "
+        "`specific`), each with the URI of its concept in the TOOI thesaurus "
+        "`scw_bwb_rechtsgebieden` (null when the thesaurus lacks the label).",
+    )
+    policy_domains: list[PolicyDomainDTO] = Field(
+        default_factory=list,
+        description="The government themes of a BWB regulation as its WTI files it "
+        "(`label`), with the URI of its concept in the TOOI thesaurus `scw_bwb_themas`.",
+    )
     jurisdiction: str | None = Field(
         None, description="`nl`, `eu` or `int` (Verdragenbank treaties)."
     )
@@ -706,6 +739,10 @@ class InstrumentDetailDTO(BaseModel):
             short_title=props.get("short_title"),
             abbreviation=props.get("abbreviation"),
             aliases=list(props.get("aliases") or []),
+            legal_areas=[LegalAreaDTO(**a) for a in props.get("legal_areas") or []],
+            policy_domains=[
+                PolicyDomainDTO(**d) for d in props.get("policy_domains") or []
+            ],
             display_name=props.get("display_name"),
             jurisdiction=props.get("jurisdiction") or None,
             kind=props.get("kind"),

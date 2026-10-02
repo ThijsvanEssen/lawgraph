@@ -916,6 +916,39 @@ def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
     assert normalize_bwb.update_abbreviations(store, []) == 0
 
 
+def test_update_subjects_sets_and_removes(store: GraphStore) -> None:
+    area = {"main": "Staats- en bestuursrecht", "main_uri": "u1", "specific": None}
+    domain = {"label": "Belastingen", "uri": "u2"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("a", "instrument", title="A"),
+            _node(
+                "b",
+                "instrument",
+                title="B",
+                legal_areas=[area],
+                policy_domains=[domain],
+            ),
+            _node("c", "instrument", title="C", legal_areas=[area]),
+        ],
+    )
+    rows = [
+        {"key": "a", "legal_areas": [area], "policy_domains": [domain]},
+        {"key": "b", "legal_areas": [area], "policy_domains": [domain]},  # unchanged
+        {"key": "c", "legal_areas": [], "policy_domains": []},  # goes
+        {"key": "missing", "legal_areas": [area], "policy_domains": []},
+    ]
+    assert normalize_bwb.update_subjects(store, rows) == 2
+    a = _props(store, "instruments", "a")
+    assert a == {"legal_areas": [area], "policy_domains": [domain], "title": "A"}
+    assert list(a) == sorted(a)
+    assert _props(store, "instruments", "c") == {"title": "C"}
+    assert store.get_node("instruments", "missing") is None
+    assert normalize_bwb.update_subjects(store, rows) == 0
+    assert normalize_bwb.update_subjects(store, []) == 0
+
+
 def test_the_abbreviation_goes_to_the_instrument_and_its_articles(
     store: GraphStore,
 ) -> None:

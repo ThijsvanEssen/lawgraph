@@ -226,6 +226,10 @@ RAW_KIND_VERDRAG = "verdrag-json"
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 # The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
 RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
+# A thesaurus of the BWB (external id the name of its list).
+RAW_KIND_TOOI_THESAURUS = "tooi-thesaurus-jsonld"
+TOOI_BWB_LEGAL_AREAS = "scw_bwb_rechtsgebieden"
+TOOI_BWB_THEMES = "scw_bwb_themas"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -265,7 +269,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
-    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
