@@ -128,3 +128,43 @@ def test_the_echr_keeps_its_own_articles() -> None:
         (EVRM, "14"),
         (P1, "1"),
     ]
+
+
+# ── whole judgments, as the orchestrator asked ───────────────────────────────
+
+
+def test_a_judgment_that_quotes_art_1_ep_without_naming_the_evrm_has_no_edge() -> None:
+    # ECLI:NL:PHR:2025:98 names neither the EVRM nor the Eerste Protocol anywhere
+    text = (
+        "De tarieven zijn verder niet zodanig hoog, ook niet indien de (relatieve) "
+        "tariefstijging in ogenschouw wordt genomen, dat geconcludeerd moet worden dat op "
+        "stelselniveau sprake is van een schending van artikel 1 EP.” 6.10 Ook het "
+        "cassatieberoep tegen deze uitspraak is ongegrond verklaard."
+    )
+    assert _ids(text) == []
+
+
+def test_a_judgment_that_also_names_the_europees_parlement_cites_the_protocol() -> None:
+    # ECLI:NL:PHR:2021:98 (the opt-in system): the Europees Parlement, the EVRM and art. 1 EP
+    text = (
+        "dat uit een antwoord van Eurocommissaris Jourová op een vraag in het Europees "
+        "Parlement volgt dat de Richtlijn OHP van toepassing is. "
+        "Het betoog berust op artikel 1 Eerste Protocol bij het EVRM of algemene "
+        "rechtsbeginselen. Ingevolge bestendige rechtspraak van het EHRM kan goodwill onder "
+        "bepaalde omstandigheden weliswaar als eigendom in de zin van artikel 1 EP worden "
+        "beschouwd."
+    )
+    hits = _extractor().extract(text, every_occurrence=True)
+    assert [(h.bwb_id, h.article_number) for h in hits] == [(P1, "1"), (P1, "1")]
+
+
+def test_a_box_3_judgment() -> None:
+    # ECLI:NL:HR:2024:756 (box 3, rechtsherstel)
+    text = (
+        "De Inspecteur heeft aan belanghebbende voor de jaren 2017 en 2018 aanslagen in de "
+        "inkomstenbelasting/premie volksverzekeringen opgelegd. Tijdens de procedure voor het "
+        "Hof heeft de Hoge Raad het arrest van 24 december 2021, ECLI:NL:HR:2021:1963 "
+        "gewezen, waaruit volgt dat een dergelijke heffing over de onderhavige jaren in strijd "
+        "is met artikel 14 EVRM en artikel 1 EP indien daardoor belasting wordt geheven."
+    )
+    assert _ids(text) == [(EVRM, "14"), (P1, "1")]
