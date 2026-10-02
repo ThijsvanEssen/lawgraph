@@ -8,7 +8,11 @@ from typing import Any
 import pytest
 
 from lawgraph.clients.eu import _measures, _measures_sparql
-from lawgraph.core.eurlex_nim import measure_publication
+from lawgraph.core.eurlex_nim import (
+    measure_publication,
+    measure_summary,
+    publication_citation,
+)
 
 STB = "Staatsblad (Bulletin des Lois et des Décrets royaux)"
 STCRT = "Staatscourant (Journal Officiel néerlandais)"
@@ -91,3 +95,30 @@ def test_a_page_is_asked_by_key_and_window() -> None:
     assert '"2026-01-01T00:00:00"' in query
     assert "country/NLD" in query and "OFFSET" not in query
     assert "?modified >=" not in _measures_sparql("NLD", None, "")
+
+
+def test_how_a_publication_is_cited() -> None:
+    assert publication_citation("stb-2013-102") == "Stb. 2013, 102"
+    assert publication_citation("stcrt-2020-00012") == "Stcrt. 2020, 12"
+    assert publication_citation("trb-1951-154") == "trb-1951-154"
+
+
+def test_what_an_edge_keeps_of_a_measure() -> None:
+    measure = {
+        "id": "210646",
+        "celex": ["32008L0057"],
+        "journal": "Staatsblad (Bulletin des Lois et des Décrets royaux)",
+        "number": "682",
+        "title": "Wet van 20 december 2012 tot wijziging van de Algemene wet bestuursrecht ",
+        "type": "Wet",
+    }
+    assert measure_summary(measure, "stb-2012-682") == {
+        "publication": "stb-2012-682",
+        "citation": "Stb. 2012, 682",
+        "title": "Wet van 20 december 2012 tot wijziging van de Algemene wet bestuursrecht",
+        "type": "Wet",
+    }
+    assert measure_summary({"number": "1"}, "stcrt-2020-1") == {
+        "publication": "stcrt-2020-1",
+        "citation": "Stcrt. 2020, 1",
+    }
