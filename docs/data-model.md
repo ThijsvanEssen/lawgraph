@@ -335,9 +335,10 @@ once. One whose replacement is not loaded has `replaced_by` and no `same_as`, an
 the judgments that cite a judgment or a publication `SAME_AS` it, each once;
 `outbound_citation_count` the judgments it cites.
 
-`paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list of `{id, number, kind, text}`. `kind` is
-`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop), `body` or
-`signature`.
+`paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list of `{id, number, kind, text, continues}`. `kind` is
+`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop), `body`, `toc`
+or `signature`. `continues` is, of a `body` paragraph without a number, the `id` of the numbered
+consideration it goes on with, up to the next number or heading (absent otherwise).
 The kop is every line before the first section heading (`Procesverloop`, `De procedure`,
 `Onderzoek van de zaak`, `1 Het verloop van het geding`, ...): court, case number, date and
 parties, whether the court writes them in an `<uitspraak.info>`, in bridgeheads, in loose
@@ -345,7 +346,22 @@ paragraphs or in sections titled with a party name. It is the first paragraph, a
 its lines with a blank line between (a `<?linebreak?>` starts a line too); a judgment without a
 heading, or with more than four lines of prose before it, has none. A conclusion writes its kop in
 a `<conclusie.info>`; when no heading ends the kop (or a list of abbreviations), the end of that
-element does.
+element does. Once the kop has named a party (a line that opens with "hierna": "hierna: de
+verdachte") or its `<uitspraak.info>` is over, the first numbered unit ends it too: a title with
+its `<nr>`, a `<paragroup>` with its `<nr>`, or a numbered list of paragraphs (`<orderedlist
+numeration="arabic">` standing on its own, its items on average at least 120 characters: the
+points of a conclusion, numbered by their place) — unless the kop's last line joins parties
+("en", "tegen"), after which a party may be set as a numbered section.
+A title or bold line that is a line of text, not a heading (it opens with a quotation mark or a
+bracket, ends with a comma or semicolon, or is in small letters and ends in punctuation:
+"[verdachte] ,", "is niet verschenen." in a quoted record), is `body`. A plain paragraph set like a
+heading (one line of at most 80 characters, a capital first, no number in front, no closing
+punctuation, no year, amount, "label : value" or initials of a name) is a `heading` (a
+`subheading` when nested) when text follows it and it stands alone or with one more ("Procesverloop",
+"Overwegingen", "Inleiding" of the Raad van State); three or more in a row are a list. A table of
+contents (a line "Inhoudsopgave" or "Inhoud", then its lines up to the first heading, a longer
+paragraph or the repetition of its first line where the text begins) is `toc`: its numbered lines
+are no considerations and get an id from their text, not `rov-N`.
 A numbered unit that ends in a heading (its last line alone, all of it in emphasis, short and
 without closing punctuation: "Slotsom") has that heading as a paragraph of its own after it. A run
 of numbered headings that goes back in the numbering, after which the numbering goes on where it
@@ -359,7 +375,8 @@ its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such
 number. `number` is the number as printed without its closing dot (`5.3`), null when there is
 none, and is not part of `text`. `id` names the paragraph in deep links and mentions and is
 unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
-"rov. 5.3"), `kop-5` for a numbered heading, `p-3f2a9c1e` for a paragraph without a number: the first
+"rov. 5.3"), `kop-5` for a numbered heading, `p-3f2a9c1e` for a paragraph without a number (and a
+line of a table of contents, from its number and text): the first
 8 hex of the SHA-1 of its text, whitespace collapsed (`core.judgments.text_id`), so it follows
 the text and not the position. An id that repeats one before it gets `_<n>`, its occurrence
 (`rov-1_2`, or the same text twice).

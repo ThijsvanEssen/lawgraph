@@ -1,0 +1,1696 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:HR:2019:2006</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-11-20T12:21:14</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2019-12-19</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Hoge_Raad_der_Nederlanden" scheme="overheid.RechterlijkeMacht">Hoge Raad</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2019-12-20</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">19/00135</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#cassatie">Cassatie</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht">Civiel recht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:GHDHA:2018:2591" psi:type="http://psi.rechtspraak.nl/cassatie" psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg" psi:gevolg="http://psi.rechtspraak.nl/gevolg#bekrachtiging/bevestiging">In cassatie op : ECLI:NL:GHDHA:2018:2591, Bekrachtiging/bevestiging</dcterms:relation>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:PHR:2019:887" psi:type="http://psi.rechtspraak.nl/conclusie" psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg" psi:gevolg="http://psi.rechtspraak.nl/gevolg#gevolgd">Conclusie: ECLI:NL:PHR:2019:887, Gevolgd</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>AB 2020/24 met annotatie van C.W. Backes, G.A. van der Veen</rdf:li>
+          <rdf:li>AA20200955 met annotatie van Graaf de K.J. Kars, Marseille A.T. Bert</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2019:2006">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2019:2006</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2019-12-20T13:59:28</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2019-12-20</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:HR:2019:2006 Hoge Raad , 20-12-2019 / 19/00135</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:HR:2019:2006:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <parablock>
+        <para>Klimaatzaak Urgenda. Mensenrechten. EVRM. VN-Klimaatverdrag. Bevel aan Staat om maatregelen te nemen tegen klimaatverandering. Gevaar klimaatverandering. Beschermingsomvang art. 2 en 8 EVRM; positieve verplichtingen. Effectieve rechtsbescherming art. 13 EVRM. Deelverantwoordelijkheid staten. Art. 3:305a BW en art. 34 EVRM. Doelstelling van 25-40% reductie van de uitstoot van broeikasgassen en de noodzaak daarvan. Internationaal draagvlak daarvoor. Binding Nederland aan deze doelsteling. Verantwoord beleid en de onderbouwing daarvan. Is sprake van ontoelaatbaar bevel tot wetgeving? Politiek domein.</para>
+        <para>(English version: ECLI:NL:HR:2019:2007)</para>
+      </parablock>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:HR:2019:2006:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <para />
+    <parablock>
+      <para> HOGE RAAD DER NEDERLANDEN</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>CIVIELE KAMER</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Nummer</emphasis>	19/00135</para>
+      <para>
+        <emphasis role="bold">Datum   </emphasis>	20 december 2019</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>ARREST</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>In de zaak van</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>DE STAAT DER NEDERLANDEN (MINISTERIE VAN ECONOMISCHE ZAKEN EN KLIMAAT),<?linebreak?>zetelende te Den Haag, </para>
+      <para>EISER tot cassatie,</para>
+      <para>hierna: de Staat,</para>
+      <para>advocaten: mr. K. Teuben, mr. M.W. Scheltema en mr. J.W.H. van Wijk,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>tegen</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>STICHTING URGENDA,<?linebreak?>gevestigd te Amsterdam, </para>
+      <para>VERWEERSTER in cassatie,</para>
+      <para>hierna: Urgenda,</para>
+      <para>advocaat: mr. F.E. Vermeulen.</para>
+      <para />
+      <para />
+      <para>
+        <emphasis role="bold">Samenvatting van de uitspraak</emphasis>
+      </para>
+      <para />
+    </parablock>
+    <para />
+    <parablock>
+      <para>Het gaat in deze zaak om de vraag of de Nederlandse Staat verplicht is de uitstoot van broeikasgassen vanaf Nederlandse bodem per eind 2020 met minstens 25% te verminderen ten opzichte van 1990, en of de rechter de Staat daartoe een bevel kan geven. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Vordering Urgenda en oordelen van rechtbank en gerechtshof</emphasis>
+      </para>
+      <para>Urgenda heeft bij de rechter gevorderd de Staat te bevelen de uitstoot van broeikasgassen zodanig te doen beperken dat deze per eind 2020 met 40% verminderd zal zijn ten opzichte van 1990, en in ieder geval met minimaal 25%.</para>
+      <para>De rechtbank heeft in 2015 de vordering van Urgenda toegewezen, in die zin dat een bevel aan de Staat is gegeven om de uitstoot per eind 2020 met minstens 25% terug te brengen ten opzichte van 1990. </para>
+      <para>In hoger beroep heeft het gerechtshof in 2018 het vonnis van de rechtbank bekrachtigd.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Cassatieberoep</emphasis>
+      </para>
+      <para>Tegen de uitspraak van het hof heeft de Staat cassatieberoep bij de Hoge Raad ingesteld. De Staat heeft een groot aantal bezwaren aangevoerd tegen de uitspraak van het hof. </para>
+      <para>De plaatsvervangend Procureur-Generaal en de Advocaat-Generaal hebben de Hoge Raad geadviseerd het beroep van de Staat te verwerpen en dus de uitspraak van het hof in stand te laten.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Oordeel Hoge Raad</emphasis>
+      </para>
+      <para>De Hoge Raad komt tot het oordeel dat het cassatieberoep van de Staat moet worden verworpen. Dat betekent dat het door de rechtbank gegeven en door het hof bekrachtigde bevel aan de Staat om de uitstoot van broeikasgassen per eind 2020 met minstens 25% terug te brengen ten opzichte van 1990, definitief in stand blijft. </para>
+      <para>Het oordeel van de Hoge Raad berust op feiten en uitgangspunten die het hof heeft vastgesteld en die in cassatie door de Staat en Urgenda niet ter discussie zijn gesteld. In cassatie beoordeelt de Hoge Raad of het hof het recht juist heeft toegepast en of het oordeel van het hof, uitgaande van de gegevens die het in aanmerking kon nemen, begrijpelijk is en voldoende gemotiveerd.</para>
+      <para>De motivering van het oordeel van de Hoge Raad staat hierna in de hoofdstukken 4-8 van de uitspraak. Deze motivering wordt hierna samengevat. Deze samenvatting komt niet in de plaats van de motivering van deze uitspraak en vormt geen volledige weergave van het oordeel van de Hoge Raad.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Gevaarlijke klimaatverandering</emphasis>
+      </para>
+      <para>(zie hierna in 4.1-4.8)</para>
+      <para>Urgenda en de Staat onderschrijven beide het klimaatwetenschappelijke inzicht dat een reële dreiging bestaat van een gevaarlijke klimaatverandering in de komende decennia. Over die dreiging bestaat in de klimaatwetenschap en de internationale gemeenschap een grote mate van overeenstemming. Het gaat daarbij, kort gezegd, om het volgende.</para>
+      <para>De uitstoot van broeikasgassen, waaronder CO2, leidt tot een steeds hogere concentratie van die gassen in de atmosfeer. Deze broeikasgassen houden de door de aarde uitgestraalde warmte vast. Doordat de laatste anderhalve eeuw (sinds het begin van de industriële revolutie) steeds meer broeikasgassen worden uitgestoten, warmt de aarde steeds verder op. De opwarming in die periode bedraagt ongeveer 1,1 oC, waarvan het grootste deel (0,7 oC) in de laatste veertig jaar heeft plaatsgevonden. In de klimaatwetenschap en binnen de internationale gemeenschap bestaat een grote mate van overeenstemming over het uitgangspunt dat de opwarming van de aarde beperkt moet blijven tot maximaal 2 oC, en volgens de meest recente inzichten zelfs tot maximaal 1,5 oC. Een grotere opwarming van de aarde kan zeer schadelijke gevolgen hebben, zoals extreme hitte, extreme droogte, extreme neerslag, verstoring van ecosystemen waardoor onder meer de voedselvoorziening in gevaar komt, en stijging van de zeespiegel doordat het ijs van gletsjers en van de poolkappen smelt. Ook kan die opwarming leiden tot klimaatomslagen, waarbij het klimaat op aarde of gebieden op aarde abrupt en ingrijpend verandert (zogeheten ‘tipping points’). Door dit alles worden de levens, het welzijn en de woonomgeving van velen bedreigd, wereldwijd en ook in Nederland. Die gevolgen doen zich voor een deel nu al voor.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Bescherming van mensenrechten op grond van het EVRM</emphasis>
+      </para>
+      <para>(zie hierna in 5.2.1-5.5.3)</para>
+      <para>Het Europees Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden (EVRM) verplicht de staten die bij het verdrag zijn aangesloten ertoe om voor hun ingezetenen de rechten en vrijheden te verzekeren die in het verdrag zijn vastgesteld. Art. 2 EVRM beschermt het recht op leven, en art. 8 EVRM het recht op eerbiediging van het privé-, familie- en gezinsleven. Volgens de rechtspraak van het Europese Hof voor de Rechten van de Mens (EHRM) is een verdragsstaat op grond van deze bepalingen verplicht om passende maatregelen te treffen, indien een ‘real and immediate risk’ voor het leven of het welzijn van personen bestaat en de staat daarvan op de hoogte is. </para>
+      <para>De verplichting om passende maatregelen te treffen geldt ook als het gaat om milieugevaren die grote groepen of de bevolking als geheel bedreigen, en eveneens als de gevaren zich pas op langere termijn kunnen realiseren. De art. 2 en 8 EVRM mogen niet ertoe leiden dat een onmogelijke of onevenredige last op een staat wordt gelegd. Maar die bepalingen verplichten wel tot het treffen van maatregelen die daadwerkelijk geschikt zijn om het dreigende gevaar zoveel als redelijkerwijs mogelijk is af te wenden. Het nationale recht moet volgens art. 13 EVRM een effectief rechtsmiddel bieden om tegen een schending of dreigende schending van de door het EVRM gewaarborgde rechten op te komen. Dat brengt mee dat de nationale rechter moet kunnen voorzien in effectieve rechtsbescherming. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Wereldwijd probleem en nationale verantwoordelijkheid</emphasis>
+      </para>
+      <para>(zie hierna in 5.6.1-5.8)</para>
+      <para>Het risico van een gevaarlijke klimaatverandering heeft een mondiaal karakter: de uitstoot van broeikasgassen vindt niet alleen plaats vanaf Nederlands grondgebied, maar wereldwijd. Ook de gevolgen daarvan worden wereldwijd ondervonden.</para>
+      <para>Nederland is partij bij het Klimaatverdrag van de Verenigde Naties (VN-Klimaatverdrag). Dat verdrag heeft tot doel om de concentratie van broeikasgassen in de atmosfeer op een niveau te houden waarop een door menselijk handelen veroorzaakte verstoring van het klimaatsysteem wordt voorkomen. Het verdrag berust op het uitgangspunt dat alle aangesloten landen maatregelen moeten treffen om klimaatverandering te voorkomen, in overeenstemming met ieders specifieke verantwoordelijkheden en mogelijkheden. </para>
+      <para>Ieder land is dus voor zijn deel verantwoordelijk. Daarom kan het argument dat de eigen uitstoot, op wereldschaal bezien, een relatief geringe omvang heeft en dat een reductie van de eigen uitstoot op wereldschaal slechts een gering effect heeft, een land niet ontslaan van de op hem rustende deelverantwoordelijkheid om maatregelen te nemen. De Staat is dan ook verplicht om, overeenkomstig zijn aandeel, de uitstoot van broeikasgassen vanaf zijn grondgebied te verminderen. Deze verplichting voor de Staat om ‘het zijne’ te doen berust op de art. 2 en 8 EVRM, omdat een ernstig risico bestaat dat een gevaarlijke klimaatverandering plaatsvindt die het leven en het welzijn van velen in Nederland bedreigt.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Wat houdt de verplichting voor de Staat om ‘het zijne’ te doen, concreet in?</emphasis>
+      </para>
+      <para>(zie hierna in 6.1-7.3.6)</para>
+      <para>Bij de invulling van de positieve verplichtingen die de Staat op grond van de art. 2 en 8 EVRM heeft, moet worden gelet op breed gedragen inzichten in de wetenschap en internationaal aanvaarde standaarden. In dit verband zijn onder meer de rapporten van het IPCC van belang. Het IPCC is een in het verband van de Verenigde Naties opgerichte wetenschappelijke en intergouvernementele organisatie op het gebied van de klimaatwetenschap en klimaatontwikkelingen. In zijn rapport van 2007 heeft het IPCC een scenario opgenomen waarin de opwarming van de aarde naar redelijke verwachting beperkt zal blijven tot maximaal 2 oC. Om deze doelstelling te halen, moeten de zogenoemde Annex I-landen (dat zijn de ontwikkelde landen, waaronder Nederland) hun uitstoot in 2020 hebben gereduceerd met 25-40% ten opzichte van 1990, en in 2050 met 80-95%.</para>
+      <para>Op de jaarlijkse klimaatconferenties die in het kader van het VN-Klimaatverdrag zijn gehouden, is vanaf 2007 met regelmaat door vrijwel alle landen gewezen op de noodzaak om het scenario van het IPCC te volgen en om in 2020 een reductie van de uitstoot van broeikasgassen met 25-40% te bereiken. Door en in de EU is diverse malen uitgesproken dat op wetenschappelijke gronden in 2020 een beperking van de uitstoot met 30% ten opzichte van 1990 noodzakelijk is. </para>
+      <para>Bovendien is in de jaren na 2007 het eveneens breed gedragen inzicht gegroeid dat een veilige opwarming van de aarde niet tot maximaal 2 oC beperkt moet blijven, maar tot maximaal 1,5 oC. In het Akkoord van Parijs van 2015 is dan ook uitdrukkelijk opgenomen dat de staten ernaar streven de opwarming tot 1,5 oC te beperken. Dat noodzaakt dus tot een nog grotere reductie van de uitstoot dan eerder werd aangenomen.</para>
+      <para>Al met al bestaat dus een grote mate van consensus over de dringende noodzaak van een reductie van de uitstoot van broeikasgassen in 2020 van minimaal 25-40% door de Annex I-landen. Met de consensus over deze doelstelling moet bij de uitleg en toepassing van de         art. 2 en 8 EVRM rekening worden gehouden. De dringende noodzaak van een reductie in 2020 van 25-40% geldt ook voor Nederland individueel.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Het beleid van de Staat</emphasis>
+      </para>
+      <para>(zie hierna in 7.4.1-7.5.3)</para>
+      <para>De Staat en Urgenda zijn beide van mening dat het noodzakelijk is om de concentratie broeikasgassen in de atmosfeer te beperken teneinde de 2 oC-doelstelling, dan wel de 1,5 oC-doelstelling, te kunnen behalen. Maar zij verschillen van mening over het tempo waarin de uitstoot van broeikasgassen moet worden verminderd. </para>
+      <para>Het beleid van de Staat was tot 2011 erop gericht om in 2020 een reductie van de uitstoot van 30% te behalen ten opzichte van 1990. Dat was volgens de Staat nodig om op een geloofwaardig traject te blijven om de 2 oC-doelstelling binnen bereik te houden.</para>
+      <para>Na 2011 heeft de Staat zijn reductiedoelstelling voor 2020 echter verlaagd van 30% reductie door Nederland naar 20% reductie in EU-verband. De Staat heeft het voornemen om de reductie na 2020 in een versneld tempo op te voeren tot 49% in 2030 en 95% in 2050. Die doelen voor 2030 en 2050 zijn inmiddels vastgelegd in de Klimaatwet. De Staat heeft echter niet toegelicht dat en waarom een reductie van slechts 20% in 2020 in EU-verband verantwoord is te achten, dit in afwijking van de internationaal breed gedragen en noodzakelijk geachte reductie in 2020 van 25-40%.</para>
+      <para>In de klimaatwetenschap en binnen de internationale gemeenschap bestaat een brede consensus dat naarmate reductiemaatregelen later worden getroffen, deze ingrijpender en kostbaarder moeten zijn om het beoogde einddoel te halen. Ook bestaat dan een groter risico op een abrupte klimaatverandering omdat een omslagpunt (‘tipping point’) wordt bereikt. In het licht van dat algemeen onderschreven inzicht lag het op de weg van de Staat om toe te lichten dat de voorgenomen versnelling van de reductie na 2020 praktisch haalbaar en voldoende effectief zal zijn om de doelen voor 2030 en 2050, en daarmee de 2 oC- en de 1,5 oC- doelstelling, binnen bereik te houden. Dat heeft de Staat echter niet gedaan.</para>
+      <para>Het hof heeft dan ook kunnen oordelen dat de Staat zich in elk geval aan de internationaal noodzakelijk geachte doelstelling van minimaal 25% reductie in 2020 moet houden. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Rechter en politiek domein</emphasis>
+      </para>
+      <para>(zie hierna in 8.1-8.3.5)</para>
+      <para>De Staat heeft aangevoerd dat het niet de taak van de rechter is om politieke afwegingen te maken die nodig zijn voor de besluitvorming over reductie van broeikasgassen. </para>
+      <para>In het Nederlandse staatsbestel komt de besluitvorming over de reductie van uitstoot van broeikasgassen toe aan de regering en het parlement. Zij hebben een grote mate van vrijheid om de daarvoor vereiste politieke afwegingen te maken. Het is aan de rechter om te beoordelen of de regering en het parlement bij hun besluitvorming zijn gebleven binnen de grenzen van het recht, waaraan zij zijn gebonden. Die grenzen vloeien onder meer voort uit het EVRM. De Grondwet schrijft voor dat de Nederlandse rechter de bepalingen van dit verdrag toepast. Dat moet de rechter doen overeenkomstig de uitleg daarvan door het EHRM. Deze opdracht aan de rechter tot het bieden van rechtsbescherming, ook tegen de overheid, is een wezenlijk onderdeel van de democratische rechtsstaat.</para>
+      <para>Het oordeel van het hof is met het voorgaande in overeenstemming. Het hof heeft immers geoordeeld dat het beleid van de Staat met betrekking tot de reductie van de uitstoot van broeikasgassen evident achterblijft bij de uit de art. 2 en 8 EVRM voortvloeiende verplichting om passende maatregelen te nemen voor de bescherming van de ingezetenen van Nederland tegen een gevaarlijke klimaatverandering. Verder heeft het hof het aan de Staat gegeven bevel beperkt tot de ondergrens (25%) van de internationaal onderschreven, minimaal noodzakelijke reductiedoelstelling voor 2020 van 25-40%.</para>
+      <para>Het gegeven bevel laat het aan de Staat over om te bepalen met welke concrete maatregelen hij zal voldoen aan dat bevel. Als daarvoor wetgevende maatregelen nodig zijn, is het aan de Staat om te beoordelen welke specifieke wetgeving wenselijk en noodzakelijk is.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Conclusie</emphasis>
+      </para>
+      <para>Samengevat komt het oordeel van de Hoge Raad erop neer dat het door de rechtbank gegeven en door het hof bekrachtigde bevel aan de Nederlandse Staat om de uitstoot van broeikasgassen per eind 2020 met minstens 25% terug te brengen ten opzichte van 1990, in stand blijft. Het hof heeft op grond van de art. 2 en 8 EVRM kunnen en mogen oordelen dat de Staat verplicht is die reductie te behalen, vanwege het risico van een gevaarlijke klimaatverandering die ook de ingezetenen van Nederland ernstig kan treffen in hun recht op leven en welzijn. </para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Inhoudsopgave</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <para>1. Procesverloop	</para>
+    <para>2. Uitgangspunten en feiten (2.1-2.3.2)</para>
+    <parablock>
+      <para>   	(a)	  Feiten (2.1)</para>
+      <para>   	(b)	  Vordering van Urgenda en verweer van de Staat (2.2.1-2.2.3)</para>
+      <para>   	(c)	  Oordeel van de rechtbank (2.3.1)</para>
+      <para>   	(d)	  Oordeel van het hof (2.3.2)</para>
+    </parablock>
+    <para>3. De cassatieklachten van de Staat; wijze van behandeling van die klachten (3.1-3.6)</para>
+    <para>4. Uitgangspunten wat betreft het gevaar en de gevolgen van klimaatverandering (4.1-4.8)</para>
+    <para>5. Verplichten de art. 2 en 8 EVRM de Staat tot het nemen van maatregelen? (5.1-5.10)</para>
+    <parablock>
+      <para>   	(a)	  Betekenis van de art. 1, 2 en 8 EVRM; positieve verdragsverplichtingen (5.2.1-5.3.4)</para>
+      <para>   	(b)	  Uitlegmaatstaven EVRM; ‘common ground’ (5.4.1-5.4.3)</para>
+      <para>   	(c)	  Art. 13 EVRM (5.5.1-5.5.3)</para>
+      <para>   	(d)	  Zijn de art. 2 en 8 EVRM van toepassing op het mondiale probleem van het gevaar van  klimaatverandering? (5.6.1-5.6.4)</para>
+      <para>   	(e)	  Gezamenlijke verantwoordelijkheid van staten en deelverantwoordelijkheid van individuele staten (5.7.1-5.8)</para>
+      <para>   	(f)	  Kan deze verplichting op grond van de art. 2 en 8 EVRM ook worden ingeroepen bij een vordering op grond van art. 3:305a BW? (5.9.1-5.9.3)</para>
+      <para>   	(g)	  Beoordeling van cassatieklachten (5.10)</para>
+    </parablock>
+    <para>6. Uitgangspunten bij beantwoording van de vraag tot welke concrete verplichting het voorgaande voor de Staat leidt (6.1-6.6)</para>
+    <para>7. De 25-40%-doelstelling voor Annex I-landen (7.1-7.6.2)</para>
+    <parablock>
+      <para>   	(a)	  De mate van internationale consensus over de 25-40%-doelstelling (7.2.1-7.2.11)</para>
+      <para>   	(b)	  De 25-40%-doelstelling voor Nederland individueel (7.3.1-7.3.6)</para>
+      <para>   	(c)	  Het beleid van de Staat met betrekking tot maatregelen tegen klimaatverandering (7.4.1-7.4.6)</para>
+      <para>   	(d)	  Dient de Staat zich te houden aan de 25-40%-doelstelling? (7.5.1-7.5.3)</para>
+      <para>   	(e)	  Beoordeling van cassatieklachten (7.6.1-7.6.2)</para>
+    </parablock>
+    <para>8. Toelaatbaarheid van het gegeven bevel; politiek domein (8.1-8.4)</para>
+    <parablock>
+      <para>   	(a)	  Bevel tot wetgeving (8.2.1-8.2.7)</para>
+      <para>   	(b)	  Politiek domein (8.3.1-8.3.5)</para>
+      <para>   	(c)	  Beoordeling van cassatieklachten (8.4)</para>
+    </parablock>
+    <para>9. Beslissing</para>
+    <para />
+    <parablock>
+      <para>Bijlage: lijst van gebruikte afkortingen</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>Procesverloop </title>
+    <para>Voor het verloop van het geding in feitelijke instanties verwijst de Hoge Raad naar:</para>
+    <para>a.	het vonnis in de zaak C/09/456689/HA ZA 13-1396 van de rechtbank Den Haag van 24 juni 2015, ECLI:NL:RBDHA:2015:7145;</para>
+    <para>b.	het arrest in de zaak 200.178.245/01 van het gerechtshof Den Haag van 9 oktober 2018, ECLI:NL:GHDHA:2018:2591. </para>
+    <parablock>
+      <para>De Staat heeft tegen het arrest van het hof beroep in cassatie ingesteld. Urgenda heeft een verweerschrift tot verwerping ingediend.</para>
+      <para>De zaak is voor de Staat mondeling en schriftelijk toegelicht door zijn advocaten en mondeling mede door mr. E.H.P. Brans, advocaat te Den Haag. Voor Urgenda is de zaak mondeling toegelicht door haar advocaat en mede door mr. J.M. van den Berg, advocaat te Amsterdam. De advocaten van de Staat hebben gerepliceerd, de advocaten van Urgenda gedupliceerd.  </para>
+      <para>De Staat heeft bezwaar gemaakt tegen de omvang van de nota van dupliek van Urgenda. De Hoge Raad ziet in dit geval geen grond om de dupliek terzijde te leggen. De nota van dupliek bevat geen elementen die nieuw zijn in het partijdebat en betreft voor een belangrijk deel herhaling en uitwerking van hetgeen Urgenda eerder in haar verweerschrift in cassatie heeft aangevoerd. In dat verweerschrift is Urgenda, voorafgaand aan de mondelinge en schriftelijke toelichting, uitvoerig op de cassatieklachten ingegaan, waartoe de regels van de cassatieprocedure in een vorderingszaak haar niet verplichtten. De schriftelijke toelichting en de pleitnota van de Staat vormen deels een uitvoerige reactie op dat verweerschrift. Gelet op een en ander is voldoende recht gedaan aan hoor en wederhoor en verstoort de omvang van de nota van dupliek het evenwicht van het debat in cassatie niet.</para>
+      <para>De conclusie van de plaatsvervangend Procureur-Generaal F.F. Langemeijer en de Advocaat-Generaal M.H. Wissink strekt tot verwerping van het cassatieberoep.</para>
+      <para>De advocaten van de Staat hebben schriftelijk op die conclusie gereageerd.</para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>Uitgangspunten en feiten</title>
+    <bridgehead role="italic">(a)	Feiten</bridgehead>
+    <para />
+    <paragroup>
+      <nr>2.1</nr>
+      <para>In deze zaak kan, blijkens rov. 2 van het arrest van het hof, worden uitgegaan van de feiten die de rechtbank heeft vastgesteld in rov. 2.1-2.78 van haar vonnis,<footnote-ref linkend="_72c1031f-1bef-4429-97b5-782c9fab09bc" /> alsmede van de feiten die het hof heeft vastgesteld in rov. 3.1-3.26 en rov. 44 van zijn arrest.<footnote-ref linkend="_36ee1f70-0643-4ffa-b2db-6e8d48a321c3" /> Deze feiten zijn in cassatie door geen van partijen bestreden. Ook de Hoge Raad gaat daarom van die feiten uit (art. 419 lid 3 Rv). De belangrijkste daarvan zijn de volgende.</para>
+      <para />
+      <para />
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">	Klimaatverandering en de gevolgen daarvan</emphasis>
+        </para>
+        <para>(1)	Sinds het begin van de industriële revolutie gebruikt de mensheid op grote schaal energie, die voornamelijk wordt gewonnen door fossiele brandstoffen (kolen, olie en gas) te verbranden. Hierbij komt koolstofdioxide vrij. Deze verbinding van de elementen koolstof en zuurstof wordt aangeduid met de scheikundige formule CO2. Het vrijgekomen CO2 wordt deels uitgestoten naar de atmosfeer, waar het gedurende honderden jaren of langer aanwezig blijft, en deels opgenomen door de ecosystemen van bossen en oceanen. Deze opnamemogelijkheid wordt steeds geringer door ontbossing en door het warmer worden van het zeewater. </para>
+        <para>(2)	CO2 is het belangrijkste broeikasgas en houdt tezamen met andere broeikasgassen de door de aarde uitgestraalde warmte vast in de atmosfeer. Dit wordt het broeikaseffect genoemd. Het broeikaseffect wordt sterker naarmate meer CO2 in de atmosfeer terecht komt. Hierdoor warmt de aarde steeds verder op. Het klimaatsysteem reageert vertraagd op de uitstoot van broeikasgassen: broeikasgassen die vandaag worden uitgestoten, hebben hun volledige opwarmende werking pas over dertig tot veertig jaar. Andere broeikasgassen zijn onder meer methaan, lachgas en fluorhoudende gassen.</para>
+        <para>(3)	Om de concentratie van broeikasgassen in de atmosfeer aan te geven wordt de eenheid ‘parts per million’ (hierna: ppm) gebruikt. De aanduiding ‘ppm CO2-equivalent’ wordt gebruikt om de concentratie van alle broeikasgassen tezamen aan te duiden, waarbij de concentratie van andere broeikasgassen dan CO2 is omgerekend naar CO2 aan de hand van het opwarmend effect.</para>
+        <para>(4)	Er is een direct, lineair verband tussen de door de mens veroorzaakte uitstoot van broeikasgassen, die mede wordt veroorzaakt door de verbranding van fossiele brandstoffen, en de opwarming van de aarde. De aarde is nu al opgewarmd met ongeveer 1,1 ºC ten opzichte van de gemiddelde temperatuur aan het begin van de industriële revolutie. Het hof is ervan uitgegaan dat de concentratie broeikasgassen in de atmosfeer ten tijde van zijn arrest ongeveer 401 ppm bedroeg. In de laatste decennia is de wereldwijde uitstoot van CO2 jaarlijks met 2% toegenomen.</para>
+        <para>(5)	Opwarming van de aarde kan worden voorkomen of verminderd door ervoor te zorgen dat minder broeikasgassen in de atmosfeer terechtkomen. Dit wordt mitigatie genoemd. Daarnaast kunnen maatregelen worden genomen om de gevolgen van klimaatverandering het hoofd te bieden, zoals bijvoorbeeld dijkverhoging voor laaggelegen gebieden. Het nemen van dergelijke maatregelen wordt adaptatie genoemd.</para>
+        <para>(6)	In de klimaatwetenschap – dat wil zeggen de wetenschap die zich bezighoudt met het klimaat en klimaatverandering – en binnen de internationale gemeenschap bestaat al geruime tijd consensus dat de gemiddelde temperatuur op aarde niet mag toenemen met meer dan 2 ºC ten opzichte van de gemiddelde temperatuur in het pre-industriële tijdperk. Indien de concentratie van broeikasgassen in de atmosfeer niet uitstijgt boven 450 ppm in het jaar 2100, bestaat volgens de klimaatwetenschap een redelijke kans dat deze doelstelling (hierna: de tweegradendoelstelling) wordt gehaald. In de laatste jaren is het inzicht gerezen dat een veilige temperatuurstijging niet hoger mag zijn dan 1,5 ºC, met een daarbij behorend concentratieniveau van broeikasgassen van ten hoogste 430 ppm in het jaar 2100.</para>
+        <para>(7)	Wereldwijd blijft er weinig ruimte over voor het uitstoten van broeikasgassen wanneer het huidige concentratieniveau van broeikasgassen (401 ppm) wordt afgezet tegen een maximaal concentratieniveau van 430 of 450 ppm in het jaar 2100. De totale wereldwijd resterende ruimte om nog broeikasgassen uit te stoten wordt wel aangeduid als het carbon budget. De kans om de opwarming van de aarde te beperken tot een temperatuurstijging van maximaal 1,5 ºC, is inmiddels uitermate klein.</para>
+        <para>(8)	Indien de aarde met substantieel meer dan 2 ºC opwarmt ten opzichte van de gemiddelde temperatuur in het pre-industriële tijdperk, veroorzaakt dit onder meer overstromingen door zeespiegelstijging, hittestress door intensievere en langere hitteperiodes, toename van ziekten van de luchtwegen door verslechterde luchtkwaliteit, periodes van droogte (met hevige bosbranden), toenemende verspreiding van infectieziekten, ernstige overstromingen als gevolg van overvloedige regenval alsmede verstoring van de voedselproductie en de drinkwatervoorziening. Ook worden ecosystemen, flora en fauna aangetast en treedt verlies van biodiversiteit op. Een inadequaat klimaatbeleid zal in de tweede helft van deze eeuw leiden tot honderdduizenden slachtoffers alleen al in West-Europa.</para>
+        <para>(9)	Naarmate de opwarming van de aarde voortschrijdt, nemen niet alleen de gevolgen  in ernst toe. Cumulatie van CO2 in de atmosfeer kan ertoe leiden dat het klimaatveranderingsproces een omslagpunt (‘tipping point’) bereikt dat een abrupte klimaatverandering tot gevolg kan hebben, zodanig dat noch de mens, noch de natuur zich daarop behoorlijk kan instellen. Het risico op dergelijke omslagpunten neemt “at a steepening rate” toe bij een temperatuurstijging tussen 1 ºC en 2 ºC.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">De IPCC-rapporten</emphasis>
+        </para>
+        <para>(10)	In 1988 hebben het United Nations Environment Program (UNEP) en de World Meteorological Organization (WMO) onder auspiciën van de Verenigde Naties het Intergovernmental Panel on Climate Change (IPCC) opgericht. Het IPCC richt zich op het verkrijgen van inzicht in alle aspecten van klimaatverandering door middel van wetenschappelijk onderzoek. Het verricht zelf geen onderzoek, maar bestudeert en beoordeelt onder meer de meest recente wetenschappelijke en technische informatie die wereldwijd beschikbaar komt. Het IPCC is niet alleen een wetenschappelijke, maar ook een intergouvernementele organisatie. Hiervan zijn 195 landen lid, waaronder Nederland. Sinds de oprichting heeft het IPCC vijf rapporten (Assessment Reports) met bijbehorende deelrapportages uitgebracht over de stand van de klimaatwetenschap en over klimaatontwikkelingen. Voor dit geding zijn met name van belang het vierde rapport uit 2007 en het vijfde rapport uit 2013-2014.</para>
+        <para>(11)	In het Fourth Assessment Report van het IPCC (hierna: AR4) uit 2007 wordt beschreven dat bij een temperatuurstijging van 2 ºC boven het niveau van het pre-industriële tijdperk het risico ontstaat van een gevaarlijke, onomkeerbare verandering van het klimaat. Na analyse van verschillende reductiescenario’s is in dit rapport vermeld dat, om het scenario van maximaal 450 ppm in het jaar 2100 te kunnen verwezenlijken, de uitstoot van broeikasgassen door de landen, genoemd in Annex I bij het VN-Klimaatverdrag (waaronder Nederland), in het jaar 2020 25% tot 40% lager moet zijn dan in het jaar 1990.</para>
+        <para>(12)	In 2013-2014 is het Fifth Assessment Report van het IPCC verschenen (hierna: AR5). In dit rapport is onder meer vastgesteld dat de aarde opwarmt als gevolg van de toename van de concentratie van CO2 in de atmosfeer sinds het begin van de industriële revolutie en dat dit wordt veroorzaakt door menselijke activiteiten, in het bijzonder door de verbranding van olie, gas en kolen en door ontbossing. In AR5 heeft het IPCC geconcludeerd dat indien de concentratie van broeikasgassen in de atmosfeer in 2100 stabiliseert op ongeveer 450 ppm, de kans dat de stijging van de mondiale temperatuur onder de 2 ºC blijft, ”likely” is, dat wil zeggen meer dan 66%. In 87% van de scenario’s die in AR5 zijn verwerkt om deze doelstelling te bereiken, zijn aannames opgenomen met betrekking tot zogeheten negatieve emissies, dat wil zeggen: onttrekking van CO2 aan de atmosfeer.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het VN-Klimaatverdrag en de klimaatconferenties</emphasis>
+        </para>
+        <para>(13)	In 1992 is het VN-Klimaatverdrag tot stand gekomen.<footnote-ref linkend="_a48aa520-db19-41b5-ad6a-7b6da599649d" /> Dit verdrag heeft tot doel het bewerkstelligen van stabilisering van de concentraties van broeikasgassen in de atmosfeer op een niveau waarop gevaarlijke antropogene (door menselijk handelen veroorzaakte) verstoring van het klimaatsysteem wordt voorkomen. De partijen bij het VN-Klimaatverdrag worden onderscheiden in Annex I-landen en andere landen. De Annex I-landen zijn de ontwikkelde landen, waaronder Nederland. Volgens art. 4 lid 2 van het verdrag dienen de Annex I-landen internationaal het voortouw te nemen bij het bestrijden van klimaatverandering en de nadelige gevolgen ervan. Zij hebben zich gecommitteerd om de uitstoot van broeikasgassen te verminderen. Zij dienen periodiek te rapporteren over de door hen genomen maatregelen. Doel is terug te keren naar het uitstootniveau van 1990.</para>
+        <para>(14)	Art. 7 VN-Klimaatverdrag voorziet in de Conference of the Parties (hierna: COP). De COP is het hoogste besluitvormende orgaan binnen het VN-Klimaatverdrag. De besluiten van de COP zijn in de regel niet juridisch bindend. De COP komt jaarlijks bijeen op klimaatconferenties.</para>
+        <para>(15)	Bij de klimaatconferentie in Kyoto in 1997 (COP-3), is het Kyoto Protocol overeengekomen tussen een aantal Annex I-landen, waaronder Nederland. In dit protocol zijn reductiedoelstellingen vastgelegd voor het tijdvak 2008 - 2012. Voor de toenmalige lidstaten van de EU gold volgens dit protocol voor dit tijdvak een reductiedoelstelling van 8% ten opzichte van 1990.</para>
+        <para>(16)	Bij de klimaatconferentie in Bali in 2007 (COP-13) is het Bali Action Plan vastgesteld. Hierin is de noodzaak onderkend van drastische emissiereducties, onder verwijzing naar het hiervoor onder (11) genoemde rapport AR4. Deze verwijzing ziet onder meer op het gedeelte van AR4 waarin is vermeld dat de Annex I-landen, om de doelstelling van een concentratie van maximaal 450 ppm in het jaar 2100 te behalen, hun uitstoot van broeikasgassen in 2020 met 25-40% moeten hebben teruggebracht ten opzichte van 1990.</para>
+        <para>(17)	Bij de klimaatconferentie in Kopenhagen in 2009 (COP-15) kon geen overeenstemming worden bereikt over opvolging of verlenging van het Kyoto Protocol.  </para>
+        <para>(18)	Tijdens de daaropvolgende klimaatconferentie in Cancún in 2010 (COP-16) hebben de daarbij betrokken partijen in de Cancún Agreements als doelstelling voor de lange termijn erkend dat de temperatuur van de aarde niet meer dan 2 ºC mag stijgen in verhouding tot de gemiddelde temperatuur in het pre-industriële tijdperk, met een mogelijke aanscherping tot een maximum van 1,5 ºC. In de preambule hebben zij verwezen naar de urgentie van grote emissiereductie. </para>
+        <para>(19)	De partijen bij het Kyoto Protocol hebben in Cancún uitgesproken dat de Annex I-landen het voortouw moeten blijven nemen bij het bestrijden van klimaatverandering en dat dit, gelet op AR4, vergt dat zij als groep in 2020 hun uitstoot van broeikasgassen zullen reduceren met 25-40% ten opzichte van het peiljaar 1990 (“would require Annex I Parties as a group to reduce emissions in a range of 25-40 per cent below 1990 levels by 2020”). De partijen bij het Kyoto Protocol hebben erop aangedrongen dat de Annex I-landen hun ambitieniveau verhogen ten opzichte van de reeds door hen gedane toezeggingen, met het oog op de in AR4 genoemde bandbreedte van 25-40%. In de zogenoemde ‘Cancún pledges’ hebben de EU-landen zich als groep bereid verklaard tot een reductie van 20% per 2020 ten opzichte van 1990, met het aanbod van 30% reductie op de voorwaarde dat andere landen vergelijkbare reductiedoelstellingen zouden aangaan.</para>
+        <para>(20)	Bij de klimaatconferentie in Doha in 2012 (COP-18) werden alle Annex I-landen opgeroepen om hun reductiedoelstellingen te verhogen tot ten minste 25-40% in 2020. Er is een amendement op het Kyoto Protocol aangenomen. Daarin heeft de EU zich verbonden tot een reductie van 20% in 2020 in verhouding tot 1990, met het aanbod om de uitstoot terug te brengen met 30% indien andere landen vergelijkbare reductiedoelstellingen zouden aanvaarden. Deze voorwaarde is niet vervuld. Het Doha Amendement is niet in werking getreden.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het Akkoord van Parijs</emphasis>
+        </para>
+        <para>(21)	Bij de klimaatconferentie in Parijs in 2015 (COP-21) is het Akkoord van Parijs tot stand gekomen.<footnote-ref linkend="_5068393d-432d-4d0b-b13f-6de246612551" /> In dit verdrag wordt elke verdragsstaat aangesproken op zijn eigen verantwoordelijkheid. In het verdrag is vastgelegd dat de opwarming wereldwijd ruimschoots onder de grens van 2 ºC (“well below 2 ºC”) moet worden gehouden ten opzichte van de gemiddelde temperatuur in het pre-industriële tijdperk, waarbij wordt gestreefd naar een temperatuurstijging van ten hoogste 1,5 ºC. Partijen moeten nationale klimaatplannen opstellen, die ambitieus moeten zijn en waarvan het ambitieniveau bij ieder nieuw plan moet toenemen.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">De UNEP-rapporten van 2013 en 2017</emphasis>
+        </para>
+        <para>(22)	Sinds 2010 rapporteert het hiervoor onder (10) genoemde UNEP jaarlijks over verschillen tussen het gewenste emissieniveau en de door de verdragsstaten toegezegde reductiedoelstellingen: de zogenoemde ‘emissions gap’. In het jaarrapport 2013 van het UNEP is voor de derde keer op rij geconstateerd dat de door de verdragsstaten gedane toezeggingen tekortschieten en dat de uitstoot van broeikasgassen stijgt in plaats van daalt. Verder constateert het UNEP dat de emissiedoelstellingen van de gezamenlijke Annex I-landen tekortschieten voor het behalen van de reductie van 25-40% in 2020 die in het hiervoor onder (11) genoemde AR4 wordt genoemd. Het UNEP maakt de gevolgtrekking dat het steeds minder waarschijnlijk wordt dat de emissies in 2020 laag genoeg zullen zijn om de tweegradendoelstelling tegen de laagst mogelijke kosten te realiseren. Alhoewel met latere acties tot reductie uiteindelijk mogelijk dezelfde temperatuurdoelen te bereiken zijn, zullen zij volgens het UNEP moeilijker, kostbaarder en riskanter zijn.</para>
+        <para>(23)	In het jaarrapport 2017 van het UNEP is vermeld dat een verhoogde reductie vóór 2020 (“enhanced pre-2020 mitigation action”) in het licht van het Akkoord van Parijs urgenter is dan ooit. Het UNEP merkt op dat indien de geconstateerde ‘emissions gap’ tegen 2030 niet is ingehaald, het uiterst onwaarschijnlijk is dat de tweegradendoelstelling nog kan worden gerealiseerd. Daarom zijn volgens het UNEP ambitieuzere reductiedoelstellingen nodig voor 2020.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het Europese klimaatbeleid</emphasis>
+        </para>
+        <para>(24)	Art. 191 VWEU bevat de milieudoelstellingen van de EU. De EU heeft ter uitvoering van haar milieubeleid richtlijnen tot stand gebracht. Daartoe behoort de zogenoemde ETS-richtlijn. ETS staat voor ‘Emissions Trading System’. Dit systeem houdt in dat bedrijven in de ETS-sector broeikasgassen slechts mogen uitstoten indien zij daartoe emissierechten inleveren. Deze emissierechten kunnen worden gekocht, verkocht of bewaard. De totale hoeveelheid broeikasgassen die ETS-bedrijven mogen uitstoten, neemt in de periode 2013 - 2020 jaarlijks af met 1,74%, totdat in 2020 een reductie van 21% is gerealiseerd ten opzichte van het jaar 2005.</para>
+        <para>(25)	De Raad van de EU heeft vastgesteld dat de EU een reductie van de uitstoot van broeikasgassen dient te realiseren van ten minste 20% in 2020, 40% in 2030 en 80-95% in 2050, telkens gemeten ten opzichte van 1990. Binnen de EU is op basis van de zogenoemde Effort Sharing Decision<footnote-ref linkend="_9111206e-a29c-49a4-9705-52f272b78dc5" /> bepaald dat de reductiedoelstelling van 20% in 2020 voor de niet-ETS-sector meebrengt dat Nederland een reductie van de uitstoot tot stand zal brengen van 16% ten opzichte van de uitstoot in 2005.</para>
+        <para>(26)	Naar de ten tijde van het arrest van het hof bestaande verwachtingen zou de EU als geheel in 2020 feitelijk een emissiereductie realiseren van 26-27% ten opzichte van 1990.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Het Nederlandse klimaatbeleid en de resultaten daarvan</emphasis>
+        </para>
+        <para>(27)	Tussen 2007 en 2011 ging Nederland, op grond van het programma ‘Schoon en zuinig’ uit 2007, uit van een reductiedoelstelling van 30% in 2020 in verhouding tot 1990. Bij brief van 12 oktober 2009 heeft de toenmalige minister van Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer (VROM) de Tweede Kamer geïnformeerd over de onderhandelingsinzet van Nederland in het kader van de klimaatconferentie in Kopenhagen in 2009 (COP-15). Deze brief vermeldde onder meer:</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>“Het totaal aan emissiereducties dat de ontwikkelde landen tot nu toe hebben aangeboden, blijft onvoldoende om de 25-40% reductie in 2020 te bereiken, die nodig is om op een geloofwaardig traject te blijven om de 2 graden doelstelling binnen bereik te houden.”</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>(28)	Na 2011 is het Nederlandse reductiedoel bijgesteld naar een reductie in EU-verband van 20% in 2020, dat wil zeggen voor Nederland (a) een reductie van 16% in de niet-ETS-sector en van 21% in de ETS-sector, telkens ten opzichte van 2005, en (b) een reductie van ten minste 40% in 2030 en van 80-95% in 2050, telkens ten opzichte van 1990.</para>
+        <para>(29)	In het regeerakkoord uit 2017 heeft de regering bekendgemaakt een emissiereductie na te streven van ten minste 49% in 2030 ten opzichte van 1990. Volgens het regeerakkoord is de EU-reductiedoelstelling van 40% in 2030 niet voldoende om de tweegradendoelstelling te realiseren, laat staan de ambitie van 1,5 ºC, zoals neergelegd in het Akkoord van Parijs.</para>
+        <para>(30)	De Nederlandse CO2-uitstoot per hoofd van de bevolking is relatief hoog in vergelijking met andere geïndustrialiseerde landen. Wat betreft uitstoot stond Nederland ten tijde van het arrest van het hof op plaats 34 van 208 landen. Van de 33 landen met een hogere uitstoot zijn er maar 9 met een hogere uitstoot per hoofd van de bevolking, waaronder geen enkele EU-lidstaat. Van de totale Nederlandse uitstoot van broeikasgassen bestaat 85% uit CO2. De CO2-uitstoot in Nederland is sinds 1990 nauwelijks afgenomen en in de laatste jaren (tot het arrest van het hof) zelfs gestegen. In de periode 2008-2012 heeft Nederland een emissiereductie in CO2-equivalent gerealiseerd van 6,4%. Deze reductie komt voor rekening van andere broeikasgassen dan CO2. In de vijftien grootste EU-lidstaten werd in diezelfde periode een emissiereductie gerealiseerd van 11,8% en in de EU als geheel een reductie van 19,2%. Van de reductie tussen 2008 en 2012 in Nederland was bovendien 30-50% gerelateerd aan de economische crisis. Zonder deze crisis zou de uitstoot in deze periode nog aanzienlijk hoger (en de reductie minder) zijn geweest.</para>
+        <para>(31)	Ten tijde van het arrest van het hof werd verwacht dat Nederland in 2020 zal uitkomen op een reductie van 23%, en, rekening houdend met een onzekerheidsmarge, op 19-27%. De rechtbank noemt in haar vonnis nog een aanmerkelijk lagere verwachting. Het verschil komt grotendeels door een nieuwe berekeningsmethode (die beter bij die van het IPCC aansluit, maar) waardoor het theoretische reductiepercentage eerder wordt bereikt, hoewel de situatie in wezen ernstiger is. Het verschil wordt namelijk verklaard door het feit dat de berekende uitstoot in het basisjaar 1990 achteraf naar boven is bijgesteld.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic"> (b)	Vordering van Urgenda en verweer van de Staat</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <paragroup>
+        <nr>2.2.1</nr>
+        <parablock>
+          <para>Urgenda (‘Urgente Agenda’) houdt zich bezig met het ontwikkelen van plannen en maatregelen ter voorkoming van klimaatverandering. Urgenda heeft de rechtsvorm van een stichting. Zij heeft blijkens haar statuten als doel transitieprocessen naar een duurzamere samenleving te stimuleren en te versnellen, te beginnen in Nederland.</para>
+          <para>	Urgenda meent dat de Staat te weinig doet om een gevaarlijke klimaatverandering te voorkomen. In dit geding vordert zij, voor zover in cassatie van belang, een bevel aan de Staat om het volume van de uitstoot van broeikasgassen in Nederland zodanig te doen beperken dat dit aan het eind van het jaar 2020 met 40%, althans met minimaal 25%, zal zijn verminderd ten opzichte van het volume in het jaar 1990. Zij stelt de vordering in op grond van art. 3:305a BW<emphasis role="italic">, </emphasis>welke bepaling een collectieve actie door belangenorganisaties mogelijk maakt. Zij komt, voor zover in cassatie van belang, met de vordering op voor de belangen van de huidige bewoners van Nederland (de ingezetenen van Nederland) die door een gevaarlijke klimaatverandering worden bedreigd.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>2.2.2</nr>
+        <para>Aan haar vordering heeft Urgenda, kort gezegd, het volgende ten grondslag gelegd. De uitstoot van broeikasgassen vanuit Nederland draagt bij aan een gevaarlijke verandering van het klimaat. Het aandeel van de Nederlandse emissies in het wereldwijde emissieniveau is zowel absoluut als relatief (per hoofd van de bevolking) bovenmatig. Dit maakt dat de Nederlandse emissies, waarvoor de Staat als soevereine macht ‘systeemverantwoordelijk’ is, onrechtmatig zijn, namelijk in strijd met de zorgvuldigheid die in het maatschappelijk verkeer betaamt jegens degenen voor de belangen van wie Urgenda opkomt (art. 6:162 lid 2 BW), en ook in strijd met de art. 2 en 8 EVRM. Naar nationaal en naar internationaal recht is de Staat verplicht om, ter voorkoming van gevaarlijke klimaatverandering, zorg te dragen voor reductie van het Nederlandse emissieniveau. Deze zorgplicht houdt in dat in Nederland in 2020 een reductie van de uitstoot van broeikasgassen met 25% tot 40% moet zijn bereikt ten opzichte van de uitstoot in 1990, overeenkomstig de doelstelling die is genoemd in AR4 (zie hiervoor in 2.1 onder (11)). Een reductie van deze omvang is noodzakelijk om uitzicht te houden op het bereiken van de tweegradendoelstelling. Zij is bovendien het meest kosteneffectief.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>2.2.3</nr>
+        <para>De Staat heeft onder meer de volgende verweren gevoerd. Er is niet voldaan aan de vereisten van art. 3:296 BW (rechterlijk bevel) en art. 6:162 BW (onrechtmatige daad). Er bestaat namelijk geen uit het nationale of internationale recht af te leiden rechtsplicht van de Staat om maatregelen te nemen waarmee de gevorderde reductie-doelstelling wordt gehaald. De doelstelling die is genoemd in AR4, bevat geen bindende norm. Uit de art. 2 en 8 EVRM volgt geen verplichting voor de Staat om (mitigatie)maatregelen te nemen tegen klimaatverandering. Toewijzing van het gevorderde reductiebevel komt bovendien neer op een niet toelaatbaar bevel tot wetgeving en komt in strijd met de aan regering en parlement toekomende politieke vrijheid en dus met het stelsel van machtenscheiding.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(c)	Oordeel van de rechtbank</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>2.3.1</nr>
+        <parablock>
+          <para>De rechtbank heeft de Staat bevolen om het gezamenlijke volume van de jaarlijkse Nederlandse emissie van broeikasgassen zodanig te beperken of te doen beperken dat dit aan het einde van het jaar 2020 met ten minste 25% zal zijn verminderd in vergelijking met het niveau van het jaar 1990. De rechtbank heeft hiertoe onder meer het volgende overwogen.</para>
+          <para>Uit art. 21 Grondwet, het ‘no harm’-beginsel dat het internationale recht kent, het VN-Klimaatverdrag met bijbehorende protocollen en art. 191 VWEU met de daarop gebaseerde ETS-richtlijn en Effort Sharing Decision, kan niet een rechtsplicht van de Staat jegens Urgenda worden afgeleid. (rov. 4.36-4.44 en 4.52)</para>
+          <para>Urgenda kan niet worden aangemerkt als direct of indirect slachtoffer in de zin van art. 34 EVRM. Aan Urgenda komt derhalve geen rechtstreeks beroep toe op de art. 2 en 8 EVRM. (rov. 4.45)</para>
+          <para>De Staat kan wel onrechtmatig handelen doordat hij zijn zorgplicht schendt om een gevaarlijke klimaatverandering te voorkomen. (rov. 4.52-4.53) Voor de invulling van die zorgplicht zijn de criteria van het Kelderluik-arrest<footnote-ref linkend="_b16c44e1-827e-491f-8eac-1069c1daaa5e" /> en de eerder door de rechtbank genoemde bepalingen, beginselen en regelingen van belang. (rov. 4.54-4.63) </para>
+          <para>Door de ernst van de gevolgen van klimaatverandering en de grote kans dat – zonder mitigerende maatregelen – gevaarlijke klimaatverandering zal intreden, rust op de Staat een zorgplicht om mitigatiemaatregelen te treffen. De omstandigheid dat Nederland op dit moment slechts voor een klein deel bijdraagt aan de huidige mondiale broeikasgasuitstoot, doet daaraan niet af. Nu het 450 ppm-scenario minimaal geboden is om een gevaarlijke klimaatverandering te voorkomen, dient Nederland zodanige maatregelen te treffen dat daarmee dit scenario kan worden gehaald. (rov. 4.64-4.83)</para>
+          <para>Uitstel van mitigatie zoals de Staat voorstaat – minder stringente reductie tussen nu en 2030 en sterke reductie vanaf 2030 – draagt in hogere mate bij aan het risico van gevaarlijke klimaatverandering, en is daarmee niet te zien als een toereikend en aanvaardbaar alternatief voor de wetenschappelijk verankerde en erkende hogere reductieroute van 25-40% in 2020 die bij genoemd scenario past. (rov. 4.85)</para>
+          <para>Dat een reductiebevel van 25-40% voor Nederland tot een onevenredig zware last leidt, heeft de Staat niet gesteld. Integendeel: ook de Staat betoogt dat een verhoging van de reductiedoelstelling tot de mogelijkheden behoort. De Staat schiet in het geval van een reductie onder het niveau van 25-40% tekort in de door hem te betrachten zorg en handelt dusdoende onrechtmatig. Een verplichting tot een hoger percentage dan 25% stuit af op de beleidsvrijheid die de Staat toekomt. (rov. 4.86)</para>
+          <para>Het door Urgenda gevorderde reductiebevel strekt niet tot een bevel aan de Staat om bepaalde maatregelen van wetgeving of beleid te treffen. In geval van toewijzing van de vordering behoudt de Staat de volle, bij uitstek aan hem toekomende, vrijheid om te bepalen op welke wijze hij gevolg geeft aan dat bevel. (rov. 4.101)</para>
+          <para>De aspecten die samenhangen met de trias politica, vormen niet in algemene zin een belemmering voor toewijzing van het gevorderde bevel. De terughoudendheid die de rechter past, leidt niet tot een verdere beperking dan die welke voortvloeit uit de eerder genoemde beleidsvrijheid van de Staat. (rov. 4.102)</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(d)	Oordeel van het hof</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>2.3.2</nr>
+        <para>Het hof heeft het vonnis van de rechtbank bekrachtigd. Hiertoe heeft het hof onder meer het volgende overwogen.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Ontvankelijkheid Urgenda</emphasis>
+          </para>
+          <para>Voor toegang tot de Nederlandse rechter is de Nederlandse wet bepalend, in het geval van Urgenda in deze procedure onder meer art. 3:305a BW, waarin is voorzien in een collectieve actie door belangenorganisaties. Nu individuele personen die onder de rechtsmacht van de Staat vallen, een beroep kunnen doen op de rechtstreeks in Nederland werkende art. 2 en 8 EVRM, kan Urgenda dat ook op de voet van art. 3:305a BW voor hen doen. (rov. 36)</para>
+          <para>Niet in geschil is dat Urgenda ontvankelijk is in haar vordering voor zover zij namens de huidige generatie Nederlanders optreedt tegen de emissie van broeikasgassen op Nederlands grondgebied. Het is zonder meer aannemelijk dat reeds de nu levende Nederlanders, met name doch niet uitsluitend de jongeren onder hen, tijdens hun leven te maken zullen krijgen met de nadelige gevolgen van klimaatverandering indien de wereldwijde uitstoot van broeikasgassen niet adequaat wordt teruggedrongen. (rov. 37) Hun belangen lenen zich voor bundeling zoals vereist voor het kunnen instellen van een vordering op grond van art. 3:305a BW. (rov. 38)</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Art. 2 en 8 EVRM</emphasis>
+          </para>
+          <para>Op de Staat rust op grond van art. 2 EVRM de positieve verplichting om het leven van burgers binnen zijn rechtsmacht te beschermen, terwijl art. 8 EVRM de verplichting schept om het recht op woning en privéleven te beschermen. Deze verplichting geldt voor alle activiteiten, publieke en niet-publieke, die de aldus beschermde rechten in gevaar kunnen brengen, en geldt zeker als sprake is van industriële activiteiten die naar hun aard gevaarlijk zijn. Wanneer de overheid weet dat sprake is van een reëel en onmiddellijk dreigend gevaar, moet de Staat preventieve maatregelen nemen om de aantasting zoveel mogelijk te voorkomen. (rov. 39-43)</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Reële dreiging van een gevaarlijke klimaatverandering</emphasis>
+          </para>
+          <para>Uit de vaststaande feiten en omstandigheden volgt dat sprake is van een reële dreiging van een gevaarlijke klimaatverandering, waardoor een ernstig risico bestaat dat de huidige generatie ingezetenen van Nederland zal worden geconfronteerd met verlies van leven of verstoring van het gezinsleven. Uit de art. 2 en 8 EVRM volgt een verplichting voor de Staat om tegen deze reële dreiging bescherming te bieden. (rov. 44-45)</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Handelt de Staat onrechtmatig door niet per eind 2020 met ten minste 25% te reduceren?</emphasis>
+          </para>
+          <para>Het einddoel is duidelijk en is tussen partijen ook niet in geschil. In 2100 moet de wereldwijde uitstoot van broeikasgassen tot staan zijn gebracht. Partijen verschillen evenmin van inzicht over de noodzakelijke tussenstand van 80-95% reductie ten opzichte van 1990 in 2050, en Urgenda onderschrijft de door het kabinet vastgestelde reductiedoelstelling van 49% ten opzichte van 1990 in 2030. Het geschil tussen partijen spitst zich toe op de vraag of van de Staat kan worden gevergd dat hij eind 2020 een reductie realiseert van ten minste 25% ten opzichte van 1990. (rov. 46)</para>
+          <para>Er zal tussen nu en 2030 een zeer aanzienlijke inspanning moeten worden geleverd om in 2030 op 49% uit te komen; veel aanzienlijker dan de beperkte inspanning die Nederland tot nu toe heeft geleverd. Vast staat verder dat het voor de beperking van de totale uitstoot over deze periode wenselijk is de reductie-inspanning zo vroeg mogelijk aan te vangen. Uitstel van reductie leidt tot grotere risico’s voor het klimaat. Uitstel leidt immers ertoe dat in de tussentijd broeikasgassen worden uitgestoten die zeer lang in de atmosfeer aanwezig blijven en verder aan de opwarming van de aarde bijdragen. Een gelijkmatige verdeling van de reductie-inspanning over de periode tot 2030 zou inhouden dat de Staat inzet op een aanzienlijk hogere reductie in 2020 dan 20%. Die gelijkmatige verdeling vormt het uitgangspunt van de Staat voor de reductiedoelstelling van 49% in 2030, die lineair is afgeleid van de doelstelling van 95% reductie in 2050. Als diezelfde lijn wordt doorgetrokken naar nu, resulteert dat in een reductiedoelstelling van 28% in 2020, zoals de Staat in antwoord op de vragen van het hof heeft bevestigd. (rov. 47)</para>
+          <para>Het IPCC heeft in AR4 geconcludeerd dat een concentratieniveau van maximaal 450 ppm in 2100 toelaatbaar is om de tweegradendoelstelling binnen bereik te houden. Na analyse van verschillende reductiescenario’s is het IPCC tot de conclusie gekomen dat voor het bereiken van dit concentratieniveau de totale uitstoot van broeikasgassen door Annex I-landen (waartoe Nederland behoort) in 2020 25% tot 40% lager zou moeten zijn dan in 1990. Ook in AR5 gaat het IPCC ervan uit dat voor het verwezenlijken van de tweegradendoelstelling een concentratieniveau van 450 ppm in 2100 niet mag worden overschreden. (rov. 48)</para>
+          <para>De mogelijkheid om in de toekomst met bepaalde technieken CO₂ uit de atmosfeer te verwijderen – waarvan AR5 uitgaat – is zeer onzeker. Klimaatscenario’s die van dergelijke technieken uitgaan, hebben bij de huidige stand van zaken dus een laag realiteitsgehalte. Daarmee schetst AR5 mogelijk een te rooskleurig beeld en kan niet, met de Staat, zonder meer ervan worden uitgegaan dat de ‘multiple mitigation pathways’ die het IPCC in AR5 noemt in de praktijk ook tot het bereiken van de tweegradendoelstelling kunnen leiden. Bovendien is aannemelijk dat in AR5 geen reductiepercentages per 2020 zijn opgenomen omdat de aandacht van het IPCC in 2014 uitging naar doelstellingen voor 2030. Het rapport AR5 geeft dus geen aanleiding om te veronderstellen dat het reductiescenario in AR4 achterhaald is, en dat thans een reductie van minder dan 25-40% in 2020 zou volstaan voor het verwezenlijken van de tweegradendoelstelling. Bij de beoordeling of de Staat aan zijn zorgplicht heeft voldaan, zal het hof tot uitgangspunt nemen dat voor het verwezenlijken van de tweegradendoelstelling een emissiereductie van 25-40% in 2020 noodzakelijk is. (rov. 49)</para>
+          <para>Het 450 ppm-scenario en de op basis daarvan vastgestelde noodzaak om de CO₂ uitstoot in 2020 met 25-40% te reduceren, zijn zeker geen overdreven pessimistische uitgangspunten bij de vaststelling van de zorgplicht van de Staat. Het is niet zeker dat met dit scenario de tweegradendoelstelling wordt gehaald. In de klimaatwetenschap is bovendien inmiddels onderkend dat een veilige temperatuurstijging veeleer 1,5 ºC dan 2 ºC is. (rov. 50)</para>
+          <para>Het IPCC-rapport waarin staat dat een reductie van 25-40% per eind 2020 nodig is voor het behalen van de tweegradendoelstelling (AR4), dateert al van 2007. Sindsdien is in vrijwel alle COP’s (in Bali, Cancún, Durban, Doha en Warschau) naar deze 25-40% norm verwezen, en zijn de Annex I-landen opgeroepen hun reductiedoelstellingen daarmee in lijn te brengen. Weliswaar is hiermee geen rechtsnorm met rechtstreekse werking vastgesteld, maar het vormt wel een bevestiging van het feit dat een reductie van 25-40% uitstoot van CO₂ per 2020 minimaal noodzakelijk is om een gevaarlijke klimaatverandering te voorkomen. (rov. 51)</para>
+          <para>Nederland ging tot 2011 uit van een eigen reductiedoelstelling van 30% in 2020. Uit een brief van de minister van VROM van 12 oktober 2009 blijkt dat de Staat zelf ervan overtuigd was dat een scenario waarin in 2020 minder dan 25-40% zou worden gereduceerd, voor het binnen het bereik houden van de tweegradendoelstelling niet geloofwaardig was. Daarna is de Nederlandse reductiedoelstelling voor 2020 naar beneden bijgesteld. Een klimaatwetenschappelijke onderbouwing is hiervoor niet gegeven, terwijl vaststaat dat uitstel van reducties in de tussentijd leidt tot een voortgaande CO₂-uitstoot, die weer bijdraagt aan de verdere opwarming van de aarde. Meer in het bijzonder heeft de Staat niet gemotiveerd waarom een reductie met slechts 20% per 2020 (in EU-verband) thans wel geloofwaardig moet worden geacht, bijvoorbeeld door een scenario te schetsen waaruit blijkt hoe – tezamen met de inspanningen van andere landen – met de thans voorgenomen uitgestelde reducties de tweegradendoelstelling toch kan worden bereikt. Ook de EU achtte overigens een beperking van 30% tegen 2020 noodzakelijk om een gevaarlijke klimaatverandering te voorkomen. (rov. 52)</para>
+        </parablock>
+        <para />
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Verweren van de Staat</emphasis>
+          </para>
+          <para>De Staat voert aan dat als Nederland een maatregel neemt waarmee broeikasgasemissies die onder het ETS-systeem vallen, worden gereduceerd, een ‘waterbedeffect’ optreedt. Die maatregelen scheppen in dat systeem namelijk ruimte voor andere EU-landen om meer broeikasgassen uit te stoten. Daarom zijn nationale maatregelen tot reductie van broeikasgasemissies binnen het kader van het ETS-systeem volgens de Staat zinloos. Dit argument gaat niet op. Net als Nederland hebben andere EU-lidstaten een eigen verantwoordelijkheid om de uitstoot van CO₂ zoveel mogelijk te beperken. Er kan niet op voorhand van worden uitgegaan dat de andere lidstaten minder vergaande maatregelen zullen nemen dan Nederland. Integendeel, in vergelijking met lidstaten zoals Duitsland, het Verenigd Koninkrijk, Denemarken, Zweden en Frankrijk, blijft de Nederlandse reductie-inspanning ver achter. (rov. 55 en 56)</para>
+          <para>Daarnaast heeft de Staat gewezen op het risico van ‘carbon leakage’, waaronder de Staat het risico verstaat dat bedrijven hun productie verplaatsen naar andere landen waar minder stringente broeikasgasreductieverplichtingen gelden. Dat dit risico zich daadwerkelijk zal voordoen indien Nederland zijn inspanningen om de emissie van broeikasgassen te beperken, vóór het einde van 2020 zou opvoeren, heeft de Staat echter niet onderbouwd. (rov. 57)</para>
+          <para>De Staat heeft ook nog betoogd dat adaptatie en mitigatie complementaire strategieën zijn om de risico’s van klimaatverandering te beperken en dat Urgenda te weinig oog heeft voor de adaptatiemaatregelen die de Staat neemt of voornemens is te nemen. Dit argument faalt eveneens. Weliswaar is juist dat de gevolgen van klimaatverandering door adaptatie kunnen worden verzacht, maar dat de potentieel desastreuze gevolgen van een te grote opwarming van de aarde hierdoor op adequate wijze kunnen worden voorkomen, is niet gebleken of aannemelijk gemaakt. Dus hoewel het zeker op de weg van de Staat ligt óók adaptatiemaatregelen te nemen, kan dat niet afdoen aan zijn verplichting de uitstoot van CO2 sneller terug te brengen dan hij voornemens is. (rov. 59)</para>
+          <para>De Staat heeft verder betoogd dat het emissiereductiepercentage van 25-40% in 2020 is bedoeld voor de Annex I-landen als geheel, en daarmee niet als uitgangspunt kan worden genomen voor de emissiereductie die een individueel Annex I-land zoals Nederland zou moeten realiseren. De Staat heeft echter niet onderbouwd waarom voor Nederland een lager emissiereductiepercentage zou moeten gelden dan voor de Annex I-landen als geheel. Dat ligt niet voor de hand, uitgaande van een verdeling naar rato van het bbp per hoofd van de bevolking, die onder meer in de Effort Sharing Decision van de EU als uitgangspunt is genomen bij de verdeling van de emissiereductieverbintenis van de EU over de lidstaten. Naar mag worden aangenomen, behoort het bbp per hoofd van de bevolking van Nederland tot de hoogste van de Annex I-landen, en ligt het in ieder geval boven het gemiddelde van die landen. Dat blijkt ook uit Bijlage II van de Effort Sharing Decision, waarin voor Nederland een reductiepercentage wordt genoemd (16% ten opzichte van 2005) dat tot de hoogste reductiepercentages voor de EU-lidstaten behoort. Er kan derhalve van worden uitgegaan dat wat voor de Annex I-landen als geheel geldt, ten minste ook voor Nederland zou moeten gelden. (rov. 60)</para>
+          <para>De Staat heeft nog aangevoerd dat de Nederlandse emissies van broeikasgassen in absolute zin, afgezet tegen de wereldwijde uitstoot, uiterst gering van omvang zijn, dat de Staat het probleem niet alleen kan oplossen en dat de wereldgemeenschap moet meewerken. Deze argumenten zijn echter niet van dien aard dat zij het uitblijven van verdergaande daadwerkelijke actie rechtvaardigen. Weliswaar onderkent (ook) het hof dat het gaat om een probleem op wereldschaal en dat de Staat dit probleem niet in zijn eentje kan oplossen, maar dat ontslaat de Staat niet van zijn verplichting vanaf zijn grondgebied naar vermogen maatregelen te nemen die, tezamen met de inspanningen van andere staten, bescherming bieden tegen de gevaren van ernstige klimaatverandering. (rov. 61 en 62)</para>
+          <para>De omstandigheid dat volstrekte wetenschappelijke zekerheid over de doeltreffendheid van het bevolen reductiescenario ontbreekt, betekent, gelet op het in acht te nemen voorzorgsbeginsel, niet dat de Staat gerechtigd is om maatregelen achterwege te laten. Voldoende is de vergaande aannemelijkheid van die doeltreffendheid. (rov. 63)</para>
+          <para>Voor het geven van een bevel is voldoende dat er een reële dreiging is van gevaar waartegen maatregelen moeten worden getroffen. Vast staat dat daarvan sprake is. Daar komt bij dat indien de opvatting van de Staat zou worden gevolgd, een effectief rechtsmiddel tegen een wereldomvattend probleem als het onderhavige zou ontbreken. Elke aangesproken Staat zou dan immers kunnen betogen dat hij geen maatregelen hoeft te nemen zolang andere staten dat niet ook doen. Een dergelijke consequentie kan niet worden aanvaard, te meer nu het voor Urgenda ook niet mogelijk is alle in aanmerking komende staten voor de Nederlandse rechter te dagen. (rov. 64)</para>
+          <para>Omtrent het beroep op het ontbreken van de vereiste relativiteit in de zin van art. 6:163 BW stelt het hof voorop dat het in deze procedure om een bevelsactie gaat en niet om een schadevergoedingsactie. De geschonden normen (de art. 2 en 8 EVRM) strekken wel degelijk ter bescherming van (de achterban van) Urgenda. (rov. 65)</para>
+          <para>De Staat betoogt dat niet moet worden getornd aan het stelsel van machtenscheiding, omdat niet de rechter, maar de democratisch gelegitimeerde overheid de aangewezen instantie is om de met de te nemen maatregelen samenhangende beleidskeuzes te maken. Dit standpunt wordt in deze zaak verworpen, reeds omdat er sprake is van schending van mensenrechten door de Staat waardoor maatregelen zijn geboden, terwijl het reductiebevel aan de Staat voldoende ruimte geeft om in te vullen op welke wijze hij uitvoering geeft aan dit bevel. (rov. 67)</para>
+          <para>De rechtbank heeft met juistheid overwogen dat de vordering van Urgenda niet strekt tot het tot stand brengen van wetgeving (hetzij in formele hetzij in materiële zin) en dat de Staat de volledige vrijheid houdt om te bepalen op welke wijze hij aan het gevorderde bevel uitvoering geeft. Het bevel schrijft ook op geen enkele wijze voor welke inhoud deze wetgeving zou moeten hebben. Reeds hierom is van een ‘bevel tot wetgeving’ geen sprake. Daar komt bij dat de Staat niet voldoende gemotiveerd heeft onderbouwd waarom uitvoering van het opgelegde bevel slechts mogelijk is door het tot stand brengen van formele of materiële wetgeving. (rov. 68)</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">Conclusie van het hof</emphasis>
+          </para>
+          <para>Uit het voorgaande volgt dat de Staat tot nu toe te weinig heeft gedaan om een gevaarlijke klimaatverandering te voorkomen en te weinig doet om deze achterstand in te halen, althans op de korte termijn (tot eind 2020). Doelstellingen voor 2030 en daarna kunnen niet wegnemen dat een gevaarlijke situatie dreigt te ontstaan die vereist dat nu wordt ingegrepen. Naast de risico’s zijn in dat verband ook de maatschappelijke kosten van belang. Naarmate er later wordt ingezet op reductie neemt het carbon budget sneller af en moeten op dat latere tijdstip aanzienlijk verdergaande maatregelen worden genomen, zoals de Staat erkent, om uiteindelijk in 2050 het gewenste niveau van 95% reductie te bereiken. (rov. 71)</para>
+          <para>De Staat kan zich niet verschuilen achter de reductiedoelstelling van 20% in 2020 in EU-verband. In de eerste plaats acht ook de EU vanuit klimaatwetenschappelijk oogpunt een grotere reductie in 2020 noodzakelijk. Daarbij komt dat de EU als geheel naar verwachting zal uitkomen op een reductie van 26-27% in 2020; veel hoger dus dan de overeengekomen 20%. Verder weegt mee dat Nederland als Annex I-land in het verleden telkenmale de ernst van de klimaatsituatie heeft onderschreven en, met name op basis van klimaatwetenschappelijke argumenten, jarenlang is uitgegaan van een reductie per 2020 van 25% tot 40%, met een concreet beleidsdoel van 30% tegen dat tijdstip. Na 2011 is dit beleidsdoel teruggebracht tot 20% per 2020 in EU-verband, zonder wetenschappelijke onderbouwing en ondanks het feit dat steeds meer bekend werd over de ernstige gevolgen van de uitstoot van broeikasgassen voor de opwarming van de aarde. (rov. 72)</para>
+          <para>Op grond hiervan is het hof van oordeel dat de Staat zijn op de art. 2 en 8 EVRM gebaseerde zorgplicht schendt door niet per eind 2020 ten minste 25% te willen reduceren. Een reductie van 25% moet als een minimum worden beschouwd, waarbij recente inzichten over een nog verdergaande reductie in verband met de 1,5 °C-graden doelstelling nog buiten beschouwing zijn gelaten. Er bestaat een reële kans dat de reductie in 2020 (substantieel) lager uitkomt dan 25%. Een dergelijke onzekerheidsmarge is niet acceptabel. Nu er verder duidelijke aanwijzingen zijn dat de huidige maatregelen ontoereikend zullen zijn om een gevaarlijke klimaatverandering te voorkomen (dus nog los van de vraag of het huidige beleid daadwerkelijk zal worden uitgevoerd), dient mede op grond van het voorzorgsbeginsel voor maatregelen te worden gekozen die wel veilig zijn, althans zo veilig mogelijk zijn. Tegen een dergelijke onzekerheidsmarge verzetten zich ook de zeer grote gevaren die een stijging van de temperatuur met 2 °C of 1,5 °C, laat staan een hogere stijging, meebrengen, welke gevaren de Staat niet heeft bestreden. (rov. 73)</para>
+        </parablock>
+        <para />
+        <para />
+      </paragroup>
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>3</nr>De cassatieklachten van de Staat; wijze van behandeling van die klachten</title>
+    <paragroup>
+      <nr>3.1</nr>
+      <para>Het cassatiemiddel van de Staat bestaat uit negen onderdelen, die ieder meerdere cassatieklachten bevatten. De klachten stellen, samengevat weergegeven, het volgende aan de orde.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.2</nr>
+      <para>De onderdelen 1 en 2 zijn gericht tegen de uitleg die het hof heeft gegeven aan de art. 2 en 8 EVRM. Volgens de Staat kan aan deze bepalingen in dit geval om diverse redenen geen bescherming worden ontleend, althans heeft het hof onvoldoende vastgesteld om te kunnen oordelen dat dit wel het geval is<emphasis role="italic">.</emphasis> Volgens onderdeel 1 heeft het hof voorts de beoordelingsvrijheid miskend die het EHRM in verband met deze bepalingen aan de nationale staten laat. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.3</nr>
+      <para>Onderdeel 3 voert aan dat de rechten van de art. 2 en 8 EVRM zich niet lenen voor een bundeling als vereist is voor het kunnen instellen van een vordering op grond van art. 3:305a BW. Het hof had Urgenda daarom niet-ontvankelijk moeten verklaren in haar vordering voor zover die is gebaseerd op de art. 2 en 8 EVRM. Volgens het onderdeel garanderen die bepalingen alleen individuele rechten en beschermen zij niet de samenleving als geheel.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.4</nr>
+      <parablock>
+        <para>De onderdelen 4-8 voeren het volgende aan. De Staat is juridisch niet gebonden aan een reductiedoelstelling van 25% in 2020. Deze reductiedoelstelling is geen door de Staat overeengekomen of internationaal aanvaarde norm. De Staat is in internationaal en Europees verband wél gebonden aan een reductie van 20% in 2020 door de EU als geheel. Dit percentage zal door de EU ruimschoots worden gehaald (namelijk met een reductie van 26 à 27%). </para>
+        <para>	De reductiedoelstelling van 25% in 2020 is voorts niet in feitelijke zin noodzakelijk voor de verwezenlijking van de tweegradendoelstelling. Die noodzaak volgt niet uit de rapporten van het IPCC. De bevolen extra reductie door Nederland in 2020 heeft geen meetbaar effect op de mondiale temperatuurstijging.</para>
+        <para>Bovendien is de reductiedoelstelling van 25% in 2020 ooit voorgesteld als doelstelling voor een groep rijke landen als geheel (de zogenaamde Annex I-landen waartoe Nederland behoort) en niet als een doelstelling voor een individueel land zoals Nederland. Nederland alleen kan het wereldwijde klimaatprobleem ook niet oplossen. Voorts is de reductiedoelstelling van 25% in 2020 achterhaald door AR5, net als het onderscheid tussen Annex I-landen en andere landen.</para>
+        <para>Het hof heeft een en ander miskend dan wel met een en ander niet naar behoren rekening gehouden. Bovendien heeft het hof miskend dat het aan de Staat is om te bepalen welk reductiepad hij volgt. Het hof is ten onrechte in de terzake aan de Staat toekomende beoordelingsruimte getreden.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.5</nr>
+      <para>Onderdeel 9 stelt tot slot twee kwesties aan de orde. In de eerste plaats klaagt het dat het door het hof bekrachtigde bevel van de rechtbank neerkomt op een bevel tot wetgeving, welk bevel de rechtspraak van de Hoge Raad niet toelaat. Hiernaast voert dit onderdeel aan dat het hof heeft miskend dat het niet de taak van de rechter is om de politieke afwegingen te maken die nodig zijn voor de besluitvorming over reductie van de uitstoot van broeikasgassen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.6</nr>
+      <para>Het middel stelt met het vorenstaande verschillende kwesties aan de orde. Die kwesties worden hierna als volgt behandeld. Eerst worden, ter inleiding<emphasis role="italic">,</emphasis> het gevaar en de gevolgen van klimaatverandering<emphasis role="italic">, </emphasis>zoals door het hof vastgesteld, nader omschreven (zie 4.1-4.8). Daarna wordt de vraag beantwoord of de art. 2 en 8 EVRM de Staat verplichten om maatregelen tegen die dreiging te nemen, zoals het hof heeft geoordeeld (zie 5.1-5.8). Vervolgens komt aan de orde tot welke concrete verplichtingen van de Staat dat kan leiden (zie 6.1-6.6). Daarna wordt besproken of de Staat gebonden is aan de 25-40%-doelstelling die voorkomt in AR4, zoals het hof heeft geoordeeld (zie 7.1-7.5.3). Tot slot wordt ingegaan op de toelaatbaarheid van het door het hof bekrachtigde bevel van de rechtbank (zie 8.1-8.3.5).</para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>4</nr>Uitgangspunten wat betreft het gevaar en de gevolgen van klimaatverandering</title>
+    <para />
+    <paragroup>
+      <nr>4.1</nr>
+      <para>Gelet op de door het hof vastgestelde, breed aanvaarde en aan de klimaatwetenschap ontleende inzichten, die tussen partijen niet in geschil zijn, komen de vaststaande feiten met betrekking tot het gevaar en de gevolgen van klimaatverandering, kort weergegeven, op het volgende neer.   </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.2</nr>
+      <para>De uitstoot van broeikasgassen, mede als gevolg van de verbranding van fossiele brandstoffen waarbij het broeikasgas CO2 vrijkomt, leidt tot een steeds hogere concentratie van die gassen in de atmosfeer. Als gevolg daarvan warmt de aarde op. Die opwarming heeft verschillende schadelijke gevolgen. Zij kan plaatselijk leiden tot extreme hitte, extreme droogte, extreme neerslag of ander extreem weer. Zij heeft voorts tot gevolg dat het ijs van gletsjers en het ijs in en nabij de poolgebieden smelt en dat de zeespiegel daardoor stijgt. Deze gevolgen doen zich voor een deel nu al voor. Ook kan die opwarming leiden tot klimaatomslagen, waarbij het klimaat op aarde of in gebieden op aarde abrupt en ingrijpend verandert (zogeheten ‘tipping points’). Dit alles leidt onder meer tot omvangrijke aantasting van ecosystemen, waardoor bijvoorbeeld de voedselvoorziening in gevaar komt, tot verlies aan grond- en leefgebied en ook tot schade aan de gezondheid en het verlies van mensenlevens. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.3</nr>
+      <para>In de klimaatwetenschap bestaat al geruime tijd een grote mate van consensus dat de opwarming van de aarde beperkt moet blijven tot maximaal 2 ºC en dat dit betekent dat de concentratie van broeikasgassen in de atmosfeer beperkt moet blijven tot maximaal 450 ppm. Inmiddels bestaat in de klimaatwetenschap het inzicht dat een veilige opwarming beperkt is tot maximaal 1,5 ºC en dat dit betekent dat de concentratie van broeikasgassen in de atmosfeer beperkt moet blijven tot maximaal 430 ppm. Boven deze concentraties bestaat in ernstige mate het gevaar dat de hiervoor in 4.2 genoemde gevolgen zich op grote schaal zullen gaan voordoen. Kortheidshalve zal de verwezenlijking van dit gevaar hierna, evenals in het arrest van het hof, worden aangeduid als een gevaarlijke klimaatverandering.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.4</nr>
+      <para>Bij onvoldoende vermindering van de uitstoot van broeikasgassen valt een gevaarlijke klimaatverandering op afzienbare termijn niet uit te sluiten. Blijkens het “Synthesis Report” AR5 van het IPCC uit 2014, dat hoort bij het hiervoor in 2.1 onder (12) genoemde rapport AR5, bestaat het gevaar dat de hiervoor in 4.2 genoemde ‘tipping points’ zich voordoen, reeds bij een opwarming tussen de 1 en 2 °C “at a steepening rate”.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.5</nr>
+      <para>Het vorenstaande wordt, zoals volgt uit de hiervoor in 2.1 onder (13) en verder vermelde feiten, internationaal onder ogen gezien. In 1992 is het VN-Klimaatverdrag tot stand gekomen, dat het terugbrengen van de uitstoot van broeikasgassen ten doel heeft. Sindsdien vinden jaarlijks klimaatconferenties op grond van dit verdrag plaats door het hoogste orgaan onder dat verdrag, de COP, waarin de aangesloten landen vertegenwoordigd zijn. Op die conferenties wordt telkens onderschreven dat vermindering van de uitstoot van broeikasgassen dringend noodzakelijk is en wordt telkens opgeroepen om tot die vermindering over te gaan. Op een aantal conferenties zijn ook concrete afspraken over die vermindering gemaakt. Het hiervoor in 4.3 genoemde inzicht dat de opwarming van de aarde beperkt moet blijven tot maximaal 2 ºC en dat de concentratie van broeikasgassen in de atmosfeer beperkt moet blijven tot maximaal 450 ppm om een gevaarlijke klimaatverandering te voorkomen, is onderschreven door het IPCC en de COP. Het inzicht dat een veilige opwarming beperkt is tot maximaal 1,5 ºC en dat dit betekent dat de concentratie van broeikasgassen in de atmosfeer beperkt moet blijven tot maximaal 430 ppm, is opgenomen in het op het VN-Klimaatverdrag berustende Akkoord van Parijs uit 2015, dat ondertekend is door meer dan 190 landen, waaronder Nederland.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.6</nr>
+      <parablock>
+        <para>De noodzaak van vermindering van de uitstoot van broeikasgassen wordt steeds dringender. Iedere uitstoot van broeikasgassen leidt tot een verhoging van de concentratie van broeikasgassen in de atmosfeer en draagt dus bij aan het bereiken van de als kritisch aangemerkte grenzen van 450 en 430 ppm. De begrensdheid van de resterende ruimte (het ‘carbon budget’, zie hiervoor in 2.1 onder (7)) betekent dat ieder uitstel van de vermindering van de uitstoot tot gevolg heeft dat de vermindering van uitstoot in de toekomst navenant omvangrijker zal moeten zijn om binnen het resterende carbon budget te blijven. </para>
+        <para>Het UNEP vermeldt in zijn jaarrapporten het verschil tussen de uitstoot op basis van de door de landen aan de VN opgegeven doelstelling van hun vermindering van uitstoot – waarbij ervan wordt uitgegaan dat die doelstellingen worden gehaald – en de wenselijke uitstoot (de hiervoor in 2.1 onder (22) genoemde ‘emissions gap’). In het jaarrapport 2017 van het UNEP is vermeld dat in het licht van het Akkoord van Parijs de reductie van de uitstoot van broeikasgassen nu dringender is dan ooit. Het UNEP merkt op dat als de emissions gap niet is ingehaald tegen 2030, het uiterst onwaarschijnlijk is dat de doelstelling van een maximale opwarming met 2 ºC nog kan worden gerealiseerd.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.7</nr>
+      <para>Het hof heeft aan de hiervoor vermelde feiten in rov. 45 de alleszins begrijpelijke slotsom verbonden dat sprake is “van een reële dreiging van een gevaarlijke klimaatverandering, waardoor er een ernstig risico bestaat dat de huidige generatie ingezetenen zal worden geconfronteerd met verlies van leven en/of verstoring van het gezinsleven”. Het hof heeft voorts vastgesteld (in rov. 37) dat het “zonder meer aannemelijk [is] dat reeds de huidige generatie Nederlanders, met name doch niet uitsluitend de jongeren onder hen, tijdens hun leven te maken zullen krijgen met de nadelige gevolgen van klimaatverandering indien de wereldwijde uitstoot van broeikasgassen niet adequaat wordt teruggedrongen.”</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.8</nr>
+      <para>Nederland is partij bij het VN-Klimaatverdrag en het Akkoord van Parijs en de Staat erkent de hiervoor vermelde feiten. De Staat bestrijdt de hiervoor in 4.7 genoemde conclusie van het hof niet en onderschrijft de dringende noodzaak van het nemen van maatregelen om de uitstoot van broeikasgassen te verminderen. De Staat bestrijdt evenmin dat hij gehouden is een bijdrage te leveren aan die vermindering van de uitstoot. De Staat bestrijdt echter wel dat de art. 2 en 8 EVRM hem verplichten tot het nemen van deze maatregelen, zoals het hof heeft geoordeeld, en dat hij op grond van die verdragsbepalingen gehouden is om ervoor te zorgen dat de uitstoot van broeikasgassen per eind 2020 is verminderd met 25% ten opzichte van 1990. </para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>5</nr>Verplichten de art. 2 en 8 EVRM de Staat tot het nemen van maatregelen?</title>
+    <para />
+    <paragroup>
+      <nr>5.1</nr>
+      <para>Volgens de Staat volgt uit de art. 2 en 8 EVRM niet dat hij verplicht is om bescherming te bieden tegen de reële dreiging van een gevaarlijke klimaatverandering. De Staat betoogt dat dit gevaar niet voldoende specifiek is om onder de bescherming van de art. 1, 2 en 8 EVRM te vallen. Daartoe voert hij aan dat het gevaar van mondiale aard is, dat wil zeggen zowel een mondiale oorzaak als een mondiale omvang heeft, en bovendien het milieu betreft, dat volgens de Staat als zodanig niet wordt beschermd door het EVRM.  </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">(a)	Betekenis van de art. 1, 2 en 8 EVRM; positieve verdragsverplichtingen</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <paragroup>
+        <nr>5.2.1</nr>
+        <para>Art. 1 EVRM bepaalt dat de verdragsluitende partijen van eenieder die ressorteert onder hun rechtsmacht, de rechten en vrijheden verzekeren die zijn vastgesteld in de Eerste Titel van het Verdrag. De bescherming van het EVRM betreft dus de personen die onder de rechtsmacht van de staten vallen. In het geval van Nederland gaat het daarbij in de eerste plaats, en voor zover in deze zaak van belang, om de ingezetenen van Nederland.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.2.2</nr>
+        <para>Art. 2 EVRM beschermt het recht op leven. Volgens vaste rechtspraak van het EHRM behelst deze bepaling mede de positieve verplichting van een verdragsstaat om passende maatregelen te nemen om het leven te beschermen van eenieder die onder zijn rechtsmacht valt (“to take appropriate steps to safeguard the lives of those within its jurisdiction”).<footnote-ref linkend="_1dbc4324-f7da-4cad-8206-747417da471f" /> Deze verplichting geldt volgens die rechtspraak onder meer als sprake is van gevaarlijke industriële activiteiten, ongeacht of deze door de overheid zelf of door anderen worden verricht, en ook met betrekking tot natuurrampen. Het EHRM heeft diverse malen een schending van art. 2 EVRM aangenomen ter zake van het handelen of nalaten van een staat in het kader van een natuur- of milieuramp.<footnote-ref linkend="_03c046d7-9601-4df5-b592-680b7a8dd337" /> De gehoudenheid tot het nemen van passende maatregelen bestaat als er een ‘real and immediate risk’ voor personen is en de betrokken staat van dat gevaar op de hoogte is. Onder ‘real and immediate risk’ valt in dit verband te verstaan een gevaar dat reëel en direct is. Het begrip ‘immediate’ ziet niet op de onmiddellijkheid van het gevaar in de betekenis dat sprake moet zijn van een kort tijdsverloop tot de verwezenlijking ervan, maar in de betekenis dat sprake moet zijn van een gevaar dat de betrokken personen rechtstreeks bedreigt. De bescherming van art. 2 EVRM ziet ook op gevaren die zich pas op langere termijn kunnen verwezenlijken.<footnote-ref linkend="_cfbe94df-3551-4e29-9f2d-b7c72e6d3812" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.2.3</nr>
+        <para>Art. 8 EVRM beschermt het recht op eerbiediging van het privé-, familie- en gezinsleven. Deze bepaling heeft ook betrekking op milieukwesties. Het EVRM houdt weliswaar geen recht in op bescherming van de leefomgeving in het algemeen, maar in gevallen waarin de verwezenlijking van milieugevaren rechtstreeks gevolgen heeft voor het privéleven en voldoende ernstig is, kan volgens de rechtspraak van het EHRM bescherming worden ontleend aan art. 8 EVRM, zelfs zonder dat hiervoor is vereist dat de gezondheid van de betrokken persoon wordt bedreigd. Volgens die rechtspraak behelst art. 8 EVRM in milieukwesties de positieve verplichting van een verdragsstaat om redelijke en passende maatregelen (“reasonable and appropriate measures”) te nemen ter bescherming van individuen tegen mogelijk ernstige milieuschade (“serious damage to their environment”). Het EHRM heeft in diverse gevallen van milieuschade een schending van art. 8 EVRM aangenomen.<footnote-ref linkend="_d3e8187f-2303-47e4-b0f8-56ee34324cdb" /> De gehoudenheid tot het nemen van maatregelen bestaat als het risico aanwezig is van een ernstige milieuverontreiniging die het welzijn van personen kan aantasten (“may affect individuals well-being and prevent them from enjoying their homes in such a way as to affect their private and family life adversely”). Dat risico behoeft niet op korte termijn te bestaan.<footnote-ref linkend="_2be0d5fd-0123-4356-8cd1-fab9053b5e9c" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.2.4</nr>
+        <para>De positieve verplichting die voortvloeit uit art. 8 EVRM, overlapt volgens het EHRM wat betreft activiteiten die gevaarlijk zijn voor de omgeving, grotendeels met die welke voortvloeit uit art. 2 EVRM. De rechtspraak over eerstgenoemde verplichting is daarom ook van toepassing op laatstgenoemde verplichting.<footnote-ref linkend="_c3419dd0-50bc-411a-bb4b-07bce5e4e2f7" /> Van een staat worden bij voor de omgeving gevaarlijke activiteiten op grond van art. 8 EVRM dezelfde maatregelen verwacht als die welke hij zou moeten nemen op grond van art. 2 EVRM.<footnote-ref linkend="_8298962a-74fa-441a-a544-b8245768ba98" /> In het navolgende zullen de verplichtingen die uit de art. 2 en 8 EVRM voortvloeien, dan ook gezamenlijk worden weergegeven.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.3.1</nr>
+        <para>De bescherming van de art. 2 en 8 EVRM ziet niet alleen op specifieke personen, maar ook op de samenleving of bevolking als geheel.<footnote-ref linkend="_70df719a-8a34-4528-b7d9-2683dc07079c" /> Van dat laatste is onder meer sprake als het gaat om milieugevaren.<footnote-ref linkend="_7a5869a0-3a68-48ac-86ad-c7e8b3766556" /> Bij milieugevaren die een geheel gebied bedreigen, bieden de art. 2 en 8 EVRM bescherming aan de ingezetenen van dat gebied.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.3.2</nr>
+        <parablock>
+          <para>De verplichting om op grond van de art. 2 en 8 EVRM passende maatregelen te nemen, houdt mede in dat staten gehouden zijn om preventief maatregelen te nemen tegen het gevaar, ook als niet zeker is dat het gevaar zich zal verwezenlijken.<footnote-ref linkend="_0d84bbaf-deda-4cc5-893f-b5d8850d5f79" /> Dit strookt met het voorzorgsbeginsel.<footnote-ref linkend="_c4804963-b7a5-4b21-bdbc-a1638882bb25" /> Als duidelijk is dat het hiervoor in 5.2.2 en 5.2.3 bedoelde ‘real and immediate risk’ bestaat, hebben de staten, zonder dat hun daarbij een ‘margin of appreciation’ toekomt, een verplichting tot het nemen van passende maatregelen. De staten hebben wel vrijheid bij de keuze van de te nemen maatregelen, zij het dat deze daadwerkelijk redelijk en geschikt moeten zijn.<footnote-ref linkend="_6d3594ce-acc7-4f51-aa16-07279994fe3a" /></para>
+          <para>De verplichting op grond van de art. 2 en 8 EVRM om passende maatregelen te nemen tegen een dreigend gevaar, kan zien op zowel zogenoemde mitigatiemaatregelen (maatregelen om de verwezenlijking van het gevaar te voorkomen) als adaptatiemaatregelen (maatregelen om de gevolgen van die verwezenlijking op te vangen of te verzachten). Welke maatregelen in het gegeven geval passend zijn, hangt blijkens de rechtspraak van het EHRM af van de omstandigheden van dat geval.<footnote-ref linkend="_a335f334-0674-4da0-b378-d6cdaca3b706" /></para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.3.3</nr>
+        <para>De rechter kan onderzoeken of de maatregelen die een staat neemt, redelijk en geschikt zijn. Het beleid dat een staat bij het nemen van maatregelen voert, moet consistent zijn en de staat moet de maatregelen tijdig nemen. Een staat moet bij zijn beleid ‘due diligence’ in acht nemen.<footnote-ref linkend="_8a4d537b-d045-4f2a-99ae-38d71af956bd" /> De rechter kan nagaan of het gevoerde beleid voldoet aan deze eisen. In de rechtspraak van het EHRM is meermalen geoordeeld dat het beleid van een staat is tekortgeschoten dan wel dat een staat onvoldoende heeft onderbouwd dat dit niet het geval is.<footnote-ref linkend="_69dd1388-2df0-4312-8005-19c92de5ef7a" /> In de uitspraak Jugheli e.a./Georgië<footnote-ref linkend="_a33a7348-9f46-48d2-b99e-d7e3ace3a41a" /> overweegt het EHRM bijvoorbeeld:</para>
+        <para />
+        <parablock>
+          <para>“76. The Court reiterates that it is not its task to determine what exactly should have been done in the present situation to reduce the impact of the plant’s activities upon the applicants in a more efficient way. However, it is within the Court’s jurisdiction to assess whether the Government approached the problem with due diligence and gave consideration to all the competing interests. In this respect the Court reiterates that the onus is on the State to justify, using detailed and rigorous data, a situation in which certain individuals bear a heavy burden on behalf of the rest of the community (see Fadeyeva, cited above, § 128). Looking at the present case from this perspective, the Court notes that the Government did not present to the Court any relevant environmental studies or documents informative of their policy towards the plant and the air pollution emanating therefrom that had been affecting the applicants during the period concerned.”</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.3.4</nr>
+        <para>De art. 2 en 8 EVRM mogen niet ertoe leiden dat een onmogelijke of in de gegeven omstandigheden onevenredige last op de staten wordt gelegd.<footnote-ref linkend="_8e20cdb3-c053-4c7b-bd00-a55022738b77" /> Als een staat redelijke en geschikte maatregelen heeft genomen, brengt het enkele feit dat deze maatregelen het gevaar niet hebben kunnen afwenden, niet mee dat hij is tekortgeschoten in de op hem rustende verplichting. De verplichtingen die voorvloeien uit de art. 2 en 8 EVRM zien op de door een staat te nemen maatregelen, niet op (het garanderen van) het behalen van het daarmee te bereiken resultaat.<footnote-ref linkend="_15cf40af-bf08-4a5d-b858-8c8d9aa3046b" /></para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(b)	Uitlegmaatstaven EVRM; ‘common ground’</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.4.1</nr>
+        <para>Volgens vaste rechtspraak van het EHRM moeten de bepalingen van het EVRM zo worden uitgelegd en toegepast, dat de daarin gewaarborgde rechten praktisch en effectief zijn. Dit ‘effectiviteitsbeginsel’ volgt volgens het EHRM uit “the object and purpose of the Convention as an instrument for the protection of individual human beings”.<footnote-ref linkend="_a76f17f4-5437-4d79-8220-7c9e5d45dd22" />Dit betreft mede een toepassing van art. 31 lid 1 van het Verdrag van Wenen inzake het verdragenrecht,<footnote-ref linkend="_c66115ce-660f-4c47-98e9-512a8f46dd98" /> dat bepaalt dat een verdrag te goeder trouw moet worden uitgelegd overeenkomstig de gewone betekenis van de termen daarvan in hun context en in het licht van voorwerp en doel daarvan.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.4.2</nr>
+        <para>Bij de uitleg van het EVRM dient volgens de rechtspraak van het EHRM voorts rekening te worden gehouden met relevante regels van internationaal recht als bedoeld in art. 31 lid 3, onder c, van het Verdrag van Wenen inzake het verdragenrecht. Zo overwoog het EHRM in de uitspraak Nada/Zwitserland:<footnote-ref linkend="_fb37443f-e23b-439c-bd4e-fa7d948f2379" /></para>
+        <para />
+        <parablock>
+          <para>“169. Moreover, the Court reiterates that the Convention cannot be interpreted in a vacuum but must be interpreted in harmony with the general principles of international law. Account should be taken, as indicated in Article 31 § 3 (c) of the 1969 Vienna Convention on the Law of Treaties, of “any relevant rules of international law applicable in the relations between the parties”, and in particular the rules concerning the international protection of human rights (…).”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>Voorts dient, overeenkomstig art. 31 lid 3, aanhef en onder b, van het Verdrag van Wenen inzake het verdragenrecht, bij de uitleg van verdragsbepalingen rekening te worden gehouden met de toepassingspraktijk in de lidstaten. </para>
+          <para>In de uitspraak Demir en Baykara/Turkije<footnote-ref linkend="_8ce8a161-fabc-4cb0-afc0-864c17e257ad" /> heeft het EHRM in overeenstemming met het voorgaande overwogen:</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>“85. The Court, in defining the meaning of terms and notions in the text of the Convention, can and must take into account elements of international law other than the Convention, the interpretation of such elements by competent organs, and the practice of European States reflecting their common values. The consensus emerging from specialised international instruments and from the practice of contracting States may constitute a relevant consideration for the Court when it interprets the provisions of the Convention in specific cases.</para>
+          <para>86.	 In this context, it is not necessary for the respondent State to have ratified the entire collection of instruments that are applicable in respect of the precise subject matter of the case concerned. It will be sufficient for the Court that the relevant international instruments denote a continuous evolution in the norms and principles applied in international law or in the domestic law of the majority of member States of the Council of Europe and show, in a precise area, that there is common ground in modern societies (…).”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>In dit verband wordt wel, overeenkomstig het slot van de hier geciteerde overwegingen, gesproken van de ‘common ground-methode’ bij de uitleg van het EVRM.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.4.3</nr>
+        <para>Blijkens de rechtspraak van het EHRM dient bij de uitleg en toepassing van het EVRM voorts rekening te worden gehouden met wetenschappelijke inzichten en algemeen aanvaarde standaarden.<footnote-ref linkend="_86bd12e5-ae60-4039-bd20-f56ea3bddc5a" /></para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(c)	Art. 13 EVRM</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.5.1</nr>
+        <para>Bij de uitleg van de art. 2 en 8 EVRM is mede art. 13 EVRM van belang, dat inhoudt dat in geval van schending van de rechten en vrijheden van het EVRM, recht bestaat op een daadwerkelijk rechtsmiddel (‘an effective remedy’) voor een nationale instantie. Volgens de rechtspraak van het EHRM garandeert deze bepaling op nationaal niveau het bestaan van een middel om die rechten en vrijheden af te dwingen. Het nationale recht moet daarom in gevallen waarin mogelijk sprake is van een schending van die rechten en vrijheden (in geval van een ‘arguable complaint’ daarover), een rechtsmiddel bieden om daartegen naar behoren op te komen en een passende voorziening te krijgen (‘appropriate relief’). De reikwijdte van deze verplichting hangt af van de aard van de schending. Het middel moet zowel praktisch als juridisch effectief (‘effective’) zijn.<footnote-ref linkend="_180d6968-f13b-49fe-893f-9a6a24a5a8ee" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.5.2</nr>
+        <para>Er is sprake van een effectief rechtsmiddel in de zin van art. 13 EVRM als de schending daarmee kan worden voorkomen dan wel beëindigd of als het rechtsmiddel adequaat rechtsherstel biedt voor een schending die al heeft plaatsgevonden. Bij ernstiger schendingen moeten de beschikbare rechtsmiddelen in beide voorzien, dus zowel in het voorkomen of beëindigen van de schending als in rechtsherstel.<footnote-ref linkend="_80ad9dee-29ef-4a3f-a40f-b00b157159b8" /> De nationale staten zijn dus gehouden te voorzien in middelen waarmee ernstiger schendingen effectief kunnen worden voorkomen.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.5.3</nr>
+        <para>Het rechtsmiddel dient erin te voorzien dat de vraag of sprake is van een schending van de rechten en vrijheden van het EVRM, door de nationale rechter wordt onderzocht en beoordeeld overeenkomstig de regels van het EVRM en de uitleg die het EHRM daaraan heeft gegeven.<footnote-ref linkend="_074b5473-e7df-424d-8902-a27af74e5f73" /> Kortom: er moet effectieve rechtsbescherming worden geboden tegen mogelijke schendingen van de rechten en vrijheden van het EVRM.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(d)	Zijn de art. 2 en 8 EVRM van toepassing op het mondiale probleem van het gevaar van klimaatverandering? </emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.6.1</nr>
+        <para>Op grond van de art. 93 en 94 Grondwet dient de Nederlandse rechter de eenieder verbindende bepalingen van het EVRM toe te passen. Omdat Nederland met het EVRM ook gebonden is aan de rechtsmacht van het EHRM (art. 32 EVRM), dient de Nederlandse rechter uit te gaan van de uitleg die het EHRM aan die bepalingen heeft gegeven, dan wel zelf die bepalingen uit te leggen met toepassing van de uitlegmaatstaven van het EHRM.<footnote-ref linkend="_08be9649-6e56-44b1-9898-6fef674c8ac8" /> Het hiervoor in 5.2.1-5.5.3 overwogene moet voor de Nederlandse rechter dan ook uitgangspunt zijn.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.6.2</nr>
+        <para>Op grond van het hiervoor in 5.2.1-5.3.4 overwogene is geen andere conclusie mogelijk dan dat de Staat op grond van de art. 2 en 8 EVRM gehouden zou zijn om maatregelen te nemen tegen de reële dreiging van een gevaarlijke klimaatverandering, als dit slechts een nationaal probleem zou betreffen. Gelet op het hiervoor in 4.2-4.7 overwogene gaat het hierbij immers om een ‘real and immediate risk’ als hiervoor in 5.2.2 bedoeld en is hierbij het risico aanwezig van een ernstige aantasting van het leven en welzijn van ingezetenen van Nederland. Dit geldt onder meer voor de mogelijkheid van een sterke stijging van de zeespiegel, waardoor Nederland voor een deel onbewoonbaar kan worden. De omstandigheid dat dit risico zich eerst over enkele decennia zal kunnen realiseren en geen specifieke (groep van) personen betreft maar grote delen van de bevolking, brengt, anders dan de Staat aanvoert, niet mee dat de art. 2 en 8 EVRM geen bescherming zouden bieden tegen deze dreiging (zie hiervoor in 5.3.1 en het slot van 5.2.2 en 5.2.3). Dit strookt met het voorzorgsbeginsel (zie hiervoor in 5.3.2). Reeds het bestaan van een voldoende reële mogelijkheid van verwezenlijking van dit risico brengt derhalve mee dat passende maatregelen dienen te worden genomen. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.6.3</nr>
+        <para>Zoals de Staat heeft aangevoerd, heeft het EHRM nog geen uitspraken gedaan die betrekking hebben op klimaatverandering of op gevallen die de bijzondere kenmerken hebben die bij klimaatverandering aan de orde zijn. Die kenmerken zijn, kort gezegd, dat het gaat om de gevaren van een wereldwijd plaatsvindende activiteit – de uitstoot van broeikasgassen overal ter wereld en dus niet alleen de uitstoot vanaf Nederlands grondgebied –, waarvan de gevolgen ook wereldwijd worden ondervonden, onder meer in Nederland. De vraag is of het wereldwijde karakter van de uitstoot en van de gevolgen daarvan meebrengt dat geen bescherming kan worden ontleend aan de art. 2 en 8 EVRM, zodat die bepalingen voor dit geval dus geen verplichting op de Staat leggen. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.6.4</nr>
+        <para>Het antwoord op deze vraag acht de Hoge Raad voldoende duidelijk. Hij zal dan ook zelf het antwoord op deze vraag geven en deze niet voor een zogeheten ‘advisory opinion’ voorleggen aan het EHRM, zoals op grond van het op 1 juni 2019 in werking getreden Protocol nr. 16 bij het EVRM mogelijk is, maar niet verplicht. Daarbij komt dat beide partijen de Hoge Raad hebben verzocht om nog in 2019 uitspraak te doen, dit met het oog op het tijdstip waarop het door het hof bekrachtigde bevel van de rechtbank betrekking heeft, het einde van 2020.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(e)	Gezamenlijke verantwoordelijkheid van staten en deelverantwoordelijkheid van individuele staten</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.1</nr>
+        <para>Het antwoord op de hiervoor in 5.6.3 genoemde vraag luidt naar het oordeel van de Hoge Raad dat Nederland op grond van de art. 2 en 8 EVRM verplicht is om ‘het zijne’ te doen om een gevaarlijke klimaatverandering te voorkomen, ook al betreft het een mondiaal probleem. Daarvoor bestaan de volgende gronden. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.2</nr>
+        <para>Het VN-Klimaatverdrag berust op de gedachte dat klimaatverandering een wereldwijd probleem is dat wereldwijd moet worden opgelost. Waar van het grondgebied van alle landen uitstoot van broeikasgassen plaatsvindt en alle landen daarvan schade ondervinden, zullen door alle landen maatregelen moeten worden genomen. Alle landen zullen dus het nodige moeten doen. In de preambule van dit verdrag is in dit verband onder meer vooropgesteld:</para>
+        <para />
+        <parablock>
+          <para>“Acknowledging that the global nature of climate change calls for the widest possible cooperation by all countries and their participation in an effective and appropriate international response, in accordance with their common but differentiated responsibilities and respective capabilities and their social and economic conditions, (…).</para>
+          <para>Recalling also that States have (…) the responsibility to ensure that activities within their jurisdiction or control do not cause damage to the environment of other States or of areas beyond the limits of national jurisdiction.”</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.3</nr>
+        <para>Doel van het VN-Klimaatverdrag is een stabilisering van de concentraties van broeikasgassen in de atmosfeer op een niveau waarop een gevaarlijke, door de mens veroorzaakte verstoring van het klimaatsysteem wordt voorkomen (art. 2). Art. 3 bevat diverse ‘principles’ om dit doel te bereiken. Zo houdt art. 3 lid 1 in dat partijen “het klimaatsysteem [dienen te] beschermen ten behoeve van huidige en toekomstige generaties, op basis van billijkheid en in overeenstemming met hun gezamenlijke, doch verschillende, verantwoordelijkheden en onderscheiden mogelijkheden”. Art. 3 lid 3 houdt in dat partijen “voorzorgsmaatregelen [dienen te] nemen om te anticiperen op de oorzaken van klimaatverandering, dan wel deze te voorkomen of in te perken, en de nadelige gevolgen daarvan te beperken”. En art. 4 bepaalt, kort gezegd, dat alle partijen terzake maatregelen zullen nemen en beleid zullen ontwikkelen. Uit deze bepalingen volgt dat op iedere staat de verplichting rust het nodige te doen in overeenstemming met zijn specifieke verantwoordelijkheden en mogelijkheden.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.4</nr>
+        <para>Op de jaarlijkse klimaatconferenties die op grond van het VN-Klimaatverdrag sinds 1992 hebben plaatsgevonden, is het hiervoor in 5.7.3 vermelde verder uitgewerkt in diverse COP-besluiten. Deze berusten telkens in de allereerste plaats op een onderschrijving van het hiervoor genoemde inzicht: alle landen moeten het nodige doen. In art. 3 en volgende van het Akkoord van Parijs uit 2015 is dit opnieuw met zoveel woorden neergelegd.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.5</nr>
+        <para>Dat inzicht stemt overeen met het zogenoemde ‘no harm’-beginsel, een algemeen aanvaard beginsel van internationaal recht dat inhoudt dat landen elkaar geen schade mogen berokkenen. Daarnaar wordt in de preambule van het VN-Klimaatverdrag (in het hiervoor in 5.7.2 geciteerde gedeelte) dan ook verwezen. Landen zijn op de uit dit beginsel voortvloeiende plicht individueel aan te spreken. Toegepast op de uitstoot van broeikasgassen betekent dit dat zij erop kunnen worden aangesproken om hun aandeel te leveren in de vermindering van de uitstoot van broeikasgassen. Deze benadering rechtvaardigt deelverantwoordelijkheid: ieder land is voor zijn deel verantwoordelijk en is dus ook daarop aan te spreken.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.6</nr>
+        <para>Deze deelverantwoordelijkheid strookt met hetgeen internationaal en nationaal wordt aangenomen bij handelingen in strijd met het recht waardoor slechts een deel van de oorzaak van de schade in het leven wordt geroepen. Deelverantwoordelijkheid is onder meer in overeenstemming met de Draft Articles on Responsibility of States for Internationally Wrongful Acts, zoals voorgesteld door de International Law Commission van de VN en aangenomen door de General Assembly van de VN. Dit blijkt bijvoorbeeld uit de toelichting op art. 47 lid 1 daarvan, waarin wordt opgemerkt:<footnote-ref linkend="_a302b1b6-0fc7-4c17-a74e-37e4824224cc" /></para>
+        <para />
+        <parablock>
+          <para>“6. According to paragraph 1 of article 47, where several States are responsible for the same internationally wrongful act, the responsibility of each State may be invoked in relation to that act. The general rule in international law is that of separate responsibility of a State for its own wrongful acts and paragraph 1 reflects this general rule. (…) </para>
+          <para>8. Article 47 only addresses the situation of a plurality of responsible States in relation to the same internationally wrongful act. The identification of such an act will depend on the particular primary obligation, and cannot be prescribed in the abstract. Of course, situations can also arise where several States by separate internationally wrongful conduct have contributed to causing the same damage. For example, several States might contribute to polluting a river by the separate discharge of pollutants. (…) In such cases, the responsibility of each participating State is determined individually, on the basis of its own conduct and by reference to its own international obligations.”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>Veel landen kennen in hun aansprakelijkheidsrecht regels die hiermee overeenstemmen.<footnote-ref linkend="_31a527dc-2e3b-42ab-93a5-662524a21bfb" /></para>
+          <para>Weliswaar brengt het hiervoor in 5.7.3 genoemde art. 3 lid 1 VN-Klimaatverdrag mee dat de verdeling van de tegen klimaatverandering te nemen maatregelen niet louter plaatsvindt op basis van verantwoordelijkheid voor uitstoot door een land in het verleden, en dat ook moet worden gelet op de mogelijkheden die de landen hebben om hun uitstoot te verminderen. Maar dat doet niet eraan af dat het onderliggende principe van deze breed aanvaarde regels steeds is dat, kort gezegd, ‘deelveroorzaking’ ook deelverantwoordelijkheid rechtvaardigt.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.7</nr>
+        <para>Mede gelet op de hiervoor in 4.2 genoemde ernstige gevolgen die een gevaarlijke klimaatverandering heeft, kan bij deze deelverantwoordelijkheid niet het verweer worden aanvaard dat een staat geen verantwoordelijkheid behoeft te nemen omdat andere landen zich niet aan hun deelverantwoordelijkheid houden. Ook het verweer dat het eigen aandeel in de wereldwijde uitstoot van broeikasgassen maar zeer gering is en een vermindering van de uitstoot vanaf het eigen grondgebied weinig verschil op mondiale schaal maakt, kan niet worden aanvaard. Aanvaarding van deze verweren zou immers ertoe leiden dat een land zich eenvoudig aan zijn deelverantwoordelijkheid zou kunnen onttrekken door te wijzen op andere landen of op zijn geringe aandeel. Als daarentegen dit verweer is uitgesloten, kan ieder land effectief worden aangesproken op zijn aandeel in de uitstoot en is de kans het grootst dat alle landen ook daadwerkelijk hun bijdrage leveren, overeenkomstig de beginselen die zijn neergelegd in de hiervoor in 5.7.2 geciteerde preambule van het VN-Klimaatverdrag. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.8</nr>
+        <para>In dit verband is nog van belang dat, blijkens hetgeen hiervoor in 4.6 is overwogen over het carbon budget, iedere reductie van de uitstoot van broeikasgassen een positief effect heeft op het tegengaan van een gevaarlijke klimaatverandering. Iedere reductie betekent immers dat meer ruimte overblijft in het carbon budget. Het verweer dat een plicht van de individuele staten om de uitstoot van broeikasgassen te verminderen, niet helpt omdat andere landen toch doorgaan met hun uitstoot, gaat ook om deze reden niet op: geen enkele reductie is verwaarloosbaar.<footnote-ref linkend="_4cd5ebd4-7737-4d27-955d-a9638a337f99" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.7.9</nr>
+        <para>Klimaatverandering bedreigt mensenrechten, zoals volgt uit hetgeen hiervoor in 5.6.2 is overwogen. Dit wordt ook buiten het verband van de Raad van Europa internationaal erkend.<footnote-ref linkend="_abcedb80-c2d1-46c3-84e5-1a533d925652" /> Om een behoorlijke bescherming te garanderen tegen de bedreiging van die rechten als gevolg van klimaatverandering, moet de mogelijkheid bestaan om ook met betrekking tot de hiervoor genoemde deelverantwoordelijkheid een beroep op die rechten te kunnen doen jegens individuele staten. Dit strookt met het hiervoor in 5.4.1 genoemde effectiviteitsbeginsel dat het EHRM hanteert bij de uitleg van het EVRM, en met het hiervoor in 5.5.1-5.5.3 genoemde, door art. 13 EVRM gewaarborgde recht op effectieve rechtsbescherming.</para>
+        <para />
+      </paragroup>
+    </paragroup>
+    <paragroup>
+      <nr>5.8</nr>
+      <para>Gelet op het hiervoor in 5.7.2-5.7.9 overwogene, dienen naar het oordeel van de Hoge Raad de art. 2 en 8 EVRM met betrekking tot het gevaar van klimaatverandering aldus te worden uitgelegd dat deze bepalingen de verdragsstaten verplichten om tegen dat gevaar ‘het hunne’ te doen. Dit vormt immers, zowel gelet op de hiervoor in 4.2-4.7 vermelde feiten, als gelet op de individuele verantwoordelijkheid van de verdragsstaten, een invulling van de in die bepalingen neergelegde positieve verplichtingen die overeenstemt met de hiervoor in 5.2.1-5.3.3 vermelde inhoud en strekking daarvan. Deze uitleg is in overeenstemming met de hiervoor in 5.4.1-5.4.3 vermelde maatstaven die het EHRM bij de uitleg van het EVRM hanteert en die ook de Hoge Raad bij die uitleg dient te hanteren.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">(f)	Kan deze verplichting op grond van de art. 2 en 8 EVRM ook worden ingeroepen bij een vordering op grond van art. 3:305a BW?  </emphasis>
+        </para>
+      </parablock>
+      <para />
+      <paragroup>
+        <nr>5.9.1</nr>
+        <para>Uit het voorgaande volgt dat de Staat, zoals het hof heeft geoordeeld, op grond van de art. 2 en 8 EVRM verplicht is om, overeenkomstig zijn aandeel zoals hiervoor in 5.8 bedoeld, passende maatregelen te nemen tegen de dreiging van een gevaarlijke klimaatverandering.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.9.2</nr>
+        <para>Urgenda kan als belangenorganisatie die in dit geding op de voet van art. 3:305a BW opkomt voor de belangen van de ingezetenen van Nederland jegens wie de hiervoor in 5.9.1 bedoelde verplichting geldt, een beroep doen op deze verplichting. De hierbij aan de orde zijnde belangen van die ingezetenen zijn immers voldoende gelijksoortig en lenen zich dan ook voor bundeling, zodat een efficiënte en effectieve rechtsbescherming ten behoeve van hen wordt bevorderd.<footnote-ref linkend="_4e9d82a5-a2a0-419a-92eb-b3dcc3444318" /> Juist bij milieubelangen zoals de onderhavige is rechtsbescherming door een dergelijke bundeling van belangen bij uitstek efficiënt en effectief.<footnote-ref linkend="_f23e427c-5e38-4703-9585-cdb2acf8ec9d" /> Dit is ook in overeenstemming met art. 9 lid 3 in verbinding met art. 2 lid 5 van het Verdrag van Aarhus,<footnote-ref linkend="_ba82e597-ac5a-44ab-a2d0-2be248536e32" /> dat belangenorganisaties toegang tot de rechter garandeert om op te komen tegen de schending van het milieurecht, en in overeenstemming met art. 13 EVRM (zie hiervoor in 5.5.1-5.5.3). </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>5.9.3</nr>
+        <parablock>
+          <para>Zoals het hof terecht heeft geoordeeld in rov. 35, doet aan de procesbevoegdheid van Urgenda niet af dat Urgenda volgens art. 34 EVRM geen klachtrecht heeft bij het EHRM nu zij zelf geen potentieel slachtoffer is van de onderhavige dreigende inbreuk op de art. 2 en 8 EVRM. Dat ontneemt Urgenda immers niet de bevoegdheid om overeenkomstig het Nederlandse recht een vordering in te stellen op de voet van art. 3:305a BW ten behoeve van de ingezetenen die wel een dergelijk slachtoffer zijn.</para>
+          <para>
+            <emphasis role="italic">(g)     Beoordeling van cassatieklachten </emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+    </paragroup>
+    <paragroup>
+      <nr>5.10</nr>
+      <para>Op het vorenstaande stuiten de klachten van de onderdelen 1-3 af. Dat geldt ook voor de klachten van onderdelen 4-8, voor zover die betrekking hebben op het oordeel van het hof dat de art. 2 en 8 EVRM voor de Staat de plicht meebrengen om maatregelen te nemen tegen een gevaarlijke klimaatverandering.</para>
+      <para />
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="bold">6.	Uitgangspunten bij beantwoording van de vraag tot welke concrete verplichting het voorgaande voor de Staat leidt</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.1</nr>
+      <para>De Staat is, zoals hiervoor is overwogen, op grond van de art. 2 en 8 EVRM jegens de ingezetenen van Nederland gehouden om, overeenkomstig zijn aandeel als hiervoor in 5.8 bedoeld, passende maatregelen te nemen om de uitstoot van broeikasgassen vanaf het Nederlandse grondgebied te beperken. Daarmee is echter nog niet de vraag beantwoord wat deze verplichting van de Staat concreet inhoudt.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.2</nr>
+      <para>Het antwoord op deze vraag behoort in beginsel tot het politieke domein, zowel internationaal als nationaal. Staten zullen onderling afspraken moeten maken over ieders aandeel in de beperking van de uitstoot van broeikasgassen en zij zullen de in dit verband noodzakelijke keuzes en afwegingen moeten maken. Dergelijke afspraken zijn ook gemaakt, in het VN-Klimaatverdrag, maar slechts in de vorm van de hiervoor in 5.7.3 genoemde algemene verplichtingen en beginselen als vermeld in de art. 3 en 4 daarvan. Die algemene verplichtingen en beginselen komen erop neer dat een billijke verdeling moet plaatsvinden, waarbij rekening wordt gehouden met de verantwoordelijkheid en staat van ontwikkeling van de individuele landen. De op de diverse klimaatconferenties gemaakte afspraken om de uitstoot te beperken, zijn – om voor de hand liggende (internationaal-)politieke redenen, die deels betrekking hebben op onderhandelingsstrategie – op zichzelf juridisch niet bindend.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.3</nr>
+      <parablock>
+        <para>In het Nederlandse staatsbestel behoort het maken van de hiervoor in 6.2 genoemde afspraken tot de bevoegdheid van de regering, daarbij gecontroleerd door het parlement. Nederland kan ook zonder (bindende) internationale afspraken besluiten tot vermindering van de uitstoot van broeikasgassen vanaf het Nederlandse grondgebied. Nederland is daartoe, zoals hiervoor in 5.9.1 is overwogen, ook verplicht. Hoewel de vaststelling van het aandeel dat Nederland moet leveren in de vermindering van de uitstoot van broeikasgassen, ook in dat kader in beginsel aan de regering en het parlement is, kan de rechter wel beoordelen of de Staat minder maatregelen neemt dan overeenkomt met hetgeen evident de ondergrens van zijn aandeel is in de maatregelen die wereldwijd tegen een gevaarlijke klimaatverandering moeten worden genomen. Het is bijvoorbeeld duidelijk, gelet op hetgeen hiervoor in 5.7.2-5.8 is overwogen, dat de Staat in elk geval niet helemaal niets kan doen en dat de rechter kan uitspreken dat de Staat in strijd handelt met zijn hiervoor in 5.9.1 genoemde verplichting indien hij niets doet. </para>
+        <para>Onder omstandigheden kan voorts sprake zijn van zodanig duidelijke opvattingen, afspraken en/of consensus in internationaal verband over de verdeling van maatregelen over landen, dat de rechter kan vaststellen wat in elk geval, naar zeer breed gedragen en mede in de klimaatwetenschap gefundeerde opvatting van staten en internationale organisaties, is aan te merken als de minimale ‘fair share’ van de Staat. Op grond van de hiervoor in 5.4.2 en 5.4.3 genoemde maatstaven (waaronder de ‘common ground-methode’), die de Nederlandse rechter gehouden is toe te passen bij de uitleg van het EVRM (zie hiervoor in 5.6.1), is de rechter dan verplicht tot die vaststelling over te gaan en daaraan gevolgen te verbinden bij zijn oordeel over de omvang van de positieve verplichtingen van de Staat. Uit de hiervoor in 5.4.2 genoemde rechtspraak van het EHRM volgt dat bij deze vaststelling onder omstandigheden ook betekenis kan toekomen aan afspraken en regels die op zichzelf niet bindend zijn. Dit gebeurt dan op de grond dat deze regels en afspraken de uitdrukking vormen van een zeer breed gedragen opvatting of inzicht en daarom van belang zijn voor de invulling en toepassing van de positieve verplichtingen van de Staat op grond van de art. 2 en 8 EVRM.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.4</nr>
+      <para>Het hiervoor in 5.5.1-5.5.3 genoemde recht op een effectieve rechtsbescherming van art. 13 EVRM brengt in een geval als dit mee dat de rechter moet nagaan of het mogelijk is om daadwerkelijk rechtsbescherming te verlenen, door te onderzoeken of voldoende objectieve gronden bestaan waaraan in het gegeven geval een concrete norm kan worden ontleend. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.5</nr>
+      <para>Voorts kan de rechter beoordelen of de Staat met betrekking tot de dreiging van een gevaarlijke klimaatverandering zijn hiervoor in 5.3.3 genoemde plicht op grond van de art. 2 en 8 EVRM nakomt om due diligence in acht te nemen en een geschikt en consistent beleid te voeren (‘good governance’). Ook uit deze plicht kan onder omstandigheden de verplichting tot het nemen van maatregelen met een bepaalde omvang of inhoud voortvloeien. Voorts brengt deze plicht mee dat de Staat onder omstandigheden behoorlijk moet motiveren dat zijn beleid aan de te stellen eisen voldoet, dat wil zeggen dat hij een beleid voert waarbij hij boven de ondergrens van zijn ‘fair share’ blijft.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>6.6</nr>
+      <para>Bij de vaststelling van hetgeen waartoe de Staat minimaal is gehouden, past de rechter terughoudendheid, zeker als daarbij regels of afspraken worden betrokken die op zichzelf niet bindend zijn. Alleen in duidelijke gevallen kan de rechter daarom op de hiervoor in 6.3-6.5 genoemde gronden oordelen dat voor de Staat een rechtsplicht tot het nemen van bepaalde maatregelen bestaat.</para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>7</nr>De 25-40%-doelstelling voor Annex I-landen</title>
+    <para />
+    <paragroup>
+      <nr>7.1</nr>
+      <parablock>
+        <para>Inzet van deze procedure is eerst en vooral of de voor de Annex I-landen als doelstelling geformuleerde reductie van 25% tot 40% van de uitstoot van broeikasgassen in 2020 ten opzichte van 1990, die ontleend is aan AR4 (hierna: de 25-40%-doelstelling), een daarmee overeenstemmende verplichting oplevert voor de Staat. De Staat voert terecht aan dat deze doelstelling op zichzelf geen bindende regel of afspraak is. De vraag is dus of deze doelstelling de Staat desalniettemin bindt op een of meer van de hiervoor in 6.3-6.5 vermelde gronden.</para>
+        <para>De eerste vraag die in dat verband beantwoording behoeft, is (a) in hoeverre binnen de internationale gemeenschap draagvlak bestaat voor de 25-40%-doelstelling<emphasis role="italic">.</emphasis> Deze vraag zal hierna in 7.2.1-7.2.11 worden behandeld. De volgende vraag is (b) of deze doelstelling ook voor Nederland als individueel land geldt. Deze vraag zal hierna in 7.3.1-7.3.6 worden behandeld. Daarna (c) wordt in 7.4.1-7.4.6 ingegaan op het beleid dat de Staat voert om een gevaarlijke klimaatverandering tegen te gaan. Tot slot (d) wordt in 7.5.1-7.5.3 de vraag beantwoord of uit een en ander volgt dat Nederland is gehouden om de 25-40%-doelstelling te halen, zoals rechtbank en hof hebben geoordeeld.</para>
+        <para>Bij een en ander wordt uitgegaan van de door het hof vastgestelde feiten.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">(a)	De mate van internationale consensus over de 25-40%-doelstelling</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <paragroup>
+        <nr>7.2.1</nr>
+        <para>De 25-40%-doelstelling maakt deel uit van een scenario van het IPCC in AR4 uit 2007 voor een wereldwijde reductie van de uitstoot van broeikasgassen.<footnote-ref linkend="_838f7734-d84f-457b-958a-c28b15af2ad5" /> Dit scenario voorziet erin dat de Annex I-landen een reductie bewerkstelligen van de uitstoot van broeikasgassen van 25% tot 40% in 2020 en van 80% tot 95% in 2050, beide ten opzichte van de uitstoot in 1990. De verdeling van maatregelen over Annex I-landen en andere landen in dit scenario berust op de beginselen van de art. 3 en 4 VN-Klimaatverdrag. Het scenario is geschreven voor de doelstelling van een maximale concentratie broeikasgassen in de atmosfeer van 450 ppm in 2100. Dat is de concentratie waarbij naar redelijke verwachting de opwarming van de aarde beperkt zal blijven tot maximaal 2 ºC. Bij de totstandkoming van AR4 is ervan uitgegaan dat dit vermoedelijk de kritische grens is waarboven het risico bestaat van een gevaarlijke klimaatverandering. Het scenario biedt een behoorlijke kans om de grens van een opwarming met meer dan 2 ºC niet te overschrijden.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.2</nr>
+        <para>In het Bali Action Plan, dat tot stand is gekomen op de klimaatconferentie in Bali in 2007 (COP-13), is onderschreven dat een vergaande reductie van de uitstoot van broeikasgassen noodzakelijk is om een gevaarlijke klimaatverandering te voorkomen. Daarbij is onder meer verwezen naar het hiervoor in 7.2.1 genoemde scenario. Hierbij verdient opmerking dat op de klimaatconferenties veelal wordt beslist op basis van consensus.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.3</nr>
+        <para>Op de klimaatconferentie in Cancún in 2010 (COP-16) hebben de landen die partij zijn bij het Kyoto Protocol, een besluit genomen waarvan de preambule onder meer tot uitdrukking brengt dat, gelet op de bevindingen in AR4, de Annex I-landen als groep hun uitstoot van broeikasgassen in 2020 moeten verminderen met 25% tot 40% ten opzichte van 1990:</para>
+        <para />
+        <parablock>
+          <para>“Also recognizing that the contribution of Working Group III to the Fourth Assessment Report of the Intergovernmental Panel on Climate Change, Climate Change 2007: Mitigation of Climate Change, indicates that achieving the lowest levels assessed by the Intergovernmental Panel on Climate Change to date and its corresponding potential damage limitation would require Annex I Parties as a group to reduce emissions in a range of 25–40 per cent below 1990 levels by 2020, through means that may be available to these Parties to reach their emission reduction targets, (…)”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>In ditzelfde besluit hebben de partijen bij het Kyoto Protocol er verder op aangedrongen dat de Annex I-landen hun ambitieniveau verhogen om individueel of als groep de doelstelling uit AR4 te behalen:</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>“4. Urges Annex I Parties to raise the level of ambition of the emission reductions to be achieved by them individually or jointly, with a view to reducing their aggregate level of emissions of greenhouse gases in accordance with the range indicated by Working Group III to the Fourth Assessment Report of the Intergovernmental Panel on Climate Change, Climate Change 2007: Mitigation of Climate Change, and taking into account the quantitative implications of the use of land use, land-use change and forestry activities, emissions trading and project-based mechanism and the carry-over of units from the first to the second commitment period; (…).”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>Op de klimaatconferentie in Durban in 2011 (COP-17) hebben deze landen opnieuw een besluit genomen waarvan de preambule met zoveel woorden tot uitdrukking brengt dat voor Annex I-landen als doelstelling geldt om hun totale uitstoot in 2020 ten minste te verminderen met 25% tot 40% ten opzichte van 1990:</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>“Aiming to ensure that aggregate emissions of greenhouse gases by Parties included in Annex I are reduced by at least 25–40 per cent below 1990 levels by 2020, noting in this regard the relevance of the review referred to in chapter V of decision 1/CP.16 to be concluded by 2015, (…)”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>Ook op de klimaatconferentie in Doha in 2012 (COP-18) is in een besluit van de COP van landen die partij zijn bij het Kyoto Protocol, de noodzaak van een reductie van deze omvang uitdrukkelijk uitgesproken. De landen namen voor het eerst in een besluit zelf op dat de Annex I-landen “in order to increase the ambition of its commitment” ernaar moeten streven per 2020 minimaal 25-40% minder broeikasgassen uit te stoten ten opzichte van de uitstoot in 1990.</para>
+          <para>De noodzaak van een reductie van deze omvang is ook uitgesproken op de klimaatconferenties in Warschau, Lima en Parijs in achtereenvolgens 2013, 2014 en 2015 (COP-19, COP-20 en COP-21). Op deze conferenties is die noodzaak in besluiten, door middel van verwijzing naar het Doha Amendment dan wel naar de op eerdere conferenties genomen besluiten, telkens weer onderschreven. In de preambule van het COP-besluit om het Akkoord van Parijs aan te nemen is de urgentie benadrukt van het behalen van deze reductie. </para>
+          <para>Op de klimaatconferenties na 2015 is niet meer expliciet ingegaan op of verwezen naar de reductiedoelstelling voor 2020 van 25-40%. Op die conferenties is echter wel steeds de noodzaak van voldoende reductie van de uitstoot van broeikasgassen ook vóór en in 2020 benadrukt. </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.4</nr>
+        <parablock>
+          <para>Zoals het hof in rov. 49 heeft vastgesteld, is de 25-40%-doelstelling, anders dan de Staat aanvoert, niet achterhaald door AR5 uit 2013-2014. Ook in dit rapport wordt uitgegaan van een doelstelling van een maximale concentratie broeikasgassen in de atmosfeer van 450 ppm in 2100 als behorende bij de doelstelling van een opwarming van de aarde met maximaal 2 ºC. In AR5 wordt niet meer ingegaan op 2020. Dit rapport concentreert zich namelijk op latere jaren, te weten 2030 en met name 2050 en 2100, en bevat geen doelstellingen meer voor 2020. In de hiervoor in 7.2.3 genoemde COP-besluiten uit 2014 en 2015 die dateren van na AR5, wordt nog steeds verwezen naar de noodzaak van een reductie van de uitstoot van broeikasgassen door de Annex I-landen van 25% tot 40% in 2020 overeenkomstig AR4.</para>
+          <para>In AR5 is het in het VN-Klimaatverdrag opgenomen onderscheid tussen Annex I-landen en andere landen vervallen, omdat inmiddels ook andere landen dan Annex I-landen tot de ontwikkelde landen moeten worden gerekend. Uit het vorenstaande volgt echter dat dit, anders dan de Staat aanvoert, niet betekent dat het reductiescenario van AR4 voor 2020 is achterhaald.  </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.5</nr>
+        <parablock>
+          <para>Wel bevat AR5 nieuwe scenario’s om in 2050 en 2100 tot de noodzakelijk geachte beperking van de concentratie van broeikasgassen te komen. Deze zijn voor een belangrijk deel gebaseerd op het uitgangspunt dat onvoldoende vermindering van de uitstoot van broeikasgassen zal plaatsvinden, en dat de concentratie van broeikasgassen daarom zal moeten worden verlaagd door maatregelen te nemen waarmee deze gassen aan de atmosfeer worden onttrokken (zie hiervoor in 2.1 onder (12)). Vast staat echter dat op dit moment geen technieken bestaan waarmee dit op voldoende grote schaal kan plaatsvinden. Op dit moment kunnen deze nieuwe scenario’s dan ook, zoals het hof in rov. 49 heeft geoordeeld, niet bij het beleid tot uitgangspunt worden genomen zonder daarmee onverantwoorde risico’s te nemen. Het wel nemen van zodanige risico’s zou in strijd komen met het voorzorgsbeginsel dat bij de toepassing van de art. 2 en 8 EVRM en art. 3 lid 3 VN-Klimaatverdrag in acht moet worden genomen (zie hiervoor in 5.3.2 en 5.7.3). Niet blijkt dan ook dat deze nieuwe scenario’s bij latere besluiten op klimaatconferenties tot uitgangspunt zijn genomen.</para>
+          <para>De vaststelling van het hof dat de 25-40%-doelstelling niet is achterhaald door AR5, is dan ook begrijpelijk en dient in cassatie tot uitgangspunt.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.6</nr>
+        <para>Ook de EU is uitgegaan van de noodzaak van het hiervoor in 7.2.1 genoemde scenario van AR4<emphasis role="italic">.</emphasis> Diverse organen van de EU – de raad, de commissie en het parlement – hebben uitgesproken dat op wetenschappelijke gronden in 2020 een beperking van de uitstoot met 30% ten opzichte van 1990 noodzakelijk is. Op de klimaatconferentie in Cancún in 2010 heeft de EU aangeboden zich ertoe te verplichten de uitstoot door de EU met dit percentage in 2020 te verlagen als onder meer de andere ontwikkelde landen zich tot een vergelijkbare reductie zouden verplichten. Hierover is namens de EU opgemerkt:<footnote-ref linkend="_09e852df-72da-4890-b4d5-e2b1ea944c83" /></para>
+        <para />
+        <parablock>
+          <para>“10. The EU and its 27 member States wished to reconfirm their commitment to a negotiating process aimed at achieving the strategic objective of limiting the increase in global average temperature to below 2 °C above pre-industrial levels. Meeting that objective requires the level of global GHG emissions to peak by 2020 at the latest, to be reduced by at least 50 per cent compared with 1990 levels by 2050 and to continue to decline thereafter. To this end, and in accordance with the findings of the Intergovernmental Panel on Climate Change, developed countries as a group should reduce their GHG emissions to below 1990 levels through domestic and complementary international efforts by 25 to 40 per cent by 2020 and by 80 to 95 per cent by 2050, while developing countries as a group should achieve a substantial deviation below the currently predicted rate of growth in emissions, in the order of 15 to 30 per cent by 2020. The EU and its 27 member States are fully committed to continuing to negotiate with the other Parties, with a view to concluding as soon as possible within the United Nations framework a legally binding international agreement for the period commencing 1 January 2013.”</para>
+        </parablock>
+        <para />
+        <parablock>
+          <para>Voor het geval deze voorwaarde niet zou worden vervuld – hetgeen het geval is gebleken –, heeft de EU zichzelf verplicht tot een reductie van 20% in 2020. Naar verwachting zal de EU echter in 2020 een reductie realiseren van 26-27% ten opzichte van 1990. </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.7</nr>
+        <para>Uit het voorgaande volgt dat in de internationale gemeenschap een grote mate van consensus bestaat over de in AR4 genoemde noodzaak van een reductie van de uitstoot van broeikasgassen door (in elk geval) de Annex I-landen, van 25% tot 40% in 2020, teneinde de opwarming van de aarde beperkt te houden tot de – ten tijde van AR4 – maximaal verantwoord geachte 2 ºC<emphasis role="italic">. </emphasis></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.8</nr>
+        <para>Na 2007, toen AR4 tot stand kwam, is in de klimaatwetenschap en in de internationale gemeenschap een grote mate van consensus ontstaan over de noodzaak van een nog grotere reductie. Zoals hiervoor in 4.3 is vermeld, bestaat sinds enige jaren het inzicht dat de opwarming van de aarde niet tot maximaal 2 ºC beperkt dient te blijven om een gevaarlijke klimaatverandering te voorkomen, maar tot maximaal 1,5 ºC. In het Akkoord van Parijs uit 2015 is dan ook uitdrukkelijk opgenomen dat de staten ernaar streven om de opwarming te beperken tot 1,5 ºC, “erkennende dat dit de risico’s en de gevolgen van klimaatverandering aanzienlijk zou beperken” (art. 2 lid 1, aanhef en onder a, van het Akkoord). Dit noodzaakt tot een grotere reductie van de uitstoot van broeikasgassen dan nodig is bij een doelstelling van maximaal 2 ºC.  </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.9</nr>
+        <para>In het jaarrapport 2017 van het UNEP is dan ook, onder verwijzing naar het hiervoor in 4.6 beschreven carbon budget en de emissions gap<emphasis role="italic">,</emphasis> vermeld dat in het licht van het Akkoord van Parijs de reductie van de uitstoot van broeikasgassen dringender is dan ooit. Het UNEP merkt op dat als de emissions gap niet is ingehaald tegen 2030, het uiterst onwaarschijnlijk is dat de tweegradendoelstelling nog kan worden gerealiseerd. Zelfs als de reductiedoelstellingen die ten grondslag liggen aan het Akkoord van Parijs volledig worden gehaald, is het carbon budget dat nog beschikbaar is binnen het kader van de tweegradendoelstelling, in 2030 al voor 80% verbruikt. Uitgaande van een 1,5 ºC doelstelling is het carbon budget dan zelfs al volledig opgebruikt. Daarom zijn volgens het UNEP ambitieuzere doelstellingen nodig voor het jaar 2020. Het UNEP concludeert dat “later-action scenarios may not be feasible in practice and, as a result, temperature targets could be missed” en dat “later-action scenarios pose greater risks of climate impacts”.<footnote-ref linkend="_012c3992-0ec4-45d0-81c6-cb63d631de1d" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.10</nr>
+        <para>Bij het voorgaande moet dan nog in aanmerking worden genomen dat<emphasis role="italic">, </emphasis>zoals het hof in cassatie onbestreden heeft vastgesteld in rov. 63<emphasis role="italic">, </emphasis>de doelstellingen van maximaal 1,5 ºC dan wel 2 ºC en de daarbij behorende concentraties van maximaal 430 dan wel 450 ppm zijn gebaseerd op schattingen. De mogelijkheid bestaat dus dat ook bij een minder grote opwarming van de aarde en een lagere concentratie broeikasgassen al een gevaarlijke klimaatverandering plaatsvindt, bijvoorbeeld doordat daarbij een ‘tipping point’ wordt bereikt of doordat het smelten van ijs in sneller tempo plaatsvindt (zie hiervoor in 4.4). Het voorzorgsbeginsel brengt dan ook mee dat veeleer verdergaande maatregelen moeten worden genomen om de uitstoot van broeikasgassen terug te brengen, dan minder vergaande maatregelen.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.2.11</nr>
+        <para>Uit hetgeen hiervoor in 7.2.8-7.2.10 is overwogen volgt eens te meer dat een grote mate van internationale consensus bestaat over de dringende noodzaak van een reductie in 2020 van minimaal 25-40% van de uitstoot van broeikasgassen ten opzichte van 1990 door de Annex I-landen, om in elk geval de maximaal verantwoord te achten tweegradendoelstelling te kunnen halen. Deze grote mate van consensus is aan te merken als ‘common ground’ in de zin van de hiervoor in 5.4.2 vermelde rechtspraak van het EHRM, waarmee volgens die rechtspraak bij de uitleg en toepassing van het EVRM rekening moet worden gehouden.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(b)	De 25-40%-doelstelling voor Nederland individueel </emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.1</nr>
+        <para>De Staat heeft aangevoerd dat de 25-40%-doelstelling slechts geldt voor de Annex I-landen als groep en dus niet voor elk van die landen individueel. Deze doelstelling zou daarom volgens de Staat niet voor hem individueel gelden. Daarnaast heeft de Staat aangevoerd dat de EU zich als geheel heeft verplicht tot een reductie van de uitstoot van broeikasgassen van 20% in 2020 (zie hiervoor in 7.2.6) en dat in EU-verband is afgesproken dat Nederland hieraan bijdraagt door zijn uitstoot van broeikasgassen in 2020 voor de ETS-sector te verminderen met 21% en voor de niet-ETS-sector met 16%, beide ten opzichte van 2005. Volgens de Staat voldoet hij aan al zijn verplichtingen door deze bijdragen te leveren.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.2</nr>
+        <para>Op zichzelf is juist dat de 25-40%-doelstelling in AR4 is opgenomen voor de Annex I-landen als groep. Zoals blijkt uit hetgeen hiervoor in 5.7.3 en 5.7.4 is overwogen, gaan het VN-Klimaatverdrag en het Akkoord van Parijs echter beide uit van de individuele verantwoordelijkheid van staten. De doelstelling van AR4 geldt dan ook in beginsel mede voor de individuele staten binnen de groep van Annex I-landen. Blijkens hetgeen hierna in 7.4.1 wordt overwogen, heeft de Staat die doelstelling zelf ook zo opgevat. Zowel het VN-Klimaatverdrag als het Akkoord van Parijs voorziet erin dat staten samenwerken en een overeenkomst kunnen sluiten waarbij zij gezamenlijk hun uitstoot terugbrengen, en waarbij de een meer kan doen dan de ander (art. 4 lid 2, onder a, laatste volzin, VN-Klimaatverdrag en art. 4 leden 16 en 17 Akkoord van Parijs). De Staat heeft echter niet aangevoerd dat een dergelijke overeenkomst door hem is gesloten met betrekking tot de 25-40%-doelstelling van AR4. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.3</nr>
+        <parablock>
+          <para>De hiervoor in 7.3.1 genoemde verwijzing door de Staat naar de afspraken in EU-verband heeft niet de strekking dat in EU-verband een dergelijke overeenkomst tot stand is gekomen. De Staat verwijst slechts naar die afspraken omdat deze volgens hem de enige normen zijn die hem verplichten tot een bepaalde concrete vermindering van de uitstoot van broeikasgassen. Dat betoog miskent echter dat de Staat, zoals hiervoor in 5.8 en 6.3-6.5 is overwogen, ook op grond van de art. 2 en 8 EVRM tot een dergelijke vermindering kan zijn gehouden, waarbij de hiervoor in 7.2.11 genoemde consensus van belang is.</para>
+          <para>Overigens hebben, voor zover in dit geding is gebleken, genoemde afspraken in EU-verband niet de strekking in de plaats te komen van de verplichtingen van de individuele EU-lidstaten onder het VN-Klimaatverdrag. De EU heeft op de klimaatconferentie in Cancún in 2010 een eigen reductiedoelstelling geformuleerd omdat zij uit eigen hoofde partij is bij het VN-Klimaatverdrag. Uit hoofde van de in dat kader binnen de EU gemaakte afspraken over de verdeling van maatregelen die nodig zijn om de EU deze reductiedoelstelling te laten halen, gelden voor Nederland de reductieverplichtingen die hiervoor in 7.3.1 zijn vermeld. Deze afspraken laten echter de individuele verantwoordelijkheid van de Uniestaten uit anderen hoofde onverlet. In de Effort Sharing Decision staat dan ook in de considerans onder (17) dat deze beschikking niet aan strengere nationale doelstellingen in de weg staat. Dit volgt ook uit art. 193 VWEU. </para>
+          <para>Hierbij komt nog dat de EU zelf heeft uitgesproken een reductie in 2020 van 30% noodzakelijk te achten en dat de EU als geheel naar verwachting in 2020 een reductie zal realiseren van 26-27% ten opzichte van 1990, meer dus dan de minimale doelstelling van 25% van het scenario van AR4 en aanmerkelijk meer dan de op de klimaatconferentie in Cancún in 2010 door de EU toegezegde vermindering met 20%.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.4</nr>
+        <para>Daarnaast heeft het hof in rov. 60 terecht geoordeeld dat het ook niet voor de hand ligt dat voor Nederland als Annex I-land een lager reductiepercentage zou gelden dan voor de Annex I-landen als geheel. Zoals het hof in rov. 66 in aanmerking heeft genomen, behoort Nederland tot de landen met een zeer hoge uitstoot van broeikasgassen per hoofd van de bevolking. Bij de hiervoor genoemde afspraken in EU-verband is voor Nederland dan ook een reductiepercentage overeengekomen dat behoort tot de hoogste reductiepercentages die gelden voor de EU-lidstaten (Bijlage II van de Effort Sharing Decision). Aangenomen kan worden dat dit hoge percentage overeenstemt met de mogelijkheden en verantwoordelijkheden van Nederland. Zoals het hof in rov. 60 heeft vastgesteld, heeft de Staat niet onderbouwd waarom voor hem toch een lager percentage zou moeten gelden. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.5</nr>
+        <para>De Staat klaagt in onderdeel 8.2.3 dat het hof is voorbijgegaan aan zijn stelling dat hij bijdraagt aan beperkingen van de wereldwijde uitstoot van broeikasgassen door kennis en financiële middelen ter beschikking te stellen aan ontwikkelingslanden, waarmee deze landen mitigatie- en adaptatiemaatregelen kunnen treffen. Deze stelling is echter door hem niet uitgewerkt. De Staat heeft onder meer niet aangevoerd dat door deze bijdrage een reductie van de uitstoot van broeikasgassen wordt verwezenlijkt, en dat dit in aanmerking moet worden genomen bij de vraag welke doelstelling voor hem geldt en of hij de voor hem geldende doelstelling haalt.<footnote-ref linkend="_c29fd666-abd6-4000-8583-8ce5b60482b3" /> Deze klacht faalt dus.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.3.6</nr>
+        <para>Gelet op het vorenstaande heeft het hof terecht geoordeeld dat de dringende noodzaak van een reductie in 2020 van 25-40% ook voor Nederland individueel geldt.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(c)	Het beleid van de Staat met betrekking tot maatregelen tegen klimaatverandering</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.1</nr>
+        <para>Zoals hiervoor in 4.8 is overwogen, onderschrijft de Staat de noodzaak van de doelstelling van een maximale concentratie broeikasgassen in de atmosfeer van 430 dan wel 450 ppm in 2100, waarbij naar redelijke verwachting de opwarming van de aarde beperkt zal blijven tot maximaal 1,5 ºC dan wel 2 ºC. De Staat heeft in verband daarmee ook de doelstellingen van het scenario van AR4 onderschreven. Wat betreft de doelstellingen van dat scenario van 80% tot 95% reductie in 2050 en van 450 ppm in 2100 (inmiddels dus 430 ppm in 2100) doet hij dat nog steeds. Voor het jaar 2020 ging de Staat tot 2011 uit van een reductiedoelstelling van 30%. Blijkens de hiervoor in 2.1 onder (27) aangehaalde brief van de minister van VROM van 12 oktober 2009 was de Staat destijds, evenals de EU (zie hiervoor in 7.2.6 en 7.3.3), van mening dat een reductie met 25% tot 40% in 2020 nodig is om op een geloofwaardig traject te blijven om de 2 ºC-doelstelling binnen bereik te houden.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.2</nr>
+        <para>Na 2011 heeft de Staat zijn doelstelling voor 2020 naar beneden bijgesteld, tot de hiervoor in 7.3.1 genoemde 20% reductie in EU-verband. De Staat voert in deze procedure aan dat het behalen van een reductie met 25% tot 40% in 2020 (bij nader inzien) niet nodig is omdat door een versnelde vermindering van de uitstoot van broeikasgassen in Nederland na 2020 hetzelfde resultaat kan worden bereikt. De Staat stelt het voornemen te hebben na 2020 deze versnelde vermindering te laten plaatsvinden en aan dit reductiepad de voorkeur te geven boven het scenario van AR4. De vraag is echter of met een versnelde vermindering van de uitstoot van broeikasgassen in Nederland na 2020 inderdaad wel hetzelfde resultaat kan worden bereikt. In dit verband zijn de volgende door het hof in aanmerking genomen feiten van belang. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.3</nr>
+        <para>Iedere uitstoot van broeikasgassen leidt tot een afname van het nog beschikbare carbon budget (zie ook hiervoor in 4.6). Ieder uitstel van de vermindering van de uitstoot betekent dus dat de vermindering van de uitstoot in de toekomst steeds omvangrijker zal moeten zijn om het uitstel zowel in tijd als in omvang te kunnen goedmaken. Dat betekent dat bij ieder uitstel van de vermindering van de uitstoot, de later te nemen reductiemaatregelen in beginsel in toenemende mate ingrijpender en kostbaarder moeten worden om het beoogde resultaat te bereiken, en ook riskanter zullen zijn. Het UNEP heeft hiervoor al gewaarschuwd in zijn jaarrapport 2013 (zie hiervoor in 2.1 onder (22)).</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.4</nr>
+        <para>Na AR4 is het inzicht ontstaan dat om een gevaarlijke klimaatverandering te voorkomen, op korte termijn juist nog grotere reducties van de uitstoot van broeikasgassen noodzakelijk zijn, en dat deze noodzaak ook steeds dringender wordt, zowel vóór 2020 als in de daarop aansluitende periode tot 2030 (zie ook hiervoor in 7.2.8-7.2.9). Ook volgens het Planbureau voor de Leefomgeving (het PBL) – dat een onafhankelijk onderzoeksinstituut is dat onderdeel vormt van het ministerie van Infrastructuur en Milieu – is, gelet op het Akkoord van Parijs, een beleid noodzakelijk dat veel verder gaat dan het huidige beleid van de betrokken landen. Volgens het PBL (in een rapport uit 2016) moet ook het Nederlandse beleid op korte termijn worden aangescherpt om in overeenstemming te komen met het Akkoord van Parijs.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.5</nr>
+        <para>De Staat erkent de hiervoor in 7.4.3 vermelde feiten (rov. 71 van het arrest van het hof) en bestrijdt de hiervoor in 7.4.4 genoemde feiten niet. Voor 2030 heeft hij bovendien inmiddels een reductiedoelstelling geformuleerd van 49% en voor 2050 van 95% (deze doelstellingen zijn, na de datum van het arrest van het hof, vastgelegd in de Klimaatwet<footnote-ref linkend="_2a2b8ee4-d6a4-4c14-8de0-1bb288ef471b" />). De doelstelling van 49% voor 2030 is lineair afgeleid van de doelstelling van 95% voor 2050. De Staat heeft het hof desgevraagd laten weten dat als deze lijn wordt doorgetrokken naar 2020, dat resulteert in een doelstelling voor dat jaar van 28% (rov. 47).</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.4.6</nr>
+        <para>Gegeven het hiervoor in 7.4.3-7.4.5 overwogene kan ernstige twijfel bestaan of bij de door de Staat voorgenomen reductie in EU-verband van 20% in 2020, de ook volgens de Staat zelf in elk geval noodzakelijke totale reductie over de komende decennia nog haalbaar is. De noodzaak tot deze reductie vereist immers veeleer dat de Staat voor 2020 een reductie van de uitstoot van broeikasgassen nastreeft die hoger ligt dan 25%, dan een reductie die lager ligt. De Staat heeft niet uiteengezet dat en waarom, ondanks het vorenstaande en met inachtneming van het in dit verband geldende voorzorgsbeginsel, een beleid dat is gericht op 20% reductie in 2020, toch verantwoord is te achten. De Staat heeft geen inzicht gegeven in welke maatregelen hij voornemens is te nemen in de komende jaren, laat staan waarom deze maatregelen, ondanks het vorenstaande, zowel praktisch haalbaar zouden zijn, als afdoende om in voldoende mate overeenkomstig het aandeel van Nederland bij te dragen aan het voorkomen van een gevaarlijke klimaatverandering. De Staat heeft volstaan met de stelling dat in dit verband “zeker mogelijkheden bestaan”.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(d)	Dient de Staat zich te houden aan de 25-40%-doelstelling?</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.5.1</nr>
+        <para>Gelet op het voorgaande heeft het hof in rov. 52 kunnen oordelen dat de Staat onvoldoende heeft onderbouwd dat het in een verantwoord beleid ter voorkoming van een gevaarlijke klimaatverandering zou passen om voor 2020 minder reductie van de uitstoot van broeikasgassen na te streven dan in elk geval 25%. Daarmee bestaat grond om, overeenkomstig het hiervoor in 6.3-6.5 overwogene, te oordelen dat de Staat zich in elk geval aan de doelstelling van minimaal 25% reductie in 2020 dient te houden. Als gezegd bestaat er in de internationale gemeenschap en de klimaatwetenschap een grote mate van consensus dat ten minste die reductie door de Annex I-landen, waaronder Nederland, dringend noodzakelijk is (zie hiervoor in 7.2.11 en 7.3.6). Een behoorlijke rechtsbescherming brengt mee dat op deze consensus een beroep kan worden gedaan bij de concretisering van de positieve verplichtingen die op de Staat rusten op grond van de art. 2 en 8 EVRM. De doelstelling om een reductie van minimaal 25% in 2020 te halen, sluit bovendien aan bij hetgeen de Staat zelf voor andere jaren (2030, 2050 en 2100) als doelstelling noodzakelijk acht (zie hiervoor in 7.4.1-7.4.5). Die doelstelling kan dan ook in het kader van de op grond van de art. 2 en 8 EVRM op de Staat rustende positieve verplichting om passende maatregelen te nemen ter voorkoming van een gevaarlijke klimaatverandering, worden aangemerkt als een absoluut minimum. Nu de Staat geen behoorlijke onderbouwing heeft kunnen geven van zijn stelling dat het toch verantwoord is om van die doelstelling af te wijken (zie hiervoor in 7.4.6), dient hij zich aan de doelstelling van 25% te houden. Hij dient dus minimaal deze reductie in 2020 na te streven, zoals het hof terecht heeft geoordeeld in rov. 53.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.5.2</nr>
+        <para>De Staat heeft nog aangevoerd, in onderdeel 8.2, dat hij aan zijn verplichtingen uit hoofde van de art. 2 en 8 EVRM voldoet door het treffen van adaptatiemaatregelen, al dan niet in combinatie met reeds getroffen en voorgenomen mitigatiemaatregelen, en dat hij daarom de 25-40%-doelstelling niet behoeft te behalen. Het hof heeft echter in rov. 59 alleszins begrijpelijk vastgesteld dat weliswaar juist is dat de gevolgen van klimaatverandering kunnen worden verzacht door het nemen van adaptatiemaatregelen, maar dat niet is gebleken of aannemelijk gemaakt dat de potentieel desastreuze gevolgen van een te grote opwarming van de aarde door die maatregelen op adequate wijze kunnen worden voorkomen. In deze vaststelling ligt besloten dat ook wanneer in aanmerking wordt genomen dat de Staat adaptatiemaatregelen treft, mitigatiemaatregelen die zorgen voor een reductie van de uitstoot met minimaal 25% in 2020, dringend noodzakelijk zijn, ook voor Nederland. Genoemd betoog van de Staat gaat dus niet op.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.5.3</nr>
+        <para>Opmerking verdient nog dat in het oordeel van het hof in rov. 57 en 66 ligt besloten dat de Staat niet voldoende heeft onderbouwd dat het bij de reductie van minimaal 25% in 2020 gaat om een onmogelijke of onevenredige last, zoals hiervoor in 5.3.4 bedoeld. De Staat heeft in dit verband slechts verwezen naar de korte tijd die resteert tot eind 2020 en naar de aantasting van het ‘level playing field’ in internationaal verband van het Nederlandse bedrijfsleven. Het hof heeft in verband met het eerstgenoemde argument in aanmerking genomen dat het bevel van de rechtbank aan de Staat al dateert uit 2015, dus al sindsdien geldt, en dat de Staat bovendien al langer bekend is met de ernst van het klimaatprobleem en aanvankelijk het beleid voerde van een reductie van 30% in 2020 (rov. 66). Met betrekking tot het tweede argument heeft het hof in aanmerking genomen dat andere EU-landen een veel stringenter klimaatbeleid voeren en dat de Staat dit argument niet nader heeft toegelicht (rov. 57). Hiermee heeft het hof de stelling van de Staat dat sprake zou zijn van een onmogelijke of onevenredige last op begrijpelijke wijze verworpen. Onderdeel 8.4, dat het hof verwijt die stelling niet te hebben onderzocht, is dus ongegrond.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(e)	Beoordeling van cassatieklachten</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.6.1</nr>
+        <para>De in 4.237-4.248 van de conclusie van de plaatsvervangend Procureur-Generaal en de Advocaat-Generaal genoemde klachten kunnen niet tot cassatie leiden om de daar genoemde redenen.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>7.6.2</nr>
+        <para>Voor zover klachten van de onderdelen 4-8 met het vorenstaande niet zijn behandeld, kunnen deze evenmin tot cassatie leiden. Dit behoeft, gezien art. 81 lid 1 RO, geen nadere motivering nu de klachten niet nopen tot beantwoording van rechtsvragen in het belang van de rechtseenheid of de rechtsontwikkeling.</para>
+        <para />
+        <para />
+      </paragroup>
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>8</nr>Toelaatbaarheid van het gegeven bevel; politiek domein</title>
+    <para />
+    <paragroup>
+      <nr>8.1</nr>
+      <para>De Staat voert in onderdeel 9 aan dat het door het hof bekrachtigde bevel van de rechtbank om de Nederlandse uitstoot van broeikasgassen in 2020 met ten minste 25% te verminderen in vergelijking met het niveau van het jaar 1990, om twee redenen niet toelaatbaar is. De eerste reden is dat het bevel neerkomt op een bevel tot wetgeving, welk bevel volgens de rechtspraak van de Hoge Raad niet toelaatbaar is. De tweede reden is, kort gezegd, dat het niet de taak van de rechter is om de politieke afwegingen te maken die nodig zijn voor besluitvorming over reductie van de uitstoot van broeikasgassen. Naar aanleiding hiervan wordt het volgende overwogen.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">(a)	Bevel tot wetgeving</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <paragroup>
+        <nr>8.2.1</nr>
+        <para>Indien de overheid tot iets verplicht is, kan zij daartoe, net als ieder ander, door de rechter worden veroordeeld op vordering van de gerechtigde (art. 3:296 BW). Dit is een fundamentele regel van de rechtsstaat, die is verankerd in onze rechtsorde. Die regel strookt wat betreft de rechten en vrijheden van het EVRM met het hiervoor in 5.5.1-5.5.3 genoemde recht op effectieve rechtsbescherming van art. 13 EVRM. Mede in verband met deze fundamentele regel is in de Grondwet neergelegd dat de burgerlijke rechter bevoegd is om van alle schuldvorderingen kennis te nemen, zodat hij steeds rechtsbescherming kan verlenen, indien geen rechtsbescherming bij een andere rechter bestaat.<footnote-ref linkend="_67bdfcb6-07a6-4f07-b6cb-7dcb03e51b87" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.2</nr>
+        <para>Uit hetgeen hiervoor in 5.1-7.6.2 is overwogen, volgt dat in dit geval op de Staat een rechtsplicht rust uit hoofde van de bescherming die hij op grond van de art. 2 en 8 EVRM dient te bieden aan de ingezetenen van Nederland, ter bescherming van hun recht op leven en hun recht op privé-, familie- en gezinsleven. Tot nakoming van die plicht kan hij dus door de rechter worden veroordeeld, tenzij een grond voor een uitzondering bestaat overeenkomstig art. 3:296 BW. Op grond van die bepaling doet zich een uitzondering voor als de wet dat bepaalt of als dat volgt uit de aard van de verplichting of de rechtshandeling. De rechtspraak van de Hoge Raad met betrekking tot een bevel tot wetgeving betreft een toepassing van deze uitzondering.<footnote-ref linkend="_357c91e7-8265-4350-a9f3-5e5cefb32fb5" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.3</nr>
+        <para>Deze rechtspraak berust op twee overwegingen. In de eerste plaats is dat de overweging dat de rechter zich niet in de politieke besluitvorming dient te begeven die bij de totstandkoming van wetgeving aan de orde is. In de tweede plaats is dat de overweging dat door een dergelijk bevel een regeling in het leven moet worden geroepen die ook voor anderen dan de procespartijen geldt.<footnote-ref linkend="_f6a86793-32db-43b2-a9b5-e8e7a870ba1d" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.4</nr>
+        <parablock>
+          <para>De eerste overweging houdt niet in dat de rechter in het geheel niet op het terrein van de politieke besluitvorming mag komen. In de hiervoor genoemde rechtspraak is dan ook de eerdere rechtspraak van de Hoge Raad herhaald dat de rechter op grond van art. 94 Grondwet wetgeving buiten toepassing moet laten als een ieder verbindende bepalingen van verdragen dat meebrengen.<footnote-ref linkend="_f92167bd-c1ad-4fba-8f5c-b597e394c840" /> In die rechtspraak is voorts beslist dat de rechter een verklaring voor recht kan uitspreken die erop neerkomt dat het betrokken openbaar lichaam onrechtmatig handelt door geen wetgeving met een bepaalde inhoud tot stand te brengen.<footnote-ref linkend="_961614b3-69d5-4b69-b243-d87a61007a56" /></para>
+          <para>De eerste overweging waarop de hiervoor in 8.2.2 genoemde rechtspraak berust, moet dan ook aldus worden begrepen dat de rechter zich niet door het geven van een wetgevingsbevel dient te mengen in de politieke besluitvorming met betrekking tot de opportuniteit van het tot stand brengen van wetgeving met een bepaalde, concreet omschreven inhoud. Het is, gelet op de staatsrechtelijke verhoudingen, uitsluitend aan de betrokken wetgever zelf om te bepalen of wetgeving met een bepaalde inhoud tot stand komt. De rechter kan de wetgever dan ook geen bevel geven om wetgeving met een bepaalde inhoud tot stand te brengen.</para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.5</nr>
+        <para>De tweede overweging waarop de hiervoor in 8.2.2 genoemde rechtspraak berust, hangt samen met de omstandigheid dat de burgerlijke rechter slechts bindend uitspraak doet tussen de partijen in het geding (vgl. art. 236 Rv). De rechter heeft niet de bevoegdheid om voor een ieder bindend te beslissen hoe een wettelijke regeling moet luiden. Aan een bevel tot wetgeving is derhalve het bezwaar verbonden dat derden, die niet in de procedure zijn betrokken en die daarom niet door de uitspraak worden gebonden, toch (indirect) door dat bevel zouden worden gebonden doordat die wetgeving ook voor hen gaat gelden. Dit bezwaar doet zich niet voor bij een bevel tot het buiten toepassing laten van wettelijke bepalingen, dat immers alleen geldt jegens een bepaalde eisende partij, of bij een verklaring voor recht. Hetzelfde geldt voor een algemeen bevel tot het nemen van maatregelen, waarbij de hiervoor in 8.2.4, tweede alinea<emphasis role="italic">,</emphasis> genoemde vrijheid van de wetgever om al dan niet wetgeving met een bepaalde inhoud tot stand te brengen, wordt gerespecteerd. De rechter bepaalt dan immers door zijn bevel niet de inhoud van de wettelijke regeling; dat blijft voorbehouden aan de betrokken wetgever.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.6</nr>
+        <para>Uit het voorgaande volgt dat het de rechter uitsluitend niet is toegestaan om een bevel te geven wetgeving met een bepaalde, specifieke inhoud tot stand te brengen. Alleen dan doen zich immers de bezwaren voor die aan de orde zijn in de overwegingen waarop de hiervoor in 8.2.2 genoemde rechtspraak berust. De rechter kan dus wel een verklaring voor recht uitspreken dat het uitblijven van wetgeving onrechtmatig is (zie hiervoor in 8.2.4). Ook kan hij het betrokken openbaar lichaam een bevel geven om maatregelen te nemen teneinde een bepaald doel te bereiken, zolang dat bevel niet neerkomt op een bevel om wetgeving met een bepaalde, specifieke inhoud tot stand te brengen. In het arrest van de Hoge Raad van 9 april 2010 (SGP) is de ontoelaatbaarheid van een wetgevingsbevel door de rechter dan ook tot dit geval beperkt.<footnote-ref linkend="_f4017e94-8672-4aa2-ad55-a3d0cfa858ea" /></para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.2.7</nr>
+        <para>In het licht van het voorgaande vormt het door het hof bekrachtigde bevel van de rechtbank een toepassing van de hoofdregel van art. 3:296 BW. Dit bevel komt immers niet neer op een bevel om specifieke wetgevende maatregelen te nemen, maar laat de Staat vrij in de keuze van de te nemen maatregelen teneinde een reductie in de uitstoot van broeikasgassen van 25% in 2020 te bereiken. Dit wordt niet anders doordat voor veel van de mogelijk te nemen maatregelen wetgeving nodig zal zijn, zoals de Staat aanvoert. Het blijft immers aan de Staat om te bepalen welke maatregelen worden getroffen en welke wetgeving tot stand wordt gebracht om die reductie te bereiken. De uitzondering op art. 3:296 BW die in de hiervoor in 8.2.2 genoemde rechtspraak is gemaakt, doet zich in dit geval dus niet voor.</para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(b)	Politiek domein</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.3.1</nr>
+        <para>Daarmee komt de Hoge Raad toe aan de behandeling van het meer algemene argument van de Staat dat het niet de taak van de rechter is om de politieke afwegingen te maken die nodig zijn voor besluitvorming over reductie van de uitstoot van broeikasgassen. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.3.2</nr>
+        <para>Zoals hiervoor in 6.3 is overwogen, komt in het Nederlandse staatsbestel de besluitvorming over reductie van de uitstoot van broeikasgassen toe aan de regering en het parlement. Zij hebben een grote mate van vrijheid om de daarvoor vereiste politieke afwegingen te maken. Het is aan de rechter om te beoordelen of de regering en het parlement bij het gebruik van die vrijheid zijn gebleven binnen de grenzen van het recht, waaraan zij zijn gebonden.</para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.3.3</nr>
+        <para>Tot de hiervoor in 8.3.2 bedoelde grenzen behoren die welke voor de Staat voortvloeien uit het EVRM. Zoals hiervoor in 5.6.1 is overwogen, heeft Nederland zich aan het EVRM gebonden en is de Nederlandse rechter op grond van de art. 93 en 94 Grondwet gehouden de bepalingen daarvan toe te passen overeenkomstig de uitleg daarvan door het EHRM. De bescherming van mensenrechten die hiermee wordt geboden, vormt een wezenlijk onderdeel van de democratische rechtsstaat. </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.3.4</nr>
+        <para>In deze zaak doet zich een uitzonderlijke situatie voor. Er bestaat immers de dreiging van een gevaarlijke klimaatverandering en het is duidelijk dat maatregelen dringend noodzakelijk zijn, zoals rechtbank en hof hebben vastgesteld en de Staat ook erkent (zie hiervoor in 4.2-4.8). De Staat is verplicht om in dit verband ‘het zijne’ te doen (zie hiervoor in 5.7.1-5.7.9). Jegens de ingezetenen van Nederland, voor de belangen van wie Urgenda in dit geding opkomt, volgt die plicht uit de art. 2 en 8 EVRM, op grond waarvan de Staat is gehouden om het recht op leven en op privé-, familie- en gezinsleven van zijn ingezetenen te beschermen (zie hiervoor in 5.1-5.6.4 en 5.8-5.9.2). Dat in dit verband een reductie noodzakelijk is met minimaal 25% in 2020 door Annex I-landen, waaronder Nederland, volgt uit de door rechtbank en hof vastgestelde, algemeen in de klimaatwetenschap en in de internationale gemeenschap gedeelde opvatting (zie hiervoor in 7.2.1-7.3.6). Het beleid dat de Staat sinds 2011 voert en voornemens is te voeren (zie hiervoor in 7.4.2), waarbij maatregelen voor langere tijd worden uitgesteld, is daarmee, zoals het hof heeft vastgesteld, evident niet in overeenstemming, althans heeft de Staat niet inzichtelijk kunnen maken dat dit wel het geval is (zie hiervoor in 7.4.6 en 7.5.1). </para>
+        <para />
+      </paragroup>
+      <paragroup>
+        <nr>8.3.5</nr>
+        <para>Het hof kon in dit geval dan ook tot het oordeel komen dat de Staat in elk geval tot genoemde reductie van minimaal 25% in 2020 gehouden is. </para>
+        <para />
+        <parablock>
+          <para>
+            <emphasis role="italic">(c)	Beoordeling van cassatieklachten</emphasis>
+          </para>
+        </parablock>
+        <para />
+      </paragroup>
+    </paragroup>
+    <paragroup>
+      <nr>8.4</nr>
+      <para>Ook onderdeel 9 kan dus niet tot cassatie leiden. </para>
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>9</nr>Beslissing</title>
+    <para>De Hoge Raad:</para>
+    <para>- verwerpt het beroep; </para>
+    <para>- veroordeelt de Staat in de kosten van het geding in cassatie, tot op deze uitspraak aan de zijde van Urgenda begroot op € 882,34 aan verschotten en € 2.200,-- voor salaris.</para>
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>Dit arrest is gewezen door de vicepresident C.A. Streefkerk als voorzitter en de raadsheren      G. Snijders, M.V. Polak, T.H. Tanja-van den Broek en H.M. Wattendorff, en in het openbaar uitgesproken door de vicepresident C.A. Streefkerk op <emphasis role="underline">20 december 2019</emphasis>.</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Bijlage</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Lijst van gebruikte afkortingen</emphasis>
+      </para>
+    </parablock>
+    <table>
+      <title />
+      <tgroup cols="2">
+        <colspec colname="colA" />
+        <colspec colname="colB" />
+        <tbody>
+          <row>
+            <entry>
+              <para>ABRvS</para>
+            </entry>
+            <entry>
+              <para> Afdeling Bestuursrechtspraak Raad van State</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>AR4</para>
+            </entry>
+            <entry>
+              <para> Fourth Assessment Report van het IPCC (2007)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>AR5</para>
+            </entry>
+            <entry>
+              <para>Fifth Assessment Report van het IPCC (2013 – 2014)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>art.</para>
+            </entry>
+            <entry>
+              <para> artikel(en)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>bbp</para>
+            </entry>
+            <entry>
+              <para>bruto binnenlands product</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>BW</para>
+            </entry>
+            <entry>
+              <para> Burgerlijk Wetboek</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>
+                <superscript>o</superscript>C</para>
+            </entry>
+            <entry>
+              <para> graden Celsius</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>CO<subscript>2</subscript> </para>
+            </entry>
+            <entry>
+              <para> Koolstofdioxide</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>COP</para>
+            </entry>
+            <entry>
+              <para> Conference of the Parties (bij het VN-Klimaatverdrag)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>e.a.</para>
+            </entry>
+            <entry>
+              <para> en andere(n)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>ECHR</para>
+            </entry>
+            <entry>
+              <para> European Court of Human Rights</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>EHRM</para>
+            </entry>
+            <entry>
+              <para> Europees Hof voor de Rechten van de Mens</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>ETS</para>
+            </entry>
+            <entry>
+              <para>Emissions Trading System</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>EU</para>
+            </entry>
+            <entry>
+              <para> Europese Unie</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>EVRM</para>
+            </entry>
+            <entry>
+              <para>Europees Verdrag tot bescherming van de mens en de fundamentele vrijheden</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>GHG </para>
+            </entry>
+            <entry>
+              <para> greenhouse gases</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>HR</para>
+            </entry>
+            <entry>
+              <para> Hoge Raad</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>IPCC </para>
+            </entry>
+            <entry>
+              <para>Intergovernmental Panel on Climate Change</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>mr.</para>
+            </entry>
+            <entry>
+              <para> meester in de rechten</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>nr(s).</para>
+            </entry>
+            <entry>
+              <para> nummer(s)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>p.</para>
+            </entry>
+            <entry>
+              <para> pagina(‘s)</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>PBL </para>
+            </entry>
+            <entry>
+              <para> Planbureau voor de Leefomgeving</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>ppm</para>
+            </entry>
+            <entry>
+              <para> parts per million</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>RO</para>
+            </entry>
+            <entry>
+              <para>Wet op de Rechterlijke Organisatie.</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>rov. </para>
+            </entry>
+            <entry>
+              <para> rechtsoverweging</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>Rv</para>
+            </entry>
+            <entry>
+              <para> Wetboek van Burgerlijke Rechtsvordering</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>Stb.</para>
+            </entry>
+            <entry>
+              <para> Staatsblad</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>Trb.</para>
+            </entry>
+            <entry>
+              <para> Tractatenblad</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>UNEP</para>
+            </entry>
+            <entry>
+              <para> United Nations Environment Program</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>vgl. </para>
+            </entry>
+            <entry>
+              <para>vergelijk</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>VN </para>
+            </entry>
+            <entry>
+              <para> Verenigde Naties</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>Vol.</para>
+            </entry>
+            <entry>
+              <para> Volume</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>VROM</para>
+            </entry>
+            <entry>
+              <para> Volksgezondheid, Ruimtelijke Ordening en Milieu</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>VWEU</para>
+            </entry>
+            <entry>
+              <para> Verdrag inzake de werking van de Europese Unie</para>
+            </entry>
+          </row>
+          <row>
+            <entry>
+              <para>WMO</para>
+            </entry>
+            <entry>
+              <para>World Meteorological Organization</para>
+            </entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+    <parablock>
+      <para />
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <footnote id="_72c1031f-1bef-4429-97b5-782c9fab09bc" label="1">
+    <para> 	Rechtbank Den Haag 24 juni 2015, ECLI:NL:RBDHA:2015:7145. In Engelse vertaling ECLI:NL:RBDHA:2015:7196.</para>
+  </footnote>
+  <footnote id="_36ee1f70-0643-4ffa-b2db-6e8d48a321c3" label="2">
+    <para> 	Gerechtshof Den Haag 9 oktober 2018, ECLI:NL:GHDHA:2018:2591. In Engelse vertaling ECLI:NL:GHDHA:2018:2610.</para>
+  </footnote>
+  <footnote id="_a48aa520-db19-41b5-ad6a-7b6da599649d" label="3">
+    <para> 	Raamverdrag van de Verenigde Naties inzake klimaatverandering (United Nations Framework Convention </para>
+    <para>on Climate Change), New York, 9 mei 1992, Trb. 1992, 189, voor Nederland in werking getreden op 21 maart 1994 (Trb. 1994, 63).</para>
+  </footnote>
+  <footnote id="_5068393d-432d-4d0b-b13f-6de246612551" label="4">
+    <para> 	Overeenkomst van Parijs, 12 december 2015, Trb<emphasis role="italic">. </emphasis>2016, 94 (rectificatie in Trb<emphasis role="italic">. </emphasis>2016, 127), voor Nederland in werking getreden op 27 augustus 2017 (Trb. 2017, 141).</para>
+  </footnote>
+  <footnote id="_9111206e-a29c-49a4-9705-52f272b78dc5" label="5">
+    <para> 	Beschikking 406/2009/EG van het Europees Parlement en de Raad van 23 april 2009 inzake de inspanningen van de lidstaten om hun broeikasgasemissies te verminderen om aan de verbintenissen van de Gemeenschap op het gebied van het verminderen van broeikasgassen tot 2020 te voldoen. </para>
+  </footnote>
+  <footnote id="_b16c44e1-827e-491f-8eac-1069c1daaa5e" label="6">
+    <para> 	HR 5 november 1965, ECLI:NL:HR:1965:AB7079.</para>
+  </footnote>
+  <footnote id="_1dbc4324-f7da-4cad-8206-747417da471f" label="7">
+    <para> 	Zie onder meer EHRM 28 maart 2000, nr. 22492/93 (Kiliç/Turkije), rov. 62, en EHRM 17 juli 2014, nr. 47848/08 (Centre for Legal Resources on behalf of Valentin Câmpeanu/Roemenië), rov. 130.</para>
+  </footnote>
+  <footnote id="_03c046d7-9601-4df5-b592-680b7a8dd337" label="8">
+    <para> 	Vgl. ECHR, Guide on Article 2 of the European Convention on Human Rights (versie 31 augustus 2019), nrs. 9, 10 en 31-37 en de daar genoemde uitspraken van het EHRM.</para>
+  </footnote>
+  <footnote id="_cfbe94df-3551-4e29-9f2d-b7c72e6d3812" label="9">
+    <para> 	Vgl. onder meer de volgende uitspraken waarin het EHRM oordeelde dat aan de hier vermelde eisen was voldaan: EHRM 30 november 2004, nr. 48939/99 (Öneryildiz/Turkije), rov. 98-101 (gasexplosie op vuilnisbelt; het risico dat deze zich op enig moment zou kunnen voordoen, bestond al jaren en was al jaren bekend bij de autoriteiten), EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 147-158 (levensbedreigende modderstroom; de autoriteiten kenden het gevaar van modderstromen ter plaatse en waren zich bewust van de mogelijkheid dat deze zich op enig moment op de schaal konden voordoen als deze zich daadwerkelijk voordeed), en EHRM 28 februari 2012, nr. 17423/05 (Kolyadenko e.a./Rusland), rov. 165 en 174-180 (door exceptioneel overvloedige regen noodzakelijk geworden uitstroom uit stuwmeer; de autoriteiten wisten dat bij exceptionele zware regen noodzaak tot uitstroom zou kunnen optreden). Zie in deze zin ook ABRvS 18 november 2015, ECLI:NL:RVS:2015:3578 (Gaswinning in Groningen), rov. 39.3.</para>
+  </footnote>
+  <footnote id="_d3e8187f-2303-47e4-b0f8-56ee34324cdb" label="10">
+    <para> 	Vgl. ECHR, Guide on Article 8 of the European Convention on Human Rights (versie 31 augustus 2019), nrs. 119-127, 420-435 en 438-439 en de daar genoemde uitspraken van het EHRM.</para>
+  </footnote>
+  <footnote id="_2be0d5fd-0123-4356-8cd1-fab9053b5e9c" label="11">
+    <para> 	Vgl. EHRM 10 november 2004, nr. 46117/99 (Taşkin e.a./Turkije), rov. 107 en 111-114 (art. 8 EVRM is ook van toepassing op de dreiging van een milieuverontreiniging die zich pas op termijn van 20 tot 50 jaar verwezenlijkt), en EHRM 27 januari 2009, nr. 67021/01 (Tătar/Roemenië), rov. 89-97 (mogelijke gezondheidsrisico’s op langere termijn door uitstoot van zware metalen bij goudwinning).</para>
+  </footnote>
+  <footnote id="_c3419dd0-50bc-411a-bb4b-07bce5e4e2f7" label="12">
+    <para> 	EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 133.</para>
+  </footnote>
+  <footnote id="_8298962a-74fa-441a-a544-b8245768ba98" label="13">
+    <para> 	EHRM 24 juli 2014, nr. 60908/11 (Brincat e.a./Malta), rov. 102.</para>
+  </footnote>
+  <footnote id="_70df719a-8a34-4528-b7d9-2683dc07079c" label="14">
+    <para> 	Zie met betrekking tot art. 2 EVRM onder meer EHRM 12 januari 2012, nr. 36146/05 (Gorovenky en Bugara/Oekraïne), rov. 32, en EHRM 13 april 2017, nr. 26562/07 (Tagayeva e.a./Rusland), rov. 482. Zie met betrekking tot art. 8 EVRM onder meer EHRM 26 juli 2011, nr. 9718/03 (Stoicescu/Roemenië), rov. 59.</para>
+  </footnote>
+  <footnote id="_7a5869a0-3a68-48ac-86ad-c7e8b3766556" label="15">
+    <para> 	Zie EHRM 10 januari 2012, nr. 30765/08 (Di Sarno e.a./Italië), rov. 110, en EHRM 24 januari 2019, nr. 54414/13 (Cordella e.a./Italië), rov. 172.</para>
+  </footnote>
+  <footnote id="_0d84bbaf-deda-4cc5-893f-b5d8850d5f79" label="16">
+    <para> 	Zie onder meer de hiervoor in 5.2.2 en 5.2.3 aangehaalde uitspraken.</para>
+  </footnote>
+  <footnote id="_c4804963-b7a5-4b21-bdbc-a1638882bb25" label="17">
+    <para> 	Zie met betrekking tot art. 8 EVRM: EHRM 27 januari 2009, nr. 67021/01 (Tătar/Roemenië), rov. 120.</para>
+  </footnote>
+  <footnote id="_6d3594ce-acc7-4f51-aa16-07279994fe3a" label="18">
+    <para> 	Zie met betrekking tot art. 2 EVRM onder meer EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 134, en EHRM 24 juli 2014, nr. 60908/11 (Brincat e.a./Malta), rov. 101. Zie met betrekking tot art. 8 EVRM onder meer EHRM 9 juni 2005, nr. 55723/00 (Fadeyeva/Rusland), rov. 96.</para>
+  </footnote>
+  <footnote id="_a335f334-0674-4da0-b378-d6cdaca3b706" label="19">
+    <para> 	Zie opnieuw de hiervoor in 5.2.2 en 5.2.3 aangehaalde uitspraken.</para>
+  </footnote>
+  <footnote id="_8a4d537b-d045-4f2a-99ae-38d71af956bd" label="20">
+    <para> 	Zie voor een en ander onder meer EHRM 30 november 2004, nr. 48939/99 (Öneryildiz/Turkije), rov. 128, EHRM 9 juni 2005, nr. 55723/00 (Fadeyeva/Rusland), rov. 128, en EHRM 26 juli 2011, nr. 9718/03 (Stoicescu/Roemenië), rov. 59.</para>
+  </footnote>
+  <footnote id="_69dd1388-2df0-4312-8005-19c92de5ef7a" label="21">
+    <para> 	Zie EHRM 9 juni 2005, nr. 55723/00 (Fadeyeva/Rusland), rov. 124-134, EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 156-158, EHRM 24 januari 2019, nr. 54414/13 (Cordella e.a./Italië), rov. 161-174, EHRM 10 februari 2011, nr. 30499/03 (Dubetska e.a./Oekraïne), rov. 150-156, en EHRM 13 juli 2017, nr. 38342/05 (Jugheli e.a./Georgië), rov. 76-78. </para>
+  </footnote>
+  <footnote id="_a33a7348-9f46-48d2-b99e-d7e3ace3a41a" label="22">
+    <para> 	EHRM 13 juli 2017, nr. 38342/05 (Jugheli e.a./Georgië).</para>
+  </footnote>
+  <footnote id="_8e20cdb3-c053-4c7b-bd00-a55022738b77" label="23">
+    <para> 	Zie EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 135, en EHRM 24 juli 2014, nr. 60908/11 (Brincat e.a./Malta), rov. 101.</para>
+  </footnote>
+  <footnote id="_15cf40af-bf08-4a5d-b858-8c8d9aa3046b" label="24">
+    <para> 	Zie EHRM 26 juli 2011, nr. 9718/03 (Stoicescu/Roemenië), rov. 59.</para>
+  </footnote>
+  <footnote id="_a76f17f4-5437-4d79-8220-7c9e5d45dd22" label="25">
+    <para> 	Zie onder meer EHRM 7 juli 1989, nr. 14038/88 (Soering/Verenigd Koninkrijk), rov. 87.</para>
+  </footnote>
+  <footnote id="_c66115ce-660f-4c47-98e9-512a8f46dd98" label="26">
+    <para> 	Verdrag van Wenen inzake het verdragenrecht van 23 mei 1969, Trb. 1972, 51, en 1985, 79.</para>
+  </footnote>
+  <footnote id="_fb37443f-e23b-439c-bd4e-fa7d948f2379" label="27">
+    <para> 	EHRM 12 september 2012, nr. 10593/08 (Nada/Zwitserland).  </para>
+  </footnote>
+  <footnote id="_8ce8a161-fabc-4cb0-afc0-864c17e257ad" label="28">
+    <para> 	EHRM 12 november 2008, nr. 34503/97 (Demir en Baykara/Turkije). Zie voor een voorbeeld EHRM 27 januari 2009, nr. 67021/01 (Tătar/Roemenië), rov. 120 (verwijzing naar de Rio Declaration). </para>
+  </footnote>
+  <footnote id="_86bd12e5-ae60-4039-bd20-f56ea3bddc5a" label="29">
+    <para> 	Zie onder meer EHRM 17 oktober 1986, nr. 9532/81 (Rees), rov. 47, EHRM 30 november 2004, nr. 48939/99 (Öneryildiz/Turkije), rov. 59, 71, 90 en 93 (betekenis ‘dangerous activities’), en EHRM 20 mei 2010, nr. 61260/08 (Oluić/Kroatië), rov. 29-31, 49, 60 en 62 (WHO-geluidsnormen). </para>
+  </footnote>
+  <footnote id="_180d6968-f13b-49fe-893f-9a6a24a5a8ee" label="30">
+    <para> 	Zie voor een en ander EHRM 26 oktober 2000, nr. 30210/96 (Kudla/Polen), rov. 157, EHRM 27 januari 2015, nr. 36925/10 (Neshkov e.a./Bulgarije), rov. 180 en 181, en EHRM 31 oktober 2019, nr. 21613/16 (Ulemek/Kroatië), rov. 71.</para>
+  </footnote>
+  <footnote id="_80ad9dee-29ef-4a3f-a40f-b00b157159b8" label="31">
+    <para> 	Zie onder meer EHRM 15 januari 2015, nr. 62198/11 (Kuppinger/Duitsland), rov. 136 en 137, met betrekking tot een schending van art. 8 EVRM, en EHRM 27 januari 2015, nr. 36925/10 (Neshkov e.a./Bulgarije), rov. 181, en EHRM 31 oktober 2019, nr. 21613/16 (Ulemek/Kroatië), rov. 71, met betrekking tot een schending van art. 3 EVRM.</para>
+  </footnote>
+  <footnote id="_074b5473-e7df-424d-8902-a27af74e5f73" label="32">
+    <para> 	Zie EHRM 27 januari 2015, nr. 36925/10 (Neshkov e.a./Bulgarije), rov. 186 en 187, en EHRM 31 oktober 2019, nr. 21613/16 (Ulemek/Kroatië), rov. 71.</para>
+  </footnote>
+  <footnote id="_08be9649-6e56-44b1-9898-6fef674c8ac8" label="33">
+    <para> 	Vgl. HR 16 december 2016, ECLI:NL:HR:2016:2888, rov. 3.3.3, eerste alinea.</para>
+  </footnote>
+  <footnote id="_a302b1b6-0fc7-4c17-a74e-37e4824224cc" label="34">
+    <para> 	Yearbook of the International Law Commission 2001, Vol. II, Part Two, p. 125, rechterkolom.</para>
+  </footnote>
+  <footnote id="_31a527dc-2e3b-42ab-93a5-662524a21bfb" label="35">
+    <para> 	Vgl. het overzicht bij A.M. Honoré, Causation and Remoteness of Damage, International Encyclopedia of Comparative Law, Vol. XI, Torts Chapter 7, nr. 112, en A.J. Akkermans, WPNR 6043. Vgl. ook art. 3:105 van Principles of European Tort Law. Zie voor Nederland: HR 23 september 1988, ECLI:NL:HR:1988:AD5713 (Kalimijnen), rov. 3.5.1, derde alinea.</para>
+  </footnote>
+  <footnote id="_4cd5ebd4-7737-4d27-955d-a9638a337f99" label="36">
+    <para> 	Zie in deze zin ook de uitspraak van de Supreme Court van de Verenigde Staten in de zaak Massachusetts et al. v. Environmental Protection Agency et al., 2 april 2007, 549 U.S. 497 (2007), p. 22-23.</para>
+  </footnote>
+  <footnote id="_abcedb80-c2d1-46c3-84e5-1a533d925652" label="37">
+    <para> 	Vgl. onder meer de gegevens genoemd in 2.79-2.80 van de conclusie van plaatsvervangend Procureur-Generaal en de Advocaat-Generaal. </para>
+  </footnote>
+  <footnote id="_4e9d82a5-a2a0-419a-92eb-b3dcc3444318" label="38">
+    <para> 	Vgl. onder meer Kamerstukken II, 1991/92, 22 486, nr. 3, p. 7 en 21-22, HR 27 juni 1986, ECLI:NL:HR:1986:AD3741 (de Nieuwe Meer), rov. 3.2, en HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP), rov. 4.3.2.</para>
+  </footnote>
+  <footnote id="_f23e427c-5e38-4703-9585-cdb2acf8ec9d" label="39">
+    <para> 	Zie HR 27 juni 1986, ECLI:NL:HR:1986:AD3741 (de Nieuwe Meer), rov. 3.2, en Kamerstukken II, 1991/92, 22 486, nr. 3, p. 22-23.</para>
+  </footnote>
+  <footnote id="_ba82e597-ac5a-44ab-a2d0-2be248536e32" label="40">
+    <para> 	Verdrag betreffende toegang tot informatie, inspraak in besluitvorming en toegang tot de rechter inzake milieuaangelegenheden, 25 juni 1998, Trb. 1998, 289, voor Nederland in werking getreden op 29 maart 2005, Trb. 2005, 22.  </para>
+  </footnote>
+  <footnote id="_838f7734-d84f-457b-958a-c28b15af2ad5" label="41">
+    <para> 	Zie daarvoor box 13.7 uit het rapport van Working Group III dat deel uitmaakt van AR4.</para>
+  </footnote>
+  <footnote id="_09e852df-72da-4890-b4d5-e2b1ea944c83" label="42">
+    <para> 	United Nations Framework Convention on Climate Change, Compilation of economy-wide emission reduction targets to be implemented by Parties included in Annex I to the Convention, 7 juni 2011, FCCC/SB/2011/INF.1/Rev.1, p. 4-5.</para>
+  </footnote>
+  <footnote id="_012c3992-0ec4-45d0-81c6-cb63d631de1d" label="43">
+    <para> 	UNEP Emission Gap Report 2013, executive summary, onder 6. Met “later-action scenarios” zijn blijkens de glossary van het rapport bedoeld scenario’s waarbij de uitstoot in de periode 2020 tot 2030 hoger is dan in de corresponderende minst kostende scenario’s. </para>
+  </footnote>
+  <footnote id="_c29fd666-abd6-4000-8583-8ce5b60482b3" label="44">
+    <para> 	Vgl. hetgeen is vermeld onder 4.222 van de conclusie van de plaatsvervangend Procureur-Generaal en de Advocaat-Generaal.</para>
+  </footnote>
+  <footnote id="_2a2b8ee4-d6a4-4c14-8de0-1bb288ef471b" label="45">
+    <para> 	Wet van 2 juli 2019, Stb. 2019, 253.</para>
+  </footnote>
+  <footnote id="_67bdfcb6-07a6-4f07-b6cb-7dcb03e51b87" label="46">
+    <para> 	Vgl. onder meer HR 28 september 2018, ECLI:NL:HR:2018:1806, rov. 3.5.2, Kamerstukken II, 1979/80, 16 162, nr. 3, p. 6 en 10, en Kamerstukken II, 1991/92, 22 495, nr. 3, p. 83-84.</para>
+  </footnote>
+  <footnote id="_357c91e7-8265-4350-a9f3-5e5cefb32fb5" label="47">
+    <para> 	HR 21 maart 2003, ECLI:NL:HR:2003:AE8462 (Waterpakt), rov. 3.5, tweede alinea.</para>
+  </footnote>
+  <footnote id="_f6a86793-32db-43b2-a9b5-e8e7a870ba1d" label="48">
+    <para> 	Zie voor een en ander HR 21 maart 2003, ECLI:NL:HR:2003:AE8462 (Waterpakt), rov. 3.5, HR 1 oktober 2004, ECLI:NL:HR:2004:AO8913 (Faunabescherming/Fryslân), rov. 3.3.4 en 3.3.5, HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP), rov. 4.6.2, en HR 7 maart 2014, ECLI:NL:HR:2014:523 (Staat/Norma e.a.), rov. 4.6.2.</para>
+  </footnote>
+  <footnote id="_f92167bd-c1ad-4fba-8f5c-b597e394c840" label="49">
+    <para> 	Zie HR 21 maart 2003, ECLI:NL:HR:2003:AE8462 (Waterpakt), rov. 3.5, derde alinea, en HR 1 oktober 2004, ECLI:NL:HR:2004:AO8913 (Faunabescherming/Fryslân), rov. 3.3.4, derde alinea.</para>
+  </footnote>
+  <footnote id="_961614b3-69d5-4b69-b243-d87a61007a56" label="50">
+    <para> 	Zie de arresten HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP), rov. 4.6.1-4.6.2, waarin een dergelijk verklaring voor recht aan de orde was, en HR 7 maart 2014, ECLI:NL:HR:2014:523 (Staat/Norma e.a.), rov. 4.6.2.</para>
+  </footnote>
+  <footnote id="_f4017e94-8672-4aa2-ad55-a3d0cfa858ea" label="51">
+    <para> 	Zie HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP), rov. 4.6.2.</para>
+  </footnote>
+</uitspraak>
+</open-rechtspraak>
