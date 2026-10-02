@@ -158,11 +158,11 @@ def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
     # the laws by title, one not in the graph last; in a law the order of its articles,
     # then enacted before proposed
     assert _brief(laws) == [
-        ("BWBR0001", "bwbr0001_1", "REPEALS", "enacted", "stb_2026_154"),
-        ("BWBR0001", "bwbr0001_1", "AMENDS", "proposed", "amendment"),
-        ("BWBR0001", "bwbr0001_2", "AMENDS", "enacted", "stb_2026_154"),
-        ("BWBR0002", "bwbr0002_9", "AMENDS", "proposed", "bill"),
-        ("BWBR0003", "bwbr0003_5", "INTRODUCES", "enacted", "stb_2026_154"),
+        ("BWBR0001", "bwbr0001_1", "repeals", "enacted", "stb_2026_154"),
+        ("BWBR0001", "bwbr0001_1", "amends", "proposed", "amendment"),
+        ("BWBR0001", "bwbr0001_2", "amends", "enacted", "stb_2026_154"),
+        ("BWBR0002", "bwbr0002_9", "amends", "proposed", "bill"),
+        ("BWBR0003", "bwbr0003_5", "introduces", "enacted", "stb_2026_154"),
     ]
     assert laws[0]["law"] == {
         "id": "instruments/bwbr0001",

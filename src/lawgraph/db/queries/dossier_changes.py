@@ -65,7 +65,7 @@ LEFT JOIN LATERAL (
 ) s ON true
 ORDER BY i.citation_title NULLS LAST, a.bwb_id NULLS LAST,
          a.position IS NULL, a.position NULLS FIRST, a.key, c.article_id,
-         c.stage, c.relation, c.source_id
+         c.stage NULLS LAST, c.relation NULLS LAST, c.source_id
 """
 
 
@@ -74,7 +74,8 @@ def get_dossier_changed_articles(
 ) -> list[dict[str, Any]]:
     """The changes of the dossier per law: ``[{law, changes}]``, the laws by title, the
     changes in the order of the law (a law that is not in the graph last, by id). Each
-    change: ``{article, relation, stage, source, effective_date}``."""
+    change: ``{article, relation, stage, source, effective_date}``, the relation in lower
+    case (``amends``), as the dossier hub names it."""
     rows = store.query(
         _CHANGES_SQL,
         {
@@ -113,7 +114,7 @@ def _change(row: dict[str, Any]) -> dict[str, Any]:
             "display_name": row["article_name"],
             "stub": row["stub"],
         },
-        "relation": row["relation"],
+        "relation": row["relation"].lower(),
         "stage": row["stage"],
         "source": {
             "id": row["source_id"],

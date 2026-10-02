@@ -37,7 +37,9 @@ class DossierChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     article: ChangedArticleRef
-    relation: Literal["AMENDS", "INTRODUCES", "REPEALS"]
+    relation: Literal["amends", "introduces", "repeals"] = Field(
+        description="As the dossier hub names its laws' relations."
+    )
     stage: Literal["enacted", "proposed"] = Field(
         description="`enacted`: a publication legislated in this dossier changes the "
         "article; `proposed`: a paper of the dossier proposes it (status `voorgesteld`)."
