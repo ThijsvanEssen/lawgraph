@@ -43,6 +43,29 @@ _TITLE_NUMBER_YEAR = re.compile(
 )
 
 
+_CITATION_KINDS = {"stb": "Stb.", "stcrt": "Stcrt."}
+
+
+def publication_citation(publication: str) -> str:
+    """``Stb. 2018, 401`` for ``stb-2018-401``: how the publication is cited."""
+    match = _KOOP_ID.match(publication)
+    if not match:
+        return publication
+    return f"{_CITATION_KINDS[match[1].lower()]} {match[2]}, {int(match[3])}"
+
+
+def measure_summary(measure: Mapping[str, Any], publication: str) -> dict[str, Any]:
+    """What an IMPLEMENTS edge keeps of the measure in *publication*: its publication, how
+    that is cited, and the title and kind of act as EUR-Lex gives them."""
+    summary = {
+        "publication": publication,
+        "citation": publication_citation(publication),
+        "title": str(measure.get("title") or "").strip() or None,
+        "type": str(measure.get("type") or "").strip() or None,
+    }
+    return {key: value for key, value in summary.items() if value is not None}
+
+
 def measure_publication(measure: Mapping[str, Any]) -> str | None:
     """``stb-2018-401`` for a measure of the Staatsblad or Staatscourant, else None."""
     number = str(measure.get("number") or "").strip()

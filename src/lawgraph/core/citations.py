@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -375,6 +375,7 @@ class DutchCitationExtractor:
         self,
         code_aliases: dict[str, str],
         name_aliases: Mapping[str, str | None] | None = None,
+        context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
     ) -> None:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
@@ -387,6 +388,22 @@ class DutchCitationExtractor:
             if k and v and len(name_key(k)) >= _MIN_NAME_LENGTH
         }
         self._books: dict[str, dict[str, str]] = self._group_books()
+        # "EP" -> (law id, a pattern of the words a text must also name: "EVRM", ...)
+        self._context: dict[str, tuple[str, re.Pattern[str]]] = {
+            alias.strip().upper(): (
+                law_id,
+                re.compile(
+                    r"(?<!\w)(?:"
+                    + "|".join(
+                        re.escape(w) for w in sorted(words, key=len, reverse=True)
+                    )
+                    + r")(?!\w)",
+                    re.IGNORECASE,
+                ),
+            )
+            for alias, (law_id, words) in (context_aliases or {}).items()
+            if alias.strip() and law_id and words
+        }
         self._code_re = self._alternation_re(
             self._code_map, prefix=r"(?:de\s+|het\s+)?"
         )
@@ -523,7 +540,11 @@ class DutchCitationExtractor:
 
         hits: list[CitationHit] = []
         seen: set[tuple[str | None, str | None, str]] = set()
-        local: dict[str, str] = {}
+        local: dict[str, str] = {
+            alias: law_id
+            for alias, (law_id, beside) in self._context.items()
+            if beside.search(text)
+        }
         unknown_local: dict[str, str] = {}  # "AW" -> "Aanbestedingswet"
         last: tuple[int, str] | None = None
 

@@ -139,8 +139,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "A national instrument implements an EU act, by an implementation source "
         "(`meta.bases`): a publication EUR-Lex lists as a national implementing measure of "
         "the act, and the regulations it enacted or changed (`national_implementing_measure`, "
-        "`meta.publications`), or a regulation whose considerans says it implements the act "
-        "(`considerans`). Not per article: no source names the implementing article.",
+        "`meta.publications`, and `meta.measures`: each with `citation`, and `title` and "
+        "`type` as EUR-Lex gives them), or a regulation whose considerans says it implements "
+        "the act (`considerans`). Not per article: no source names the implementing article.",
     ),
     RelationSpec(
         "LEGISLATED_IN",

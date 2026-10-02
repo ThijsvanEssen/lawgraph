@@ -452,6 +452,9 @@ class DossierProps(_CommonProps):
     # retrieved_on}``
     ek_rejected: dict | None = None
     ek_outcome: dict | None = None
+    # the page of its bill on eerstekamer.nl (``normalize eerstekamer-bills``): url, read_on,
+    # status, submitted_on and progress, as the page gives them
+    ek_bill: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -480,6 +483,14 @@ class ActivityProps(_CommonProps):
     case_kinds_by_dossier: dict[str, list[str]] | None = None
     number: str | None = None
     replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
+    # of the Eerste Kamer (``normalize eerstekamer-agenda``): ``EK``; the time as its agenda
+    # gives it, the decision points of a committee meeting (number, reference, dossiers,
+    # subject, decision), the page it was taken over from and the day it was read
+    chamber: str | None = None
+    time: str | None = None
+    decision_points: list[dict] | None = None
+    source_url: str | None = None
+    retrieved_on: str | None = None
 
 
 # ---------------------------------------------------------------------------

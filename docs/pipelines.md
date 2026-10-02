@@ -35,7 +35,11 @@ one law has it there (`WvSr` is the Wetboek van Strafrecht's, `BW` no single boo
 or treaty whose source gives no abbreviation gets one from
 `src/lawgraph/data/curated/instrument_abbreviations.json` (`lawgraph curated set
 instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an instrument in the graph
-only; the EVRM is the BWB treaty `BWBV0001000`. The same table serves `/api/resolve`, the
+only; the EVRM is the BWB treaty `BWBV0001000`. Its First Protocol (`BWBV0001001`) is cited as
+`EP EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the
+Europees Parlement: it is the Protocol in a judgment that also names the EVRM or the Eerste
+Protocol (`in_context` of the curated entry; `semantic rechtspraak` only), or that names the
+Protocol so itself (`art. 1 Eerste Protocol EVRM (hierna: EP)`). The same table serves `/api/resolve`, the
 search, and the instrument-level matches of `semantic tk`. A code split over books
 (`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
 Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
@@ -917,6 +921,38 @@ list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: t
 a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
 of that day rejects is logged.
+
+**Retrieve `eerstekamer-agenda`.** The agendas of the Eerste Kamer: each plenary sitting
+(`/plenaire_vergadering/<yyyymmdd>`, record `ek-plenary-html`, external id the path) and each
+day of committee meetings (`/commissievergaderingen_op`, record `ek-committee-day-html`,
+external id the day). From the next sitting and the next day of meetings the pages are walked
+forward (`latere`) to the last one planned and back (`eerdere`) to `--since`; a run without it
+goes back to June 2015, and keeps where its walk back has got to in `pipeline_state`
+(`retrieve eerstekamer-agenda`) so a run that broke off goes on from there. One page at a
+time on the lane of eerstekamer.nl.
+
+**Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
+the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by
+the number it names) and the meetings of a day (committees, kind, time, and the decision
+points: number, reference such as `28.973 / 29.683 / 32.793, AA`, subject and the decision as
+the committee words it, kept, not read). Each is an activity (label `EK`) with `source_url`
+and `retrieved_on`, `ABOUT` the dossiers it names and `LED_BY` the committees of the Eerste
+Kamer a meeting names by abbreviation, each when the graph holds it. The site gives no status.
+
+**Retrieve `eerstekamer-bills`.** The page of each bill of the Eerste Kamer
+(`/wetsvoorstel/<number>_<words>`), one record each (`ek-bill-html`, external id the path,
+`meta.status` the heading it was listed under). The bills are found on the list of every
+committee (`/wetsvoorstellen_bij_commissie?key=…`, linked from its page; `robots.txt` allows
+it, `/zoeken` it does not) and in the list of votes (`bill_url` of the decisions of `normalize
+eerstekamer-votes`). A run over a window reads the bills a committee still handles and those
+voted on since `--since`; a run without it every listed bill, the older pages of the lists
+too. Pages are read one at a time on the lane of eerstekamer.nl.
+
+**Normalize `eerstekamer-bills`.** `core/eerstekamer_bills.py` reads the page's structure:
+its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
+`Kerngegevens`, and the progress module block by block (phase, house, the state class the
+page gives it, and its papers with kind, date and number); never a sentence. The result is
+`ek_bill` on the dossier of that number, when the graph holds it.
 
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each

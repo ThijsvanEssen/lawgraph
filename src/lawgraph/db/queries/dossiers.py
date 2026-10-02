@@ -87,7 +87,16 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "url",
         "source",
     ],
-    "activity": ["kind", "agenda_title", "number", "status"],
+    "activity": [
+        "kind",
+        "agenda_title",
+        "number",
+        "status",
+        "chamber",
+        "time",
+        "source_url",
+        "retrieved_on",
+    ],
     "decision": [
         "subject",
         "chamber",
@@ -1269,3 +1278,42 @@ def tk_values(store: GraphStore) -> dict[str, set[str]]:
     """
     row = next(iter(store.query(sql)), None) or {}
     return {part: {v for v in row.get(part) or [] if v} for part in row}
+
+
+def get_next_activity(
+    store: GraphStore, dossier_id: str, today: str
+) -> dict[str, Any] | None:
+    """The next thing the Kamer has planned about a dossier: of the activities ABOUT it with
+    status ``Gepland`` (``Activiteit.Status``) on or after *today*, the earliest (the key
+    settles a day), with its lead committee; None when it plans nothing."""
+    rows = store.query(
+        f"""
+        SELECT a.key, a.date, a.props -> 'kind' AS kind,
+               a.props -> 'agenda_title' AS agenda_title, (
+                   SELECT json_build_object(
+                       'key', c.key, 'slug', c.props -> 'slug', 'name', c.props -> 'name'
+                   )
+                   FROM {COLLECTION_EDGES} led
+                   JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
+                   WHERE led.from_id = a.id AND led.relation = %(led_by)s
+                   ORDER BY led.to_id ASC NULLS FIRST
+                   LIMIT 1
+               ) AS committee
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
+        WHERE e.to_id = %(dossier_id)s AND e.relation = %(about)s
+          AND e.from_collection = '{COLLECTION_ACTIVITIES}'
+          AND lg_str(a.props -> 'status') = %(planned)s
+          AND a.date >= %(today)s
+        ORDER BY a.date ASC NULLS LAST, a.key ASC
+        LIMIT 1
+        """,
+        {
+            "dossier_id": dossier_id,
+            "about": RELATION_ABOUT,
+            "led_by": RELATION_LED_BY,
+            "planned": ACTIVITY_PLANNED,
+            "today": today,
+        },
+    )
+    return next(iter(rows), None)

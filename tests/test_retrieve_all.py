@@ -298,8 +298,15 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "staatscourant-posts",
     }
     assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
-    assert lanes["eerstekamer-votes"] == lanes["eerstekamer-composition"]
-    assert len(set(lanes.values())) == len(lanes) - 1 - 1 - 1 - 1 - 1 - (len(koop) - 1)
+    assert (
+        lanes["eerstekamer-votes"]
+        == lanes["eerstekamer-composition"]
+        == lanes["eerstekamer-bills"]
+        == lanes["eerstekamer-agenda"]
+    )
+    assert len(set(lanes.values())) == (
+        len(lanes) - 1 - 1 - 1 - 1 - 3 - (len(koop) - 1)
+    )
 
 
 def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
@@ -329,6 +336,8 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("eerstekamer", koop, ()),
         ("eerstekamer-votes", registry.LANE_EERSTEKAMER_SITE, ()),
         ("eerstekamer-composition", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-agenda", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-bills", registry.LANE_EERSTEKAMER_SITE, ()),
         ("echr", "echr", ()),
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),

@@ -182,7 +182,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements` and `normalize rijksoverheid` read them) |
 | `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `GRAPH_LIST_STATS` |
 
@@ -272,7 +272,7 @@ side stay under the limit together.
 
 **Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
 `external`: compose uses it and cannot remove it. Create it once
-(`docker volume create lawgraph_pgdata`), then `docker compose up -d`. The server
+(`docker volume create lawgraph_pgdata`), then `docker compose up -d` (PostgreSQL alone: ArangoDB, kept until the rollback window closes, starts only with `--profile arango`, on 127.0.0.1). The server
 (service `postgres`, container `lawgraph-postgres`, `127.0.0.1:5432`, user `lawgraph`)
 keeps its data in it under `/var/lib/postgresql/18/docker`. `docker compose down -v` removes every volume a project owns,
 also with `--profile`, and that is how this database was lost once; the test database is a
@@ -438,7 +438,10 @@ Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and
 afterwards, so tests stay independent of each other and safe to run in parallel; none of them
 touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
 when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
-stays green.
+stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
+their own (`database`, on a pull request and on a push to `develop` or `main`) against a
+`postgres:18` service with JIT off, as the test server; it has
+no S3 server, so the tests of the payload store in a bucket are skipped there.
 
 Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
 `test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure
