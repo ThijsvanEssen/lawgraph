@@ -518,7 +518,8 @@ def get_member_votes(
         voted AS (
             SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
                    member.props -> 'party' AS party,
-                   NULL::json AS faction_key, NULL::text AS faction_order
+                   NULL::json AS faction_key, NULL::text AS faction_order,
+                   'member'::text AS vote_source
             FROM member
             JOIN {COLLECTION_EDGES} e
               ON e.from_id = %(member_id)s AND e.relation = %(voted)s
@@ -526,7 +527,8 @@ def get_member_votes(
             SELECT e.to_id, e.doc -> 'meta',
                    CASE WHEN {_is_null("f.period -> 'abbreviation'")}
                         THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
-                   f.period -> 'faction_key', f.period ->> 'faction_key'
+                   f.period -> 'faction_key', f.period ->> 'faction_key',
+                   'faction'::text
             FROM member
             CROSS JOIN LATERAL json_array_elements(
                 {_array("member.props -> 'faction_memberships'")}
@@ -554,7 +556,8 @@ def get_member_votes(
             'choice', page.meta -> 'choice',
             'seats', page.meta -> 'seats',
             'party', page.party,
-            'faction_key', page.faction_key
+            'faction_key', page.faction_key,
+            'vote_source', page.vote_source
         )
         FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
         ORDER BY page.date DESC NULLS LAST, page.key ASC,

@@ -646,13 +646,13 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
     votes = get_member_votes(store, "members/m1")
     # newest first; one day settled by key, then the member's own vote before the
     # faction's; the undated last
-    assert [(v["decision_key"], v["faction_key"]) for v in votes] == [
-        ("s0", None),
-        ("s0", "d66"),
-        ("s1", "d66"),
-        ("s3", None),
-        ("s2", "vvd"),
-        ("s4", None),
+    assert [(v["decision_key"], v["faction_key"], v["vote_source"]) for v in votes] == [
+        ("s0", None, "member"),
+        ("s0", "d66", "faction"),
+        ("s1", "d66", "faction"),
+        ("s3", None, "member"),
+        ("s2", "vvd", "faction"),
+        ("s4", None, "member"),
     ]
     assert json.dumps(votes[1]) == json.dumps(
         {
@@ -666,6 +666,7 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
             "seats": 9,
             "party": "D66",
             "faction_key": "d66",
+            "vote_source": "faction",
         }
     )
     # their own vote carries the party they sit for now; a faction's that of the day
