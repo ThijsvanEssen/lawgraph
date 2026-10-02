@@ -91,10 +91,23 @@ DEFAULT = [
 
 
 @pytest.mark.parametrize("facets", [True, False])
-def test_the_highest_courts_by_the_day_they_were_published(
+def test_a_feed_that_asks_for_no_kind_has_no_judgments(
     client: TestClient, facets: bool
 ) -> None:
     answer = _feed(client, facets=str(facets).lower())
+    assert _ids(answer) == []
+    if facets:  # the kind facet counts them, for a choice "Uitspraken"
+        assert answer["total"] == 0
+        assert {f["value"]: f["count"] for f in answer["facets"]["kind"]} == {
+            "uitspraak": 3
+        }
+
+
+@pytest.mark.parametrize("facets", [True, False])
+def test_the_highest_courts_by_the_day_they_were_published(
+    client: TestClient, facets: bool
+) -> None:
+    answer = _feed(client, kind="uitspraak", facets=str(facets).lower())
     assert _ids(answer) == DEFAULT
     item = answer["items"][0]
     assert (item["kind"], item["date"], item["title"], item["summary"]) == (
@@ -148,7 +161,7 @@ def test_a_tier_keeps_the_judgments_of_that_tier(
 
 def test_pages_of_judgments_neither_repeat_nor_skip(client: TestClient) -> None:
     seen: list[str] = []
-    params: dict[str, Any] = {"limit": 1, "facets": "false"}
+    params: dict[str, Any] = {"limit": 1, "facets": "false", "kind": "uitspraak"}
     while True:
         answer = _feed(client, **params)
         seen += _ids(answer)
@@ -171,7 +184,8 @@ def test_a_summary_counts_the_judgments_and_shows_none_one_by_one(
     client: TestClient,
 ) -> None:
     summary = client.get(
-        "/api/feed/summary", params={"until": "2026-09-03", "days": 3}
+        "/api/feed/summary",
+        params={"until": "2026-09-03", "days": 3, "kind": "uitspraak"},
     ).json()
     days = {day["date"]: day for day in summary["days"]}
     assert {k["value"]: k["count"] for k in days["2026-09-03"]["kinds"]} == {

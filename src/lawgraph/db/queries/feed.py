@@ -46,6 +46,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
+    DEFAULT_KINDS,
     DOCUMENT_EVENTS,
     EVENT_BILL,
     EVENT_COMMENCEMENT,
@@ -474,12 +475,21 @@ def _cabinet_on(date: str) -> str:
     )
 
 
+def _kinds(filters: FeedFilters) -> tuple[str, ...] | None:
+    """The kinds the feed keeps: those asked for; without, ``DEFAULT_KINDS``, unless a
+    ``tier`` asks for judgments (None: every kind the other filters let through)."""
+    if filters.kinds:
+        return filters.kinds
+    return None if filters.tiers else DEFAULT_KINDS
+
+
 def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, str]:
     """The filter of each facet dimension that is asked for, on the columns of ``events``."""
     clauses: dict[str, str] = {}
-    if filters.kinds:
+    kinds = _kinds(filters)
+    if kinds:
         clauses["kind"] = "kind = ANY(%(kinds)s)"
-        bind["kinds"] = list(filters.kinds)
+        bind["kinds"] = list(kinds)
     if filters.ministry:
         clauses["ministry"] = "ministry = %(ministry)s"
         bind["ministry"] = filters.ministry
@@ -536,7 +546,7 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
 def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
     """The kinds whose rows are read: those asked for (all of them for the facets, which
     count every kind), without those that cannot have the member or faction asked for."""
-    chosen = FEED_KINDS if facets or not filters.kinds else filters.kinds
+    chosen = FEED_KINDS if facets else (_kinds(filters) or FEED_KINDS)
     sources = [_SOURCES[kind] for kind in FEED_KINDS if kind in chosen]
     if filters.tiers:  # only a judgment has a tier
         judgments = [s for s in sources if s.kind == EVENT_JUDGMENT]

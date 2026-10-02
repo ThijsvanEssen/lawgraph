@@ -47,6 +47,10 @@ FEED_KINDS: Final = (
     EVENT_JUDGMENT,
 )
 
+# The kinds of a feed that asks for none: parliament and legislation. A judgment is in the
+# feed only when ``uitspraak`` or a ``tier`` is asked for.
+DEFAULT_KINDS: Final = tuple(kind for kind in FEED_KINDS if kind != EVENT_JUDGMENT)
+
 # The order of the kinds within one day: what changes the law first, what is said about it
 # last. A kind's rank is its place here.
 DAY_ORDER: Final = (
