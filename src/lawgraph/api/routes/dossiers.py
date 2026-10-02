@@ -122,8 +122,9 @@ class _ListParams:
         phase: Annotated[
             str | None,
             Query(
-                description="The dossier's current phase, e.g. ``Verslag``. To filter on "
-                "a phase being done at all, use ``has_phase``."
+                description="Comma-separated: the dossiers whose current phase is one of "
+                "them, e.g. ``Verslag`` or ``Stemmingen,Eindtekst``. To filter on a phase "
+                "being done at all, use ``has_phase``."
             ),
         ] = None,
         has_phase: Annotated[
@@ -163,7 +164,7 @@ class _ListParams:
             status=None if status == "all" else status,
             outcome=outcome,
             kinds=parse_choices(kind, CARRYING_KINDS, "kind"),
-            phase=(parse_choices(phase, _PHASE_NAMES, "phase") or (None,))[0],
+            phases=parse_choices(phase, _PHASE_NAMES, "phase"),
             has_phase=parse_choices(has_phase, _PHASE_NAMES, "has_phase"),
             ministry=ministry.value if ministry else None,
             initiative=initiative,

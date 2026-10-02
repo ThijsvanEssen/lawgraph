@@ -859,11 +859,14 @@ def test_every_dossier_can_be_listed_found_and_ordered(store: GraphStore) -> Non
         by_title = _get(client, "/api/dossiers", sort="title", limit=2)
         still_open = _get(client, "/api/dossiers", status="open")
         bad = client.get("/api/dossiers", params={"has_phase": "nope"}).status_code
+        bad_phase = client.get("/api/dossiers", params={"phase": "Verslag,nope"})
+        two_phases = client.get("/api/dossiers", params={"phase": "Verslag,Eindtekst"})
         budgets = _get(client, "/api/dossiers", kind="Begroting")
     finally:
         app.dependency_overrides.pop(get_store, None)
 
     assert everything["total"] == 5
+    assert bad_phase.status_code == 422 and two_phases.status_code == 200
     assert {f["value"]: f["count"] for f in everything["facets"]["status"]} == {
         "open": 3,
         "closed": 2,
@@ -2092,3 +2095,28 @@ def test_a_dossier_without_a_title_takes_it_and_its_opening_from_its_papers(
     assert detail["opened_on"] == "2026-01-15"
     (item,) = listed["items"]
     assert (item["title"], item["opened_on"]) == ("Wet over Y", "2026-01-15")
+
+
+def test_the_dossier_list_keeps_those_in_one_of_the_phases(store: GraphStore) -> None:
+    _write(
+        store,
+        {
+            COLLECTION_DOSSIERS: [
+                _doc("p1", "dossier", label="1", current_phase="Verslag"),
+                _doc("p2", "dossier", label="2", current_phase="Eindtekst"),
+                _doc("p3", "dossier", label="3", current_phase="Stemmingen"),
+                _doc("p4", "dossier", label="4"),
+            ]
+        },
+    )
+
+    def keys(*phases: str) -> list[str]:
+        page = get_dossiers(store, DossierFilters(phases=phases), sort="number")
+        return sorted(_keys_of(page))
+
+    assert keys("Verslag") == ["p1"]
+    assert keys("Verslag", "Eindtekst") == ["p1", "p2"]
+    # the facet of the phase counts every phase, whatever is asked
+    page = get_dossiers(store, DossierFilters(phases=("Verslag",)))
+    counted = {f["value"]: f["count"] for f in page["facets"]["phase"]}
+    assert counted == {"Verslag": 1, "Eindtekst": 1, "Stemmingen": 1, None: 1}
