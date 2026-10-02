@@ -158,6 +158,11 @@ def test_pages_of_judgments_neither_repeat_nor_skip(client: TestClient) -> None:
     assert seen == DEFAULT
 
 
+def test_the_atom_title_names_the_tiers_in_words(client: TestClient) -> None:
+    atom = client.get("/api/feed.atom", params={"tier": "hoge_raad,parket"})
+    assert "<title>Concordans: hoge raad en parket</title>" in atom.text
+
+
 def test_an_unknown_tier_is_422(client: TestClient) -> None:
     assert client.get("/api/feed", params={"tier": "nope"}).status_code == 422
 
