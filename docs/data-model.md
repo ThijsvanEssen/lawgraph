@@ -21,6 +21,10 @@ A node is a document `{_key, type, labels, props}`:
 - `props` are validated against a strict Pydantic schema per collection (`core/props.py`);
   unknown fields are rejected. Upserts merge props (shallow), so several pipelines can add
   fields to one node.
+- `display_name` is the name to show. A name longer than its limit (a paper's title 120
+  characters, a commitment 80, a Staatscourant title 100, other titles `MAX_TITLE_CHARS`) is cut
+  at the last word boundary with an ellipsis (`core/display.shorten`), never inside a word;
+  the full title stays in `title`.
 - `stub: true` marks a placeholder created because something referred to it before its own
   source was ingested. A stub judgment has a valid ECLI (`core/ecli.is_valid_ecli`) and an edge
   at it; `semantic rechtspraak-citations` removes one that has none.
