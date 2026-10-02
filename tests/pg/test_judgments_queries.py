@@ -536,3 +536,50 @@ def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
         "Civiel recht; Verbintenissenrecht",
         "Civiel recht",
     }
+
+
+def test_the_tree_of_the_areas_of_law_is_counted_without_both_its_filters(
+    store: GraphStore,
+) -> None:
+    """With a subject chosen (`Bestuursrecht; Belastingrecht`), the main areas and the
+    subjects under them still count every judgment, not only the chosen subject's."""
+
+    def judgment(key: str, *subjects: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "type": "judgment",
+            "labels": [],
+            "props": {
+                "ecli": key,
+                "date_eff": "2026-01-01",
+                "subjects": list(subjects),
+            },
+        }
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            judgment("t1", "Bestuursrecht; Belastingrecht"),
+            judgment("v1", "Bestuursrecht; Vreemdelingenrecht"),
+            judgment("b1", "Bestuursrecht"),
+            judgment("s1", "Strafrecht"),
+        ],
+    )
+    for filters in (
+        JudgmentFilters(subject="Bestuursrecht; Belastingrecht"),
+        JudgmentFilters(subject_area="Strafrecht"),
+        JudgmentFilters(),
+    ):
+        tree = get_judgments_list(store, filters)["facets"]["subject_area"]
+        assert [(a["value"], a["count"]) for a in tree] == [
+            ("Bestuursrecht", 3),
+            ("Strafrecht", 1),
+        ], filters
+        assert [(n["label"], n["count"]) for n in tree[0]["narrower"]] == [
+            ("Belastingrecht", 1),
+            ("Vreemdelingenrecht", 1),
+        ]
+    chosen = get_judgments_list(
+        store, JudgmentFilters(subject="Bestuursrecht; Belastingrecht")
+    )
+    assert chosen["total"] == 1

@@ -308,7 +308,9 @@ _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "source": ("j.source", _SOURCE_FILTERS),
     "year": ("substr(j.date_eff, 1, 4)", _YEAR_FILTERS),
     "subjects": ("s.value", _SUBJECT_FILTERS),
-    "subject_area": ("a.value", _SUBJECT_AREA_FILTERS),
+    # the tree of the areas of law: main areas and the subjects under them (``narrower``),
+    # counted alike, without the ``subject_area`` and ``subject`` filters
+    "subject_area": ("a.value", _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS),
     "procedure": ("j.procedure", _PROCEDURE_FILTERS),
 }
 # what a facet reads besides the judgment; a judgment counts once per area of law
@@ -340,7 +342,8 @@ def get_judgments_list(
         source filter), per year of ``date_eff`` (without ``from`` and ``to``), per area of
         law (``subjects``, without the ``subject`` filter; a judgment counts for each of
         its areas), per main area of law (``subject_area``, the part of a subject before
-        its first ';', without the ``subject_area`` filter; a judgment counts once for each)
+        its first ';', without the ``subject_area`` and ``subject`` filters, as its ``narrower``
+        subjects; a judgment counts once for each)
         and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
