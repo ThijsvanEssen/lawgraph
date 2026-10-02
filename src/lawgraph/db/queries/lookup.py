@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_MEMBERS,
 )
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
@@ -43,6 +44,7 @@ ANSWER_PROPS = (
     "stub",
     "replaced_by",
     "same_as",
+    "slug",
 )
 
 # "36600-VIII", "36455-(R2188)", "36799": the number of a dossier and its suffix.
@@ -186,6 +188,17 @@ def find_faction(store: GraphStore, key: str) -> str | None:
 def find_committee(store: GraphStore, slug: str) -> str | None:
     committee = _committee(store, slug.strip())
     return committee["_id"] if committee else None
+
+
+def find_member(store: GraphStore, slug: str) -> str | None:
+    """The member of *slug* (``rob-jetten``, ``jan-de-vries-1971``)."""
+    return _one(
+        store,
+        f"SELECT m.id FROM {COLLECTION_MEMBERS} m"
+        " WHERE lg_str(m.props -> 'slug') = %(slug)s"
+        " ORDER BY m.key ASC NULLS FIRST LIMIT 1",
+        {"slug": slug.strip().lower()},
+    )
 
 
 def find_cabinet(store: GraphStore, key: str) -> str | None:

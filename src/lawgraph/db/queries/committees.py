@@ -381,11 +381,13 @@ def get_members(
     include_all: bool = False,
     government: bool = False,
     cabinet: str | None = None,
+    slug: str | None = None,
     sort: str = "name",
     limit: int = 500,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Members of parliament, in name order (or *sort*); never a record without a name.
+    *slug* keeps the one member of that slug, whoever they are.
 
     Restricted to people who ever held a seat; *include_all* also returns the
     ministers and other people the TK Persoon endpoint exposes. *government* keeps
@@ -403,7 +405,10 @@ def get_members(
     if cabinet:
         filters.append("m.cabinet_keys @> ARRAY[%(cabinet)s]::text[]")
         bind["cabinet"] = cabinet
-    if not (include_all or government or cabinet):
+    if slug:
+        filters.append("lg_str(m.props -> 'slug') = %(slug)s")
+        bind["slug"] = slug.strip().lower()
+    elif not (include_all or government or cabinet):
         filters.append("m.in_parliament")
     if party:
         filters.append(_PARTY)

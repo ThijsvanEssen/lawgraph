@@ -70,6 +70,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -182,6 +183,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             len(cleared),
             removed,
         )
+        assign_member_slugs(self.store)
         return len(nodes)
 
     # ── Who is who ───────────────────────────────────────────────────────────

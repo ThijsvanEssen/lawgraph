@@ -592,6 +592,8 @@ class MemberProps(_CommonProps):
     faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
+    number: str | None = None  # Persoon.Nummer
+    slug: str | None = None  # a stable name for a readable URL (core.member_slugs)
     birth_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives

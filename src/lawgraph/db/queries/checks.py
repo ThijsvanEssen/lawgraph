@@ -154,3 +154,19 @@ def cases_by_named_dossier(store: Store) -> dict[bool, int]:
         """
     )
     return {row["named"]: row["n"] for row in rows}
+
+
+def shared_member_slugs(store: Store) -> list[dict[str, Any]]:
+    """Every slug more than one member has, with how many: ``{slug, count}``."""
+    return list(
+        store.query(
+            """
+            SELECT lg_str(props -> 'slug') AS slug, count(*)::int AS count
+            FROM members
+            WHERE lg_str(props -> 'slug') IS NOT NULL
+            GROUP BY 1
+            HAVING count(*) > 1
+            ORDER BY 1 ASC NULLS FIRST
+            """
+        )
+    )

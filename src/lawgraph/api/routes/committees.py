@@ -194,6 +194,10 @@ def list_members(
         str | None,
         Query(description="Only those who held a post in this cabinet (key)."),
     ] = None,
+    slug: Annotated[
+        str | None,
+        Query(description="The member of this slug (``rob-jetten``); see ``slug``."),
+    ] = None,
     sort: Annotated[
         Literal["name", "family_name"],
         Query(
@@ -231,6 +235,7 @@ def list_members(
         include_all=include_all,
         government=capacity == "bewindspersoon",
         cabinet=cabinet,
+        slug=slug,
         sort=sort,
         limit=limit,
         offset=offset,
