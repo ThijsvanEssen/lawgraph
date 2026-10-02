@@ -367,3 +367,76 @@ def test_what_the_parties_are_called_from_here_on_is_their_alias() -> None:
         ("KLM", ["Geïntimeerde"]),
         ("VNV", ["Geïntimeerde", "Appellant"]),
     ]
+
+
+def test_a_numbered_name_broken_over_two_lines_is_one_party() -> None:
+    """ECLI:NL:PHR:2019:496: "2. Nederlandse Aardolie" / "Maatschappij B.V."."""
+    kop = (
+        "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel",
+        "Datum: 10 mei 2019 Conclusie inzake:",
+        "1. [eiseres 1]",
+        "2. [eiser 2]",
+        "(gezamenlijk te noemen: [eisers] )",
+        "tegen",
+        "1. Maatschap Groningen",
+        "2. Nederlandse Aardolie",
+        "Maatschappij B.V.",
+        "3. EBN B.V.",
+        "4. De Staat der Nederlanden",
+    )
+    assert _read(*kop, subjects=["Civiel recht"]) == [
+        "Eiser: [eiseres 1]",
+        "Eiser: [eiser 2]",
+        "Verweerder: Maatschap Groningen",
+        "Verweerder: Nederlandse Aardolie Maatschappij B.V.",
+        "Verweerder: EBN B.V.",
+        "Verweerder: De Staat der Nederlanden",
+    ]
+
+
+def test_a_name_with_its_legal_form_or_without_a_number_takes_no_next_line() -> None:
+    assert _read("tegen", "1. EBN B.V.", "Shell plc", "2. De Staat") == [
+        "Partij: EBN B.V.",
+        "Partij: Shell plc",
+        "Partij: De Staat",
+    ]
+    assert _read("tegen", "Nederlandse Aardolie", "Maatschappij B.V.") == [
+        "Partij: Nederlandse Aardolie",
+        "Partij: Maatschappij B.V.",
+    ]
+
+
+def test_a_shared_alias_in_quotes_with_a_sentence_after_it() -> None:
+    """ECLI:NL:PHR:2020:453: "(hierna gezamenlijk aangeduid als: “ [eisers] ”, eiser 2 wordt
+    hierna aangeduid als: “ [eiser 2] ”)"."""
+    kop = [
+        "In de zaak",
+        "1. Maatschap [eiseres 1]",
+        "2. [eiser 2]",
+        "3. [eiser 3]",
+        "(hierna gezamenlijk aangeduid als: “ [eisers] ”, eiser 2 wordt hierna aangeduid "
+        "als: “ [eiser 2] ”)",
+        "tegen",
+        "[verweerster]",
+        "(hierna: “ [verweerster] ”)",
+    ]
+    parties = read_parties(kop, ["Civiel recht"])
+    assert [(p["name"], p["alias"]) for p in parties] == [
+        ("Maatschap [eiseres 1]", "[eisers]"),
+        ("[eiser 2]", "[eisers]"),
+        ("[eiser 3]", "[eisers]"),
+        ("[verweerster]", "[verweerster]"),
+    ]
+
+
+def test_quoted_aliases_one_by_one_are_not_cut() -> None:
+    parties = read_parties(
+        [
+            "in de zaak van",
+            "1. Alegre Beheer B.V.",
+            "2. Rennoc Nederland B.V.",
+            "(hierna respectievelijk: ‘Alegre’ en ‘Rennoc’)",
+        ],
+        None,
+    )
+    assert [p["alias"] for p in parties] == ["Alegre", "Rennoc"]

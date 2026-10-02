@@ -93,6 +93,18 @@ class EerstekamerSiteClient(BaseClient):
         url = self.url(path)
         return url, self._page(url)
 
+    def page_at(self, path: str) -> tuple[str, str]:
+        """``(path, html)`` of a page, *path* the one it was served at after a redirect
+        (``/menukeuze_plenair`` forwards to the next plenary sitting)."""
+        response = self._get_raw_absolute_with_retry(
+            self.url(path), timeout=60, headers={"User-Agent": _USER_AGENT}
+        )
+        served = response.url or self.url(path)
+        site = self.url("/").rstrip("/")
+        return served[len(site) :] if served.startswith(site) else path, response_text(
+            response
+        )
+
     def _page(self, url: str) -> str:
         response = self._get_raw_absolute_with_retry(
             url, timeout=60, headers={"User-Agent": _USER_AGENT}

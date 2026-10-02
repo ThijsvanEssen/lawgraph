@@ -221,6 +221,10 @@ RAW_KIND_EK_COMPOSITION = "ek-composition-html"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
 RAW_KIND_EK_BILL = "ek-bill-html"
+# The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
+# committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
+RAW_KIND_EK_PLENARY = "ek-plenary-html"
+RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
@@ -262,6 +266,8 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_REJECTED,
         RAW_KIND_EK_COMPOSITION,
         RAW_KIND_EK_BILL,
+        RAW_KIND_EK_PLENARY,
+        RAW_KIND_EK_COMMITTEE_DAY,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
