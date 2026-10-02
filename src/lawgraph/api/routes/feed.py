@@ -302,8 +302,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(_CHAMBERS[filters.chamber])
     if filters.kinds:
         parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
-    if filters.tiers:
-        parts.append(" en ".join(filters.tiers))
+    if filters.tiers:  # a tier key in words: ``hoge raad``
+        parts.append(" en ".join(tier.replace("_", " ") for tier in filters.tiers))
     if filters.dossier:
         parts.append(f"dossier {filters.dossier}")
     if filters.ministry:
