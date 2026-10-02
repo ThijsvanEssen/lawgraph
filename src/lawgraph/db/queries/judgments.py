@@ -190,6 +190,8 @@ class JudgmentFilters:
     court_kind: str | None = None
     source: str | None = None
     subject: str | None = None
+    # the main area of law: a subject up to its first ';' (``Bestuursrecht``)
+    subject_area: str | None = None
     procedure: str | None = None
     date_from: str | None = None
     date_to: str | None = None
@@ -207,6 +209,7 @@ _COURT_KIND_FILTERS = frozenset({"court_kind"})
 _SOURCE_FILTERS = frozenset({"source"})
 _YEAR_FILTERS = frozenset({"from", "to"})
 _SUBJECT_FILTERS = frozenset({"subject"})
+_SUBJECT_AREA_FILTERS = frozenset({"subject_area"})
 _PROCEDURE_FILTERS = frozenset({"procedure"})
 
 # filter -> its condition on the judgment ``j``. Each is served by an index on its column;
@@ -224,6 +227,7 @@ _CLAUSES: dict[str, str] = {
     "court_kind": "j.court_kind = %(court_kind)s",
     "source": "j.source = %(source)s",
     "subject": "j.subjects @> ARRAY[%(subject)s]::text[]",
+    "subject_area": "lg_subject_areas(j.subjects) @> ARRAY[%(subject_area)s]::text[]",
     "procedure": "j.procedure = %(procedure)s",
     "from": "j.date_eff >= %(from)s",
     "to": "j.date_eff <= %(to)s",
@@ -241,6 +245,7 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "court_kind": ("court_kind", filters.court_kind),
         "source": ("source", filters.source),
         "subject": ("subject", filters.subject),
+        "subject_area": ("subject_area", filters.subject_area),
         "procedure": ("procedure", filters.procedure),
         "from": ("from", filters.date_from),
         "to": ("to", filters.date_to),
@@ -303,10 +308,14 @@ _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "source": ("j.source", _SOURCE_FILTERS),
     "year": ("substr(j.date_eff, 1, 4)", _YEAR_FILTERS),
     "subjects": ("s.value", _SUBJECT_FILTERS),
+    "subject_area": ("a.value", _SUBJECT_AREA_FILTERS),
     "procedure": ("j.procedure", _PROCEDURE_FILTERS),
 }
-# what a facet reads besides the judgment
-_FACET_JOINS = {"subjects": "CROSS JOIN LATERAL unnest(j.subjects) AS s(value)"}
+# what a facet reads besides the judgment; a judgment counts once per area of law
+_FACET_JOINS = {
+    "subjects": "CROSS JOIN LATERAL unnest(j.subjects) AS s(value)",
+    "subject_area": "CROSS JOIN LATERAL unnest(lg_subject_areas(j.subjects)) AS a(value)",
+}
 
 
 def get_judgments_list(
@@ -330,7 +339,9 @@ def get_judgments_list(
         ``court_kind`` (without the court_kind filter), per ``source`` (without the
         source filter), per year of ``date_eff`` (without ``from`` and ``to``), per area of
         law (``subjects``, without the ``subject`` filter; a judgment counts for each of
-        its areas) and per ``procedure`` (without its filter); the values by count, most
+        its areas), per main area of law (``subject_area``, the part of a subject before
+        its first ';', without the ``subject_area`` filter; a judgment counts once for each)
+        and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
     from lawgraph.db.queries.search import build_search_clause, tokenize_search_query

@@ -503,6 +503,12 @@ class JudgmentFacets(BaseModel):
         "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
         "areas; counted without the `subject` filter.",
     )
+    subject_area: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per main area of law: a subject up to its first `;` (`Bestuursrecht` "
+        "holds `Bestuursrecht; Belastingrecht`), most first; a judgment counts once for "
+        "each of its main areas; counted without the `subject_area` filter.",
+    )
     procedure: list[JudgmentFacetCount] = Field(
         default_factory=list,
         description="Per procedure (Rechtspraak `psi:procedure`, as written: `Hoger "

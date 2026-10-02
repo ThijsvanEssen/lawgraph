@@ -279,6 +279,10 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
             {"value": "Strafrecht", "count": 5},
             {"value": "Bestuursrecht; Belastingrecht", "count": 3},
         ],
+        "subject_area": [
+            {"value": "Strafrecht", "count": 5},
+            {"value": "Bestuursrecht", "count": 3},
+        ],
         "procedure": [{"value": "Cassatie", "count": 6}, {"value": None, "count": 2}],
     }
 
@@ -291,6 +295,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         "/api/judgments",
         params={
             "subject": " Strafrecht ",
+            "subject_area": " Strafrecht ",
             "tier": "andere_instantie",
             "court_kind": "ambtenarengerecht",
             "from": "2020-01-01",
@@ -302,6 +307,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         tier="andere_instantie",
         court_kind="ambtenarengerecht",
         subject="Strafrecht",
+        subject_area="Strafrecht",
         procedure="Cassatie",
         date_from="2020-01-01",
     )
@@ -325,6 +331,7 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
         "source": [],
         "year": [],
         "subjects": [],
+        "subject_area": [],
         "procedure": [],
     }
 

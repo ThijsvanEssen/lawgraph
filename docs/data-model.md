@@ -565,7 +565,7 @@ collections of both ends, are generated columns of `doc`.
 table: the identifiers (unique where they are: `bwb_id`, `celex`, `ecli`), the fields the
 lists filter and sort on, and for `/api/judgments` one index per filter that holds the tier,
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
-index alone, and `(tier, published_on)` for the judgments of the feed, a page per tier. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
+index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`). Ordered indexes for the instruments list (partial: without the
 publications), the documents newest first, and the member lists in name order. `edges`:
 `(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, `relation`,
