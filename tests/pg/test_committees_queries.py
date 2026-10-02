@@ -39,6 +39,7 @@ from lawgraph.db.queries.committees import (
     get_ek_faction_votes,
     get_ek_members,
     get_factions,
+    get_member_committees,
     get_member_votes,
     get_members,
     get_seats_on,
@@ -1096,3 +1097,46 @@ def test_walking_the_pages_of_the_members_finds_every_row_once(
         ).json()
         seen += [row["key"] for row in body]
     assert seen == [f"member_{i:03d}" for i in range(rows)]
+
+
+def test_the_committees_of_a_member_with_their_seat_and_role(
+    store: GraphStore,
+) -> None:
+    g = Graph(store)
+    member = g.node("members", "m1", name="Anna")
+    jv = g.node("committees", "jv", name="Justitie en Veiligheid", slug="jv")
+    fin = g.node("committees", "fin", name="Financiën", slug="fin", abbreviation="FIN")
+    ek = g.node("committees", "ek_fin", name="Financiën", slug="ek-fin", chamber="EK")
+    g.edge(
+        member,
+        "MEMBER_OF",
+        jv,
+        from_date="2022-01-01",
+        role="Voorzitter",
+        periods=[
+            {"from_date": "2020-01-01", "to_date": "2021-01-01", "role": "Lid"},
+            {"from_date": "2022-01-01", "role": "Voorzitter"},
+        ],
+    )
+    g.edge(member, "MEMBER_OF", fin, from_date="2018-01-01", to_date="2019-01-01")
+    g.edge(
+        member,
+        "MEMBER_OF",
+        ek,
+        role="voorzitter",
+        observed_from="2026-09-30",
+        observed_until=None,
+    )
+    g.write()
+
+    rows = get_member_committees(store, member)
+    # those they sit on now first, then by name
+    assert [r["key"] for r in rows] == ["ek_fin", "jv", "fin"]
+    from lawgraph.api.schemas.committees import MemberCommitteeDTO
+
+    jv_seat = MemberCommitteeDTO.from_row(rows[1]).model_dump()
+    assert jv_seat["role"] == "Voorzitter" and jv_seat["chamber"] == "TK"
+    assert [p["role"] for p in jv_seat["periods"]] == ["Lid", "Voorzitter"]
+    assert MemberCommitteeDTO.from_row(rows[0]).chamber == "EK"
+    assert MemberCommitteeDTO.from_row(rows[2]).to_date == "2019-01-01"
+    assert get_member_committees(store, "members/none") == []

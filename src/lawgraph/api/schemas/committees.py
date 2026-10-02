@@ -476,8 +476,9 @@ class MemberDTO(BaseModel):
     )
     role: str | None = Field(
         None,
-        description="In a committee of the Eerste Kamer: the role its page gives "
-        "(``voorzitter``, ``ondervoorzitter``).",
+        description="In a committee: the role of the seat as the Kamer writes it, of the "
+        "Tweede Kamer its ``Functie`` (``Lid``, ``Voorzitter``, ``OnderVz``, ``Plv. lid``), "
+        "of the Eerste Kamer the role its page gives (``voorzitter``, ``ondervoorzitter``).",
     )
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
     observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
@@ -543,6 +544,68 @@ def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
     )
 
 
+class CommitteeSeatDTO(BaseModel):
+    """One period a member held a seat on a committee."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
+    role: str | None = Field(
+        None,
+        description="As the Kamer writes it: of the Tweede Kamer the ``Functie`` of the "
+        "seat (``Lid``, ``Voorzitter``, ``OnderVz``, ``Plv. lid``), of the Eerste Kamer "
+        "the role its page gives (``voorzitter``); null for none.",
+    )
+    substitute: bool = Field(
+        False, description="A substitute's seat (``CommissieZetelVervangerPersoon``)."
+    )
+
+
+class MemberCommitteeDTO(CommitteeSeatDTO):
+    """A committee a member sat on, and their seat on it."""
+
+    key: str
+    slug: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    chamber: Literal["TK", "EK"] = "TK"
+    observed_from: str | None = Field(None, description=_OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
+    periods: list[CommitteeSeatDTO] = Field(
+        default_factory=list,
+        description="Every seat on it, oldest first, when there was more than one or it "
+        "has a role; the fields above are the one that represents them (an open seat "
+        "before a closed one, a member's before a substitute's, the latest).",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> MemberCommitteeDTO:
+        meta = row.get("meta") or {}
+        return cls(
+            key=row["key"],
+            slug=row.get("slug"),
+            name=row.get("name"),
+            abbreviation=row.get("abbreviation"),
+            chamber=row.get("chamber") or "TK",
+            **{
+                field: meta.get(field)
+                for field in (
+                    "from_date",
+                    "to_date",
+                    "role",
+                    "observed_from",
+                    "observed_until",
+                )
+            },
+            substitute=bool(meta.get("substitute")),
+            periods=[CommitteeSeatDTO(**p) for p in meta.get("periods") or []],
+        )
+
+
 class MemberDetailDTO(MemberDTO):
     """A member with the posts they held in government.
 
@@ -557,14 +620,22 @@ class MemberDetailDTO(MemberDTO):
     government_name: str | None = Field(
         None, description="The name as Rijksoverheid writes it: S.Th.M. Hermans."
     )
+    committees: list[MemberCommitteeDTO] = Field(
+        default_factory=list,
+        description="The committees they sat on, of either chamber, with their seat and "
+        "role: those they sit on now first, then by name.",
+    )
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> MemberDetailDTO:
+    def from_document(
+        cls, doc: dict[str, Any], committees: list[dict[str, Any]] | None = None
+    ) -> MemberDetailDTO:
         props = doc.get("props") or {}
         return cls(
             **MemberDTO.from_document(doc).model_dump(),
             birth_date=props.get("birth_date"),
             government_name=props.get("government_name"),
+            committees=[MemberCommitteeDTO.from_row(r) for r in committees or []],
         )
 
 

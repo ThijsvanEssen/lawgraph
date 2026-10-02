@@ -134,6 +134,29 @@ _CURRENT_MEMBERSHIP = f"""
     AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
 """
 
+
+def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, Any]]:
+    """The committees a member sat on, of either chamber, each with its seat (the edge's
+    ``meta``): those they sit on now first, then by name and key."""
+    rows = store.query(
+        f"""
+        SELECT c.key, c.props -> 'slug' AS slug, c.props -> 'name' AS name,
+               c.props -> 'abbreviation' AS abbreviation,
+               coalesce(lg_str(c.props -> 'chamber'), 'TK') AS chamber,
+               e.doc -> 'meta' AS meta
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_COMMITTEES} c ON c.id = e.to_id
+        WHERE e.from_id = %(member_id)s AND e.relation = %(member_of)s
+          AND e.to_collection = '{COLLECTION_COMMITTEES}'
+        ORDER BY ({_is_null("e.doc -> 'meta' -> 'to_date'")}
+                  AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}) DESC,
+                 c.props ->> 'name' ASC NULLS FIRST, c.key ASC
+        """,
+        {"member_id": member_id, "member_of": RELATION_MEMBER_OF},
+    )
+    return list(rows)
+
+
 # What a seat on a committee adds to its member.
 _SEAT_FIELDS = ("from_date", "to_date", "role", "observed_from", "observed_until")
 

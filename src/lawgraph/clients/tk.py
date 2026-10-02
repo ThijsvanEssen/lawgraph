@@ -246,7 +246,10 @@ class TKClient(BaseClient):
     def fetch_commissies(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch Commissie (committee) records with CommissieZetel members expanded."""
         params: dict[str, Any] = {
-            "$expand": "CommissieZetel($expand=CommissieZetelVastPersoon)",
+            "$expand": (
+                "CommissieZetel($expand=CommissieZetelVastPersoon,"
+                "CommissieZetelVervangerPersoon)"
+            ),
         }
         logger.info("Fetching Commissie records")
         return self._skip_paged_get("Commissie", params=params, page_size=top)
