@@ -24,7 +24,8 @@ from lawgraph.api.schemas.feed import (
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.settings import SITE_URL
-from lawgraph.core.feed import FEED_KINDS, FeedCursor
+from lawgraph.core.courts import TIERS
+from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
@@ -46,6 +47,8 @@ _EVENTS = (
     "``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, "
     "Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in "
     "force)"
+    " and ``uitspraak`` (a judgment or conclusion, on the day it was published; of the "
+    "highest courts and the Parket unless ``tier`` asks for others)"
 )
 
 
@@ -91,6 +94,14 @@ def scope_filters(
             "commencements belong to neither."
         ),
     ] = None,
+    tier: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated tiers of the judgments (as in "
+            "``/api/judgments``): keeps judgments alone. Without it the feed's judgments "
+            f"are those of {', '.join(FEED_TIERS)}."
+        ),
+    ] = None,
 ) -> FeedFilters:
     """The filters of every feed route but its dates."""
     return FeedFilters(
@@ -102,6 +113,7 @@ def scope_filters(
         faction=faction or None,
         q=(q or "").strip() or None,
         chamber=chamber,
+        tiers=parse_choices(tier, TIERS, "tier"),
     )
 
 
@@ -239,6 +251,7 @@ _KIND_PLURALS = {
     "publicatie": "publicaties",
     "inwerkingtreding": "inwerkingtredingen",
     "Brief regering": "brieven van de regering",
+    "uitspraak": "uitspraken",
 }
 _CHAMBERS = {"TK": "Tweede Kamer", "EK": "Eerste Kamer"}
 _SITE_PARAMETERS = {
@@ -252,6 +265,7 @@ _SITE_PARAMETERS = {
     "faction": "fractie",
     "q": "q",
     "chamber": "kamer",
+    "tiers": "instantie",
 }
 
 
@@ -288,6 +302,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(_CHAMBERS[filters.chamber])
     if filters.kinds:
         parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
+    if filters.tiers:
+        parts.append(" en ".join(filters.tiers))
     if filters.dossier:
         parts.append(f"dossier {filters.dossier}")
     if filters.ministry:

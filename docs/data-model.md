@@ -273,7 +273,7 @@ with `type`, the procedure, and `document_type`, `Uitspraak` or `Conclusie`, `re
 (earlier instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion),
 `subjects`; `court_code`, `tier` (the `Type` of its court in the Instanties list), `court_kind`
 (the kind of court within it), `date_eff` and `case_number_keys`, the case numbers as compared,
-derived; see [Courts](pipelines.md#courts)), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`;
+derived; see [Courts](pipelines.md#courts)), `published_on` ("Datum publicatie": the `dcterms:issued` of the `rdf:Description` about the published document, `rdf:about` its deeplink; the description of the ECLI has an `issued` of its own that is not it; null without the document; a column, the date of the feed), `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`;
 a conclusion also `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
@@ -565,7 +565,7 @@ collections of both ends, are generated columns of `doc`.
 table: the identifiers (unique where they are: `bwb_id`, `celex`, `ecli`), the fields the
 lists filter and sort on, and for `/api/judgments` one index per filter that holds the tier,
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
-index alone. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
+index alone, and `(tier, published_on)` for the judgments of the feed, a page per tier. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`). Ordered indexes for the instruments list (partial: without the
 publications), the documents newest first, and the member lists in name order. `edges`:
 `(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, `relation`,

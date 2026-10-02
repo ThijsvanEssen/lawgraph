@@ -1275,7 +1275,15 @@ def test_a_summary_orders_the_counts_of_a_day(store: GraphStore) -> None:
 BUSY_DAY = "2026-09-29"
 FILLER = 10_000
 # The tables a page must never read whole.
-LARGE = ("documents", "edges", "decisions", "activities", "commitments", "dossiers")
+LARGE = (
+    "documents",
+    "edges",
+    "decisions",
+    "activities",
+    "commitments",
+    "dossiers",
+    "judgments",
+)
 
 
 def _uuid_key(n: int) -> str:
@@ -1351,6 +1359,14 @@ def _crowd(store: GraphStore) -> None:
         "INSERT INTO decisions (id, type, props)"
         " SELECT 'decisions/crowd_' || n, 'filler',"
         f" json_build_object('passed', true, 'date', {day})"
+        f" FROM generate_series(1, {FILLER}) n"
+    )
+    # judgments of every feed tier and of a court the feed leaves out
+    store.execute(
+        "INSERT INTO judgments (id, type, props)"
+        " SELECT 'judgments/crowd_' || n, 'filler', json_build_object('tier',"
+        " (ARRAY['hoge_raad', 'raad_van_state', 'parket', 'rechtbank'])[n % 4 + 1],"
+        f" 'published_on', {day})"
         f" FROM generate_series(1, {FILLER}) n"
     )
     store.vacuum_analyze()
@@ -1452,3 +1468,4 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
         assert _seq_scans(plan) == []
         assert _limit_over_index(plan, "documents")
         assert _limit_over_index(plan, "decisions")
+        assert _limit_over_index(plan, "judgments")

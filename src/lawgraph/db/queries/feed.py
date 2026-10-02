@@ -18,7 +18,7 @@ array as a FOR over ``[]``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -35,6 +35,7 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AMENDS,
@@ -49,14 +50,17 @@ from lawgraph.core.feed import (
     EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
+    EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
     EXPLANATORY_MEMORANDUM,
     FEED_KINDS,
+    FEED_TIERS,
     FIRST_SIGNATORY,
     KIND_RANK,
     FeedCursor,
 )
+from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 
@@ -87,6 +91,17 @@ _ITEM_PROPS = (
     "publication_number",
     "bwb_id",
     "valid_from",
+    "ecli",
+    "court_code",
+    "tier",
+    "court_kind",
+    "procedure",
+    "date_eff",
+    "published_on",
+    "summary",
+    "advocate_general",
+    "advocate_general_role",
+    "source",
 )
 # The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven."
 # The AQL wrote ``\s`` and ``\.`` in a string literal, which made them ``s`` and ``.`` (any
@@ -176,6 +191,8 @@ class FeedFilters:
     faction: str | None = None
     q: str | None = None
     chamber: str | None = None  # TK, EK
+    # the tiers of the judgments; None: ``FEED_TIERS``. A tier keeps judgments alone.
+    tiers: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -298,6 +315,12 @@ def _document_source(kind: str) -> _Source:
     )
 
 
+def _tier_part(tier: str) -> str:
+    """SQL: a judgment of *tier*: a part of its own, read on the index of the tier and the
+    date of publication."""
+    return f"n.tier = {_lit(tier)}"
+
+
 _CITATION_TITLE = _or("i.props -> 'citation_title'", "i.props -> 'title'")
 _BWB_ID = _text("n.props -> 'bwb_id'")
 
@@ -344,6 +367,18 @@ _SOURCES: dict[str, _Source] = {
             chamber="NULL",
         ),
         _Source(
+            kind=EVENT_JUDGMENT,
+            collection=COLLECTION_JUDGMENTS,
+            # the day it was published, not decided: a judgment is news when it appears
+            date="published_on",
+            where="n.stub IS NOT TRUE AND n.same_as IS NULL",
+            parts=tuple(_tier_part(tier) for tier in FEED_TIERS),
+            dossiers=None,
+            persons=None,
+            title="n.pj_display_name",
+            chamber="NULL",
+        ),
+        _Source(
             kind=EVENT_COMMENCEMENT,
             collection=COLLECTION_INSTRUMENT_VERSIONS,
             date="valid_from",
@@ -360,7 +395,7 @@ _SOURCES: dict[str, _Source] = {
 }
 
 # The kinds that are no event of either chamber: a filter on the chamber leaves them out.
-_NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT)
+_NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT, EVENT_JUDGMENT)
 CHAMBER_EK = "EK"
 
 # The dimensions that are counted as facets; each is a filter on the rows too.
@@ -503,6 +538,10 @@ def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
     count every kind), without those that cannot have the member or faction asked for."""
     chosen = FEED_KINDS if facets or not filters.kinds else filters.kinds
     sources = [_SOURCES[kind] for kind in FEED_KINDS if kind in chosen]
+    if filters.tiers:  # only a judgment has a tier
+        judgments = [s for s in sources if s.kind == EVENT_JUDGMENT]
+        parts = tuple(_tier_part(tier) for tier in filters.tiers)
+        sources = [replace(s, parts=parts) for s in judgments]
     if filters.member or filters.faction:
         sources = [s for s in sources if s.persons is not None]
     if filters.faction:
@@ -759,13 +798,34 @@ def _facet(plan: _Plan, name: str) -> str:
         ) counted)"""
 
 
+_OWN_ACTORS = "props -> 'actors'"
+
+# The props of a judgment an item shows, from its columns: its own props hold its text and
+# paragraphs, which a read of one prop would parse; the A-G of a conclusion alone.
+_JUDGMENT_PROPS = f"""json_build_object(
+                'display_name', pj_display_name, 'ecli', pj_ecli,
+                'court_code', pj_court_code, 'tier', pj_tier,
+                'court_kind', pj_court_kind, 'decision_kind', pj_decision_kind,
+                'procedure', to_json(procedure), 'date_eff', pj_date_eff,
+                'published_on', to_json(published_on), 'summary', pj_summary,
+                'source', pj_source,
+                'advocate_general', CASE WHEN pj_decision_kind {_JSON_TEXT} = {_lit(KIND_CONCLUSIE)}
+                    THEN props -> 'advocate_general' END,
+                'advocate_general_role', CASE WHEN pj_decision_kind {_JSON_TEXT} = {_lit(KIND_CONCLUSIE)}
+                    THEN props -> 'advocate_general_role' END
+            )"""
+
+
 def _node_of(row: str) -> str:
     """SQL: ``n``, the node (``id``, ``props``, ``pj_actors``) of the page row *row*."""
     tables = sorted({s.collection for s in _SOURCES.values()})
+    props = {COLLECTION_JUDGMENTS: _JUDGMENT_PROPS}
+    # a paper's signatures from their column; a judgment has none
+    actors = {COLLECTION_DOCUMENTS: "pj_actors", COLLECTION_JUDGMENTS: "NULL::json"}
     union = "\n            UNION ALL ".join(
-        "SELECT id, props, "
-        + ("pj_actors" if table == COLLECTION_DOCUMENTS else "props -> 'actors'")
-        + f" AS pj_actors FROM {table} WHERE id = {row}.id"
+        f"SELECT id, {props.get(table, 'props')} AS props, "
+        f"{actors.get(table, _OWN_ACTORS)} AS pj_actors"
+        f" FROM {table} WHERE id = {row}.id"
         for table in tables
     )
     return f"""CROSS JOIN LATERAL (
