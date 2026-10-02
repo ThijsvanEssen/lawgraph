@@ -57,6 +57,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_timeline,
     get_dossiers,
     get_laws_named,
+    get_next_activity,
 )
 
 router = APIRouter()
@@ -254,6 +255,9 @@ def get_dossier(
         relations=relations,
         laws_named=get_laws_named(
             store, laws_in_title((dossier.get("props") or {}).get("title"))
+        ),
+        next_activity=get_next_activity(
+            store, dossier["_id"], dt.date.today().isoformat()
         ),
     )
 

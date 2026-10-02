@@ -400,6 +400,9 @@ class DossierProps(_CommonProps):
     # retrieved_on}``
     ek_rejected: dict | None = None
     ek_outcome: dict | None = None
+    # the page of its bill on eerstekamer.nl (``normalize eerstekamer-bills``): url, read_on,
+    # status, submitted_on and progress, as the page gives them
+    ek_bill: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day

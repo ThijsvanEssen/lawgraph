@@ -105,6 +105,10 @@ def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> Non
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_next_activity",
+        lambda store, dossier_id, today: None,
+    )
 
 
 def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -121,7 +125,15 @@ def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> 
     assert body["instruments"][1]["bwb_id"] is None
     assert body["committees"] == [{**_HUB["committees"][0], "role": "lead"}]
     assert body["documents_by_kind"] == {"Motie": 3, "Brief": 2}
-    assert body["senate"] == {"document_count": 2, "first_date": "2024-04-01"}
+    # no page of its bill: nothing of it
+    assert body["senate"] == {
+        "document_count": 2,
+        "first_date": "2024-04-01",
+        "submitted_on": None,
+        "status": None,
+        "progress": [],
+        "source": None,
+    }
 
 
 def test_a_dossier_without_links_has_an_empty_hub(
@@ -133,7 +145,14 @@ def test_a_dossier_without_links_has_an_empty_hub(
 
     assert body["instruments"] == [] and body["committees"] == []
     assert body["documents_by_kind"] == {}
-    assert body["senate"] == {"document_count": 0, "first_date": None}
+    assert body["senate"] == {
+        "document_count": 0,
+        "first_date": None,
+        "submitted_on": None,
+        "status": None,
+        "progress": [],
+        "source": None,
+    }
 
 
 def test_an_instrument_relation_the_catalogue_lacks_is_refused(

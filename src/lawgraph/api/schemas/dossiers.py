@@ -614,14 +614,82 @@ class DossierCommitteeDTO(TimelineCommitteeDTO):
     role: Literal["lead"] = "lead"
 
 
+class EkPaperDTO(BaseModel):
+    """A paper of a step of a bill, as the page of the Eerste Kamer lists it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(
+        ..., description="As the page names it: ``verslag``, ``stemming (hamerstuk)``."
+    )
+    date: str | None = None
+    number: str | None = Field(
+        None, description="As the page writes it: ``EK, B``, ``TK, 2``; null for none."
+    )
+    url: str
+
+
+class EkStepDTO(BaseModel):
+    """A step of the progress of a bill, as the page of the Eerste Kamer shows it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    phase: str | None = Field(
+        None,
+        description="``Schriftelijke voorbereiding``, ``Plenair``, ``Afkondiging``; null "
+        "for the first step, in the Tweede Kamer.",
+    )
+    house: str | None = Field(
+        None,
+        description="``Tweede Kamer``, ``Eerste Kamer``, ``Staatsblad(en)``; null where the "
+        "page names none (the plenary step of the Eerste Kamer).",
+    )
+    state: str | None = Field(
+        None,
+        description="As the page marks it: ``vol`` (it drew the step full: done), "
+        "``geblokt`` (the step the bill is in), ``leeg`` (not reached).",
+    )
+    papers: list[EkPaperDTO] = Field(default_factory=list)
+
+
+class EkBillSourceDTO(BaseModel):
+    """The page of the bill on eerstekamer.nl."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str | None = None
+    read_on: str | None = None
+    attribution: str = EK_ATTRIBUTION
+
+
 class DossierSenateDTO(BaseModel):
-    """The Eerste Kamer papers among a dossier's documents."""
+    """The Eerste Kamer papers among a dossier's documents, and the page of its bill on
+    eerstekamer.nl."""
 
     model_config = ConfigDict(extra="forbid")
 
     document_count: int = 0
     first_date: str | None = Field(
         default=None, description="Date of the earliest paper (YYYY-MM-DD)."
+    )
+    submitted_on: str | None = Field(
+        default=None,
+        description="The day the page of the bill says it was submitted (``Kerngegevens``: "
+        "``ingediend``); null without a page.",
+    )
+    status: str | None = Field(
+        default=None,
+        description="Where it is, as the list of its committee heads it: ``In schriftelijke "
+        "voorbereiding``, ``Gereed voor plenaire behandeling door de Eerste Kamer``, "
+        "``Plenaire behandeling Eerste Kamer afgerond``; null for a bill on no such list.",
+    )
+    progress: list[EkStepDTO] = Field(
+        default_factory=list,
+        description="The progress of the bill as its page shows it, step by step; empty "
+        "without a page. What the page does not show is not here.",
+    )
+    source: EkBillSourceDTO | None = Field(
+        default=None, description="The page it was taken over from; null without one."
     )
 
 
@@ -673,6 +741,25 @@ class DossierRelationDTO(BaseModel):
         )
 
 
+class NextActivityDTO(BaseModel):
+    """An activity the Tweede Kamer has planned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    date: str | None = None
+    kind: str | None = Field(
+        default=None,
+        description="``Activiteit.Soort``: ``Commissiedebat``, ``Plenair debat``, "
+        "``Stemmingen``, …",
+    )
+    agenda_title: str | None = None
+    committee: dict[str, Any] | None = Field(
+        default=None,
+        description="Its lead committee (``key``, ``slug``, ``name``); null in plenary.",
+    )
+
+
 class DossierDetailResponse(DossierSummaryDTO):
     """A dossier with the size of everything attached to it, and what it links to."""
 
@@ -709,6 +796,13 @@ class DossierDetailResponse(DossierSummaryDTO):
         ),
     )
     senate: DossierSenateDTO = Field(default_factory=lambda: DossierSenateDTO())
+    next_activity: NextActivityDTO | None = Field(
+        default=None,
+        description="The next thing the Tweede Kamer has planned about the dossier: the "
+        "earliest of its activities with status ``Gepland`` (``Activiteit.Status``) from "
+        "today on; null when it plans nothing. The Kamer gives no next phase as data: a "
+        "planned debate or vote is an activity like any other.",
+    )
     relations: list[DossierRelationDTO] = Field(
         default_factory=list,
         description=(
@@ -728,6 +822,7 @@ class DossierDetailResponse(DossierSummaryDTO):
         hub: dict[str, Any] | None = None,
         relations: list[dict[str, Any]] | None = None,
         laws_named: list[dict[str, Any]] | None = None,
+        next_activity: dict[str, Any] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -741,9 +836,29 @@ class DossierDetailResponse(DossierSummaryDTO):
             laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
-            senate=DossierSenateDTO(**(hub.get("senate") or {})),
+            senate=_senate(
+                hub.get("senate") or {}, (doc.get("props") or {}).get("ek_bill")
+            ),
             relations=[DossierRelationDTO.from_row(r) for r in relations or []],
+            next_activity=(
+                NextActivityDTO.model_validate(next_activity) if next_activity else None
+            ),
         )
+
+
+def _senate(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDTO:
+    """The Eerste Kamer of a dossier: its papers counted, and the page of its bill."""
+    if not bill:
+        return DossierSenateDTO.model_validate(counted)
+    return DossierSenateDTO.model_validate(
+        {
+            **counted,
+            "submitted_on": bill.get("submitted_on"),
+            "status": bill.get("status"),
+            "progress": bill.get("progress") or [],
+            "source": {"url": bill.get("url"), "read_on": bill.get("read_on")},
+        }
+    )
 
 
 def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:

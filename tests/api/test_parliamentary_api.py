@@ -140,6 +140,10 @@ def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_next_activity",
+        lambda store, dossier_id, today: None,
+    )
     body = client.get("/api/dossiers/36000").json()
     assert body["number"] == "36000"
     assert body["document_count"] == 4
