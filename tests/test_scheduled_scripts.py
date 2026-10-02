@@ -146,3 +146,60 @@ def test_a_restore_test_without_a_dump_fails(checkout: Path) -> None:
     done = _run(checkout, "restore-test.sh", **_without_backup_mount(checkout))
     assert done.returncode == 1
     assert "no dump of lawgraph" in (checkout / "logs" / "runs.log").read_text()
+
+
+# A `docker` whose container is this machine: /backups is a directory of the test, and a
+# command run in the container runs here with that path put in.
+FAKE_DOCKER_LOCAL = """#!/usr/bin/env python3
+import os, subprocess, sys
+backups = os.environ["BACKUPS"]
+args = sys.argv[1:]
+if args[0] == "inspect":
+    print(backups)
+    sys.exit(0)
+args = args[1:]  # exec
+if args[0] == "-i":
+    args = args[1:]
+args = [a.replace("/backups", backups) for a in args[1:]]  # without the container
+sys.exit(subprocess.run(args).returncode)
+"""
+# What pg_dump -Fd makes: a directory of mode 0700 with files of mode 0600, whatever the umask.
+FAKE_PG_DUMP = """#!/bin/sh
+while [ $# -gt 0 ]; do [ "$1" = "-f" ] && dir="$2"; shift; done
+mkdir -m 700 "$dir" && echo toc > "$dir/toc.dat" && chmod 600 "$dir/toc.dat"
+"""
+FAKE_PSQL = """#!/bin/sh
+cat > /dev/null
+echo "rows dossiers 1"
+"""
+
+
+def test_a_dump_can_be_read_by_whoever_uploads_it(checkout: Path) -> None:
+    """pg_dump runs as the container's user and makes the dump readable to it alone; the
+    upload command runs as another user on the host, so the dump is opened to every reader."""
+    bin_dir, backups = checkout / "bin", checkout / "backups"
+    bin_dir.mkdir()
+    backups.mkdir()
+    for name, body in (
+        ("docker", FAKE_DOCKER_LOCAL),
+        ("pg_dump", FAKE_PG_DUMP),
+        ("psql", FAKE_PSQL),
+    ):
+        (bin_dir / name).write_text(body)
+        (bin_dir / name).chmod(0o755)
+    python = checkout / ".venv" / "bin" / "python"
+    python.write_text("#!/bin/sh\necho lawgraph\n")
+    python.chmod(0o755)
+
+    done = _run(
+        checkout,
+        "backup.sh",
+        PATH=f"{bin_dir}:{os.environ['PATH']}",
+        BACKUPS=str(backups),
+    )
+    assert done.returncode == 0, (checkout / "logs" / "runs.log").read_text()
+    (dump,) = backups.iterdir()
+    assert not dump.name.endswith(".partial")
+    assert dump.stat().st_mode & 0o005 == 0o005  # others may list and enter it
+    for paper in dump.iterdir():
+        assert paper.stat().st_mode & 0o004, paper.name  # and read every file
