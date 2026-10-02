@@ -402,18 +402,53 @@ def get_judgments_list(
             )
         )
 
+    def narrower() -> list[Any]:
+        leave_out = _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS
+        return list(
+            store.query(
+                f"""
+                SELECT value, count(*)::int AS count
+                FROM (
+                    SELECT s.value FROM judgments j
+                    CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
+                ) subjects
+                WHERE strpos(value, ';') > 0
+                GROUP BY 1
+                ORDER BY count DESC, value NULLS FIRST
+                """,
+                params,
+            )
+        )
+
     filtered = [*names, *(["search"] if search else [])]
     answers: list[Any] = run_together(
         items,
         *(facet(name) for name in _FACETS),
+        narrower,
         lambda: _total(store, filtered, where(), params),
     )
+    facets = dict(zip(_FACETS, answers[1:-2], strict=True))
+    facets["subject_area"] = _with_narrower(facets["subject_area"], answers[-2])
     result: dict[str, Any] = {
         "total": answers[-1],
         "items": answers[0],
-        "facets": dict(zip(_FACETS, answers[1:-1], strict=True)),
+        "facets": facets,
     }
     return result
+
+
+def _with_narrower(
+    areas: list[dict[str, Any]], subjects: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The main areas of law, each with the subjects of the source under it (``value``
+    the subject as written, ``label`` the part after its first ';')."""
+    under: dict[str, list[dict[str, Any]]] = {}
+    for row in subjects:
+        main, _, rest = str(row["value"]).partition(";")
+        under.setdefault(main.strip(), []).append(
+            {"value": row["value"], "label": rest.strip(), "count": row["count"]}
+        )
+    return [{**area, "narrower": under.get(str(area["value"]), [])} for area in areas]
 
 
 def _total(

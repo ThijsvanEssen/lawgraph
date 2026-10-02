@@ -61,9 +61,13 @@ class LegalAreaProps(BaseModel):
     """A legal area of a BWB regulation (WTI ``rechtsgebied``), with its TOOI concepts."""
 
     main: str
+    main_id: str | None = None
     main_uri: str | None = None
+    main_slug: str | None = None
     specific: str | None = None
+    specific_id: str | None = None
     specific_uri: str | None = None
+    specific_slug: str | None = None
 
 
 class PolicyDomainProps(BaseModel):
@@ -71,7 +75,9 @@ class PolicyDomainProps(BaseModel):
     concept."""
 
     label: str
+    id: str | None = None
     uri: str | None = None
+    slug: str | None = None
 
 
 class TreatyPublicationProps(_StrictBase):

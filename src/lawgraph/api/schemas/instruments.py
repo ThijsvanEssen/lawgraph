@@ -472,6 +472,47 @@ class InstrumentListItemDTO(BaseModel):
         )
 
 
+class RegisterConceptDTO(BaseModel):
+    """A concept of a register with the instruments under the filters filed under it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = Field(
+        None, description="Its TOOI concept (`c_e49bce03`); null without the thesaurus."
+    )
+    slug: str | None = Field(
+        None,
+        description="Unique in its list (`familierecht`); the filter takes it too.",
+    )
+    label: str = Field(description="As the WTI writes it: `Familierecht`.")
+    count: int
+
+
+class LegalAreaFacetDTO(RegisterConceptDTO):
+    """A main legal area and its specific areas."""
+
+    narrower: list[RegisterConceptDTO] = Field(default_factory=list)
+
+
+class InstrumentFacets(BaseModel):
+    """The instruments under the filters, counted per register; each without its own
+    filter, so the other areas stay in view when one is chosen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    legal_area: list[LegalAreaFacetDTO] = Field(
+        default_factory=list,
+        description="The legal areas of the TOOI thesaurus `scw_bwb_rechtsgebieden` as a "
+        "tree: main areas, most first, each with its specific areas (`narrower`). An "
+        "instrument counts once per area. Counted without the `legal_area` filter.",
+    )
+    policy_domain: list[RegisterConceptDTO] = Field(
+        default_factory=list,
+        description="The government themes of `scw_bwb_themas`, most first. Counted "
+        "without the `policy_domain` filter.",
+    )
+
+
 class InstrumentListResponse(BaseModel):
     """Paginated list envelope for instruments."""
 
@@ -479,6 +520,7 @@ class InstrumentListResponse(BaseModel):
 
     items: list[InstrumentListItemDTO]
     total: int
+    facets: InstrumentFacets = Field(default_factory=InstrumentFacets)
 
 
 class InstrumentVersionDTO(BaseModel):
@@ -621,11 +663,17 @@ class LegalAreaDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     main: str = Field(description="The main area: `Staats- en bestuursrecht`.")
+    main_id: str | None = Field(None, description="Its TOOI concept: `c_5d8350bb`.")
     main_uri: str | None = None
+    main_slug: str | None = Field(
+        None, description="Its slug, unique in the list: `staats-en-bestuursrecht`."
+    )
     specific: str | None = Field(
         None, description="The specific area: `Bestuursrecht`."
     )
+    specific_id: str | None = None
     specific_uri: str | None = None
+    specific_slug: str | None = None
 
 
 class PolicyDomainDTO(BaseModel):
@@ -634,7 +682,9 @@ class PolicyDomainDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: str = Field(description="`Overheid, bestuur en koninkrijk`.")
+    id: str | None = None
     uri: str | None = None
+    slug: str | None = None
 
 
 class TreatyPublicationDTO(BaseModel):

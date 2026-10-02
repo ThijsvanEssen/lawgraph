@@ -583,6 +583,73 @@ _SEARCH_FIELDS = [
 ]
 
 
+# The legal areas of the instruments under the filters (BE-14): each main area, and each of
+# its specific areas, with the number of instruments filed under it.
+_LEGAL_AREA_FACET = """
+SELECT a ->> 'main_id' AS main_id, a ->> 'main_slug' AS main_slug, a ->> 'main' AS main,
+       a ->> 'specific_id' AS specific_id, a ->> 'specific_slug' AS specific_slug,
+       a ->> 'specific' AS specific,
+       GROUPING(a ->> 'specific') = 1 AS whole,
+       count(DISTINCT instruments.key)::int AS count
+FROM instruments
+CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
+    -> 'legal_areas') = 'array' THEN instruments.props -> 'legal_areas' END) AS a
+{where}
+GROUP BY GROUPING SETS (
+    (a ->> 'main_id', a ->> 'main_slug', a ->> 'main'),
+    (a ->> 'main_id', a ->> 'main_slug', a ->> 'main',
+     a ->> 'specific_id', a ->> 'specific_slug', a ->> 'specific')
+)
+"""
+_POLICY_DOMAIN_FACET = """
+SELECT d ->> 'id' AS id, d ->> 'slug' AS slug, d ->> 'label' AS label,
+       count(DISTINCT instruments.key)::int AS count
+FROM instruments
+CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
+    -> 'policy_domains') = 'array' THEN instruments.props -> 'policy_domains' END) AS d
+{where}
+GROUP BY 1, 2, 3
+ORDER BY count DESC, label NULLS FIRST, id NULLS FIRST
+"""
+
+
+def _legal_area_tree(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The main areas, most instruments first, each with its specific areas the same way;
+    an area without a TOOI concept keeps id null."""
+    mains: dict[tuple[Any, Any, Any], dict[str, Any]] = {}
+    specifics: list[dict[str, Any]] = []
+    for row in rows:
+        main = (row["main_id"], row["main_slug"], row["main"])
+        if row["whole"]:
+            mains[main] = {
+                "id": row["main_id"],
+                "slug": row["main_slug"],
+                "label": row["main"],
+                "count": row["count"],
+                "narrower": [],
+            }
+        elif row["specific"] is not None:
+            specifics.append({**row, "main": main})
+    for row in specifics:
+        if row["main"] in mains:
+            mains[row["main"]]["narrower"].append(
+                {
+                    "id": row["specific_id"],
+                    "slug": row["specific_slug"],
+                    "label": row["specific"],
+                    "count": row["count"],
+                }
+            )
+
+    def order(item: dict[str, Any]) -> tuple[int, str, str]:
+        return (-item["count"], str(item["label"]), str(item["id"]))
+
+    tree = sorted((m for m in mains.values() if m["label"] is not None), key=order)
+    for area in tree:
+        area["narrower"].sort(key=order)
+    return tree
+
+
 def get_instruments_list(
     store: GraphStore,
     *,
@@ -590,6 +657,8 @@ def get_instruments_list(
     jurisdiction: str | None = None,
     kind: str | None = None,
     article_count_min: int | None = None,
+    legal_area: str | None = None,
+    policy_domain: str | None = None,
     sort: str = "title",
     limit: int = 50,
     offset: int = 0,
@@ -604,6 +673,11 @@ def get_instruments_list(
         precomputes on the instrument document, each an indexed column.
       * ``total`` is exact: the instruments the filters let through (without
         filters every instrument but the publications).
+      * ``legal_area`` and ``policy_domain`` (a TOOI id or a slug; a main area includes its
+        specific areas) are read through their GIN indexes. ``facets`` counts the
+        instruments under the filters per legal area (a tree of main and specific areas,
+        without the ``legal_area`` filter) and per government theme (without the
+        ``policy_domain`` filter); an unknown value finds nothing.
     """
     # When q tokenises to nothing (single-char query, only punctuation), the
     # query degrades to "no filter".
@@ -629,30 +703,69 @@ def get_instruments_list(
         conditions.append("article_count >= %(article_count_min)s")
     if tokens:
         conditions.append(f"({search})")
-    matched = f"instruments WHERE {' AND '.join(conditions)}"
+    own = {
+        "legal_area": "lg_legal_area_keys(instruments.props)"
+        " @> ARRAY[%(legal_area)s]::text[]",
+        "policy_domain": "lg_policy_domain_keys(instruments.props)"
+        " @> ARRAY[%(policy_domain)s]::text[]",
+    }
+    chosen = {"legal_area": legal_area, "policy_domain": policy_domain}
+
+    def where(leave_out: str = "") -> str:
+        return " AND ".join(
+            [*conditions]
+            + [
+                clause
+                for name, clause in own.items()
+                if chosen[name] and name != leave_out
+            ]
+        )
+
+    matched = f"instruments WHERE {where()}"
     page = f"""
         SELECT key, props, row_number() OVER (ORDER BY {order}) AS n
         FROM {matched}
         ORDER BY {order}
         LIMIT %(limit)s OFFSET %(offset)s
     """
-    rows = store.query(
-        _paged(matched, page),
-        {
-            "limit": limit,
-            "offset": offset,
-            "jurisdiction": jurisdiction.lower() if jurisdiction else None,
-            "kind": kind.lower() if kind else None,
-            "article_count_min": article_count_min,
-            **words,
-        },
+    params = {
+        "limit": limit,
+        "offset": offset,
+        "jurisdiction": jurisdiction.lower() if jurisdiction else None,
+        "kind": kind.lower() if kind else None,
+        "article_count_min": article_count_min,
+        "legal_area": legal_area.strip().lower() if legal_area else None,
+        "policy_domain": policy_domain.strip().lower() if policy_domain else None,
+        **words,
+    }
+    rows, areas, domains = run_together(
+        lambda: list(store.query(_paged(matched, page), params)),
+        lambda: list(
+            store.query(
+                _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
+                params,
+            )
+        ),
+        lambda: list(
+            store.query(
+                _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
+                params,
+            )
+        ),
     )
-    items, total = _split_page(rows)
+    items, total = _split_page(iter(rows))
     listed = [_list_item(row) for row in items]
     coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
     for item in listed:
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
-    return {"total": total, "items": listed}
+    return {
+        "total": total,
+        "items": listed,
+        "facets": {
+            "legal_area": _legal_area_tree(areas),
+            "policy_domain": [dict(row) for row in domains],
+        },
+    }
 
 
 _NEXT_VERSIONS = """

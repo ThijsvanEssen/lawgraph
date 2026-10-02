@@ -22,11 +22,13 @@ from lawgraph.core.aliases import abbreviation_of, curated_abbreviations
 from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import (
+    Concepts,
     choose_short_titles,
-    concept_index,
     instrument_aliases,
+    label_concepts,
     parse_abbreviations,
     parse_subjects,
+    thesaurus_concepts,
     with_concepts,
 )
 from lawgraph.core.bwb_xml import (
@@ -223,17 +225,52 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE)
         )
 
-    def _thesauri(self) -> tuple[dict[str, str], dict[str, str]]:
-        """The TOOI thesauri of the legal areas and the government themes (``retrieve
-        tooi``), label casefolded -> URI; empty when they were not retrieved."""
-        found: dict[str, dict[str, str]] = {}
+    def _thesauri(self) -> tuple[Concepts, Concepts]:
+        """The concepts of the TOOI thesauri of the legal areas and the government themes
+        (``retrieve tooi``), by label; empty when they were not retrieved."""
+        found: dict[str, Concepts] = {}
         for record in self._iter_raw_sources(
             source=SOURCE_TOOI, kinds=[RAW_KIND_TOOI_THESAURUS], batch_size=10
         ):
             payload = self._payload_json(record) or {}
             items = payload.get("items") if isinstance(payload, dict) else None
-            found[str(record.get("external_id"))] = concept_index(items or [])
+            found[str(record.get("external_id"))] = thesaurus_concepts(items or [])
         return found.get(TOOI_BWB_LEGAL_AREAS, {}), found.get(TOOI_BWB_THEMES, {})
+
+    def _subject_rows(
+        self, parsed: dict[str, tuple[list[dict[str, Any]], list[str]]]
+    ) -> list[dict[str, Any]]:
+        """``{key, legal_areas, policy_domains}`` per regulation, with the concepts of the
+        TOOI thesauri; without them, concepts made from the labels of every regulation
+        (slugs unique over the whole list either way)."""
+        legal_areas, themes = self._thesauri()
+        if not legal_areas:
+            legal_areas = label_concepts(
+                pair
+                for areas, _ in parsed.values()
+                for area in areas
+                for pair in (
+                    (area["main"], None),
+                    *([(area["specific"], area["main"])] if area["specific"] else []),
+                )
+            )
+        if not themes:
+            themes = label_concepts(
+                (domain, None) for _, domains in parsed.values() for domain in domains
+            )
+        rows = []
+        for bwb_id, (areas, domains) in parsed.items():
+            with_areas, with_domains = with_concepts(
+                areas, domains, legal_areas, themes
+            )
+            rows.append(
+                {
+                    "key": make_node_key(bwb_id),
+                    "legal_areas": with_areas,
+                    "policy_domains": with_domains,
+                }
+            )
+        return rows
 
     def _write_abbreviations(self, result: PipelineResult) -> None:
         """Set ``short_title`` and ``aliases`` on the instruments from the official WTI
@@ -246,8 +283,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         are not created.
         """
         abbreviations_by_bwb: dict[str, list[str]] = {}
-        subjects: list[dict[str, Any]] = []
-        legal_areas, themes = self._thesauri()
+        parsed: dict[str, tuple[list[dict[str, Any]], list[str]]] = {}
         for record in self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
         ):
@@ -257,19 +293,9 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 continue
             try:
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
-                areas, domains = with_concepts(
-                    *parse_subjects(payload_text), legal_areas, themes
-                )
+                parsed[bwb_id] = parse_subjects(payload_text)
             except ET.ParseError as exc:
                 logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
-                continue
-            subjects.append(
-                {
-                    "key": make_node_key(bwb_id),
-                    "legal_areas": areas,
-                    "policy_domains": domains,
-                }
-            )
 
         short_titles = choose_short_titles(abbreviations_by_bwb)
         rows = [
@@ -286,7 +312,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         changed += self._write_instrument_abbreviations(
             abbreviations_by_bwb, short_titles
         )
-        for batch in chunked(subjects, SHORT_TITLE_BATCH_SIZE):
+        for batch in chunked(self._subject_rows(parsed), SHORT_TITLE_BATCH_SIZE):
             changed += normalize_bwb.update_subjects(self.store, batch)
         # The AQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed

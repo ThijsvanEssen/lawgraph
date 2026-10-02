@@ -481,6 +481,29 @@ class JudgmentFacetCount(BaseModel):
     count: int
 
 
+class SubjectFacetCount(BaseModel):
+    """A subject of the Rechtspraak under a main area, as the source writes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str = Field(
+        description="The subject as the source writes it (`Bestuursrecht; Belastingrecht`); "
+        "the `subject` filter takes it."
+    )
+    label: str = Field(description="The part after the main area: `Belastingrecht`.")
+    count: int
+
+
+class SubjectAreaFacetCount(JudgmentFacetCount):
+    """A main area of law with the subjects under it."""
+
+    narrower: list[SubjectFacetCount] = Field(
+        default_factory=list,
+        description="The subjects of the source under this main area, most first; "
+        "counted without the `subject_area` and `subject` filters.",
+    )
+
+
 class JudgmentFacets(BaseModel):
     """The judgments under the filters, counted; each without its own filter."""
 
@@ -512,11 +535,12 @@ class JudgmentFacets(BaseModel):
         "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
         "areas; counted without the `subject` filter.",
     )
-    subject_area: list[JudgmentFacetCount] = Field(
+    subject_area: list[SubjectAreaFacetCount] = Field(
         default_factory=list,
         description="Per main area of law: a subject up to its first `;` (`Bestuursrecht` "
         "holds `Bestuursrecht; Belastingrecht`), most first; a judgment counts once for "
-        "each of its main areas; counted without the `subject_area` filter.",
+        "each of its main areas; counted without the `subject_area` filter. `narrower`: "
+        "the subjects under it as the source writes them.",
     )
     procedure: list[JudgmentFacetCount] = Field(
         default_factory=list,

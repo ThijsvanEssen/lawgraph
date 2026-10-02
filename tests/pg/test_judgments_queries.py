@@ -495,8 +495,39 @@ def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
     assert found["total"] == 2
     # counted without its own filter: every main area, a judgment once in each
     assert found["facets"]["subject_area"] == [
-        {"value": "Bestuursrecht", "count": 3},
-        {"value": "Civiel recht", "count": 2},
+        {
+            "value": "Bestuursrecht",
+            "count": 3,
+            # the subjects of the source under it, without the area and subject filters
+            "narrower": [
+                {
+                    "value": "Bestuursrecht; Belastingrecht",
+                    "label": "Belastingrecht",
+                    "count": 1,
+                },
+                {
+                    "value": "Bestuursrecht; Omgevingsrecht",
+                    "label": "Omgevingsrecht",
+                    "count": 1,
+                },
+                {
+                    "value": "Bestuursrecht; Ruimtelijk bestuursrecht",
+                    "label": "Ruimtelijk bestuursrecht",
+                    "count": 1,
+                },
+            ],
+        },
+        {
+            "value": "Civiel recht",
+            "count": 2,
+            "narrower": [
+                {
+                    "value": "Civiel recht; Verbintenissenrecht",
+                    "label": "Verbintenissenrecht",
+                    "count": 1,
+                },
+            ],
+        },
     ]
     # the whole subjects under the area filter
     assert {f["value"] for f in found["facets"]["subjects"]} == {

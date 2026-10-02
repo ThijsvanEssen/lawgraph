@@ -23,6 +23,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDossierItem,
     InstrumentDossiersResponse,
     InstrumentEuLinksResponse,
+    InstrumentFacets,
     InstrumentJudgmentFacets,
     InstrumentJudgmentItem,
     InstrumentJudgmentsResponse,
@@ -89,7 +90,11 @@ router = APIRouter()
     description=(
         "A paginated list of statutes, regulations and EU instruments. Supports "
         "free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind "
-        "filter and a minimum article count."
+        "filter, a minimum article count, and the registers of the BWB: a legal area "
+        "(`legal_area`, a main area includes its specific areas) and a government theme "
+        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
+        "`facets` counts the instruments under the filters per legal area (a tree) and per "
+        "theme, each without its own filter."
     ),
     tags=["instruments"],
 )
@@ -101,6 +106,17 @@ def list_instruments(
     jurisdiction: Annotated[Literal["nl", "eu"] | None, Query()] = None,
     kind: Annotated[str | None, Query()] = None,
     article_count_min: Annotated[int | None, Query(ge=0)] = None,
+    legal_area: Annotated[
+        str | None,
+        Query(
+            max_length=200,
+            description="A legal area by TOOI id (`c_e49bce03`) or slug (`familierecht`).",
+        ),
+    ] = None,
+    policy_domain: Annotated[
+        str | None,
+        Query(max_length=200, description="A government theme by TOOI id or slug."),
+    ] = None,
     sort: Annotated[Literal["title", "article_count"], Query()] = "title",
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
@@ -111,12 +127,18 @@ def list_instruments(
         jurisdiction=jurisdiction,
         kind=kind,
         article_count_min=article_count_min,
+        legal_area=legal_area,
+        policy_domain=policy_domain,
         sort=sort,
         limit=limit,
         offset=offset,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
-    return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
+    return InstrumentListResponse(
+        items=items,
+        total=int(data.get("total", 0)),
+        facets=InstrumentFacets(**(data.get("facets") or {})),
+    )
 
 
 def _instrument_or_404(store: GraphStore, identifier: str) -> dict:

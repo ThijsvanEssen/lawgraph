@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.core.bwb_wti import slugify
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import instruments
 
@@ -651,7 +652,8 @@ def _seed_list(store: GraphStore) -> None:
 def test_the_list_by_title(store: GraphStore) -> None:
     _seed_list(store)
     got = instruments.get_instruments_list(store)
-    assert list(got) == ["total", "items"]
+    assert list(got) == ["total", "items", "facets"]
+    assert got["facets"] == {"legal_area": [], "policy_domain": []}
     assert got["total"] == 6
     # no citation_title first, by key; then the titles in the collation
     assert [i["_key"] for i in got["items"]] == [
@@ -751,6 +753,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     assert instruments.get_instruments_list(store, offset=100) == {
         "total": 6,
         "items": [],
+        "facets": {"legal_area": [], "policy_domain": []},
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
@@ -938,3 +941,151 @@ def test_articles_at_a_date_without_a_start_of_the_law(store: GraphStore) -> Non
     )
     law = instruments.get_articles_at(store, BWB, "2020-01-01")
     assert (law.items, law.total, law.first_version_from) == ([], 0, None)
+
+
+def _area(
+    main: str, main_id: str, specific: str | None, specific_id: str | None
+) -> dict:
+    return {
+        "main": main,
+        "main_id": main_id,
+        "main_uri": f"https://identifier.overheid.nl/tooi/def/thes/bwb/{main_id}",
+        "main_slug": slugify(main),
+        "specific": specific,
+        "specific_id": specific_id,
+        "specific_uri": None,
+        "specific_slug": specific.lower() if specific else None,
+    }
+
+
+def _seed_registers(store: GraphStore) -> None:
+    """Three laws filed under the legal areas and themes of their WTI (BE-14)."""
+    staat, priv = "Staats- en bestuursrecht", "Privaatrecht"
+    domain = {"label": "Belastingen", "id": "c_tax", "uri": None, "slug": "belastingen"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc(
+                "awb",
+                "instrument",
+                bwb_id="BWBR0005537",
+                citation_title="Algemene wet bestuursrecht",
+                kind="wet",
+                jurisdiction="nl",
+                legal_areas=[_area(staat, "c_staat", "Bestuursrecht", "c_bestuur")],
+            ),
+            _doc(
+                "awr",
+                "instrument",
+                bwb_id="BWBR0002320",
+                citation_title="Algemene wet inzake rijksbelastingen",
+                kind="wet",
+                jurisdiction="nl",
+                legal_areas=[
+                    _area(staat, "c_staat", "Bestuursrecht", "c_bestuur"),
+                    _area(staat, "c_staat", "Belastingrecht", "c_belasting"),
+                ],
+                policy_domains=[domain],
+            ),
+            _doc(
+                "bw1",
+                "instrument",
+                bwb_id="BWBR0002656",
+                citation_title="Burgerlijk Wetboek Boek 1",
+                kind="wet",
+                jurisdiction="nl",
+                legal_areas=[_area(priv, "c_priv", None, None)],
+            ),
+            _doc(
+                "eu", "instrument", celex=CELEX, citation_title="AVG", jurisdiction="eu"
+            ),
+        ],
+    )
+
+
+def _listed(got: dict[str, Any]) -> list[str]:
+    return [i["_key"] for i in got["items"]]
+
+
+def test_the_list_by_legal_area_and_theme(store: GraphStore) -> None:
+    _seed_registers(store)
+
+    def listed(**kw: Any) -> list[str]:
+        return _listed(instruments.get_instruments_list(store, **kw))
+
+    # a main area holds the regulations under its specific areas; by id or by slug
+    assert listed(legal_area="c_staat") == ["awb", "awr"]
+    assert listed(legal_area="staats-en-bestuursrecht") == ["awb", "awr"]
+    assert listed(legal_area="C_BELASTING") == ["awr"]
+    assert listed(legal_area="belastingrecht") == ["awr"]
+    assert listed(policy_domain="belastingen") == ["awr"]
+    # an unknown value finds nothing, no error
+    got = instruments.get_instruments_list(store, legal_area="onbekend")
+    assert (got["total"], got["items"]) == (0, [])
+
+
+def test_the_registers_are_counted_without_their_own_filter(store: GraphStore) -> None:
+    _seed_registers(store)
+
+    got = instruments.get_instruments_list(store, legal_area="c_belasting")
+
+    assert got["total"] == 1
+    assert got["facets"]["legal_area"] == [
+        {
+            "id": "c_staat",
+            "slug": "staats-en-bestuursrecht",
+            "label": "Staats- en bestuursrecht",
+            "count": 2,  # the Awr once, though filed under two of its specific areas
+            "narrower": [
+                {
+                    "id": "c_bestuur",
+                    "slug": "bestuursrecht",
+                    "label": "Bestuursrecht",
+                    "count": 2,
+                },
+                {
+                    "id": "c_belasting",
+                    "slug": "belastingrecht",
+                    "label": "Belastingrecht",
+                    "count": 1,
+                },
+            ],
+        },
+        {
+            "id": "c_priv",
+            "slug": "privaatrecht",
+            "label": "Privaatrecht",
+            "count": 1,
+            "narrower": [],
+        },
+    ]
+    # the theme facet is counted under the legal area filter
+    assert got["facets"]["policy_domain"] == [
+        {"id": "c_tax", "slug": "belastingen", "label": "Belastingen", "count": 1}
+    ]
+    # and under the other filters: the EU act has no legal area
+    eu = instruments.get_instruments_list(store, jurisdiction="eu")
+    assert eu["facets"] == {"legal_area": [], "policy_domain": []}
+
+
+def test_the_keys_of_the_registers(store: GraphStore) -> None:
+    _seed_registers(store)
+    rows = {
+        row["key"]: row
+        for row in store.query(
+            "SELECT key, lg_legal_area_keys(props) AS areas,"
+            " lg_policy_domain_keys(props) AS domains FROM instruments"
+        )
+    }
+    assert sorted(rows["awr"]["areas"]) == sorted(
+        [
+            "c_staat",
+            "staats-en-bestuursrecht",
+            "c_bestuur",
+            "bestuursrecht",
+            "c_belasting",
+            "belastingrecht",
+        ]
+    )
+    assert sorted(rows["awr"]["domains"]) == ["belastingen", "c_tax"]
+    assert rows["eu"]["areas"] == [] and rows["eu"]["domains"] == []

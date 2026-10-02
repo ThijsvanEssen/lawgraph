@@ -280,8 +280,18 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
             {"value": "Bestuursrecht; Belastingrecht", "count": 3},
         ],
         "subject_area": [
-            {"value": "Strafrecht", "count": 5},
-            {"value": "Bestuursrecht", "count": 3},
+            {"value": "Strafrecht", "count": 5, "narrower": []},
+            {
+                "value": "Bestuursrecht",
+                "count": 3,
+                "narrower": [
+                    {
+                        "value": "Bestuursrecht; Belastingrecht",
+                        "label": "Belastingrecht",
+                        "count": 3,
+                    }
+                ],
+            },
         ],
         "procedure": [{"value": "Cassatie", "count": 6}, {"value": None, "count": 2}],
     }
