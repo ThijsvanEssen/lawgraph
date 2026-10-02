@@ -219,6 +219,8 @@ RAW_KIND_EK_REJECTED = "ek-rejected-html"
 # page of each (external id: its path); every run reads them all again.
 RAW_KIND_EK_COMPOSITION = "ek-composition-html"
 RAW_KIND_VERDRAG = "verdrag-json"
+# the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
+RAW_KIND_VERDRAG_XML = "verdrag-xml"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 # The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
@@ -259,7 +261,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_REJECTED,
         RAW_KIND_EK_COMPOSITION,
     ),
-    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
+    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
 }

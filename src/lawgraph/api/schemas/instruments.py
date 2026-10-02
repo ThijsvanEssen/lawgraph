@@ -613,6 +613,97 @@ class InstrumentArticlesAtResponse(BaseModel):
 # ── /api/instruments/{identifier} and /eu-links ───────────────────────────
 
 
+class TreatyPublicationDTO(BaseModel):
+    """A Tractatenblad of a treaty, as the Verdragenbank lists it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    official_id: str | None = Field(
+        None, description="Its id on officielebekendmakingen.nl: `trb-1951-154`."
+    )
+    text: str = Field(description='As the register writes it: "1951, 154".')
+    description: str | None = Field(
+        None, description='What it publishes: "goedkeuring, inwerkingtreding".'
+    )
+
+
+class TreatyPartyDTO(BaseModel):
+    """A state party to a treaty, with its dates (YYYY-MM-DD) as the register gives them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    signed: str | None = None
+    ratified: str | None = None
+    consent: str | None = Field(
+        None, description="How it consented, the register's code (`R`, `T`, `A`, …)."
+    )
+    provisional: str | None = Field(None, description="Provisional application from.")
+    in_force: str | None = None
+    retroactive: str | None = None
+    denounced: str | None = None
+    terminated: str | None = None
+    reservation: bool | None = Field(
+        None, description="It made a reservation (the text is on the register's page)."
+    )
+    objection: bool | None = None
+
+
+class TreatyKingdomPartDTO(BaseModel):
+    """A part of the Kingdom the treaty applies to, and from when."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    part: str | None = None
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    terminated: str | None = None
+
+
+class TreatyDossierDTO(BaseModel):
+    """A dossier of the approval of a treaty."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dossier: str
+    rijks_number: str | None = None
+    sub_number: str | None = None
+
+
+class RelatedTreatyDTO(BaseModel):
+    """A treaty a treaty belongs to (a Convention of its Protocol), or that belongs to it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = Field(None, description="Its Verdragenbank id: `005132`.")
+    title: str | None = None
+    date: str | None = None
+    place: str | None = None
+
+
+class TreatyRegisterDTO(BaseModel):
+    """What the Verdragenbank registers of a treaty beyond its title and dates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    place_signed: str | None = None
+    tractatenblad: list[TreatyPublicationDTO] = Field(default_factory=list)
+    parties: list[TreatyPartyDTO] = Field(default_factory=list)
+    kingdom_parts: list[TreatyKingdomPartDTO] = Field(default_factory=list)
+    kamerstukken: list[TreatyDossierDTO] = Field(default_factory=list)
+    parent_treaties: list[RelatedTreatyDTO] = Field(default_factory=list)
+    child_treaties: list[RelatedTreatyDTO] = Field(default_factory=list)
+
+    @classmethod
+    def from_props(cls, props: dict[str, Any]) -> TreatyRegisterDTO | None:
+        """From the props of a treaty; None before its item XML was read."""
+        fields = [name for name in cls.model_fields if props.get(name) is not None]
+        if not fields:
+            return None
+        return cls(**{name: props[name] for name in fields})
+
+
 class InstrumentDetailDTO(BaseModel):
     """One instrument: its identifiers, names, classification and dates."""
 
@@ -689,6 +780,13 @@ class InstrumentDetailDTO(BaseModel):
         description="The other instruments with its treaty number: the Verdragenbank "
         "record of a BWB treaty, the BWB text of a Verdragenbank treaty.",
     )
+    treaty: TreatyRegisterDTO | None = Field(
+        None,
+        description="Of a treaty of the Verdragenbank: where it was signed, its "
+        "Tractatenblad publications, its parties with their dates, the parts of the Kingdom, "
+        "the dossiers of its approval and the treaties it belongs to or that belong to it. "
+        "Null for any other instrument.",
+    )
 
     @classmethod
     def from_document(
@@ -726,6 +824,7 @@ class InstrumentDetailDTO(BaseModel):
             same_treaty=[
                 LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
             ],
+            treaty=TreatyRegisterDTO.from_props(props),
         )
 
 

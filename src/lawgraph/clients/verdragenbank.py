@@ -7,6 +7,7 @@ separate records with the same identifier, so both languages are read and joined
 
 Each treaty provides:
   - title (Dutch and English)
+  - the url of its item XML (``gzd:url``) and when it was last modified
   - date of signature (``datumTotstandkoming``) and of entry into force
   - type (Bilateraal, Multilateraal, Plurilateraal)
   - status (Inwerkinggetreden, Buitenwerkinggetreden, Totstandgekomen, ...)
@@ -18,12 +19,14 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
+import requests
+
 from lawgraph.clients._sru import (
     parse_record_fields,
     record_identifier,
     search_publications,
 )
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import VERDRAGENBANK_SRU_ENDPOINT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import local_name
@@ -40,6 +43,9 @@ _FIELDS = {
     "treaty_type": "typeVerdrag",
     "status": "statusVerdrag",
     "url": "preferredUrl",
+    # the item XML of the treaty: its parties, Tractatenbladen, dossiers (``gzd:url``)
+    "item_url": "url",
+    "modified": "modified",
 }
 
 
@@ -80,10 +86,25 @@ class VerdragenbankClient(BaseClient):
                     "treaty_type": nl["treaty_type"],
                     "status": nl["status"],
                     "verdragsnummer": identifier,
+                    "item_url": nl["item_url"],
+                    "modified": nl["modified"],
                 }
             )
         logger.info("Verdragenbank: %d treaties.", len(treaties))
         return treaties
+
+    def fetch_treaty_xml(self, item_url: str) -> str | None:
+        """The item XML of a treaty (its record's ``gzd:url``), or ``None`` when the
+        repository has none (404). Any other failure raises, after the retries."""
+        try:
+            return response_text(
+                self._get_raw_absolute_with_retry(item_url, timeout=60)
+            )
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                logger.debug("Treaty XML not found at %s (404)", item_url)
+                return None
+            raise
 
     def _search(self, language: str, limit: int | None) -> list[dict[str, Any]]:
         return search_publications(
