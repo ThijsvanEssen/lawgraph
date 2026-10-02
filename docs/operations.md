@@ -272,7 +272,7 @@ side stay under the limit together.
 
 **Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
 `external`: compose uses it and cannot remove it. Create it once
-(`docker volume create lawgraph_pgdata`), then `docker compose up -d`. The server
+(`docker volume create lawgraph_pgdata`), then `docker compose up -d` (PostgreSQL alone: ArangoDB, kept until the rollback window closes, starts only with `--profile arango`, on 127.0.0.1). The server
 (service `postgres`, container `lawgraph-postgres`, `127.0.0.1:5432`, user `lawgraph`)
 keeps its data in it under `/var/lib/postgresql/18/docker`. `docker compose down -v` removes every volume a project owns,
 also with `--profile`, and that is how this database was lost once; the test database is a
