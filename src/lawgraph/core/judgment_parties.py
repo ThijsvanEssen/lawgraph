@@ -161,9 +161,21 @@ _PARTY_IN_SENTENCE = (
 # NAM", "gezamenlijk nader ook te noemen: ...", "(hierna: de verdachte)".
 _ALIAS = re.compile(
     r"^\(?\s*(?P<how>hierna(?:\s+(?:ook|samen|gezamenlijk|respectievelijk|afzonderlijk|"
-    r"te\s+noemen|genoemd|nader))*|(?:gezamenlijk|samen)?\s*(?:nader\s+)?(?:ook\s+)?"
+    r"te\s+noemen|genoemd|nader|aangeduid(?:\s+als)?))*|(?:gezamenlijk|samen)?\s*(?:nader\s+)?(?:ook\s+)?"
     r"(?:verder\s+)?te\s+noemen)\s*(?::|(?<=noemen)\s)\s*(?P<alias>.+?)\s*\)?\s*[.,;]?$",
     re.IGNORECASE,
+)
+
+# An alias in quotes ends at its closing quote when a sentence follows: "“ [eisers] ”, eiser 2
+# wordt hierna aangeduid als: ...", not "‘Alegre’, ‘Rennoc’ en ‘Tregobad’".
+_QUOTED = re.compile(
+    r"^\s*[“\"‘']\s*(?P<alias>[^“”\"‘’']+?)\s*[”\"’'](?=\s*,?\s*\w+(?:\s+\w+){0,3}\s+"
+    r"(?:wordt|worden)\b)"
+)
+# The legal form that ends a company name: "Maatschappij B.V.", "Shell plc".
+_LEGAL_SUFFIX = re.compile(
+    r"\s(?:B\.\s?V\.?|N\.\s?V\.?|V\.O\.F\.?|C\.V\.?|U\.A\.?|Ltd\.?|GmbH|S\.A\.?|"
+    r"AG|SE|plc|LLC|Inc\.?)$"
 )
 
 # "advocaat: mr. X", "advocaat in de prejudiciële procedure: mr. X",
@@ -402,6 +414,30 @@ def _read_name(line: str) -> _Name | None:
     return found
 
 
+def _unquoted(text: str) -> str:
+    """*text* without the quotes around it: "‘ [eisers] ’" is "[eisers]"; a quote that opens
+    or closes only a part ("[de patiënte] dan wel ‘de patiënte’") stays."""
+    if len(text) > 1 and text[0] in _QUOTES and text[-1] in _QUOTES:
+        return text[1:-1].strip()
+    return text
+
+
+def _completes(name: str, line: str) -> bool:
+    """Does *line* end the name of the numbered party above, broken over two lines ("2.
+    Nederlandse Aardolie" / "Maatschappij B.V.")? Only a line without a number of its own that
+    ends in a legal form the name lacks."""
+    text = _clean(line)
+    return (
+        not _ENUMERATOR.match(line)[0]  # type: ignore[index]
+        and bool(_LEGAL_SUFFIX.search(f" {text}"))
+        and not _LEGAL_SUFFIX.search(f" {name}")
+        and text[:1].isupper()
+        and (name[:1].isupper() or name.startswith("["))
+        and "[" not in text
+        and len(text.split()) <= 4
+    )
+
+
 def _abbreviates(alias: str, name: str) -> bool:
     """Could *alias* be a short name of *name*: its letters in the name, in order ("AFM" of
     "Stichting Autoriteit Financiële Markten", "Uwv", "Dexia")?"""
@@ -437,9 +473,12 @@ class _Reader:
         # the parties of the representative line above, and what it calls them
         self.represented: list[_Party] = []
         self.represented_as = ""
+        # the party the line above named after its number ("2. Nederlandse Aardolie")
+        self.numbered: _Party | None = None
 
     def read(self, line: str) -> None:
         line = _despace(line.strip())
+        numbered, self.numbered = self.numbered, None
         if not line or self._opener(line):
             return
         if _named_later(line, self.parties):
@@ -461,8 +500,14 @@ class _Reader:
             return
         if self.group and _PERSON.match(line):
             return  # the person who acts for the party above
+        if numbered is not None and _completes(numbered.name, line):
+            numbered.name = f"{numbered.name} {_clean(line)}"
+            return
+        count = len(self.parties)
         for part in _several(line):
             self._party(part)
+        if len(self.parties) == count + 1 and _ENUMERATOR.match(line)[0]:  # type: ignore[index]
+            self.numbered = self.parties[-1]
 
     def _runs_on(self, line: str) -> bool:
         """Does *line* go on with the names of the representative line above ("advocaten:
@@ -564,7 +609,9 @@ class _Reader:
         match = _ALIAS.match(line)
         if not match:
             return False
-        alias = _clean(match["alias"]).strip("“”\"' ")
+        quoted = _QUOTED.match(match["alias"])
+        written = _clean(quoted["alias"] if quoted else match["alias"])
+        alias = _unquoted(written)
         targets = self.group or self.parties[-1:]
         label = role_label(alias)
         if label and len(alias.split()) <= 3 and not alias.startswith("["):
@@ -575,13 +622,13 @@ class _Reader:
         if len(alias) > MAX_ALIAS_CHARS:
             return True
         how = match["how"].lower()
-        names = re.split(r"\s*(?:,|\ben\b)\s*", alias)
+        names = re.split(r"\s*(?:,|\ben\b)\s*", written)
         if len(targets) > 1 and (
             "respectievelijk" in how or len(names) == len(targets)
         ):
             # "hierna respectievelijk: de Maatschap en NAM", "hierna: A en B"
             for party, name in zip(targets, names, strict=False):
-                party.alias = party.alias or _clean(name) or None
+                party.alias = party.alias or _unquoted(_clean(name)) or None
         elif targets:
             target = targets if re.search(r"gezamenlijk|samen", how) else targets[-1:]
             for party in target:
