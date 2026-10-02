@@ -1011,7 +1011,8 @@ to it. The text of a reservation is not kept, only that there is one.
 **Retrieve.** The SRU records (`verdrag-json`), then the item XML (`verdrag-xml`) of every
 treaty that is not stored yet or that the register `modified` since; a 404 is remembered as
 missing, a page that is no XML is not kept. `--max-records` stops early (and bounds the item
-XML to those treaties). **Normalize.** Instrument `verdrag_<id>` (`kind` `verdrag`,
+XML to those treaties); `--only-stored` keeps the run to the treaties whose record is stored
+already (a small database). **Normalize.** Instrument `verdrag_<id>` (`kind` `verdrag`,
 `multilateraalverdrag` or `bilateraalverdrag`, `jurisdiction: int`, `in_force` only for
 `Inwerkinggetreden`, `treaty_number` its id); the item XML adds `place_signed`,
 `tractatenblad` (with `official_id` `trb-1951-154`), `parties`, `kingdom_parts`,

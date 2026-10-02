@@ -4,7 +4,8 @@ Two kinds of record per treaty: its SRU record (``verdrag-json``: title, dates, 
 status) and its item XML (``verdrag-xml``: parties, Tractatenbladen, dossiers, related
 treaties; ``core.verdragenbank_xml``). The item XML of a treaty is fetched when it is not
 stored yet or the register changed it since (its ``modified``); a 404 is remembered as a
-missing record, so it is not asked for again at once.
+missing record, so it is not asked for again at once. ``only_stored`` keeps a run to the
+treaties whose SRU record is stored already (a small database: no new treaties).
 """
 
 from __future__ import annotations
@@ -43,8 +44,17 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         self.client = client or VerdragenbankClient()
 
     def fetch(
-        self, *, max_records: int | None = None, **kwargs: object
+        self,
+        *,
+        max_records: int | None = None,
+        only_stored: bool = False,
+        **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
+        stored = (
+            set(self._stored_at(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAG))
+            if only_stored
+            else None
+        )
         treaties = self.client.enumerate_treaties(max_records=max_records)
         listed: list[dict[str, Any]] = []
         for treaty in treaties:
@@ -53,6 +63,8 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
                 continue
             # Use the last path segment as the external ID
             external_id = uri.rstrip("/").rsplit("/", 1)[-1] or uri
+            if stored is not None and external_id not in stored:
+                continue
             listed.append({**treaty, "identifier": external_id})
             yield RetrieveRecord(
                 source=SOURCE_VERDRAGENBANK,

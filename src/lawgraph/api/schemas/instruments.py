@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.official_urls import article_url, instrument_url
+from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
@@ -644,7 +645,9 @@ class TreatyPartyDTO(BaseModel):
     denounced: str | None = None
     terminated: str | None = None
     reservation: bool | None = Field(
-        None, description="It made a reservation (the text is on the register's page)."
+        None,
+        description="It made a reservation; the text is on the register's page "
+        "(`reservations_url` of the treaty).",
     )
     objection: bool | None = None
 
@@ -688,6 +691,11 @@ class TreatyRegisterDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     place_signed: str | None = None
+    reservations_url: str | None = Field(
+        None,
+        description="The register's page with the texts of the reservations and objections "
+        "of the parties; null when no party made one.",
+    )
     tractatenblad: list[TreatyPublicationDTO] = Field(default_factory=list)
     parties: list[TreatyPartyDTO] = Field(default_factory=list)
     kingdom_parts: list[TreatyKingdomPartDTO] = Field(default_factory=list)
@@ -701,7 +709,12 @@ class TreatyRegisterDTO(BaseModel):
         fields = [name for name in cls.model_fields if props.get(name) is not None]
         if not fields:
             return None
-        return cls(**{name: props[name] for name in fields})
+        return cls(
+            **{name: props[name] for name in fields},
+            reservations_url=reservations_url(
+                props.get("treaty_number"), props.get("parties") or []
+            ),
+        )
 
 
 class InstrumentDetailDTO(BaseModel):

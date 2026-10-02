@@ -229,6 +229,20 @@ def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
     ]
 
 
+def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
+    client = _Client({"000004": GRANADA, "004630": PROTOCOL_2})
+    pipeline = VerdragenbankRetrievePipeline(RawSourcesFake(), client=client)  # type: ignore[arg-type]
+    pipeline.progress = Progress("Verdragenbank")
+    pipeline._stored_at = lambda source, kind: {"004630": None}  # type: ignore[method-assign,assignment]
+    pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]  # type: ignore[method-assign]
+    pipeline._without_missing = lambda source, kind, ids: list(ids)  # type: ignore[method-assign]
+
+    records = list(pipeline.fetch(only_stored=True))
+
+    assert {r.external_id for r in records} == {"004630"}
+    assert client.asked == ["https://x/004630.xml"]
+
+
 # ── the normalize ────────────────────────────────────────────────────────────
 
 
@@ -306,3 +320,20 @@ def test_the_detail_of_a_treaty_carries_its_register() -> None:
     assert register.parent_treaties[0].id == "005132"
     assert register.tractatenblad[0].official_id == "trb-1963-123"
     assert TreatyRegisterDTO.from_props({"title": "Wet", "kind": "wet"}) is None
+
+
+def test_the_register_page_of_the_reservations_only_when_a_party_made_one() -> None:
+    from lawgraph.api.schemas.instruments import TreatyRegisterDTO
+
+    granada = TreatyRegisterDTO.from_props(
+        {**parse_treaty_xml(GRANADA), "treaty_number": "000004"}
+    )
+    protocol = TreatyRegisterDTO.from_props(
+        {**parse_treaty_xml(PROTOCOL_2), "treaty_number": "004630"}
+    )
+
+    assert granada is not None and protocol is not None
+    assert granada.reservations_url == (
+        "https://verdragenbank.overheid.nl/nl/Verdrag/Details/000004_p.html#Voorbehouden"
+    )
+    assert protocol.reservations_url is None  # no parties, no reservations

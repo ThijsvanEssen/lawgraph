@@ -14,8 +14,8 @@ The SRU record of a treaty gives its title, dates, type and status. The item XML
   Convention) and those that belong to it.
 
 Values as the source writes them; a date is ``YYYY-MM-DD``, an empty or ``xsi:nil`` element
-none. The text of a reservation is not kept: whether there is one is (the register's page
-has the text).
+none. The text of a reservation is not kept: whether there is one is, and the register's page
+of the parties has the text (``reservations_url``).
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ from lawgraph.core.xml import local_name
 
 # "1951, 154", "1964, 163": year and number of a Tractatenblad.
 _TRB_TEXT = re.compile(r"^\s*(\d{4})\s*,\s*(\d+)\s*$")
+# The register's page of the parties of a treaty, its reservations and objections among them.
+_RESERVATIONS_URL = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{treaty_id}_p.html#Voorbehouden"
 
 
 def _children(element: ET.Element | None, name: str) -> list[ET.Element]:
@@ -57,6 +59,18 @@ def trb_official_id(text: str | None) -> str | None:
     officielebekendmakingen.nl. None for a text that is no year and number."""
     match = _TRB_TEXT.match(text or "")
     return f"trb-{match[1]}-{int(match[2])}" if match else None
+
+
+def reservations_url(
+    treaty_id: str | None, parties: list[dict[str, Any]]
+) -> str | None:
+    """The register's page with the reservations and objections of the parties to the treaty
+    *treaty_id*; None when no party made one."""
+    if not treaty_id or not any(
+        p.get("reservation") or p.get("objection") for p in parties
+    ):
+        return None
+    return _RESERVATIONS_URL.format(treaty_id=treaty_id)
 
 
 def _anywhere(root: ET.Element, name: str) -> ET.Element | None:
