@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -545,7 +546,30 @@ def get_instruments_list(
         },
     )
     items, total = _split_page(rows)
-    return {"total": total, "items": [_list_item(row) for row in items]}
+    listed = [_list_item(row) for row in items]
+    coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
+    for item in listed:
+        item["next_version_from"] = coming.get(item["bwb_id"] or "")
+    return {"total": total, "items": listed}
+
+
+_NEXT_VERSIONS = """
+SELECT bwb_id, min(valid_from) AS valid_from FROM instrument_versions
+WHERE bwb_id = ANY(%(bwb_ids)s) AND valid_from > %(today)s
+GROUP BY bwb_id
+"""
+
+
+def _next_versions(store: GraphStore, bwb_ids: list[str]) -> dict[str, str]:
+    """``bwb_id -> `` the start of its first toestand still to come, for the laws that
+    have one: the date of the first coming change, as the BWB lists it."""
+    if not bwb_ids:
+        return {}
+    rows = store.query(
+        _NEXT_VERSIONS,
+        {"bwb_ids": bwb_ids, "today": dt.date.today().isoformat()},
+    )
+    return {row["bwb_id"]: row["valid_from"] for row in rows}
 
 
 def _list_item(row: dict[str, Any]) -> dict[str, Any]:
@@ -573,6 +597,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "display_name": display_name if display_name is not None else citation_title,
         "jurisdiction": props.get("jurisdiction"),
         "article_count": props.get("article_count"),
+        "inbound_citation_count": props.get("inbound_citation_count"),
         "uri": props.get("uri"),
         "publication_kind": props.get("publication_kind"),
         "publication_year": props.get("publication_year"),

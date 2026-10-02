@@ -404,6 +404,17 @@ class InstrumentListItemDTO(BaseModel):
     jurisdiction: str | None
     kind: str | None
     article_count: int
+    inbound_citation_count: int = Field(
+        0,
+        description="How often the law and its articles are cited (REFERS_TO), as on the "
+        "instrument's detail.",
+    )
+    next_version_from: str | None = Field(
+        None,
+        description="The date of the first coming change: the start of the first toestand "
+        "of the law after today, as the BWB lists it. Null when none is known (and for an "
+        "EU instrument).",
+    )
     official_url: str | None = Field(None, description=OFFICIAL_URL)
 
     @classmethod
@@ -420,6 +431,8 @@ class InstrumentListItemDTO(BaseModel):
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
             article_count=int(row.get("article_count") or 0),
+            inbound_citation_count=int(row.get("inbound_citation_count") or 0),
+            next_version_from=row.get("next_version_from"),
             official_url=instrument_url(row),
         )
 
