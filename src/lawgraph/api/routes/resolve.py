@@ -11,6 +11,9 @@ from lawgraph.db.queries.resolve import resolve as resolve_query
 
 router = APIRouter()
 
+# The longest query read as a citation or a name; a longer one is words for the search.
+RESOLVE_MAX_LENGTH = 200
+
 
 @router.get(
     "",
@@ -28,7 +31,10 @@ router = APIRouter()
 )
 def resolve(
     q: Annotated[
-        str, Query(min_length=1, max_length=200, description="Citation or name")
+        str,
+        Query(
+            min_length=1, max_length=RESOLVE_MAX_LENGTH, description="Citation or name"
+        ),
     ],
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ResolveResponse:

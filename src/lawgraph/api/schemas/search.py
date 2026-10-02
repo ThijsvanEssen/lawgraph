@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.resolve import ResolveResponse
+
 # The collections ``search_all`` can search, named as the collection is.
 SEARCH_TYPES = frozenset(
     {
@@ -52,3 +54,8 @@ class SearchResponse(BaseModel):
     types: list[str]
     total: int
     results: dict[str, list[SearchResultItem]]
+    resolved: ResolveResponse | None = Field(
+        default=None,
+        description="With `resolve=true`: what `/api/resolve` answers for `q`, in the "
+        "same request (kind `none` when nothing fits). Null without it.",
+    )
