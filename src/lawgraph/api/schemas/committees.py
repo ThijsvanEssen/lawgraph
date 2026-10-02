@@ -37,6 +37,11 @@ class MemberVoteDTO(BaseModel):
     )
     party: str | None = None
     faction_key: str | None = None
+    vote_source: Literal["member", "faction"] = Field(
+        "member",
+        description="``member``: their own vote, on a roll-call (hoofdelijke stemming); "
+        "``faction``: their faction's, cast while they belonged to it (``faction_key``).",
+    )
 
 
 class MemberVotesResponse(BaseModel):
