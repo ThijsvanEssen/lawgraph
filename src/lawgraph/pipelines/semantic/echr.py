@@ -10,7 +10,9 @@ The Convention is the treaty of the BWB, ``ECHR_CONVENTION_BWB_ID`` (BWBV0001000
 are numbered as HUDOC numbers them (``8``), so a judgment of the ECHR and a Dutch judgment that
 cites "art. 8 EVRM" reach the same article. While the treaty is not loaded its cited articles
 are stubs, as the cited articles of any law that is not loaded (``_cited_article``). A Protocol
-is a treaty of its own, which HUDOC names by number only: its articles are not linked.
+is a treaty of its own, which HUDOC names by number only: the curated list ``echr-protocols``
+gives its BWB treaty (P1 is BWBV0001001), and ``P1-1`` is article 1 of it. A Protocol the list
+does not have (one that only changes the procedure of the Court) is not linked.
 
 Judgments are also linked to the BWB instruments whose id their ``conclusion`` names. The edges
 of a judgment are derived in full each run: one it no longer supports is removed.
@@ -27,6 +29,7 @@ from lawgraph.config.constants import (
     ECHR_CONVENTION_BWB_ID,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.curated import LISTS
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -46,7 +49,9 @@ CONFIDENCE_CONCLUSION = 0.80
 # One article as HUDOC writes it: "8", "8-1", "5-1-f", "35-3-a"; a Protocol's starts with "P".
 _HUDOC_ARTICLE_RE = re.compile(r"^(?P<number>\d+[a-z]?)(?:-(?P<paragraph>\d+))?")
 # An article of a Protocol: "P1-1", "P1-1-1" (its paragraph), "P4-2".
-_PROTOCOL_ARTICLE_RE = re.compile(r"^(?P<article>P\d+-\d+[a-z]?)")
+_PROTOCOL_ARTICLE_RE = re.compile(
+    r"^(?P<protocol>P\d+)-(?P<number>\d+[a-z]?)(?:-(?P<paragraph>\d+))?"
+)
 
 
 def _items(labels: list[str] | str | None) -> list[str]:
@@ -58,16 +63,28 @@ def _items(labels: list[str] | str | None) -> list[str]:
     ]
 
 
-def protocol_articles(labels: list[str] | str | None) -> list[str]:
-    """The articles of a Protocol HUDOC names, without their paragraphs, in its order:
-    ``["8;P1-1;P1-1-1;P4-2"]`` is ``["P1-1", "P4-2"]``. They are not linked: a Protocol is a
-    treaty of its own, and no source maps its number to a BWB id."""
-    found: list[str] = []
+def protocol_articles(
+    labels: list[str] | str | None,
+) -> dict[tuple[str, str], list[str]]:
+    """(Protocol, article) -> the paragraphs named of it, in the order HUDOC names them:
+    ``["8;P1-1;P1-1-1;P4-2"]`` is ``{("P1", "1"): ["1"], ("P4", "2"): []}``."""
+    found: dict[tuple[str, str], list[str]] = {}
     for item in _items(labels):
         match = _PROTOCOL_ARTICLE_RE.match(item)
-        if match and match["article"] not in found:
-            found.append(match["article"])
+        if not match:
+            continue
+        paragraphs = found.setdefault((match["protocol"], match["number"]), [])
+        if match["paragraph"] and match["paragraph"] not in paragraphs:
+            paragraphs.append(match["paragraph"])
     return found
+
+
+def protocol_treaties() -> dict[str, str]:
+    """HUDOC Protocol -> the BWB id of its treaty (curated ``echr-protocols``)."""
+    return {
+        protocol: str(value["bwb_id"])
+        for protocol, value in LISTS["echr-protocols"].entries().items()
+    }
 
 
 def convention_articles(labels: list[str] | str | None) -> dict[str, list[str]]:
@@ -104,11 +121,18 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None)
         kept: dict[str, set[str]] = {}
         read: list[str] = []
-        protocols = sum(len(protocol_articles(row.get("articles"))) for row in rows)
-        if protocols:
+        treaties = protocol_treaties()
+        unknown = sum(
+            1
+            for row in rows
+            for protocol, _ in protocol_articles(row.get("articles"))
+            if protocol not in treaties
+        )
+        if unknown:
             logger.info(
-                "ECHR citations: %d articles of a Protocol not linked (no BWB id).",
-                protocols,
+                "ECHR citations: %d articles of a Protocol not linked (not in the curated "
+                "list echr-protocols: it changes the procedure of the Court).",
+                unknown,
             )
         for row in rows:
             if not row.get("j_id"):
@@ -121,7 +145,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 key=row["j_key"],
                 props={},
             )
-            for target, confidence, meta in self._targets(row, instruments):
+            for target, confidence, meta in self._targets(row, instruments, treaties):
                 doc = self._make_edge_doc(
                     from_node=judgment,
                     to_node=target,
@@ -141,20 +165,40 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _targets(
-        self, row: dict[str, Any], instruments: dict[str, Node]
+        self,
+        row: dict[str, Any],
+        instruments: dict[str, Node],
+        treaties: dict[str, str],
     ) -> list[tuple[Node, float, dict[str, Any]]]:
-        """``(target, confidence, meta)`` of every edge of one judgment."""
+        """``(target, confidence, meta)`` of every edge of one judgment: the articles of the
+        Convention, of a Protocol (its treaty from *treaties*), and the instruments its
+        conclusion names."""
+        cited = [
+            (ECHR_CONVENTION_BWB_ID, number, paragraphs, None)
+            for number, paragraphs in convention_articles(row.get("articles")).items()
+        ] + [
+            (treaties[protocol], number, paragraphs, protocol)
+            for (protocol, number), paragraphs in protocol_articles(
+                row.get("articles")
+            ).items()
+            if protocol in treaties
+        ]
         targets: list[tuple[Node, float, dict[str, Any]]] = []
-        for number, paragraphs in convention_articles(row.get("articles")).items():
+        for bwb_id, number, paragraphs, protocol in cited:
             article = self._cited_article(
-                ECHR_CONVENTION_BWB_ID,
+                bwb_id,
                 number,
                 celex=False,
                 confidence=CONFIDENCE_ARTICLE,
                 min_confidence=CONFIDENCE_ARTICLE,
             )
             if article is not None:
-                meta = {"leden": paragraphs, "hudoc_articles": row.get("articles")}
+                meta: dict[str, Any] = {
+                    "leden": paragraphs,
+                    "hudoc_articles": row.get("articles"),
+                }
+                if protocol:
+                    meta["protocol"] = protocol
                 targets.append((article, CONFIDENCE_ARTICLE, meta))
         conclusion = row.get("conclusion") or ""
         for bwb_id in sorted(

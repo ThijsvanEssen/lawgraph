@@ -339,12 +339,19 @@ def _check_member_slugs(store: GraphStore, report: Report) -> None:
 
 
 def _check_protocols(store: GraphStore, report: Report) -> None:
-    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply: they are
-    not linked (``semantic echr``), which only this says."""
-    from lawgraph.pipelines.semantic.echr import protocol_articles
+    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply and that
+    are not linked (``semantic echr``): the Protocol is not in the curated list
+    ``echr-protocols``, which only this says."""
+    from lawgraph.pipelines.semantic.echr import protocol_articles, protocol_treaties
 
+    treaties = protocol_treaties()
     per_judgment = [
-        protocol_articles(field) for field in checks.echr_article_fields(store)
+        [
+            f"{protocol}-{number}"
+            for protocol, number in protocol_articles(field)
+            if protocol not in treaties
+        ]
+        for field in checks.echr_article_fields(store)
     ]
     named = [articles for articles in per_judgment if articles]
     if named:
@@ -352,8 +359,8 @@ def _check_protocols(store: GraphStore, report: Report) -> None:
         report.note(
             f"echr: {sum(map(len, named)):,} articles of a Protocol in {len(named):,} "
             f"judgments are not linked ({', '.join(distinct[:10])}"
-            f"{', …' if len(distinct) > 10 else ''}): a Protocol is a treaty of its own, "
-            "and no source maps its number to a BWB id"
+            f"{', …' if len(distinct) > 10 else ''}): the Protocol is not in the curated "
+            "list echr-protocols"
         )
 
 

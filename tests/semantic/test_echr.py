@@ -10,7 +10,12 @@ from typing import Any
 import pytest
 
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline, convention_articles
+from lawgraph.pipelines.semantic.echr import (
+    ECHRSemanticPipeline,
+    convention_articles,
+    protocol_articles,
+    protocol_treaties,
+)
 
 
 @pytest.mark.parametrize(
@@ -38,3 +43,27 @@ def test_without_judgments_nothing_is_written(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(semantic_rechtspraak, "echr_judgments", lambda store: iter([]))
 
     assert ECHRSemanticPipeline(store=object()).run().created == 0
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        (["8;P1-1;P1-1-1;P4-2"], {("P1", "1"): ["1"], ("P4", "2"): []}),
+        ("P1-1-1;P1-1-2;13+P1-1", {("P1", "1"): ["1", "2"]}),
+        (["P12-1"], {("P12", "1"): []}),
+        (["6;8-1"], {}),
+        (None, {}),
+    ],
+)
+def test_the_articles_of_a_protocol_and_their_paragraphs(
+    labels: Any, expected: dict[tuple[str, str], list[str]]
+) -> None:
+    assert protocol_articles(labels) == expected
+
+
+def test_a_protocol_is_the_bwb_treaty_the_curated_list_gives_it() -> None:
+    treaties = protocol_treaties()
+    assert treaties["P1"] == "BWBV0001001"
+    assert treaties["P4"] == "BWBV0001029"
+    # a Protocol that changes the procedure of the Court is not in it
+    assert "P11" not in treaties and "P14" not in treaties
