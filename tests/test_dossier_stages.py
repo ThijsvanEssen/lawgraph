@@ -37,31 +37,14 @@ def _done(phases: list[dict] | None) -> list[str]:
 
 @pytest.mark.parametrize("kind", CARRYING_KINDS)
 def test_the_kind_is_the_soort_of_the_dossiers_own_zaak(kind: str) -> None:
-    assert dossier_kind(["Motie", kind, "Brief regering"], []) == (kind, "case")
+    assert dossier_kind(["Motie", kind, "Brief regering"]) == (kind, "case")
 
 
-def test_a_zaak_wins_over_the_papers() -> None:
-    assert dossier_kind(["Begroting"], ["Voorstel van wet"]) == ("Begroting", "case")
-
-
-@pytest.mark.parametrize(
-    ("documents", "kind"),
-    [
-        (["Motie", "Voorstel van wet"], "Wetgeving"),
-        (["Voorstel van wet (tweede lezing)"], "Wetgeving"),
-        (["Voorstel van wet (initiatiefvoorstel)"], "Initiatiefwetgeving"),
-    ],
-)
-def test_without_a_zaak_a_voorstel_van_wet_makes_it_a_bill(
-    documents: list[str], kind: str
-) -> None:
-    assert dossier_kind(["Motie"], documents) == (kind, "document")
-
-
-def test_a_dossier_of_letters_and_motions_has_no_kind() -> None:
-    assert dossier_kind(["Motie", "Brief regering"], ["Brief regering"]) == (None, None)
-    # a paper whose Soort only begins with the words is no bill
-    assert dossier_kind([], ["Voorstel van wetenschap"]) == (None, None)
+def test_without_a_zaak_of_its_own_a_dossier_has_no_kind() -> None:
+    # letters and motions; and no kind is made up from a voorstel van wet among its papers
+    # (BE-28: "zonder soort")
+    assert dossier_kind(["Motie", "Brief regering"]) == (None, None)
+    assert dossier_kind([]) == (None, None)
 
 
 # ── phases ────────────────────────────────────────────────────────────────────

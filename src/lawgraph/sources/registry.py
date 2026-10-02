@@ -29,6 +29,9 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
+from lawgraph.pipelines.normalize.eerstekamer_bills import (
+    EerstekamerBillsNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eerstekamer_composition import (
     EerstekamerCompositionNormalizePipeline,
 )
@@ -49,6 +52,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_bwb_history,
     retrieve_echr,
     retrieve_eerstekamer,
+    retrieve_eerstekamer_bills,
     retrieve_eerstekamer_composition,
     retrieve_eerstekamer_votes,
     retrieve_eurlex,
@@ -418,6 +422,13 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_EERSTEKAMER_SITE,
     ),
     _pipeline(
+        retrieve_eerstekamer_bills,
+        "The pages of the bills of the Eerste Kamer: those its committees list (now and "
+        "lately) and those it voted on, from eerstekamer.nl.",
+        argv_for_all=_windowed_argv,
+        lane=LANE_EERSTEKAMER_SITE,
+    ),
+    _pipeline(
         retrieve_echr,
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
@@ -502,6 +513,11 @@ NORMALIZE: list[Pipeline] = [
         EerstekamerCompositionNormalizePipeline,
         "The factions, committees and members of the Eerste Kamer as its pages show them "
         "on the day they were read; periods as observed.",
+    ),
+    _pipeline(
+        EerstekamerBillsNormalizePipeline,
+        "The page of each bill of the Eerste Kamer onto its dossier: the day it was "
+        "submitted and its progress, as the page gives them.",
     ),
     _pipeline(
         EerstekamerVotesNormalizePipeline,

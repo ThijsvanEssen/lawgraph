@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from tests.parity.catalogue import Pools, Request, _resolve, fill
+from tests.parity.catalogue import Pools, Request, _resolve, _walk, fill
 from tests.parity.compare import compare, first_difference, parse, search_agreement
 
 
@@ -164,3 +164,20 @@ def test_atom_names_its_own_url_on_any_local_port() -> None:
     assert not compare(
         "/api/feed.atom", {}, feed("http://localhost:8002"), feed("https://example.org")
     ).same
+
+
+def test_a_member_slug_is_no_committee_slug() -> None:
+    """Members have a ``slug`` too (``rob-jetten``): it goes to its own pool, so the
+    catalogue does not ask ``/api/committees/rob-jetten``."""
+    pools = Pools()
+    _walk(
+        {
+            "items": [
+                {"id": "members/m1", "slug": "rob-jetten"},
+                {"id": "committees/c1", "slug": "justitie-en-veiligheid"},
+            ]
+        },
+        pools,
+    )
+    assert pools.sample("slug") == ["justitie-en-veiligheid"]
+    assert pools.sample("member_slug") == ["rob-jetten"]

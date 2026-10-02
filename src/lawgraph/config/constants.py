@@ -218,6 +218,9 @@ RAW_KIND_EK_REJECTED = "ek-rejected-html"
 # A page of eerstekamer.nl on its composition: the lists of factions and committees and the
 # page of each (external id: its path); every run reads them all again.
 RAW_KIND_EK_COMPOSITION = "ek-composition-html"
+# The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
+# of its committee it was found under (``meta.status``).
+RAW_KIND_EK_BILL = "ek-bill-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
 RAW_KIND_VERDRAG_XML = "verdrag-xml"
@@ -260,6 +263,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_VOTES_DAY,
         RAW_KIND_EK_REJECTED,
         RAW_KIND_EK_COMPOSITION,
+        RAW_KIND_EK_BILL,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
