@@ -233,6 +233,26 @@ def _instrument_abbreviations(entries: Entries) -> list[str]:
     return found
 
 
+def _echr_protocols(entries: Entries) -> list[str]:
+    from lawgraph.core.identifiers import is_bwb_id
+
+    found = []
+    claimed: dict[str, str] = {}
+    for protocol, value in entries.items():
+        bwb_id = str((value or {}).get("bwb_id") or "")
+        if not re.match(r"^P\d{1,2}$", protocol):
+            found.append(f"{protocol}: not a Protocol as HUDOC numbers it (P1)")
+        if not is_bwb_id(bwb_id) or bwb_id != bwb_id.upper():
+            found.append(f"{protocol}: bwb_id {bwb_id!r} is no BWB id in upper case")
+        elif claimed.setdefault(bwb_id, protocol) != protocol:
+            found.append(
+                f"{bwb_id}: the treaty of both {claimed[bwb_id]} and {protocol}"
+            )
+        if not (value or {}).get("title"):
+            found.append(f"{protocol}: needs the title the BWB gives the treaty")
+    return found
+
+
 def _in(values: set[str], what: str) -> Callable[[Entries], list[str]]:
     def check(entries: Entries) -> list[str]:
         return [
@@ -377,6 +397,14 @@ LISTS: dict[str, CuratedList] = {
             "whose source gives no abbreviation",
             _records("instruments", "id"),
             _instrument_abbreviations,
+        ),
+        _list(
+            "echr-protocols",
+            "echr_protocols.json",
+            "HUDOC Protocol (P1) -> {bwb_id, signed, title}: the BWB treaty of a Protocol "
+            "to the ECHR, whose articles HUDOC names as P1-1",
+            _records("protocols", "protocol"),
+            _echr_protocols,
         ),
         _list(
             "decision-kinds",

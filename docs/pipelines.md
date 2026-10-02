@@ -975,17 +975,18 @@ another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A tex
 applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The
 Convention is the BWB treaty `BWBV0001000`, whose articles are numbered as HUDOC numbers them:
 HUDOC's `8;8-1;8-2;41;P1-1` is article 8 (`meta.leden` `["1", "2"]`, `meta.hudoc_articles` the
-field as HUDOC gave it) and article 41; `P1-1`, an article of a Protocol, is of a treaty of its
-own and not linked. A Dutch judgment that cites "art. 8 EVRM" reaches the same article. While
-`BWBV0001000` is not loaded its cited articles are stubs (`bwbv0001000_8`, `bwb_id` and
-`article_number`), as the cited articles of any law that is not loaded, and `retrieve bwb
---bwb-id BWBV0001000` loads it. The edges of a judgment are derived in full: one it no longer
-supports is removed.
+field as HUDOC gave it) and article 41. `P1-1`, an article of a Protocol, is article 1 of
+the Protocol's own BWB treaty: the curated list `echr-protocols` gives it (P1 is
+`BWBV0001001`, P4 `BWBV0001029`, P6, P7, P12, P13), from the titles and the place and date of
+signing the BWB gives; `meta.protocol` names the Protocol. A Dutch judgment that cites "art. 8
+EVRM" reaches the same article. While a treaty is not loaded its cited articles are stubs
+(`bwbv0001000_8`, `bwbv0001001_1`; `bwb_id` and `article_number`), as the cited articles of any
+law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The edges of a
+judgment are derived in full: one it no longer supports is removed.
 
-**Known limits.** An article of a Protocol to the Convention (`P1-1`, `P4-2`) is not linked:
-a Protocol is a treaty of its own, and neither HUDOC nor the BWB maps its number to a BWB id.
-`lawgraph check` counts them, and `semantic echr` logs how many it left out. A map of Protocol
-to BWB id would be a curated list (`lawgraph curated`).
+**Known limits.** An article of a Protocol the list does not have (11, 14, 15, 16: they change
+the procedure of the Court) is not linked; `lawgraph check` counts them, and `semantic echr`
+logs how many it left out.
 
 ## Verdragenbank
 
