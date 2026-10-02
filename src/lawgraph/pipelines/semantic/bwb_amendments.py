@@ -229,7 +229,8 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         found: dict[tuple[str, str], str] = {}
         for row in rows:
             pair = (str(row.get("bwb_id")), str(row.get("stam_id")))
-            # the IN filters form a cartesian product: keep only the wanted pairs
+            # the IN filters form a cartesian product: keep only the wanted pairs, since the
+            # targets are also the articles whose edges this chunk removes when not kept
             if pair in pairs and pair not in found:
                 found[pair] = row["key"]
         return found
