@@ -87,7 +87,16 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "url",
         "source",
     ],
-    "activity": ["kind", "agenda_title", "number", "status"],
+    "activity": [
+        "kind",
+        "agenda_title",
+        "number",
+        "status",
+        "chamber",
+        "time",
+        "source_url",
+        "retrieved_on",
+    ],
     "decision": [
         "subject",
         "chamber",

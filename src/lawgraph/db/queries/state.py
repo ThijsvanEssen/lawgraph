@@ -30,3 +30,31 @@ def set_covered_until(store: Any, phase: str, began_iso: str) -> None:
         """,
         {"phase": phase, "doc": Json({"covered_until": began_iso})},
     )
+
+
+def get_state(store: Any, key: str) -> dict[str, Any] | None:
+    """The document a pipeline keeps under *key* (where a long run is), or None."""
+    doc = next(
+        store.query(
+            f"SELECT doc FROM {COLLECTION_PIPELINE_STATE} WHERE key = %(key)s",
+            {"key": key},
+        ),
+        None,
+    )
+    return dict(doc) if doc else None
+
+
+def set_state(store: Any, key: str, doc: dict[str, Any] | None) -> None:
+    """Keep *doc* under *key*; None removes it."""
+    if doc is None:
+        store.execute(
+            f"DELETE FROM {COLLECTION_PIPELINE_STATE} WHERE key = %(key)s", {"key": key}
+        )
+        return
+    store.execute(
+        f"""
+        INSERT INTO {COLLECTION_PIPELINE_STATE} (key, doc) VALUES (%(key)s, %(doc)s)
+        ON CONFLICT (key) DO UPDATE SET doc = EXCLUDED.doc
+        """,
+        {"key": key, "doc": Json(doc)},
+    )

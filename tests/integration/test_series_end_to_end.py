@@ -265,7 +265,15 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         {"relation": "amends", "status": "voorgesteld"},
     ]
     assert [(c["slug"], c["role"]) for c in hub["committees"]] == [("kgg", "lead")]
-    assert hub["senate"] == {"document_count": 0, "first_date": None}
+    # no Eerste Kamer papers and no bill page of the Eerste Kamer (BE-3)
+    assert hub["senate"] == {
+        "document_count": 0,
+        "first_date": None,
+        "progress": [],
+        "source": None,
+        "status": None,
+        "submitted_on": None,
+    }
 
     committee = _get(client, "/api/committees/kgg")
     assert [d["number"] for d in committee["dossiers"]] == [DOSSIER]

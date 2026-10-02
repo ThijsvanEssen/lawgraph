@@ -201,12 +201,28 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
         "celex": EECC,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-1992-315"],
+        "measures": [
+            {
+                "publication": "stb-1992-315",
+                "citation": "Stb. 1992, 315",
+                "title": "Wet van 4 juni 1992, houdende algemene regels van bestuursrecht",
+                "type": "Wet",
+            }
+        ],
     }
     # the publication that made a version of an article, and the regulation it changed
     srm = {
         "celex": SRM,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-2022-332"],
+        "measures": [
+            {
+                "publication": "stb-2022-332",
+                "citation": "Stb. 2022, 332",
+                "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
+                "type": "Wet",
+            }
+        ],
     }
     assert links[("stb_2022_332", "IMPLEMENTS", "32014r0806")] == srm
     assert links[("bwbr0001840", "IMPLEMENTS", "32014r0806")] == srm
@@ -232,6 +248,18 @@ def test_the_eu_links_of_a_law(client: TestClient) -> None:
         link["instrument"]["celex"]: link["bases"] for link in body["implements"]
     }
     assert implements == {EECC: ["national_implementing_measure"]}
+    [eecc] = body["implements"]
+    assert [m["citation"] for m in eecc["via"]] == ["Stb. 1992, 315"]
+    grondwet = client.get("/api/instruments/BWBR0001840/eu-links").json()
+    [srm] = grondwet["implements"]
+    assert srm["via"] == [
+        {
+            "publication": "stb-2022-332",
+            "citation": "Stb. 2022, 332",
+            "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
+            "type": "Wet",
+        }
+    ]
     assert {link["instrument"]["celex"] for link in body["mentions"]} == {EMIR, SRM}
     down = client.get(f"/api/instruments/{GDPR}/eu-links").json()
     assert [link["instrument"]["bwb_id"] for link in down["implemented_by"]] == [UAVG]
