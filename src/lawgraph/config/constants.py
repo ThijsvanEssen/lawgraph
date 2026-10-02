@@ -68,6 +68,7 @@ RELATION_REPEALS = "REPEALS"
 RELATION_BASED_ON = "BASED_ON"
 RELATION_IMPLEMENTS = "IMPLEMENTS"
 RELATION_LEGISLATED_IN = "LEGISLATED_IN"
+RELATION_PUBLISHED_IN = "PUBLISHED_IN"
 RELATION_REFERS_TO = "REFERS_TO"
 RELATION_EXPLAINS = "EXPLAINS"
 RELATION_APPEAL_OF = "APPEAL_OF"
@@ -169,6 +170,8 @@ EXPLANATORY_KIND_MARKER = "toelichting"
 # The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
 # text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
 EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
+# The edge `source` of what `semantic verdragenbank` derives from the register of a treaty.
+EDGE_SOURCE_VERDRAGENBANK = "verdragenbank"
 IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
 IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 

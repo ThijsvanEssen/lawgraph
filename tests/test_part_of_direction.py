@@ -1,4 +1,6 @@
-"""PART_OF always points child (article / annex) → instrument.
+"""PART_OF always points child (article / annex) → instrument; between two instruments only
+a treaty → the treaty it belongs to (``semantic verdragenbank``), which no reader of the
+articles of an instrument may count.
 
 One contract, checked at both ends: every writer produces that direction, and
 every reader filters on it. The readers are pinned on a real PostgreSQL
@@ -78,4 +80,4 @@ def test_part_of_endpoints_match_the_catalogue() -> None:
     assert COLLECTION_ARTICLES in spec.sources
     assert "annexes" in spec.sources
     assert COLLECTION_INSTRUMENTS in spec.targets
-    assert COLLECTION_INSTRUMENTS not in spec.sources
+    assert COLLECTION_INSTRUMENTS in spec.sources  # a Protocol → its Convention

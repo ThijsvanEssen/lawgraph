@@ -43,6 +43,8 @@ def _run(
     return subprocess.run(
         ["sh", str(checkout / "scripts" / script)],
         env=env,
+        # the scripts run from cron with nothing on stdin; a fake that reads it waits otherwise
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
     )
