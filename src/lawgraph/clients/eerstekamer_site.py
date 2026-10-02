@@ -1,5 +1,5 @@
-"""Client for eerstekamer.nl: its list of votes on bills, its list of rejected bills, and
-the pages of its factions and committees.
+"""Client for eerstekamer.nl: its list of votes on bills, its list of rejected bills, the
+pages of its factions and committees, and the pages of its bills.
 
 The Eerste Kamer publishes its votes only on its website; its terms allow reuse, also
 commercial, with the source and the day it was taken over. ``robots.txt`` allows these
@@ -14,7 +14,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EERSTEKAMER_SITE
-from lawgraph.core import eerstekamer_composition, eerstekamer_votes
+from lawgraph.core import eerstekamer_bills, eerstekamer_composition, eerstekamer_votes
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -71,6 +71,27 @@ class EerstekamerSiteClient(BaseClient):
                 yield entry.path, self.url(entry.path), self._page(self.url(entry.path))
         hall = eerstekamer_composition.HALL_PATH
         yield hall, self.url(hall), self._page(self.url(hall))
+
+    def listed_bills(self, *, older: bool) -> Iterator[eerstekamer_bills.ListedBill]:
+        """The bills on the list of every committee (``/commissies``); with *older* also
+        those on its pages of older bills (``verder``)."""
+        committees = self._page(self.url(eerstekamer_composition.COMMITTEES_PATH))
+        for committee in eerstekamer_composition.committees(committees):
+            for path in eerstekamer_bills.bill_lists(
+                self._page(self.url(committee.path))
+            ):
+                next_path: str | None = path
+                while next_path:
+                    bills, following = eerstekamer_bills.listed_bills(
+                        self._page(self.url(next_path))
+                    )
+                    yield from bills
+                    next_path = following if older else None
+
+    def bill_page(self, path: str) -> tuple[str, str]:
+        """``(url, html)`` of the page of a bill."""
+        url = self.url(path)
+        return url, self._page(url)
 
     def _page(self, url: str) -> str:
         response = self._get_raw_absolute_with_retry(
