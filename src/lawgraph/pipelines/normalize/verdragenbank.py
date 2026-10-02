@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RAW_KIND_VERDRAG,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
@@ -87,7 +88,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             is_in_force = status.lower() == "inwerkinggetreden"
 
             display_name = (
-                title[:MAX_TITLE_CHARS]
+                shorten(title, MAX_TITLE_CHARS)
                 if title
                 else f"Verdrag {treaty_number or external_id}"
             )
