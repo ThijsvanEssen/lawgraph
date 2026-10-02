@@ -417,7 +417,7 @@ the article first and resolves the law after it:
 |------|-----------|
 | `artikel 3.26, eerste lid, van de Wet ruimtelijke ordening` (code or full name; dotted, colon and lettered numbers; `lid`, `onder`, `sub`, `aanhef`, `volzin`) | 0.95 |
 | `artikelen 338 (lid 2) en 339 Fw`, `artikelen 2 tot en met 5 Sv` | 0.95 each |
-| `artikel 2.8 van de Wnb` after `... (hierna: de Wnb)` in the same text | 0.90 |
+| `artikel 2.8 van de Wnb` after `... (hierna: de Wnb)`, `(verder: Wnb)` or `(Wnb)` in the same text | 0.90 |
 | `artikel 3a van die wet` (also `deze`, `genoemde`, `voornoemde`), the law named last within 3,000 characters | 0.70 |
 
 Codes come from `instruments.props.short_title` and `aliases` (see the Overview), names from
@@ -432,8 +432,11 @@ article in reading order, at most 100: `law` as written, `article_number`, `raw_
 `mention_count`; null when there is none, written only when it changed. Such a law is an
 abbreviation (`Rv`, `RO`, `AWR`, `Vw 2000`) or a name of one word (`Opiumwet`,
 `Huisvestingswet 2014`) after the article; a name of several words (`Wet op de rechterlijke
-organisatie`) is not read, nor a word that starts a sentence (`Onze Minister`). Once the law is
-loaded, the next run links the citation and drops it from the list.
+organisatie`) is not read, nor a word that starts a sentence (`Onze Minister`). A short name the
+text gives such a law (`artikel 4.16 van de Aanbestedingswet (Aw)`, also `hierna:` or `verder:`)
+is that law further on in the same text: `artikel 4.16 Aw` counts for `Aanbestedingswet` 4.16,
+one entry. The article number stays as written (`2:163c Aw` where the court means 2.163c). Once
+the law is loaded, the next run links the citation and drops it from the list.
 
 One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
 `meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
