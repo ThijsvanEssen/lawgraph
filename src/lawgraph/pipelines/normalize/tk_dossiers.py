@@ -42,6 +42,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
     dossier_display_name,
+    last_activity,
     opened_on,
     phase_props,
     select_title,
@@ -282,8 +283,33 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
         # Once the edges exist, each dossier's documents can be walked to
-        # derive its title and phases, so reads stay O(1).
-        self._backfill_titles_and_phases(normalized["dossiers"])
+        # derive its title and phases, so reads stay O(1). A run over a window also
+        # refreshes the dossiers its papers, activities and decisions belong to: their
+        # phases and last activity move with them, the dossier's own record need not.
+        self._backfill_titles_and_phases(
+            {**self._touched_dossiers(normalized), **normalized["dossiers"]}
+        )
+
+    def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
+        """On a run over a window, the stored dossiers (by label) that a paper, activity
+        or decision of the window belongs to and the window does not hold itself."""
+        if not self._incremental:
+            return {}
+        labels = {
+            str(label)
+            for kind in ("documents", "activities", "decisions")
+            for node in normalized[kind].values()
+            for label in node.props.get("dossier_numbers") or []
+        } - set(normalized["dossiers"])
+        found: dict[str, Node] = {}
+        for label in sorted(labels):
+            node = self.store.get_node(COLLECTION_DOSSIERS, make_node_key(label))
+            if node is not None:
+                found[label] = node
+        logger.info(
+            "Refreshing %d dossiers the window's records belong to.", len(found)
+        )
+        return found
 
     def _every_seat(self) -> RawRecords:
         """Every FractieZetelPersoon record, also on a run over a window: the seats date a
@@ -490,6 +516,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
         props["opened_on"] = day or row.get("opened_on")
         props["opened_on_basis"] = basis if day else row.get("opened_on_basis")
+        props["last_activity"] = last_activity(
+            docs, activities, row.get("decisions") or []
+        )
 
         unchanged = all(node.props.get(name) == value for name, value in props.items())
         node.props.update(props)

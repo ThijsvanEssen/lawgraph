@@ -191,6 +191,26 @@ OPENED_BY_ROYAL_MESSAGE = "royal_message"
 OPENED_BY_EARLIEST_RECORD = "earliest_record"
 
 
+def last_activity(
+    docs: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+) -> str | None:
+    """The day of the newest thing that happened in a dossier: a paper, an activity that
+    took place (not one only planned, cancelled or moved) or a decision, as the Kamer dates
+    them; None without any."""
+    days = [
+        *(d.get("date") for d in docs),
+        *(
+            a.get("date")
+            for a in activities
+            if a.get("status") not in ACTIVITY_NOT_HELD
+        ),
+        *(d.get("date") for d in decisions),
+    ]
+    return max((day for day in days if day), default=None)
+
+
 def opened_on(
     number: str | None,
     suffix: str | None,

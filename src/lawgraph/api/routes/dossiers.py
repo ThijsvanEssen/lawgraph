@@ -149,10 +149,12 @@ class _ListParams:
             dt.date | None, Query(description="Opened on or before this day.")
         ] = None,
         sort: Annotated[
-            Literal["number", "opened_on", "closed_on", "title"] | None,
+            Literal["number", "opened_on", "last_activity", "closed_on", "title"]
+            | None,
             Query(
-                description="``number`` in the order of the Kamer, ``opened_on`` and "
-                "``closed_on`` newest first, ``title`` alphabetically; ties by key. "
+                description="``number`` in the order of the Kamer, ``opened_on``, "
+                "``last_activity`` and ``closed_on`` newest first, ``title`` "
+                "alphabetically; ties by key. "
                 "Default ``number`` with a ``number`` filter, else ``opened_on``."
             ),
         ] = None,
