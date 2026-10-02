@@ -619,3 +619,36 @@ def members_born_on(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
     """
     bind = {"dates": dates, "fields": ["family_name", "birth_date"]}
     return store.query(statement, bind)
+
+
+def member_slug_rows(store: Store) -> Iterator[dict[str, Any]]:
+    """What a member's slug is made of, of every member (``core.member_slugs.new_slugs``):
+    ``key``, ``slug``, ``name``, ``known_as``, ``government_name``, ``birth_date``,
+    ``number``."""
+    return store.query(
+        f"""
+        SELECT m.key, lg_str(c.p -> 'slug') AS slug, lg_str(c.p -> 'name') AS name,
+               lg_str(c.p -> 'known_as') AS known_as,
+               lg_str(c.p -> 'government_name') AS government_name,
+               lg_str(c.p -> 'birth_date') AS birth_date,
+               lg_str(c.p -> 'number') AS number
+        FROM {COLLECTION_MEMBERS} m
+        CROSS JOIN LATERAL (
+            SELECT json_object_agg(f.key, f.value) AS p
+            FROM json_each(m.props) f
+            WHERE f.key = ANY(%(fields)s)
+            OFFSET 0
+        ) c
+        ORDER BY m.key COLLATE "C" ASC NULLS FIRST
+        """,
+        {
+            "fields": [
+                "slug",
+                "name",
+                "known_as",
+                "government_name",
+                "birth_date",
+                "number",
+            ]
+        },
+    )

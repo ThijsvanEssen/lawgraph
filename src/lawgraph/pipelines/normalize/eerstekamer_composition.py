@@ -41,6 +41,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -151,6 +152,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             len(shot.committees),
             len(members),
         )
+        assign_member_slugs(self.store)
         return {"snapshot": shot, "members": members, "state": state}
 
     # ── members ────────────────────────────────────────────────────────────

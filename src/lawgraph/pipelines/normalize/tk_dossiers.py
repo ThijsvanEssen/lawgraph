@@ -55,6 +55,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
@@ -189,6 +190,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
         tk_votes.remove_deleted_votes(store, votes, normalized["decisions"])
         self._refresh_case_kinds(normalized["activities"])
+        assign_member_slugs(store)
         return normalized
 
     def _add_bill_decisions(
