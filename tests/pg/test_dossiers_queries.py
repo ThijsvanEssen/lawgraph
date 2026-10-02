@@ -1985,6 +1985,7 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
         "docs",
         "activities",
         "decisions",
+        "bill_started_on",
     ]
     other, mine, gone = rows
     assert other["case_kinds"] == ["Begroting"] and other["docs"] == []
@@ -1995,6 +1996,8 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
         "docs": [],
         "activities": [],
         "decisions": [],
+        # no zaak of a bill: no day it was submitted
+        "bill_started_on": None,
     }
     assert mine["opened_on"] == "2025-01-01"
     # flattened two levels, without null, each once, in the order of the collation

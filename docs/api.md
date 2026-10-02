@@ -112,9 +112,8 @@ Every dossier in a list or a detail has `number` (its label), `suffix` (`XV` of 
 without one), `same_number_count` (the other dossiers of its number: 24 for each dossier of a
 budget of 25), `title`, `kind` (what the dossier is, as the Kamer names it: the `Zaak.Soort`
 of its own zaak, `Wetgeving`, `Initiatiefwetgeving`, `Begroting`, `Verdrag`, `Initiatiefnota` or
-`PKB/Structuurvisie`; without one, `Wetgeving` or `Initiatiefwetgeving` from a `Voorstel van
-wet` among its papers; null for a dossier of letters and motions), `kind_basis` (`case`: its
-zaak; `document`: its voorstel van wet), `phases` (of a `Wetgeving`, `Initiatiefwetgeving` or
+`PKB/Structuurvisie`; null without one, "zonder soort": no kind is made up from its papers),
+`kind_basis` (`case`: its zaak gives the kind; null without one), `phases` (of a `Wetgeving`, `Initiatiefwetgeving` or
 `Begroting`, null for another kind: every phase of the curated list `phases` in its order
 (each with `chamber` `TK`: the bar is that of the Tweede Kamer),
 `Voorstel van wet`, `Memorie van toelichting`, `Advies Raad van State`, `Verslag`, `Nota n.a.v.
