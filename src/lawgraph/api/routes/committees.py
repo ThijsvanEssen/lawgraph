@@ -55,6 +55,7 @@ from lawgraph.db.queries.committees import (
     get_ek_faction_votes,
     get_ek_members,
     get_factions,
+    get_member_committees,
     get_member_votes,
     get_members,
 )
@@ -252,7 +253,10 @@ def get_member(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> MemberDetailDTO:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return MemberDetailDTO.from_document(_as_document(node))
+    document = _as_document(node)
+    return MemberDetailDTO.from_document(
+        document, get_member_committees(store, document["_id"])
+    )
 
 
 @members_router.get(

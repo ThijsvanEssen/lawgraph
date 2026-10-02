@@ -373,42 +373,79 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
             taken.add(candidate)
 
 
-def committee_seats(payload: Payload) -> dict[str, list[tuple[str | None, str | None]]]:
-    """``Persoon_Id`` -> the [from, to] periods they held a seat on this commissie.
+@dataclass(frozen=True)
+class CommitteeSeat:
+    """One period a person held a seat on a commissie: from, to (inclusive, None while
+    open), the role as the Kamer writes it (``CommissieZetel…Persoon.Functie``: ``Lid``,
+    ``Voorzitter``, ``OnderVz``, ``Plv. lid``) and whether it was a substitute's seat
+    (``CommissieZetelVervangerPersoon``)."""
 
-    The dates live on ``CommissieZetelVastPersoon``, one level below the seat.
-    """
-    periods: dict[str, list[tuple[str | None, str | None]]] = {}
+    from_date: str | None
+    to_date: str | None
+    role: str | None = None
+    substitute: bool = False
+
+
+def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
+    """``Persoon_Id`` -> every seat they held on this commissie, a member's
+    (``CommissieZetelVastPersoon``) and a substitute's (``CommissieZetelVervangerPersoon``),
+    one level below the seat, where the dates and the role live."""
+    seats: dict[str, list[CommitteeSeat]] = {}
     for seat in _dicts(payload.get("CommissieZetel")):
-        for held in _dicts(seat.get("CommissieZetelVastPersoon")):
-            person_id = str(held.get("Persoon_Id") or "")
-            if person_id:
-                periods.setdefault(person_id, []).append(
-                    (iso_date(held.get("Van")), iso_date(held.get("TotEnMet")))
-                )
-    return periods
+        for part, substitute in (
+            ("CommissieZetelVastPersoon", False),
+            ("CommissieZetelVervangerPersoon", True),
+        ):
+            for held in _dicts(seat.get(part)):
+                person_id = str(held.get("Persoon_Id") or "")
+                if person_id and not is_deleted(held):
+                    seats.setdefault(person_id, []).append(
+                        CommitteeSeat(
+                            iso_date(held.get("Van")),
+                            iso_date(held.get("TotEnMet")),
+                            _text(held, "Functie") or None,
+                            substitute,
+                        )
+                    )
+    return seats
 
 
-def representative_period(
-    periods: list[tuple[str | None, str | None]],
-) -> dict[str, str]:
-    """Edge meta for the one period that represents a membership.
+def _seat_meta(seat: CommitteeSeat) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    if seat.from_date:
+        meta["from_date"] = seat.from_date
+    if seat.to_date:
+        meta["to_date"] = seat.to_date
+    if seat.role:
+        meta["role"] = seat.role
+    if seat.substitute:
+        meta["substitute"] = True
+    return meta
 
-    An edge key is deterministic per (member, committee), so several periods
-    collapse into one edge: an open-ended period wins over a closed one, and
-    among equals the latest one does.
+
+def representative_period(seats: list[CommitteeSeat]) -> dict[str, Any]:
+    """Edge meta for the one seat that represents a membership, and every seat.
+
+    An edge key is deterministic per (member, committee), so several seats collapse into
+    one edge: an open-ended seat wins over a closed one, a member's over a substitute's,
+    and among equals the latest one does. ``periods`` holds every seat, oldest first, when
+    there is more than one or it has a role.
     """
-    open_periods = [(start, end) for start, end in periods if end is None]
-    if open_periods:
-        start = max((s for s, _ in open_periods if s), default=None)
-        end = None
-    else:
-        start, end = max(periods, key=lambda p: p[1] or "")
-    meta: dict[str, str] = {}
-    if start:
-        meta["from_date"] = start
-    if end:
-        meta["to_date"] = end
+    best = max(
+        seats,
+        key=lambda s: (
+            s.to_date is None,
+            not s.substitute,
+            s.to_date or "",
+            s.from_date or "",
+        ),
+    )
+    meta = _seat_meta(best)
+    if len(seats) > 1 or best.role:
+        meta["periods"] = [
+            _seat_meta(s)
+            for s in sorted(seats, key=lambda s: (s.from_date or "", s.to_date or ""))
+        ]
     return meta
 
 
