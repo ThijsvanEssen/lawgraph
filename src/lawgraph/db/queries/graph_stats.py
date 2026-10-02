@@ -83,12 +83,14 @@ _INSTRUMENTS = """
             WHERE e.to_id = i.id AND e.relation = %(part_of)s
               AND e.from_collection = 'articles') AS article_count,
            lower(lg_str(i.props -> 'kind')) AS kind,
-           -- what refers to the law: to the law itself, and to each of its articles
+           -- what refers to the law: to the law itself, and to each of its articles and
+           -- annexes (not to a treaty that belongs to it)
            (SELECT count(*)::int FROM edges e
             WHERE e.to_id = i.id AND e.relation = %(refers_to)s)
            + (SELECT count(*)::int FROM edges p
               JOIN edges e ON e.to_id = p.from_id AND e.relation = %(refers_to)s
-              WHERE p.to_id = i.id AND p.relation = %(part_of)s) AS inbound_citation_count
+              WHERE p.to_id = i.id AND p.relation = %(part_of)s
+                AND p.from_collection <> 'instruments') AS inbound_citation_count
     FROM instruments i
 """
 

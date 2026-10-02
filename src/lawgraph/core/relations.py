@@ -91,10 +91,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── structure ────────────────────────────────────────────────────────────
     RelationSpec(
         "PART_OF",
-        (_A, _ANNEX, _DOC, _CASE),
+        (_A, _ANNEX, _DOC, _CASE, _I),
         (_I, _CASE, _DOSSIER),
         "Containment. Article/Annex → Instrument; Document → Case or Dossier; "
-        "Case → Dossier.",
+        "Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers "
+        "it (a Protocol → its Convention, `Moederverdrag`).",
     ),
     RelationSpec(
         "VERSION_OF",
@@ -146,7 +147,16 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_I,),
         (_DOSSIER,),
         "The parliamentary dossier in which an instrument was legislated "
-        "(BWB `dossierref`).",
+        "(BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's "
+        "`Kamerstukken`, `meta.rijks_number`).",
+    ),
+    RelationSpec(
+        "PUBLISHED_IN",
+        (_I,),
+        (_I,),
+        "A treaty → a Tractatenblad that publishes it or something about it, as the "
+        "Verdragenbank registers it: its text, its approval, its entry into force, its "
+        "parties (`meta.description`, as the register writes it).",
     ),
     # ── references and explanation ───────────────────────────────────────────
     RelationSpec(
