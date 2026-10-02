@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.common import JudgmentSummaryDTO
+from lawgraph.api.schemas.common import FacetCountDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
@@ -23,6 +23,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDossierItem,
     InstrumentDossiersResponse,
     InstrumentEuLinksResponse,
+    InstrumentJudgmentFacets,
     InstrumentJudgmentItem,
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
@@ -49,9 +50,9 @@ from lawgraph.db.queries.instruments import (
     INSTRUMENT_SORTS,
     get_articles,
     get_articles_at,
+    get_citing_judgments,
     get_instrument_amended_by,
     get_instrument_dossiers,
-    get_instrument_judgments,
     get_instrument_related_instruments,
     get_instrument_versions,
     get_instruments_list,
@@ -70,6 +71,8 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
         tier=props.get("tier"),
         court_kind=props.get("court_kind"),
         date=props.get("date_eff"),
+        advocate_general=props.get("advocate_general"),
+        advocate_general_role=props.get("advocate_general_role"),
         cited_articles=[
             CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
         ],
@@ -280,7 +283,9 @@ def list_articles(
     description=(
         "Per judgment: light metadata plus the specific articles it refers to. "
         "Meant for the case-law layer of the graph. ``total`` is the absolute "
-        "count, independent of ``limit``."
+        "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
+        "first; ``cited``, the most cited articles of the law first, then the newest. "
+        "``facets.year`` counts every citing judgment per year, not the page."
     ),
     tags=["instruments"],
 )
@@ -288,10 +293,19 @@ def get_instrument_judgments_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    sort: Annotated[Literal["date", "cited"], Query()] = "date",
 ) -> InstrumentJudgmentsResponse:
-    rows, total = get_instrument_judgments(store, bwb_id, limit=limit)
-    items = [_extract_judgment_item(row) for row in rows]
-    return InstrumentJudgmentsResponse(bwb_id=bwb_id, total=total, items=items)
+    found = get_citing_judgments(store, bwb_id, sort=sort, limit=limit, offset=offset)
+    return InstrumentJudgmentsResponse(
+        bwb_id=bwb_id,
+        total=found.total,
+        sort=sort,
+        facets=InstrumentJudgmentFacets(
+            year=[FacetCountDTO(**year) for year in found.years]
+        ),
+        items=[_extract_judgment_item(row) for row in found.items],
+    )
 
 
 @router.get(

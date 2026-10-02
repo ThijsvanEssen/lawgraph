@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
@@ -18,8 +18,10 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
@@ -121,10 +123,42 @@ def get_articles(
     return [node_doc(row) for row in items], total
 
 
+# The orders of the judgments that cite a law: the newest first, or the most cited articles
+# of the law first (then the newest); the id settles ties.
+INSTRUMENT_JUDGMENT_SORTS = {
+    "date": "j.date_eff DESC NULLS LAST, g.judgment_id",
+    "cited": "g.cited_count DESC, j.date_eff DESC NULLS LAST, g.judgment_id",
+}
+
+
+def _citing_judgments(prop: str) -> str:
+    """``cites`` (judgment, article) and ``grouped`` (judgment, how many of the articles of
+    the law it cites): the judgments that cite the law of ``%(bwb)s``."""
+    return f"""
+        WITH cites AS (
+            SELECT DISTINCT e.from_id AS judgment_id, e.to_id AS article_id
+            FROM edges e
+            WHERE e.relation = %(refers_to)s
+              AND e.to_id IN ({_articles_of(prop)})
+              AND e.from_collection = %(judgments)s
+        ),
+        grouped AS (
+            SELECT judgment_id, count(*)::int AS cited_count
+            FROM cites GROUP BY judgment_id
+        )
+    """
+
+
 def get_instrument_judgments(
-    store: GraphStore, identifier: str, *, limit: int = 500
+    store: GraphStore,
+    identifier: str,
+    *,
+    sort: str = "date",
+    limit: int = 500,
+    offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Judgments referring to any article of this instrument, grouped by judgment.
+    """Judgments referring to any article of this instrument, grouped by judgment, in the
+    order of *sort* (``INSTRUMENT_JUDGMENT_SORTS``).
 
     Returns ``(items, total)`` where ``total`` is the absolute count of
     distinct judgments (independent of ``limit``) so the FE can render a
@@ -135,30 +169,21 @@ def get_instrument_judgments(
     ``article_key``.
     """
     scope = scope_of(identifier)
+    order = INSTRUMENT_JUDGMENT_SORTS[sort]
     # ``total`` counts every citing judgment id, one that is missing too; the page only the
     # judgments that exist. Only the date is read before the LIMIT: whole judgments in the
     # sort are every citing judgment of the law in memory at once.
-    ctes = f"""
-        WITH cites AS (
-            SELECT DISTINCT e.from_id AS judgment_id, e.to_id AS article_id
-            FROM edges e
-            WHERE e.relation = %(refers_to)s
-              AND e.to_id IN ({_articles_of(scope.prop)})
-              AND e.from_collection = %(judgments)s
-        ),
-        grouped AS (
-            SELECT judgment_id, count(*)::int AS cited_count
-            FROM cites GROUP BY judgment_id
-        ),
+    ctes = (
+        _citing_judgments(scope.prop)
+        + f""",
         top AS (
-            SELECT g.judgment_id, row_number() OVER (
-                ORDER BY g.cited_count DESC, j.date_eff DESC NULLS LAST, g.judgment_id
-            ) AS n
+            SELECT g.judgment_id, row_number() OVER (ORDER BY {order}) AS n
             FROM grouped g JOIN judgments j ON j.id = g.judgment_id
             ORDER BY n
-            LIMIT %(limit)s
+            LIMIT %(limit)s OFFSET %(offset)s
         )
     """
+    )
     # The page is cut from the judgments first (``top``); the cited articles are gathered
     # for those alone, in one pass (a scan of ``cites`` per row of the page would be 500
     # scans, and the props of every cited article of the law parsed).
@@ -170,7 +195,10 @@ def get_instrument_judgments(
                 'props', json_build_object(
                     'ecli', j.pj_ecli, 'display_name', j.pj_display_name,
                     'court_code', j.pj_court_code, 'tier', j.pj_tier,
-                    'court_kind', j.pj_court_kind, 'date_eff', j.pj_date_eff
+                    'court_kind', j.pj_court_kind, 'date_eff', j.pj_date_eff,
+                    'advocate_general', {_OF_A_CONCLUSION.format(prop="advocate_general")},
+                    'advocate_general_role',
+                    {_OF_A_CONCLUSION.format(prop="advocate_general_role")}
                 )
             ),
             'cited_articles', coalesce(cited.articles, '[]')
@@ -197,11 +225,72 @@ def get_instrument_judgments(
             "bwb": scope.value,
             "refers_to": RELATION_REFERS_TO,
             "judgments": COLLECTION_JUDGMENTS,
+            "conclusion": KIND_CONCLUSIE,
             "limit": limit,
+            "offset": offset,
         },
     )
     items, total = _split_page(rows)
     return [row["item"] for row in items], total
+
+
+@dataclass(frozen=True)
+class CitingJudgments:
+    """A page of the judgments that cite a law, how many there are, and per year."""
+
+    items: list[dict[str, Any]]
+    total: int
+    years: list[dict[str, Any]]
+
+
+def get_citing_judgments(
+    store: GraphStore,
+    identifier: str,
+    *,
+    sort: str = "date",
+    limit: int = 500,
+    offset: int = 0,
+) -> CitingJudgments:
+    """``get_instrument_judgments`` and ``get_instrument_judgment_years`` at once."""
+    page, years = run_together(
+        lambda: get_instrument_judgments(
+            store, identifier, sort=sort, limit=limit, offset=offset
+        ),
+        lambda: get_instrument_judgment_years(store, identifier),
+    )
+    items, total = cast("tuple[list[dict[str, Any]], int]", page)
+    return CitingJudgments(items, total, cast("list[dict[str, Any]]", years))
+
+
+# A prop only a conclusion has, read from its props for a conclusion alone: the props of a
+# judgment hold its text, and are parsed whole for one value.
+_OF_A_CONCLUSION = (
+    "CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s "
+    "THEN j.props -> '{prop}' END"
+)
+
+
+def get_instrument_judgment_years(
+    store: GraphStore, identifier: str
+) -> list[dict[str, Any]]:
+    """``[{value, count}]``: the judgments that cite the law per year (of ``date_eff``),
+    every one of them, not a page; the oldest first, those without a date first of all."""
+    scope = scope_of(identifier)
+    rows = store.query(
+        _citing_judgments(scope.prop)
+        + """
+        SELECT substr(j.date_eff, 1, 4) AS value, count(*)::int AS count
+        FROM grouped g JOIN judgments j ON j.id = g.judgment_id
+        GROUP BY 1
+        ORDER BY value NULLS FIRST
+        """,
+        {
+            "bwb": scope.value,
+            "refers_to": RELATION_REFERS_TO,
+            "judgments": COLLECTION_JUDGMENTS,
+        },
+    )
+    return [{"value": row["value"], "count": row["count"]} for row in rows]
 
 
 def get_instrument_dossiers(
