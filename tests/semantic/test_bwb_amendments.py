@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from functools import partial
 from typing import Any
 
 import pytest
@@ -15,8 +16,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import article_version_key, publication_key
 from lawgraph.core.models import make_node_key
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.pipelines.semantic import bwb_amendments
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.conftest import _BaseFakeStore, remove_edges_from
 
@@ -295,6 +298,38 @@ def test_article_identity_is_the_pair_not_each_id_alone() -> None:
         _art("1"),
         _art("2", bwb_id=other),
     }
+
+
+def test_a_chunk_leaves_the_edges_of_the_articles_of_another_chunk_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The lookup of a chunk also returns articles of other chunks (its two id lists cross):
+    those are no targets of the chunk, or it would remove their amendment edges, which a
+    long run has written already (here: every edge at once)."""
+    monkeypatch.setattr(bwb_amendments, "EdgeWriter", partial(EdgeWriter, batch_size=1))
+    other = "BWBR0002222"
+    store = _FakeStore(
+        [
+            # chunk 1: two versions of (BWB, 1)
+            _version("1", "a"),
+            _version("1", "b", origin=_pub("34")),
+            # chunk 2: (BWB, 2) and (OTHER, 1); its lookup crosses into (BWB, 1)
+            _version("2", "c"),
+            _version("1", "d", bwb_id=other),
+        ],
+        articles=[(BWB, "1"), (BWB, "2"), (other, "1")],
+    )
+
+    _run(store, chunk=2)
+
+    assert sorted(
+        e["_to"] for e in store.edges.values() if e["_to"].startswith("articles/")
+    ) == [
+        _art("1"),
+        _art("1"),
+        _art("2"),
+        _art("1", bwb_id=other),
+    ]
 
 
 def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:
