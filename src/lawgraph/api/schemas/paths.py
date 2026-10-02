@@ -28,6 +28,14 @@ class PathsResponse(BaseModel):
         description="The nodes asked for, each once, in their order."
     )
     max_depth: int
+    relations: list[str] | None = Field(
+        default=None,
+        description="The relations the paths keep to, as asked; null for all.",
+    )
+    through_laws: bool = Field(
+        default=False,
+        description="Whether a path may pass through a law by its articles (`PART_OF`).",
+    )
     paths: list[PathDTO] = Field(
         description="For every pair of `ids` that a path of at most `max_depth` edges "
         "joins, the shortest one (of those as short, the one through the lowest ids); a "
