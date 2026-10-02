@@ -767,3 +767,46 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
     assert asked == [([RAW_KINDS[0]], 1000)] * 2  # every walk streams again
+
+
+# ── dossiers a window touches ────────────────────────────────────────────────
+
+
+def test_a_window_refreshes_the_dossiers_its_records_belong_to() -> None:
+    from types import SimpleNamespace
+
+    from lawgraph.config.constants import COLLECTION_DOSSIERS
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    stored = {"36000": "stored 36000", "37020_xv": "stored 37020-XV"}
+    asked: list[str] = []
+
+    def get_node(collection: str, key: str) -> Any:
+        assert collection == COLLECTION_DOSSIERS
+        asked.append(key)
+        return stored.get(key)
+
+    own = _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36500")
+    normalized = {
+        "dossiers": {"36500": own, "guid-36500": own},
+        "documents": {"d": _document("d", dossier_numbers=["36000", "36500"])},
+        "activities": {
+            "a": _node(
+                COLLECTION_ACTIVITIES,
+                NodeType.ACTIVITY,
+                "a",
+                dossier_numbers=["37020-XV", "99999"],
+            )
+        },
+        "decisions": {},
+    }
+    window = SimpleNamespace(
+        _incremental=True, store=SimpleNamespace(get_node=get_node)
+    )
+    touched = TKDossiersNormalizePipeline._touched_dossiers(window, normalized)  # type: ignore[arg-type]
+    # the window's own dossier is refreshed anyway; one no record holds is passed over
+    assert touched == {"36000": "stored 36000", "37020-XV": "stored 37020-XV"}
+    assert sorted(asked) == ["36000", "37020_xv", "99999"]
+    # a run over everything holds every dossier already
+    whole = SimpleNamespace(_incremental=False, store=None)
+    assert TKDossiersNormalizePipeline._touched_dossiers(whole, normalized) == {}  # type: ignore[arg-type]

@@ -1469,6 +1469,7 @@ def _listed(store: GraphStore) -> None:
                     label="1",
                     order="1",
                     opened_on="2025-01-01",
+                    last_activity="2026-03-01",
                     kind="Wetgeving",
                     outcome="aangenomen",
                     closed=True,
@@ -1483,6 +1484,7 @@ def _listed(store: GraphStore) -> None:
                     label="2",
                     order="2",
                     opened_on="2025-01-01",
+                    last_activity="2026-05-01",
                     kind="Wetgeving",
                     closed=False,
                     title="beta",
@@ -1506,6 +1508,7 @@ def _listed(store: GraphStore) -> None:
                     label="10",
                     order="10",
                     opened_on="2024-01-01",
+                    last_activity="2026-05-01",
                     kind="Begroting",
                     closed=True,
                     outcome=None,
@@ -1536,6 +1539,13 @@ def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: GraphStore) -> No
         "a4",
         "a1",
         "a2",
+        "a3",
+    ]
+    # the newest activity first, a tie by key, none last
+    assert _keys_of(get_dossiers(store, every, sort="last_activity")) == [
+        "a2",
+        "a4",
+        "a1",
         "a3",
     ]
     assert _keys_of(get_dossiers(store, every, sort="title")) == [

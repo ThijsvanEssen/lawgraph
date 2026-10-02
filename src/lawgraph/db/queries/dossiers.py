@@ -941,6 +941,7 @@ _DOSSIER_FACETS = {
 DOSSIER_SORTS = {
     "number": ("order", "ASC"),
     "opened_on": ("opened_on", "DESC"),
+    "last_activity": ("last_activity", "DESC"),
     "closed_on": ("closed_on", "DESC"),
     "title": ("title", "ASC"),
 }

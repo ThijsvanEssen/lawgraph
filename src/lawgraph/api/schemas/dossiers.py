@@ -478,6 +478,12 @@ class DossierSummaryDTO(BaseModel):
     opened_on_basis: (
         Literal["first_paper", "royal_message", "earliest_record"] | None
     ) = None
+    last_activity: str | None = Field(
+        None,
+        description="The day of its newest paper, activity that took place (not one only "
+        "planned, cancelled or moved) or decision, as the Kamer dates them; null for none. "
+        "``sort=last_activity`` lists the dossiers by it, newest first.",
+    )
     closed_on: str | None = None
     ministry: MinistryKey | None = Field(
         None,
@@ -765,6 +771,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         ),
         "opened_on": props.get("opened_on"),
         "opened_on_basis": props.get("opened_on_basis"),
+        "last_activity": props.get("last_activity"),
         "closed_on": props.get("closed_on"),
         "ministry": props.get("ministry"),
         "initiative": props.get("initiative"),

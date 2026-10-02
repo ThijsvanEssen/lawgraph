@@ -15,6 +15,7 @@ from lawgraph.core.dossier_stages import (
     dossier_display_name,
     dossier_kind,
     dossier_phases,
+    last_activity,
     last_decision,
     opened_on,
     outcome_props,
@@ -347,3 +348,17 @@ def test_without_nr_1_the_royal_message_then_the_earliest_record() -> None:
         "earliest_record",
     )
     assert opened_on("36774", None, [], []) == (None, None)
+
+
+def test_the_last_activity_is_the_newest_thing_that_happened() -> None:
+    docs = [{"date": "2026-01-10"}, {"date": None}]
+    activities = [
+        {"date": "2026-02-01", "status": "Uitgevoerd"},
+        # planned, cancelled or moved: nothing happened that day
+        {"date": "2026-09-01", "status": "Gepland"},
+        {"date": "2026-08-01", "status": "Verplaatst"},
+    ]
+    decisions = [{"date": "2026-03-05"}]
+    assert last_activity(docs, activities, decisions) == "2026-03-05"
+    assert last_activity(docs, activities, []) == "2026-02-01"
+    assert last_activity([], [], []) is None
