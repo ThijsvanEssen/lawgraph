@@ -519,6 +519,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         props["last_activity"] = last_activity(
             docs, activities, row.get("decisions") or []
         )
+        props["submitted_on_tk"] = row.get("bill_started_on")
 
         unchanged = all(node.props.get(name) == value for name, value in props.items())
         node.props.update(props)

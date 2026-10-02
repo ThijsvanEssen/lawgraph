@@ -12,6 +12,7 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
+    RAW_KIND_TK_ZAAK,
     SOURCE_TK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
@@ -92,3 +93,44 @@ def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
         "2025-06-25",
         "first_paper",
     )
+
+
+def test_a_bill_is_submitted_on_the_day_its_zaak_started(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    bill = {
+        "Id": uid(BILL, 2),
+        "Soort": "Wetgeving",
+        "Nummer": "2025Z37500",
+        "Onderwerp": "Wetgeving",
+        "GestartOp": "2025-09-03T00:00:00+02:00",
+        "Kamerstukdossier": [{"Id": uid(BILL, 3), "Nummer": BILL}],
+    }
+    motion = {
+        **bill,
+        "Id": uid(BILL, 4),
+        "Soort": "Motie",
+        "Nummer": "2025Z37501",
+        "GestartOp": "2025-01-01T00:00:00+02:00",
+    }
+    with RawSourceWriter(store) as writer:
+        for kind, payload in (
+            (RAW_KIND_TK_DOSSIER, _dossier(BILL)),
+            (RAW_KIND_TK_ZAAK, bill),
+            (RAW_KIND_TK_ZAAK, motion),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_TK,
+                    kind=kind,
+                    external_id=payload["Id"],
+                    payload_json=payload,
+                )
+            )
+    cli("normalize", "tk")
+    cli("normalize", "tk-dossiers")
+
+    # the day of its own zaak of a bill, not of a motion filed in it
+    props = store.get_document("dossiers", str(BILL))["props"]
+    assert props["submitted_on_tk"] == "2025-09-03"

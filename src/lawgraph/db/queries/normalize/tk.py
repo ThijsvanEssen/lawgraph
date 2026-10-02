@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
+from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.normalize import edges as normalize_edges
@@ -299,7 +300,13 @@ SELECT
         ) ORDER BY {_SUBJECT_ORDER}, n.id ASC), '[]'::json)
         FROM subjects n
         WHERE n.ord = a.ord AND n.collection = '{COLLECTION_DECISIONS}'
-    ) AS decisions
+    ) AS decisions,
+    (
+        SELECT min(lg_str(cs.props -> 'started_on'))
+        FROM own_cases o
+        JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
+        WHERE o.ord = a.ord AND lg_str(cs.props -> 'kind') = ANY(%(bill_kinds)s)
+    ) AS bill_started_on
 FROM asked a
 ORDER BY a.ord
 """
@@ -319,6 +326,7 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
         "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,
         "dossier_ids": dossier_ids,
+        "bill_kinds": list(LEGISLATIVE_KINDS),
         "doc_fields": [
             "kind",
             "date",

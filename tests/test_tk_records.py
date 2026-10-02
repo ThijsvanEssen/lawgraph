@@ -782,7 +782,16 @@ def test_the_case_of_a_motion_is_named_by_its_subject_and_a_bill_by_its_title() 
         }
     )
     assert bill["title"] == "Wijziging van de Wegenwet"
+    assert bill["started_on"] is None
     assert tk_records.case({"Soort": "Motie"}) is None
+
+
+def test_a_case_keeps_the_day_it_started() -> None:
+    _, bill = tk_records.case(  # type: ignore[misc]
+        {"Id": "z-3", "Soort": "Wetgeving", "GestartOp": "2025-09-03T00:00:00+02:00"}
+    )
+    # of a bill: the day it was submitted to the Tweede Kamer (36799)
+    assert bill["started_on"] == "2025-09-03"
 
 
 def test_a_record_the_kamer_deleted_is_no_node() -> None:
