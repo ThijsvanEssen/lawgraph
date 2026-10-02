@@ -5,6 +5,7 @@ GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
 GET /api/dossiers/{number}/mutations   — its pending-change subgraph
+GET /api/dossiers/{number}/changed-articles — the articles it changes, per law
 GET /api/parties/colors                — party colours for the frontend
 """
 
@@ -17,6 +18,11 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import MinistryKey, parse_choices
+from lawgraph.api.schemas.dossier_changes import (
+    DossierChange,
+    DossierChangedArticlesResponse,
+    DossierChangedLaw,
+)
 from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
@@ -35,6 +41,10 @@ from lawgraph.api.schemas.dossiers import (
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossier_changes import (
+    STAGE_ENACTED,
+    get_dossier_changed_articles,
+)
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
@@ -304,6 +314,44 @@ def get_timeline(
     entries = [timeline_entry(row) for row in rows]
     return DossierTimelineResponse(
         number=number, total=len(entries), order=order, entries=entries
+    )
+
+
+@router.get(
+    "/{number}/changed-articles",
+    response_model=DossierChangedArticlesResponse,
+    summary="The articles a bill changes",
+    description=(
+        "Per law, the articles this dossier amends, introduces or repeals, each with "
+        "its `stage`: `enacted`, by a publication legislated in the dossier (with its "
+        "`official_id` and the `effective_date` of the change), or `proposed`, by a "
+        "paper of the dossier (a bill, an amendment). Citations and explanations are no "
+        "change; `/mutations` has the graph of all of them."
+    ),
+    tags=["dossiers"],
+)
+def get_changed_articles(
+    number: DossierNumber,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> DossierChangedArticlesResponse:
+    dossier = _dossier_or_404(store, number)
+    laws = [
+        DossierChangedLaw(
+            law=found["law"],
+            total=len(found["changes"]),
+            changes=[DossierChange.from_row(c) for c in found["changes"]],
+        )
+        for found in get_dossier_changed_articles(store, dossier["_id"])
+    ]
+    changes = [c for law in laws for c in law.changes]
+    enacted = sum(c.stage == STAGE_ENACTED for c in changes)
+    return DossierChangedArticlesResponse(
+        number=number,
+        total=len(changes),
+        articles=len({c.article.id for c in changes}),
+        enacted=enacted,
+        proposed=len(changes) - enacted,
+        laws=laws,
     )
 
 

@@ -88,6 +88,7 @@ URLS = [
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
+    "/api/dossiers/36000/changed-articles",
 ]
 
 # Statements that read a table whole on purpose, each kept for a minute: the statistics
@@ -217,6 +218,17 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "annexes", [_node("a1", "annex", bwb_id=BWB, title="Bijlage")]
     )
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("36000", "dossier", number="36000", label="36000")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "stb_2026_1", "instrument", kind="publicatie", official_id="stb-2026-1"
+            )
+        ],
+    )
     article = f"articles/{BWB.lower()}_1"
     store.bulk_insert_or_update_edges(
         [
@@ -238,6 +250,23 @@ def _seed(store: GraphStore) -> None:
             ),
             _edge("x1", "documents/d1", article, "EXPLAINS"),
             _edge("s1", article, "annexes/a1", "SCOPED_BY"),
+            # a bill: the publication that enacts it, and a paper that proposes a change
+            _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),
+            _edge(
+                "m1",
+                "instruments/stb_2026_1",
+                article,
+                "AMENDS",
+                meta={"effective_date": "2026-01-01"},
+            ),
+            _edge("d1p", "documents/d1", "dossiers/36000", "PART_OF"),
+            _edge(
+                "v1",
+                "documents/d1",
+                f"articles/{BWB.lower()}_2",
+                "AMENDS",
+                status="voorgesteld",
+            ),
         ]
     )
     _fill(store)
