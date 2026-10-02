@@ -366,3 +366,12 @@ def test_the_judgment_list_carries_names_and_kind(monkeypatch):
     first, second = client.get("/api/judgments").json()["items"]
     assert (first["names"], first["decision_kind"]) == (["Haviltex"], "arrest")
     assert (second["names"], second["decision_kind"]) == ([], None)
+
+
+def test_the_detail_names_the_day_it_was_published() -> None:
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {**_JUDGMENT_DOC["props"], "published_on": "2026-09-23"},
+    }
+    assert JudgmentDTO.from_document(doc).published_on == "2026-09-23"
+    assert JudgmentDTO.from_document(_JUDGMENT_DOC).published_on is None

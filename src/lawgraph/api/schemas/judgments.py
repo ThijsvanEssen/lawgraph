@@ -87,6 +87,13 @@ class JudgmentDTO(BaseNodeDTO):
         "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
         "publication not in the graph otherwise. Null for most.",
     )
+    published_on: str | None = Field(
+        default=None,
+        description='The day it was published on uitspraken.rechtspraak.nl ("Datum '
+        'publicatie", YYYY-MM-DD), as the source gives it; often weeks after the '
+        "decision. Null for a judgment of another source or without a published "
+        "document.",
+    )
     advocate_general: str | None = Field(
         default=None,
         description="For a conclusion, the advocate-general (or procureur-generaal) who "
@@ -162,6 +169,7 @@ class JudgmentDTO(BaseNodeDTO):
             series_size=props.get("series_size"),
             same_as=props.get("same_as"),
             replaced_by=props.get("replaced_by"),
+            published_on=props.get("published_on"),
             advocate_general=props.get("advocate_general"),
             advocate_general_role=props.get("advocate_general_role"),
             unresolved_appeal_targets=[
