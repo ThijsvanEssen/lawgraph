@@ -57,6 +57,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_timeline,
     get_dossiers,
     get_laws_named,
+    get_next_activity,
     tk_values,
 )
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -2133,3 +2134,57 @@ def test_the_dossier_list_keeps_those_in_one_of_the_phases(store: GraphStore) ->
     page = get_dossiers(store, DossierFilters(phases=("Verslag",)))
     counted = {f["value"]: f["count"] for f in page["facets"]["phase"]}
     assert counted == {"Verslag": 1, "Eindtekst": 1, "Stemmingen": 1, None: 1}
+
+
+def test_the_next_thing_the_kamer_has_planned_about_a_dossier(
+    store: GraphStore,
+) -> None:
+    dossier = f"{COLLECTION_DOSSIERS}/41000"
+    _write(
+        store,
+        {
+            COLLECTION_DOSSIERS: [_doc("41000", "dossier", label="41000")],
+            COLLECTION_COMMITTEES: [
+                _doc("c1", "committee", slug="jv", name="Justitie en Veiligheid")
+            ],
+            COLLECTION_ACTIVITIES: [
+                # held, or planned before today: not next
+                _doc("held", "activity", date="2026-10-10", status="Uitgevoerd"),
+                _doc("past", "activity", date="2026-09-01", status="Gepland"),
+                # moved: no longer planned
+                _doc("moved", "activity", date="2026-10-05", status="Verplaatst"),
+                _doc(
+                    "debate",
+                    "activity",
+                    date="2026-10-08",
+                    status="Gepland",
+                    kind="Commissiedebat",
+                    agenda_title="Debat",
+                ),
+                _doc("vote", "activity", date="2026-10-20", status="Gepland"),
+            ],
+        },
+        [
+            *(
+                _link(f"a{n}", f"{COLLECTION_ACTIVITIES}/{key}", dossier, "ABOUT")
+                for n, key in enumerate(["held", "past", "moved", "debate", "vote"])
+            ),
+            _link(
+                "l1",
+                f"{COLLECTION_ACTIVITIES}/debate",
+                f"{COLLECTION_COMMITTEES}/c1",
+                "LED_BY",
+            ),
+        ],
+    )
+    found = get_next_activity(store, dossier, "2026-10-03")
+    assert found == {
+        "key": "debate",
+        "date": "2026-10-08",
+        "kind": "Commissiedebat",
+        "agenda_title": "Debat",
+        "committee": {"key": "c1", "slug": "jv", "name": "Justitie en Veiligheid"},
+    }
+    # the day itself counts; after the last one nothing is planned
+    assert get_next_activity(store, dossier, "2026-10-20")["key"] == "vote"  # type: ignore[index]
+    assert get_next_activity(store, dossier, "2026-10-21") is None

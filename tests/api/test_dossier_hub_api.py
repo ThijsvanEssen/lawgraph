@@ -105,6 +105,10 @@ def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> Non
     monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_next_activity",
+        lambda store, dossier_id, today: None,
+    )
 
 
 def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> None:

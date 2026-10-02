@@ -673,6 +673,25 @@ class DossierRelationDTO(BaseModel):
         )
 
 
+class NextActivityDTO(BaseModel):
+    """An activity the Tweede Kamer has planned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    date: str | None = None
+    kind: str | None = Field(
+        default=None,
+        description="``Activiteit.Soort``: ``Commissiedebat``, ``Plenair debat``, "
+        "``Stemmingen``, …",
+    )
+    agenda_title: str | None = None
+    committee: dict[str, Any] | None = Field(
+        default=None,
+        description="Its lead committee (``key``, ``slug``, ``name``); null in plenary.",
+    )
+
+
 class DossierDetailResponse(DossierSummaryDTO):
     """A dossier with the size of everything attached to it, and what it links to."""
 
@@ -709,6 +728,13 @@ class DossierDetailResponse(DossierSummaryDTO):
         ),
     )
     senate: DossierSenateDTO = Field(default_factory=lambda: DossierSenateDTO())
+    next_activity: NextActivityDTO | None = Field(
+        default=None,
+        description="The next thing the Tweede Kamer has planned about the dossier: the "
+        "earliest of its activities with status ``Gepland`` (``Activiteit.Status``) from "
+        "today on; null when it plans nothing. The Kamer gives no next phase as data: a "
+        "planned debate or vote is an activity like any other.",
+    )
     relations: list[DossierRelationDTO] = Field(
         default_factory=list,
         description=(
@@ -728,6 +754,7 @@ class DossierDetailResponse(DossierSummaryDTO):
         hub: dict[str, Any] | None = None,
         relations: list[dict[str, Any]] | None = None,
         laws_named: list[dict[str, Any]] | None = None,
+        next_activity: dict[str, Any] | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -743,6 +770,9 @@ class DossierDetailResponse(DossierSummaryDTO):
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=DossierSenateDTO(**(hub.get("senate") or {})),
             relations=[DossierRelationDTO.from_row(r) for r in relations or []],
+            next_activity=(
+                NextActivityDTO.model_validate(next_activity) if next_activity else None
+            ),
         )
 
 
