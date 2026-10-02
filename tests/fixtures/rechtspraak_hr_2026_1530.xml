@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:HR:2026:1530</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-23T00:01:33</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-21</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Hoge_Raad_der_Nederlanden" scheme="overheid.RechterlijkeMacht">Hoge Raad</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-09-22</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">26/01798</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#herziening">Herziening</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#strafrecht">Strafrecht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:GHDHA:2024:621" psi:type="http://psi.rechtspraak.nl/cassatie" psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg">In cassatie op : ECLI:NL:GHDHA:2024:621</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2026:1530">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:HR:2026:1530</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-22T11:14:36</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-09-22</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:HR:2026:1530 Hoge Raad , 22-09-2026 / 26/01798</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:HR:2026:1530:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <parablock>
+        <para>Herziening. Zware mishandeling met dood tot gevolg door zijn vriendin meermalen tegen haar hoofd te slaan en te schoppen, art. 302.2 Sr. Motiveringseis van art. 460.2 Sv. Aangevoerd wordt dat hof verkeerde uitleg heeft gegeven aan rapport van patholoog, art. 457.1.c Sv. </para>
+        <para>Ex art. 460.2 Sv moet aanvraag gronden vermelden waarop deze berust. Aanvraag moet dus naar behoren gemotiveerd zijn. Alleen herzieningsaanvraag die aan deze motiveringseis voldoet, kan in behandeling worden genomen. Aanvraag die onvoldoende is gemotiveerd, is niet aanvraag a.b.i. wet. </para>
+        <para>Dit betekent dat, als aanvraag een beroep doet op een met stukken onderbouwd gegeven a.b.i. art. 457.1.c Sv, (a) aanvraag een nauwkeurige omschrijving moet bevatten van dit gegeven (novum) en dat dus bijvoorbeeld niet kan worden volstaan met verwijzing naar bijgevoegde stukken waaruit zo’n novum zou moeten blijken; (b) aanvraag de redenen moet vermelden waarom novum tot 1 van genoemde beslissingen zou hebben kunnen leiden; en (c) aanvraag, als deze ertoe strekt bewijsvoering aan te tasten, met voldoende precisie moet uiteenzetten (i) waarom bepaald onderdeel van de bij aanvraag gevoegde stukken leidt tot ernstige twijfel aan juistheid van nauwkeurig aangeduid gedeelte van bewijsvoering, en (ii) waarom dat leidt tot ernstig vermoeden dat onderzoek van zaak, als dat gegeven toen bekend was geweest, zou hebben geleid tot vrijspraak. Alleen als aanvraag aan deze eisen voldoet, kan HR of aanvraag gegrond is. </para>
+        <para>Omdat aanvraag aan geen van die eisen voldoet, kan HR de aanvraag niet in behandeling nemen. </para>
+        <para>Aanvraag n-o. Vervolg op HR:2025:982.</para>
+      </parablock>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:HR:2026:1530:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <para />
+    <parablock>
+      <para>HOGE RAAD DER NEDERLANDEN</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>STRAFKAMER</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Nummer </emphasis>26/01798 H</para>
+      <para>
+        <emphasis role="bold">Datum	</emphasis>22 september 2026</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>ARREST</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>op een aanvraag tot herziening van een in kracht van gewijsde gegaan arrest van het gerechtshof Den Haag van 18 april 2024, nummer 22-000700-19, ingediend door de advocaat M.R. Mantz,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>namens</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        [aanvrager],</para>
+      <para>geboren in [geboorteplaats] op [geboortedatum] 1963,</para>
+      <para>hierna: de aanvrager.</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>De uitspraak waarvan herziening is gevraagd</title>
+    <para>Het hof heeft in hoger beroep – met vernietiging van een vonnis van de rechtbank Den Haag van 20 februari 2019 – de aanvrager veroordeeld voor zware mishandeling, terwijl het feit de dood ten gevolge heeft.</para>
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>De aanvraag tot herziening</title>
+    <para>	De aanvraag tot herziening is aan dit arrest gehecht en maakt daarvan deel uit.</para>
+  </section>
+  <section role="overwegingen">
+    <title>
+      <nr>3</nr>Beoordeling van de aanvraag</title>
+    <paragroup>
+      <nr>3.1</nr>
+      <para>Als grondslag voor een herziening kan, voor zover hier van belang, volgens artikel 457 lid 1, aanhef en onder c, van het Wetboek van Strafvordering (hierna: Sv) alleen dienen een met stukken onderbouwd gegeven dat bij het onderzoek op de terechtzitting aan de rechter niet bekend was en dat het ernstige vermoeden wekt dat, als dit gegeven bekend zou zijn geweest, het onderzoek van de zaak zou hebben geleid hetzij tot een vrijspraak van de gewezen verdachte, hetzij tot een ontslag van alle rechtsvervolging, hetzij tot de niet-ontvankelijkverklaring van het openbaar ministerie, hetzij tot de toepassing van een minder zware strafbepaling.</para>
+    </paragroup>
+    <paragroup>
+      <nr>3.2</nr>
+      <para>Volgens artikel 460 lid 2 Sv moet de aanvraag de gronden vermelden waarop deze berust. De aanvraag moet dus naar behoren gemotiveerd zijn. Dat wordt bevestigd in de wetsgeschiedenis (Kamerstukken II 2008/09, 32045, nr. 3, p. 32). Alleen een herzieningsaanvraag die aan deze motiveringseis voldoet, kan in behandeling worden genomen. Een aanvraag die onvoldoende is gemotiveerd, is niet een aanvraag als in de wet bedoeld.</para>
+    </paragroup>
+    <paragroup>
+      <nr>3.3</nr>
+      <para>Dit betekent dat, als een aanvraag een beroep doet op een met stukken onderbouwd gegeven als bedoeld in artikel 457 lid 1, aanhef en onder c, Sv,<?linebreak?>(a) de aanvraag een nauwkeurige omschrijving moet bevatten van dit gegeven (hierna: het novum) en dat dus bijvoorbeeld niet kan worden volstaan met een verwijzing naar bijgevoegde stukken waaruit zo’n novum zou moeten blijken;<?linebreak?>(b) de aanvraag de redenen moet vermelden waarom het novum tot één van de genoemde beslissingen zou hebben kunnen leiden;<?linebreak?>(c) de aanvraag, als deze ertoe strekt de bewijsvoering aan te tasten, met voldoende precisie moet uiteenzetten (i) waarom een bepaald onderdeel van de bij de aanvraag gevoegde stukken leidt tot ernstige twijfel aan de juistheid van een nauwkeurig aangeduid gedeelte van de bewijsvoering, en (ii) waarom dat leidt tot het ernstige vermoeden dat het onderzoek van de zaak, als dat gegeven toen bekend was geweest, zou hebben geleid tot een vrijspraak.<?linebreak?>Alleen als de aanvraag aan deze eisen voldoet, kan de Hoge Raad beoordelen of de aanvraag gegrond is. </para>
+    </paragroup>
+    <paragroup>
+      <nr>3.4</nr>
+      <para>Omdat de aanvraag aan geen van die eisen voldoet, kan de Hoge Raad de aanvraag niet in behandeling nemen.</para>
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>4</nr>Beslissing</title>
+    <para>De Hoge Raad verklaart de aanvraag tot herziening niet-ontvankelijk.</para>
+    <para />
+    <parablock>
+      <para>Dit arrest is gewezen door de raadsheer A.L.J. van Strien als voorzitter, en de raadsheren T.B. Trotman en F. Posthumus, in bijzijn van de waarnemend griffier E. Schnetz, en uitgesproken ter openbare terechtzitting van <emphasis role="underline">22 september 2026</emphasis>.</para>
+    </parablock>
+  </section>
+</uitspraak>
+</open-rechtspraak>

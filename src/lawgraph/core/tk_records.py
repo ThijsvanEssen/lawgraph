@@ -245,6 +245,8 @@ def case(payload: Payload) -> Record | None:
         # The dossiers this case belongs to; the dossier pipeline turns them into PART_OF
         # edges once the dossier nodes exist.
         "dossier_numbers": dossier_numbers([payload]),
+        # Zaak.GestartOp: of a bill the day it was submitted, as the Kamer dates it
+        "started_on": iso_date(payload.get("GestartOp")),
         # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
         "related_cases": related_cases(payload),
     }

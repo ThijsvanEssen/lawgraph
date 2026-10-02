@@ -148,6 +148,7 @@ class JudgmentDTO(BaseNodeDTO):
                 paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),
                 kind=p.get("kind"),
+                continues=p.get("continues"),
                 text=p.get("text") or "",
             )
             for position, p in enumerate(kept, start=1)
@@ -283,8 +284,16 @@ class JudgmentParagraph(BaseModel):
     kind: str | None = Field(
         default=None,
         description="`heading`, `subheading` (a nested heading, or the kop: the first "
-        "paragraph), `body` or `signature` (the closing lines that sign a conclusion: "
-        "`De Procureur-Generaal bij de`, `Hoge Raad der Nederlanden`, `A-G`).",
+        "paragraph, up to the end of the parties), `body`, `toc` (a line of a table of "
+        "contents: no consideration, no heading, an id from its text) or `signature` (the "
+        "closing lines that sign a conclusion: `De Procureur-Generaal bij de`, `Hoge Raad "
+        "der Nederlanden`, `A-G`).",
+    )
+    continues: str | None = Field(
+        default=None,
+        description="Of a `body` paragraph without a number: the `paragraph_id` of the "
+        "numbered consideration it goes on with (`rov-1`), up to the next number or "
+        "heading. Null otherwise.",
     )
     text: str
     citations: list[ArticleCitationSpan] = Field(
@@ -502,6 +511,12 @@ class JudgmentFacets(BaseModel):
         description="Per area of law, as the source writes it (`Strafrecht`, "
         "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
         "areas; counted without the `subject` filter.",
+    )
+    subject_area: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per main area of law: a subject up to its first `;` (`Bestuursrecht` "
+        "holds `Bestuursrecht; Belastingrecht`), most first; a judgment counts once for "
+        "each of its main areas; counted without the `subject_area` filter.",
     )
     procedure: list[JudgmentFacetCount] = Field(
         default_factory=list,

@@ -194,8 +194,10 @@ class JudgmentParagraphProps(_StrictBase):
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
-    kind: Literal["heading", "subheading", "body", "signature"]
+    kind: Literal["heading", "subheading", "body", "signature", "toc"]
     text: str
+    # of a paragraph without a number: the numbered consideration it goes on with
+    continues: str | None = None
 
 
 class JudgmentRepresentativeProps(_StrictBase):
@@ -379,6 +381,8 @@ class DossierProps(_CommonProps):
     opened_on_basis: str | None = None
     # the day of its newest paper, held activity or decision (``dossier_stages``)
     last_activity: str | None = None
+    # the GestartOp of its own zaak of a bill (Wetgeving, Initiatiefwetgeving, Begroting)
+    submitted_on_tk: str | None = None
     closed_on: str | None = None
     case_kinds: list[str] | None = None
     # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and
@@ -686,6 +690,7 @@ class CaseProps(_CommonProps):
     # Zaak.Soort: Wetgeving, Motie, Brief regering, ...
     kind: str | None = None
     dossier_numbers: list[str] | None = None
+    started_on: str | None = None  # Zaak.GestartOp
     # Zaak.GerelateerdNaar: the cases the Kamer relates this one to
     related_cases: list[RelatedCase] | None = None
 

@@ -97,6 +97,14 @@ def list_judgments(
             "`Bestuursrecht; Belastingrecht`."
         ),
     ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law: the judgments with a subject in it, "
+            "`Bestuursrecht` for `Bestuursrecht` and `Bestuursrecht; Belastingrecht` alike "
+            "(the part of a subject before its first `;`)."
+        ),
+    ] = None,
     procedure: Annotated[
         str | None,
         Query(
@@ -123,6 +131,7 @@ def list_judgments(
         court_kind=court_kind.value if court_kind else None,
         source=source,
         subject=(subject or "").strip() or None,
+        subject_area=(subject_area or "").strip() or None,
         procedure=(procedure or "").strip() or None,
         date_from=date_from,
         date_to=date_to,

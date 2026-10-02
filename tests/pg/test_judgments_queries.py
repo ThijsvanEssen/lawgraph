@@ -157,6 +157,7 @@ def test_the_facets_by_count_then_value_and_the_years_by_year(
         "source",
         "year",
         "subjects",
+        "subject_area",
         "procedure",
     ]
     assert facets["tier"] == [
@@ -266,6 +267,7 @@ def test_an_empty_table(store: GraphStore) -> None:
             "source": [],
             "year": [],
             "subjects": [],
+            "subject_area": [],
             "procedure": [],
         },
     }
@@ -446,3 +448,60 @@ def test_the_areas_of_law_and_the_procedures_are_counted_and_filtered(
         {"value": "Cassatie", "count": 1},
         {"value": "Eerste aanleg - meervoudig", "count": 1},
     ]
+
+
+def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
+    """BE-57: ``subject_area`` is a subject up to its first ';'. A judgment counts once for
+    each of its main areas, however many of its subjects are in one; the facet leaves its
+    own filter out, and the exact ``subject`` still matches the whole subject."""
+
+    def judgment(key: str, date: str, *subjects: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "type": "judgment",
+            "labels": [],
+            "props": {"ecli": key, "date_eff": date, "subjects": list(subjects)},
+        }
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            judgment("b1", "2026-01-03", "Bestuursrecht"),
+            judgment("b2", "2026-01-02", "Bestuursrecht; Belastingrecht"),
+            judgment(
+                "b3",
+                "2026-01-01",
+                "Bestuursrecht; Omgevingsrecht",
+                "Bestuursrecht; Ruimtelijk bestuursrecht",
+                "Civiel recht; Verbintenissenrecht",
+            ),
+            judgment("c1", "2025-12-31", "Civiel recht"),
+            judgment("none", "2025-12-30"),
+        ],
+    )
+
+    def ids(**kw: Any) -> list[str]:
+        return _ids(get_judgments_list(store, JudgmentFilters(**kw)))
+
+    assert ids(subject_area="Bestuursrecht") == [
+        "judgments/b1",
+        "judgments/b2",
+        "judgments/b3",
+    ]
+    assert ids(subject="Bestuursrecht") == ["judgments/b1"]
+    assert ids(subject_area="Civiel recht") == ["judgments/b3", "judgments/c1"]
+    assert ids(subject_area="Belastingrecht") == []  # a sub-area is no main area
+    found = get_judgments_list(store, JudgmentFilters(subject_area="Civiel recht"))
+    assert found["total"] == 2
+    # counted without its own filter: every main area, a judgment once in each
+    assert found["facets"]["subject_area"] == [
+        {"value": "Bestuursrecht", "count": 3},
+        {"value": "Civiel recht", "count": 2},
+    ]
+    # the whole subjects under the area filter
+    assert {f["value"] for f in found["facets"]["subjects"]} == {
+        "Bestuursrecht; Omgevingsrecht",
+        "Bestuursrecht; Ruimtelijk bestuursrecht",
+        "Civiel recht; Verbintenissenrecht",
+        "Civiel recht",
+    }

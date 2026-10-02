@@ -13,6 +13,7 @@ from lawgraph.core.judgments import (
     advocate_general_role,
     extract_judgment_text,
     extract_sections,
+    is_text_line,
     parse_judgment,
     text_id,
 )
@@ -448,3 +449,111 @@ def test_the_role_a_conclusion_is_signed_in(role: str, expected: str | None) -> 
 def test_the_heading_of_the_office_alone_is_no_role() -> None:
     assert advocate_general_role(_OFFICE_HEADING + "CONCLUSIE\n\nB.F. Keulen\n") is None
     assert advocate_general_role(None) is None
+
+
+# ── the structure the reader is built on (onderzoek-ro-uitspraken F–J) ────────
+
+
+def test_the_kop_ends_at_the_first_numbered_unit_after_the_parties() -> None:
+    """H: the points of a conclusion and the chapters of an arrest are no kop."""
+    conclusion = _fixture("rechtspraak_phr_2026_901.xml")
+    assert conclusion[0]["kind"] == "subheading"
+    assert conclusion[0]["text"].endswith("hierna: de verdachte")
+    assert [(p["id"], p["kind"]) for p in conclusion[1:7]] == [
+        (f"rov-{n}", "body") for n in range(1, 7)
+    ]
+    assert conclusion[1]["text"].startswith("De verdachte is bij arrest van 7 oktober")
+    arrest = _fixture("rechtspraak_hr_2026_1530.xml")
+    assert arrest[0]["text"].endswith("hierna: de aanvrager.")
+    assert [(p["id"], p["text"][:20]) for p in arrest[1:5]] == [
+        ("kop-1", "De uitspraak waarvan"),
+        (text_id(arrest[2]["text"]), "Het hof heeft in hog"),
+        ("kop-2", "De aanvraag tot herz"),
+        (text_id(arrest[4]["text"]), "De aanvraag tot herz"),
+    ]
+
+
+def test_the_parties_of_the_kop_go_on_after_en_and_tegen() -> None:
+    """A party the source sets as a numbered section ("1 De Fontein B.V.") after "en"."""
+    kop = _fixture("rechtspraak_gharl_2026_6033.xml")[0]["text"]
+    assert "De Fontein B.V." in kop and kop.endswith("advocaat: mr. S.J. van Susante")
+
+
+def test_a_phrase_of_a_quoted_record_is_no_heading() -> None:
+    """F: the titles the source gives the lines of a quoted proces-verbaal."""
+    paragraphs = _fixture("rechtspraak_phr_2026_901.xml")
+    by_text = {p["text"]: p["kind"] for p in paragraphs}
+    for line in (
+        "‘Ontvankelijkheid van het hoger beroep",
+        "[verdachte] ,",
+        "is niet verschenen.",
+        "met bevel tot oproeping van verdachte tegen de nadere terechtzitting,",
+    ):
+        assert by_text[line] == "body", line
+    assert not any(p["kind"] == "heading" for p in paragraphs)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("[verdachte] ,", True),
+        ("‘Ontvankelijkheid van het hoger beroep", True),
+        ("is niet verschenen.", True),
+        ("en", True),
+        ("in de hoofdzaak", False),  # a heading in small letters
+        ("Beoordeling van het hoger beroep", False),
+        ("(i) Ontvankelijkheid", False),
+    ],
+)
+def test_a_line_of_text_set_as_a_heading(text: str, expected: bool) -> None:
+    assert is_text_line(text) is expected
+
+
+def test_a_table_of_contents_takes_no_considerations() -> None:
+    """G: Urgenda's table of contents: its lines kind toc, no rov-1 … rov-9."""
+    paragraphs = _fixture("rechtspraak_hr_2019_2006_text.xml")
+    toc = [p for p in paragraphs if p["kind"] == "toc"]
+    assert toc[0]["text"] == "Procesverloop" and toc[0]["number"] == "1"
+    assert ("9", "Beslissing") in [(p["number"], p["text"]) for p in toc]
+    assert toc[-1]["text"] == "Bijlage: lijst van gebruikte afkortingen"
+    assert all(p["id"].startswith("p-") for p in toc)
+    assert not any(p["id"] in {f"rov-{n}" for n in range(1, 10)} for p in paragraphs)
+    heading = paragraphs[paragraphs.index(toc[0]) - 1]
+    assert (heading["kind"], heading["text"]) == ("heading", "Inhoudsopgave")
+    # the chapters keep their anchors
+    assert next(p for p in paragraphs if p["id"] == "kop-1")["text"] == "Procesverloop"
+
+
+def test_a_plain_paragraph_set_like_a_heading_is_one() -> None:
+    """I: the Raad van State writes its headings as plain paragraphs."""
+    paragraphs = _fixture("rechtspraak_rvs_2026_5682.xml")
+    headings = [p["text"] for p in paragraphs if p["kind"] == "heading"]
+    assert headings[:5] == [
+        "Procesverloop",
+        "Overwegingen",
+        "Overgangsrecht inwerkingtreding Omgevingswet",
+        "Inleiding",
+        "De uitspraak van de rechtbank",
+    ]
+    assert "Beslissing" in headings
+    # a short line at the end, under the judgment, stays text
+    assert paragraphs[-1]["kind"] == "body"
+
+
+def test_a_list_of_short_lines_is_no_run_of_headings() -> None:
+    """The abbreviations of PHR 2023:1042: "Awb Algemene wet bestuursrecht" is no heading."""
+    paragraphs = _fixture("rechtspraak_phr_2023_1042.xml")
+    kinds = {p["text"]: p["kind"] for p in paragraphs}
+    assert kinds["Awb Algemene wet bestuursrecht"] == "body"
+
+
+def test_a_paragraph_without_a_number_goes_on_with_the_consideration_before_it() -> (
+    None
+):
+    """J: continues names the numbered consideration, up to the next number or heading."""
+    paragraphs = _fixture("rechtspraak_rvs_2026_5682.xml")
+    at = next(i for i, p in enumerate(paragraphs) if p["id"] == "rov-1")
+    after = paragraphs[at + 1]
+    assert after["text"].startswith("De aanvraag om een omgevingsvergunning")
+    assert after["continues"] == "rov-1"
+    assert "continues" not in paragraphs[at] and "continues" not in paragraphs[at + 2]
