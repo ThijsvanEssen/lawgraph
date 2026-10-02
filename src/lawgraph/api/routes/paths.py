@@ -7,14 +7,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import parse_choices
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NodeNeighborhoodEdge,
 )
 from lawgraph.api.schemas.paths import PathDTO, PathsResponse
+from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.paths import get_paths
+from lawgraph.db.queries.paths import Followed, get_paths
 from lawgraph.db.schema import NODE_COLLECTIONS
 
 router = APIRouter()
@@ -54,7 +56,12 @@ def _node_ids(value: str) -> list[str]:
         "the shortest path of at most `max_depth` edges between them, following edges in "
         "either direction, with every node and edge on the paths: the nodes between "
         "a member and an article (a document they signed, its dossier, the law it made, "
-        "the change). No edge is derived. 404 when one of the nodes is not there."
+        "the change). No edge is derived. 404 when one of the nodes is not there. "
+        "`relations` keeps to the edges of those relations (comma-separated, as the "
+        "neighbourhood takes them). A path does not pass through a law by its articles "
+        "(the `PART_OF` of an article and its law is followed only where the law is one "
+        "of the pair) unless `through_laws=true`: else any two articles of a law are two "
+        "steps apart."
     ),
     tags=["paths"],
 )
@@ -64,8 +71,17 @@ def get_paths_route(
         str, Query(description="Node ids, comma-separated: `members/x,articles/y`")
     ],
     max_depth: Annotated[int, Query(ge=1, le=4)] = 4,
+    relations: Annotated[
+        str | None,
+        Query(description="Comma-separated relations to keep (`AUTHORED,PART_OF`)."),
+    ] = None,
+    through_laws: Annotated[
+        bool, Query(description="Let a path pass through a law by its articles.")
+    ] = False,
 ) -> PathsResponse:
     asked = _node_ids(ids)
+    chosen = parse_choices(relations, RELATION_NAMES, "relations")
+    kept = list(chosen) if chosen else None
     missing = [
         i
         for i in asked
@@ -73,10 +89,14 @@ def get_paths_route(
     ]
     if missing:
         raise HTTPException(status_code=404, detail=f"not found: {', '.join(missing)}")
-    data = get_paths(store, asked, max_depth)
+    data = get_paths(
+        store, asked, max_depth, Followed(relations=kept, through_laws=through_laws)
+    )
     return PathsResponse(
         ids=asked,
         max_depth=max_depth,
+        relations=kept,
+        through_laws=through_laws,
         paths=[
             PathDTO(
                 source=p.source,
