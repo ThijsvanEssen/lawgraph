@@ -509,6 +509,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("same_as"),
         _str("source"),
         _str("date_eff"),
+        # "Datum publicatie": the date the feed shows a judgment on
+        _str("published_on"),
         _str("tier"),
         _str("court_kind"),
         _str("court_code"),
@@ -710,6 +712,8 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("subjects",), False),
         (("date_eff DESC NULLS LAST", "key DESC"), False),
         (("inbound_citation_count DESC NULLS LAST", "key DESC"), False),
+        # the feed: per tier, newest publication first (``db/queries/feed.py``)
+        (("tier", "published_on"), False),
     ),
     COLLECTION_DOSSIERS: (
         (("labels",), False),

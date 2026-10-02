@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STCRT_REGELING,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.identifiers import STCRT_ID_PATTERN, find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -102,7 +103,9 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
             "year": year,
             "number": number,
             "display_name": (
-                f"Stcrt. {year}/{number}: {title[:100]}" if title else identifier
+                f"Stcrt. {year}/{number}: {shorten(title, 100)}"
+                if title
+                else identifier
             ),
         }
         if bwb_id:

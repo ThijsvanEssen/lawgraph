@@ -208,6 +208,24 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     return meta, subjects
 
 
+_RDF_ABOUT = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about"
+
+
+def published_on(root: ET.Element) -> str | None:
+    """The day the judgment was published on uitspraken.rechtspraak.nl ("Datum
+    publicatie"), as the source writes it (``2022-02-25``): ``dcterms:issued`` of the
+    ``rdf:Description`` about the published document (``rdf:about``, its deeplink). The
+    first ``rdf:Description``, about the ECLI, has an ``issued`` of its own that is not it
+    (it can be before the judgment's date). None for a record without the document."""
+    for element in root.iter():
+        if local_name(element.tag) != "Description" or not element.get(_RDF_ABOUT):
+            continue
+        for child in element:
+            if local_name(child.tag) == "issued" and (child.text or "").strip():
+                return (child.text or "").strip()
+    return None
+
+
 # ── the area of law ──────────────────────────────────────────────────────────
 
 AREA_CRIMINAL = "Strafrecht"

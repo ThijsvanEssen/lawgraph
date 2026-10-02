@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
+from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
@@ -660,7 +661,7 @@ def commitment(payload: Payload) -> Record | None:
         "status": raw_status,
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
-        "display_name": (text[:80] + "…") if len(text) > 80 else text,
+        "display_name": shorten(text, 80),
     }
 
 
@@ -862,9 +863,10 @@ def document_display_name(
         name = ""
     if not title or title == kind:
         return f"{name}. {kind}" if name and kind else name or kind or "Document"
+    title = shorten(title, 120)
     if _starts_with_kind(title, kind) or not kind:
-        return f"{name}: {title[:120]}" if name else title[:120]
-    return f"{name}. {kind}: {title[:120]}" if name else f"{kind}: {title[:120]}"
+        return f"{name}: {title}" if name else title
+    return f"{name}. {kind}: {title}" if name else f"{kind}: {title}"
 
 
 # ── Stemming / Besluit (Decision and its votes) ──────────────────────────────

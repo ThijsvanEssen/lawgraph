@@ -284,6 +284,8 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     court_kind: str | None = None
     date_eff: str | None = None
+    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgments.published_on``)
+    published_on: str | None = None
     inbound_citation_count: int | None = None
     # the judgments its text cites (``semantic graph-list-stats``)
     outbound_citation_count: int | None = None

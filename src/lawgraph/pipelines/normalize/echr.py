@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     RAW_KIND_ECHR_TEXT,
     SOURCE_ECHR,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.echr_docx import read_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -104,7 +105,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             "external_id": item_id,
             "appno": appno,
             "title": docname,
-            "display_name": docname[:MAX_TITLE_CHARS],
+            "display_name": shorten(docname, MAX_TITLE_CHARS),
             "date": _iso_date(payload.get("kpdate")),
             "respondent": payload.get("respondent") or "",
             "originating_body": payload.get("originatingbody") or "",

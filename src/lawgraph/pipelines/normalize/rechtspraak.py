@@ -25,6 +25,7 @@ from lawgraph.core.judgments import (
     is_english,
     kop_lines,
     parse_judgment,
+    published_on,
     replacing_ecli,
     translated_case_number,
 )
@@ -138,6 +139,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         props["date_eff"] = (
             jm_date or (meta.get("date") if meta else None) or props.get("date")
         )
+        props["published_on"] = published_on(root)
         props["display_name"] = compose_display_name(props)
         key = make_node_key(ecli)
         node = Node(
