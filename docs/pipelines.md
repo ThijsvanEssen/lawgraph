@@ -687,6 +687,14 @@ for each book of a code in `CODE_FAMILIES` the forms `Boek 6 BW`, `6 BW`, `BW 6`
 `BW Boek 6` and `BW`, also when its WTI record is missing. Instruments that do not exist are
 not created.
 
+And `legal_areas` and `policy_domains`, how the WTI files a regulation (`core/bwb_wti.py`
+`parse_subjects`): each `<rechtsgebied>` as `main` (`hoofdgebied`, "Staats- en bestuursrecht")
+and `specific` (`specifiekgebied`, "Bestuursrecht"), each `<overheidsdomein>` as `label`
+("Overheid, bestuur en koninkrijk"), each with the URI of its concept in the TOOI thesauri
+`scw_bwb_rechtsgebieden` and `scw_bwb_themas` (`retrieve tooi`), found by label without regard
+to case (`main_uri`, `specific_uri`, `uri`; null without the thesauri or for a label they
+lack). An empty list removes the prop.
+
 **The code families.** `lawgraph code-families build` makes `src/lawgraph/data/code_families.json`
 from the stored WTI records (`core/code_families.families_from_wti`) and prints what changed;
 `lawgraph code-families check` prints the same and fails on a change. Commit what a build
@@ -1277,9 +1285,15 @@ last day of each) and the events between them (`Oprichting`, `Samenvoeging`,
 content of the TOOI registers and value lists may be used by anyone without restriction
 (TOOI beheerplan, 2.3 Rechtenbeleid). Numbered versions; the page of the list links each.
 
+Also the thesauri of the BWB: `scw_bwb_rechtsgebieden` (104 legal areas, 32 main areas, SKOS
+`broader`) and `scw_bwb_themas` (21 government themes), the concepts the WTI of a regulation
+files it under by label (see BWB, `legal_areas`).
+
 **Retrieve.** The latest version, one `tooi-ministries-jsonld` record (external id
-`rwc_ministeries_compleet`, `payload_json.items`, `meta.url`, `meta.read_on`). Two
-requests; always in full. A page without versions, or a version without a ministry, raises.
+`rwc_ministeries_compleet`, `payload_json.items`, `meta.url`, `meta.read_on`), and one
+`tooi-thesaurus-jsonld` record per thesaurus (external id the name of the list). Two requests
+per list; always in full. A page without versions, or a version without a ministry or a
+concept, raises.
 
 **The ministry table.** `lawgraph ministries build` makes `src/lawgraph/data/ministries.json`
 from the stored TOOI list, the stored Rijksoverheid cabinet pages and the curated list

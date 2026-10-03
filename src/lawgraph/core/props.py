@@ -57,6 +57,23 @@ class _CommonProps(_StrictBase):
 # ---------------------------------------------------------------------------
 
 
+class LegalAreaProps(BaseModel):
+    """A legal area of a BWB regulation (WTI ``rechtsgebied``), with its TOOI concepts."""
+
+    main: str
+    main_uri: str | None = None
+    specific: str | None = None
+    specific_uri: str | None = None
+
+
+class PolicyDomainProps(BaseModel):
+    """A government theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI
+    concept."""
+
+    label: str
+    uri: str | None = None
+
+
 class TreatyPublicationProps(_StrictBase):
     """A Tractatenblad of a treaty (``core.verdragenbank_xml``)."""
 
@@ -103,6 +120,8 @@ class RelatedTreatyProps(_StrictBase):
 
 
 class InstrumentProps(_CommonProps):
+    legal_areas: list[LegalAreaProps] | None = None
+    policy_domains: list[PolicyDomainProps] | None = None
     bwb_id: str | None = None
     celex: str | None = None
     title: str | None = None
