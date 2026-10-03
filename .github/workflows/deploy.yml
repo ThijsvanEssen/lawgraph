@@ -1,0 +1,86 @@
+name: deploy
+
+# A push to `release` puts that commit on the server: the unit suite first, then over SSH a
+# checkout of exactly that commit, the dependencies, and a restart of the API that has to answer
+# /api/health. The server is laid out as docs/operations.md, "Deploy", describes.
+#
+# Secrets of the repository (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY  the private key whose public half is in ~/.ssh/authorized_keys on the server
+#   DEPLOY_HOST     the address of the server
+#   DEPLOY_KNOWN_HOSTS  the known_hosts line of the server's host key, taken on the server itself
+#                   (`ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key`, prefixed with the address);
+#                   a deploy talks to no other host, so a changed key stops it
+#   DEPLOY_USER     the user that owns DEPLOY_DIR and may run `sudo systemctl restart lawgraph-api`
+
+on:
+  push:
+    branches: [release]
+
+# one deploy at a time; a second push waits for the first instead of cancelling it halfway
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /srv/lawgraph
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Check types
+        run: mypy
+
+      - name: Run tests
+        run: pytest
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH key and host key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+      # Under the lock of the scheduled runs (scripts/_run.sh, with TMPDIR=$DEPLOY_DIR/tmp as the
+      # timers set it): a deploy never swaps the code under a running load. When a run holds the
+      # lock the deploy fails; run the job again once the run is over.
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$GITHUB_SHA sh -s" << 'EOF'
+          set -e
+          LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
+          mkdir "$LOCK" || { echo "[deploy] a scheduled run holds $LOCK; run this job again later"; exit 1; }
+          trap 'rmdir "$LOCK"' EXIT
+          cd "$DEPLOY_DIR/app"
+          git fetch --quiet origin
+          git checkout --quiet --detach "$SHA"
+          "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          sudo -n systemctl restart lawgraph-api < /dev/null
+          for _ in $(seq 30); do
+            curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8000/api/health
+          echo
+          echo "[deploy] running $(git log --oneline -1)"
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
