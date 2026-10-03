@@ -365,6 +365,33 @@ versioning (or a replica in a second bucket) protects against a deleted or overw
 0  4 * * 6   /path/to/lawgraph/scripts/restore-test.sh
 ```
 
+## Deploy
+
+A push to the branch `release` deploys that commit (`.github/workflows/deploy.yml`): the unit
+suite, then over SSH a checkout of exactly that commit on the server, `uv pip install -e .`
+into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds.
+The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
+load; when a run holds it, the job fails and is run again later. Data migrations that a release
+needs (a `normalize` or `semantic` step) are not part of it: run them on the server after the
+deploy.
+
+The server it expects:
+
+| Path | What |
+|------|------|
+| `/srv/lawgraph/app` | a clone of this repository with `.venv` (made with `uv`) and `.env` |
+| `/srv/lawgraph/tmp` | `TMPDIR` of the scheduled runs, where their lock lives |
+| systemd unit `lawgraph-api` | `.venv/bin/lawgraph-api` in `/srv/lawgraph/app`, on 127.0.0.1:8000 behind a reverse proxy |
+
+The user of `DEPLOY_USER` owns `/srv/lawgraph`, has `uv` in `~/.local/bin` and may run
+`sudo -n systemctl restart lawgraph-api`. Secrets of the repository: `DEPLOY_SSH_KEY` (a private
+key whose public half is in that user's `~/.ssh/authorized_keys`), `DEPLOY_HOST`,
+`DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS`. That last one is the known_hosts line of the server's
+host key, taken on the server itself and not over the network:
+`echo "<DEPLOY_HOST> $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"`. The deploy connects
+with `StrictHostKeyChecking=yes`, so a host that answers with another key gets no deploy key and
+no code.
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
