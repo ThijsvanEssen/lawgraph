@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import NodeType
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -43,7 +43,7 @@ TEXT = (
 )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     records = [
         (RAW_KIND_BWB_TOESTAND, LAW, NEW, "2025-01-01", None),
         (
@@ -91,7 +91,7 @@ def _seed(store: ArangoStore) -> None:
 def test_a_citation_of_a_loaded_law_goes_to_an_article_it_has_or_had(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -108,9 +108,10 @@ def test_a_citation_of_a_loaded_law_goes_to_an_article_it_has_or_had(
     cited = {
         row["key"]: row
         for row in store.query(
-            "FOR e IN edges FILTER e._from == @j AND e.relation == 'REFERS_TO' "
-            "LET a = DOCUMENT(e._to) RETURN {key: a._key, stub: a.props.stub == true, "
-            "last: a.props.last_article_number}",
+            "SELECT a.key, coalesce(lg_bool(a.props -> 'stub'), false) AS stub, "
+            "a.props -> 'last_article_number' AS last "
+            "FROM edges e JOIN nodes a ON a.id = e.to_id "
+            "WHERE e.from_id = %(j)s AND e.relation = 'REFERS_TO'",
             {"j": "judgments/ecli_nl_hr_2020_7"},
         )
     }
@@ -122,8 +123,6 @@ def test_a_citation_of_a_loaded_law_goes_to_an_article_it_has_or_had(
     }
     assert cited["bwbr0001840_7_stam_2990103"]["last"] == "7"
     assert cited["bwbr0001840_999"]["stub"] is True
-    stubs = set(
-        store.query("FOR a IN articles FILTER a.props.stub == true RETURN a._key")
-    )
+    stubs = set(store.query("SELECT key FROM articles WHERE lg_bool(props -> 'stub')"))
     # no 7 or 047 beside them; the old stub of 140.1 has no edge
     assert stubs == {"bwbr0001840_999", "bwbr0001840_140_1"}

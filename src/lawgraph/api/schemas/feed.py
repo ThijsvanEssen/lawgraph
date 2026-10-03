@@ -18,13 +18,14 @@ from lawgraph.core.feed import (
     EVENT_BILL,
     EVENT_COMMENCEMENT,
     EVENT_COMMITMENT,
+    EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
     ROLE_SUBMITTER,
     person_role,
 )
-from lawgraph.core.models import parse_arango_id
-from lawgraph.core.official_urls import instrument_url
+from lawgraph.core.models import parse_node_id
+from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
 
@@ -39,6 +40,7 @@ FeedKind = Literal[
     "publicatie",
     "inwerkingtreding",
     "Brief regering",
+    "uitspraak",
 ]
 PersonRole = Literal["indiener", "medeindiener", "bewindspersoon"]
 PublicationSeries = Literal["stb", "stcrt", "trb"]
@@ -129,6 +131,18 @@ class FeedVoteDTO(BaseModel):
         description="Seats per choice as the source writes it (``Voor``, ``Tegen``, "
         "``Niet deelgenomen``); members per choice on a roll-call.",
     )
+    method: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: how it was decided, as its report names it "
+        "(``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``, ``Hoofdelijke "
+        "stemming, verworpen``).",
+    )
+    decision_kind: str | None = Field(
+        None,
+        description="Of the Tweede Kamer: its ``BesluitSoort`` as the Kamer writes it "
+        "(``Stemmen - aangenomen``, ``Stemmen - zonder stemming aannemen``: a hamerstuk, "
+        "no votes).",
+    )
 
 
 class FeedCommitmentDTO(BaseModel):
@@ -181,6 +195,32 @@ class FeedCommencementDTO(BaseModel):
     )
 
 
+class FeedJudgmentDTO(BaseModel):
+    """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
+    publicatie``), of the highest courts unless a ``tier`` is asked for."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ecli: str | None = None
+    court: str | None = Field(None, description="ECLI court code, `HR`, `RVS`.")
+    tier: str | None = Field(None, description="As in `/api/judgments`.")
+    court_kind: str | None = None
+    decision_kind: str | None = Field(
+        None, description="`arrest`, `uitspraak`, `conclusie`, ..."
+    )
+    procedure: str | None = Field(
+        None, description="As the source gives it: `Cassatie`, `Hoger beroep`."
+    )
+    decided_on: str | None = Field(
+        None,
+        description="The date of the decision (YYYY-MM-DD), before its publication.",
+    )
+    advocate_general: str | None = Field(
+        None, description="Of a conclusion, who wrote it (as on the detail)."
+    )
+    advocate_general_role: str | None = None
+
+
 class FeedHeadlineDTO(BaseModel):
     """The parts a headline is made of; the front end makes the sentence."""
 
@@ -214,7 +254,7 @@ class FeedItemDTO(BaseModel):
     summary: str | None = Field(
         None,
         description="The whole text of a commitment, the decision of a vote "
-        "(``Aangenomen.``); null for the other kinds.",
+        "(``Aangenomen.``), the inhoudsindicatie of a judgment; null for the other kinds.",
     )
     subkind: str | None = Field(
         None,
@@ -248,12 +288,13 @@ class FeedItemDTO(BaseModel):
     commitment: FeedCommitmentDTO | None = None
     publication: FeedPublicationDTO | None = None
     commencement: FeedCommencementDTO | None = None
+    judgment: FeedJudgmentDTO | None = None
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
-        collection, key = parse_arango_id(row["id"])
+        collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
         persons = _persons(kind, row)
@@ -295,6 +336,7 @@ class FeedItemDTO(BaseModel):
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
             commencement=_commencement(row) if kind == EVENT_COMMENCEMENT else None,
+            judgment=_judgment(props) if kind == EVENT_JUDGMENT else None,
         )
 
 
@@ -321,7 +363,7 @@ def _source_title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str 
         return props.get("display_name") or row.get("text")
     if kind == EVENT_COMMENCEMENT:
         return (row.get("instrument") or {}).get("title") or props.get("bwb_id")
-    if kind == EVENT_PUBLICATION:
+    if kind in (EVENT_PUBLICATION, EVENT_JUDGMENT):
         return props.get("citation_title") or props.get("display_name")
     return props.get("subject") or props.get("title")
 
@@ -331,6 +373,8 @@ def _summary(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | Non
         return row.get("text")
     if kind == EVENT_VOTE:
         return props.get("decision_text")
+    if kind == EVENT_JUDGMENT:
+        return props.get("summary")
     return None
 
 
@@ -406,6 +450,8 @@ def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
 
 
 def _official_url(kind: str, props: dict[str, Any]) -> str | None:
+    if kind == EVENT_JUDGMENT:
+        return judgment_url(props)
     if kind == EVENT_PUBLICATION:
         return instrument_url(props)
     if kind == EVENT_COMMENCEMENT:
@@ -413,6 +459,20 @@ def _official_url(kind: str, props: dict[str, Any]) -> str | None:
             {"bwb_id": props.get("bwb_id")}, on=props.get("valid_from")
         )
     return None
+
+
+def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
+    return FeedJudgmentDTO(
+        ecli=props.get("ecli"),
+        court=props.get("court_code"),
+        tier=props.get("tier"),
+        court_kind=props.get("court_kind"),
+        decision_kind=props.get("decision_kind"),
+        procedure=props.get("procedure"),
+        decided_on=props.get("date_eff"),
+        advocate_general=props.get("advocate_general"),
+        advocate_general_role=props.get("advocate_general_role"),
+    )
 
 
 def _vote(props: dict[str, Any]) -> FeedVoteDTO:
@@ -423,6 +483,8 @@ def _vote(props: dict[str, Any]) -> FeedVoteDTO:
         outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,  # type: ignore[arg-type]
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
+        method=props.get("method"),
+        decision_kind=props.get("decision_kind"),
     )
 
 

@@ -14,20 +14,20 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import FACTIONS, seed, uid
 
 
-def _voted_edges(store: ArangoStore) -> int:
-    aql = "FOR e IN edges FILTER e.relation == @relation COLLECT WITH COUNT INTO n RETURN n"
-    return next(iter(store.query(aql, {"relation": RELATION_VOTED})))
+def _voted_edges(store: GraphStore) -> int:
+    statement = "SELECT count(*)::int FROM edges WHERE relation = %(relation)s"
+    return next(store.query(statement, {"relation": RELATION_VOTED}))
 
 
 def test_votes_of_a_new_decision_are_linked_to_factions_loaded_earlier(
     database: str, cli: Any
 ) -> None:
     """`retrieve all` skips the members and factions on incremental runs (--skip-members)."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=120, judgments=1, regulations=1)
     cli("normalize", "tk-dossiers")
     before = _voted_edges(store)
@@ -61,7 +61,7 @@ def test_votes_of_a_new_decision_are_linked_to_factions_loaded_earlier(
     assert _voted_edges(store) == before + FACTIONS
 
 
-def _store_tk(store: ArangoStore, kind: str, payloads: list[dict[str, Any]]) -> None:
+def _store_tk(store: GraphStore, kind: str, payloads: list[dict[str, Any]]) -> None:
     with RawSourceWriter(store) as writer:
         for payload in payloads:
             writer.add(
@@ -97,39 +97,39 @@ def test_a_window_without_votes_keeps_the_spellings_votes_gave_a_faction(
 ) -> None:
     """Retrieve reads the factions again on every run, so an incremental normalize writes
     them all again; the acronym of a party counts only when a vote used it."""
-    store = ArangoStore()
+    store = GraphStore()
     party = {"Id": uid(500, 8), "Afkorting": "Partij voor de Dieren", "NaamNL": ""}
     party["NaamNL"] = party["Afkorting"]
     _store_tk(store, RAW_KIND_TK_FRACTIE, [party])
     _store_tk(store, RAW_KIND_TK_STEMMING, [_vote(1, uid(1, 7), "PVDD", 500)])
     cli("normalize", "tk-dossiers")
     key = make_node_key(party["Afkorting"])
-    assert "PVDD" in store.db.collection("factions").get(key)["props"]["aliases"]
+    assert "PVDD" in store.get_document("factions", key)["props"]["aliases"]
 
     window = _window()
     _store_tk(store, RAW_KIND_TK_FRACTIE, [party])  # read again, no vote since
     cli("normalize", "tk-dossiers", "--since", window)
-    assert "PVDD" in store.db.collection("factions").get(key)["props"]["aliases"]
+    assert "PVDD" in store.get_document("factions", key)["props"]["aliases"]
 
 
 def test_a_vote_that_changed_does_not_make_its_decision_a_decision_of_one(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=0)  # the factions
     decision = uid(77, 7)
     votes = [_vote(100 + n, decision, f"Fractie {n}", n) for n in range(FACTIONS)]
     _store_tk(store, RAW_KIND_TK_STEMMING, votes)
     cli("normalize", "tk-dossiers")
     key = make_node_key("decision", decision)
-    assert store.db.collection("decisions").get(key)["props"]["tally"] == {
+    assert store.get_document("decisions", key)["props"]["tally"] == {
         "Voor": 10 * FACTIONS
     }
 
     window = _window()
     _store_tk(store, RAW_KIND_TK_STEMMING, [votes[0] | {"Soort": "Tegen"}])
     cli("normalize", "tk-dossiers", "--since", window)
-    assert store.db.collection("decisions").get(key)["props"]["tally"] == {
+    assert store.get_document("decisions", key)["props"]["tally"] == {
         "Voor": 10 * (FACTIONS - 1),
         "Tegen": 10,
     }
@@ -138,11 +138,11 @@ def test_a_vote_that_changed_does_not_make_its_decision_a_decision_of_one(
 def test_an_activity_in_the_window_adds_to_the_case_kinds_of_its_dossier(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=20, judgments=0, regulations=0)  # activities on dossier 36000
     cli("normalize", "tk-dossiers")
     key = make_node_key("36000")
-    before = store.db.collection("dossiers").get(key)["props"]["case_kinds"]
+    before = store.get_document("dossiers", key)["props"]["case_kinds"]
     assert before
 
     window = _window()
@@ -166,7 +166,7 @@ def test_an_activity_in_the_window_adds_to_the_case_kinds_of_its_dossier(
     }
     _store_tk(store, RAW_KIND_TK_ACTIVITEIT, [activity])
     cli("normalize", "tk-dossiers", "--since", window)
-    after = store.db.collection("dossiers").get(key)["props"]["case_kinds"]
+    after = store.get_document("dossiers", key)["props"]["case_kinds"]
     assert set(after) == set(before) | {"Amendement"}
 
 
@@ -175,7 +175,7 @@ def test_a_rerun_replaces_a_tally_it_does_not_add_to_it(
 ) -> None:
     """An update merges nested objects unless told not to: a choice nobody made any more
     stayed in the tally for good, also on a full run."""
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=0)
     decision = uid(78, 7)
     votes = [_vote(200 + n, decision, f"Fractie {n}", n) for n in range(FACTIONS)]
@@ -184,13 +184,16 @@ def test_a_rerun_replaces_a_tally_it_does_not_add_to_it(
 
     _store_tk(store, RAW_KIND_TK_STEMMING, [v | {"Soort": "Tegen"} for v in votes])
     cli("normalize", "tk-dossiers")
-    props = store.db.collection("decisions").get(make_node_key("decision", decision))
+    props = store.get_document("decisions", make_node_key("decision", decision))
     assert props["props"]["tally"] == {"Tegen": 10 * FACTIONS}
     assert props["props"]["voters"] == {"Tegen": FACTIONS}
 
 
-def _edges(store: ArangoStore) -> dict[str, str]:
-    return dict(store.query("FOR e IN edges RETURN [e._key, e._from]"))
+def _edges(store: GraphStore) -> dict[str, str]:
+    return {
+        row["key"]: row["from_id"]
+        for row in store.query("SELECT key, from_id FROM edges")
+    }
 
 
 def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
@@ -201,11 +204,11 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
     from tests.integration.seed import judgment_xml
 
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=40, judgments=20, regulations=3)
     cli("normalize", "all")
     cli("semantic", "all")
-    assert store.db.collection("judgments").get(make_node_key("ECLI:NL:HR:2020:20"))[
+    assert store.get_document("judgments", make_node_key("ECLI:NL:HR:2020:20"))[
         "props"
     ]["stub"]
 
@@ -227,7 +230,7 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     cli("normalize", "all", "--since", window)
     cli("semantic", "all", "--since", window)
     incremental = _edges(store)
-    loaded = store.db.collection("judgments").get(make_node_key(new[0]))["props"]
+    loaded = store.get_document("judgments", make_node_key(new[0]))["props"]
     assert not loaded["stub"] and loaded["text"]
 
     cli("normalize", "all")
@@ -240,19 +243,24 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
     assert not missed
 
 
+def _covered_until(store: GraphStore) -> str:
+    statement = (
+        "SELECT doc ->> 'covered_until' FROM pipeline_state WHERE key = 'normalize'"
+    )
+    return next(store.query(statement))
+
+
 def test_since_last_goes_on_where_the_last_complete_run_began(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     seed(store, documents=5, judgments=3, regulations=1)
     refused = cli("normalize", "all", "--since", "last", check=False)
     assert refused.returncode == 2 and "No complete `normalize all`" in refused.stderr
 
     cli("normalize", "all")
-    mark = store.db.collection("pipeline_state").get("normalize")["covered_until"]
+    mark = _covered_until(store)
     time.sleep(1.1)
     again = cli("normalize", "all", "--since", "last")
     assert "Since the last complete run" in again.stderr
-    assert (
-        store.db.collection("pipeline_state").get("normalize")["covered_until"] > mark
-    )
+    assert _covered_until(store) > mark

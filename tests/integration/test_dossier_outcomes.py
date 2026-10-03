@@ -40,7 +40,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import FIXTURES, uid
 
 GRONDWET = "BWBR0001840"
@@ -225,8 +225,8 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> Iterator[GraphStore]:
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _tk_payloads():
             writer.add(
@@ -263,14 +263,14 @@ def store(database: str, cli: Any) -> Iterator[ArangoStore]:
     yield store
 
 
-def _dossier_props(store: ArangoStore) -> dict[str, dict[str, Any]]:
+def _dossier_props(store: GraphStore) -> dict[str, dict[str, Any]]:
+    kept = (
+        "number", "closed", "outcome", "closed_on", "opened_on", "kind", "kind_basis",
+        "phases", "current_phase", "tk_decision",
+    )  # fmt: skip
     return {
-        row["number"]: row
-        for row in store.query(
-            "FOR d IN dossiers RETURN MERGE(KEEP(d.props, 'number', 'closed', 'outcome', "
-            "'closed_on', 'opened_on', 'kind', 'kind_basis', 'phases', 'current_phase', "
-            "'tk_decision'), {})"
-        )
+        props["number"]: {k: v for k, v in props.items() if k in kept}
+        for props in store.query("SELECT props FROM dossiers")
     }
 
 
@@ -283,7 +283,7 @@ def _outcome(props: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def test_a_dossier_is_closed_by_what_the_graph_holds(
-    store: ArangoStore, cli: Any
+    store: GraphStore, cli: Any
 ) -> None:
     dossiers = _dossier_props(store)
 
@@ -329,7 +329,7 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(
 
 
 def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -357,7 +357,7 @@ def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
 
 
 def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """A vote on the bill itself says ``Wetgeving``, one on an amendment ``Amendement``;
     a letter carries the kinds of its cases."""
@@ -384,7 +384,7 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
         app.dependency_overrides.pop(get_store, None)
 
 
-def test_the_timeline_marks_what_came_after_the_closing(store: ArangoStore) -> None:
+def test_the_timeline_marks_what_came_after_the_closing(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

@@ -25,7 +25,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import NodeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from .base import JUDGMENT_BATCH_SIZE, SemanticPipelineBase
 
@@ -51,7 +51,7 @@ class RechtspraakSeriesSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         generic = set(
-            semantic_queries.generic_summaries(
+            semantic_rechtspraak.generic_summaries(
                 self.store, min_dates=GENERIC_SUMMARY_DATES
             )
         )
@@ -61,7 +61,7 @@ class RechtspraakSeriesSemanticPipeline(SemanticPipelineBase):
             for day in self._track(days.values(), "court days", total=len(days)):
                 rows = [
                     row
-                    for row in semantic_queries.judgments_of_court_day(
+                    for row in semantic_rechtspraak.judgments_of_court_day(
                         self.store, batch_size=JUDGMENT_BATCH_SIZE, **day
                     )
                     if row.get("ecli")
@@ -90,15 +90,15 @@ class RechtspraakSeriesSemanticPipeline(SemanticPipelineBase):
         in a series now, so that one that no longer is loses its series."""
         if since_iso:
             listed = [
-                semantic_queries.judgment_court_days(
+                semantic_rechtspraak.judgment_court_days(
                     self.store, eclis=self._recent_eclis(since_iso)
                 )
             ]
         else:
-            in_series = sorted(semantic_queries.judgments_in_series(self.store))
+            in_series = sorted(semantic_rechtspraak.judgments_in_series(self.store))
             listed = [
-                semantic_queries.judgment_court_days(self.store),
-                semantic_queries.judgment_court_days(self.store, eclis=in_series),
+                semantic_rechtspraak.judgment_court_days(self.store),
+                semantic_rechtspraak.judgment_court_days(self.store, eclis=in_series),
             ]
         return {
             (day["court_code"], day["date"]): day for rows in listed for day in rows

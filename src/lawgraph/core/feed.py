@@ -13,6 +13,13 @@ import json
 from dataclasses import dataclass
 from typing import Final
 
+from lawgraph.core.court_sources import (
+    TIER_CBB,
+    TIER_CENTRALE_RAAD,
+    TIER_HOGE_RAAD,
+    TIER_PARKET,
+    TIER_RAAD_VAN_STATE,
+)
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 
 EVENT_COMMITMENT: Final = "toezegging"
@@ -24,6 +31,7 @@ EVENT_VOTE: Final = "stemming"
 EVENT_PUBLICATION: Final = "publicatie"
 EVENT_COMMENCEMENT: Final = "inwerkingtreding"
 EVENT_GOVERNMENT_LETTER: Final = "Brief regering"
+EVENT_JUDGMENT: Final = "uitspraak"
 
 # The kinds, in the order the facets and the documentation list them.
 FEED_KINDS: Final = (
@@ -36,7 +44,12 @@ FEED_KINDS: Final = (
     EVENT_PUBLICATION,
     EVENT_COMMENCEMENT,
     EVENT_GOVERNMENT_LETTER,
+    EVENT_JUDGMENT,
 )
+
+# The kinds of a feed that asks for none: parliament and legislation. A judgment is in the
+# feed only when ``uitspraak`` or a ``tier`` is asked for.
+DEFAULT_KINDS: Final = tuple(kind for kind in FEED_KINDS if kind != EVENT_JUDGMENT)
 
 # The order of the kinds within one day: what changes the law first, what is said about it
 # last. A kind's rank is its place here.
@@ -50,7 +63,19 @@ DAY_ORDER: Final = (
     EVENT_AMENDMENT,
     EVENT_MOTION,
     EVENT_GOVERNMENT_LETTER,
+    EVENT_JUDGMENT,
 )
+
+# The judgments the feed shows unless a ``tier`` is asked for: those of the highest courts
+# and the conclusions of the Parket (a conclusion of another court has its court's tier).
+FEED_TIERS: Final = (
+    TIER_HOGE_RAAD,
+    TIER_RAAD_VAN_STATE,
+    TIER_CENTRALE_RAAD,
+    TIER_CBB,
+    TIER_PARKET,
+)
+
 KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_ORDER)}
 
 # The kinds whose signatories are its submitters, a bewindspersoon too: a bill and a note

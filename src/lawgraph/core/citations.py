@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -232,11 +232,25 @@ _ANAPHORA_RE = re.compile(
     r"|gemelde)\s+(?:wet|regeling|besluit|verordening|wetboek|richtlijn|verdrag|reglement)\b",
     re.IGNORECASE,
 )
-# "(hierna: de Awb)": a name the text gives to the law it just cited.
+# "(hierna: de Awb)", "(verder: Aw)" or "(Aw)": a name the text gives to the law it just
+# cited. Without "hierna" or "verder" only an abbreviation, its year allowed ("(Vw 2000)").
 _HIERNA_RE = re.compile(
-    r"\s*\(hierna:?\s*(?:de\s+|het\s+)?(?:te noemen\s+)?(?P<alias>[^()]{1,40}?)\s*\)",
-    re.IGNORECASE,
+    r"\s*\((?:(?i:hierna|verder):?\s*(?i:de\s+|het\s+)?(?i:te noemen\s+)?"
+    r"(?P<alias>[^()]{1,40}?)|(?P<short>[A-Z][A-Za-z]{0,9}(?:\s(?:18|19|20)\d{2})?))\s*\)"
 )
+
+
+def _defined_alias(text: str, end: int) -> str | None:
+    """The name the text gives, right after *end*, to the law it just cited, upper case."""
+    defined = _HIERNA_RE.match(text, end)
+    if not defined:
+        return None
+    if defined["alias"]:
+        return defined["alias"].strip().upper() or None
+    short = defined["short"].upper()
+    return None if short in _NOT_A_LAW else short
+
+
 # A law the registry does not know, as a citation writes it after the article: an
 # abbreviation (``Rv``, ``RO``, ``AWR``, ``Vw 2000``) or a name of one word (``Opiumwet``,
 # ``Vreemdelingenwet 2000``), with its year. A name of several words ("Wet op de rechterlijke
@@ -361,6 +375,7 @@ class DutchCitationExtractor:
         self,
         code_aliases: dict[str, str],
         name_aliases: Mapping[str, str | None] | None = None,
+        context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
     ) -> None:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
@@ -373,6 +388,22 @@ class DutchCitationExtractor:
             if k and v and len(name_key(k)) >= _MIN_NAME_LENGTH
         }
         self._books: dict[str, dict[str, str]] = self._group_books()
+        # "EP" -> (law id, a pattern of the words a text must also name: "EVRM", ...)
+        self._context: dict[str, tuple[str, re.Pattern[str]]] = {
+            alias.strip().upper(): (
+                law_id,
+                re.compile(
+                    r"(?<!\w)(?:"
+                    + "|".join(
+                        re.escape(w) for w in sorted(words, key=len, reverse=True)
+                    )
+                    + r")(?!\w)",
+                    re.IGNORECASE,
+                ),
+            )
+            for alias, (law_id, words) in (context_aliases or {}).items()
+            if alias.strip() and law_id and words
+        }
         self._code_re = self._alternation_re(
             self._code_map, prefix=r"(?:de\s+|het\s+)?"
         )
@@ -509,7 +540,12 @@ class DutchCitationExtractor:
 
         hits: list[CitationHit] = []
         seen: set[tuple[str | None, str | None, str]] = set()
-        local: dict[str, str] = {}
+        local: dict[str, str] = {
+            alias: law_id
+            for alias, (law_id, beside) in self._context.items()
+            if beside.search(text)
+        }
+        unknown_local: dict[str, str] = {}  # "AW" -> "Aanbestedingswet"
         last: tuple[int, str] | None = None
 
         for match in ARTICLE_HEAD_RE.finditer(text):
@@ -518,7 +554,10 @@ class DutchCitationExtractor:
                 if unknown_laws:
                     hits.extend(
                         self._unknown_hits(
-                            text, match, None if every_occurrence else seen
+                            text,
+                            match,
+                            None if every_occurrence else seen,
+                            unknown_local,
                         )
                     )
                 continue
@@ -536,16 +575,23 @@ class DutchCitationExtractor:
         text: str,
         match: re.Match[str],
         seen: set[tuple[str | None, str | None, str]] | None,
+        defined: dict[str, str],
     ) -> Iterator[CitationHit]:
         """The articles of a citation whose law is written as a law the registry does
-        not know (``_UNKNOWN_LAW_RE``); nothing when no law is written there."""
+        not know (``_UNKNOWN_LAW_RE``); nothing when no law is written there.
+
+        A name the text gave such a law before ("artikel 4.16 van de Aanbestedingswet (Aw)",
+        *defined*) is that law: "artikel 4.16 Aw" is the same article."""
         if _ANAPHORA_RE.match(text, match.end()):
             return
         pos = LAW_CONNECTOR_RE.match(text, match.end()).end()  # type: ignore[union-attr]
         named = _UNKNOWN_LAW_RE.match(text, pos)
         if not named or named["law"].split()[0].upper() in _NOT_A_LAW:
             return
-        law = named["law"]
+        law = defined.get(named["law"].upper(), named["law"])
+        alias = _defined_alias(text, named.end())
+        if alias and alias != law.upper():
+            defined.setdefault(alias, law)
         qualifier = (match.group("qual") or "").strip(", ") or None
         span = (match.start(), named.end())
         for number in parse_article_numbers(match.group("nums") or ""):
@@ -570,11 +616,9 @@ class DutchCitationExtractor:
         """Register the name a citation gives its law: ``(hierna: de Awb)``."""
         if law.family is not None or not law.law_id:
             return
-        defined = _HIERNA_RE.match(text, law.end)
-        if defined:
-            alias = defined.group("alias").strip().upper()
-            if alias and alias not in self._code_map:
-                local[alias] = law.law_id
+        alias = _defined_alias(text, law.end)
+        if alias and alias not in self._code_map:
+            local[alias] = law.law_id
 
     def _hits(
         self,

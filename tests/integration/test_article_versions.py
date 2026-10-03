@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -32,7 +32,7 @@ NEW = OLD.replace(
 ).replace("Niemand heeft voorafgaand verlof nodig", "Niemand heeft ooit verlof nodig")
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     toestanden = [
         (RAW_KIND_BWB_TOESTAND, LAW, NEW, "2025-01-01", None),
         (
@@ -70,7 +70,7 @@ def _seed(store: ArangoStore) -> None:
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -113,11 +113,12 @@ def test_an_article_has_one_current_version_and_a_date_picks_its_text(
 def test_every_article_version_is_current_only_when_nothing_follows_it(
     client: TestClient,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     rows = list(
         store.query(
-            "FOR v IN article_versions RETURN "
-            "{current: v.props.current, open: v.props.valid_until == null}"
+            "SELECT props -> 'current' AS current, "
+            "coalesce(json_typeof(props -> 'valid_until'), 'null') = 'null' AS open "
+            "FROM article_versions"
         )
     )
     assert rows and all(row["current"] == row["open"] for row in rows)

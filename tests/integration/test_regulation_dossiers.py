@@ -26,8 +26,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import (
-    ArangoStore,
     EdgeWriter,
+    GraphStore,
     NodeWriter,
     RawSourceWriter,
     raw_source_doc,
@@ -40,7 +40,7 @@ AWB = f"{COLLECTION_INSTRUMENTS}/bwbr0005537"
 ENACTED, RESTRUCTURED, OTHER = "21221", "32450", "36000"
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
@@ -68,20 +68,19 @@ def _seed(store: ArangoStore) -> None:
         )
 
 
-def _legislated_in(store: ArangoStore) -> set[tuple[str, str]]:
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e._from == @awb AND e.relation == @relation
-        RETURN [e._to, e.source]
+def _legislated_in(store: GraphStore) -> set[tuple[str, str]]:
+    statement = f"""
+    SELECT to_id, source FROM {COLLECTION_EDGES}
+    WHERE from_id = %(awb)s AND relation = %(relation)s
     """
-    rows = store.query(aql, {"awb": AWB, "relation": RELATION_LEGISLATED_IN})
-    return {(to, source) for to, source in rows}
+    rows = store.query(statement, {"awb": AWB, "relation": RELATION_LEGISLATED_IN})
+    return {(row["to_id"], row["source"]) for row in rows}
 
 
 def test_a_regulation_is_legislated_in_the_dossier_that_enacted_it(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     # what an earlier run derived from the last structural change, and an edge of another

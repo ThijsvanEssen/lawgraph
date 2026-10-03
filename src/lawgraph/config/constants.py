@@ -68,6 +68,7 @@ RELATION_REPEALS = "REPEALS"
 RELATION_BASED_ON = "BASED_ON"
 RELATION_IMPLEMENTS = "IMPLEMENTS"
 RELATION_LEGISLATED_IN = "LEGISLATED_IN"
+RELATION_PUBLISHED_IN = "PUBLISHED_IN"
 RELATION_REFERS_TO = "REFERS_TO"
 RELATION_EXPLAINS = "EXPLAINS"
 RELATION_APPEAL_OF = "APPEAL_OF"
@@ -169,6 +170,8 @@ EXPLANATORY_KIND_MARKER = "toelichting"
 # The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
 # text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
 EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
+# The edge `source` of what `semantic verdragenbank` derives from the register of a treaty.
+EDGE_SOURCE_VERDRAGENBANK = "verdragenbank"
 IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
 IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
 
@@ -218,11 +221,24 @@ RAW_KIND_EK_REJECTED = "ek-rejected-html"
 # A page of eerstekamer.nl on its composition: the lists of factions and committees and the
 # page of each (external id: its path); every run reads them all again.
 RAW_KIND_EK_COMPOSITION = "ek-composition-html"
+# The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
+# of its committee it was found under (``meta.status``).
+RAW_KIND_EK_BILL = "ek-bill-html"
+# The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
+# committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
+RAW_KIND_EK_PLENARY = "ek-plenary-html"
+RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
 RAW_KIND_VERDRAG = "verdrag-json"
+# the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
+RAW_KIND_VERDRAG_XML = "verdrag-xml"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 # The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
 RAW_KIND_TOOI_MINISTRIES = "tooi-ministries-jsonld"
+# A thesaurus of the BWB (external id the name of its list).
+RAW_KIND_TOOI_THESAURUS = "tooi-thesaurus-jsonld"
+TOOI_BWB_LEGAL_AREAS = "scw_bwb_rechtsgebieden"
+TOOI_BWB_THEMES = "scw_bwb_themas"
 
 # A document the source answered HTTP 404 for is remembered as a record of the kind it would
 # have had plus this suffix (no payload), so it is not asked for again on every run.
@@ -258,10 +274,13 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_VOTES_DAY,
         RAW_KIND_EK_REJECTED,
         RAW_KIND_EK_COMPOSITION,
+        RAW_KIND_EK_BILL,
+        RAW_KIND_EK_PLENARY,
+        RAW_KIND_EK_COMMITTEE_DAY,
     ),
-    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG,),
+    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
-    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES,),
+    SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────

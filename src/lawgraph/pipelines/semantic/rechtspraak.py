@@ -15,7 +15,7 @@ from lawgraph.core.mentions import ArticleMentions, find_mentions
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -52,7 +52,10 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         mapping = self._load_code_aliases()
         instrument_aliases = self._load_instrument_aliases()
-        extractor = build_extractor(mapping, instrument_aliases)
+        # "EP" is the First Protocol in a judgment that also names the EVRM
+        extractor = build_extractor(
+            mapping, instrument_aliases, self._load_context_aliases(mapping)
+        )
 
         def detect(text: str) -> list[CitationHit]:
             hits = detect_in_text(
@@ -70,7 +73,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         kept: dict[str, set[str]] = {}
         with NodeWriter(self.store) as nodes:
             for judgment, paragraphs in self._judgment_paragraphs(since_iso):
-                read.append(str(judgment.arango_id))
+                read.append(str(judgment.node_id))
                 unresolved: list[dict[str, Any]] = []
                 for cited in find_mentions(paragraphs, detect).values():
                     if cited.unknown_law:
@@ -93,7 +96,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                 self._keep_unresolved(judgment, unresolved, nodes, result)
 
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("Removed %d article citations the text no longer makes.", removed)

@@ -87,12 +87,26 @@ class JudgmentDTO(BaseNodeDTO):
         "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
         "publication not in the graph otherwise. Null for most.",
     )
+    published_on: str | None = Field(
+        default=None,
+        description='The day it was published on uitspraken.rechtspraak.nl ("Datum '
+        'publicatie", YYYY-MM-DD), as the source gives it; often weeks after the '
+        "decision. Null for a judgment of another source or without a published "
+        "document.",
+    )
     advocate_general: str | None = Field(
         default=None,
         description="For a conclusion, the advocate-general (or procureur-generaal) who "
         "wrote it, as its kop names them: `T. Hartlief`, `P.J. Wattel`, or only the "
         "surname (`Wattel`) where the kop gives no more. Null for a judgment, and for a "
         "conclusion whose kop names no one.",
+    )
+    advocate_general_role: str | None = Field(
+        default=None,
+        description="For a conclusion, the role it is signed in, read from its signature: "
+        "`advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend "
+        "procureur-generaal` or `plaatsvervangend advocaat-generaal`. Null for a "
+        "judgment, and for a conclusion that writes none or one that is not clear.",
     )
     unresolved_appeal_targets: list["AppealTarget"] = Field(
         default_factory=list,
@@ -134,6 +148,7 @@ class JudgmentDTO(BaseNodeDTO):
                 paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),
                 kind=p.get("kind"),
+                continues=p.get("continues"),
                 text=p.get("text") or "",
             )
             for position, p in enumerate(kept, start=1)
@@ -155,7 +170,9 @@ class JudgmentDTO(BaseNodeDTO):
             series_size=props.get("series_size"),
             same_as=props.get("same_as"),
             replaced_by=props.get("replaced_by"),
+            published_on=props.get("published_on"),
             advocate_general=props.get("advocate_general"),
+            advocate_general_role=props.get("advocate_general_role"),
             unresolved_appeal_targets=[
                 AppealTarget(**t) for t in props.get("unresolved_appeal_targets") or []
             ],
@@ -255,8 +272,9 @@ class JudgmentParagraph(BaseModel):
 
     paragraph_id: str = Field(
         description="Names the paragraph in the judgment, for a deep link: `rov-5.3` for "
-        "the numbered consideration 5.3, `kop-5` for a numbered heading, `p-12` (its "
-        "position) for a paragraph without a number. Unique in the judgment."
+        "the numbered consideration 5.3, `kop-5` for a numbered heading, `p-3f2a9c1e` "
+        "(from its text, not its position: it stays when another paragraph comes or goes) "
+        "for a paragraph without a number. Unique in the judgment."
     )
     number: str | None = Field(
         default=None,
@@ -266,8 +284,16 @@ class JudgmentParagraph(BaseModel):
     kind: str | None = Field(
         default=None,
         description="`heading`, `subheading` (a nested heading, or the kop: the first "
-        "paragraph), `body` or `signature` (the closing lines that sign a conclusion: "
-        "`De Procureur-Generaal bij de`, `Hoge Raad der Nederlanden`, `A-G`).",
+        "paragraph, up to the end of the parties), `body`, `toc` (a line of a table of "
+        "contents: no consideration, no heading, an id from its text) or `signature` (the "
+        "closing lines that sign a conclusion: `De Procureur-Generaal bij de`, `Hoge Raad "
+        "der Nederlanden`, `A-G`).",
+    )
+    continues: str | None = Field(
+        default=None,
+        description="Of a `body` paragraph without a number: the `paragraph_id` of the "
+        "numbered consideration it goes on with (`rov-1`), up to the next number or "
+        "heading. Null otherwise.",
     )
     text: str
     citations: list[ArticleCitationSpan] = Field(
@@ -455,6 +481,29 @@ class JudgmentFacetCount(BaseModel):
     count: int
 
 
+class SubjectFacetCount(BaseModel):
+    """A subject of the Rechtspraak under a main area, as the source writes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str = Field(
+        description="The subject as the source writes it (`Bestuursrecht; Belastingrecht`); "
+        "the `subject` filter takes it."
+    )
+    label: str = Field(description="The part after the main area: `Belastingrecht`.")
+    count: int
+
+
+class SubjectAreaFacetCount(JudgmentFacetCount):
+    """A main area of law with the subjects under it."""
+
+    narrower: list[SubjectFacetCount] = Field(
+        default_factory=list,
+        description="The subjects of the source under this main area, most first; "
+        "counted without the `subject_area` and `subject` filters.",
+    )
+
+
 class JudgmentFacets(BaseModel):
     """The judgments under the filters, counted; each without its own filter."""
 
@@ -479,6 +528,26 @@ class JudgmentFacets(BaseModel):
         default_factory=list,
         description="Per year of `date` (`2024`), oldest first after null (no date); "
         "counted without `from` and `to`.",
+    )
+    subjects: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per area of law, as the source writes it (`Strafrecht`, "
+        "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
+        "areas; counted without the `subject` filter.",
+    )
+    subject_area: list[SubjectAreaFacetCount] = Field(
+        default_factory=list,
+        description="Per main area of law: a subject up to its first `;` (`Bestuursrecht` "
+        "holds `Bestuursrecht; Belastingrecht`), most first; a judgment counts once for "
+        "each of its main areas. `narrower`: the subjects under it as the source writes "
+        "them. The whole tree is counted without the `subject_area` and `subject` filters, "
+        "so the other areas stay in view when one is chosen.",
+    )
+    procedure: list[JudgmentFacetCount] = Field(
+        default_factory=list,
+        description="Per procedure (Rechtspraak `psi:procedure`, as written: `Hoger "
+        "beroep`, `Cassatie`; null when it gives none), most first; counted without the "
+        "`procedure` filter.",
     )
 
 

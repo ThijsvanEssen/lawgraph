@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -58,7 +58,7 @@ FIRST = _article_82_announced(XML)
 SECOND = _without_article_142(XML)
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     toestanden = [
         (RAW_KIND_BWB_TOESTAND, LAW, SECOND, "2025-01-01", None),
         (
@@ -96,7 +96,7 @@ def _seed(store: ArangoStore) -> None:
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -156,9 +156,9 @@ def test_an_article_that_left_the_law_ends_when_the_next_toestand_starts(
     client: TestClient,
 ) -> None:
     versions = list(
-        ArangoStore().query(
-            "FOR v IN article_versions FILTER v.props.article_number == '142' "
-            "RETURN [v.props.valid_until, v.props.current]"
+        GraphStore().query(
+            "SELECT json_build_array(props -> 'valid_until', props -> 'current') "
+            "FROM article_versions WHERE props ->> 'article_number' = '142'"
         )
     )
     assert versions == [["2025-01-01", False]]

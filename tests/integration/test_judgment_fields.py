@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_relations import NS
 
 CONCLUSION = "ECLI:NL:PHR:2025:311"
@@ -107,7 +107,7 @@ JUDGMENTS = {
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, xml in JUDGMENTS.items():
             writer.add(
@@ -158,12 +158,14 @@ def test_a_judgment_lists_the_judgments_it_cites_and_counts_them(
 def test_the_publications_of_one_decision_are_linked_and_counted_once(
     client: TestClient,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     same_as = {
-        tuple(row)
+        (row["from_ecli"], row["to_ecli"])
         for row in store.query(
-            "FOR e IN edges FILTER e.relation == 'SAME_AS' "
-            "RETURN [DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli]"
+            "SELECT f.ecli AS from_ecli, t.ecli AS to_ecli FROM edges e"
+            " LEFT JOIN judgments f ON f.id = e.from_id"
+            " LEFT JOIN judgments t ON t.id = e.to_id"
+            " WHERE e.relation = 'SAME_AS'"
         )
     }
     assert same_as == {(ecli, KEPT) for ecli in REPLACED}

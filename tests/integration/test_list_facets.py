@@ -15,12 +15,11 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from tests.integration.seed import seed
 
 
-def _get(store: ArangoStore, path: str, **params: Any) -> dict[str, Any]:
+def _get(store: GraphStore, path: str, **params: Any) -> dict[str, Any]:
     app.dependency_overrides[get_store] = lambda: store
     try:
         response = TestClient(app).get(path, params=params)
@@ -40,7 +39,7 @@ def _counts(facet: list[dict[str, Any]]) -> dict[Any, int]:
 def test_normalize_stores_the_kind_of_the_case_a_decision_decided(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     # 96 votes in 8 Besluiten; Besluit 0 and 7 decide a Wetgeving, the others a Motie
     seed(store, documents=96, judgments=0, regulations=0)
     cli("normalize", "tk-dossiers")
@@ -72,7 +71,7 @@ def _decision(key: str, kind: str, passed: bool, date: str, subject: str) -> Nod
     )
 
 
-def _build_decisions(store: ArangoStore) -> None:
+def _build_decisions(store: GraphStore) -> None:
     nodes = [
         _decision("d1", "Motie", True, "2025-03-04", "Motie over de wegen"),
         _decision("d2", "Motie", False, "2025-03-04", "Motie over het spoor"),
@@ -109,7 +108,7 @@ def _build_decisions(store: ArangoStore) -> None:
 def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_decisions(store)
 
     everything = _get(store, "/api/decisions")
@@ -186,7 +185,7 @@ def _judgment(
     )
 
 
-def _build_judgments(store: ArangoStore) -> None:
+def _build_judgments(store: GraphStore) -> None:
     nodes = [
         _judgment(1, "hoge_raad", "HR", "2023-05-01", ["Strafrecht"]),
         _judgment(2, "hoge_raad", "HR", "2024-02-01", ["Civiel recht"]),
@@ -223,7 +222,7 @@ def _build_judgments(store: ArangoStore) -> None:
 def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_judgments(store)
 
     everything = _get(store, "/api/judgments")
@@ -280,7 +279,7 @@ def test_the_judgments_carry_their_subjects_and_are_counted_per_tier_and_year(
 def test_the_judgments_are_counted_per_source_without_the_source_filter(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _build_judgments(store)
     with NodeWriter(store) as writer:
         writer.add_all(
@@ -307,52 +306,3 @@ def test_the_judgments_are_counted_per_source_without_the_source_filter(
     # the facet keeps the other filters
     in_2024 = _get(store, "/api/judgments", **{"from": "2024-01-01"})
     assert _counts(in_2024["facets"]["source"]) == {"rechtspraak": 3, "echr": 1}
-
-
-def _plans(store: ArangoStore, filters: JudgmentFilters) -> dict[str, list[dict]]:
-    """The plan of every count of the list query, by the name of its LET."""
-    captured: list[tuple[str, dict[str, Any]]] = []
-
-    class Capture:
-        def query(self, aql: str, bind_vars: dict[str, Any]) -> list[Any]:
-            captured.append((aql, bind_vars))
-            return []
-
-    get_judgments_list(Capture(), filters)  # type: ignore[arg-type]
-    aql, bind_vars = captured[0]
-    # each facet on its own: the same loop, returning its count
-    plans: dict[str, list[dict]] = {}
-    for name in ("by_tier", "by_court_kind", "by_source", "by_year"):
-        body = aql.split(f"LET {name} = (", 1)[1].split("\n    )", 1)[0]
-        used = {k: v for k, v in bind_vars.items() if f"@{k}" in body}
-        plans[name] = store.db.aql.explain(body, bind_vars=used)["nodes"]
-    return plans
-
-
-def test_the_judgment_facets_read_an_index_and_no_judgment(database: str) -> None:
-    """On the full database there are millions of judgments, each with its text: a facet
-    that reads them takes minutes; one that walks an index, seconds at most."""
-    store = ArangoStore()
-    _build_judgments(store)
-
-    for filters in (
-        JudgmentFilters(),
-        JudgmentFilters(tier="rechtbank"),
-        JudgmentFilters(court_kind="ambtenarengerecht"),
-        JudgmentFilters(tier="andere_instantie", court_kind="ambtenarengerecht"),
-        JudgmentFilters(date_from="2024-01-01", date_to="2024-12-31"),
-        JudgmentFilters(court="RBAMS"),
-        JudgmentFilters(court="RBAMS", tier="rechtbank", date_from="2024-01-01"),
-        JudgmentFilters(source="rechtspraak"),
-    ):
-        for name, nodes in _plans(store, filters).items():
-            kinds = [node["type"] for node in nodes]
-            assert "EnumerateCollectionNode" not in kinds, (filters, name, kinds)
-            assert "MaterializeNode" not in kinds, (filters, name, kinds)
-            index = next(node for node in nodes if node["type"] == "IndexNode")
-            assert index.get("indexCoversProjections"), (filters, name, index)
-
-    # an area of law is found through its array index, not by reading every judgment
-    for name, nodes in _plans(store, JudgmentFilters(subject="Strafrecht")).items():
-        kinds = [node["type"] for node in nodes]
-        assert "EnumerateCollectionNode" not in kinds, (name, kinds)

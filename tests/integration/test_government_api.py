@@ -27,8 +27,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import (
-    ArangoStore,
     EdgeWriter,
+    GraphStore,
     NodeWriter,
     RawSourceWriter,
     raw_source_doc,
@@ -55,7 +55,7 @@ def _member(key: str, name: str, family_name: str, birth_date: str) -> Node:
     )
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -191,7 +191,7 @@ def _seed(store: ArangoStore) -> None:
             )
 
 
-def _client(store: ArangoStore) -> TestClient:
+def _client(store: GraphStore) -> TestClient:
     app.dependency_overrides[get_store] = lambda: store
     return TestClient(app)
 
@@ -199,7 +199,7 @@ def _client(store: ArangoStore) -> TestClient:
 def test_cabinets_their_bewindspersonen_and_commitments(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
 
     cli("normalize", "rijksoverheid")
@@ -214,7 +214,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert jetten.props["factions"] == ["d66", "vvd"]
     served = list(
         store.query(
-            "FOR e IN edges FILTER e.relation == @r AND e._from == @m RETURN e._to",
+            "SELECT to_id FROM edges WHERE relation = %(r)s AND from_id = %(m)s",
             {"r": RELATION_SERVED_IN, "m": f"{COLLECTION_MEMBERS}/heinen"},
         )
     )

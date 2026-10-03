@@ -23,7 +23,7 @@ from lawgraph.api.schemas.judgments import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
     JudgmentFilters,
@@ -48,13 +48,14 @@ logger = get_logger(__name__)
         "…), area of law (`subject`), source, date range and a minimum citation count. "
         "`facets` counts the judgments under the filters per `tier` (without the tier "
         "and court_kind filters), per `court_kind` (without its own filter), per "
-        "`source` (without the source filter) and per year of `date` (without `from` "
-        "and `to`)."
+        "`source` (without the source filter), per year of `date` (without `from` "
+        "and `to`), per area of law (`subjects`, without `subject`) and per `procedure` "
+        "(without its filter)."
     ),
     tags=["judgments"],
 )
 def list_judgments(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[
@@ -96,6 +97,21 @@ def list_judgments(
             "`Bestuursrecht; Belastingrecht`."
         ),
     ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law: the judgments with a subject in it, "
+            "`Bestuursrecht` for `Bestuursrecht` and `Bestuursrecht; Belastingrecht` alike "
+            "(the part of a subject before its first `;`)."
+        ),
+    ] = None,
+    procedure: Annotated[
+        str | None,
+        Query(
+            description="The procedure, as the source writes it (Rechtspraak "
+            "`psi:procedure`): `Hoger beroep`, `Cassatie`, `Eerste aanleg - meervoudig`."
+        ),
+    ] = None,
     cited_by_min: Annotated[int | None, Query(ge=0)] = None,
     include_stubs: Annotated[
         bool,
@@ -115,6 +131,8 @@ def list_judgments(
         court_kind=court_kind.value if court_kind else None,
         source=source,
         subject=(subject or "").strip() or None,
+        subject_area=(subject_area or "").strip() or None,
+        procedure=(procedure or "").strip() or None,
         date_from=date_from,
         date_to=date_to,
         cited_by_min=cited_by_min,
@@ -141,7 +159,7 @@ def list_judgments(
 )
 def get_judgment_detail(
     ecli: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentDetailResponse:
     """Return a judgment plus the articles it mentions."""
     try:

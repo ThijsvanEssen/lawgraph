@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 KEPT_DOSSIER = {"Id": uid(1, 3), "Nummer": 36100, "Titel": "Rechtsstaat en Rechtsorde"}
@@ -84,7 +84,7 @@ def _deleted(record_id: str) -> dict[str, Any]:
     }
 
 
-def _write(store: ArangoStore, records: list[tuple[str, dict[str, Any]]]) -> None:
+def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in records:
             writer.add(
@@ -130,23 +130,22 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _edges_at(store: ArangoStore, node_id: str) -> list[str]:
+def _edges_at(store: GraphStore, node_id: str) -> list[str]:
     return list(
         store.query(
-            "FOR e IN edges FILTER e._from == @id OR e._to == @id RETURN e.relation",
+            "SELECT relation FROM edges WHERE from_id = %(id)s OR to_id = %(id)s",
             {"id": node_id},
         )
     )
 
 
-def _seats(store: ArangoStore, person: str) -> list[str]:
+def _seats(store: GraphStore, person: str) -> list[str]:
     return sorted(
         store.query(
             """
-            FOR e IN edges
-                FILTER e._from == @id AND e.relation == "MEMBER_OF"
-                FILTER STARTS_WITH(e._to, "factions/")
-                RETURN e._to
+            SELECT to_id FROM edges
+            WHERE from_id = %(id)s AND relation = 'MEMBER_OF'
+              AND to_collection = 'factions'
             """,
             {"id": f"members/{make_node_key(person)}"},
         )
@@ -154,7 +153,7 @@ def _seats(store: ArangoStore, person: str) -> list[str]:
 
 
 def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
@@ -197,7 +196,7 @@ def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> Non
         ("factions", ["50plus", "vvd"]),
         ("members", sorted(make_node_key(p) for p in (FABER, ELLIAN))),
     ):
-        stored = store.query(f"FOR n IN {collection} SORT n._key RETURN n._key")
+        stored = store.query(f"SELECT key FROM {collection} ORDER BY key")
         assert list(stored) == keys, collection
 
 
@@ -265,16 +264,16 @@ def _deletions() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _voters(store: ArangoStore, decision: str) -> list[str]:
+def _voters(store: GraphStore, decision: str) -> list[str]:
     return sorted(
         store.query(
-            'FOR e IN edges FILTER e._to == @id AND e.relation == "VOTED" RETURN e._from',
+            "SELECT from_id FROM edges WHERE to_id = %(id)s AND relation = 'VOTED'",
             {"id": f"decisions/{make_node_key('decision', decision)}"},
         )
     )
 
 
-def _assert_votes_follow_the_deletions(store: ArangoStore) -> None:
+def _assert_votes_follow_the_deletions(store: GraphStore) -> None:
     kept = store.get_node("decisions", make_node_key("decision", KEPT_DECISION))
     assert kept is not None
     assert kept.props["tally"] == {"Voor": 48}
@@ -291,7 +290,7 @@ def _assert_votes_follow_the_deletions(store: ArangoStore) -> None:
 def test_a_deleted_vote_leaves_its_decision_and_a_decision_without_votes_goes(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _vote_records())
     cli("normalize", "tk-dossiers")
     assert _voters(store, KEPT_DECISION) == [
@@ -311,7 +310,7 @@ def test_an_incremental_run_removes_what_the_kamer_deleted_in_its_window(
     database: str, cli: Any
 ) -> None:
     """A deleted vote names no decision: the edge it made does."""
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _vote_records())
     cli("normalize", "tk-dossiers")
 
@@ -353,7 +352,7 @@ def _besluit_deletions() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _assert_besluit_deletions(store: ArangoStore) -> None:
+def _assert_besluit_deletions(store: GraphStore) -> None:
     kept = store.get_node("decisions", make_node_key("decision", BILL_DECISION))
     assert kept is not None  # a decision without votes, as a hamerstuk is one
     assert kept.props["tally"] == {}
@@ -367,7 +366,7 @@ def _assert_besluit_deletions(store: ArangoStore) -> None:
 def test_a_besluit_stays_without_its_votes_and_goes_when_deleted(
     database: str, cli: Any, incremental: bool
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _besluit_records())
     cli("normalize", "tk-dossiers")
     assert _voters(store, BILL_DECISION) == ["factions/cda", "factions/vvd"]

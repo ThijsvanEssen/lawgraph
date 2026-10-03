@@ -14,7 +14,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key
 from lawgraph.core.tk_records import Payload
 from lawgraph.db import Store
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import edges as normalize_edges
 
 
 class Deleted:
@@ -48,10 +48,8 @@ class Deleted:
         if not ids:
             return 0
         if self.collection == COLLECTION_EDGES:
-            return normalize_queries.remove_edges_of_records(store, ids)
+            return normalize_edges.remove_edges_of_records(store, ids)
         if self.key is None:
-            return normalize_queries.remove_nodes_of_records(
-                store, self.collection, ids
-            )
+            return normalize_edges.remove_nodes_of_records(store, self.collection, ids)
         keys = sorted({self.key(record_id) for record_id in ids})
-        return normalize_queries.remove_nodes(store, self.collection, keys)
+        return normalize_edges.remove_nodes(store, self.collection, keys)

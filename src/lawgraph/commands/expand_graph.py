@@ -18,7 +18,7 @@ import datetime as dt
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.command import Outcome, combined_result, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
@@ -27,7 +27,7 @@ from lawgraph.pipelines.retrieve_commands import GAPS
 logger = get_logger(__name__)
 
 
-def _count_records(store: ArangoStore) -> int:
+def _count_records(store: GraphStore) -> int:
     """The raw records that hold a document (not those that remember a 404)."""
     return sum(raw_queries.record_counts(store, RAW_KIND_MISSING_SUFFIX))
 
@@ -40,7 +40,7 @@ def _expand(max_iterations: int) -> list[Outcome]:
     cites that is not loaded either, so the count can stand still or grow while the graph
     fills.
     """
-    store = ArangoStore()
+    store = GraphStore()
     outcomes: list[Outcome] = []
     total = 0
     for iteration in range(1, max_iterations + 1):

@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 from .base import SemanticPipelineBase
 
@@ -30,7 +30,7 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        rows = semantic_queries.staatsblad_instrument_matches(self.store)
+        rows = semantic_bwb.staatsblad_instrument_matches(self.store)
 
         if not rows:
             logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")

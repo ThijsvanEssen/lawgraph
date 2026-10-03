@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import itertools
 import json
 import re
@@ -205,6 +206,24 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     if conclusion_eclis:
         meta["conclusion_eclis"] = conclusion_eclis
     return meta, subjects
+
+
+_RDF_ABOUT = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about"
+
+
+def published_on(root: ET.Element) -> str | None:
+    """The day the judgment was published on uitspraken.rechtspraak.nl ("Datum
+    publicatie"), as the source writes it (``2022-02-25``): ``dcterms:issued`` of the
+    ``rdf:Description`` about the published document (``rdf:about``, its deeplink). The
+    first ``rdf:Description``, about the ECLI, has an ``issued`` of its own that is not it
+    (it can be before the judgment's date). None for a record without the document."""
+    for element in root.iter():
+        if local_name(element.tag) != "Description" or not element.get(_RDF_ABOUT):
+            continue
+        for child in element:
+            if local_name(child.tag) == "issued" and (child.text or "").strip():
+                return (child.text or "").strip()
+    return None
 
 
 # ── the area of law ──────────────────────────────────────────────────────────
@@ -579,6 +598,7 @@ KIND_HEADING = "heading"
 KIND_SUBHEADING = "subheading"
 KIND_BODY = "body"
 KIND_SIGNATURE = "signature"
+KIND_TOC = "toc"  # a line of a table of contents: no consideration, no heading
 
 # "5.3 text", "12. text": digits, a dot or a dotted number, then a space. A number alone
 # ("1 februari 2013") is not one: a date opens a sentence too.
@@ -684,9 +704,77 @@ def is_section_heading(line: str) -> bool:
     return len(line) <= 90 and bool(_SECTION_HEADING.match(line))
 
 
+# The containers whose children ``_Sections.walk`` reads one by one: a list in one of them
+# stands on its own, not in the text of a paragraph.
+_WALKED = frozenset(
+    {
+        "uitspraak",
+        "conclusie",
+        "section",
+        "parablock",
+        "uitspraak.info",
+        "conclusie.info",
+    }
+)
+
+
+# The mean length of the items of a numbered list whose items are paragraphs (the points
+# of a conclusion), not an enumeration ("1.00 STK Telefoontoestel", the goods seized).
+LIST_PARAGRAPH_CHARS = 120
+
+
+def _is_numbered_list(element: ET.Element) -> bool:
+    """A list numbered 1, 2, 3 (``numeration="arabic"``) of paragraphs: its items are
+    paragraphs with their place as number, where the list stands on its own."""
+    if not (
+        local_name(element.tag) == "orderedlist"
+        and element.get("numeration") == "arabic"
+    ):
+        return False
+    lengths = [
+        len(collapse_ws(text_of(item, " ")))
+        for item in element
+        if local_name(item.tag) == "listitem"
+    ]
+    return bool(lengths) and sum(lengths) / len(lengths) >= LIST_PARAGRAPH_CHARS
+
+
+def _numbered_lines(uitspraak: ET.Element) -> set[int]:
+    """The ids of the line elements of a numbered unit: a title with its ``<nr>``, a
+    ``<paragroup>`` with its ``<nr>``, the items of a numbered list that stands on its own.
+    None of them is kop: a kop has no numbers."""
+    numbered: set[int] = set()
+
+    def visit(element: ET.Element) -> None:
+        for child in element:
+            name = local_name(child.tag)
+            has_nr = any(local_name(c.tag) == "nr" for c in child)
+            if (name in ("title", "paragroup") and has_nr) or (
+                _is_numbered_list(child) and local_name(element.tag) in _WALKED
+            ):
+                numbered.update(id(e) for e in child.iter())
+            else:
+                visit(child)
+
+    visit(uitspraak)
+    return numbered
+
+
+# The line that names a party in the kop: "hierna: de verdachte", "(hierna: ICAM)".
+_NAMES_A_PARTY = re.compile(r"^\(?hierna\b", re.IGNORECASE)
+# A line between parties ("en", "tegen", "t e g e n :"): the next one is a party, even when
+# the source numbers it as a section ("1 De Fontein B.V.").
+_JOINS_PARTIES = re.compile(
+    r"^(?:en|tegen|t\s?e\s?g\s?e\s?n|in de zaak van|tussen|en tegen)\s*:?$",
+    re.IGNORECASE,
+)
+
+
 def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
-    """``(lines, elements)`` of the kop: every line before the first section heading, and
-    the ids of the elements that print them. When no heading ends it, or only after more
+    """``(lines, elements)`` of the kop: every line before the first section heading, or
+    before the first numbered unit (``_numbered_lines``) once the kop has named a party
+    ("hierna: …") or its ``<uitspraak.info>`` is over, and the ids of the elements that
+    print them. When no heading ends it, or only after more
     than ``KOP_MAX_PROSE_LINES`` lines of prose, the ``<conclusie.info>`` of a conclusion
     is its kop, and a judgment has none: without headings there is no kop to tell apart.
     """
@@ -696,12 +784,22 @@ def _read_kop(uitspraak: ET.Element) -> tuple[list[str], set[int]]:
     elements: set[int] = set()
     info_kop: tuple[list[str], set[int]] = ([], set())
     prose = 0
+    numbered = _numbered_lines(uitspraak)
     for element in _line_elements(uitspraak):
         if not info_kop[0] and elements & in_info and id(element) not in in_info:
             info_kop = (list(lines), set(elements))  # the end of the info
         printed = _printed_lines(element)
         if printed and is_section_heading(printed[0]):
             return lines, elements
+        if (
+            id(element) in numbered
+            and not (lines and _JOINS_PARTIES.match(lines[-1]))
+            and (
+                any(_NAMES_A_PARTY.match(line) for line in lines)
+                or bool(elements & in_info and id(element) not in in_info)
+            )
+        ):
+            return lines, elements  # the parties are named, or the info is over
         prose += sum(len(line) > PROSE_LINE_CHARS for line in printed)
         if prose > KOP_MAX_PROSE_LINES:
             break
@@ -786,6 +884,43 @@ def advocate_general(root: ET.Element) -> str | None:
     return None
 
 
+# Who signs a conclusion: below "De Procureur-Generaal bij de Hoge Raad der Nederlanden," the
+# role, as the Parket writes it: "A-G", "AG", "Advocaat-Generaal", "(a.-g.)", "Wnd. A-G",
+# "plv." (the plaatsvervangend procureur-generaal). The heading of the office at the top reads
+# the same with no role below it. Letters only, lower case -> the role.
+_OFFICE = re.compile(
+    r"procureur[- ]generaal\s+bij\s+de\s+hoge\s+raad(?:\s+der\s+nederlanden)?\s*,?",
+    re.IGNORECASE,
+)
+ADVOCAAT_GENERAAL = "advocaat-generaal"
+WAARNEMEND_ADVOCAAT_GENERAAL = "waarnemend advocaat-generaal"
+PLAATSVERVANGEND_PROCUREUR_GENERAAL = "plaatsvervangend procureur-generaal"
+PLAATSVERVANGEND_ADVOCAAT_GENERAAL = "plaatsvervangend advocaat-generaal"
+_SIGNED_ROLES = {
+    "ag": ADVOCAAT_GENERAAL,
+    "advocaatgeneraal": ADVOCAAT_GENERAAL,
+    "agibd": ADVOCAAT_GENERAAL,  # in buitengewone dienst
+    "wndag": WAARNEMEND_ADVOCAAT_GENERAAL,
+    "waarnemendadvocaatgeneraal": WAARNEMEND_ADVOCAAT_GENERAAL,
+    "plv": PLAATSVERVANGEND_PROCUREUR_GENERAAL,
+    "plvag": PLAATSVERVANGEND_ADVOCAAT_GENERAAL,
+}
+
+
+def advocate_general_role(text: str | None) -> str | None:
+    """The role of who signs a conclusion, from the line below the office in its signature:
+    ``advocaat-generaal``, ``waarnemend advocaat-generaal``, ``plaatsvervangend
+    procureur-generaal`` ("plv.") or ``plaatsvervangend advocaat-generaal`` ("plv. AG").
+    ``None`` when the conclusion writes none, or one that is not clear: an empty line (an
+    A-G signs so too)."""
+    for match in reversed(list(_OFFICE.finditer(text or ""))):
+        line = (text or "")[match.end() :].lstrip().split("\n", 1)[0]
+        role = _SIGNED_ROLES.get(re.sub(r"[^a-z]", "", line.lower()))
+        if role:
+            return role
+    return None
+
+
 class _Sections:
     """The paragraphs of an ``<uitspraak>``, in reading order."""
 
@@ -821,11 +956,29 @@ class _Sections:
                 # the kop, when a court writes the judgment in it, or a run of paragraphs
                 self.walk(child, depth)
             elif name == "bridgehead":
-                self.add(
-                    KIND_HEADING if depth == 0 else KIND_SUBHEADING, None, _flat(child)
-                )
+                text = _flat(child)
+                self.add(_heading_kind(depth, text), None, text)
+            elif _is_numbered_list(child):
+                self.numbered_list(child)
             elif name not in _NOT_TEXT:  # para, al and any other body element
-                self.unnumbered(KIND_BODY, _unit_text(child, self._kop))
+                text = _unit_text(child, self._kop)
+                if _may_be_heading(child, text):
+                    self.add(KIND_BODY, None, text)
+                    self.entries[-1][_CANDIDATE] = (
+                        KIND_HEADING if depth == 0 else KIND_SUBHEADING
+                    )
+                else:
+                    self.unnumbered(KIND_BODY, text)
+
+    def numbered_list(self, items: ET.Element) -> None:
+        """A numbered list that stands on its own: each item a paragraph, its place in the
+        list its number (the source prints 1, 2, 3 and writes none)."""
+        place = 0
+        for item in items:
+            if local_name(item.tag) != "listitem":
+                continue
+            place += 1
+            self.add(KIND_BODY, str(place), _unit_text(item, self._kop))
 
     def section(self, section: ET.Element, depth: int) -> None:
         title = next((c for c in section if local_name(c.tag) == "title"), None)
@@ -834,7 +987,10 @@ class _Sections:
             text = collapse_ws(text_of(title, " "))
             if number and text.startswith(number):
                 text = text[len(number) :].strip()
-            self.add(KIND_HEADING if depth == 0 else KIND_SUBHEADING, number, text)
+            kind = _heading_kind(depth, text) if number is None else None
+            self.add(
+                kind or (KIND_HEADING if depth == 0 else KIND_SUBHEADING), number, text
+            )
         self.walk(section, depth + 1)
 
     def paragroup(self, group: ET.Element, depth: int) -> None:
@@ -872,6 +1028,59 @@ class _Sections:
 
 # A heading a numbered unit ends with is no longer than this.
 HEADING_LINE_CHARS = 80
+
+# A line of text the source sets as a title or a bold line: a phrase of a quoted record
+# ("[verdachte] ,", "is niet verschenen.", "met bevel tot oproeping …,") or the opening of a
+# quote ("‘Ontvankelijkheid van het hoger beroep"). A heading opens with no quotation mark
+# nor bracket and ends with no comma; one in small letters ("in de hoofdzaak") ends in no
+# punctuation either and is more than a word like "en".
+_QUOTE_OPENS = ("‘", "“", "„", "'", '"', "[", "«")
+_PHRASE_ENDS = (".", ",", ";", "!", "?")
+
+
+def is_text_line(text: str) -> bool:
+    """Is *text*, set as a heading, a line of text (a phrase, a quote) instead?"""
+    text = text.strip()
+    if not text:
+        return False
+    if text.startswith(_QUOTE_OPENS) or text.endswith((",", ";")):
+        return True
+    return text[0].islower() and (text.endswith(_PHRASE_ENDS) or len(text) <= 3)
+
+
+def _heading_kind(depth: int, text: str) -> str:
+    """The kind of a title or a bold line without a number: a heading by its depth, or
+    ``body`` when it is a line of text (``is_text_line``)."""
+    if is_text_line(text):
+        return KIND_BODY
+    return KIND_HEADING if depth == 0 else KIND_SUBHEADING
+
+
+# A plain paragraph that may be a heading (``_promote_headings``): one short line that
+# opens with a capital and ends in no punctuation, no year in it, no "label : value", no
+# amount, no page of the case file ("Dossierpagina 100037"), no initials of a name
+# ("J.C. Kranenburg" under a judgment).
+_CANDIDATE = "_heading"
+_NOT_IN_A_HEADING = re.compile(
+    r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
+    r"|\b(?:[A-Z]{1,2}|IJ|Th|Chr|Ph)\.(?:[A-Z]{1,2}\.)*\s",
+    re.IGNORECASE,
+)
+
+
+def _may_be_heading(element: ET.Element, text: str) -> bool:
+    """Is *element*, a plain paragraph, set like a heading: one line of at most
+    ``HEADING_LINE_CHARS``, opening with a capital, no number in front, ending in no
+    punctuation ("Procesverloop", "Toetsingskader", "Het hoger beroep van [appellant]")?"""
+    return (
+        local_name(element.tag) == "para"
+        and 0 < len(text) <= HEADING_LINE_CHARS
+        and "\n" not in text
+        and text[0].isupper()
+        and _split_number(text)[0] is None
+        and not text.endswith((".", ",", ";", ":", "?", "!", "”", '"', "’", "'"))
+        and not _NOT_IN_A_HEADING.search(text)
+    )
 
 
 def _is_heading_line(element: ET.Element) -> bool:
@@ -943,19 +1152,117 @@ def _mark_signature(entries: list[dict[str, Any]]) -> None:
         tail.append(entry)
 
 
+# More plain lines set like headings in a row are a list (abbreviations, names), no
+# headings: "Overwegingen" and then "Inleiding" are two.
+MAX_HEADINGS_IN_A_ROW = 2
+
+
+def _promote_headings(entries: list[dict[str, Any]]) -> None:
+    """Plain paragraphs set like a heading (``_may_be_heading``), at most
+    ``MAX_HEADINGS_IN_A_ROW`` in a row, are headings when text follows them: a ``body``
+    paragraph with a number, longer than ``HEADING_LINE_CHARS`` or opening what follows
+    (ending with a colon). A short line at the end (a name under a judgment) stays text."""
+    at = 0
+    while at < len(entries):
+        run = at
+        while run < len(entries) and _CANDIDATE in entries[run]:
+            run += 1
+        if run == at:
+            at += 1
+            continue
+        after = entries[run] if run < len(entries) else None
+        kinds = [entries[i].pop(_CANDIDATE) for i in range(at, run)]
+        if (
+            run - at <= MAX_HEADINGS_IN_A_ROW
+            and after is not None
+            and after["kind"] == KIND_BODY
+            and (
+                after["number"]
+                or len(after["text"]) > HEADING_LINE_CHARS
+                or after["text"].endswith(":")
+            )
+        ):
+            for i, kind in zip(range(at, run), kinds, strict=True):
+                entries[i]["kind"] = kind
+        at = run
+
+
+# The heading of a table of contents ("Inhoudsopgave", "Inhoud").
+_TOC_HEADING = re.compile(r"^inhoud(?:sopgave)?:?$", re.IGNORECASE)
+# The lines a table of contents has at most before the heading it lists first, and the
+# length of one: a longer paragraph is text, and ends it.
+TOC_MAX_LINES = 80
+TOC_LINE_CHARS = 200
+
+
+def _mark_toc(entries: list[dict[str, Any]]) -> None:
+    """A table of contents: its heading, then its lines up to the first heading, the first
+    paragraph of text (longer than ``TOC_LINE_CHARS``) or the line it listed first, where
+    the text begins ("1 Overzicht" as a numbered paragraph). Its numbered lines are no
+    considerations (``rov-1`` …), its lines kind ``toc``."""
+    start = next(
+        (at for at, e in enumerate(entries) if _TOC_HEADING.match(e["text"].strip())),
+        None,
+    )
+    if start is None:
+        return
+    lines: list[dict[str, Any]] = []
+    for entry in entries[start + 1 : start + 1 + TOC_MAX_LINES]:
+        if (
+            entry["kind"] in (KIND_HEADING, KIND_SUBHEADING)
+            or len(entry["text"]) > TOC_LINE_CHARS
+            or (lines and _same_line(entry, lines[0]))  # the text begins
+        ):
+            break
+        lines.append(entry)
+    else:
+        return  # no heading follows: no table of contents
+    if sum(1 for e in lines if e["number"]) < 2:
+        return
+    if entries[start]["kind"] == KIND_BODY:
+        entries[start]["kind"] = KIND_HEADING
+    for entry in lines:
+        entry["kind"] = KIND_TOC
+
+
+def _same_line(one: dict[str, Any], other: dict[str, Any]) -> bool:
+    return (
+        one["number"] == other["number"]
+        and one["text"].strip() == other["text"].strip()
+    )
+
+
+def text_id(text: str) -> str:
+    """The id of a paragraph without a number: ``p-`` and the first 8 hex of the SHA-1 of
+    its text, its whitespace collapsed. It follows the text, not the position, so a
+    paragraph keeps its deep link when another one before it comes or goes."""
+    digest = hashlib.sha1(" ".join(text.split()).encode(), usedforsecurity=False)
+    return f"p-{digest.hexdigest()[:8]}"
+
+
 def _name(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """*entries* with their ``id`` (see ``extract_sections``)."""
     seen: dict[str, int] = {}
     named = []
-    for position, entry in enumerate(entries, start=1):
-        number = entry["number"]
-        if number:
-            base = f"{'rov' if entry['kind'] == KIND_BODY else 'kop'}-{_slug(number)}"
-        else:
-            base = f"p-{position}"
+    owner: str | None = None  # the numbered consideration a paragraph goes on with
+    for entry in entries:
+        number, kind = entry["number"], entry["kind"]
+        if number and kind == KIND_BODY:
+            base = f"rov-{_slug(number)}"
+        elif number and kind in (KIND_HEADING, KIND_SUBHEADING):
+            base = f"kop-{_slug(number)}"
+        else:  # no number, or a line of a table of contents
+            base = text_id(f"{number} {entry['text']}" if number else entry["text"])
         seen[base] = seen.get(base, 0) + 1
         paragraph_id = base if seen[base] == 1 else f"{base}_{seen[base]}"
-        named.append({"id": paragraph_id, **entry})
+        paragraph = {"id": paragraph_id, **entry}
+        if kind == KIND_BODY and number:
+            owner = paragraph_id
+        elif kind == KIND_BODY and owner:
+            paragraph["continues"] = owner
+        else:
+            owner = None
+        named.append(paragraph)
     return named
 
 
@@ -973,10 +1280,10 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     and is not part of ``text``.
 
     ``id`` names a paragraph in a deep link and is unique in the judgment: ``rov-5.3`` for
-    a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-<n>`` (its
-    position) for a paragraph without a number. A number that repeats one before it gets
-    ``_<n>``, its occurrence (``rov-1_2``: the judgments of some courts number their
-    procedure and their considerations from 1 each).
+    a numbered ``body`` paragraph, ``kop-5`` for a numbered heading, ``p-3f2a9c1e``
+    (``text_id``: from its text, not its position) for a paragraph without a number. An id
+    that repeats one before it gets ``_<n>``, its occurrence (``rov-1_2``: the judgments of
+    some courts number their procedure and their considerations from 1 each).
     """
     uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:
@@ -985,6 +1292,8 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     sections = _Sections(kop)
     sections.add(KIND_SUBHEADING, None, "\n\n".join(lines))
     sections.walk(uitspraak)
+    _promote_headings(sections.entries)
+    _mark_toc(sections.entries)
     _unquote_headings(sections.entries)
     _mark_signature(sections.entries)
     return _name(sections.entries)

@@ -13,12 +13,13 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_KAMERSTUK,
     SOURCE_EERSTEKAMER,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.tk_records import dossier_label
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -40,7 +41,7 @@ def split_dossier_number(value: str | None) -> tuple[str | None, str | None]:
 class EerstekamerNormalizePipeline(NormalizePipelineBase):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -96,7 +97,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             "title": title,
             "subject": payload.get("dossier_title") or "",
             "session_year": payload.get("session_year") or "",
-            "display_name": (display_name or identifier)[:MAX_TITLE_CHARS],
+            "display_name": shorten(display_name or identifier, MAX_TITLE_CHARS),
         }
         for name, value in (
             ("date", iso_date(payload.get("date"))),

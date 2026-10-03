@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
+from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
@@ -244,6 +245,8 @@ def case(payload: Payload) -> Record | None:
         # The dossiers this case belongs to; the dossier pipeline turns them into PART_OF
         # edges once the dossier nodes exist.
         "dossier_numbers": dossier_numbers([payload]),
+        # Zaak.GestartOp: of a bill the day it was submitted, as the Kamer dates it
+        "started_on": iso_date(payload.get("GestartOp")),
         # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
         "related_cases": related_cases(payload),
     }
@@ -372,42 +375,79 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
             taken.add(candidate)
 
 
-def committee_seats(payload: Payload) -> dict[str, list[tuple[str | None, str | None]]]:
-    """``Persoon_Id`` -> the [from, to] periods they held a seat on this commissie.
+@dataclass(frozen=True)
+class CommitteeSeat:
+    """One period a person held a seat on a commissie: from, to (inclusive, None while
+    open), the role as the Kamer writes it (``CommissieZetel…Persoon.Functie``: ``Lid``,
+    ``Voorzitter``, ``OnderVz``, ``Plv. lid``) and whether it was a substitute's seat
+    (``CommissieZetelVervangerPersoon``)."""
 
-    The dates live on ``CommissieZetelVastPersoon``, one level below the seat.
-    """
-    periods: dict[str, list[tuple[str | None, str | None]]] = {}
+    from_date: str | None
+    to_date: str | None
+    role: str | None = None
+    substitute: bool = False
+
+
+def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
+    """``Persoon_Id`` -> every seat they held on this commissie, a member's
+    (``CommissieZetelVastPersoon``) and a substitute's (``CommissieZetelVervangerPersoon``),
+    one level below the seat, where the dates and the role live."""
+    seats: dict[str, list[CommitteeSeat]] = {}
     for seat in _dicts(payload.get("CommissieZetel")):
-        for held in _dicts(seat.get("CommissieZetelVastPersoon")):
-            person_id = str(held.get("Persoon_Id") or "")
-            if person_id:
-                periods.setdefault(person_id, []).append(
-                    (iso_date(held.get("Van")), iso_date(held.get("TotEnMet")))
-                )
-    return periods
+        for part, substitute in (
+            ("CommissieZetelVastPersoon", False),
+            ("CommissieZetelVervangerPersoon", True),
+        ):
+            for held in _dicts(seat.get(part)):
+                person_id = str(held.get("Persoon_Id") or "")
+                if person_id and not is_deleted(held):
+                    seats.setdefault(person_id, []).append(
+                        CommitteeSeat(
+                            iso_date(held.get("Van")),
+                            iso_date(held.get("TotEnMet")),
+                            _text(held, "Functie") or None,
+                            substitute,
+                        )
+                    )
+    return seats
 
 
-def representative_period(
-    periods: list[tuple[str | None, str | None]],
-) -> dict[str, str]:
-    """Edge meta for the one period that represents a membership.
+def _seat_meta(seat: CommitteeSeat) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    if seat.from_date:
+        meta["from_date"] = seat.from_date
+    if seat.to_date:
+        meta["to_date"] = seat.to_date
+    if seat.role:
+        meta["role"] = seat.role
+    if seat.substitute:
+        meta["substitute"] = True
+    return meta
 
-    An edge key is deterministic per (member, committee), so several periods
-    collapse into one edge: an open-ended period wins over a closed one, and
-    among equals the latest one does.
+
+def representative_period(seats: list[CommitteeSeat]) -> dict[str, Any]:
+    """Edge meta for the one seat that represents a membership, and every seat.
+
+    An edge key is deterministic per (member, committee), so several seats collapse into
+    one edge: an open-ended seat wins over a closed one, a member's over a substitute's,
+    and among equals the latest one does. ``periods`` holds every seat, oldest first, when
+    there is more than one or it has a role.
     """
-    open_periods = [(start, end) for start, end in periods if end is None]
-    if open_periods:
-        start = max((s for s, _ in open_periods if s), default=None)
-        end = None
-    else:
-        start, end = max(periods, key=lambda p: p[1] or "")
-    meta: dict[str, str] = {}
-    if start:
-        meta["from_date"] = start
-    if end:
-        meta["to_date"] = end
+    best = max(
+        seats,
+        key=lambda s: (
+            s.to_date is None,
+            not s.substitute,
+            s.to_date or "",
+            s.from_date or "",
+        ),
+    )
+    meta = _seat_meta(best)
+    if len(seats) > 1 or best.role:
+        meta["periods"] = [
+            _seat_meta(s)
+            for s in sorted(seats, key=lambda s: (s.from_date or "", s.to_date or ""))
+        ]
     return meta
 
 
@@ -436,8 +476,11 @@ def member(payload: Payload) -> Record | None:
         "full_name": full_name or None,
         # what another source knows a person by (``core.government.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
+        "name_prefix": _text(payload, "Tussenvoegsel") or None,
         "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
+        # Persoon.Nummer: what a namesake's slug ends in when the year does not tell
+        "number": str(payload["Nummer"]) if payload.get("Nummer") else None,
     }
     if name:
         # a Persoon the Kamer gives no name (a record it withholds) keeps the name its
@@ -626,6 +669,13 @@ def activity(payload: Payload) -> Record | None:
         "case_kinds_by_dossier": case_kinds_by_dossier(cases),
         "display_name": activity_display_name(date, description or kind),
         "number": str(payload.get("Nummer") or ""),
+        # the activities a moved one was replaced by (Activiteit.VervangenDoor): a moved
+        # activity keeps no agenda, the one that replaced it has it
+        "replaced_by": [
+            str(other["Nummer"])
+            for other in _dicts(payload.get("VervangenDoor"))
+            if other.get("Nummer")
+        ],
     }
 
 
@@ -652,7 +702,7 @@ def commitment(payload: Payload) -> Record | None:
         "status": raw_status,
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
-        "display_name": (text[:80] + "…") if len(text) > 80 else text,
+        "display_name": shorten(text, 80),
     }
 
 
@@ -854,9 +904,10 @@ def document_display_name(
         name = ""
     if not title or title == kind:
         return f"{name}. {kind}" if name and kind else name or kind or "Document"
+    title = shorten(title, 120)
     if _starts_with_kind(title, kind) or not kind:
-        return f"{name}: {title[:120]}" if name else title[:120]
-    return f"{name}. {kind}: {title[:120]}" if name else f"{kind}: {title[:120]}"
+        return f"{name}: {title}" if name else title
+    return f"{name}. {kind}: {title}" if name else f"{kind}: {title}"
 
 
 # ── Stemming / Besluit (Decision and its votes) ──────────────────────────────
@@ -942,6 +993,9 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         or f"Besluit {decision_id[:8]}"
     )
 
+    # The rows of a decision come in no fixed order: in that of their ids, the first vote
+    # (whose date stands in for a missing one) is the same on every run.
+    votes = sorted(votes, key=lambda cast: (cast.record_id or "", cast.person_id or ""))
     tally: dict[str, int] = {}
     voters: dict[str, int] = {}
     for cast in votes:
@@ -955,6 +1009,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         # the whole faction for every one of them.
         tally = dict(voters)
 
+    tally, voters = _in_vote_order(tally), _in_vote_order(voters)
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
@@ -980,6 +1035,15 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "passed": decision_passed(decision, tally),
         "display_name": decision_display_name(primary, order, len(listed), subject),
     }
+
+
+def _in_vote_order(counts: dict[str, int]) -> dict[str, int]:
+    """*counts* per choice as a tally is read: for, against, then the others in alphabetical
+    order (``Niet deelgenomen``)."""
+    order = {VOTE_FOR: 0, VOTE_AGAINST: 1}
+    return dict(
+        sorted(counts.items(), key=lambda item: (order.get(item[0], 2), item[0]))
+    )
 
 
 def decision_kind(primary: Payload | None, listed: list[Payload]) -> str | None:

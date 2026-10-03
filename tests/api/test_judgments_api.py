@@ -275,6 +275,25 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         "court_kind": [{"value": "ambtenarengerecht", "count": 7}],
         "source": [{"value": "rechtspraak", "count": 8}, {"value": "echr", "count": 2}],
         "year": [{"value": None, "count": 1}, {"value": "2020", "count": 7}],
+        "subjects": [
+            {"value": "Strafrecht", "count": 5},
+            {"value": "Bestuursrecht; Belastingrecht", "count": 3},
+        ],
+        "subject_area": [
+            {"value": "Strafrecht", "count": 5, "narrower": []},
+            {
+                "value": "Bestuursrecht",
+                "count": 3,
+                "narrower": [
+                    {
+                        "value": "Bestuursrecht; Belastingrecht",
+                        "label": "Belastingrecht",
+                        "count": 3,
+                    }
+                ],
+            },
+        ],
+        "procedure": [{"value": "Cassatie", "count": 6}, {"value": None, "count": 2}],
     }
 
     def fake(store, filters, **kwargs):
@@ -286,9 +305,11 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         "/api/judgments",
         params={
             "subject": " Strafrecht ",
+            "subject_area": " Strafrecht ",
             "tier": "andere_instantie",
             "court_kind": "ambtenarengerecht",
             "from": "2020-01-01",
+            "procedure": " Cassatie ",
         },
     ).json()
 
@@ -296,6 +317,8 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         tier="andere_instantie",
         court_kind="ambtenarengerecht",
         subject="Strafrecht",
+        subject_area="Strafrecht",
+        procedure="Cassatie",
         date_from="2020-01-01",
     )
     assert asked[0][1] == {"sort": "date_desc", "limit": 50, "offset": 0}
@@ -317,6 +340,9 @@ def test_a_judgment_without_subjects_lists_none(monkeypatch):
         "court_kind": [],
         "source": [],
         "year": [],
+        "subjects": [],
+        "subject_area": [],
+        "procedure": [],
     }
 
 
@@ -357,3 +383,12 @@ def test_the_judgment_list_carries_names_and_kind(monkeypatch):
     first, second = client.get("/api/judgments").json()["items"]
     assert (first["names"], first["decision_kind"]) == (["Haviltex"], "arrest")
     assert (second["names"], second["decision_kind"]) == ([], None)
+
+
+def test_the_detail_names_the_day_it_was_published() -> None:
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {**_JUDGMENT_DOC["props"], "published_on": "2026-09-23"},
+    }
+    assert JudgmentDTO.from_document(doc).published_on == "2026-09-23"
+    assert JudgmentDTO.from_document(_JUDGMENT_DOC).published_on is None

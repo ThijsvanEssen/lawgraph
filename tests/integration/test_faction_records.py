@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 OLD_50PLUS, NEW_50PLUS, VVD = uid(1, 8), uid(2, 8), uid(3, 8)
@@ -99,7 +99,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 
 
 def test_every_record_of_a_faction_is_that_faction(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             writer.add(
@@ -143,7 +143,7 @@ def test_every_record_of_a_faction_is_that_faction(database: str, cli: Any) -> N
 def test_a_vote_of_a_faction_the_graph_lacks_is_reported(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             if payload["Id"] == VVD:  # the VVD record is not loaded

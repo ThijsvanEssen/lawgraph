@@ -57,13 +57,87 @@ class _CommonProps(_StrictBase):
 # ---------------------------------------------------------------------------
 
 
+class LegalAreaProps(BaseModel):
+    """A legal area of a BWB regulation (WTI ``rechtsgebied``), with its TOOI concepts."""
+
+    main: str
+    main_id: str | None = None
+    main_uri: str | None = None
+    main_slug: str | None = None
+    specific: str | None = None
+    specific_id: str | None = None
+    specific_uri: str | None = None
+    specific_slug: str | None = None
+
+
+class PolicyDomainProps(BaseModel):
+    """A government theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI
+    concept."""
+
+    label: str
+    id: str | None = None
+    uri: str | None = None
+    slug: str | None = None
+
+
+class TreatyPublicationProps(_StrictBase):
+    """A Tractatenblad of a treaty (``core.verdragenbank_xml``)."""
+
+    official_id: str | None = None  # trb-1951-154
+    text: str  # as the register writes it: "1951, 154"
+    description: str | None = None  # "goedkeuring, inwerkingtreding"
+
+
+class TreatyPartyProps(_StrictBase):
+    """A state party to a treaty, with its dates as the register gives them."""
+
+    name: str
+    signed: str | None = None
+    ratified: str | None = None
+    consent: str | None = None  # TypeInstemming: R, T (toetreding), A, …
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    denounced: str | None = None
+    terminated: str | None = None
+    reservation: bool | None = None
+    objection: bool | None = None
+
+
+class TreatyKingdomPartProps(_StrictBase):
+    part: str | None = None  # "Nederland (in Europa)", "Aruba"
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    terminated: str | None = None
+
+
+class TreatyDossierProps(_StrictBase):
+    dossier: str
+    rijks_number: str | None = None
+    sub_number: str | None = None
+
+
+class RelatedTreatyProps(_StrictBase):
+    id: str | None = None  # the Verdragenbank id: 005132
+    title: str | None = None
+    date: str | None = None
+    place: str | None = None
+
+
 class InstrumentProps(_CommonProps):
+    legal_areas: list[LegalAreaProps] | None = None
+    policy_domains: list[PolicyDomainProps] | None = None
     bwb_id: str | None = None
     celex: str | None = None
     title: str | None = None
     official_title: str | None = None
     citation_title: str | None = None
     short_title: str | None = None
+    # a publication (``core.bwb_xml.publication_props``): its id at officielebekendmakingen.nl
+    official_id: str | None = None
+    # the abbreviation it is cited by (``core.aliases.abbreviation_of``): EVRM, AVG
+    abbreviation: str | None = None
     # every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
     # "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW"
     aliases: list[str] | None = None
@@ -82,7 +156,14 @@ class InstrumentProps(_CommonProps):
     date_signed: str | None = None  # of the instrument itself, not of an amendment
     date_in_force: str | None = None
     version_date_in_force: str | None = None  # BWB: the start of the toestand in force
-    parties: list[str] | None = None
+    # a treaty of the Verdragenbank (its item XML, ``core.verdragenbank_xml``)
+    place_signed: str | None = None
+    tractatenblad: list[TreatyPublicationProps] | None = None
+    parties: list[TreatyPartyProps] | None = None
+    kingdom_parts: list[TreatyKingdomPartProps] | None = None
+    kamerstukken: list[TreatyDossierProps] | None = None
+    parent_treaties: list[RelatedTreatyProps] | None = None
+    child_treaties: list[RelatedTreatyProps] | None = None
     article_count: int | None = None
     inbound_citation_count: int | None = None
     date_eff: str | None = None
@@ -120,6 +201,8 @@ class ArticleProps(_CommonProps):
     title: str | None = None
     text: str | None = None
     instrument_citation_title: str | None = None
+    # the ``abbreviation`` of its instrument: "art. 8 EVRM"
+    instrument_abbreviation: str | None = None
     instrument_id: str | None = None
     # BWB identity and provenance of the current version
     stam_id: str | None = None
@@ -186,10 +269,12 @@ class ArticleVersionProps(_CommonProps):
 class JudgmentParagraphProps(_StrictBase):
     """One paragraph of a judgment (``core.judgments.extract_sections``)."""
 
-    id: str  # ``rov-5.3``, ``kop-5``, ``p-12``: unique in the judgment, for deep links
+    id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
-    kind: Literal["heading", "subheading", "body", "signature"]
+    kind: Literal["heading", "subheading", "body", "signature", "toc"]
     text: str
+    # of a paragraph without a number: the numbered consideration it goes on with
+    continues: str | None = None
 
 
 class JudgmentRepresentativeProps(_StrictBase):
@@ -257,6 +342,8 @@ class JudgmentProps(_CommonProps):
     # a conclusion: the advocate-general who wrote it, as its kop names them
     # (``core.judgments.advocate_general``)
     advocate_general: str | None = None
+    # and the role they sign in (``core.judgments.advocate_general_role``)
+    advocate_general_role: str | None = None
     court: str | None = None
     case_number: str | None = None
     # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
@@ -276,6 +363,8 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     court_kind: str | None = None
     date_eff: str | None = None
+    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgments.published_on``)
+    published_on: str | None = None
     inbound_citation_count: int | None = None
     # the judgments its text cites (``semantic graph-list-stats``)
     outbound_citation_count: int | None = None
@@ -367,6 +456,10 @@ class DossierProps(_CommonProps):
     # where ``opened_on`` comes from: first_paper (nr. 1 of its own numbering),
     # royal_message (its Koninklijke boodschap) or earliest_record
     opened_on_basis: str | None = None
+    # the day of its newest paper, held activity or decision (``dossier_stages``)
+    last_activity: str | None = None
+    # the GestartOp of its own zaak of a bill (Wetgeving, Initiatiefwetgeving, Begroting)
+    submitted_on_tk: str | None = None
     closed_on: str | None = None
     case_kinds: list[str] | None = None
     # what it is (the Zaak.Soort of its own zaak, ``core.dossier_stages.dossier_kind``) and
@@ -384,6 +477,9 @@ class DossierProps(_CommonProps):
     # retrieved_on}``
     ek_rejected: dict | None = None
     ek_outcome: dict | None = None
+    # the page of its bill on eerstekamer.nl (``normalize eerstekamer-bills``): url, read_on,
+    # status, submitted_on and progress, as the page gives them
+    ek_bill: dict | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -411,6 +507,15 @@ class ActivityProps(_CommonProps):
     dossier_numbers: list[str] | None = None
     case_kinds_by_dossier: dict[str, list[str]] | None = None
     number: str | None = None
+    replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
+    # of the Eerste Kamer (``normalize eerstekamer-agenda``): ``EK``; the time as its agenda
+    # gives it, the decision points of a committee meeting (number, reference, dossiers,
+    # subject, decision), the page it was taken over from and the day it was read
+    chamber: str | None = None
+    time: str | None = None
+    decision_points: list[dict] | None = None
+    source_url: str | None = None
+    retrieved_on: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -580,6 +685,9 @@ class MemberProps(_CommonProps):
     party: str | None = None
     faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
+    name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
+    number: str | None = None  # Persoon.Nummer
+    slug: str | None = None  # a stable name for a readable URL (core.member_slugs)
     birth_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
@@ -667,6 +775,7 @@ class CaseProps(_CommonProps):
     # Zaak.Soort: Wetgeving, Motie, Brief regering, ...
     kind: str | None = None
     dossier_numbers: list[str] | None = None
+    started_on: str | None = None  # Zaak.GestartOp
     # Zaak.GerelateerdNaar: the cases the Kamer relates this one to
     related_cases: list[RelatedCase] | None = None
 

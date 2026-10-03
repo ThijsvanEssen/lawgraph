@@ -1,6 +1,6 @@
 # Architecture
 
-LawGraph is a batch system that fills an ArangoDB graph, plus an HTTP API on top of it that
+LawGraph is a batch system that fills a graph in PostgreSQL, plus an HTTP API on top of it that
 only reads. The user interface is Concordans, a SvelteKit front end in a repository of its
 own, which reads this API over HTTP; this repository has no user interface.
 
@@ -129,7 +129,7 @@ official source gives are built from it by a command and committed (`data/minist
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env`, and no other module reads the environment |
 | `core/` | pure logic and shared definitions, each defined exactly once: node and props models, relation catalogue, BWB XML parsing, citation extraction, dossier stage classification, identifiers, XML and time helpers, batching, the TTL cache. Imports only `config` and other `core` modules; no I/O |
-| `db/` | all database access, and the only place that knows the database is ArangoDB: `ArangoStore`, `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/`, as functions in the terms of their caller (`get_dossier_hub(store, number)`, `iter_raw_records(store, source=..., kinds=...)`) |
+| `db/` | all database access, and the only place that knows the database is PostgreSQL: `GraphStore` (the store), `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/`, as functions in the terms of their caller (`get_dossier_hub(store, number)`, `iter_raw_records(store, source=..., kinds=...)`) |
 | `clients/` | HTTP only; one class per source on `BaseClient` |
 | `pipelines/` | phases; depend on `config`, `core`, `db`, `clients` |
 | `api/` | routes and DTOs in `schemas/`; depends on `config`, `core`, `db` |
@@ -166,14 +166,18 @@ Both writers de-duplicate by key inside the buffer (last wins), flush automatica
 500 nodes / 1000 edges, and re-raise a failed batch. Bulk writes do not return the stored
 document; keep working from the in-memory node. Node upserts merge `props` (shallow) and
 union `labels`. Edge upserts overwrite `confidence`, `source`, `status`, merge `meta`, and
-leave `created_at` and all curated fields untouched.
+leave `created_at` and all curated fields untouched. An insert keeps the order of the keys;
+an update, here or where a step sets props or `meta` in place, writes them in alphabetical
+order (`lg_update`), so the API serves them in one order whatever ran first.
 
-`ArangoStore.query` streams every query that reads (the server would otherwise build the
-whole result in its memory first: 44,000 toestanden are 3.5 GB) and closes its cursor when
-the reader stops; a query that writes is not streamed and gets `max_runtime=600`. Bulk writes
-are sent again (after 2, 10 and 30 s) while the database is unreachable.
-`ArangoStore()` creates the database `ARANGO_DB_NAME` when it is missing (and the user may
-administer the server), then the missing collections, indexes, analyzers and search views.
+`GraphStore.query` streams every query that reads on a server-side cursor, a batch of rows
+at a time (44,000 toestanden are 3.5 GB), and gives its connection back to the pool when the
+reader stops; a statement that writes runs at once, for at most 600 s. Bulk writes are sent
+again (after 2, 10 and 30 s) while the database is unreachable.
+`GraphStore()` creates the database `LAWGRAPH_DB_NAME` when it is missing (and the user may),
+then what is missing of the schema of `db/schema.py`: tables, indexes, functions and
+triggers. A database whose tables differ from the schema is refused at the start (build it
+again).
 
 ## Conventions enforced by tests and lint
 

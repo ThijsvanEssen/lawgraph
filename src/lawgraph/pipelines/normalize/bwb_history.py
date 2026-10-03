@@ -67,9 +67,10 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.counting import Store
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
+from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -136,7 +137,7 @@ class _FirstSeen:
         the earliest start: of this run, or of an earlier run that wrote it."""
         stored: dict[str, str] = {}
         for keys in chunked(sorted(self._first), _INSTRUMENT_CHUNK * 5):
-            stored.update(normalize_queries.article_version_starts(store, keys))
+            stored.update(normalize_bwb.article_version_starts(store, keys))
         result = {}
         for key, (bwb_id, start, article, title, position) in self._first.items():
             earlier = stored.get(key)
@@ -251,7 +252,7 @@ def exclusive_end(end_date: str | None) -> str | None:
 class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     """Normalize all historical BWB toestanden into instrument and article versions."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
         self._incremental = False  # a run with --since: it adds to what is stored
 
@@ -263,7 +264,10 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         """Stream the raw historical toestanden (each is a large XML document)."""
         self._incremental = since is not None
         return self._iter_raw_sources(
-            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_TOESTAND_ALL], since=since
+            source=SOURCE_BWB,
+            kinds=[RAW_KIND_BWB_TOESTAND_ALL],
+            since=since,
+            chronological=True,
         )
 
     # ── phase 1: stream nodes ────────────────────────────────────────────────
@@ -351,7 +355,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         """Add the versions of a toestand, in its order, to *places*; a run with --since
         first reads what an earlier run stored for the law."""
         if self._incremental and bwb_id not in places:
-            places.seed(bwb_id, normalize_queries.stored_places(self.store, bwb_id))
+            places.seed(bwb_id, normalize_bwb.stored_places(self.store, bwb_id))
         versions: list[tuple[str, Crumbs]] = []
         for article in toestand.articles:
             key = self._version_key(article, bwb_id)
@@ -494,7 +498,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         places: Places,
         writer: EdgeWriter,
     ) -> None:
-        versions = list(normalize_queries.article_versions(self.store, bwb_ids))
+        versions = list(normalize_bwb.article_versions(self.store, bwb_ids))
         positions: dict[str, int] = {}
         for bwb_id in bwb_ids:
             positions.update(places.positions(bwb_id))
@@ -502,7 +506,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             v["last_seen"] = max(v.get("last_seen") or "", last_seen.get(v["key"], ""))
             v["lapsed"] = is_lapsed(v.get("effect"), v.get("text_start"))
         versions, raised = self._merge(versions)
-        starts = normalize_queries.toestand_starts(self.store, bwb_ids)
+        starts = normalize_bwb.toestand_starts(self.store, bwb_ids)
         expected = valid_until_by_key(versions, starts)
         self._write_valid_until(
             [
@@ -522,7 +526,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
         article_by_identity = {
             (a["bwb_id"], a["stam_id"]): a["key"]
-            for a in normalize_queries.article_identities(self.store, bwb_ids)
+            for a in normalize_bwb.article_identities(self.store, bwb_ids)
             if a.get("stam_id")
         }
         newest = self._newest_per_identity(versions)
@@ -564,7 +568,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             if (by_key[key]["last_seen"] or "") > (survivor["last_seen"] or ""):
                 survivor["last_seen"] = by_key[key]["last_seen"]
                 raised.add(survivor_key)
-        normalize_queries.remove_nodes(
+        normalize_edges.remove_nodes(
             self.store, COLLECTION_ARTICLE_VERSIONS, sorted(absorbed)
         )
         return [v for v in versions if v["key"] not in absorbed], raised

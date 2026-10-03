@@ -25,8 +25,10 @@ from lawgraph.api.routes import (
     government,
     instruments,
     judgments,
+    lookup,
     nodes,
     parliament,
+    paths,
     relationships,
     resolve,
     search,
@@ -41,7 +43,7 @@ from lawgraph.config.settings import (
     API_TRUSTED_PROXIES,
 )
 from lawgraph.core.logging import setup_logging
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 setup_logging()
 
@@ -56,10 +58,10 @@ DATA_VERSION_TTL = 15.0
 
 
 class _DataVersion:
-    """``ArangoStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
+    """``GraphStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
     while the database cannot be reached."""
 
-    def __init__(self, store: Callable[[], ArangoStore]) -> None:
+    def __init__(self, store: Callable[[], GraphStore]) -> None:
         self._store = store
         self._value: str | None = None
         self._read_at = float("-inf")
@@ -88,7 +90,7 @@ class _CacheControlMiddleware:
 
     _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
 
-    def __init__(self, app, store: Callable[[], ArangoStore], api_version: str) -> None:
+    def __init__(self, app, store: Callable[[], GraphStore], api_version: str) -> None:
         self._app = app
         self._version = _DataVersion(store)
         self._api_version = api_version
@@ -239,7 +241,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.72.0",
+    version="0.77.0",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -269,6 +271,8 @@ for _name, _router in (
     ("decisions", decisions.router),
     ("parliament", parliament.router),
     ("feed", feed.router),
+    ("paths", paths.router),
+    ("lookup", lookup.router),
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
@@ -326,7 +330,7 @@ async def root() -> dict[str, str]:
 
 @app.get("/api/health", tags=["root"])
 async def health(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> dict[str, str]:
     """Health check — verifies database connectivity."""
     try:

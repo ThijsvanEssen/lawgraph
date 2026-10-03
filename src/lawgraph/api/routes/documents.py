@@ -22,7 +22,8 @@ from lawgraph.api.schemas.documents import (
     PassageDTO,
     readable_sections,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
+from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
@@ -47,7 +48,7 @@ router = APIRouter()
     tags=["documents"],
 )
 def list_chamber_documents(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
         Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
     ] = None,
@@ -98,20 +99,23 @@ def list_chamber_documents(
         "One document with its text, read from the XML of the paper, its "
         "`sections` (the headings of the paper with their offsets into `text`), "
         "the dossiers it belongs to and, for an explanatory document, the "
-        "articles and laws it explains. "
+        "articles and laws it explains, and the votes taken on it (`decisions`, with the "
+        "vote of every faction). "
         "`text` is null when `normalize tk-content` has not reached it."
     ),
     tags=["documents"],
 )
 def get_document_text(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
     doc = get_document(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
     return DocumentTextResponse.from_document(
-        doc, get_document_links(store, doc["_id"])
+        doc,
+        get_document_links(store, doc["_id"]),
+        get_document_decisions(store, doc["_id"]),
     )
 
 
@@ -130,7 +134,7 @@ def get_document_text(
 )
 def get_document_article_passages(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     bwb_id: Annotated[
         str, Query(min_length=1, max_length=64, description="BWB id of the law.")
     ],

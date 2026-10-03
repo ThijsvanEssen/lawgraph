@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.cache import TTLCache
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 TODAY = dt.date.today()
 LATER = (TODAY + dt.timedelta(days=30)).isoformat()
@@ -36,7 +36,7 @@ def _node(collection: str, key: str, labels: list[str], **props: Any) -> dict[st
     }
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for source, kind, key in (
             (SOURCE_TK, RAW_KIND_TK_DOCUMENT, "d1"),
@@ -67,7 +67,7 @@ def _seed(store: ArangoStore) -> None:
 
 
 def test_each_source_says_how_current_it_is(database: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _seed(store)
     TTLCache.clear_all()
     app.dependency_overrides[get_store] = lambda: store

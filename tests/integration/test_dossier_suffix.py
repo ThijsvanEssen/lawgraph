@@ -19,8 +19,8 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
     SOURCE_TK,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid, wait_for_views
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.integration.seed import uid
 
 CHAPTER = {"Id": uid(2, 3), "Nummer": 37020, "Toevoeging": "XV"}
 ZAAK = {
@@ -89,15 +89,20 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     ]
 
 
-def _targets(store: ArangoStore, collection: str, relation: str) -> list[str]:
-    aql = """
-    FOR e IN edges
-        FILTER STARTS_WITH(e._from, @prefix) AND e.relation == @relation
-        FILTER STARTS_WITH(e._to, "dossiers/")
-        RETURN DISTINCT e._to
+def _targets(store: GraphStore, collection: str, relation: str) -> list[str]:
+    statement = """
+    SELECT DISTINCT to_id FROM edges
+    WHERE from_collection = %(collection)s AND relation = %(relation)s
+      AND to_collection = 'dossiers'
     """
-    rows = store.query(aql, {"prefix": f"{collection}/", "relation": relation})
+    rows = store.query(statement, {"collection": collection, "relation": relation})
     return sorted(rows)
+
+
+def _props(store: GraphStore, key: str) -> dict[str, Any]:
+    doc = store.get_document("dossiers", key)
+    assert doc is not None
+    return doc["props"]
 
 
 def test_records_on_a_budget_chapter_link_to_the_chapter(
@@ -105,7 +110,7 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
 ) -> None:
     """The Zaak names Nummer 37020 with Toevoeging XV: the case, the bill, the debate
     and the vote belong to 37020-XV, and the Miljoenennota (37020) gets none of them."""
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for kind, payload in _records():
             writer.add(
@@ -126,8 +131,7 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     assert _targets(store, "activities", "ABOUT") == chapter
     assert _targets(store, "decisions", "ABOUT") == chapter
 
-    dossiers = store.db.collection("dossiers")
-    budget, nota = dossiers.get("37020_xv")["props"], dossiers.get("37020")["props"]
+    budget, nota = _props(store, "37020_xv"), _props(store, "37020")
     assert budget["case_kinds"] == ["Begroting"]
     assert budget["kind"] == "Begroting"
     assert not nota.get("case_kinds")
@@ -138,13 +142,12 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     try:
         client = TestClient(app)
         _senate_papers(store, cli)
-        wait_for_views(store, {"search_dossiers": 4, "search_documents": 3})
         _api_names_the_chapter_by_its_label(client)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
 
-def _senate_papers(store: ArangoStore, cli: Any) -> None:
+def _senate_papers(store: GraphStore, cli: Any) -> None:
     """Eerste Kamer papers name their dossier as ``37020 XV``: normalize gives them the
     label a Tweede Kamer paper has."""
     with RawSourceWriter(store) as writer:

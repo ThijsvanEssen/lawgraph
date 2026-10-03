@@ -5,33 +5,45 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
-    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 
-def get_in_flux_counts(store: ArangoStore) -> dict[str, int]:
-    """Return a map of node_id → count of proposed edges pointing at it.
+def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
+    """Return a map of node_id → count of proposed edges pointing at it, by node id.
 
     The map is empty when the graph holds no proposed edges yet (e.g. before the
     amendment scanner has run) — that is the truth, not a bug.
     """
-    aql = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.status == '{EDGE_STATUS_VOORGESTELD}'
-        COLLECT target = e._to WITH COUNT INTO cnt
-        RETURN {{ id: target, count: cnt }}
-    """
-    return {row["id"]: row["count"] for row in store.query(aql)}
+    rows = store.query(
+        """
+        SELECT to_id AS id, count(*)::int AS count FROM edges
+        WHERE status = %(proposed)s
+        GROUP BY to_id
+        ORDER BY to_id
+        """,
+        {"proposed": EDGE_STATUS_VOORGESTELD},
+    )
+    return {row["id"]: row["count"] for row in rows}
+
+
+# Every article-level signal, whatever its timestamp: references and amendments. Those
+# edges may carry no created_at but are permanent signals of activity on an article.
+_ARTICLE_CITATION_RELATIONS = [
+    RELATION_REFERS_TO,
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+]
 
 
 def get_heat_counts(
-    store: ArangoStore, *, months: int = 6, min_count: int = 1
+    store: GraphStore, *, months: int = 6, min_count: int = 1
 ) -> dict[str, int]:
     """Return a map of node_id → activity count.
 
@@ -49,39 +61,27 @@ def get_heat_counts(
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30 * months)
     ).isoformat()
-    aql_parliament = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.created_at >= @cutoff
-        COLLECT target = e._to WITH COUNT INTO cnt
-        RETURN {{ id: target, count: cnt }}
-    """
-    result = {
-        row["id"]: row["count"]
-        for row in store.query(aql_parliament, {"cutoff": cutoff})
-    }
-
-    # Always supplement with every article-level signal regardless of timestamp:
-    # references (REFERS_TO) and amendments (AMENDS, INTRODUCES, REPEALS). Those
-    # edges may carry no created_at but are permanent signals of activity on an
-    # article.
-    _ARTICLE_CITATION_RELATIONS = [
-        RELATION_REFERS_TO,
-        RELATION_AMENDS,
-        RELATION_INTRODUCES,
-        RELATION_REPEALS,
-    ]
-    aql_article_citations = f"""
-    FOR e IN {COLLECTION_EDGES}
-        FILTER e.relation IN @relations
-        FILTER STARTS_WITH(e._to, "articles/")
-        COLLECT target = e._to WITH COUNT INTO cnt
-        RETURN {{ id: target, count: cnt }}
-    """
-    for row in store.query(
-        aql_article_citations, {"relations": _ARTICLE_CITATION_RELATIONS}
-    ):
-        node_id = row["id"]
-        result[node_id] = result.get(node_id, 0) + row["count"]
+    recent = store.query(
+        """
+        SELECT to_id AS id, count(*)::int AS count FROM edges
+        WHERE created_at >= %(cutoff)s
+        GROUP BY to_id
+        ORDER BY to_id
+        """,
+        {"cutoff": cutoff},
+    )
+    result = {row["id"]: row["count"] for row in recent}
+    citations = store.query(
+        """
+        SELECT to_id AS id, count(*)::int AS count FROM edges
+        WHERE relation = ANY(%(relations)s) AND to_collection = 'articles'
+        GROUP BY to_id
+        ORDER BY to_id
+        """,
+        {"relations": _ARTICLE_CITATION_RELATIONS},
+    )
+    for row in citations:
+        result[row["id"]] = result.get(row["id"], 0) + row["count"]
 
     if min_count > 1:
         return {k: v for k, v in result.items() if v >= min_count}

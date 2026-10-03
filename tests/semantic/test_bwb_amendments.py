@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from functools import partial
 from typing import Any
+
+import pytest
 
 from lawgraph.config.constants import (
     RELATION_AMENDS,
@@ -12,8 +16,12 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import article_version_key, publication_key
 from lawgraph.core.models import make_node_key
+from lawgraph.db import EdgeWriter
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.pipelines.semantic import bwb_amendments
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
-from tests.conftest import _BaseFakeStore
+from tests.conftest import _BaseFakeStore, remove_edges_from
 
 BWB = "BWBR0001840"
 
@@ -83,28 +91,6 @@ class _FakeStore(_BaseFakeStore):
     def article_key(bwb_id: str, stam_id: str) -> str:
         return make_node_key(bwb_id, "art", stam_id)
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_: Any):
-        if "FOR v IN article_versions" in aql:
-            # the real query sorts by article identity
-            return iter(
-                sorted(self.versions, key=lambda r: (r["bwb_id"], r["stam_id"]))
-            )
-        if "FOR a IN articles" in aql:
-            self.article_queries += 1
-            assert bind_vars is not None
-            bwb_ids, stam_ids = set(bind_vars["bwb_ids"]), set(bind_vars["stam_ids"])
-            return iter(  # cartesian IN filters, like AQL
-                {"key": self.article_key(b, s), "bwb_id": b, "stam_id": s}
-                for b, s in self.articles
-                if b in bwb_ids and s in stam_ids
-            )
-        if "FOR i IN instruments" in aql:
-            return iter(self.regulations)
-        if "REMOVE e IN edges" in aql:
-            assert bind_vars is not None
-            return self.remove_edges_from(bind_vars)
-        raise AssertionError(aql)
-
     def existing_keys(self, collection: str, keys) -> set[str]:
         assert collection == "dossiers"
         self.existence_calls += 1
@@ -117,6 +103,57 @@ class _FakeStore(_BaseFakeStore):
             old = self.nodes.get(doc["_key"], {"props": {}})
             self.nodes[doc["_key"]] = {**doc, "props": {**old["props"], **doc["props"]}}
         return len(docs), 0
+
+
+@pytest.fixture(autouse=True)
+def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of the pipeline, answered from the fake store."""
+
+    def amending_article_versions(store: _FakeStore) -> Iterator[dict[str, Any]]:
+        # the real query sorts by article identity
+        return iter(sorted(store.versions, key=lambda r: (r["bwb_id"], r["stam_id"])))
+
+    def articles_by_identity(
+        store: _FakeStore, bwb_ids: list[str], stam_ids: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        store.article_queries += 1
+        return iter(  # every combination of the two lists, like the real query
+            {"key": store.article_key(b, s), "bwb_id": b, "stam_id": s}
+            for b, s in store.articles
+            if b in bwb_ids and s in stam_ids
+        )
+
+    def remove_edges_from_ids(
+        store: _FakeStore,
+        relation: str,
+        source: str,
+        from_ids: list[str],
+        keep: dict[str, set[str]],
+    ) -> int:
+        bind = {"ids": from_ids, "relation": relation, "source": source, "keep": keep}
+        return sum(remove_edges_from(store.edges, bind))
+
+    def remove_edges_to_ids(
+        store: _FakeStore,
+        relations: list[str],
+        source: str,
+        to_ids: list[str],
+        keep: dict[str, set[str]],
+    ) -> int:
+        bind = {"ids": to_ids, "relations": relations, "source": source, "keep": keep}
+        return sum(remove_edges_from(store.edges, bind))
+
+    monkeypatch.setattr(
+        semantic_bwb, "amending_article_versions", amending_article_versions
+    )
+    monkeypatch.setattr(semantic_bwb, "articles_by_identity", articles_by_identity)
+    monkeypatch.setattr(
+        semantic_bwb,
+        "regulation_dossier_numbers",
+        lambda store: iter(store.regulations),
+    )
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", remove_edges_from_ids)
+    monkeypatch.setattr(semantic_edges, "remove_edges_to", remove_edges_to_ids)
 
 
 def _run(store: _FakeStore, chunk: int | None = None):
@@ -261,6 +298,38 @@ def test_article_identity_is_the_pair_not_each_id_alone() -> None:
         _art("1"),
         _art("2", bwb_id=other),
     }
+
+
+def test_a_chunk_leaves_the_edges_of_the_articles_of_another_chunk_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The lookup of a chunk also returns articles of other chunks (its two id lists cross):
+    those are no targets of the chunk, or it would remove their amendment edges, which a
+    long run has written already (here: every edge at once)."""
+    monkeypatch.setattr(bwb_amendments, "EdgeWriter", partial(EdgeWriter, batch_size=1))
+    other = "BWBR0002222"
+    store = _FakeStore(
+        [
+            # chunk 1: two versions of (BWB, 1)
+            _version("1", "a"),
+            _version("1", "b", origin=_pub("34")),
+            # chunk 2: (BWB, 2) and (OTHER, 1); its lookup crosses into (BWB, 1)
+            _version("2", "c"),
+            _version("1", "d", bwb_id=other),
+        ],
+        articles=[(BWB, "1"), (BWB, "2"), (other, "1")],
+    )
+
+    _run(store, chunk=2)
+
+    assert sorted(
+        e["_to"] for e in store.edges.values() if e["_to"].startswith("articles/")
+    ) == [
+        _art("1"),
+        _art("1"),
+        _art("2"),
+        _art("1", bwb_id=other),
+    ]
 
 
 def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:

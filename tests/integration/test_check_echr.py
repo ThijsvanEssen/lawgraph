@@ -12,7 +12,7 @@ from typing import Any
 
 from lawgraph.commands.check import check
 from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 LANGUAGES = ("ENG", "FRE", "DUT", "GER", "UKR")
 
@@ -41,7 +41,7 @@ def _items() -> list[dict[str, Any]]:
     ]
 
 
-def _store_items(store: ArangoStore, items: list[dict[str, Any]]) -> None:
+def _store_items(store: GraphStore, items: list[dict[str, Any]]) -> None:
     with RawSourceWriter(store) as writer:
         for item in items:
             writer.add(
@@ -61,7 +61,7 @@ def _echr_lines(lines: list[str]) -> list[str]:
 def test_a_judgment_in_several_languages_is_one_node_to_the_check(
     database: str, cli: Callable[..., Any]
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store_items(store, _items())
     cli("normalize", "echr")
 
@@ -74,7 +74,7 @@ def test_a_judgment_in_several_languages_is_one_node_to_the_check(
 def test_a_normalize_that_is_behind_is_still_reported(
     database: str, cli: Callable[..., Any]
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _store_items(store, _items())
     cli("normalize", "echr")
     # Six English-only judgments came in after the normalize.

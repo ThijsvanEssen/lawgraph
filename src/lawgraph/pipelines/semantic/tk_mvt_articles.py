@@ -42,7 +42,7 @@ from lawgraph.core.mvt_articles import (
     is_introduction,
 )
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 from .tk_mvt import SEMANTIC_SOURCE_SECTIONS
@@ -124,7 +124,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None)
-        papers = semantic_queries.memoranda_with_sections(
+        papers = semantic_tk.memoranda_with_sections(
             self.store,
             qualities=[QUALITY_EXPLICIT, QUALITY_IMPLICIT],
             batch_size=_BATCH_SIZE,

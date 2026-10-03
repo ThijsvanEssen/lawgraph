@@ -20,7 +20,7 @@ from lawgraph.core.court_sources import build_courts
 from lawgraph.core.courts import DATA
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_text
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 
@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
     result = PipelineResult()
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    rebuilt = rebuild(ArangoStore(), current)
+    rebuilt = rebuild(GraphStore(), current)
     changes = differences(current["courts"], rebuilt["courts"])
     for line in changes:
         print(line)
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     return result
 
 
-def rebuild(store: ArangoStore, current: dict[str, Any]) -> dict[str, Any]:
+def rebuild(store: GraphStore, current: dict[str, Any]) -> dict[str, Any]:
     """*current* (the content of ``data/courts.json``) built again from the stored value
     list. Raises when it was never retrieved."""
     rows = raw_queries.iter_raw_records(

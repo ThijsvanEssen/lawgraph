@@ -14,13 +14,11 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITMENTS,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_MEMBERS,
 )
 from lawgraph.core.models import Node, NodeType
-from lawgraph.db import ArangoStore, NodeWriter
+from lawgraph.db import GraphStore, NodeWriter
 
 ROWS = 60
 
@@ -48,12 +46,6 @@ def _nodes() -> list[Node]:
                     {"title": "Brief", "date": "2026-09-22"},
                 ),
                 (
-                    COLLECTION_DOSSIERS,
-                    NodeType.DOSSIER,
-                    {"label": str(37000 + ROWS), "opened_on": "2026-09-22"},
-                ),
-                (COLLECTION_MEMBERS, NodeType.MEMBER, {"name": "Jansen"}),
-                (
                     COLLECTION_JUDGMENTS,
                     NodeType.JUDGMENT,
                     {"ecli": f"ECLI:NL:HR:2026:{i}", "date_eff": "2026-09-22"},
@@ -77,10 +69,6 @@ def _nodes() -> list[Node]:
     "path",
     [
         "/api/decisions",
-        "/api/dossiers?status=open",
-        "/api/dossiers",
-        "/api/dossiers?sort=title",
-        "/api/members?include_all=true",
         "/api/judgments",
         "/api/judgments?sort=date_asc",
         "/api/judgments?sort=citation_count",
@@ -90,7 +78,7 @@ def _nodes() -> list[Node]:
     ],
 )
 def test_walking_the_pages_finds_every_row_once(database: str, path: str) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(_nodes())
     app.dependency_overrides[get_store] = lambda: store

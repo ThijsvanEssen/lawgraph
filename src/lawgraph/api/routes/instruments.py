@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.common import JudgmentSummaryDTO
+from lawgraph.api.schemas.common import FacetCountDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
@@ -23,6 +23,8 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDossierItem,
     InstrumentDossiersResponse,
     InstrumentEuLinksResponse,
+    InstrumentFacets,
+    InstrumentJudgmentFacets,
     InstrumentJudgmentItem,
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
@@ -34,7 +36,7 @@ from lawgraph.api.schemas.instruments import (
     InternationalLinkDTO,
     LinkedInstrumentDTO,
 )
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
@@ -49,9 +51,9 @@ from lawgraph.db.queries.instruments import (
     INSTRUMENT_SORTS,
     get_articles,
     get_articles_at,
+    get_citing_judgments,
     get_instrument_amended_by,
     get_instrument_dossiers,
-    get_instrument_judgments,
     get_instrument_related_instruments,
     get_instrument_versions,
     get_instruments_list,
@@ -66,6 +68,12 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
         key=judgment.get("_key") or "",
         ecli=props.get("ecli"),
         display_name=props.get("display_name"),
+        court=props.get("court_code"),
+        tier=props.get("tier"),
+        court_kind=props.get("court_kind"),
+        date=props.get("date_eff"),
+        advocate_general=props.get("advocate_general"),
+        advocate_general_role=props.get("advocate_general_role"),
         cited_articles=[
             CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
         ],
@@ -82,18 +90,33 @@ router = APIRouter()
     description=(
         "A paginated list of statutes, regulations and EU instruments. Supports "
         "free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind "
-        "filter and a minimum article count."
+        "filter, a minimum article count, and the registers of the BWB: a legal area "
+        "(`legal_area`, a main area includes its specific areas) and a government theme "
+        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
+        "`facets` counts the instruments under the filters per legal area (a tree) and per "
+        "theme, each without its own filter."
     ),
     tags=["instruments"],
 )
 def list_instruments(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[str | None, Query(description="Free-text match")] = None,
     jurisdiction: Annotated[Literal["nl", "eu"] | None, Query()] = None,
     kind: Annotated[str | None, Query()] = None,
     article_count_min: Annotated[int | None, Query(ge=0)] = None,
+    legal_area: Annotated[
+        str | None,
+        Query(
+            max_length=200,
+            description="A legal area by TOOI id (`c_e49bce03`) or slug (`familierecht`).",
+        ),
+    ] = None,
+    policy_domain: Annotated[
+        str | None,
+        Query(max_length=200, description="A government theme by TOOI id or slug."),
+    ] = None,
     sort: Annotated[Literal["title", "article_count"], Query()] = "title",
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
@@ -104,15 +127,21 @@ def list_instruments(
         jurisdiction=jurisdiction,
         kind=kind,
         article_count_min=article_count_min,
+        legal_area=legal_area,
+        policy_domain=policy_domain,
         sort=sort,
         limit=limit,
         offset=offset,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
-    return InstrumentListResponse(items=items, total=int(data.get("total", 0)))
+    return InstrumentListResponse(
+        items=items,
+        total=int(data.get("total", 0)),
+        facets=InstrumentFacets(**(data.get("facets") or {})),
+    )
 
 
-def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
+def _instrument_or_404(store: GraphStore, identifier: str) -> dict:
     doc = resolve_instrument(store, identifier)
     if doc is None:
         raise HTTPException(status_code=404, detail="Instrument not found")
@@ -134,7 +163,7 @@ def _instrument_or_404(store: ArangoStore, identifier: str) -> dict:
 )
 def get_instrument(
     identifier: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDetailDTO:
     doc = _instrument_or_404(store, identifier)
     return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
@@ -189,7 +218,7 @@ def _international_link(
 )
 def get_instrument_eu_links(
     identifier: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentEuLinksResponse:
     doc = _instrument_or_404(store, identifier)
@@ -231,7 +260,7 @@ def get_instrument_eu_links(
 )
 def list_articles(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     include_stubs: Annotated[
         bool,
         Query(description="Include placeholder/stub articles (default: false)"),
@@ -276,18 +305,41 @@ def list_articles(
     description=(
         "Per judgment: light metadata plus the specific articles it refers to. "
         "Meant for the case-law layer of the graph. ``total`` is the absolute "
-        "count, independent of ``limit``."
+        "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
+        "first; ``cited``, the most cited articles of the law first, then the newest. "
+        "``facets.year`` counts every citing judgment per year, not the page; ``year`` "
+        "keeps the judgments of one year (``total`` and the page)."
     ),
     tags=["instruments"],
 )
 def get_instrument_judgments_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    sort: Annotated[Literal["date", "cited"], Query()] = "date",
+    year: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d{4}$",
+            description="The judgments of this year (of their date) alone; "
+            "``facets.year`` still counts every year.",
+        ),
+    ] = None,
 ) -> InstrumentJudgmentsResponse:
-    rows, total = get_instrument_judgments(store, bwb_id, limit=limit)
-    items = [_extract_judgment_item(row) for row in rows]
-    return InstrumentJudgmentsResponse(bwb_id=bwb_id, total=total, items=items)
+    found = get_citing_judgments(
+        store, bwb_id, sort=sort, limit=limit, offset=offset, year=year
+    )
+    return InstrumentJudgmentsResponse(
+        bwb_id=bwb_id,
+        total=found.total,
+        year=year,
+        sort=sort,
+        facets=InstrumentJudgmentFacets(
+            year=[FacetCountDTO(**year) for year in found.years]
+        ),
+        items=[_extract_judgment_item(row) for row in found.items],
+    )
 
 
 @router.get(
@@ -306,7 +358,7 @@ def get_instrument_judgments_route(
 )
 def get_instrument_dossiers_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
@@ -346,7 +398,7 @@ def get_instrument_dossiers_route(
 )
 def get_instrument_amended_by_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AmendedByResponse:
@@ -370,7 +422,7 @@ def get_instrument_amended_by_route(
 )
 def get_instrument_related_route(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> InstrumentRelatedResponse:
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
@@ -407,7 +459,7 @@ def get_instrument_related_route(
 )
 def list_instrument_versions(
     bwb_id: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentVersionsResponse:
     docs = get_instrument_versions(store, bwb_id)
     items = [InstrumentVersionDTO.from_document(d) for d in docs]
@@ -433,7 +485,7 @@ def list_instrument_versions(
 def list_articles_at(
     bwb_id: str,
     at_date: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     text_preview_chars: Annotated[
         int | None,
         Query(

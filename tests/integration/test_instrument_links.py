@@ -17,14 +17,12 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.db import ArangoStore, make_edge_doc
-from lawgraph.db.queries.instrument_links import get_international_links
+from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries.instrument_scope import (
     resolve_instrument,
     scope_of,
     scope_of_node,
 )
-from lawgraph.db.queries.instruments import get_articles
 
 REGULATION = "BWBR0009001"
 OTHER_REGULATION = "BWBR0009002"
@@ -44,7 +42,7 @@ def _node(collection: str, key: str, **props: Any) -> dict[str, Any]:
     return {"_key": key, "type": collection[:-1], "labels": labels, "props": props}
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -228,8 +226,8 @@ def _seed(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> Iterator[ArangoStore]:
-    store = ArangoStore()
+def store(database: str) -> Iterator[GraphStore]:
+    store = GraphStore()
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
     yield store
@@ -237,7 +235,7 @@ def store(database: str) -> Iterator[ArangoStore]:
 
 
 def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     for identifier, key in [
         (REGULATION, "bwbr0009001"),
@@ -261,7 +259,7 @@ def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
 
 
 def test_the_detail_of_a_regulation_an_eu_act_and_an_unknown_instrument(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     client = TestClient(app)
     regulation = client.get(f"/api/instruments/{REGULATION}").json()
@@ -277,7 +275,7 @@ def test_the_detail_of_a_regulation_an_eu_act_and_an_unknown_instrument(
     assert client.get("/api/instruments/BWBR0000000/eu-links").status_code == 404
 
 
-def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
+def test_the_sub_routes_answer_for_an_eu_act(store: GraphStore) -> None:
     client = TestClient(app)
 
     articles = client.get(f"/api/instruments/{DIRECTIVE}/articles").json()
@@ -303,7 +301,7 @@ def test_the_sub_routes_answer_for_an_eu_act(store: ArangoStore) -> None:
     assert client.get(f"/api/instruments/{REGULATION}/judgments").json()["total"] == 1
 
 
-def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None:
+def test_eu_links_between_a_regulation_and_an_eu_act(store: GraphStore) -> None:
     client = TestClient(app)
 
     up = client.get(f"/api/instruments/{REGULATION}/eu-links").json()
@@ -334,7 +332,7 @@ def test_eu_links_between_a_regulation_and_an_eu_act(store: ArangoStore) -> None
 
 
 def test_international_links_hold_treaties_and_echr_judgments(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     client = TestClient(app)
 
@@ -377,49 +375,3 @@ def test_international_links_hold_treaties_and_echr_judgments(
     # an instrument without articles has an empty answer, not an error
     loose = client.get("/api/instruments/verdrag_77/eu-links").json()
     assert loose["international"] == [] and loose["implements"] == []
-
-
-def test_the_articles_of_an_instrument_are_read_through_an_index(
-    store: ArangoStore,
-) -> None:
-    """Both identifying props are indexed: no scan of the articles, for either kind.
-
-    The compound indexes on (bwb_id, article_number) are sparse and cannot answer a filter
-    on the first field alone; with a few thousand articles around, that was a full scan.
-    """
-    fillers = [
-        _node(
-            "articles",
-            f"bwbr{9100000 + n // 20}_{n % 20}",
-            bwb_id=f"BWBR{9100000 + n // 20}",
-            article_number=str(n % 20),
-        )
-        for n in range(3000)
-    ] + [
-        _node(
-            "articles",
-            f"3{2000 + n // 10}l{n % 10:04d}_1",
-            celex=f"3{2000 + n // 10}L{n % 10:04d}",
-            article_number="1",
-        )
-        for n in range(2000)
-    ]
-    store.bulk_insert_or_update_nodes("articles", fillers)
-    asked: list[tuple[str, dict[str, Any]]] = []
-    run = store.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        asked.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    store.query = recording  # type: ignore[method-assign]
-    for identifier in (REGULATION, DIRECTIVE):
-        get_articles(store, identifier)
-        scope = scope_of(identifier)
-        get_international_links(store, "instruments/x", scope)
-
-    assert len(asked) == 4
-    for aql, bind_vars in asked:
-        nodes = store.db.aql.explain(aql, bind_vars=bind_vars)["nodes"]
-        scanned = [n for n in nodes if n["type"] == "EnumerateCollectionNode"]
-        assert all(n["collection"] != "articles" for n in scanned), aql

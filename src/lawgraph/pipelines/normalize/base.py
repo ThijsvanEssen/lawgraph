@@ -10,7 +10,7 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db import ArangoStore, CountingStore, NodeWriter
+from lawgraph.db import CountingStore, GraphStore, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.base import PipelineBase
 
@@ -56,7 +56,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
 
     store: CountingStore
 
-    def __init__(self, store: ArangoStore) -> None:
+    def __init__(self, store: GraphStore) -> None:
         super().__init__(CountingStore(store))
 
     @abstractmethod
@@ -103,6 +103,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         kinds: list[str],
         since: dt.datetime | None = None,
         batch_size: int = 20,
+        chronological: bool = False,
     ) -> Iterator[dict[str, Any]]:
         """Stream raw_sources rows in small batches, each with its text payload."""
         since_iso = iso_timestamp(since)
@@ -116,6 +117,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
             kinds=kinds,
             since_iso=since_iso,
             batch_size=batch_size,
+            chronological=chronological,
         )
         yield from progress.track(self.store.with_payloads(rows))
 

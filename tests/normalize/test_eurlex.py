@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_ARTICLES
+import pytest
+
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    RAW_KIND_EU_CELEX,
+    SOURCE_EURLEX,
+)
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from tests.fakes import RawSourcesFake
 
@@ -19,11 +27,6 @@ HTML = (
 class _Store(RawSourcesFake):
     def __init__(self) -> None:
         self.docs: dict[str, list[dict[str, Any]]] = {}
-        self.batch_sizes: list[int | None] = []
-
-    def query(self, aql: str, bind_vars: dict | None = None, *, batch_size=None):
-        self.batch_sizes.append(batch_size)
-        return iter([])
 
     def insert_or_update(self, node: Node) -> tuple[Node, bool]:
         return node, True
@@ -33,14 +36,33 @@ class _Store(RawSourcesFake):
         return len(docs), 0
 
 
-def test_the_acts_are_streamed_twenty_at_a_time() -> None:
-    store = _Store()
-    raw = EurlexNormalizePipeline(store=store).fetch_raw()
+def test_the_acts_are_streamed_twenty_at_a_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[tuple[str, dict[str, Any]]] = []
+
+    def count_raw_records(store: Any, source: str, kinds: list[str]) -> int:
+        asked.append(("count", {"source": source, "kinds": kinds}))
+        return 0
+
+    def iter_raw_records(store: Any, **kwargs: Any) -> Iterator[dict[str, Any]]:
+        asked.append(("records", kwargs))
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "count_raw_records", count_raw_records)
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+
+    raw = EurlexNormalizePipeline(store=_Store()).fetch_raw()
     assert not isinstance(raw, list) and list(raw) == []
-    assert store.batch_sizes == [
-        None,
-        20,
-    ]  # the count for the progress line, then the acts
+    acts = {"source": SOURCE_EURLEX, "kinds": [RAW_KIND_EU_CELEX]}
+    # the count for the progress line, then the acts
+    assert asked == [
+        ("count", acts),
+        (
+            "records",
+            {**acts, "since_iso": None, "batch_size": 20, "chronological": False},
+        ),
+    ]
 
 
 def test_the_article_text_is_written_and_not_kept() -> None:

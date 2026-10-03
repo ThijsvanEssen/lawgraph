@@ -29,7 +29,7 @@ from lawgraph.core.mvt_articles import (
     MATCH_BODY_NAMED_LAW,
     MATCH_OWN_NUMBER,
 )
-from lawgraph.db import ArangoStore, make_edge_doc
+from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
     SEMANTIC_SOURCE,
@@ -49,7 +49,7 @@ def _clear_override() -> Iterator[None]:
 
 
 def _node(
-    store: ArangoStore, collection: str, key: str, node_type: str, **props: Any
+    store: GraphStore, collection: str, key: str, node_type: str, **props: Any
 ) -> str:
     store.bulk_insert_or_update_nodes(
         collection, [{"_key": key, "type": node_type, "labels": [], "props": props}]
@@ -58,13 +58,13 @@ def _node(
 
 
 def _edge(
-    store: ArangoStore, from_id: str, to_id: str, relation: str, **meta: Any
+    store: GraphStore, from_id: str, to_id: str, relation: str, **meta: Any
 ) -> None:
     doc = make_edge_doc(from_id, to_id, relation, source="test", meta=meta)
     store.bulk_insert_or_update_edges([doc])
 
 
-def _article(store: ArangoStore, bwb_id: str, number: str) -> tuple[str, str]:
+def _article(store: GraphStore, bwb_id: str, number: str) -> tuple[str, str]:
     """An article and one version of it: ``(article id, version key)``."""
     stam = f"st{number}"
     article = _node(
@@ -89,7 +89,7 @@ def _article(store: ArangoStore, bwb_id: str, number: str) -> tuple[str, str]:
     return article, version
 
 
-def _law(store: ArangoStore, bwb_id: str, title: str, **props: Any) -> str:
+def _law(store: GraphStore, bwb_id: str, title: str, **props: Any) -> str:
     return _node(
         store,
         "instruments",
@@ -132,7 +132,7 @@ class _Paper:
 
 
 def _memorandum(
-    store: ArangoStore,
+    store: GraphStore,
     key: str,
     dossier: str,
     text: str,
@@ -156,7 +156,7 @@ def _memorandum(
     return document
 
 
-def _graph(store: ArangoStore) -> dict[str, str]:
+def _graph(store: GraphStore) -> dict[str, str]:
     """Three dossiers; returns the ids of what the assertions name."""
     ids: dict[str, str] = {}
 
@@ -214,25 +214,28 @@ def _graph(store: ArangoStore) -> dict[str, str]:
     return ids
 
 
-def _explains(store: ArangoStore) -> dict[str, dict[str, Any]]:
+def _explains(store: GraphStore) -> dict[str, dict[str, Any]]:
     """Every EXPLAINS edge by key, without what differs between two builds (``created_at``)."""
-    aql = """
-    FOR e IN edges FILTER e.relation == 'EXPLAINS'
-        RETURN {key: e._key, from: e._from, to: e._to, source: e.source,
-                confidence: e.confidence, status: e.status, meta: e.meta}
+    statement = """
+    SELECT key, from_id AS "from", to_id AS "to", doc -> 'source' AS source,
+           doc -> 'confidence' AS confidence, doc -> 'status' AS status,
+           doc -> 'meta' AS meta
+    FROM edges WHERE relation = 'EXPLAINS'
     """
-    return {row["key"]: row for row in store.query(aql)}
+    return {row["key"]: row for row in store.query(statement)}
 
 
-def _revisions(store: ArangoStore) -> dict[str, str]:
-    return dict(store.query("FOR e IN edges RETURN [e._key, e._rev]"))
+def _revisions(store: GraphStore) -> dict[str, str]:
+    """The row version of every edge: an upsert that changes nothing does not write."""
+    rows = store.query("SELECT key, xmin::text AS rev FROM edges")
+    return {row["key"]: row["rev"] for row in rows}
 
 
-def _by_target(store: ArangoStore, document: str) -> dict[str, dict[str, Any]]:
+def _by_target(store: GraphStore, document: str) -> dict[str, dict[str, Any]]:
     return {e["to"]: e for e in _explains(store).values() if e["from"] == document}
 
 
-def _check_the_result(store: ArangoStore, ids: dict[str, str]) -> None:
+def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     klimaat = _by_target(store, ids["klimaat_doc"])
     named = klimaat[ids["klimaat_2"]]
     assert (named["source"], named["confidence"]) == (
@@ -279,7 +282,7 @@ def _run(cli: Any, *names: str) -> str:
 def test_the_result_is_the_same_in_either_order_and_a_rerun_writes_nothing(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     ids = _graph(store)
 
     _run(cli, "tk-mvt")
@@ -295,9 +298,7 @@ def test_the_result_is_the_same_in_either_order_and_a_rerun_writes_nothing(
     }
 
     # the other way round: the edges are removed and both run again, sections first
-    list(
-        store.query("FOR e IN edges FILTER e.relation == 'EXPLAINS' REMOVE e IN edges")
-    )
+    store.execute("DELETE FROM edges WHERE relation = 'EXPLAINS'")
     _run(cli, "tk-mvt-articles", "tk-mvt")
     assert _explains(store) == first
     _run(cli, "tk-mvt-articles", "tk-mvt", "tk-mvt-articles")
@@ -312,7 +313,7 @@ def test_the_result_is_the_same_in_either_order_and_a_rerun_writes_nothing(
 
 
 def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _graph(store)
     _run(cli, "tk-mvt", "tk-mvt-articles")
     app.dependency_overrides[get_store] = lambda: store

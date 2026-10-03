@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
@@ -22,17 +27,6 @@ class _FakeStore(_BaseFakeStore):
         self._articles = articles
         self._instruments = instruments or []
 
-    def query(
-        self, aql: str, bind_vars: dict | None = None, **_kw: Any
-    ) -> list[dict[str, Any]]:
-        if "FOR j IN judgments" in aql:  # the judgments normalize made
-            if "COLLECT WITH COUNT" in aql:
-                return [len(self._judgments)]
-            return list(self._judgments)
-        if "FOR inst IN instruments" in aql:
-            return list(self._instruments)
-        return []
-
     def get_node(self, collection: str, key: str) -> Node | None:
         doc = self._articles.get(key)
         if doc is None:
@@ -47,6 +41,30 @@ class _FakeStore(_BaseFakeStore):
         created = key not in self.edges
         self.edges[key] = dict(doc)
         return self.edges[key], created
+
+
+@pytest.fixture(autouse=True)
+def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The judgments normalize made and the names of the instruments come from the fake
+    store; no law has its articles loaded, and nothing is removed."""
+    for name in ("code_alias_rows", "instrument_alias_rows"):
+        monkeypatch.setattr(
+            semantic_bwb, name, lambda store: iter(list(store._instruments))
+        )
+    monkeypatch.setattr(
+        semantic_rechtspraak,
+        "count_rechtspraak_judgments",
+        lambda store: len(store._judgments),
+    )
+    monkeypatch.setattr(
+        semantic_rechtspraak,
+        "judgment_paragraphs",
+        lambda store, *, eclis, batch_size: iter(list(store._judgments)),
+    )
+    monkeypatch.setattr(
+        semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
+    )
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
 
 
 def _paragraph(number: str | None, text: str) -> dict[str, Any]:

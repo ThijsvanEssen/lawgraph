@@ -14,6 +14,7 @@ from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
     KIND_CONCLUSIE,
     advocate_general,
+    advocate_general_role,
     case_number_keys,
     compose_display_name,
     decision_kind,
@@ -24,13 +25,14 @@ from lawgraph.core.judgments import (
     is_english,
     kop_lines,
     parse_judgment,
+    published_on,
     replacing_ecli,
     translated_case_number,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import ArangoStore, NodeWriter
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db import GraphStore, NodeWriter
+from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -41,7 +43,7 @@ RAW_BATCH_SIZE = 200
 class RechtspraakNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -131,11 +133,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         )
         if props["decision_kind"] == KIND_CONCLUSIE:
             props["advocate_general"] = advocate_general(root)
+            props["advocate_general_role"] = advocate_general_role(props.get("text"))
         props["names"] = judgment_names(ecli)
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
         props["date_eff"] = (
             jm_date or (meta.get("date") if meta else None) or props.get("date")
         )
+        props["published_on"] = published_on(root)
         props["display_name"] = compose_display_name(props)
         key = make_node_key(ecli)
         node = Node(
@@ -185,7 +189,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         ]
         originals = {
             found["key"]: found["original"]
-            for found in normalize_queries.translated_judgments(self.store, lookup)
+            for found in normalize_rechtspraak.translated_judgments(self.store, lookup)
         }
         updates: list[dict[str, Any]] = []
         for row in self._translations:
@@ -205,7 +209,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                     {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
                 )
         linked = len(originals)
-        normalize_queries.update_judgment_props(self.store, updates)
+        normalize_rechtspraak.update_judgment_props(self.store, updates)
         logger.info(
             "Linked %d of %d English translation(s) to the judgment they translate.",
             linked,

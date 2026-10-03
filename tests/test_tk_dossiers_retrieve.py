@@ -12,9 +12,6 @@ class _Store(RawSourcesFake):
     def __init__(self) -> None:
         self.stored: list[tuple[str, str]] = []
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_: Any) -> list[Any]:
-        return []
-
     def insert_raw_source(
         self, *, kind: str, external_id: str | None = None, **_: Any
     ) -> None:

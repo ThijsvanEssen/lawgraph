@@ -6,6 +6,10 @@ Treaties are stored as Instrument nodes with:
   - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
   - props.status: the Verdragenbank status (Inwerkinggetreden, Buitenwerkinggetreden, ...)
+
+and, from the item XML of a treaty (``verdrag-xml``, ``core.verdragenbank_xml``), its
+``place_signed``, ``tractatenblad``, ``parties``, ``kingdom_parts``, ``kamerstukken``,
+``parent_treaties`` and ``child_treaties``, merged into the same node.
 """
 
 from __future__ import annotations
@@ -18,13 +22,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     MAX_TITLE_CHARS,
     RAW_KIND_VERDRAG,
+    RAW_KIND_VERDRAG_XML,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
+from lawgraph.core.verdragenbank_xml import parse_treaty_xml
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -33,7 +40,7 @@ logger = get_logger(__name__)
 class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -41,7 +48,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_VERDRAGENBANK,
-            kinds=[RAW_KIND_VERDRAG],
+            kinds=[RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML],
             since=since,
             batch_size=1000,
         )
@@ -53,6 +60,14 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
         writer = NodeWriter(self.store)
 
         for record in raw:
+            if record.get("kind") == RAW_KIND_VERDRAG_XML:
+                node = self._item_node(record)
+                if node is None:
+                    result.skipped += 1
+                else:
+                    writer.add(node)
+                    count += 1
+                continue
             payload = self._payload_json(record)
             if not payload or not isinstance(payload, dict):
                 result.skipped += 1
@@ -87,7 +102,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             is_in_force = status.lower() == "inwerkinggetreden"
 
             display_name = (
-                title[:MAX_TITLE_CHARS]
+                shorten(title, MAX_TITLE_CHARS)
                 if title
                 else f"Verdrag {treaty_number or external_id}"
             )
@@ -129,6 +144,28 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
 
         logger.info("Verdragenbank normalize: %d treaties processed.", count)
         return count
+
+    def _item_node(self, record: dict[str, Any]) -> Node | None:
+        """The props the item XML of a treaty adds, on the node of the treaty (merged with
+        those of its SRU record); None for a record without readable XML."""
+        external_id = record.get("external_id")
+        text = self._payload_text(record)
+        if not external_id or not text:
+            return None
+        try:
+            props = parse_treaty_xml(text)
+        except ValueError as exc:
+            logger.warning(
+                "Verdragenbank %s: item XML not read (%s).", external_id, exc
+            )
+            return None
+        return Node(
+            collection=COLLECTION_INSTRUMENTS,
+            type=NodeType.INSTRUMENT,
+            key=make_node_key("verdrag", external_id),
+            labels=["Verdrag", "NL"],
+            props=props,
+        )
 
     def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
         """No structural edges for treaties."""

@@ -66,9 +66,11 @@ from lawgraph.core.raw_records import meta, payload_json
 from lawgraph.core.rijksoverheid import parse_page, split_name
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
 from lawgraph.db.queries import government as government_queries
-from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -121,7 +123,7 @@ def known_as(posts: list[dict[str, Any]]) -> str | None:
 class RijksoverheidNormalizePipeline(NormalizePipelineBase):
     """Write the cabinets and the posts held in them onto the members."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
         # (member key, cabinet key) -> the posts held in it, for ``build_edges``
         self._served: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -155,7 +157,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                     "page": parse_page(html),
                 }
             )
-        factions = list(normalize_queries.faction_names(self.store))
+        factions = list(normalize_tk.faction_names(self.store))
         cabinets = build_cabinets(pages, lambda text: party_of(text, factions))
         member_of, own = self._members_of(cabinets)
         self._resolve_ministries(cabinets, member_of)
@@ -164,7 +166,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         nodes += [self._member(key, held, own) for key, held in posts.items()]
         cleared = [
             self._cleared(key)
-            for key in normalize_queries.government_members(self.store)
+            for key in normalize_tk.government_members(self.store)
             if key not in posts
         ]
         self._upsert_nodes([*nodes, *cleared])
@@ -181,6 +183,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             len(cleared),
             removed,
         )
+        assign_member_slugs(self.store)
         return len(nodes)
 
     # ── Who is who ───────────────────────────────────────────────────────────
@@ -191,7 +194,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         """``<person key>|<party>`` of every holder -> their member key; and the keys of
         the members of their own."""
         holders = holder_records(cabinets)
-        members = list(normalize_queries.member_identities(self.store))
+        members = list(normalize_tk.member_identities(self.store))
         claims: dict[str, list[str]] = defaultdict(list)
         for key, holder in holders.items():
             member = match_holder(holder, members)
@@ -229,7 +232,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         """Holder -> member key, for the members without a name of their own, by the
         papers they signed as a minister or state secretary."""
         signatures: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for row in normalize_queries.government_signatures(self.store):
+        for row in normalize_tk.government_signatures(self.store):
             signatures[row["key"]].append(row)
         people = [
             {"id": h["id"], "name": h["name"], "posts": h["posts"]} for h in holders
@@ -266,7 +269,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         """Member key -> their signatures in government, per function and month."""
         if self._signed is None:
             self._signed = defaultdict(list)
-            for row in normalize_queries.government_signatures_by_month(self.store):
+            for row in normalize_tk.government_signatures_by_month(self.store):
                 self._signed[row["key"]].append(row)
         return self._signed
 
@@ -402,13 +405,11 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         names any more."""
         gone = [
             key
-            for key in normalize_queries.labelled_members(
-                self.store, LABEL_RIJKSOVERHEID
-            )
+            for key in normalize_tk.labelled_members(self.store, LABEL_RIJKSOVERHEID)
             if key not in own
         ]
-        removed = normalize_queries.remove_members(self.store, gone) if gone else 0
-        return removed + normalize_queries.remove_nodes_except(
+        removed = normalize_tk.remove_members(self.store, gone) if gone else 0
+        return removed + normalize_edges.remove_nodes_except(
             self.store, COLLECTION_CABINETS, sorted(cabinets)
         )
 
@@ -438,7 +439,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         with EdgeWriter(self.store, what=None) as writer:
             for doc in docs:
                 writer.add_doc(doc)
-        removed = normalize_queries.remove_edges_except(
+        removed = normalize_edges.remove_edges_except(
             self.store, RELATION_SERVED_IN, [doc["_key"] for doc in docs]
         )
         logger.info(

@@ -7,7 +7,9 @@ alone; ``meta.bases`` says which:
 * ``national_implementing_measure``: EUR-Lex lists the publication as a Dutch measure
   implementing the act (``retrieve eurlex-nim``). The edge goes from the publication (when
   the graph has it) and from every regulation it enacted or made an article version of;
-  ``meta.publications`` names the measures. Not from articles: a measure names no article,
+  ``meta.publications`` names the measures, ``meta.measures`` each with how it is cited and its
+  title and kind of act as EUR-Lex gives them (the law that changed the Awb to implement it).
+  Not from articles: a measure names no article,
   and what it changed may be more than the implementation (a republication of a code, a
   law amending several others);
 * ``considerans``: the considerans of the regulation says it implements the act ("ter
@@ -35,12 +37,13 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.bwb_xml import publication_key
-from lawgraph.core.eurlex_nim import measure_publication
+from lawgraph.core.eurlex_nim import measure_publication, measure_summary
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries import normalize as normalize_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import eu as semantic_eu
 
 from .base import SemanticPipelineBase
 
@@ -62,11 +65,14 @@ class _Link:
     celex: str
     bases: set[str] = field(default_factory=set)
     publications: set[str] = field(default_factory=set)
+    measures: dict[str, dict[str, Any]] = field(default_factory=dict)  # by publication
 
     def meta(self) -> dict[str, Any]:
         meta: dict[str, Any] = {"celex": self.celex, "bases": sorted(self.bases)}
         if self.publications:
             meta["publications"] = sorted(self.publications)
+        if self.measures:
+            meta["measures"] = [self.measures[p] for p in sorted(self.measures)]
         return meta
 
 
@@ -79,7 +85,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         named: dict[str, set[str]] = defaultdict(set)  # regulation id -> CELEX named
 
         for row in self._track(
-            semantic_queries.eu_references(self.store), "regulations naming EU acts"
+            semantic_eu.eu_references(self.store), "regulations naming EU acts"
         ):
             regulation = _regulation_id(str(row["bwb_id"]))
             named[regulation].update(row.get("named") or [])
@@ -102,11 +108,14 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         celex: str,
         basis: str,
         publication: str | None = None,
+        measure: dict[str, Any] | None = None,
     ) -> None:
         link = links.setdefault((source_id, celex), _Link(celex))
         link.bases.add(basis)
         if publication:
             link.publications.add(publication)
+        if publication and measure:
+            link.measures.setdefault(publication, measure)
 
     # ------------------------------------------------------------------ EUR-Lex
 
@@ -114,14 +123,18 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         """IMPLEMENTS from each measure's publication and from the regulations it enacted
         or changed."""
         acts_of: dict[str, set[str]] = defaultdict(set)  # publication id -> CELEX
+        summary_of: dict[
+            str, dict[str, Any]
+        ] = {}  # publication id -> its first measure
         measures = unresolved = 0
-        for measure in semantic_queries.national_measures(self.store):
+        for measure in semantic_eu.national_measures(self.store):
             measures += 1
             publication = measure_publication(measure)
             if publication is None:
                 unresolved += 1
                 continue
             acts_of[publication].update(measure.get("celex") or [])
+            summary_of.setdefault(publication, measure_summary(measure, publication))
         logger.info(
             "%d national implementing measures: %d publications, %d name none.",
             measures,
@@ -138,9 +151,14 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                 source_id = f"{COLLECTION_INSTRUMENTS}/{publication_key(publication)}"
                 for celex in celexes:
                     self._link(
-                        links, source_id, celex, IMPLEMENTS_BASIS_NIM, publication
+                        links,
+                        source_id,
+                        celex,
+                        IMPLEMENTS_BASIS_NIM,
+                        publication,
+                        summary_of[publication],
                     )
-        for publication, bwb_id in semantic_queries.regulations_of_publications(
+        for publication, bwb_id in semantic_eu.regulations_of_publications(
             self.store, sorted(acts_of)
         ):
             for celex in acts_of[publication]:
@@ -150,6 +168,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     celex,
                     IMPLEMENTS_BASIS_NIM,
                     publication,
+                    summary_of[publication],
                 )
 
     # ------------------------------------------------------------------ writing
@@ -186,7 +205,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                 written.add((source_id, celex))
         edges.flush_into(result)
         # the only writer of IMPLEMENTS: every edge it no longer derives goes
-        removed = normalize_queries.remove_edges_except(
+        removed = normalize_edges.remove_edges_except(
             self.store, RELATION_IMPLEMENTS, keep
         )
         logger.info("IMPLEMENTS: %d edges, %d no longer derived.", len(keep), removed)
@@ -220,7 +239,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     )
                     keep.append(edge_key(source_id, RELATION_REFERS_TO, target_id))
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_of_source_except(
+        removed = semantic_edges.remove_edges_of_source_except(
             self.store, RELATION_REFERS_TO, EDGE_SOURCE_BWB_IMPLEMENTS, keep
         )
         logger.info(

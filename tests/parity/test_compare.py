@@ -1,0 +1,236 @@
+"""The comparison of the parity harness is strict where the contract is, and only there."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from tests.parity.catalogue import (
+    Pools,
+    Request,
+    _resolve,
+    _values,
+    _walk,
+    facet_values,
+    fill,
+)
+from tests.parity.compare import compare, first_difference, parse, search_agreement
+
+
+def _answer(body: Any, status: int = 200, **headers: str) -> dict[str, Any]:
+    text = body if isinstance(body, str) else json.dumps(body)
+    return {
+        "status": status,
+        "headers": {
+            "content-type": "application/json",
+            "cache-control": "max-age=60",
+            **headers,
+        },
+        "body": text,
+    }
+
+
+def test_key_order_is_a_difference() -> None:
+    found = first_difference(
+        parse('{"voor": 1, "tegen": 2}'), parse('{"tegen": 2, "voor": 1}')
+    )
+    assert found == ("$", "keys ['voor', 'tegen'] != ['tegen', 'voor']")
+
+
+def test_array_order_and_nested_values_are_differences() -> None:
+    assert first_difference(parse("[1, 2]"), parse("[2, 1]")) == ("$[0]", "1 != 2")
+    found = first_difference(parse('{"a": {"b": [null]}}'), parse('{"a": {"b": [""]}}'))
+    assert found == ("$.a.b[0]", "None != ''")
+
+
+def test_one_and_one_point_zero_are_equal_but_true_is_not_one() -> None:
+    assert first_difference(parse("[1, 2.5]"), parse("[1.0, 2.5]")) is None
+    assert first_difference(parse("[true]"), parse("[1]")) is not None
+
+
+def test_status_headers_and_etag_form() -> None:
+    same = compare(
+        "/api/x",
+        {},
+        _answer([1], etag='W/"0.72.0-123"'),
+        _answer([1], etag='W/"0.72.0-9"'),
+    )
+    assert same.same
+    other_form = compare(
+        "/api/x", {}, _answer([1], etag='W/"0.72.0-1"'), _answer([1], etag='"x"')
+    )
+    assert not other_form.same and other_form.where == "headers"
+    assert (
+        compare("/api/x", {}, _answer([1]), _answer([1], status=404)).where == "status"
+    )
+    no_cache = _answer([1])
+    no_cache["headers"]["cache-control"] = "no-store"
+    assert compare("/api/x", {}, _answer([1]), no_cache).where == "headers"
+
+
+def test_atom_is_compared_after_c14n() -> None:
+    atom = {"content-type": "application/atom+xml", "cache-control": "max-age=60"}
+    a = {"status": 200, "headers": atom, "body": '<feed a="1" b="2"><id>x</id></feed>'}
+    b = {
+        "status": 200,
+        "headers": atom,
+        "body": "<feed b='2' a='1'>\n  <id>x</id>\n</feed>",
+    }
+    assert compare("/api/feed.atom", {}, a, b).same
+
+
+def test_search_answers_that_differ_in_their_hits_only_are_d3() -> None:
+    hits = [{"id": "articles/a", "score": 0.5}, {"id": "articles/b", "score": 0.4}]
+    golden = {"q": "wet", "results": {"articles": hits}}
+    other = {"q": "wet", "results": {"articles": hits[::-1]}}
+    result = compare("/api/search", {"q": "wet"}, _answer(golden), _answer(other))
+    assert not result.same and result.allowed == "D3"
+    fewer = {"q": "wet", "results": {"articles": hits[:1]}}
+    result = compare("/api/search", {"q": "wet"}, _answer(golden), _answer(fewer))
+    assert result.allowed == "D3"
+    agreement = search_agreement(parse(json.dumps(golden)), parse(json.dumps(fewer)))
+    assert agreement == [(True, 0.5)]
+    other_query = {"q": "recht", "results": {"articles": hits}}
+    result = compare("/api/search", {}, _answer(golden), _answer(other_query))
+    assert result.allowed == ""
+
+
+def test_a_capped_neighbourhood_is_d9_and_an_uncapped_one_is_strict() -> None:
+    def hood(*nodes: str) -> dict[str, Any]:
+        return {
+            "focal_id": "dossiers/1",
+            "nodes": [{"id": n} for n in nodes],
+            "edges": [],
+        }
+
+    path = "/api/nodes/dossiers/1/neighborhood"
+    capped = compare(
+        path, {"cap": "2"}, _answer(hood("f", "a", "b")), _answer(hood("f", "a", "c"))
+    )
+    assert capped.allowed == "D9"
+    strict = compare(
+        path, {"cap": "5"}, _answer(hood("f", "a", "b")), _answer(hood("f", "a", "c"))
+    )
+    assert strict.allowed == ""
+
+
+def test_catalogue_helpers() -> None:
+    pools = Pools()
+    for n in range(50):
+        pools.add("ecli", f"ECLI:NL:HR:2020:{n}")
+    assert (
+        pools.sample("ecli") == pools.sample("ecli") and len(pools.sample("ecli")) == 20
+    )
+    assert fill("/api/judgments/{ecli}", {"ecli": "ECLI:NL:HR:2020:1"}) == (
+        "/api/judgments/ECLI%3ANL%3AHR%3A2020%3A1"
+    )
+    request = Request("/api/search", (("q", "art. 1"),), "search")
+    assert Request.from_json(request.as_json()) == request
+    assert request.url == "/api/search?q=art.+1"
+    schemas = {"Tier": {"enum": ["hoge_raad"], "type": "string"}}
+    nullable = {"anyOf": [{"$ref": "#/components/schemas/Tier"}, {"type": "null"}]}
+    assert _resolve(nullable, schemas)["enum"] == ["hoge_raad"]
+
+
+def test_an_empty_last_page_of_arango_is_its_defect_and_only_that() -> None:
+    def page(items: list[str], total: int = 10) -> dict[str, Any]:
+        return {"items": [{"key": k} for k in items], "total": total, "facets": None}
+
+    last = {"limit": "5", "offset": "9"}
+    defect = compare("/api/documents", last, _answer(page([])), _answer(page(["j"])))
+    assert defect.allowed == "ARANGO-LAST-PAGE"
+    strict = [
+        # not on the last page, or past the end
+        ("/api/documents", {"limit": "5", "offset": "3"}, page([]), page(["d"])),
+        ("/api/documents", {"limit": "5", "offset": "10"}, page([]), page(["k"])),
+        # another number of items than the page holds, another total, another route
+        ("/api/documents", last, page([]), page(["j", "k"])),
+        ("/api/documents", last, page([]), page(["j"], total=11)),
+        ("/api/decisions", last, page([]), page(["j"])),
+        # Arango listed something: an ordinary difference
+        ("/api/documents", last, page(["i"]), page(["j"])),
+    ]
+    for path, query, golden, other in strict:
+        result = compare(path, query, _answer(golden), _answer(other))
+        assert not result.same and result.allowed == "", (path, query, other)
+
+
+def test_atom_names_its_own_url_on_any_local_port() -> None:
+    atom = {"content-type": "application/atom+xml", "cache-control": "max-age=60"}
+
+    def feed(origin: str) -> dict:
+        body = f'<feed><id>{origin}/api/feed.atom</id><link href="{origin}/x"/></feed>'
+        return {"status": 200, "headers": atom, "body": body}
+
+    assert compare(
+        "/api/feed.atom",
+        {},
+        feed("http://localhost:8002"),
+        feed("http://127.0.0.1:8004"),
+    ).same
+    # another host is a difference still
+    assert not compare(
+        "/api/feed.atom", {}, feed("http://localhost:8002"), feed("https://example.org")
+    ).same
+
+
+def test_a_member_slug_is_no_committee_slug() -> None:
+    """Members have a ``slug`` too (``rob-jetten``): it goes to its own pool, so the
+    catalogue does not ask ``/api/committees/rob-jetten``."""
+    pools = Pools()
+    _walk(
+        {
+            "items": [
+                {"id": "members/m1", "slug": "rob-jetten"},
+                {"id": "committees/c1", "slug": "justitie-en-veiligheid"},
+            ]
+        },
+        pools,
+    )
+    assert pools.sample("slug") == ["justitie-en-veiligheid"]
+    assert pools.sample("member_slug") == ["rob-jetten"]
+
+
+def test_a_register_slug_is_no_committee_slug() -> None:
+    """The facets of the instruments name their legal areas and themes by TOOI id and slug
+    (``familierecht``): those go to a pool of their own, for ``legal_area=`` and
+    ``policy_domain=``, not to ``/api/committees/familierecht``."""
+    pools = Pools()
+    _walk(
+        {
+            "facets": {
+                "legal_area": [
+                    {
+                        "id": "c_5d8350bb",
+                        "slug": "personen-en-familierecht",
+                        "count": 3,
+                        "narrower": [
+                            {"id": "c_e49bce03", "slug": "familierecht", "count": 2}
+                        ],
+                    }
+                ]
+            },
+            "items": [{"id": "committees/c1", "slug": "justitie-en-veiligheid"}],
+        },
+        pools,
+    )
+    assert pools.sample("slug") == ["justitie-en-veiligheid"]
+    assert sorted(pools.sample("register_slug", 4)) == [
+        "familierecht",
+        "personen-en-familierecht",
+    ]
+
+
+def test_a_filter_whose_facet_names_no_values_takes_its_pool() -> None:
+    """``facets.legal_area`` is a tree by id and slug, without ``value``: the catalogue asks
+    ``legal_area=`` with the register slugs it harvested."""
+    pools = Pools()
+    _walk(
+        {"facets": {"legal_area": [{"id": "c_1", "slug": "familierecht", "count": 2}]}},
+        pools,
+    )
+    facets = facet_values(
+        {"facets": {"legal_area": [{"id": "c_1", "slug": "familierecht"}]}}
+    )
+    assert facets == {"legal_area": []}
+    assert _values("legal_area", {"type": "string"}, pools, facets) == ["familierecht"]

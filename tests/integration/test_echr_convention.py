@@ -4,8 +4,9 @@ The real ``semantic echr``, ``semantic rechtspraak`` and the API, on the small t
 judgment of the ECHR names the Convention articles it applies as HUDOC writes them
 (``8;8-1;8-2;41;P1-1``: article 8, its first and second paragraph, article 41, and article 1
 of the first Protocol, a treaty of its own). Those articles are the articles of BWBV0001000,
-the same nodes a Dutch judgment reaches with "art. 8 EVRM"; while the treaty is not loaded they
-are stubs, as the articles of any law that is not loaded.
+the same nodes a Dutch judgment reaches with "art. 8 EVRM"; an article of a Protocol is one of
+its BWB treaty (curated ``echr-protocols``: P1 is BWBV0001001). While a treaty is not loaded
+its articles are stubs, as the articles of any law that is not loaded.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.edges import make_edge_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 
@@ -39,12 +40,12 @@ ECHR_KEY = make_node_key(ECHR_ECLI)
 NL_ECLI = "ECLI:NL:HR:2019:1278"
 
 
-def _put(store: ArangoStore, collection: str, key: str, **props: Any) -> None:
+def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
-def _echr_judgment(store: ArangoStore) -> None:
+def _echr_judgment(store: GraphStore) -> None:
     """As ``normalize echr`` writes it."""
     _put(
         store,
@@ -62,7 +63,7 @@ def _echr_judgment(store: ArangoStore) -> None:
     )
 
 
-def _load_the_treaty(store: ArangoStore) -> None:
+def _load_the_treaty(store: GraphStore) -> None:
     """BWBV0001000 as ``normalize bwb`` writes it: its WTI abbreviation is EVRM."""
     _put(
         store,
@@ -89,11 +90,11 @@ def _load_the_treaty(store: ArangoStore) -> None:
         )
 
 
-def _cited(store: ArangoStore, judgment_key: str) -> dict[str, dict[str, Any]]:
+def _cited(store: GraphStore, judgment_key: str) -> dict[str, dict[str, Any]]:
     rows = store.query(
-        "FOR e IN edges FILTER e._from == @j AND e.relation == @r "
-        "LET a = DOCUMENT(e._to) "
-        "RETURN {key: a._key, stub: a.props.stub == true, meta: e.meta}",
+        "SELECT a.key, coalesce(a.stub, false) AS stub, e.doc -> 'meta' AS meta "
+        "FROM edges e LEFT JOIN articles a ON a.id = e.to_id "
+        "WHERE e.from_id = %(j)s AND e.relation = %(r)s",
         {"j": f"judgments/{judgment_key}", "r": RELATION_REFERS_TO},
     )
     return {row["key"]: row for row in rows}
@@ -102,7 +103,7 @@ def _cited(store: ArangoStore, judgment_key: str) -> dict[str, dict[str, Any]]:
 def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loaded(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _echr_judgment(store)
     # an edge an earlier run made to the Convention of the ECHR pipeline's own
     _put(store, COLLECTION_ARTICLES, "echr_convention_8", article_number="8")
@@ -121,24 +122,27 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
     cli("semantic", "echr")
 
     cited = _cited(store, ECHR_KEY)
-    assert set(cited) == {"bwbv0001000_8", "bwbv0001000_41"}  # the Protocol is not it
+    # P1-1 is article 1 of the first Protocol: BWBV0001001, a treaty of its own
+    assert set(cited) == {"bwbv0001000_8", "bwbv0001000_41", "bwbv0001001_1"}
     assert cited["bwbv0001000_8"]["stub"] is True
     assert cited["bwbv0001000_8"]["meta"]["leden"] == ["1", "2"]
+    assert cited["bwbv0001001_1"]["stub"] is True
+    assert cited["bwbv0001001_1"]["meta"]["protocol"] == "P1"
+    assert "protocol" not in cited["bwbv0001000_8"]["meta"]
     (stub,) = store.query(
-        "RETURN KEEP(DOCUMENT('articles/bwbv0001000_8').props, 'bwb_id', "
-        "'article_number')"
+        "SELECT json_build_object('bwb_id', props -> 'bwb_id', "
+        "'article_number', props -> 'article_number') "
+        "FROM articles WHERE key = 'bwbv0001000_8'"
     )
     assert stub == {"bwb_id": EVRM, "article_number": "8"}
     assert not list(
-        store.query(
-            "FOR i IN instruments FILTER i._key == 'echr_convention' RETURN i._key"
-        )
+        store.query("SELECT key FROM instruments WHERE key = 'echr_convention'")
     )
 
 
 @pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore]]:
-    store = ArangoStore()
+def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore]]:
+    store = GraphStore()
     _load_the_treaty(store)
     _echr_judgment(store)
     with RawSourceWriter(store) as writer:
@@ -166,20 +170,19 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, ArangoStore]]:
 
 
 def test_the_echr_and_a_dutch_judgment_cite_one_article_of_the_loaded_treaty(
-    client: tuple[TestClient, ArangoStore],
+    client: tuple[TestClient, GraphStore],
 ) -> None:
     _, store = client
     echr = _cited(store, ECHR_KEY)
-    assert set(echr) == {"bwbv0001000_8", "bwbv0001000_41"}
-    assert not any(row["stub"] for row in echr.values())
+    assert set(echr) == {"bwbv0001000_8", "bwbv0001000_41", "bwbv0001001_1"}
+    # the Convention is loaded; the first Protocol, a treaty of its own, is not
+    assert {key for key, row in echr.items() if row["stub"]} == {"bwbv0001001_1"}
     assert "bwbv0001000_8" in _cited(store, make_node_key(NL_ECLI))
-    assert not list(
-        store.query("FOR a IN articles FILTER a.props.stub == true RETURN a._key")
-    )
+    assert list(store.query("SELECT key FROM articles WHERE stub")) == ["bwbv0001001_1"]
 
 
 def test_an_echr_judgment_links_to_hudoc(
-    client: tuple[TestClient, ArangoStore],
+    client: tuple[TestClient, GraphStore],
 ) -> None:
     api, _ = client
     echr = api.get(f"/api/judgments/{ECHR_ECLI}").json()["judgment"]
@@ -193,7 +196,7 @@ def test_an_echr_judgment_links_to_hudoc(
 def test_the_check_counts_the_protocol_articles_that_are_not_linked(
     database: str,
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _echr_judgment(store)  # 8;8-1;8-2;41;P1-1
     _put(
         store,
@@ -201,12 +204,13 @@ def test_the_check_counts_the_protocol_articles_that_are_not_linked(
         "echr_001_2",
         source=SOURCE_ECHR,
         external_id="001-2",
-        articles=["P1-1;P1-1-1;P4-2;6"],
+        articles=["P1-1;P1-1-1;P4-2;P11-1;6"],
     )
 
     report = check(store, edges=False)
 
+    # P1 and P4 are in the curated list: linked; P11 changes the procedure of the Court
     assert (
-        "echr: 3 articles of a Protocol in 2 judgments are not linked (P1-1, P4-2): "
-        "a Protocol is a treaty of its own, and no source maps its number to a BWB id"
+        "echr: 1 articles of a Protocol in 1 judgments are not linked (P11-1): "
+        "the Protocol is not in the curated list echr-protocols"
     ) in report.notes

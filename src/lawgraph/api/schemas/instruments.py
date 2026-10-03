@@ -12,6 +12,7 @@ from lawgraph.api.schemas.common import (
     OFFICIAL_URL,
     VALID_UNTIL,
     DossierRefDTO,
+    FacetCountDTO,
     JudgmentSummaryDTO,
     address_of,
 )
@@ -19,7 +20,9 @@ from lawgraph.config.constants import (
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
+from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
@@ -177,9 +180,47 @@ class InstrumentJudgmentItem(BaseModel):
     key: str
     ecli: str | None = None
     display_name: str | None = None
+    court: str | None = Field(
+        default=None, description="ECLI court code, `HR`, `RBAMS`."
+    )
+    tier: str | None = Field(
+        default=None,
+        description="The tier, the Type of the court in the Instanties value list: "
+        "`hoge_raad`, `raad_van_state`, `gerechtshof`, `rechtbank`, … (as in "
+        "`/api/judgments`).",
+    )
+    court_kind: str | None = Field(
+        default=None, description="The kind of court within the tier."
+    )
+    date: str | None = Field(
+        default=None, description="Date of the judgment, YYYY-MM-DD."
+    )
+    advocate_general: str | None = Field(
+        default=None,
+        description="For a conclusion, the advocate-general who wrote it, as on "
+        "`/api/judgments/{ecli}`. Null for a judgment.",
+    )
+    advocate_general_role: str | None = Field(
+        default=None,
+        description="For a conclusion, the role it is signed in (`advocaat-generaal`, "
+        "`waarnemend advocaat-generaal`, ...), as on `/api/judgments/{ecli}`. Null for a "
+        "judgment.",
+    )
     cited_articles: list[CitedArticleRef] = Field(
         default_factory=list,
         description="Articles of the focal instrument that this judgment cites.",
+    )
+
+
+class InstrumentJudgmentFacets(BaseModel):
+    """Every judgment that cites this instrument counted, not the page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per year of the judgment, the oldest first; `value` null counts "
+        "those without a date.",
     )
 
 
@@ -196,6 +237,15 @@ class InstrumentJudgmentsResponse(BaseModel):
             "(independent of ``limit``)."
         ),
     )
+    year: str | None = Field(
+        None, description="The year asked for (`year`), null for every year."
+    )
+    sort: Literal["date", "cited"] = Field(
+        "date",
+        description="The order of `items`: `date`, the newest first; `cited`, the most "
+        "cited articles of this law first, then the newest. Ties by id.",
+    )
+    facets: InstrumentJudgmentFacets = Field(default_factory=InstrumentJudgmentFacets)
     items: list[InstrumentJudgmentItem]
 
 
@@ -389,6 +439,17 @@ class InstrumentListItemDTO(BaseModel):
     jurisdiction: str | None
     kind: str | None
     article_count: int
+    inbound_citation_count: int = Field(
+        0,
+        description="How often the law and its articles are cited (REFERS_TO), as on the "
+        "instrument's detail.",
+    )
+    next_version_from: str | None = Field(
+        None,
+        description="The date of the first coming change: the start of the first toestand "
+        "of the law after today, as the BWB lists it. Null when none is known (and for an "
+        "EU instrument).",
+    )
     official_url: str | None = Field(None, description=OFFICIAL_URL)
 
     @classmethod
@@ -405,8 +466,51 @@ class InstrumentListItemDTO(BaseModel):
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
             article_count=int(row.get("article_count") or 0),
+            inbound_citation_count=int(row.get("inbound_citation_count") or 0),
+            next_version_from=row.get("next_version_from"),
             official_url=instrument_url(row),
         )
+
+
+class RegisterConceptDTO(BaseModel):
+    """A concept of a register with the instruments under the filters filed under it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = Field(
+        None, description="Its TOOI concept (`c_e49bce03`); null without the thesaurus."
+    )
+    slug: str | None = Field(
+        None,
+        description="Unique in its list (`familierecht`); the filter takes it too.",
+    )
+    label: str = Field(description="As the WTI writes it: `Familierecht`.")
+    count: int
+
+
+class LegalAreaFacetDTO(RegisterConceptDTO):
+    """A main legal area and its specific areas."""
+
+    narrower: list[RegisterConceptDTO] = Field(default_factory=list)
+
+
+class InstrumentFacets(BaseModel):
+    """The instruments under the filters, counted per register; each without its own
+    filter, so the other areas stay in view when one is chosen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    legal_area: list[LegalAreaFacetDTO] = Field(
+        default_factory=list,
+        description="The legal areas of the TOOI thesaurus `scw_bwb_rechtsgebieden` as a "
+        "tree: main areas, most first, each with its specific areas (`narrower`). An "
+        "instrument counts once per area. Counted without the `legal_area` filter.",
+    )
+    policy_domain: list[RegisterConceptDTO] = Field(
+        default_factory=list,
+        description="The government themes of `scw_bwb_themas`, most first. Counted "
+        "without the `policy_domain` filter.",
+    )
 
 
 class InstrumentListResponse(BaseModel):
@@ -416,6 +520,7 @@ class InstrumentListResponse(BaseModel):
 
     items: list[InstrumentListItemDTO]
     total: int
+    facets: InstrumentFacets = Field(default_factory=InstrumentFacets)
 
 
 class InstrumentVersionDTO(BaseModel):
@@ -552,6 +657,139 @@ class InstrumentArticlesAtResponse(BaseModel):
 # ── /api/instruments/{identifier} and /eu-links ───────────────────────────
 
 
+class LegalAreaDTO(BaseModel):
+    """A legal area of a regulation (WTI ``rechtsgebied``) and its TOOI concepts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    main: str = Field(description="The main area: `Staats- en bestuursrecht`.")
+    main_id: str | None = Field(None, description="Its TOOI concept: `c_5d8350bb`.")
+    main_uri: str | None = None
+    main_slug: str | None = Field(
+        None, description="Its slug, unique in the list: `staats-en-bestuursrecht`."
+    )
+    specific: str | None = Field(
+        None, description="The specific area: `Bestuursrecht`."
+    )
+    specific_id: str | None = None
+    specific_uri: str | None = None
+    specific_slug: str | None = None
+
+
+class PolicyDomainDTO(BaseModel):
+    """A government theme of a regulation (WTI ``overheidsdomein``) and its TOOI concept."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(description="`Overheid, bestuur en koninkrijk`.")
+    id: str | None = None
+    uri: str | None = None
+    slug: str | None = None
+
+
+class TreatyPublicationDTO(BaseModel):
+    """A Tractatenblad of a treaty, as the Verdragenbank lists it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    official_id: str | None = Field(
+        None, description="Its id on officielebekendmakingen.nl: `trb-1951-154`."
+    )
+    text: str = Field(description='As the register writes it: "1951, 154".')
+    description: str | None = Field(
+        None, description='What it publishes: "goedkeuring, inwerkingtreding".'
+    )
+
+
+class TreatyPartyDTO(BaseModel):
+    """A state party to a treaty, with its dates (YYYY-MM-DD) as the register gives them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    signed: str | None = None
+    ratified: str | None = None
+    consent: str | None = Field(
+        None, description="How it consented, the register's code (`R`, `T`, `A`, …)."
+    )
+    provisional: str | None = Field(None, description="Provisional application from.")
+    in_force: str | None = None
+    retroactive: str | None = None
+    denounced: str | None = None
+    terminated: str | None = None
+    reservation: bool | None = Field(
+        None,
+        description="It made a reservation; the text is on the register's page "
+        "(`reservations_url` of the treaty).",
+    )
+    objection: bool | None = None
+
+
+class TreatyKingdomPartDTO(BaseModel):
+    """A part of the Kingdom the treaty applies to, and from when."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    part: str | None = None
+    provisional: str | None = None
+    in_force: str | None = None
+    retroactive: str | None = None
+    terminated: str | None = None
+
+
+class TreatyDossierDTO(BaseModel):
+    """A dossier of the approval of a treaty."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dossier: str
+    rijks_number: str | None = None
+    sub_number: str | None = None
+
+
+class RelatedTreatyDTO(BaseModel):
+    """A treaty a treaty belongs to (a Convention of its Protocol), or that belongs to it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = Field(None, description="Its Verdragenbank id: `005132`.")
+    title: str | None = None
+    date: str | None = None
+    place: str | None = None
+
+
+class TreatyRegisterDTO(BaseModel):
+    """What the Verdragenbank registers of a treaty beyond its title and dates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    place_signed: str | None = None
+    reservations_url: str | None = Field(
+        None,
+        description="The register's page with the texts of the reservations and objections "
+        "of the parties; null when no party made one.",
+    )
+    tractatenblad: list[TreatyPublicationDTO] = Field(default_factory=list)
+    parties: list[TreatyPartyDTO] = Field(default_factory=list)
+    kingdom_parts: list[TreatyKingdomPartDTO] = Field(default_factory=list)
+    kamerstukken: list[TreatyDossierDTO] = Field(default_factory=list)
+    parent_treaties: list[RelatedTreatyDTO] = Field(default_factory=list)
+    child_treaties: list[RelatedTreatyDTO] = Field(default_factory=list)
+
+    @classmethod
+    def from_props(cls, props: dict[str, Any]) -> TreatyRegisterDTO | None:
+        """From the props of a treaty; None before its item XML was read."""
+        fields = [name for name in cls.model_fields if props.get(name) is not None]
+        if not fields:
+            return None
+        return cls(
+            **{name: props[name] for name in fields},
+            reservations_url=reservations_url(
+                props.get("treaty_number"), props.get("parties") or []
+            ),
+        )
+
+
 class InstrumentDetailDTO(BaseModel):
     """One instrument: its identifiers, names, classification and dates."""
 
@@ -572,12 +810,29 @@ class InstrumentDetailDTO(BaseModel):
     official_title: str | None
     citation_title: str | None
     short_title: str | None
+    abbreviation: str | None = Field(
+        None,
+        description="The abbreviation it is cited by: its WTI short title (EVRM), else "
+        "the one kept by hand for it (AVG); the same as `instrument_abbreviation` on its "
+        "articles.",
+    )
     aliases: list[str] = Field(
         default_factory=list,
         description="Every name it is cited by: the official abbreviations and, for a "
         "book of a code, `Boek 6 BW`, `6 BW`, `BW 6`, `BW6`, `BW`.",
     )
     display_name: str | None
+    legal_areas: list[LegalAreaDTO] = Field(
+        default_factory=list,
+        description="The legal areas of a BWB regulation as its WTI files it (`main`, "
+        "`specific`), each with the URI of its concept in the TOOI thesaurus "
+        "`scw_bwb_rechtsgebieden` (null when the thesaurus lacks the label).",
+    )
+    policy_domains: list[PolicyDomainDTO] = Field(
+        default_factory=list,
+        description="The government themes of a BWB regulation as its WTI files it "
+        "(`label`), with the URI of its concept in the TOOI thesaurus `scw_bwb_themas`.",
+    )
     jurisdiction: str | None = Field(
         None, description="`nl`, `eu` or `int` (Verdragenbank treaties)."
     )
@@ -622,6 +877,13 @@ class InstrumentDetailDTO(BaseModel):
         description="The other instruments with its treaty number: the Verdragenbank "
         "record of a BWB treaty, the BWB text of a Verdragenbank treaty.",
     )
+    treaty: TreatyRegisterDTO | None = Field(
+        None,
+        description="Of a treaty of the Verdragenbank: where it was signed, its "
+        "Tractatenblad publications, its parties with their dates, the parts of the Kingdom, "
+        "the dossiers of its approval and the treaties it belongs to or that belong to it. "
+        "Null for any other instrument.",
+    )
 
     @classmethod
     def from_document(
@@ -637,7 +899,12 @@ class InstrumentDetailDTO(BaseModel):
             official_title=props.get("official_title"),
             citation_title=props.get("citation_title"),
             short_title=props.get("short_title"),
+            abbreviation=props.get("abbreviation"),
             aliases=list(props.get("aliases") or []),
+            legal_areas=[LegalAreaDTO(**a) for a in props.get("legal_areas") or []],
+            policy_domains=[
+                PolicyDomainDTO(**d) for d in props.get("policy_domains") or []
+            ],
             display_name=props.get("display_name"),
             jurisdiction=props.get("jurisdiction") or None,
             kind=props.get("kind"),
@@ -658,6 +925,7 @@ class InstrumentDetailDTO(BaseModel):
             same_treaty=[
                 LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
             ],
+            treaty=TreatyRegisterDTO.from_props(props),
         )
 
 
@@ -695,6 +963,39 @@ ImplementsBasis = Literal["national_implementing_measure", "considerans"]
 IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
 
 
+class ImplementingMeasureDTO(BaseModel):
+    """A national implementing measure as EUR-Lex lists it for the EU act: the publication
+    through which the instrument implements it (the law that changed the Awb to implement a
+    directive)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    publication: str = Field(
+        description="Its id on officielebekendmakingen.nl: `stb-2013-102`."
+    )
+    citation: str = Field(description="How it is cited: `Stb. 2013, 102`.")
+    title: str | None = Field(None, description="Its title, as EUR-Lex gives it.")
+    type: str | None = Field(
+        None, description="The kind of act, as EUR-Lex gives it: `Wet`."
+    )
+
+    @classmethod
+    def from_meta(cls, meta: dict[str, Any]) -> list[ImplementingMeasureDTO]:
+        """The measures of an edge (``meta.measures``); without them only its publications."""
+        measures = meta.get("measures")
+        if isinstance(measures, list):
+            return [
+                cls(**m)
+                for m in measures
+                if isinstance(m, dict) and m.get("publication")
+            ]
+        return [
+            cls(publication=p, citation=publication_citation(p), title=None, type=None)
+            for p in meta.get("publications") or []
+            if isinstance(p, str)
+        ]
+
+
 class EuLinkDTO(BaseModel):
     """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
@@ -727,9 +1028,18 @@ class EuLinkDTO(BaseModel):
     source: str | None = Field(
         None, description="The pipeline that wrote the edge (`bwb-implements`)."
     )
+    via: list[ImplementingMeasureDTO] = Field(
+        default_factory=list,
+        description=(
+            "The national implementing measures EUR-Lex lists for the act through which this "
+            "instrument implements it (`national_implementing_measure`): a law that changed "
+            "it to implement the act, or its own enacting publication. Empty for "
+            "`considerans` alone and for `REFERS_TO`."
+        ),
+    )
     meta: dict[str, Any] = Field(
         default_factory=dict,
-        description="Edge evidence as stored (`celex`, `bases`, `publications`).",
+        description="Edge evidence as stored (`celex`, `bases`, `publications`, `measures`).",
     )
 
     @classmethod
@@ -743,6 +1053,7 @@ class EuLinkDTO(BaseModel):
             confidence=edge.get("confidence"),
             bases=[b for b in meta.get("bases") or [] if b in IMPLEMENTS_BASES],
             source=edge.get("source"),
+            via=ImplementingMeasureDTO.from_meta(meta),
             meta=meta,
         )
 

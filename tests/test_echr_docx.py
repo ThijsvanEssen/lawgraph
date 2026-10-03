@@ -7,6 +7,7 @@ import pathlib
 import pytest
 
 from lawgraph.core.echr_docx import read_judgment
+from lawgraph.core.judgments import text_id
 
 # Beumer v. the Netherlands (001-61254), the word/document.xml of the DOCX HUDOC serves.
 BEUMER = (
@@ -36,12 +37,12 @@ def test_a_judgment_reads_as_its_paragraphs_in_order() -> None:
     text, paragraphs = read_judgment(BEUMER)
     by_id = {p["id"]: p for p in paragraphs}
     assert paragraphs[0] == {
-        "id": "p-1",
+        "id": text_id("SECOND SECTION"),
         "number": None,
         "kind": "body",
         "text": "SECOND SECTION",
     }
-    assert by_id["p-15"]["kind"] == "heading" and by_id["p-15"]["text"] == "PROCEDURE"
+    assert by_id[text_id("PROCEDURE")]["kind"] == "heading"
     assert by_id["par-1"]["number"] == "1"
     assert by_id["par-1"]["text"].startswith("The case originated in an application")
     assert by_id["par-64"]["kind"] == "body"
@@ -71,12 +72,12 @@ def test_the_styles_of_the_grand_chamber_template_and_a_table_of_contents() -> N
         )
     )
     assert [(p["id"], p["kind"], p["number"]) for p in paragraphs] == [
-        ("p-1", "heading", None),
+        (text_id("THE FACTS"), "heading", None),
         ("kop-a", "subheading", "A"),
         ("par-1", "body", "1"),
-        ("p-4", "body", None),
-        ("p-5", "body", None),
-        ("p-6", "body", None),
+        (text_id("2.  A quoted number is no paragraph."), "body", None),
+        (text_id("1. Holds that there has been a violation;"), "body", None),
+        (text_id("RUNNING HEADER"), "body", None),
     ]
 
 

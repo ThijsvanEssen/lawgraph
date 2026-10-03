@@ -12,6 +12,7 @@ import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.rechtspraak import (
     RechtspraakRetrievePipeline,
     resolve_courts,
@@ -223,11 +224,23 @@ class _Store(RawSourcesFake):
         self.records: list[dict[str, Any]] = []
         self.stored = stored or {}  # ecli -> fetched_at
 
-    def query(self, aql: str, bind_vars: dict | None = None) -> list[dict]:
-        return [{"id": ecli, "at": at} for ecli, at in self.stored.items()]
-
     def insert_raw_source(self, **record: Any) -> None:
         self.records.append(record)
+
+
+@pytest.fixture(autouse=True)
+def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fetch times come from the ``_Store``; no judgment is waiting for a retry."""
+    monkeypatch.setattr(
+        raw_queries,
+        "fetch_times",
+        lambda store, **kw: iter(
+            {"id": ecli, "at": at} for ecli, at in store.stored.items()
+        ),
+    )
+    monkeypatch.setattr(
+        raw_queries, "ids_waiting_for_retry", lambda store, **kw: iter([])
+    )
 
 
 def _pipeline(rs: _Rs, store: _Store | None = None):
@@ -390,7 +403,7 @@ def cli(monkeypatch):
 
             return PipelineResult()
 
-    monkeypatch.setattr(retrieve_commands, "ArangoStore", lambda: object())
+    monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
     return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
 

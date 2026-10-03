@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.core.documents import chamber_of, is_explanatory
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
@@ -48,6 +49,15 @@ def origin_fields(
         "source": source or None,
         "is_explanatory": is_explanatory(kind),
     }
+
+
+def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
+    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
+    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
+    if chamber == "EK":
+        return props.get("number")
+    sequence = props.get("sequence")
+    return str(sequence) if chamber == "TK" and sequence else None
 
 
 class ArticleRefDTO(BaseModel):
@@ -158,10 +168,21 @@ class DocumentTextResponse(DocumentOrigin):
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
     sections: list[SectionDTO] = Field(default_factory=list)
+    decisions: list[DecisionDTO] = Field(
+        default_factory=list,
+        description="The votes taken on this document, oldest first, each with how every "
+        "faction (or, on a roll-call, every member) voted: of a motion or an amendment the "
+        "vote on it, of a bill the votes on the bill. A decision is about the case of an "
+        "agenda item it names; the document it was taken on is the oldest of that case, "
+        "as the timeline of a dossier shows it. Empty for any other paper.",
+    )
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], links: dict[str, Any] | None = None
+        cls,
+        doc: dict[str, Any],
+        links: dict[str, Any] | None = None,
+        decisions: list[dict[str, Any]] | None = None,
     ) -> DocumentTextResponse:
         """From the stored document and what ``get_document_links`` found for it."""
         from lawgraph.config.constants import SOURCE_TK
@@ -195,6 +216,7 @@ class DocumentTextResponse(DocumentOrigin):
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
+            decisions=[DecisionDTO.from_document(d) for d in decisions or []],
             **origin_fields(doc.get("labels"), props.get("source"), props.get("kind")),
         )
 
@@ -292,10 +314,6 @@ class DocumentListItemDTO(BaseModel):
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
-        sequence = row.get("sequence")
-        number = row.get("number") if row.get("chamber") == "EK" else None
-        if row.get("chamber") == "TK" and sequence:
-            number = str(sequence)
         return cls(
             id=row["id"],
             key=row["key"],
@@ -304,7 +322,7 @@ class DocumentListItemDTO(BaseModel):
             dossier_number=row.get("dossier_number"),
             dossier_suffix=row.get("dossier_suffix"),
             dossier_numbers=row.get("dossier_numbers") or [],
-            number=number,
+            number=paper_number(row.get("chamber"), row),
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),

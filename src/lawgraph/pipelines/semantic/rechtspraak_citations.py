@@ -33,7 +33,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
@@ -67,11 +68,11 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         ecli_to_id = self._resolve_eclis(all_cited_eclis) if pending else {}
         tied = self._procedural_pairs(sorted({from_id for from_id, _ in pending}))
         kept = self._emit_edges(pending, ecli_to_id, tied, result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("Removed %d citations the text does not name.", removed)
-        stubs = semantic_queries.remove_unreached_judgment_stubs(self.store)
+        stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
         return result
 
@@ -88,14 +89,14 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 text = body_text(parse_judgment(xml))
             except ValueError:
                 continue
-            if not judgment.arango_id:
+            if not judgment.node_id:
                 continue
-            read.append(judgment.arango_id)
+            read.append(judgment.node_id)
             source_ecli = str(judgment.props["ecli"]).upper()
             for ecli in cited_eclis(text):
                 if ecli == source_ecli:
                     continue
-                pending.append((judgment.arango_id, ecli))
+                pending.append((judgment.node_id, ecli))
                 all_cited_eclis.add(ecli)
         return pending, all_cited_eclis, read
 
@@ -104,7 +105,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         ties it to."""
         return {
             (row[0], row[1])
-            for row in semantic_queries.procedural_neighbours(
+            for row in semantic_rechtspraak.procedural_neighbours(
                 self.store, ids, list(PROCEDURAL_RELATIONS)
             )
         }

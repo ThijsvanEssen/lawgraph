@@ -5,6 +5,7 @@ GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
 GET /api/dossiers/{number}/mutations   — its pending-change subgraph
+GET /api/dossiers/{number}/changed-articles — the articles it changes, per law
 GET /api/parties/colors                — party colours for the frontend
 """
 
@@ -17,6 +18,11 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import MinistryKey, parse_choices
+from lawgraph.api.schemas.dossier_changes import (
+    DossierChange,
+    DossierChangedArticlesResponse,
+    DossierChangedLaw,
+)
 from lawgraph.api.schemas.dossiers import (
     DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
@@ -34,7 +40,11 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossier_changes import (
+    STAGE_ENACTED,
+    get_dossier_changed_articles,
+)
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
@@ -47,6 +57,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_timeline,
     get_dossiers,
     get_laws_named,
+    get_next_activity,
 )
 
 router = APIRouter()
@@ -72,7 +83,7 @@ Subject = Annotated[
 ]
 
 
-def _dossier_or_404(store: ArangoStore, number: str) -> dict[str, Any]:
+def _dossier_or_404(store: GraphStore, number: str) -> dict[str, Any]:
     dossier = get_dossier_by_number(store, number)
     if dossier is None:
         raise HTTPException(status_code=404, detail=f"Dossier {number} not found.")
@@ -112,8 +123,9 @@ class _ListParams:
         phase: Annotated[
             str | None,
             Query(
-                description="The dossier's current phase, e.g. ``Verslag``. To filter on "
-                "a phase being done at all, use ``has_phase``."
+                description="Comma-separated: the dossiers whose current phase is one of "
+                "them, e.g. ``Verslag`` or ``Stemmingen,Eindtekst``. To filter on a phase "
+                "being done at all, use ``has_phase``."
             ),
         ] = None,
         has_phase: Annotated[
@@ -139,10 +151,12 @@ class _ListParams:
             dt.date | None, Query(description="Opened on or before this day.")
         ] = None,
         sort: Annotated[
-            Literal["number", "opened_on", "closed_on", "title"] | None,
+            Literal["number", "opened_on", "last_activity", "closed_on", "title"]
+            | None,
             Query(
-                description="``number`` in the order of the Kamer, ``opened_on`` and "
-                "``closed_on`` newest first, ``title`` alphabetically; ties by key. "
+                description="``number`` in the order of the Kamer, ``opened_on``, "
+                "``last_activity`` and ``closed_on`` newest first, ``title`` "
+                "alphabetically; ties by key. "
                 "Default ``number`` with a ``number`` filter, else ``opened_on``."
             ),
         ] = None,
@@ -153,7 +167,7 @@ class _ListParams:
             status=None if status == "all" else status,
             outcome=outcome,
             kinds=parse_choices(kind, CARRYING_KINDS, "kind"),
-            phase=(parse_choices(phase, _PHASE_NAMES, "phase") or (None,))[0],
+            phases=parse_choices(phase, _PHASE_NAMES, "phase"),
             has_phase=parse_choices(has_phase, _PHASE_NAMES, "has_phase"),
             ministry=ministry.value if ministry else None,
             initiative=initiative,
@@ -168,7 +182,7 @@ class _ListParams:
         self.offset = offset
 
 
-def _list(store: ArangoStore, params: _ListParams) -> DossierListResponse:
+def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
     raw = get_dossiers(
         store,
         params.filters,
@@ -205,7 +219,7 @@ _LIST_DESCRIPTION = (
     tags=["dossiers"],
 )
 def list_dossiers(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     params: Annotated[_ListParams, Depends()],
 ) -> DossierListResponse:
     return _list(store, params)
@@ -228,7 +242,7 @@ def list_dossiers(
 )
 def get_dossier(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierDetailResponse:
     dossier = _dossier_or_404(store, number)
     enrich_dossier_docs(store, [dossier])
@@ -241,6 +255,9 @@ def get_dossier(
         relations=relations,
         laws_named=get_laws_named(
             store, laws_in_title((dossier.get("props") or {}).get("title"))
+        ),
+        next_activity=get_next_activity(
+            store, dossier["_id"], dt.date.today().isoformat()
         ),
     )
 
@@ -257,7 +274,7 @@ def get_dossier(
 )
 def list_dossier_documents(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
@@ -281,7 +298,7 @@ def list_dossier_documents(
 )
 def get_timeline(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     order: Annotated[Literal["asc", "desc"], Query(description="Date order.")] = "desc",
     kind: Annotated[
         str | None, Query(description="Comma-separated document kinds.")
@@ -308,6 +325,44 @@ def get_timeline(
 
 
 @router.get(
+    "/{number}/changed-articles",
+    response_model=DossierChangedArticlesResponse,
+    summary="The articles a bill changes",
+    description=(
+        "Per law, the articles this dossier amends, introduces or repeals, each with "
+        "its `stage`: `enacted`, by a publication legislated in the dossier (with its "
+        "`official_id` and the `effective_date` of the change), or `proposed`, by a "
+        "paper of the dossier (a bill, an amendment). Citations and explanations are no "
+        "change; `/mutations` has the graph of all of them."
+    ),
+    tags=["dossiers"],
+)
+def get_changed_articles(
+    number: DossierNumber,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> DossierChangedArticlesResponse:
+    dossier = _dossier_or_404(store, number)
+    laws = [
+        DossierChangedLaw(
+            law=found["law"],
+            total=len(found["changes"]),
+            changes=[DossierChange.from_row(c) for c in found["changes"]],
+        )
+        for found in get_dossier_changed_articles(store, dossier["_id"])
+    ]
+    changes = [c for law in laws for c in law.changes]
+    enacted = sum(c.stage == STAGE_ENACTED for c in changes)
+    return DossierChangedArticlesResponse(
+        number=number,
+        total=len(changes),
+        articles=len({c.article.id for c in changes}),
+        enacted=enacted,
+        proposed=len(changes) - enacted,
+        laws=laws,
+    )
+
+
+@router.get(
     "/{number}/mutations",
     response_model=DossierMutationsResponse,
     summary="Dossier mutation graph",
@@ -320,7 +375,7 @@ def get_timeline(
 )
 def get_mutations(
     number: DossierNumber,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierMutationsResponse:
     dossier = _dossier_or_404(store, number)
     raw = get_dossier_mutations(store, dossier["_id"])

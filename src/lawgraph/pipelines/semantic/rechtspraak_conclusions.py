@@ -23,7 +23,8 @@ from lawgraph.core.judgments import CONCLUSION_BENCH, same_case_number
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
@@ -117,12 +118,12 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         rows = list(
-            self._track(semantic_queries.conclusion_rows(self.store), "judgments")
+            self._track(semantic_rechtspraak.conclusion_rows(self.store), "judgments")
         )
         named = sorted({e.upper() for row in rows for e in row["conclusion_eclis"]})
         not_conclusions = frozenset(
             str(row["ecli"]).upper()
-            for row in semantic_queries.judgment_instances(self.store, named)
+            for row in semantic_rechtspraak.judgment_instances(self.store, named)
             if not row["is_conclusion"]
         )
         formal = formal_pairs(rows, not_conclusions)
@@ -154,7 +155,7 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
                         edge_key(str(from_id), RELATION_ADVISES_ON, str(to_id))
                     )
         edges.flush_into(result)
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store,
             RELATION_ADVISES_ON,
             SEMANTIC_SOURCE,
@@ -176,14 +177,14 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
         ]
         keys = sorted({key for row in untied for key in row["case_number_keys"]})
         pairs = case_number_pairs(
-            untied, list(semantic_queries.judgments_by_case_keys(self.store, keys))
+            untied, list(semantic_rechtspraak.judgments_by_case_keys(self.store, keys))
         )
         paired = {conclusion for conclusion, _ in pairs}
         unpaired = [row for row in untied if row["ecli"].upper() not in paired]
         spans = [span for row in unpaired if (span := own_bench_span(row))]
         if spans:
             candidates = list(
-                semantic_queries.court_decisions_between(self.store, spans)
+                semantic_rechtspraak.court_decisions_between(self.store, spans)
             )
             pairs |= own_bench_pairs(unpaired, candidates)
         return pairs

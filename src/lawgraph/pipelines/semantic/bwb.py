@@ -21,7 +21,8 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
@@ -89,8 +90,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     continue
                 hits = self._hits_for(article, bwb_id)
                 hits_detected += len(hits)
-                if article.arango_id:
-                    read.append(article.arango_id)
+                if article.node_id:
+                    read.append(article.node_id)
                 scanned.append((article, hits))
 
             self._store_article_citations(scanned)
@@ -111,7 +112,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
-        removed = semantic_queries.remove_edges_from(
+        removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info(
@@ -131,7 +132,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         """Queue the edges of one article; the keys go into *kept*."""
         for hit in hits:
             target, hit = self._resolve_article(hit)
-            if not target or not article.arango_id or not target.arango_id:
+            if not target or not article.node_id or not target.node_id:
                 continue
             edges.add_doc(
                 self._make_edge_doc(
@@ -143,8 +144,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     meta=self._edge_meta(hit),
                 )
             )
-            kept.setdefault(article.arango_id, set()).add(
-                edge_key(article.arango_id, RELATION_REFERS_TO, target.arango_id)
+            kept.setdefault(article.node_id, set()).add(
+                edge_key(article.node_id, RELATION_REFERS_TO, target.node_id)
             )
 
     @staticmethod
@@ -174,7 +175,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     def _load_bwb_ids_from_graph(self) -> list[str]:
         """Return all distinct BWB IDs that have article nodes in the graph."""
-        rows = semantic_queries.article_bwb_ids(self.store)
+        rows = semantic_bwb.article_bwb_ids(self.store)
         return [str(row) for row in rows if row]
 
     def _load_articles(
@@ -191,7 +192,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             bwb_ids = [bid for bid in bwb_ids if bid in recent]
         if not bwb_ids:
             return []
-        return semantic_queries.articles_with_references(self.store, bwb_ids)
+        return semantic_bwb.articles_with_references(self.store, bwb_ids)
 
     def _recent_bwb_ids(self, since_iso: str) -> set[str]:
         """BWB IDs whose raw record was fetched at or after *since_iso*."""

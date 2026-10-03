@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.integration.seed import FIXTURES, uid
 
@@ -130,7 +130,7 @@ GONE_ACTIVITY = {
 }
 
 
-def _write(store: ArangoStore, records: list[tuple[str, dict[str, Any]]]) -> None:
+def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
     with RawSourceWriter(store) as writer:
         for kind, payload in records:
             writer.add(
@@ -170,7 +170,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 def test_a_motion_is_named_by_its_subject_with_its_submitters(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
@@ -245,7 +245,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
             response = client.get(f"/api/nodes/{collection}/{make_node_key(key)}")
             assert response.status_code == 404, collection
         dangling = store.query(
-            "FOR e IN edges FILTER e._from IN @ids OR e._to IN @ids RETURN e._key",
+            "SELECT key FROM edges WHERE from_id = ANY(%(ids)s) OR to_id = ANY(%(ids)s)",
             {
                 "ids": [
                     f"documents/{make_node_key(GONE['Id'])}",
@@ -254,7 +254,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
             },
         )
         assert list(dangling) == []
-        kinds = list(store.query("FOR d IN documents RETURN d.props.kind"))
+        kinds = list(store.query("SELECT props -> 'kind' FROM documents"))
         assert len(kinds) == 5 and all(kinds)
     finally:
         app.dependency_overrides.pop(get_store, None)
@@ -274,7 +274,7 @@ class _Repository:
 
 
 def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     _write(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")

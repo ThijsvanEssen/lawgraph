@@ -18,7 +18,7 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.logging import get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import (
@@ -168,7 +168,7 @@ def _run_phase(
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
     """
-    store = ArangoStore()
+    store = GraphStore()
     if args.since == watermark.LAST:
         try:
             args.since = watermark.since_last(store, phase)
@@ -182,6 +182,9 @@ def _run_phase(
     outcomes = run_pipelines(
         _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
     )
+    if phase != "retrieve":
+        # what normalize and semantic wrote, known to the planner before the API reads it
+        store.vacuum_analyze()
     filling_gaps = getattr(args, "mode", None) == GAPS  # says nothing about a date
     if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))

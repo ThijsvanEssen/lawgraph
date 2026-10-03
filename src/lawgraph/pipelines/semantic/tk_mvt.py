@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 
@@ -42,7 +42,7 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None)
-        memoranda = semantic_queries.memorandum_targets(
+        memoranda = semantic_tk.memorandum_targets(
             self.store, sections_source=SEMANTIC_SOURCE_SECTIONS
         )
         for row in self._track(memoranda, "explanatory memoranda"):

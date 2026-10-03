@@ -20,7 +20,7 @@ from typing import Any
 
 from lawgraph.core.cabinet_checks import cabinet_row, ministry_report, violations
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import cabinets_with_posts
 
 _COLUMNS = (
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument("what", choices=["cabinets"], help="What to verify.")
     parser.parse_args(argv)
     result = PipelineResult()
-    for problem in verify_cabinets(ArangoStore()):
+    for problem in verify_cabinets(GraphStore()):
         result.add_error(problem)
     return result
 
@@ -66,7 +66,7 @@ def _cell(value: Any) -> str:
     return str(value)
 
 
-def verify_cabinets(store: ArangoStore) -> list[str]:
+def verify_cabinets(store: GraphStore) -> list[str]:
     """Print the report; the rules broken."""
     rows = cabinets_with_posts(store)
     problems: list[str] = []

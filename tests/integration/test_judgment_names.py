@@ -25,9 +25,8 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries.search import SCORE_IDENTIFIER, search_all
-from tests.integration.seed import wait_for_views
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 URGENDA = "ECLI:NL:HR:2019:2006"
@@ -46,7 +45,7 @@ LINDENBAUM = "ECLI:NL:HR:1919:AG1776"
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, name in JUDGMENTS.items():
             writer.add(
@@ -66,9 +65,6 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     )
     cli("normalize", "rechtspraak")
     cli("semantic", "graph-list-stats")
-    wait_for_views(store, {"search_judgments": len(JUDGMENTS) + 1})
-    # the names graph-list-stats gave the stub: an update the view commits later
-    list(store.query("FOR d IN search_judgments OPTIONS {waitForSync: true} RETURN 1"))
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -112,7 +108,7 @@ def test_the_names_of_landmark_judgments_and_of_a_stub(client: TestClient) -> No
     assert _judgment(client, "ECLI:NL:HR:1965:AB7079")["names"] == ["Kelderluik"]
     assert _judgment(client, "ECLI:NL:RVS:2026:5668")["names"] == []
 
-    stub = ArangoStore().get_node(COLLECTION_JUDGMENTS, make_node_key(LINDENBAUM))
+    stub = GraphStore().get_node(COLLECTION_JUDGMENTS, make_node_key(LINDENBAUM))
     assert stub is not None
     assert stub.props["names"] == ["Lindenbaum/Cohen"]
     assert stub.props["decision_kind"] == "arrest"
@@ -155,7 +151,7 @@ def test_the_list_carries_names_and_kind(client: TestClient) -> None:
 def test_a_judgment_is_found_first_by_its_name(
     client: TestClient, q: str, first: set[str]
 ) -> None:
-    hits = search_all(ArangoStore(), q=q, types=["judgments"])["judgments"]
+    hits = search_all(GraphStore(), q=q, types=["judgments"])["judgments"]
 
     top = [h for h in hits if h["score"] == SCORE_IDENTIFIER]
     assert {h["extra"]["ecli"] for h in top} == first
@@ -163,7 +159,7 @@ def test_a_judgment_is_found_first_by_its_name(
 
 
 def test_the_dutch_judgment_comes_before_its_translation(client: TestClient) -> None:
-    hits = search_all(ArangoStore(), q="Urgenda", types=["judgments"])["judgments"]
+    hits = search_all(GraphStore(), q="Urgenda", types=["judgments"])["judgments"]
 
     assert [h["extra"]["ecli"] for h in hits[:2]] == [URGENDA, URGENDA_EN]
 
@@ -179,7 +175,7 @@ def test_part_of_a_name_finds_it_too(client: TestClient) -> None:
 def test_a_translation_alone_has_no_summary_but_its_english_one(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(

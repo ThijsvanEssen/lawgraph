@@ -10,7 +10,7 @@ import pytest
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
 from lawgraph.pipelines import orchestration, watermark
 from lawgraph.pipelines.command import Outcome, State
-from tests.fakes import PipelineStateFake
+from tests.fakes import PipelineStateFake, patch_pipeline_state
 
 UTC = dt.timezone.utc
 MONDAY = dt.datetime(2026, 9, 14, 6, 0, tzinfo=UTC)
@@ -18,6 +18,11 @@ THURSDAY = dt.datetime(2026, 9, 17, 6, 0, tzinfo=UTC)
 
 
 _Store = PipelineStateFake
+
+
+@pytest.fixture(autouse=True)
+def _pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_pipeline_state(monkeypatch)
 
 
 def test_a_complete_run_is_remembered_by_when_it_began() -> None:
@@ -58,7 +63,7 @@ def phase(monkeypatch) -> dict[str, Any]:
         seen["argv"] = [argv_of(pipeline) for pipeline in pipelines]
         return seen["outcomes"]
 
-    monkeypatch.setattr(orchestration, "ArangoStore", lambda: seen["store"])
+    monkeypatch.setattr(orchestration, "GraphStore", lambda: seen["store"])
     monkeypatch.setattr(orchestration, "run_pipelines", run_pipelines)
     return seen
 

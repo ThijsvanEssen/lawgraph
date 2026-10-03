@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import ArangoStore, EdgeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak_citations import SEMANTIC_SOURCE
 from tests.integration.test_judgment_relations import _relation, _xml
 
@@ -50,17 +50,23 @@ JUDGMENTS = {
 }
 
 
-def _cited(store: ArangoStore) -> set[tuple[str, str]]:
-    aql = """
-    FOR e IN edges FILTER e.relation == @relation
-        FILTER STARTS_WITH(e._from, "judgments/") AND STARTS_WITH(e._to, "judgments/")
-        RETURN [DOCUMENT(e._from).props.ecli, DOCUMENT(e._to).props.ecli]
+def _cited(store: GraphStore) -> set[tuple[str, str]]:
+    sql = """
+    SELECT f.ecli AS from_ecli, t.ecli AS to_ecli
+    FROM edges e
+    LEFT JOIN judgments f ON f.id = e.from_id
+    LEFT JOIN judgments t ON t.id = e.to_id
+    WHERE e.relation = %(relation)s
+        AND e.from_collection = 'judgments' AND e.to_collection = 'judgments'
     """
-    return {tuple(row) for row in store.query(aql, {"relation": RELATION_REFERS_TO})}
+    return {
+        (row["from_ecli"], row["to_ecli"])
+        for row in store.query(sql, {"relation": RELATION_REFERS_TO})
+    }
 
 
 def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, xml in JUDGMENTS.items():
             writer.add(

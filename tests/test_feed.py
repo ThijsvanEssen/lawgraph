@@ -1,5 +1,5 @@
-"""The news feed without a database: its cursor, the roles of its people, the AQL and bind
-variables it builds, and the items and Atom document made of its rows."""
+"""The news feed without a database: its cursor, the roles of its people, and the items and
+Atom document made of its rows. What the queries read is in tests/integration/test_feed.py."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from lawgraph.core.feed import (
     FeedCursor,
     person_role,
 )
-from lawgraph.db.queries.feed import _SOURCES, FeedFilters, feed_query, summary_query
+from lawgraph.db.queries.feed import _SOURCES, FeedFilters
 
 
 def test_a_cursor_survives_its_token() -> None:
@@ -86,101 +86,6 @@ def test_a_day_orders_its_kinds() -> None:
 def test_every_kind_is_read_from_a_source() -> None:
     assert set(_SOURCES) == set(FEED_KINDS)
     assert set(DOCUMENT_EVENTS) < set(FEED_KINDS)
-
-
-def _bind_names(aql: str) -> set[str]:
-    return set(re.findall(r"(?<![@\w])@(\w+)", aql))
-
-
-@pytest.mark.parametrize(
-    "filters",
-    [
-        FeedFilters(),
-        FeedFilters(
-            kinds=("Motie", "stemming"), since="2026-01-01", until="2026-12-31"
-        ),
-        FeedFilters(cabinet="jetten", ministry="fin", faction="vvd"),
-        FeedFilters(dossier="36600", member="m1", q="Pensioen "),
-    ],
-)
-@pytest.mark.parametrize("facets", [True, False])
-@pytest.mark.parametrize(
-    "cursor", [None, FeedCursor("2026-05-01", "Motie", "documents/x")]
-)
-def test_every_bind_variable_is_used_and_every_used_one_is_bound(
-    filters: FeedFilters, facets: bool, cursor: FeedCursor | None
-) -> None:
-    """ArangoDB refuses a query with a bind variable it does not use."""
-    aql, bind = feed_query(filters, cursor=cursor, limit=20, facets=facets)
-    assert _bind_names(aql) == set(bind)
-    assert bind["page_size"] == 21
-
-
-def test_without_facets_only_the_kinds_asked_for_are_read() -> None:
-    aql, bind = feed_query(FeedFilters(kinds=("Motie",)), facets=False)
-    assert aql.count("LET rows_") == 1
-    assert "kinds" not in bind
-    assert "facets = null" in aql
-
-
-def test_the_facets_count_every_kind() -> None:
-    aql, bind = feed_query(FeedFilters(kinds=("Motie",)), facets=True)
-    assert aql.count("LET rows_") == len(FEED_KINDS)
-    assert bind["kinds"] == ["Motie"]
-    for name in ("kind", "ministry", "faction", "cabinet"):
-        assert f"{name}: (" in aql
-
-
-def test_a_member_or_faction_leaves_out_the_kinds_nobody_signs() -> None:
-    by_member, _ = feed_query(FeedFilters(member="m1"), facets=True)
-    assert by_member.count("LET rows_") == len(FEED_KINDS) - 2
-    by_faction, _ = feed_query(FeedFilters(faction="vvd"), facets=True)
-    # nor a commitment: a bewindspersoon signs for no faction
-    assert by_faction.count("LET rows_") == len(FEED_KINDS) - 3
-
-
-def test_a_page_without_filters_is_cut_before_anything_is_looked_up() -> None:
-    aql, _ = feed_query(FeedFilters(), facets=False)
-    rows = aql.split("LET rows_1 = (")[1].split("LET rows_2")[0]
-    assert rows.index("LIMIT @page_size") < rows.index("LET labels")
-    filtered, _ = feed_query(FeedFilters(ministry="fin"), facets=False)
-    rows = filtered.split("LET rows_1 = (")[1].split("LET rows_2")[0]
-    assert rows.index("LET labels") < rows.index("LIMIT @page_size")
-
-
-def test_a_kind_reads_the_cursor_s_day_by_its_rank() -> None:
-    cursor = FeedCursor("2026-05-01", "toezegging", "commitments/c1")
-    aql, bind = feed_query(FeedFilters(), cursor=cursor, facets=False)
-    rows = {
-        block.split('kind: "')[1].split('"')[0]: block
-        for block in aql.split("LET rows_")[1:]
-    }
-    assert "== @cursor_date ? false : true" in rows["Voorstel van wet"]
-    assert "== @cursor_date ? n._id > @cursor_id : true" in rows["toezegging"]
-    assert "== @cursor_date ? true : true" in rows["Motie"]
-    assert "cursor_rank" not in bind  # only the page with facets reads it
-    _, bind = feed_query(FeedFilters(), cursor=cursor, facets=True)
-    assert bind["cursor_rank"] == 2
-
-
-def test_a_cursor_reads_nothing_after_its_day_from_the_index() -> None:
-    _, bind = feed_query(
-        FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "Motie", "documents/x"),
-        facets=False,
-    )
-    assert bind["until"] == "2026-05-01"
-    _, bind = feed_query(
-        FeedFilters(until="2026-12-31"),
-        cursor=FeedCursor("2026-05-01", "Motie", "documents/x"),
-        facets=True,
-    )
-    assert bind["until"] == "2026-12-31"
-
-
-def test_q_is_lower_case_words() -> None:
-    _, bind = feed_query(FeedFilters(q="  Pensioen "))
-    assert bind["q"] == "pensioen"
 
 
 VOTE_ROW = {
@@ -425,20 +330,6 @@ def test_a_dossier_has_the_short_title_it_goes_by(
     assert short_title(title) == short
 
 
-@pytest.mark.parametrize(
-    "filters",
-    [
-        FeedFilters(since="2026-05-01", until="2026-05-03"),
-        FeedFilters(since="2026-05-01", until="2026-05-03", kinds=("Motie",), q="x"),
-        FeedFilters(since="2026-05-01", until="2026-05-03", member="m1", cabinet="c"),
-    ],
-)
-def test_a_summary_binds_what_it_reads(filters: FeedFilters) -> None:
-    aql, bind = summary_query(filters, margin=7, limit=20)
-    assert _bind_names(aql) == set(bind)
-    assert (bind["margin"], bind["page_size"]) == (7, 21)
-
-
 def test_a_summary_has_every_day_of_its_window() -> None:
     summary = FeedSummaryResponse.from_raw(
         {
@@ -486,3 +377,32 @@ def test_a_person_the_paper_lists_twice_is_one_person() -> None:
     }
     item = FeedItemDTO.from_row(row)
     assert [p.key for p in item.persons] == ["cf4c4d24_798d_4bbe_bf06_23ca674f0d28"]
+
+
+def test_a_vote_says_how_it_was_decided_as_the_kamer_writes_it() -> None:
+    hamer = FeedItemDTO.from_row(
+        {
+            **VOTE_ROW,
+            "props": {
+                **VOTE_ROW["props"],
+                "decision_kind": "Stemmen - zonder stemming aannemen",
+                "vote_kind": None,
+                "tally": {},
+            },
+        }
+    )
+    assert hamer.vote is not None
+    assert hamer.vote.decision_kind == "Stemmen - zonder stemming aannemen"
+    assert hamer.vote.method is None
+    ek = FeedItemDTO.from_row(
+        {
+            **VOTE_ROW,
+            "props": {
+                **VOTE_ROW["props"],
+                "chamber": "EK",
+                "method": "Stemming bij zitten en opstaan, aangenomen",
+            },
+        }
+    )
+    assert ek.vote is not None
+    assert ek.vote.method == "Stemming bij zitten en opstaan, aangenomen"

@@ -233,6 +233,10 @@ def paper(number: str, sequence: str, suffix: str | None = None) -> Notation:
         ("29684-I-3", paper("29684", "3", "I")),
         ("Kamerstuk 29684-I, nr. 3", paper("29684", "3", "I")),
         ("Kamerstuk I 35925, nr. A", paper("35925", "A")),
+        # BE-37: a paper of the Eerste Kamer by its letter, behind a comma
+        ("Kamerstukken I 2025/26, 36799, A", paper("36799", "A")),
+        ("Kamerstukken I 2025/2026, 36799, AB", paper("36799", "AB")),
+        ("36799, A", paper("36799", "A")),
         ("Kamerstuk 36327 nr. 12", paper("36327", "12")),
     ],
 )
@@ -327,3 +331,18 @@ def test_a_number_of_a_book_is_its_number_in_that_book() -> None:
     assert native_article_number(BW6, "162") == "162"
     assert native_article_number(BW6, "3:40") == "3:40"  # another book: left alone
     assert native_article_number(AWB, "8:69") == "8:69"  # the Awb's own number
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Staatsblad 2026, 94",
+        "Stb. 2026, 94",
+        "stb 2026 94",
+        "Stb. 2026, nr. 94",
+        "Stb. 2026, 094",
+    ],
+)
+def test_a_staatsblad_publication_is_its_identifier(query: str) -> None:
+    """BE-45: the publication, an instrument of its own (``stb_2026_94``)."""
+    assert parse(query) == Notation(kind="publication", identifier="stb-2026-94")

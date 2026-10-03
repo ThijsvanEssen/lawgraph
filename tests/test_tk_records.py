@@ -28,8 +28,8 @@ def test_committee_without_a_name_is_not_named_by_its_id() -> None:
     assert tk_records.committee(record) is None
 
 
-def test_committee_seats_collect_every_period_per_person() -> None:
-    periods = tk_records.committee_seats(
+def test_committee_seats_collect_every_seat_per_person() -> None:
+    seats = tk_records.committee_seats(
         {
             "CommissieZetel": [
                 {
@@ -38,30 +38,73 @@ def test_committee_seats_collect_every_period_per_person() -> None:
                             "Persoon_Id": "p1",
                             "Van": "2020-01-01",
                             "TotEnMet": "2021-01-01",
+                            "Functie": "Lid",
                         },
-                        {"Persoon_Id": "p1", "Van": "2022-01-01", "TotEnMet": None},
+                        {
+                            "Persoon_Id": "p1",
+                            "Van": "2022-01-01",
+                            "TotEnMet": None,
+                            "Functie": "Voorzitter",
+                        },
                         {"Persoon_Id": "p2", "Van": "2019-01-01", "TotEnMet": None},
-                    ]
+                        {"Persoon_Id": "p3", "Van": "2019-01-01", "Verwijderd": True},
+                    ],
+                    "CommissieZetelVervangerPersoon": [
+                        {"Persoon_Id": "p2", "Van": "2018-01-01", "Functie": "Plv. lid"}
+                    ],
                 }
             ]
         }
     )
-    assert periods["p1"] == [("2020-01-01", "2021-01-01"), ("2022-01-01", None)]
-    assert periods["p2"] == [("2019-01-01", None)]
+    Seat = tk_records.CommitteeSeat
+    assert seats["p1"] == [
+        Seat("2020-01-01", "2021-01-01", "Lid"),
+        Seat("2022-01-01", None, "Voorzitter"),
+    ]
+    assert seats["p2"] == [
+        Seat("2019-01-01", None),
+        Seat("2018-01-01", None, "Plv. lid", substitute=True),
+    ]
+    # a seat the Kamer deleted is none
+    assert "p3" not in seats
 
 
-def test_representative_period_prefers_an_open_one() -> None:
+def test_representative_period_prefers_an_open_one_with_its_role() -> None:
+    Seat = tk_records.CommitteeSeat
     meta = tk_records.representative_period(
-        [("2020-01-01", "2021-01-01"), ("2022-01-01", None)]
+        [
+            Seat("2020-01-01", "2021-01-01", "Lid"),
+            Seat("2022-01-01", None, "Voorzitter"),
+        ]
     )
-    assert meta == {"from_date": "2022-01-01"}
+    assert meta == {
+        "from_date": "2022-01-01",
+        "role": "Voorzitter",
+        "periods": [
+            {"from_date": "2020-01-01", "to_date": "2021-01-01", "role": "Lid"},
+            {"from_date": "2022-01-01", "role": "Voorzitter"},
+        ],
+    }
 
 
 def test_representative_period_takes_the_latest_closed_one() -> None:
+    Seat = tk_records.CommitteeSeat
     meta = tk_records.representative_period(
-        [("2015-01-01", "2016-01-01"), ("2019-01-01", "2020-01-01")]
+        [Seat("2015-01-01", "2016-01-01"), Seat("2019-01-01", "2020-01-01")]
     )
-    assert meta == {"from_date": "2019-01-01", "to_date": "2020-01-01"}
+    assert meta["from_date"] == "2019-01-01" and meta["to_date"] == "2020-01-01"
+    # one seat without a role: no periods
+    assert tk_records.representative_period([Seat("2019-01-01", None)]) == {
+        "from_date": "2019-01-01"
+    }
+
+
+def test_a_members_seat_represents_before_a_substitutes() -> None:
+    Seat = tk_records.CommitteeSeat
+    meta = tk_records.representative_period(
+        [Seat("2018-01-01", None, "Lid"), Seat("2023-01-01", None, "Plv. lid", True)]
+    )
+    assert (meta["role"], meta.get("substitute")) == ("Lid", None)
 
 
 def test_member_joins_the_name_parts() -> None:
@@ -75,6 +118,8 @@ def test_member_joins_the_name_parts() -> None:
     )
     assert props["name"] == "Mark van der Berg"
     assert props["display_name"] == "Mark van der Berg"
+    # the parts as the Kamer gives them, for a list by surname: Berg, van der
+    assert (props["family_name"], props["name_prefix"]) == ("Berg", "van der")
     # Party is not read here: it comes from the dated seat timeline.
     assert "party" not in props
 
@@ -284,6 +329,20 @@ def test_activity_reads_its_cases_dossiers_and_lead_committee() -> None:
     assert props["case_kinds_by_dossier"] == {"36000": ["Wetgeving"]}
     assert props["committee_id"] == "c-1"
     assert props["date"] == "2024-01-02"
+
+
+def test_a_moved_activity_names_the_activities_that_replaced_it() -> None:
+    _, props = tk_records.activity(
+        {
+            "Id": "a-1",
+            "Nummer": "2026A04251",
+            "Status": "Verplaatst",
+            "VervangenDoor": [{"Id": "a-2", "Nummer": "2026A06208"}],
+        }
+    )
+    assert props["replaced_by"] == ["2026A06208"]
+    _, props = tk_records.activity({"Id": "a-3", "Nummer": "2026A1"})
+    assert props["replaced_by"] == []
 
 
 def test_a_plenary_activity_has_no_lead_committee() -> None:
@@ -506,6 +565,21 @@ def test_a_faction_decision_tallies_seats() -> None:
     assert props["passed"] is True
 
 
+def test_a_tally_reads_for_against_and_the_rest_whatever_came_first() -> None:
+    """The rows of a decision come in no fixed order; its tally does (``props.tally`` is
+    served as it is, key order included)."""
+    rows = [
+        _vote(Id="s-3", Soort="Niet deelgenomen", FractieGrootte=1, Fractie_Id="f-a"),
+        _vote(Id="s-2", Soort="Tegen", FractieGrootte=74, Fractie_Id="f-pvv"),
+        _vote(Id="s-1", Soort="Voor", FractieGrootte=75),
+    ]
+    for order in (rows, rows[::-1]):
+        votes = [tk_records.vote(row) for row in order]
+        _, props = tk_records.decision("b-1", {}, votes)
+        assert list(props["tally"]) == ["Voor", "Tegen", "Niet deelgenomen"]
+        assert list(props["voters"]) == ["Voor", "Tegen", "Niet deelgenomen"]
+
+
 def test_a_roll_call_counts_members_not_faction_sizes() -> None:
     votes = [
         tk_records.vote(_vote(Soort="Voor", FractieGrootte=34, Persoon_Id="p-1")),
@@ -708,7 +782,16 @@ def test_the_case_of_a_motion_is_named_by_its_subject_and_a_bill_by_its_title() 
         }
     )
     assert bill["title"] == "Wijziging van de Wegenwet"
+    assert bill["started_on"] is None
     assert tk_records.case({"Soort": "Motie"}) is None
+
+
+def test_a_case_keeps_the_day_it_started() -> None:
+    _, bill = tk_records.case(  # type: ignore[misc]
+        {"Id": "z-3", "Soort": "Wetgeving", "GestartOp": "2025-09-03T00:00:00+02:00"}
+    )
+    # of a bill: the day it was submitted to the Tweede Kamer (36799)
+    assert bill["started_on"] == "2025-09-03"
 
 
 def test_a_record_the_kamer_deleted_is_no_node() -> None:

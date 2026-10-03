@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_EURLEX,
 )
-from lawgraph.db import ArangoStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 AWB, UAVG, GW = "BWBR0005537", "BWBR0040940", "BWBR0001840"
@@ -79,7 +79,7 @@ MEASURES = [
 ]
 
 
-def _seed(store: ArangoStore) -> None:
+def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for bwb_id, fixture in (
             (AWB, "bwb_awb_annexes_toestand.xml"),
@@ -143,21 +143,20 @@ def _seed(store: ArangoStore) -> None:
     )
 
 
-def _links(store: ArangoStore) -> dict[tuple[str, str, str], dict[str, Any]]:
-    aql = """
-    FOR e IN edges FILTER e.relation IN ["IMPLEMENTS", "REFERS_TO"]
-        FILTER STARTS_WITH(e._from, "instruments/")
-        RETURN e
+def _links(store: GraphStore) -> dict[tuple[str, str, str], dict[str, Any]]:
+    statement = """
+    SELECT from_id, to_id, relation, doc -> 'meta' AS meta FROM edges
+    WHERE relation IN ('IMPLEMENTS', 'REFERS_TO') AND from_collection = 'instruments'
     """
     return {
-        (e["_from"].split("/")[1], e["relation"], e["_to"].split("/")[1]): e["meta"]
-        for e in store.query(aql)
+        (e["from_id"].split("/")[1], e["relation"], e["to_id"].split("/")[1]): e["meta"]
+        for e in store.query(statement)
     }
 
 
 @pytest.fixture()
-def store(database: str, cli: Any) -> ArangoStore:
-    store = ArangoStore()
+def store(database: str, cli: Any) -> GraphStore:
+    store = GraphStore()
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
@@ -167,7 +166,7 @@ def store(database: str, cli: Any) -> ArangoStore:
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -176,7 +175,7 @@ def client(store: ArangoStore) -> Iterator[TestClient]:
 
 
 def test_the_considerans_says_what_a_uitvoeringswet_implements(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     links = _links(store)
     assert links[("bwbr0040940", "IMPLEMENTS", "32016r0679")] == {
@@ -189,25 +188,41 @@ def test_the_considerans_says_what_a_uitvoeringswet_implements(
     )
 
 
-def test_an_act_named_in_the_text_is_a_reference(store: ArangoStore) -> None:
+def test_an_act_named_in_the_text_is_a_reference(store: GraphStore) -> None:
     links = _links(store)
     assert ("bwbr0005537", "IMPLEMENTS", "32012r0648") not in links
     assert links[("bwbr0005537", "REFERS_TO", "32012r0648")] == {"celex": EMIR}
 
 
-def test_a_measure_of_eur_lex_implements(store: ArangoStore) -> None:
+def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     links = _links(store)
     # the Awb as enacted
     assert links[("bwbr0005537", "IMPLEMENTS", "32018l1972")] == {
         "celex": EECC,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-1992-315"],
+        "measures": [
+            {
+                "publication": "stb-1992-315",
+                "citation": "Stb. 1992, 315",
+                "title": "Wet van 4 juni 1992, houdende algemene regels van bestuursrecht",
+                "type": "Wet",
+            }
+        ],
     }
     # the publication that made a version of an article, and the regulation it changed
     srm = {
         "celex": SRM,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-2022-332"],
+        "measures": [
+            {
+                "publication": "stb-2022-332",
+                "citation": "Stb. 2022, 332",
+                "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
+                "type": "Wet",
+            }
+        ],
     }
     assert links[("stb_2022_332", "IMPLEMENTS", "32014r0806")] == srm
     assert links[("bwbr0001840", "IMPLEMENTS", "32014r0806")] == srm
@@ -221,7 +236,7 @@ def test_a_measure_of_eur_lex_implements(store: ArangoStore) -> None:
     )
 
 
-def test_a_second_run_changes_nothing(store: ArangoStore, cli: Any) -> None:
+def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:
     before = _links(store)
     cli("semantic", "bwb-implements")
     assert _links(store) == before
@@ -233,6 +248,18 @@ def test_the_eu_links_of_a_law(client: TestClient) -> None:
         link["instrument"]["celex"]: link["bases"] for link in body["implements"]
     }
     assert implements == {EECC: ["national_implementing_measure"]}
+    [eecc] = body["implements"]
+    assert [m["citation"] for m in eecc["via"]] == ["Stb. 1992, 315"]
+    grondwet = client.get("/api/instruments/BWBR0001840/eu-links").json()
+    [srm] = grondwet["implements"]
+    assert srm["via"] == [
+        {
+            "publication": "stb-2022-332",
+            "citation": "Stb. 2022, 332",
+            "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
+            "type": "Wet",
+        }
+    ]
     assert {link["instrument"]["celex"] for link in body["mentions"]} == {EMIR, SRM}
     down = client.get(f"/api/instruments/{GDPR}/eu-links").json()
     assert [link["instrument"]["bwb_id"] for link in down["implemented_by"]] == [UAVG]

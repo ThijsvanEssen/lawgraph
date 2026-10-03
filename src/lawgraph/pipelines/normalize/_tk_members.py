@@ -202,6 +202,14 @@ def link_members_to_committees(
     logger.info("Linked %d members to committees.", writer.added)
 
 
+def _recency(period: dict[str, Any], record_id: str) -> tuple[str, bool, str, str]:
+    """How late a seat period is: by its start, then an open end after a closed one, then
+    its end, then the record id. The one edge of a member and a faction carries the latest,
+    whatever order the records were read in."""
+    end = period.get("to_date")
+    return (period.get("from_date") or "", end is None, end or "", record_id)
+
+
 def link_members_to_factions(
     store: Store,
     seat_raws: Iterable[dict[str, Any]],
@@ -220,6 +228,9 @@ def link_members_to_factions(
     fractievoorzitters at once). The edge of a seat the Kamer deleted goes.
     """
     seats: dict[str, dict[str, Any]] = {}  # edge key -> the edge
+    ranks: dict[
+        str, tuple[str, bool, str, str]
+    ] = {}  # edge key -> _recency of its period
     timeline: dict[str, list[dict[str, Any]]] = {}
     changed: dict[str, str] = {}  # faction key -> the day one of its seats last changed
     deleted = Deleted(COLLECTION_EDGES)
@@ -253,18 +264,22 @@ def link_members_to_factions(
         record_id = period.pop(_RECORD_ID, "")
         member_node, faction_node = member_nodes[person_id], faction_nodes[faction_id]
         edge = make_edge_doc(
-            member_node.arango_id or "",
-            faction_node.arango_id or "",
+            member_node.node_id or "",
+            faction_node.node_id or "",
             RELATION_MEMBER_OF,
             source=source,
             meta=period,
         )
-        ids = seats.get(edge["_key"], {}).get("meta", {}).get("record_ids", [])
-        edge["meta"]["record_ids"] = sorted({*ids, record_id} - {""})
-        seats[edge["_key"]] = edge
+        key = edge["_key"]
+        kept = seats.get(key)
+        ids = sorted({*(kept["meta"]["record_ids"] if kept else []), record_id} - {""})
+        rank = _recency(period, record_id)
+        if kept is None or rank > ranks[key]:
+            seats[key], ranks[key] = edge, rank
+        seats[key]["meta"]["record_ids"] = ids
         timeline.setdefault(person_id, []).append(
             {
-                "faction_id": faction_node.arango_id,
+                "faction_id": faction_node.node_id,
                 "faction_key": faction_node.key,
                 "name": faction_node.props.get("name"),
                 "abbreviation": faction_node.props.get("abbreviation"),

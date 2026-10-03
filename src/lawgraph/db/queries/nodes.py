@@ -6,10 +6,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lawgraph.config.constants import COLLECTION_EDGES
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
-from lawgraph.db import ArangoStore
-from lawgraph.db.queries._helpers import _ensure_doc, _extract_confidence
+from lawgraph.db import GraphStore
+from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries._helpers import _extract_confidence
 
 
 class NodeNotFoundError(ValueError):
@@ -28,18 +28,17 @@ _ALLOWED_NODE_COLLECTIONS = frozenset(TYPE_OF_COLLECTION)
 
 DEFAULT_BUCKET_LIMIT = 30
 
-# The edge field that holds the node itself and the one that holds its neighbour, per direction.
-_EDGE_SIDES: dict[Direction, tuple[str, str]] = {
-    "outbound": ("_from", "_to"),
-    "inbound": ("_to", "_from"),
+# The columns of an edge that hold the node itself and its neighbour, and the neighbour's
+# collection, per direction.
+_EDGE_SIDES: dict[Direction, tuple[str, str, str]] = {
+    "outbound": ("from_id", "to_id", "to_collection"),
+    "inbound": ("to_id", "from_id", "from_collection"),
 }
 
-# Traversal keyword per direction filter (the node's edges in either direction by default).
-_TRAVERSAL_DIRECTION: dict[Direction | None, str] = {
-    None: "ANY",
-    "outbound": "OUTBOUND",
-    "inbound": "INBOUND",
-}
+_NODE_COLUMNS = "n.id, n.key, n.type, n.labels, n.props"
+# The columns of a node and an edge as the neighbourhood statement gives them, in order.
+_NODE_FIELDS = ("id", "key", "type", "labels", "props")
+_EDGE_FIELDS = ("key", "from_id", "to_id", "doc")
 
 
 @dataclass(frozen=True)
@@ -70,22 +69,23 @@ class NeighborFilter:
             if node_type.value in self.node_types
         ]
 
-    def edge_aql(self, edge: str) -> str:
-        """FILTER lines for the relation and status of ``edge``; binds ``relations``, ``status``."""
-        lines = []
+    def edge_sql(self, edge: str) -> str:
+        """Conditions on the relation and status of ``edge``; binds ``relations``,
+        ``status``."""
+        conditions = []
         if self.relations is not None:
-            lines.append(f"FILTER {edge}.relation IN @relations")
+            conditions.append(f"AND {edge}.relation = ANY(%(relations)s)")
         if self.status is not None:
-            lines.append(f"FILTER {edge}.status == @status")
-        return "\n".join(lines)
+            conditions.append(f"AND {edge}.status = %(status)s")
+        return " ".join(conditions)
 
-    def edge_bind_vars(self) -> dict[str, Any]:
-        bind_vars: dict[str, Any] = {}
+    def edge_params(self) -> dict[str, Any]:
+        params: dict[str, Any] = {}
         if self.relations is not None:
-            bind_vars["relations"] = list(self.relations)
+            params["relations"] = list(self.relations)
         if self.status is not None:
-            bind_vars["status"] = self.status
-        return bind_vars
+            params["status"] = self.status
+        return params
 
 
 NO_FILTER = NeighborFilter()
@@ -132,19 +132,17 @@ class NodeGraphData:
     buckets: list[NeighborBucket]
 
 
-def _load_node(store: ArangoStore, collection: str, key: str) -> dict[str, Any]:
+def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise UnsupportedCollectionError("unsupported collection")
-    if not store.db.has_collection(collection):
-        raise NodeNotFoundError(f"collection {collection} not found")
-    node_doc = _ensure_doc(store.db.collection(collection).get(key))
-    if node_doc is None:
+    node = store.get_document(collection, key)
+    if node is None:
         raise NodeNotFoundError("node not found")
-    return node_doc
+    return node
 
 
 def get_node_with_neighbors(
-    store: ArangoStore,
+    store: GraphStore,
     collection: str,
     key: str,
     *,
@@ -157,9 +155,9 @@ def get_node_with_neighbors(
     ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
     and where its next page starts.
     """
-    node_doc = _load_node(store, collection, key)
-    facets = _count_facets(store, node_doc["_id"], filters)
-    pages = _read_pages(store, node_doc["_id"], filters, facets, limit, offset)
+    node = _load_node(store, collection, key)
+    facets = _count_facets(store, node["_id"], filters)
+    pages = _read_pages(store, node["_id"], filters, facets, limit, offset)
     end = offset + limit
     buckets = [
         NeighborBucket(
@@ -169,50 +167,43 @@ def get_node_with_neighbors(
         )
         for facet in facets
     ]
-    return NodeGraphData(node=node_doc, buckets=buckets)
-
-
-def _edge_scan_aql(direction: Direction, filters: NeighborFilter) -> str:
-    """The edges of ``@node_id`` in one direction that pass ``filters``, as ``e``."""
-    own, other = _EDGE_SIDES[direction]
-    lines = [f"FOR e IN {COLLECTION_EDGES}", f"FILTER e.{own} == @node_id"]
-    if filters.relations is not None or filters.status is not None:
-        lines.append(filters.edge_aql("e"))
-    if filters.collections is not None:
-        lines.append(f"FILTER SPLIT(e.{other}, '/')[0] IN @collections")
-    return "\n".join(lines)
+    return NodeGraphData(node=node, buckets=buckets)
 
 
 def _count_facets(
-    store: ArangoStore, node_id: str, filters: NeighborFilter
+    store: GraphStore, node_id: str, filters: NeighborFilter
 ) -> list[NeighborFacet]:
     """Count the edges of a node per (relation, direction, neighbour collection).
 
-    The edges are grouped and counted inside ArangoDB in one pass over the edges of the
-    node, with no document held: a faction has a million ``VOTED`` edges. A collection holds
-    one node type, so the neighbours themselves are never read.
+    One pass over the edges of the node, with no document read: a faction has a million
+    ``VOTED`` edges. A collection holds one node type, so the neighbours are never read.
     """
     parts = []
     for direction in filters.directions:
-        _, other = _EDGE_SIDES[direction]
+        own, _, other_collection = _EDGE_SIDES[direction]
+        collections = (
+            f"AND e.{other_collection} = ANY(%(collections)s)"
+            if filters.collections is not None
+            else ""
+        )
         parts.append(
             f"""
-    LET {direction}_rows = (
-        {_edge_scan_aql(direction, filters)}
-        COLLECT relation = e.relation, collection = SPLIT(e.{other}, '/')[0]
-            WITH COUNT INTO count
-        RETURN {{ relation, direction: '{direction}', collection, count }}
-    )"""
+            SELECT e.relation, '{direction}' AS direction, e.{other_collection} AS collection,
+                   count(*)::int AS count
+            FROM edges e
+            WHERE e.{own} = %(node_id)s {filters.edge_sql("e")} {collections}
+            GROUP BY e.relation, e.{other_collection}
+            """
         )
-    names = ", ".join(f"{d}_rows" for d in filters.directions)
-    aql = f"""{"".join(parts)}
-    FOR facet IN UNION({names}, [])
-        SORT facet.relation, facet.direction, facet.collection
-        RETURN facet
-    """
-    bind_vars = {"node_id": node_id, **filters.edge_bind_vars()}
-    if filters.collections is not None:
-        bind_vars["collections"] = filters.collections
+    statement = (
+        " UNION ALL ".join(parts)
+        + " ORDER BY relation NULLS FIRST, direction, collection NULLS FIRST"
+    )
+    params = {
+        "node_id": node_id,
+        "collections": filters.collections,
+        **filters.edge_params(),
+    }
     return [
         NeighborFacet(
             relation=row["relation"],
@@ -220,12 +211,12 @@ def _count_facets(
             collection=row["collection"],
             count=row["count"],
         )
-        for row in store.query(aql, bind_vars)
+        for row in store.query(statement, params)
     ]
 
 
 def _read_pages(
-    store: ArangoStore,
+    store: GraphStore,
     node_id: str,
     filters: NeighborFilter,
     facets: Iterable[NeighborFacet],
@@ -234,67 +225,85 @@ def _read_pages(
 ) -> dict[tuple[str | None, str, str], list[NeighborEntry]]:
     """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far.
 
-    One query per request: each facet reads its own page from the edge index, in ``_key``
-    order so that a page is the same on every request. ``limit`` and ``offset`` count edges,
-    so an edge whose neighbour is gone leaves its page one short.
+    One query per request: each facet reads its own page of edges in key order, so that a
+    page is the same on every request. ``limit`` and ``offset`` count edges, so an edge
+    whose neighbour is gone leaves its page one short.
     """
-    wanted: dict[Direction, list[dict[str, Any]]] = {}
+    wanted: dict[Direction, list[NeighborFacet]] = {}
     for facet in facets:
         if facet.count > offset:
-            wanted.setdefault(facet.direction, []).append(
-                {"relation": facet.relation, "collection": facet.collection}
-            )
+            wanted.setdefault(facet.direction, []).append(facet)
     if not wanted:
         return {}
-
-    status_aql = "FILTER e.status == @status" if filters.status is not None else ""
-    bind_vars: dict[str, Any] = {"node_id": node_id, "offset": offset, "limit": limit}
-    if filters.status is not None:
-        bind_vars["status"] = filters.status
+    status = "AND e.status = %(status)s" if filters.status is not None else ""
+    params: dict[str, Any] = {
+        "node_id": node_id,
+        "offset": offset,
+        "limit": limit,
+        **filters.edge_params(),
+    }
     parts = []
     for direction, buckets in wanted.items():
-        own, other = _EDGE_SIDES[direction]
-        bind_vars[f"{direction}_buckets"] = buckets
+        own, other, other_collection = _EDGE_SIDES[direction]
+        params[f"{direction}_relations"] = [b.relation for b in buckets]
+        params[f"{direction}_collections"] = [b.collection for b in buckets]
         parts.append(
             f"""
-    LET {direction}_rows = (
-        FOR b IN @{direction}_buckets
-            LET items = (
-                FOR e IN {COLLECTION_EDGES}
-                    FILTER e.{own} == @node_id AND e.relation == b.relation
-                    FILTER SPLIT(e.{other}, '/')[0] == b.collection
-                    {status_aql}
-                    SORT e._key
-                    LIMIT @offset, @limit
-                    LET neighbor = DOCUMENT(e.{other})
-                    FILTER neighbor != null
-                    RETURN {{ edge: e, neighbor: neighbor }}
-            )
-            RETURN {{
-                relation: b.relation,
-                direction: '{direction}',
-                collection: b.collection,
-                items: items
-            }}
-    )"""
+            SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
+                   e.key AS edge_key, e.from_id, e.to_id, e.doc, {_NODE_COLUMNS}
+            FROM unnest(%({direction}_relations)s::text[], %({direction}_collections)s::text[])
+                WITH ORDINALITY AS b(relation, collection, ord)
+            CROSS JOIN LATERAL (
+                SELECT * FROM edges e
+                WHERE e.{own} = %(node_id)s
+                  AND e.relation IS NOT DISTINCT FROM b.relation
+                  AND e.{other_collection} = b.collection {status}
+                ORDER BY e.key
+                LIMIT %(limit)s OFFSET %(offset)s
+            ) e
+            JOIN nodes n ON n.id = e.{other}
+            """
         )
-    aql = f"""{"".join(parts)}
-    FOR bucket IN UNION({", ".join(f"{d}_rows" for d in wanted)}, [])
-        RETURN bucket
-    """
+    statement = " UNION ALL ".join(parts) + " ORDER BY direction, ord, edge_key"
     pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
-    for row in store.query(aql, bind_vars):
-        pages[(row["relation"], row["direction"], row["collection"])] = [
-            NeighborEntry(
-                doc=item["neighbor"], edge=item["edge"], direction=row["direction"]
-            )
-            for item in row["items"]
-        ]
+    for row in store.query(statement, params):
+        entry = NeighborEntry(
+            doc=node_doc(row),
+            edge=edge_doc({**row, "key": row["edge_key"]}),
+            direction=row["direction"],
+        )
+        pages.setdefault(
+            (row["relation"], row["direction"], row["collection"]), []
+        ).append(entry)
     return pages
 
 
+# How many neighbours ``lg_walk`` looks up at a time: a capped walk stops looking them up
+# once the cap is reached.
+_NEIGHBOUR_CHUNK = 500
+
+
+def _walk_params(
+    focal_id: str, depth: int, cap: int, filters: NeighborFilter
+) -> dict[str, Any]:
+    """The arguments of ``lg_walk`` (``db/schema.py``) for a walk from *focal_id*."""
+    return {
+        "focal": focal_id,
+        "depth": depth,
+        "cap": cap,
+        "relations": list(filters.relations) if filters.relations is not None else None,
+        "status": filters.status,
+        "outbound": "outbound" in filters.directions,
+        "inbound": "inbound" in filters.directions,
+        "collections": filters.collections,
+        "tables": sorted(_ALLOWED_NODE_COLLECTIONS),
+        "chunk": _NEIGHBOUR_CHUNK,
+        **filters.edge_params(),
+    }
+
+
 def get_node_neighborhood(
-    store: ArangoStore,
+    store: GraphStore,
     collection: str,
     key: str,
     *,
@@ -302,74 +311,53 @@ def get_node_neighborhood(
     cap: int = 200,
     filters: NeighborFilter = NO_FILTER,
 ) -> dict[str, Any]:
-    """Server-side BFS — returns all nodes + edges within ``depth`` hops.
+    """Every node and edge within ``depth`` hops of a node, breadth first.
 
-    ArangoDB's native traversal walks the unified-edge collection in one query;
-    ``uniqueVertices: 'global'`` keeps the result deduplicated across branches, and ``cap``
-    bounds the discovered vertex count so a hub node cannot flood the response.
-
-    ``filters`` shape the walk itself: a path is followed only along edges of the given
-    relations and status, in the given direction, and through nodes of the given types (the
-    focal node is always kept). The result also carries every other edge of those relations
-    and that status that connects two vertices in the kept set, so the frontend can render
-    the full subgraph.
+    ``cap`` bounds the number of nodes so a hub cannot flood the response. ``filters``
+    shape the walk itself: it follows only edges of the given relations and status, in the
+    given direction, and goes through nodes of the given types (the focal node is always
+    kept). The result also carries every other edge of those relations and that status
+    between two of the nodes kept, so the frontend can render the full subgraph.
     """
-    focal_doc = _load_node(store, collection, key)
-
+    focal = _load_node(store, collection, key)
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, 1000))
-
-    # Edge conditions on the whole path (``ALL``) are evaluated by the traversal, which then
-    # never leaves along an edge that fails them. Vertices that fail the type condition are
-    # emitted once (PRUNE ends the path there) and dropped by the filter behind it.
-    walk_filters = []
-    if filters.relations is not None:
-        walk_filters.append("FILTER p.edges[*].relation ALL IN @relations")
-    if filters.status is not None:
-        walk_filters.append("FILTER p.edges[*].status ALL == @status")
-    prune = ""
-    if filters.node_types is not None:
-        prune = "PRUNE v._id != @focal AND v.type NOT IN @node_types"
-        walk_filters.append("FILTER v.type IN @node_types")
-    walk_aql = "\n            ".join(walk_filters)
-    direction = _TRAVERSAL_DIRECTION[filters.direction]
-
-    # Traverse + dedup vertices in AQL. ``LIMIT cap`` short-circuits when
-    # the cap is reached; the focal node is added later so it always lands
-    # in the result.
-    aql = f"""
-    LET focal = DOCUMENT(@focal)
-    LET visited = (
-        FOR v, e, p IN 1..@depth {direction} focal {COLLECTION_EDGES}
-            {prune}
-            OPTIONS {{ uniqueVertices: 'global', bfs: true }}
-            {walk_aql}
-            LIMIT @cap
-            RETURN DISTINCT v
+    # One statement: the walk in the database (breadth first, D9: a level is kept in id
+    # order until the cap; a node of a type the filter leaves out is seen but neither kept
+    # nor walked through), the nodes it kept, and the edges between them and the focal
+    # node.
+    found = next(
+        store.query(
+            f"""
+            WITH walked AS (
+                SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
+                               %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
+                               %(chunk)s) AS ids
+            )
+            SELECT
+                (SELECT coalesce(json_agg(json_build_array(
+                     n.id, n.key, n.type, n.labels, n.props) ORDER BY n.id), '[]')
+                 FROM walked w, nodes n
+                 WHERE n.id = ANY(w.ids)
+                   -- only the tables of the collections walked to are asked
+                   AND n.collection = ANY(ARRAY(
+                       SELECT DISTINCT split_part(x, '/', 1) FROM unnest(w.ids) x))
+                ) AS nodes,
+                (SELECT coalesce(json_agg(json_build_array(
+                     e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
+                 FROM walked w, edges e
+                 WHERE e.from_id = ANY(w.ids || %(focal)s::text)
+                   AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
+                    AS edges
+            FROM walked
+            """,
+            _walk_params(focal["_id"], depth, cap, filters),
+        )
     )
-    LET node_ids = APPEND(visited[*]._id, focal._id)
-    LET node_id_set = node_ids
-    LET edges_between = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from IN node_id_set AND e._to IN node_id_set
-            {filters.edge_aql("e")}
-            RETURN e
-    )
-    RETURN {{
-        focal: focal,
-        nodes: visited,
-        edges: edges_between
-    }}
-    """
-    bind_vars: dict[str, Any] = {
-        "focal": focal_doc["_id"],
-        "depth": depth,
-        "cap": cap,
-        **filters.edge_bind_vars(),
+    nodes = [dict(zip(_NODE_FIELDS, row, strict=True)) for row in found["nodes"]]
+    edges = [dict(zip(_EDGE_FIELDS, row, strict=True)) for row in found["edges"]]
+    return {
+        "focal": focal,
+        "nodes": [node_doc(row) for row in nodes],
+        "edges": [edge_doc(row) for row in edges],
     }
-    if filters.node_types is not None:
-        bind_vars["node_types"] = list(filters.node_types)
-    rows = list(store.query(aql, bind_vars))
-    if not rows:
-        return {"focal": focal_doc, "nodes": [], "edges": []}
-    return rows[0]

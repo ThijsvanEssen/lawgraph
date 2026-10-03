@@ -52,6 +52,26 @@ def test_set_writes_a_valid_change_and_refuses_a_wrong_one(copy: Path) -> None:
     assert taken.errors
 
 
+def test_a_kamer_draws_a_party_in_colours_of_its_own(copy: Path) -> None:
+    # a faction only the Eerste Kamer draws: no house colour, its colour there
+    assert not command.main(
+        ["set", "party-colors", "Fractie-Nieuw", '{"chambers": {"EK": ["#A89D8C"]}}']
+    ).errors
+    wrong = command.main(
+        [
+            "set",
+            "party-colors",
+            "Y",
+            '{"chambers": {"EK": ["roze"], "XK": ["#000000"]}}',
+        ]
+    )
+    assert any("EK colour 'roze' is no #rrggbb" in e for e in wrong.errors)
+    assert any("XK is no Kamer" in e for e in wrong.errors)
+    assert command.main(["set", "party-colors", "Z", '{"chambers": {"TK": []}}']).errors
+    # without colours of a Kamer a party still needs its house colour
+    assert command.main(["set", "party-colors", "W", '{"aliases": []}']).errors
+
+
 def test_an_ordered_list_takes_a_place(copy: Path) -> None:
     assert not command.main(
         ["set", "ministries", "nieuw", '{"name": "Nieuw"}', "--after", "az"]
@@ -132,6 +152,16 @@ def test_an_abbreviation_needs_the_id_of_an_instrument(copy: Path) -> None:
     ).errors
     assert not command.main(
         ["set", "instrument-abbreviations", "32016R0680", '{"abbreviations": ["RHD"]}']
+    ).errors
+    # an abbreviation in context: the words beside it, and not another instrument's
+    for in_context in ('{"EP": []}', '{"EP": "EVRM"}', '["EP"]', '{"AVG": ["x"]}'):
+        value = f'{{"abbreviations": ["RHD"], "in_context": {in_context}}}'
+        assert command.main(
+            ["set", "instrument-abbreviations", "32016R0680", value]
+        ).errors, in_context
+    value = '{"abbreviations": ["RHD"], "in_context": {"RH": ["Richtlijn"]}}'
+    assert not command.main(
+        ["set", "instrument-abbreviations", "32016R0680", value]
     ).errors
 
 

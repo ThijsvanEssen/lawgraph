@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Callable
 
 from lawgraph.core.aliases import InstrumentAliasMap
@@ -33,15 +34,22 @@ _EU_ARTICLE_PATTERNS = build_article_patterns(
 
 
 def build_extractor(
-    code_aliases: dict[str, str], instrument_aliases: InstrumentAliasMap
+    code_aliases: dict[str, str],
+    instrument_aliases: InstrumentAliasMap,
+    context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
 ) -> DutchCitationExtractor:
-    """Extractor that resolves law codes and full law names ("artikel 5 van de Wegenwet")."""
+    """Extractor that resolves law codes and full law names ("artikel 5 van de Wegenwet"),
+    and the abbreviations that stand for a law only beside other words ("EP" beside "EVRM")."""
     name_aliases = {
         name: bwb_id or celex
         for name, (bwb_id, celex) in instrument_aliases.items()
         if bwb_id or celex
     }
-    return DutchCitationExtractor(code_aliases=code_aliases, name_aliases=name_aliases)
+    return DutchCitationExtractor(
+        code_aliases=code_aliases,
+        name_aliases=name_aliases,
+        context_aliases=context_aliases,
+    )
 
 
 def collect_eu_hits(text: str, record: Callable[[CitationHit], None]) -> None:

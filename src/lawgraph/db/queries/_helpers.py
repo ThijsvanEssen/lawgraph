@@ -2,86 +2,100 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
-    COLLECTION_EDGES,
+    COLLECTION_ARTICLES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.models import make_node_key, parse_arango_id
+from lawgraph.core.documents import CHAMBERS
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.qualifiers import Qualifier
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
+from lawgraph.db._rows import node_doc
+from lawgraph.db.schema import NODE_COLLECTIONS
 
 
 def _find_instrument_for_article(
-    store: ArangoStore, article_id: str
+    store: GraphStore, article_id: str
 ) -> dict[str, Any] | None:
-    aql = f"""
-    FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._from == @article_id AND edge.relation == @relation
+    rows = store.query(
+        """
+        SELECT n.id, n.key, n.type, n.labels, n.props
+        FROM edges e JOIN nodes n ON n.id = e.to_id
+        WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+        ORDER BY e.to_id
         LIMIT 1
-        RETURN DOCUMENT(edge._to)
-    """
-    for doc in store.query(
-        aql, {"article_id": article_id, "relation": RELATION_PART_OF}
-    ):
-        return doc
-    return None
+        """,
+        {"article_id": article_id, "relation": RELATION_PART_OF},
+    )
+    row = next(rows, None)
+    return node_doc(row) if row else None
 
 
 def _find_judgments_for_article(
-    store: ArangoStore, article_id: str
+    store: GraphStore, article_id: str
 ) -> list[dict[str, Any]]:
-    aql = f"""
-    FOR edge IN {COLLECTION_EDGES}
-        FILTER edge._to == @article_id AND edge.relation == @relation
-        FILTER STARTS_WITH(edge._from, '{COLLECTION_JUDGMENTS}/')
-        LET j = DOCUMENT(edge._from)
-        FILTER j != null
-        // What the response shows of a judgment. A much cited article has thousands of
-        // them, and whole judgments (text, paragraphs) pass the memory a query may use.
-        RETURN {{
-            _id: j._id,
-            _key: j._key,
-            props: {{ecli: j.props.ecli, display_name: j.props.display_name}}
-        }}
-    """
-    return list(
-        store.query(aql, {"article_id": article_id, "relation": RELATION_REFERS_TO})
+    # What the response shows of a judgment, newest first; the id settles judgments of the
+    # same day. A much cited article has thousands of them, and whole judgments (text,
+    # paragraphs) are not read for it.
+    rows = store.query(
+        """
+        SELECT json_build_object(
+            '_id', j.id,
+            '_key', j.key,
+            'props', json_build_object(
+                'ecli', j.pj_ecli, 'display_name', j.pj_display_name
+            )
+        )
+        FROM edges e JOIN judgments j ON j.id = e.from_id
+        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+          AND e.from_collection = %(judgments)s
+        ORDER BY j.date_eff DESC NULLS LAST, j.id
+        """,
+        {
+            "article_id": article_id,
+            "relation": RELATION_REFERS_TO,
+            "judgments": COLLECTION_JUDGMENTS,
+        },
     )
+    return list(rows)
 
 
-def _load_judgment(store: ArangoStore, ecli: str) -> dict[str, Any] | None:
+def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
     """The judgment with this ECLI, or the ECHR decision with this item id or appno.
 
     Keys are lower case, so the ECLI in any case is one key lookup; an id nobody loaded
     costs two key lookups and one index lookup, not a read of every judgment.
     """
     for key in (make_node_key(ecli), make_node_key("echr", ecli)):
-        doc = _ensure_doc(store.judgments.get(key))
+        doc = store.get_document(COLLECTION_JUDGMENTS, key)
         if doc is not None:
             return doc
-    # ECHR decisions from before the court gave out ECLIs are asked for by their appno.
-    aql = f"""
-    FOR candidate IN {COLLECTION_JUDGMENTS}
-        FILTER candidate.props.appno != null AND candidate.props.appno == @appno
-        LIMIT 1
-        RETURN candidate
-    """
-    return next(iter(store.query(aql, {"appno": ecli})), None)
+    # ECHR decisions from before the court gave out ECLIs are asked for by their appno;
+    # several can share one, and the key picks the same one every time.
+    rows = store.query(
+        """
+        SELECT id, key, type, labels, props FROM judgments
+        WHERE appno = %(appno)s ORDER BY key LIMIT 1
+        """,
+        {"appno": ecli},
+    )
+    row = next(rows, None)
+    return node_doc(row) if row else None
 
 
-def _load_document_by_ref(store: ArangoStore, ref: str | None) -> dict[str, Any] | None:
+def _load_document_by_ref(store: GraphStore, ref: str | None) -> dict[str, Any] | None:
     if not ref or "/" not in ref:
         return None
-    collection_name, key = parse_arango_id(ref)
-    if not store.db.has_collection(collection_name):
+    collection_name, key = parse_node_id(ref)
+    if collection_name not in NODE_COLLECTIONS:
         return None
-    collection = store.db.collection(collection_name)
-    raw_doc = collection.get(key)
-    return _ensure_doc(raw_doc)
+    return store.get_document(collection_name, key)
 
 
 def _extract_span(edge: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
@@ -164,12 +178,30 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
 
 
 def _resolve_target_from_entry(
-    store: ArangoStore, entry: dict[str, Any]
+    store: GraphStore, entry: dict[str, Any]
 ) -> dict[str, Any] | None:
     bwb_id = entry.get("target_bwb_id")
     article_number = entry.get("target_article_number")
     if not bwb_id or not article_number:
         return None
     key = make_node_key(str(bwb_id), str(article_number))
-    doc = store.articles.get(key)
+    doc = store.get_document(COLLECTION_ARTICLES, key)
     return _ensure_doc(doc)
+
+
+T = TypeVar("T")
+
+# The independent queries of one answer (a page and its counts) run side by side, each on a
+# connection of the pool: the answer takes as long as the slowest of them.
+_TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
+
+
+def run_together(*calls: Callable[[], T]) -> list[T]:
+    """The results of *calls*, run at the same time, in their order."""
+    return list(_TOGETHER.map(lambda call: call(), calls))
+
+
+def chamber_sql(alias: str) -> str:
+    """``core.documents.chamber_of`` in SQL, over the labels of the row *alias*."""
+    whens = " ".join(f"WHEN '{c}' = ANY({alias}.labels) THEN '{c}'" for c in CHAMBERS)
+    return f"CASE {whens} END"

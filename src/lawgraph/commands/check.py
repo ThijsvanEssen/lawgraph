@@ -52,10 +52,10 @@ from lawgraph.config.settings import DB_SIZE_ALERT_GIB
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.schema import SEARCH_VIEWS
+from lawgraph.db.schema_arango import SEARCH_VIEWS
 
 logger = get_logger(__name__)
 
@@ -103,7 +103,7 @@ class Report:
         logger.info("%s", message)
 
 
-def check(store: ArangoStore, *, edges: bool = True) -> Report:
+def check(store: GraphStore, *, edges: bool = True) -> Report:
     report = Report()
     _check_size(store, report)
     raw = _raw_counts(store)
@@ -118,6 +118,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
     _check_papers(store, raw, report)
     _check_cases(store, report)
     _check_protocols(store, report)
+    _check_member_slugs(store, report)
     _check_curated(store, report)
     return report
 
@@ -125,7 +126,7 @@ def check(store: ArangoStore, *, edges: bool = True) -> Report:
 GIB = 1024**3
 
 
-def _check_size(store: ArangoStore, report: Report) -> None:
+def _check_size(store: GraphStore, report: Report) -> None:
     """The size the server counts against its license, against the alert threshold; the
     largest collections say where it goes."""
     usage = store.disk_usage()
@@ -151,7 +152,7 @@ def _check_size(store: ArangoStore, report: Report) -> None:
         report.note(line)
 
 
-def _raw_counts(store: ArangoStore) -> dict[tuple[str, str], int]:
+def _raw_counts(store: GraphStore) -> dict[tuple[str, str], int]:
     rows = raw_queries.raw_counts(store)
     return {(row["source"], row["kind"]): row["n"] for row in rows}
 
@@ -175,7 +176,7 @@ PAYLOAD_SAMPLE = 3
 
 
 def _check_payloads(
-    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+    store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
     looked = missing = 0
     for source, kind in sorted(raw):
@@ -196,7 +197,7 @@ def _check_payloads(
 
 
 def _check_nodes(
-    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+    store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
     for source, collection in NODES_OF_SOURCE.items():
         stored = sum(n for (s, _), n in raw.items() if s == source)
@@ -226,7 +227,7 @@ def _records(records: int, expected: int, kind: str) -> str:
     return stored if expected == records else f"{stored}, {expected:,} distinct,"
 
 
-def _check_edges(store: ArangoStore, report: Report) -> None:
+def _check_edges(store: GraphStore, report: Report) -> None:
     dangling = {row["relation"]: row["n"] for row in checks.dangling_edges(store)}
     if dangling:
         detail = ", ".join(
@@ -237,7 +238,7 @@ def _check_edges(store: ArangoStore, report: Report) -> None:
         report.note("edges: every edge has both its nodes")
 
 
-def _check_views(store: ArangoStore, report: Report) -> None:
+def _check_views(store: GraphStore, report: Report) -> None:
     for view, collection in SEARCH_VIEWS.items():
         try:
             row = checks.view_and_collection_size(store, view, collection)
@@ -254,7 +255,7 @@ def _check_views(store: ArangoStore, report: Report) -> None:
             )
 
 
-def _check_derived(store: ArangoStore, report: Report) -> None:
+def _check_derived(store: GraphStore, report: Report) -> None:
     """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
     ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
     normalized before it was kept would give them nothing, and nothing would say so."""
@@ -270,7 +271,7 @@ def _check_derived(store: ArangoStore, report: Report) -> None:
         report.note("derived: every BWB regulation carries its basis and EU acts")
 
 
-def _check_treaties(store: ArangoStore, report: Report) -> None:
+def _check_treaties(store: GraphStore, report: Report) -> None:
     """A BWB treaty names its Verdragenbank id (``treaty_number``), which joins it to its
     Verdragenbank record; a treaty normalized before it was read carries none."""
     counts = checks.bwb_treaties_by_match(store)
@@ -291,7 +292,7 @@ def _check_treaties(store: ArangoStore, report: Report) -> None:
 
 
 def _check_papers(
-    store: ArangoStore, raw: dict[tuple[str, str], int], report: Report
+    store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
     """``retrieve tk-content`` keeps the XML of a paper; ``normalize tk-content`` writes its
     text and sections on the document. Without that step the documents keep no text, and the
@@ -310,7 +311,7 @@ def _check_papers(
         report.note(f"papers: {read:,} documents read from {stored:,} XML records")
 
 
-def _check_cases(store: ArangoStore, report: Report) -> None:
+def _check_cases(store: GraphStore, report: Report) -> None:
     """A case reaches its dossier through the number it carries; when none of them carries
     one, the request for the cases did not ask for the dossier."""
     counts = checks.cases_by_named_dossier(store)
@@ -325,13 +326,32 @@ def _check_cases(store: ArangoStore, report: Report) -> None:
         report.note(f"cases: {counts[True]:,} of {total:,} name a dossier")
 
 
-def _check_protocols(store: ArangoStore, report: Report) -> None:
-    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply: they are
-    not linked (``semantic echr``), which only this says."""
-    from lawgraph.pipelines.semantic.echr import protocol_articles
+def _check_member_slugs(store: GraphStore, report: Report) -> None:
+    """A slug names one member: a URL of a member would else open either."""
+    shared = checks.shared_member_slugs(store)
+    if shared:
+        report.problem(
+            f"{len(shared):,} member slugs are each of more than one member ("
+            + ", ".join(f"{r['slug']} ({r['count']})" for r in shared[:10])
+            + "); a slug is given once and never twice, so two runs that wrote members "
+            "side by side made them: keep the oldest, and normalize the members again"
+        )
 
+
+def _check_protocols(store: GraphStore, report: Report) -> None:
+    """The articles of a Protocol to the ECHR Convention that ECHR judgments apply and that
+    are not linked (``semantic echr``): the Protocol is not in the curated list
+    ``echr-protocols``, which only this says."""
+    from lawgraph.pipelines.semantic.echr import protocol_articles, protocol_treaties
+
+    treaties = protocol_treaties()
     per_judgment = [
-        protocol_articles(field) for field in checks.echr_article_fields(store)
+        [
+            f"{protocol}-{number}"
+            for protocol, number in protocol_articles(field)
+            if protocol not in treaties
+        ]
+        for field in checks.echr_article_fields(store)
     ]
     named = [articles for articles in per_judgment if articles]
     if named:
@@ -339,12 +359,12 @@ def _check_protocols(store: ArangoStore, report: Report) -> None:
         report.note(
             f"echr: {sum(map(len, named)):,} articles of a Protocol in {len(named):,} "
             f"judgments are not linked ({', '.join(distinct[:10])}"
-            f"{', …' if len(distinct) > 10 else ''}): a Protocol is a treaty of its own, "
-            "and no source maps its number to a BWB id"
+            f"{', …' if len(distinct) > 10 else ''}): the Protocol is not in the curated "
+            "list echr-protocols"
         )
 
 
-def _check_curated(store: ArangoStore, report: Report) -> None:
+def _check_curated(store: GraphStore, report: Report) -> None:
     """The lists kept by hand (``lawgraph curated check --db``): a mistake in one would
     otherwise show only in what it feeds."""
     from lawgraph.commands.curated import check as curated_problems
@@ -367,5 +387,5 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         help="Leave out the edge check (two lookups per edge: minutes on millions of edges).",
     )
     args = parser.parse_args(argv)
-    report = check(ArangoStore(), edges=not args.skip_edges)
+    report = check(GraphStore(), edges=not args.skip_edges)
     return PipelineResult(errors=report.problems)

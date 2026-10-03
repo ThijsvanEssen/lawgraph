@@ -24,9 +24,10 @@ from lawgraph.api.schemas.feed import (
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.settings import SITE_URL
-from lawgraph.core.feed import FEED_KINDS, FeedCursor
+from lawgraph.core.courts import TIERS
+from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
 
@@ -46,6 +47,9 @@ _EVENTS = (
     "``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, "
     "Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in "
     "force)"
+    " and ``uitspraak`` (a judgment or conclusion, on the day it was published; only "
+    "with ``kind=uitspraak`` or ``tier``, of the highest courts and the Parket unless "
+    "``tier`` asks for others)"
 )
 
 
@@ -91,6 +95,14 @@ def scope_filters(
             "commencements belong to neither."
         ),
     ] = None,
+    tier: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated tiers of the judgments (as in "
+            "``/api/judgments``): keeps judgments alone. Without it the feed's judgments "
+            f"are those of {', '.join(FEED_TIERS)}."
+        ),
+    ] = None,
 ) -> FeedFilters:
     """The filters of every feed route but its dates."""
     return FeedFilters(
@@ -102,6 +114,7 @@ def scope_filters(
         faction=faction or None,
         q=(q or "").strip() or None,
         chamber=chamber,
+        tiers=parse_choices(tier, TIERS, "tier"),
     )
 
 
@@ -121,7 +134,7 @@ def feed_filters(
 
 
 def _page(
-    store: ArangoStore,
+    store: GraphStore,
     filters: FeedFilters,
     cursor: str | None,
     limit: int,
@@ -146,7 +159,7 @@ def _page(
     )
 
 
-def _data_as_of(store: ArangoStore) -> dict[str, DataAsOfDTO]:
+def _data_as_of(store: GraphStore) -> dict[str, DataAsOfDTO]:
     """How current each source is, as ``GET /api/stats`` says."""
     return {
         source: DataAsOfDTO(**row) for source, row in cached_data_as_of(store).items()
@@ -173,7 +186,7 @@ _Limit = Annotated[int, Query(ge=1, le=200)]
     tags=["feed"],
 )
 def get_feed_route(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
     limit: _Limit = 50,
@@ -205,7 +218,7 @@ def get_feed_route(
 )
 def get_feed_atom(
     request: Request,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
     limit: _Limit = 50,
@@ -239,6 +252,7 @@ _KIND_PLURALS = {
     "publicatie": "publicaties",
     "inwerkingtreding": "inwerkingtredingen",
     "Brief regering": "brieven van de regering",
+    "uitspraak": "uitspraken",
 }
 _CHAMBERS = {"TK": "Tweede Kamer", "EK": "Eerste Kamer"}
 _SITE_PARAMETERS = {
@@ -252,6 +266,7 @@ _SITE_PARAMETERS = {
     "faction": "fractie",
     "q": "q",
     "chamber": "kamer",
+    "tiers": "instantie",
 }
 
 
@@ -288,6 +303,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(_CHAMBERS[filters.chamber])
     if filters.kinds:
         parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
+    if filters.tiers:  # a tier key in words: ``hoge raad``
+        parts.append(" en ".join(tier.replace("_", " ") for tier in filters.tiers))
     if filters.dossier:
         parts.append(f"dossier {filters.dossier}")
     if filters.ministry:
@@ -322,7 +339,7 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
     tags=["feed"],
 )
 def get_feed_summary_route(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     scope: Annotated[FeedFilters, Depends(scope_filters)],
     until: Annotated[
         dt.date | None, Query(description="The last day; default today.")

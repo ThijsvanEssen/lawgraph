@@ -42,6 +42,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
     dossier_display_name,
+    last_activity,
     opened_on,
     phase_props,
     select_title,
@@ -50,11 +51,12 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
-from lawgraph.db.queries import normalize as normalize_queries
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
@@ -106,7 +108,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             )
             voted_on = [
                 row["decision_id"]
-                for row in normalize_queries.decisions_of_vote_records(
+                for row in normalize_tk.decisions_of_vote_records(
                     self.store, [str(self._payload_json(r).get("Id")) for r in deleted]
                 )
                 if row["decision_id"]
@@ -189,6 +191,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
         tk_votes.remove_deleted_votes(store, votes, normalized["decisions"])
         self._refresh_case_kinds(normalized["activities"])
+        assign_member_slugs(store)
         return normalized
 
     def _add_bill_decisions(
@@ -280,8 +283,33 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
         # Once the edges exist, each dossier's documents can be walked to
-        # derive its title and phases, so reads stay O(1).
-        self._backfill_titles_and_phases(normalized["dossiers"])
+        # derive its title and phases, so reads stay O(1). A run over a window also
+        # refreshes the dossiers its papers, activities and decisions belong to: their
+        # phases and last activity move with them, the dossier's own record need not.
+        self._backfill_titles_and_phases(
+            {**self._touched_dossiers(normalized), **normalized["dossiers"]}
+        )
+
+    def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
+        """On a run over a window, the stored dossiers (by label) that a paper, activity
+        or decision of the window belongs to and the window does not hold itself."""
+        if not self._incremental:
+            return {}
+        labels = {
+            str(label)
+            for kind in ("documents", "activities", "decisions")
+            for node in normalized[kind].values()
+            for label in node.props.get("dossier_numbers") or []
+        } - set(normalized["dossiers"])
+        found: dict[str, Node] = {}
+        for label in sorted(labels):
+            node = self.store.get_node(COLLECTION_DOSSIERS, make_node_key(label))
+            if node is not None:
+                found[label] = node
+        logger.info(
+            "Refreshing %d dossiers the window's records belong to.", len(found)
+        )
+        return found
 
     def _every_seat(self) -> RawRecords:
         """Every FractieZetelPersoon record, also on a run over a window: the seats date a
@@ -295,11 +323,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
 
     def _stored_faction_aliases(self) -> set[str]:
-        return set(normalize_queries.faction_aliases(self.store))
+        return set(normalize_tk.faction_aliases(self.store))
 
     def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
-        rows = normalize_queries.nodes_by_external_id(
+        rows = normalize_tk.nodes_by_external_id(
             self.store, collection, list(tk_cases.LINK_PROPS)
         )
         return {
@@ -360,7 +388,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         rows = [
             row
             for chunk in chunked(sorted(numbers), 5000)
-            for row in normalize_queries.dossiers_of_numbers(self.store, chunk)
+            for row in normalize_tk.dossiers_of_numbers(self.store, chunk)
         ]
         per_number = Counter(row["number"] for row in rows)
         changed = [
@@ -393,7 +421,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         stored: dict[str, Any] = {}
         for keys in chunked(sorted_kinds, 5000):
-            for row in normalize_queries.dossier_case_kinds(self.store, keys):
+            for row in normalize_tk.dossier_case_kinds(self.store, keys):
                 stored[row["key"]] = row["case_kinds"]
 
         if self._incremental:
@@ -452,7 +480,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Documents, activities and decisions per dossier, in chunked queries."""
         rows: dict[str, dict[str, Any]] = {}
         for chunk in chunked(dossier_ids, _BACKFILL_CHUNK):
-            for row in normalize_queries.dossier_signals(self.store, chunk):
+            for row in normalize_tk.dossier_signals(self.store, chunk):
                 rows[row["dossier_id"]] = row
             logger.info(
                 "Collected signals for %d of %d dossiers.", len(rows), len(dossier_ids)
@@ -488,6 +516,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
         props["opened_on"] = day or row.get("opened_on")
         props["opened_on_basis"] = basis if day else row.get("opened_on_basis")
+        props["last_activity"] = last_activity(
+            docs, activities, row.get("decisions") or []
+        )
+        props["submitted_on_tk"] = row.get("bill_started_on")
 
         unchanged = all(node.props.get(name) == value for name, value in props.items())
         node.props.update(props)

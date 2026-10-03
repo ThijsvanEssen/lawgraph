@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_TK_TOEZEGGING, SOURCE_TK
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import uid
 
 COMMITMENT = {
@@ -30,7 +30,7 @@ COMMITMENT = {
 def test_a_commitment_is_listed_and_found_by_its_number(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(

@@ -11,7 +11,7 @@ from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 
 from .base import (
     RESUME_WITHIN_HOURS,
@@ -38,7 +38,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
     """Store the XML of judgments, one ``rs-content`` record per ECLI."""
 
     def __init__(
-        self, store: ArangoStore, rs_client: RechtspraakClient | None = None
+        self, store: GraphStore, rs_client: RechtspraakClient | None = None
     ) -> None:
         super().__init__(store)
         self.rs = rs_client or RechtspraakClient()

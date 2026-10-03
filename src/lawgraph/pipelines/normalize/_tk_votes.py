@@ -23,7 +23,8 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
-from lawgraph.db.queries import normalize as normalize_queries
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize._tk_cases import link_node
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
@@ -141,13 +142,13 @@ def remove_deleted_votes(
     a decision this run did not write has none."""
     voted_on = {
         row["key"]
-        for row in normalize_queries.decisions_of_vote_records(
+        for row in normalize_tk.decisions_of_vote_records(
             store, sorted(votes.deleted.ids)
         )
     }
     edges = votes.deleted.remove(store)
     empty = sorted(voted_on - {node.key for node in decision_nodes.values()})
-    removed = normalize_queries.remove_nodes(store, COLLECTION_DECISIONS, empty)
+    removed = normalize_edges.remove_nodes(store, COLLECTION_DECISIONS, empty)
     removed += votes.struck.remove(store)
     logger.info("Removed %d votes and %d decisions the Kamer deleted.", edges, removed)
 
@@ -181,17 +182,17 @@ def link_votes(
     written: dict[str, list[str]] = {}  # decision node -> the keys of its VOTED edges
     for decision_id, votes in votes_by_decision.items():
         decision_node = decision_nodes.get(decision_id)
-        if decision_node is None or not decision_node.arango_id:
+        if decision_node is None or not decision_node.node_id:
             continue
         roll_call = decision_node.props.get("vote_kind") == tk_records.VOTE_KIND_MEMBER
-        keys = written.setdefault(decision_node.arango_id, [])
+        keys = written.setdefault(decision_node.node_id, [])
         for cast in votes:
             voter = _voter_id(cast, faction_nodes, known_members, roll_call=roll_call)
             if voter is None:
                 if not roll_call and cast.seats:
                     lost.setdefault(decision_id, []).append(cast.faction_label)
                 continue
-            edge = _vote_edge(cast, voter, decision_node.arango_id, source=source)
+            edge = _vote_edge(cast, voter, decision_node.node_id, source=source)
             keys.append(edge["_key"])
             writer.add_doc(edge)
     writer.flush()
@@ -233,7 +234,7 @@ def _remove_other_votes(store: Store, written: dict[str, list[str]]) -> int:
     for start in range(0, len(decisions), _DECISION_CHUNK):
         chunk = decisions[start : start + _DECISION_CHUNK]
         keep = [key for decision in chunk for key in written[decision]]
-        removed += normalize_queries.remove_edges_into_except(
+        removed += normalize_edges.remove_edges_into_except(
             store, RELATION_VOTED, chunk, keep
         )
     return removed
@@ -266,4 +267,4 @@ def _voter_id(
         key = make_node_key(cast.person_id)
         return f"{COLLECTION_MEMBERS}/{key}" if key in known_members else None
     faction = faction_nodes.get(cast.faction_id or "")
-    return faction.arango_id if faction else None
+    return faction.node_id if faction else None

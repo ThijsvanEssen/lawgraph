@@ -28,7 +28,7 @@ from lawgraph.core.ministry_sources import build_ministries
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.rijksoverheid import parse_page
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     result = PipelineResult()
     current = json.loads(DATA.read_text(encoding="utf-8"))
     curated = json.loads(CURATED.read_text(encoding="utf-8"))
-    rebuilt, dropped = rebuild(ArangoStore(), current, curated)
+    rebuilt, dropped = rebuild(GraphStore(), current, curated)
     changes = differences(current["ministries"], rebuilt["ministries"])
     for key in dropped:
         print(f"! {key}: curated, but no source names it; left out.")
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     return result
 
 
-def _records(store: ArangoStore, source: str, kind: str) -> list[dict[str, Any]]:
+def _records(store: GraphStore, source: str, kind: str) -> list[dict[str, Any]]:
     rows = raw_queries.iter_raw_records(
         store, source=source, kinds=[kind], since_iso=None, batch_size=50
     )
@@ -72,7 +72,7 @@ def _records(store: ArangoStore, source: str, kind: str) -> list[dict[str, Any]]
 
 
 def rebuild(
-    store: ArangoStore, current: dict[str, Any], curated: dict[str, Any]
+    store: GraphStore, current: dict[str, Any], curated: dict[str, Any]
 ) -> tuple[dict[str, Any], list[str]]:
     """*current* (the content of ``data/ministries.json``) built again from the stored
     sources and *curated*, and the curated keys no source names. Raises when a source was

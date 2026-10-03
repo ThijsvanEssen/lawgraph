@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STCRT_REGELING,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.display import shorten
 from lawgraph.core.identifiers import STCRT_ID_PATTERN, find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -19,7 +20,7 @@ from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.time import iso_date
 from lawgraph.core.xml import find_text, text_of
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import ArangoStore
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -28,7 +29,7 @@ logger = get_logger(__name__)
 class StaatscourantNormalizePipeline(NormalizePipelineBase):
     """Normalize Staatscourant ministeriele regelingen XML into Publication nodes."""
 
-    def __init__(self, *, store: ArangoStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
     def fetch_raw(
@@ -102,7 +103,9 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
             "year": year,
             "number": number,
             "display_name": (
-                f"Stcrt. {year}/{number}: {title[:100]}" if title else identifier
+                f"Stcrt. {year}/{number}: {shorten(title, 100)}"
+                if title
+                else identifier
             ),
         }
         if bwb_id:

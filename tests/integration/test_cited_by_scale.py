@@ -1,8 +1,8 @@
 """The passages that cite a much cited article, at the scale of Sr 287 and Awb 6:2.
 
-The test server allows a query 256 MiB. 5,000 judgments of 60 KB are 300 MB: a query that
-holds the judgments of an article in memory, or sorts them whole, stops here as it would on
-the full database (thousands of judgments per article, each with its text and paragraphs).
+5,000 judgments of 60 KB are 300 MB: a query that reads the judgments of an article whole,
+or sorts them whole, is slow here as it would be on the full database (thousands of
+judgments per article, each with its text and paragraphs).
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import get_article_cited_by
 
 JUDGMENTS = 5_000
@@ -19,7 +19,6 @@ MENTIONS = 3
 PARAGRAPHS = 40
 PARAGRAPH_SIZE = 1_500
 ARTICLE = "articles/bwbr0001854_287"
-MEMORY_LIMIT = 64 * 1024 * 1024
 COURTS = (("HR", "hoge_raad"), ("GHAMS", "gerechtshof"), ("RBAMS", "rechtbank"))
 
 
@@ -97,14 +96,12 @@ def _edge(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _seed(store: ArangoStore) -> None:
-    judgments = store.db.collection("judgments")
-    edges = store.db.collection("edges")
+def _seed(store: GraphStore) -> None:
     for batch in _judgments():
-        judgments.import_bulk(batch)
-        edges.import_bulk([_edge(doc) for doc in batch])
+        store.bulk_insert_or_update_nodes("judgments", batch)
+        store.bulk_insert_or_update_edges([_edge(doc) for doc in batch])
     # what else points at the article and must not be read: other relations, other articles
-    edges.import_bulk(
+    store.bulk_insert_or_update_edges(
         [
             {
                 "_key": f"noise{n}",
@@ -118,22 +115,9 @@ def _seed(store: ArangoStore) -> None:
     )
 
 
-def test_a_much_cited_article_lists_its_passages_within_the_memory_of_a_query(
-    database: str,
-) -> None:
-    store = ArangoStore()
+def test_a_much_cited_article_lists_its_passages_in_time(database: str) -> None:
+    store = GraphStore()
     _seed(store)
-    asked: list[tuple[str, dict[str, Any]]] = []
-
-    def limited(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        """Every query with a fraction of the memory the server allows: the 5,000
-        judgments do not fit in it, so one that has them in memory fails."""
-        asked.append((aql, bind_vars or {}))
-        return store.db.aql.execute(
-            aql, bind_vars=bind_vars or {}, memory_limit=MEMORY_LIMIT
-        )
-
-    store.query = limited  # type: ignore[method-assign]
 
     started = time.monotonic()
     cited_by = get_article_cited_by(store, ARTICLE, limit=50)
@@ -153,14 +137,3 @@ def test_a_much_cited_article_lists_its_passages_within_the_memory_of_a_query(
     rows = cited_by.rows
     assert cited_by.total == (JUDGMENTS // 3 + 1) * 1 and len(rows) == 10
     assert {r["judgment"]["props"]["court_code"] for r in rows} == {"HR"}
-
-    # The edges of the article are read through their index, each judgment through its own.
-    for aql, bind_vars in asked:
-        plan = store.db.aql.explain(aql, bind_vars=bind_vars)
-        reads = [
-            (node["collection"], node["type"])
-            for node in plan["nodes"]
-            if node["type"] in ("EnumerateCollectionNode", "IndexNode")
-        ]
-        assert reads and {kind for _, kind in reads} == {"IndexNode"}, (aql, reads)
-        assert {"edges", "judgments"} <= {name for name, _ in reads}

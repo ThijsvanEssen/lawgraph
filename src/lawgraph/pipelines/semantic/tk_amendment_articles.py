@@ -23,7 +23,7 @@ from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -203,7 +203,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         """The TK documents that can hold an amendment: those with a text, and with a law to
         amend (their own ``bwb_id`` or an AMENDS edge). Every other document was read to be
         skipped: 10,085 of 10,085 in a three-week Tweede Kamer."""
-        rows = semantic_queries.tk_documents_to_scan_for_amendments(
+        rows = semantic_tk.tk_documents_to_scan_for_amendments(
             self.store, sorted(amends_index)
         )
         for doc in rows:
@@ -218,7 +218,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         the run loop.
         """
         index: dict[str, list[str]] = {}
-        for row in semantic_queries.amended_instruments(self.store):
+        for row in semantic_tk.amended_instruments(self.store):
             document_id = row.get("document_id")
             bwb_id = row.get("bwb_id")
             if not document_id or not bwb_id:
@@ -248,7 +248,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                 bwb_ids.append(stripped)
 
         # Edge-based resolution — the common path for hydrated TK documents.
-        for edge_bwb_id in amends_index.get(document.arango_id or "", []):
+        for edge_bwb_id in amends_index.get(document.node_id or "", []):
             if edge_bwb_id not in bwb_ids:
                 bwb_ids.append(edge_bwb_id)
 

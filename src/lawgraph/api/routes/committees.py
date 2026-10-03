@@ -45,7 +45,7 @@ from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.eerstekamer_votes import VOTES_PATH
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
     get_actor_touched_instruments,
@@ -55,6 +55,7 @@ from lawgraph.db.queries.committees import (
     get_ek_faction_votes,
     get_ek_members,
     get_factions,
+    get_member_committees,
     get_member_votes,
     get_members,
 )
@@ -79,7 +80,7 @@ _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] =
     tags=["committees"],
 )
 def list_committees(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
         Literal["TK", "EK"],
         Query(
@@ -110,7 +111,7 @@ def list_committees(
 )
 def get_committee(
     slug: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     current_only: Annotated[
         bool, Query(description="Only members currently seated on this committee.")
     ] = True,
@@ -146,7 +147,7 @@ def get_committee(
 )
 def list_committee_activities(
     slug: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> CommitteeActivitiesResponse:
@@ -174,7 +175,7 @@ def list_committee_activities(
     tags=["members"],
 )
 def list_members(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     party: Annotated[
         str | None, Query(description="Party abbreviation or name.")
     ] = None,
@@ -193,6 +194,18 @@ def list_members(
         str | None,
         Query(description="Only those who held a post in this cabinet (key)."),
     ] = None,
+    slug: Annotated[
+        str | None,
+        Query(description="The member of this slug (``rob-jetten``); see ``slug``."),
+    ] = None,
+    sort: Annotated[
+        Literal["name", "family_name"],
+        Query(
+            description="``name`` (default): by the name they go by. ``family_name``: "
+            "by surname, then tussenvoegsel, as the Kamer lists its members (Steur, van "
+            "der); those without a surname in the source last."
+        ),
+    ] = "name",
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: Annotated[
@@ -205,7 +218,13 @@ def list_members(
 ) -> list[MemberDTO]:
     if chamber == "EK":
         ek = get_ek_members(
-            store, party=party, active=active, q=q, limit=limit, offset=offset
+            store,
+            party=party,
+            active=active,
+            q=q,
+            sort=sort,
+            limit=limit,
+            offset=offset,
         )
         return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
@@ -216,6 +235,8 @@ def list_members(
         include_all=include_all,
         government=capacity == "bewindspersoon",
         cabinet=cabinet,
+        slug=slug,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
@@ -234,10 +255,13 @@ def list_members(
 )
 def get_member(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> MemberDetailDTO:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return MemberDetailDTO.from_document(_as_document(node))
+    document = _as_document(node)
+    return MemberDetailDTO.from_document(
+        document, get_member_committees(store, document["_id"])
+    )
 
 
 @members_router.get(
@@ -254,11 +278,11 @@ def get_member(
 )
 def list_member_votes(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> MemberVotesResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    member_id = node.arango_id or ""
+    member_id = node.node_id or ""
     votes = get_member_votes(store, member_id, limit=limit)
     return MemberVotesResponse(
         member_id=member_id,
@@ -282,12 +306,12 @@ def list_member_votes(
 )
 def list_member_dossiers(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return _actor_dossiers(store, node.arango_id or "", limit, offset)
+    return _actor_dossiers(store, node.node_id or "", limit, offset)
 
 
 @members_router.get(
@@ -302,11 +326,11 @@ def list_member_dossiers(
 )
 def list_member_touched_instruments(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return _touched_instruments(store, node.arango_id or "", limit)
+    return _touched_instruments(store, node.node_id or "", limit)
 
 
 @factions_router.get(
@@ -321,7 +345,7 @@ def list_member_touched_instruments(
     tags=["factions"],
 )
 def list_factions(
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     active: Annotated[
         bool | None, Query(description="Only (in)active parties.")
     ] = None,
@@ -352,11 +376,11 @@ def list_factions(
 )
 def get_faction(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
 ) -> FactionDetailDTO:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
     return FactionDetailDTO(
-        id=node.arango_id or "",
+        id=node.node_id or "",
         key=node.key or "",
         type=node.type.value,
         labels=list(node.labels or []),
@@ -378,16 +402,16 @@ def get_faction(
 )
 def list_faction_dossiers(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    cache_key = (node.arango_id or "", limit, offset)
+    cache_key = (node.node_id or "", limit, offset)
     cached = _faction_dossiers_cache.get(cache_key)
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
-    response = _actor_dossiers(store, node.arango_id or "", limit, offset)
+    response = _actor_dossiers(store, node.node_id or "", limit, offset)
     _faction_dossiers_cache.set(cache_key, response)
     return response
 
@@ -408,7 +432,7 @@ def list_faction_dossiers(
 )
 def list_faction_votes(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     date_from: Annotated[
         dt.date | None, Query(alias="from", description="On or after, YYYY-MM-DD.")
     ] = None,
@@ -460,11 +484,11 @@ def list_faction_votes(
 )
 def list_faction_touched_instruments(
     key: str,
-    store: Annotated[ArangoStore, Depends(get_store)],
+    store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    return _touched_instruments(store, node.arango_id or "", limit)
+    return _touched_instruments(store, node.node_id or "", limit)
 
 
 def _as_ek_member(member: MemberDTO) -> MemberDTO:
@@ -480,7 +504,7 @@ def _as_ek_member(member: MemberDTO) -> MemberDTO:
     )
 
 
-def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> Any:
+def _node_or_404(store: GraphStore, collection: str, key: str, label: str) -> Any:
     node = store.get_node(collection, key)
     if node is None:
         raise HTTPException(status_code=404, detail=f"{label} '{key}' not found.")
@@ -489,7 +513,7 @@ def _node_or_404(store: ArangoStore, collection: str, key: str, label: str) -> A
 
 def _as_document(node: Any) -> dict[str, Any]:
     return {
-        "_id": node.arango_id,
+        "_id": node.node_id,
         "_key": node.key,
         "type": node.type.value,
         "labels": node.labels,
@@ -498,7 +522,7 @@ def _as_document(node: Any) -> dict[str, Any]:
 
 
 def _touched_instruments(
-    store: ArangoStore, actor_id: str, limit: int
+    store: GraphStore, actor_id: str, limit: int
 ) -> TouchedInstrumentsResponse:
     items = get_actor_touched_instruments(store, actor_id, limit=limit)
     return TouchedInstrumentsResponse(
@@ -509,7 +533,7 @@ def _touched_instruments(
 
 
 def _actor_dossiers(
-    store: ArangoStore, actor_id: str, limit: int, offset: int
+    store: GraphStore, actor_id: str, limit: int, offset: int
 ) -> ActorDossiersResponse:
     raw = get_actor_dossiers(store, actor_id, limit=limit, offset=offset)
     rows = raw.get("items") or []

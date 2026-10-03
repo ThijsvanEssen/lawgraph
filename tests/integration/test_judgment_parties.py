@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 JUDGMENTS = {
@@ -36,7 +36,7 @@ OLD = "ECLI:NL:HR:2001:1"
 
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = ArangoStore()
+    store = GraphStore()
     with RawSourceWriter(store) as writer:
         for ecli, name in JUDGMENTS.items():
             writer.add(
@@ -49,12 +49,15 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
                 )
             )
     cli("normalize", "rechtspraak")
-    store.db.collection(COLLECTION_JUDGMENTS).insert(
-        {
-            "_key": make_node_key(OLD),
-            "type": "Judgment",
-            "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
-        }
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_JUDGMENTS,
+        [
+            {
+                "_key": make_node_key(OLD),
+                "type": "Judgment",
+                "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
+            }
+        ],
     )
     app.dependency_overrides[get_store] = lambda: store
     try:

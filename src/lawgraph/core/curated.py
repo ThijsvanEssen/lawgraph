@@ -130,12 +130,30 @@ _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 _ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9.]{1,7}:\d{4}:[A-Z0-9.]{1,25}$")
 
 
+CHAMBERS = ("TK", "EK")
+
+
 def _party_colors(entries: Entries) -> list[str]:
     found = []
     seen: dict[str, str] = {}
     for name, value in entries.items():
-        if not _COLOR.match(str(value.get("color"))):
+        chambers = value.get("chambers") or {}
+        # a faction only one Kamer draws (``Fractie-Walenkamp``) has no house colour
+        if (chambers and "color" not in value) or _COLOR.match(str(value.get("color"))):
+            pass
+        else:
             found.append(f"{name}: color {value.get('color')!r} is no #rrggbb")
+        found += [
+            f"{name}: {chamber} is no Kamer ({', '.join(CHAMBERS)})"
+            for chamber in chambers
+            if chamber not in CHAMBERS
+        ]
+        found += [
+            f"{name}: {chamber} colour {color!r} is no #rrggbb"
+            for chamber, colors in chambers.items()
+            for color in (colors if isinstance(colors, list) and colors else [None])
+            if not _COLOR.match(str(color))
+        ]
         for label in (name, *(value.get("aliases") or [])):
             other = seen.setdefault(label.lower(), name)
             if other != name:
@@ -206,12 +224,43 @@ def _instrument_abbreviations(entries: Entries) -> list[str]:
         ):
             found.append(f"{law_id}: abbreviations must be non-empty and trimmed")
             continue
-        for abbreviation in abbreviations:
+        in_context = (value or {}).get("in_context") or {}
+        if not isinstance(in_context, dict) or any(
+            not isinstance(words, list)
+            or not words
+            or any(not isinstance(w, str) or not w.strip() for w in words)
+            for words in in_context.values()
+        ):
+            found.append(
+                f"{law_id}: in_context maps an abbreviation to the words beside it"
+            )
+            continue
+        for abbreviation in [*abbreviations, *in_context]:
             other = claimed.setdefault(abbreviation.upper(), law_id)
             if other != law_id:
                 found.append(
                     f"{abbreviation}: an abbreviation of both {other} and {law_id}"
                 )
+    return found
+
+
+def _echr_protocols(entries: Entries) -> list[str]:
+    from lawgraph.core.identifiers import is_bwb_id
+
+    found = []
+    claimed: dict[str, str] = {}
+    for protocol, value in entries.items():
+        bwb_id = str((value or {}).get("bwb_id") or "")
+        if not re.match(r"^P\d{1,2}$", protocol):
+            found.append(f"{protocol}: not a Protocol as HUDOC numbers it (P1)")
+        if not is_bwb_id(bwb_id) or bwb_id != bwb_id.upper():
+            found.append(f"{protocol}: bwb_id {bwb_id!r} is no BWB id in upper case")
+        elif claimed.setdefault(bwb_id, protocol) != protocol:
+            found.append(
+                f"{bwb_id}: the treaty of both {claimed[bwb_id]} and {protocol}"
+            )
+        if not (value or {}).get("title"):
+            found.append(f"{protocol}: needs the title the BWB gives the treaty")
     return found
 
 
@@ -325,7 +374,8 @@ LISTS: dict[str, CuratedList] = {
         _list(
             "party-colors",
             "party_colors.json",
-            "party -> {color, aliases}: the house colour of a party and its other names",
+            "party -> {color, aliases, chambers}: the house colour of a party, its other "
+            "names and the colours each Kamer draws it in",
             _records("parties", "name"),
             _party_colors,
         ),
@@ -358,6 +408,14 @@ LISTS: dict[str, CuratedList] = {
             "whose source gives no abbreviation",
             _records("instruments", "id"),
             _instrument_abbreviations,
+        ),
+        _list(
+            "echr-protocols",
+            "echr_protocols.json",
+            "HUDOC Protocol (P1) -> {bwb_id, signed, title}: the BWB treaty of a Protocol "
+            "to the ECHR, whose articles HUDOC names as P1-1",
+            _records("protocols", "protocol"),
+            _echr_protocols,
         ),
         _list(
             "decision-kinds",

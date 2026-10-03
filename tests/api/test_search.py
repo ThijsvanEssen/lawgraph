@@ -8,15 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.db.queries import search as search_module
+from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search import (
     SCORE_CONTAINS,
     SCORE_IDENTIFIER,
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
-    build_search_clause,
     rank_hits,
     score_hit,
     tokenize_search_query,
@@ -93,17 +92,6 @@ def test_score_is_the_rank_tier_of_the_best_match(
     assert score_hit(query, the_hit) == score
 
 
-def test_a_boosted_field_weighs_every_way_it_matches() -> None:
-    clause, bind = build_search_clause(
-        ["noodweer"], ["heading", "text"], {"heading": 4.0}
-    )
-    assert bind == {"_tok_0": "noodweer"}
-    assert (
-        clause.count("BOOST(") == 4
-    )  # stems, prefix, identifier, ngrams of the heading
-    assert "BOOST(ANALYZER(doc.props.text" not in clause
-
-
 def test_the_tiers_are_ordered() -> None:
     assert (
         SCORE_IDENTIFIER > SCORE_TITLE > SCORE_PREFIX > SCORE_CONTAINS > SCORE_WORDS > 0
@@ -132,74 +120,48 @@ def test_a_hit_that_has_a_score_keeps_it() -> None:
     assert ranked[0]["score"] == SCORE_IDENTIFIER
 
 
-# ── Route-level tests with a stubbed store ────────────────────────────────────
+# ── The laws behind the citation parser ───────────────────────────────────────
 
 
-def _article(key: str, number: str, bwb: str, title: str, short: str | None):
-    return {
-        "id": f"articles/{key}",
-        "key": key,
-        "collection": "articles",
-        "type": "article",
-        "display_name": f"Artikel {number} {title}",
-        "snippet": "Tekst ...",
-        "extra": {
-            "bwb_id": bwb,
-            "article_number": number,
-            "instrument_title": title,
-            "citation_title": title,
-            "short_title": short,
-        },
-    }
+def test_the_laws_are_read_once_for_many_searches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reads: list[str] = []
+
+    def codes(store: Any) -> dict[str, str]:
+        reads.append("codes")
+        return {"Sr": "BWBR0001854"}
+
+    def names(store: Any) -> dict[str, list[str]]:
+        reads.append("names")
+        return {"wetboek van strafrecht": ["BWBR0001854"]}
+
+    monkeypatch.setattr(search_module, "load_code_aliases", codes)
+    monkeypatch.setattr(search_module, "_load_law_names", names)
+
+    first = search_module.load_notation_parser(None)
+    again = search_module.load_notation_parser(None)
+
+    assert again is first
+    assert reads == ["codes", "names"]  # the abbreviations and the names, once each
+    notation = first.parse("artikel 287 Sr")
+    assert notation is not None and notation.kind == "article"
+    assert [(a.law_id, a.number) for a in notation.articles] == [("BWBR0001854", "287")]
 
 
-_GRONDWET_ART_1 = _article("bwbr0001840_1", "1", "BWBR0001840", "Grondwet", None)
-_SR_ART_287 = _article(
-    "bwbr0001854_287", "287", "BWBR0001854", "Wetboek van Strafrecht", "Sr"
-)
-_BW6_ART_162 = _article(
-    "bwbr0005289_162", "162", "BWBR0005289", "Burgerlijk Wetboek Boek 6", "BW6"
-)
-
-_LAWS = [
-    {"law_id": "BWBR0001840", "names": [None, "Grondwet", "Grondwet"]},
-    {
-        "law_id": "BWBR0001854",
-        "names": ["Sr", "Wetboek van Strafrecht", "Wetboek van Strafrecht"],
-    },
-    {"law_id": "BWBR0005289", "names": ["BW6", None, "Burgerlijk Wetboek Boek 6"]},
-]
-_CODES = [
-    {"short_title": "Sr", "bwb_id": "BWBR0001854"},
-    {"short_title": "BW6", "bwb_id": "BWBR0005289"},
-]
+# ── Route-level tests with the search stubbed ─────────────────────────────────
 
 
-class _StubStore:
-    """Replays canned AQL responses keyed by the query text fingerprint."""
-
-    def __init__(self, articles: list[dict[str, Any]]):
-        self._articles = articles
-        self.queries: list[tuple[str, dict[str, Any]]] = []
-
-    def query(self, aql: str, bind_vars: dict[str, Any] | None = None):
-        bind = bind_vars or {}
-        self.queries.append((aql, bind))
-        if "names: [i.props.short_title" in aql:
-            return list(_LAWS)
-        if "aliases: inst.props.aliases" in aql:
-            return list(_CODES)
-        if "@keys" in aql:
-            return [a for a in self._articles if a["key"] in bind["keys"]]
-        if "@numbers" in aql:
-            return [
-                a
-                for a in self._articles
-                if a["extra"]["article_number"] in bind["numbers"]
-            ]
-        if "search_articles" in aql:
-            return list(self._articles)
-        return []
+_SR_ART_287 = {
+    "id": "articles/bwbr0001854_287",
+    "key": "bwbr0001854_287",
+    "collection": "articles",
+    "type": "article",
+    "display_name": "Artikel 287 Wetboek van Strafrecht",
+    "snippet": "Tekst ...",
+    "extra": {"bwb_id": "BWBR0001854", "article_number": "287"},
+    "score": SCORE_IDENTIFIER,
+}
 
 
 @pytest.fixture(autouse=True)
@@ -207,61 +169,88 @@ def _cleanup():
     search_module._law_cache.clear()
     yield
     search_module._law_cache.clear()
-    app.dependency_overrides.pop(get_store, None)
 
 
-def _search(store: _StubStore, q: str) -> list[dict[str, Any]]:
-    app.dependency_overrides[get_store] = lambda: store
-    response = TestClient(app).get(
-        "/api/search", params={"q": q, "types": "articles", "limit": 5}
-    )
-    assert response.status_code == 200
-    return response.json()["results"]["articles"]
-
-
-@pytest.mark.parametrize(
-    ("query", "key"),
-    [
-        ("Art. 1 Grondwet", "bwbr0001840_1"),
-        ("Sr 287", "bwbr0001854_287"),
-        ("artikel 287 Sr", "bwbr0001854_287"),
-        ("art. 6:162 BW", "bwbr0005289_162"),  # the book picks the regulation
-    ],
-)
-def test_search_a_citation_finds_its_article_first_with_the_top_score(
-    query: str, key: str
+def test_the_search_route_passes_its_parameters_and_keeps_the_order(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    store = _StubStore([_GRONDWET_ART_1, _SR_ART_287, _BW6_ART_162])
-    articles = _search(store, query)
-    assert articles[0]["key"] == key
-    assert articles[0]["score"] == SCORE_IDENTIFIER
-    assert articles[0]["extra"]["instrument_title"]
+    asked: dict[str, Any] = {}
 
+    def search_all(store: Any, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
+        asked.update(kwargs)
+        weaker = {**_SR_ART_287, "id": "articles/x", "key": "x", "score": SCORE_WORDS}
+        return {"articles": [_SR_ART_287, weaker]}
 
-def test_search_an_article_without_law_looks_at_every_law_with_that_number() -> None:
-    store = _StubStore([_GRONDWET_ART_1, _SR_ART_287])
-    articles = _search(store, "artikel 1")
-    assert [a["key"] for a in articles][0] == "bwbr0001840_1"
-    assert any("@numbers" in aql for aql, _ in store.queries)
+    monkeypatch.setattr("lawgraph.api.routes.search.search_all", search_all)
 
+    response = TestClient(app).get(
+        "/api/search",
+        params={"q": "Sr 287", "types": "articles", "kind": "Motie, Brief", "limit": 5},
+    )
 
-def test_search_falls_back_to_text_for_free_form_queries():
-    store = _StubStore([_SR_ART_287])
-    articles = _search(store, "moord")
-    assert [a["key"] for a in articles] == ["bwbr0001854_287"]
-    assert articles[0]["score"] == SCORE_WORDS
-
-
-def test_the_laws_are_read_once_for_many_searches():
-    store = _StubStore([_SR_ART_287])
-    _search(store, "moord")
-    _search(store, "doodslag")
-    reads = [
-        aql
-        for aql, _ in store.queries
-        if "names: [i.props.short_title" in aql or "aliases: inst.props.aliases" in aql
+    assert response.status_code == 200
+    assert asked == {
+        "q": "Sr 287",
+        "types": ["articles"],
+        "kinds": ["Motie", "Brief"],
+        "limit": 5,
+    }
+    articles = response.json()["results"]["articles"]
+    assert [(a["key"], a["score"]) for a in articles] == [
+        ("bwbr0001854_287", SCORE_IDENTIFIER),
+        ("x", SCORE_WORDS),
     ]
-    assert len(reads) == 2  # the abbreviations and the names, once each
+    assert articles[0]["extra"]["article_number"] == "287"
+
+
+def test_search_resolves_q_in_the_same_request_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolved = {
+        "kind": "instrument",
+        "confidence": 0.9,
+        "match": {
+            "id": "instruments/32016r0679",
+            "key": "32016r0679",
+            "collection": "instruments",
+            "kind": "instrument",
+            "display_name": "AVG",
+            "confidence": 0.9,
+        },
+        "alternatives": [],
+        "qualifier": None,
+    }
+    asked: list[str] = []
+
+    def resolve_query(store: Any, q: str) -> dict[str, Any]:
+        asked.append(q)
+        return resolved
+
+    monkeypatch.setattr(
+        "lawgraph.api.routes.search.search_all", lambda store, **kwargs: {}
+    )
+    monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
+    client = TestClient(app)
+
+    body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()
+    assert body["resolved"] == {"q": "AVG", **resolved}
+    # without it nothing is resolved; a query too long for resolve is no citation
+    assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
+    long = "woord " * 40
+    body = client.get("/api/search", params={"q": long, "resolve": "true"}).json()
+    assert body["resolved"] == {"q": long, **NO_MATCH, "qualifier": None}
+    assert asked == ["AVG"]
+
+
+def test_an_unknown_type_is_refused_before_the_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "lawgraph.api.routes.search.search_all",
+        lambda store, **kwargs: pytest.fail("searched"),
+    )
+    response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
+    assert response.status_code == 400
 
 
 # ── /api/resolve ──────────────────────────────────────────────────────────────
@@ -292,9 +281,30 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
     assert q["required"] and q["schema"]["maxLength"] == 200
 
 
-def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target() -> None:
-    store = _StubStore([_BW6_ART_162])
-    app.dependency_overrides[get_store] = lambda: store
+def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    match = {
+        "id": "articles/bwbr0005289_162",
+        "key": "bwbr0005289_162",
+        "collection": "articles",
+        "kind": "article",
+        "display_name": "Artikel 162",
+        "confidence": 0.95,
+    }
+    answers = {
+        "art. 6:162 BW": {
+            "kind": "article",
+            "confidence": 0.95,
+            "match": match,
+            "alternatives": [],
+            "qualifier": None,
+        },
+        "zzzz onbekend": dict(NO_MATCH),
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.resolve.resolve_query", lambda store, q: answers[q]
+    )
     client = TestClient(app)
 
     found = client.get("/api/resolve", params={"q": "art. 6:162 BW"})

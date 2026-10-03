@@ -30,14 +30,14 @@ from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import tk as semantic_tk
 
 logger = get_logger(__name__)
 
 # The most gaps of one kind a run fetches; the rest is said out loud and comes next time.
 MAX_GAPS_PER_RUN = 50_000
 
-# Keys looked up in one query (as ``ArangoStore.existing_keys``).
+# Keys looked up in one query (as ``GraphStore.existing_keys``).
 _KEY_CHUNK = 5000
 
 # A law is fetched when at least this many of its articles are referred to.
@@ -213,7 +213,7 @@ def tk_dossier_gaps(store: Store) -> list[str]:
     named = gap_queries.dossiers_named_by_publications(store)
     cited = {
         number
-        for memorandum in semantic_queries.second_reading_memoranda(store)
+        for memorandum in semantic_tk.second_reading_memoranda(store)
         for number in first_reading_dossiers(memorandum["text"])
     }
     cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))

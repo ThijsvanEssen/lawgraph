@@ -11,7 +11,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_relations import _xml
 
 ECLI = "ECLI:NL:GHAMS:2026:2678"
@@ -20,7 +20,7 @@ ECLI = "ECLI:NL:GHAMS:2026:2678"
 def test_a_placeholder_summary_an_earlier_run_stored_is_cleared(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     xml = _xml(ECLI, "Gerechtshof Amsterdam", "2026-09-22", "200.343.062/01").replace(
         "<uitspraak>",
         "<inhoudsindicatie><para>kopje volgt</para></inhoudsindicatie><uitspraak>",

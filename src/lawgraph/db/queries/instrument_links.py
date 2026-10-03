@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
@@ -64,46 +64,65 @@ class InternationalLinksData:
     judgments_total: int
 
 
-# The edge, as far as the API answers it, and an article, in AQL.
-_EDGE_OF_ROW = (
-    "{ relation: r.edge.relation, confidence: r.edge.confidence, source: r.edge.source,"
-    " meta: r.edge.meta }"
-)
-_EDGE_OF_E = "{ confidence: e.confidence, source: e.source, meta: e.meta }"
+# The edge as far as the API answers it: of an `eu-links` row with its relation.
+_EDGE_FIELDS = ("confidence", "source", "meta")
 
 
-def _article_ref(var: str) -> str:
+def _edge_json(e: str, *, relation: bool) -> str:
+    fields = ("relation", *_EDGE_FIELDS) if relation else _EDGE_FIELDS
+    pairs = ", ".join(f"'{f}', {e}.doc -> '{f}'" for f in fields)
+    return f"json_build_object({pairs})"
+
+
+def _node_json(n: str) -> str:
+    """The document of node row *n*, as ``node_doc`` makes it."""
     return (
-        f"{{ id: {var}._id, key: {var}._key, article_number: {var}.props.article_number,"
-        f" display_name: {var}.props.display_name }}"
+        f"json_build_object('_key', {n}.key, '_id', {n}.id, 'type', {n}.type,"
+        f" 'labels', to_json({n}.labels), 'props', {n}.props)"
+    )
+
+
+def _article_ref(a: str) -> str:
+    return (
+        f"json_build_object('id', {a}.id, 'key', {a}.key,"
+        f" 'article_number', {a}.props -> 'article_number',"
+        f" 'display_name', {a}.props -> 'display_name')"
     )
 
 
 def _eu_side(name: str, end: str, other: str, relation: str) -> str:
-    """AQL of the rows of one side of `eu-links`: the edges of *relation* whose *end* is the
-    instrument, with the instrument at their *other* end, highest confidence first."""
-    source = "FILTER e.source == @source" if relation == "@mentions" else ""
+    """SQL of one side of `eu-links`, two columns: the rows of the edges of *relation*
+    whose *end* is the instrument, with the instrument at their *other* end, highest
+    confidence first (``name``), and how many there are (``name_total``)."""
+    source = "AND e.source = %(source)s" if relation == "mentions" else ""
+    rows = f"""
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_INSTRUMENTS} i ON i.id = e.{other}_id
+        WHERE e.{end}_id = %(id)s AND e.relation = %({relation})s
+          AND e.{other}_collection = '{COLLECTION_INSTRUMENTS}'
+          {source}
+    """
     return f"""
-    LET {name}_all = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e.{end} == @id AND e.relation == {relation}
-            {source}
-            FILTER STARTS_WITH(e.{other}, '{COLLECTION_INSTRUMENTS}/')
-            LET other = DOCUMENT(e.{other})
-            FILTER other != null
-            RETURN {{ instrument: other, edge: e }}
-    )
-    LET {name} = (
-        FOR r IN {name}_all
-            SORT r.edge.confidence DESC, r.instrument._key ASC
-            LIMIT @limit
-            RETURN {{ instrument: r.instrument, edge: {_EDGE_OF_ROW} }}
-    )
+    (
+        SELECT coalesce(json_agg(r.row ORDER BY r.n), '[]'::json)
+        FROM (
+            SELECT json_build_object(
+                'instrument', {_node_json("i")},
+                'edge', {_edge_json("e", relation=True)}
+            ) AS row,
+            row_number() OVER (
+                ORDER BY e.confidence DESC NULLS LAST, i.key, e.key
+            ) AS n
+            {rows}
+        ) r
+        WHERE r.n <= %(limit)s
+    ) AS {name},
+    (SELECT count(*)::int {rows}) AS {name}_total
     """
 
 
 def get_eu_links(
-    store: ArangoStore, instrument_id: str, *, limit: int = 500
+    store: GraphStore, instrument_id: str, *, limit: int = 500
 ) -> EuLinksData:
     """The `IMPLEMENTS` edges out of and into an instrument, and the `REFERS_TO` edges of
     `semantic bwb-implements` (the EU acts a regulation names), one query.
@@ -112,16 +131,12 @@ def get_eu_links(
     confidence, source, meta}` of the edge. Highest confidence first.
     """
     sides = (
-        ("implements", "_from", "_to", "@implements"),
-        ("implemented_by", "_to", "_from", "@implements"),
-        ("mentions", "_from", "_to", "@mentions"),
-        ("mentioned_by", "_to", "_from", "@mentions"),
+        ("implements", "from", "to", "implements"),
+        ("implemented_by", "to", "from", "implements"),
+        ("mentions", "from", "to", "mentions"),
+        ("mentioned_by", "to", "from", "mentions"),
     )
-    lets = "".join(_eu_side(*side) for side in sides)
-    fields = ", ".join(
-        f"{name}: {name}, {name}_total: LENGTH({name}_all)" for name, *_ in sides
-    )
-    aql = f"{lets} RETURN {{ {fields} }}"
+    columns = ",".join(_eu_side(*side) for side in sides)
     bind = {
         "id": instrument_id,
         "implements": RELATION_IMPLEMENTS,
@@ -129,7 +144,7 @@ def get_eu_links(
         "source": EDGE_SOURCE_BWB_IMPLEMENTS,
         "limit": limit,
     }
-    rows = list(store.query(aql, bind))
+    rows = list(store.query(f"SELECT {columns}", bind))
     row = rows[0] if rows else {}
 
     def rows_of(name: str) -> list[dict[str, Any]]:
@@ -150,8 +165,104 @@ def get_eu_links(
     )
 
 
+# ``own``: the articles of the instrument. ``treaty_rows``: their REFERS_TO edges into a
+# treaty instrument, or into an article of one (whose instrument is the first by key with
+# its ``bwb_id``). ``judgment_edges``: the REFERS_TO edges of ECHR judgments into the
+# instrument or its articles, with only what sorts them; the page is read whole.
+_INTERNATIONAL_SQL = f"""
+WITH own AS (
+    SELECT a.id FROM {COLLECTION_ARTICLES} a WHERE {{scope}}
+),
+treaty_rows AS (
+    SELECT treaty.id AS treaty_id, treaty.key AS treaty_key, e.key AS edge_key,
+           e.confidence, own_article.key AS own_key, target.key AS target_key,
+           e.to_collection = '{COLLECTION_ARTICLES}' AS is_article,
+           {_node_json("treaty")} AS instrument,
+           {_article_ref("own_article")} AS own_article,
+           CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
+               THEN {_article_ref("target")} END AS counterpart_article,
+           {_edge_json("e", relation=False)} AS edge
+    FROM {COLLECTION_EDGES} e
+    JOIN {COLLECTION_ARTICLES} own_article ON own_article.id = e.from_id
+    JOIN nodes target ON target.id = e.to_id
+    CROSS JOIN LATERAL (
+        SELECT i.id, i.key, i.type, i.labels, i.props, i.kind, i.jurisdiction
+        FROM {COLLECTION_INSTRUMENTS} i
+        WHERE CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
+            THEN i.bwb_id = lg_str(target.props -> 'bwb_id')
+            ELSE i.id = target.id END
+        ORDER BY i.key
+        LIMIT 1
+    ) treaty
+    WHERE e.from_id IN (SELECT id FROM own) AND e.relation = %(relation)s
+      AND (
+          e.to_collection = '{COLLECTION_INSTRUMENTS}'
+          OR EXISTS (
+              SELECT 1 FROM unnest(%(treaty_prefixes)s::text[]) AS p(prefix)
+              WHERE starts_with(e.to_id, p.prefix)
+          )
+      )
+      AND (treaty.kind = 'verdrag' OR treaty.jurisdiction = 'int')
+),
+judgment_edges AS (
+    SELECT e.key, e.confidence, lg_str(j.props -> 'date') AS date
+    FROM {COLLECTION_EDGES} e
+    JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+    WHERE e.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
+      AND e.relation = %(relation)s
+      AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+      AND j.source = %(echr)s
+)
+SELECT
+    (SELECT count(*)::int FROM treaty_rows) AS treaties_total,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'instrument', t.instrument,
+            'own_article', t.own_article,
+            'counterpart_article', t.counterpart_article,
+            'edge', t.edge
+        ) ORDER BY t.n), '[]'::json)
+        FROM (
+            -- The edge key only settles ties; the answer does not carry it.
+            SELECT r.*, row_number() OVER (
+                ORDER BY r.confidence DESC NULLS LAST, r.treaty_key, r.own_key,
+                         CASE WHEN r.is_article THEN r.target_key END NULLS FIRST,
+                         r.edge_key
+            ) AS n
+            FROM treaty_rows r
+        ) t
+        WHERE t.n <= %(limit)s
+    ) AS treaties,
+    (SELECT count(*)::int FROM judgment_edges) AS judgments_total,
+    (
+        SELECT coalesce(json_agg(json_build_object(
+            'judgment', json_build_object(
+                '_id', j.id,
+                '_key', j.key,
+                'props', json_build_object(
+                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name
+                )
+            ),
+            'own_article', CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
+                THEN {_article_ref("target")} END,
+            'edge', {_edge_json("e", relation=False)}
+        ) ORDER BY page.n), '[]'::json)
+        FROM (
+            SELECT r.key, row_number() OVER (
+                ORDER BY r.confidence DESC NULLS LAST, r.date DESC NULLS LAST, r.key
+            ) AS n
+            FROM judgment_edges r
+        ) page
+        JOIN {COLLECTION_EDGES} e ON e.key = page.key
+        JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+        LEFT JOIN {COLLECTION_ARTICLES} target ON target.id = e.to_id
+        WHERE page.n <= %(limit)s
+    ) AS judgments
+"""
+
+
 def get_international_links(
-    store: ArangoStore,
+    store: GraphStore,
     instrument_id: str,
     scope: InstrumentScope | None,
     *,
@@ -165,80 +276,9 @@ def get_international_links(
     own_article, edge}`, from the `REFERS_TO` edges of ECHR judgments into the instrument or
     one of its articles. Most confident first; the totals are independent of `limit`.
     """
-    article_ids = (
-        f"""
-        FOR a IN {COLLECTION_ARTICLES}
-            FILTER a.props.{scope.prop} == @scope_value
-            RETURN a._id
-        """
-        if scope
-        else "RETURN null"
-    )
-    aql = f"""
-    LET own_ids = ({article_ids})
-    LET treaty_rows = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._from IN own_ids AND e.relation == @relation
-            FILTER STARTS_WITH(e._to, '{COLLECTION_INSTRUMENTS}/')
-                OR STARTS_WITH(e._to, @treaty_prefixes, 1)
-            LET target = DOCUMENT(e._to)
-            FILTER target != null
-            LET is_article = STARTS_WITH(e._to, '{COLLECTION_ARTICLES}/')
-            LET treaty = is_article
-                ? FIRST(
-                    FOR i IN {COLLECTION_INSTRUMENTS}
-                        FILTER i.props.bwb_id != null AND i.props.bwb_id == target.props.bwb_id
-                        LIMIT 1 RETURN i)
-                : target
-            FILTER treaty != null
-            FILTER treaty.props.kind == 'verdrag' OR treaty.props.jurisdiction == 'int'
-            LET own = DOCUMENT(e._from)
-            RETURN {{
-                instrument: treaty,
-                own_article: {_article_ref("own")},
-                counterpart_article: is_article ? {_article_ref("target")} : null,
-                edge: {_EDGE_OF_E}
-            }}
-    )
-    // Only the sort keys are read for every judgment; the page is read whole.
-    LET judgment_edges = (
-        FOR e IN {COLLECTION_EDGES}
-            FILTER e._to IN APPEND(own_ids, [@instrument_id]) AND e.relation == @relation
-            FILTER STARTS_WITH(e._from, '{COLLECTION_JUDGMENTS}/')
-            LET j = DOCUMENT(e._from)
-            FILTER j != null AND j.props.source == @echr
-            RETURN {{ key: e._key, confidence: e.confidence, date: j.props.date }}
-    )
-    RETURN {{
-        treaties_total: LENGTH(treaty_rows),
-        treaties: (
-            FOR r IN treaty_rows
-                SORT r.edge.confidence DESC, r.instrument._key ASC, r.own_article.key ASC
-                LIMIT @limit
-                RETURN r
-        ),
-        judgments_total: LENGTH(judgment_edges),
-        judgments: (
-            FOR r IN judgment_edges
-                SORT r.confidence DESC, r.date DESC, r.key ASC
-                LIMIT @limit
-                LET e = DOCUMENT(CONCAT('{COLLECTION_EDGES}/', r.key))
-                LET j = DOCUMENT(e._from)
-                LET target = DOCUMENT(e._to)
-                RETURN {{
-                    judgment: {{
-                        _id: j._id,
-                        _key: j._key,
-                        props: {{ ecli: j.props.ecli, display_name: j.props.display_name }}
-                    }},
-                    own_article: STARTS_WITH(e._to, '{COLLECTION_ARTICLES}/')
-                        ? {_article_ref("target")}
-                        : null,
-                    edge: {_EDGE_OF_E}
-                }}
-        )
-    }}
-    """
+    # The scope is the indexed column of the articles: `bwb_id` or `celex`; without one
+    # the instrument has no articles.
+    condition = f"a.{scope.prop} = %(scope_value)s" if scope else "false"
     bind: dict[str, Any] = {
         "instrument_id": instrument_id,
         "relation": RELATION_REFERS_TO,
@@ -248,7 +288,8 @@ def get_international_links(
     }
     if scope:
         bind["scope_value"] = scope.value
-    rows = list(store.query(aql, bind))
+    sql = _INTERNATIONAL_SQL.replace("{scope}", condition)
+    rows = list(store.query(sql, bind))
     row = rows[0] if rows else {}
     return InternationalLinksData(
         treaties=list(row.get("treaties") or []),

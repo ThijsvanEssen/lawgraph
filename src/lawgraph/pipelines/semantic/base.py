@@ -14,6 +14,7 @@ from lawgraph.core.aliases import (
     InstrumentAliasMap,
     code_aliases,
     curated_abbreviations,
+    curated_context_abbreviations,
     normalize_instrument_id,
 )
 from lawgraph.core.citations import number_shape
@@ -23,7 +24,8 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.db import make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import semantic as semantic_queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
@@ -124,7 +126,7 @@ class SemanticPipelineBase(PipelineBase):
         """The shapes and the historical numbers of a law's articles; ``None`` when
         none of its articles is loaded (only stubs, or nothing)."""
         if law_id not in self._laws:
-            rows = list(semantic_queries.law_articles(self.store, field, law_id))
+            rows = list(semantic_bwb.law_articles(self.store, field, law_id))
             current = [r["number"] for r in rows if r["number"] and not r["stub"]]
             self._laws[law_id] = (
                 _LawArticles(
@@ -209,8 +211,8 @@ class SemanticPipelineBase(PipelineBase):
         eclis = self._recent_eclis(since_iso) if since_iso else None
         total = None
         if not since_iso:  # from the index; with a date every judgment would be read
-            total = semantic_queries.count_rechtspraak_judgments(self.store)
-        rows = semantic_queries.judgment_paragraphs(
+            total = semantic_rechtspraak.count_rechtspraak_judgments(self.store)
+        rows = semantic_rechtspraak.judgment_paragraphs(
             self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
         )
         for row in self._track(rows, "judgments", total=total):
@@ -271,7 +273,7 @@ class SemanticPipelineBase(PipelineBase):
         (``core.ecli.is_valid_ecli``) gets none and stays unmapped.
         """
         by_ecli: dict[str, str] = {}
-        for row in semantic_queries.judgment_ids_by_ecli(self.store, sorted(eclis)):
+        for row in semantic_rechtspraak.judgment_ids_by_ecli(self.store, sorted(eclis)):
             ecli, node_id = (row.get("ecli") or "").upper(), row.get("id") or ""
             if ecli and node_id:
                 by_ecli[ecli] = node_id
@@ -285,8 +287,8 @@ class SemanticPipelineBase(PipelineBase):
                 NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
-            if node and node.arango_id:
-                by_ecli[ecli] = node.arango_id
+            if node and node.node_id:
+                by_ecli[ecli] = node.node_id
         return by_ecli
 
     # ------------------------------------------------------------------ config
@@ -321,8 +323,21 @@ class SemanticPipelineBase(PipelineBase):
         """Abbreviation → bwb_id/celex of the instruments in the graph
         (``core.aliases.code_aliases``)."""
         return code_aliases(
-            semantic_queries.code_alias_rows(self.store), curated_abbreviations()
+            semantic_bwb.code_alias_rows(self.store), curated_abbreviations()
         )
+
+    def _load_context_aliases(
+        self, codes: CodeMapping
+    ) -> dict[str, tuple[str, list[str]]]:
+        """Abbreviation -> (law id, the words a text must also name) for the laws among
+        *codes* (``in_context`` of ``curated instrument-abbreviations``: "EP" beside "EVRM")."""
+        present = {normalize_instrument_id(law_id) for law_id in codes.values()}
+        return {
+            abbreviation: (law_id, list(words))
+            for law_id, in_context in curated_context_abbreviations().items()
+            if law_id in present
+            for abbreviation, words in in_context.items()
+        }
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
         """Query the instruments collection to build a name → (bwb_id, celex) map.
@@ -335,7 +350,7 @@ class SemanticPipelineBase(PipelineBase):
         """
         index: InstrumentAliasMap = {}
         ambiguous: set[str] = set()
-        rows = list(semantic_queries.instrument_alias_rows(self.store))
+        rows = list(semantic_bwb.instrument_alias_rows(self.store))
 
         for row in rows:
             bwb_id = row.get("bwb_id")
@@ -374,11 +389,11 @@ class SemanticPipelineBase(PipelineBase):
 
         Returns None when from_node or to_node have no id (skip silently).
         """
-        if not from_node.arango_id or not to_node.arango_id:
+        if not from_node.node_id or not to_node.node_id:
             return None
         return make_edge_doc(
-            from_node.arango_id,
-            to_node.arango_id,
+            from_node.node_id,
+            to_node.node_id,
             relation,
             source=source,
             confidence=confidence,

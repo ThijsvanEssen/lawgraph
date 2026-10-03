@@ -1,6 +1,6 @@
 """The node explorer on a real graph: facets, pages per bucket, filters and hubs.
 
-The unit suite runs on fake stores and never executes AQL, so what a bucket holds, where
+The unit suite runs on fake stores and never executes SQL, so what a bucket holds, where
 its page ends and what a traversal follows is only shown by a server.
 """
 
@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.nodes import (
     NO_FILTER,
@@ -66,12 +66,16 @@ def _edge(
     )
 
 
-def _write(store: ArangoStore, collection: str, docs: list[dict[str, Any]]) -> None:
+def _write(store: GraphStore, collection: str, docs: list[dict[str, Any]]) -> None:
     for start in range(0, len(docs), 10_000):
-        store.db.collection(collection).insert_many(docs[start : start + 10_000])
+        chunk = docs[start : start + 10_000]
+        if collection == "edges":
+            store.bulk_insert_or_update_edges(chunk)
+        else:
+            store.bulk_insert_or_update_nodes(collection, chunk)
 
 
-def _seed_small(store: ArangoStore) -> None:
+def _seed_small(store: GraphStore) -> None:
     """An instrument with 45 articles (PART_OF), 12 judgments (REFERS_TO), two instruments
     that refer to each other, two changes (one proposed) and an annex and a version."""
     _write(
@@ -156,25 +160,25 @@ def _seed_small(store: ArangoStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> Iterator[ArangoStore]:
-    yield ArangoStore()
+def store(database: str) -> Iterator[GraphStore]:
+    yield GraphStore()
 
 
 @pytest.fixture()
-def small(store: ArangoStore) -> ArangoStore:
+def small(store: GraphStore) -> GraphStore:
     _seed_small(store)
     return store
 
 
 @pytest.fixture()
-def client(store: ArangoStore) -> Iterator[TestClient]:
+def client(store: GraphStore) -> Iterator[TestClient]:
     app.dependency_overrides[get_store] = lambda: store
     yield TestClient(app)
     app.dependency_overrides.pop(get_store, None)
 
 
 def _facets(
-    store: ArangoStore, key: str, filters: NeighborFilter = NO_FILTER
+    store: GraphStore, key: str, filters: NeighborFilter = NO_FILTER
 ) -> list[Any]:
     """The facets of the buckets of an instrument: its edges counted per relation,
     direction and neighbour collection."""
@@ -188,7 +192,7 @@ def _counts(facets: list[Any]) -> dict[tuple[str | None, str, str], int]:
     return {(f.relation, f.direction, f.collection): f.count for f in facets}
 
 
-def test_facets_count_per_relation_direction_and_collection(small: ArangoStore) -> None:
+def test_facets_count_per_relation_direction_and_collection(small: GraphStore) -> None:
     facets = _facets(small, "focal")
 
     assert _counts(facets) == {
@@ -241,13 +245,13 @@ def test_facets_count_per_relation_direction_and_collection(small: ArangoStore) 
     ],
 )
 def test_facets_take_every_filter(
-    small: ArangoStore, filters: NeighborFilter, expected: set[tuple[str, str, str]]
+    small: GraphStore, filters: NeighborFilter, expected: set[tuple[str, str, str]]
 ) -> None:
     facets = _facets(small, "focal", filters)
     assert {(f.relation, f.direction, f.collection) for f in facets} == expected
 
 
-def test_a_node_without_edges_has_no_facets_and_no_buckets(small: ArangoStore) -> None:
+def test_a_node_without_edges_has_no_facets_and_no_buckets(small: GraphStore) -> None:
     a44 = get_node_with_neighbors(small, COLLECTION_ARTICLES, "a44")
     assert a44.buckets[0].facet.count == 1
     _write(small, COLLECTION_INSTRUMENTS, [_node(NodeType.INSTRUMENT, "alone")])
@@ -264,7 +268,7 @@ def _bucket(data: Any, relation: str, direction: str, collection: str) -> Any:
     return bucket
 
 
-def test_a_bucket_is_paged_to_its_end(small: ArangoStore) -> None:
+def test_a_bucket_is_paged_to_its_end(small: GraphStore) -> None:
     """45 articles at 20 a page: 20, 20 and a last page of 5 that has no next page."""
     seen: list[str] = []
     offset: int | None = 0
@@ -286,7 +290,7 @@ def test_a_bucket_is_paged_to_its_end(small: ArangoStore) -> None:
 
 
 def test_a_page_that_ends_exactly_at_the_total_has_no_next_page(
-    small: ArangoStore,
+    small: GraphStore,
 ) -> None:
     data = get_node_with_neighbors(
         small, COLLECTION_INSTRUMENTS, "focal", limit=15, offset=30
@@ -298,7 +302,7 @@ def test_a_page_that_ends_exactly_at_the_total_has_no_next_page(
 
 
 def test_paging_applies_to_every_bucket_and_a_bucket_past_its_end_is_empty(
-    small: ArangoStore,
+    small: GraphStore,
 ) -> None:
     data = get_node_with_neighbors(
         small, COLLECTION_INSTRUMENTS, "focal", limit=10, offset=10
@@ -314,7 +318,7 @@ def test_paging_applies_to_every_bucket_and_a_bucket_past_its_end_is_empty(
     )
 
 
-def test_the_same_page_comes_back_on_every_request(small: ArangoStore) -> None:
+def test_the_same_page_comes_back_on_every_request(small: GraphStore) -> None:
     def ids() -> list[str]:
         data = get_node_with_neighbors(
             small, COLLECTION_INSTRUMENTS, "focal", limit=7, offset=7
@@ -327,7 +331,7 @@ def test_the_same_page_comes_back_on_every_request(small: ArangoStore) -> None:
     assert ids() == ids() and len(ids()) == 7
 
 
-def test_buckets_of_the_two_directions_stay_apart(small: ArangoStore) -> None:
+def test_buckets_of_the_two_directions_stay_apart(small: GraphStore) -> None:
     data = get_node_with_neighbors(small, COLLECTION_INSTRUMENTS, "focal")
     out = _bucket(data, RELATION_REFERS_TO, "outbound", "instruments")
     into = _bucket(data, RELATION_REFERS_TO, "inbound", "instruments")
@@ -349,7 +353,7 @@ def test_buckets_of_the_two_directions_stay_apart(small: ArangoStore) -> None:
     ],
 )
 def test_the_neighbours_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
-    small: ArangoStore, filters: NeighborFilter
+    small: GraphStore, filters: NeighborFilter
 ) -> None:
     data = get_node_with_neighbors(
         small, COLLECTION_INSTRUMENTS, "focal", filters=filters, limit=200
@@ -364,7 +368,7 @@ def test_the_neighbours_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
                 assert entry.edge["status"] == filters.status
 
 
-def test_an_entry_carries_its_edge(small: ArangoStore) -> None:
+def test_an_entry_carries_its_edge(small: GraphStore) -> None:
     data = get_node_with_neighbors(small, COLLECTION_INSTRUMENTS, "focal")
     entry = _bucket(data, RELATION_REFERS_TO, "outbound", "instruments").entries[0]
     assert entry.edge["meta"] == META and entry.edge["status"] == EDGE_STATUS_CANONIEK
@@ -375,13 +379,13 @@ def test_an_entry_carries_its_edge(small: ArangoStore) -> None:
 
 
 def test_every_node_type_lives_in_the_collection_that_says_so(
-    small: ArangoStore, database: str
+    small: GraphStore, database: str
 ) -> None:
     """Facets say the type of a neighbour from its collection, without reading it."""
     for collection in TYPE_OF_COLLECTION:
         wrong = list(
             small.query(
-                f"FOR n IN {collection} FILTER n.type != @type RETURN n._id",
+                f"SELECT id FROM {collection} WHERE type <> %(type)s",
                 {"type": TYPE_OF_COLLECTION[collection].value},
             )
         )
@@ -389,7 +393,7 @@ def test_every_node_type_lives_in_the_collection_that_says_so(
 
 
 def test_the_versions_and_annexes_can_be_explored(
-    client: TestClient, small: ArangoStore
+    client: TestClient, small: GraphStore
 ) -> None:
     for collection, key, relation, neighbour in [
         (COLLECTION_ANNEXES, "annex", RELATION_PART_OF, "instruments"),
@@ -412,7 +416,7 @@ def test_the_versions_and_annexes_can_be_explored(
 
 
 def test_bulky_props_of_the_new_collections_stay_out_of_the_graph_views(
-    client: TestClient, small: ArangoStore
+    client: TestClient, small: GraphStore
 ) -> None:
     node = client.get("/api/nodes/annexes/annex").json()["node"]
     assert "entries" not in (node["props"] or {}) and node["props"]["label"] == "I"
@@ -428,7 +432,7 @@ def test_bulky_props_of_the_new_collections_stay_out_of_the_graph_views(
 
 
 def test_the_route_pages_filters_and_describes_the_edge(
-    client: TestClient, small: ArangoStore
+    client: TestClient, small: GraphStore
 ) -> None:
     body = client.get(
         "/api/nodes/instruments/focal?relations=PART_OF&node_types=article&limit=20&offset=40"
@@ -483,7 +487,7 @@ def test_the_route_bounds_the_page(client: TestClient, query: str) -> None:
     assert client.get(f"/api/nodes/instruments/focal?{query}").status_code == 422
 
 
-def _hood(store: ArangoStore, **kwargs: Any) -> dict[str, Any]:
+def _hood(store: GraphStore, **kwargs: Any) -> dict[str, Any]:
     return get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "focal", **kwargs)
 
 
@@ -491,7 +495,7 @@ def _ids(rows: list[dict[str, Any]]) -> set[str]:
     return {row["_id"] for row in rows}
 
 
-def test_the_neighbourhood_without_filters_walks_every_edge(small: ArangoStore) -> None:
+def test_the_neighbourhood_without_filters_walks_every_edge(small: GraphStore) -> None:
     data = _hood(small, depth=2)
     assert f"{COLLECTION_JUDGMENTS}/jz" in _ids(data["nodes"])  # focal <- a00 <- jz
     assert f"{COLLECTION_ANNEXES}/annex" in _ids(data["nodes"])
@@ -501,7 +505,7 @@ def test_the_neighbourhood_without_filters_walks_every_edge(small: ArangoStore) 
 
 
 def test_the_neighbourhood_follows_only_the_relations_asked_for(
-    small: ArangoStore,
+    small: GraphStore,
 ) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(relations=(RELATION_PART_OF,)))
     assert {n["_id"].split("/")[0] for n in data["nodes"]} == {"articles", "annexes"}
@@ -510,7 +514,7 @@ def test_the_neighbourhood_follows_only_the_relations_asked_for(
     assert f"{COLLECTION_JUDGMENTS}/jz" not in _ids(data["nodes"])
 
 
-def test_the_neighbourhood_can_follow_the_edges_one_way(small: ArangoStore) -> None:
+def test_the_neighbourhood_can_follow_the_edges_one_way(small: GraphStore) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(direction="outbound"))
     assert _ids(data["nodes"]) == {
         f"{COLLECTION_INSTRUMENTS}/{key}" for key in ("cited", "amends", "implements")
@@ -520,14 +524,14 @@ def test_the_neighbourhood_can_follow_the_edges_one_way(small: ArangoStore) -> N
     assert f"{COLLECTION_INSTRUMENTS}/other" in _ids(data["nodes"])
 
 
-def test_the_neighbourhood_can_keep_to_one_status(small: ArangoStore) -> None:
+def test_the_neighbourhood_can_keep_to_one_status(small: GraphStore) -> None:
     data = _hood(small, filters=NeighborFilter(status=EDGE_STATUS_VOORGESTELD))
     assert _ids(data["nodes"]) == {f"{COLLECTION_INSTRUMENTS}/implements"}
     assert [e["status"] for e in data["edges"]] == [EDGE_STATUS_VOORGESTELD]
 
 
 def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
-    small: ArangoStore,
+    small: GraphStore,
 ) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(node_types=("judgment",)))
     ids = _ids(data["nodes"])
@@ -542,34 +546,8 @@ def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
     assert data["focal"]["_id"] == FOCAL  # the focal node is kept whatever its type
 
 
-def test_the_filters_of_the_neighbourhood_run_in_the_traversal(
-    small: ArangoStore,
-) -> None:
-    asked: list[tuple[str, dict[str, Any]]] = []
-    run = small.query
-
-    def recording(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        asked.append((aql, bind_vars or {}))
-        return run(aql, bind_vars, **kw)
-
-    small.query = recording  # type: ignore[method-assign]
-    _hood(
-        small,
-        depth=3,
-        filters=NeighborFilter(
-            relations=(RELATION_PART_OF,), status=EDGE_STATUS_CANONIEK
-        ),
-    )
-    (aql, bind_vars), *_ = asked
-    nodes = small.db.aql.explain(aql, bind_vars=bind_vars)["nodes"]
-    kinds = [node["type"] for node in nodes]
-    traversal = kinds.index("TraversalNode")
-    # Nothing filters the vertices behind the traversal: it never left along another edge.
-    assert "FilterNode" not in kinds[traversal : kinds.index("ReturnNode")], kinds
-
-
 def test_the_neighbourhood_response_follows_the_filters(
-    client: TestClient, small: ArangoStore
+    client: TestClient, small: GraphStore
 ) -> None:
     body = client.get(
         "/api/nodes/instruments/focal/neighborhood?depth=2&relations=PART_OF&node_types=article"
@@ -584,12 +562,9 @@ def test_the_neighbourhood_response_follows_the_filters(
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
 HUB_ARTICLES = 60_000
 HUB_JUDGMENTS = 20_000
-# What a query may hold: the edges of the hub with their meta are 60 MB. Read whole by the
-# application, or gathered in the server (a COLLECT ... INTO group), they would not fit.
-MEMORY_LIMIT = 12_000_000
 
 
-def _seed_hub(store: ArangoStore) -> None:
+def _seed_hub(store: GraphStore) -> None:
     _write(store, COLLECTION_INSTRUMENTS, [_node(NodeType.INSTRUMENT, "hub")])
     _write(
         store,
@@ -613,26 +588,12 @@ def _seed_hub(store: ArangoStore) -> None:
     _write(store, "edges", edges)
 
 
-def _memory_limited(store: ArangoStore, limit: int) -> None:
-    """Make every query of ``store`` fail when it holds more than ``limit`` bytes."""
-
-    def query(aql: str, bind_vars: dict[str, Any] | None = None, **kw: Any) -> Any:
-        cursor = store.db.aql.execute(
-            aql, bind_vars=bind_vars or {}, memory_limit=limit, stream=True
-        )
-        return iter(cursor)  # type: ignore[arg-type]
-
-    store.query = query  # type: ignore[method-assign]
-
-
 def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_database(
-    store: ArangoStore,
+    store: GraphStore,
 ) -> None:
     """The edges of a hub (an instrument with all its articles, a faction with its votes) are
-    counted by the server and paged from the edge index: none is built as a whole, on either
-    side, so a query that may hold 12 MB answers for 80,000 edges of 700 bytes."""
+    counted by the server and paged from the edge index: 80,000 edges of 700 bytes."""
     _seed_hub(store)
-    _memory_limited(store, MEMORY_LIMIT)
 
     facets = _facets(store, "hub")
     assert _counts(facets) == {
@@ -663,9 +624,8 @@ def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_datab
     assert len(only.buckets) == 1 and only.buckets[0].facet.count == HUB_JUDGMENTS
 
 
-def test_the_neighbourhood_of_a_hub_stops_at_its_cap(store: ArangoStore) -> None:
+def test_the_neighbourhood_of_a_hub_stops_at_its_cap(store: GraphStore) -> None:
     _seed_hub(store)
-    _memory_limited(store, MEMORY_LIMIT)
 
     data = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "hub", depth=2, cap=50)
     assert len(data["nodes"]) == 50

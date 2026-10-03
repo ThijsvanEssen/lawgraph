@@ -6,8 +6,8 @@ Shared by the tk_dossiers normalize pipeline (which stores the result on dossier
 dossier the pipeline has not reached), so it lives in core rather than in either of them.
 
 * The kind of a dossier is the ``Zaak.Soort`` of the zaak that is the dossier itself
-  (``CARRYING_KINDS``), as the Kamer writes it; without one, a ``Voorstel van wet`` among
-  its papers makes it a bill.
+  (``CARRYING_KINDS``), as the Kamer writes it; without one it has none ("zonder soort"):
+  no kind is made up from its papers.
 * The phases of a bill are the curated list ``phases`` (``data/curated/phases.json``): the
   one order the Kamer does not give, each phase marked by exact values of the Kamer.
 * Its outcome is what the graph holds: the law published, or the Kamer voting the bill
@@ -38,13 +38,11 @@ CARRYING_KINDS: tuple[str, ...] = (
 # an initiatiefnota and a structuurvisie have no voorstel van wet.
 LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", "Begroting")
 
-# Where the kind comes from: a zaak of the dossier, or (without one) its voorstel van wet.
+# Where the kind comes from: a zaak of the dossier, the one source of it.
 KIND_BASIS_CASE = "case"
-KIND_BASIS_DOCUMENT = "document"
 
-# Document.Soort of a bill, and of a bill of members; its explanatory memorandum.
+# Document.Soort of a bill; its explanatory memorandum.
 BILL_DOCUMENT = "Voorstel van wet"
-INITIATIVE_BILL_DOCUMENT = "Voorstel van wet (initiatiefvoorstel)"
 MEMORANDUM_DOCUMENT = "Memorie van toelichting"
 
 # Activiteit.Status of an activity announced and not (yet) held, also when its date passed.
@@ -56,25 +54,13 @@ ACTIVITY_NOT_HELD = frozenset(
 )
 
 
-def _is_bill(kind: str) -> bool:
-    return kind == BILL_DOCUMENT or kind.startswith(BILL_DOCUMENT + " (")
-
-
-def dossier_kind(
-    case_kinds: list[str], document_kinds: list[str]
-) -> tuple[str | None, str | None]:
+def dossier_kind(case_kinds: list[str]) -> tuple[str | None, str | None]:
     """``(kind, kind_basis)`` of a dossier: the first of ``CARRYING_KINDS`` among the
-    Zaak.Soort of its zaken (``case``); else, from its papers, ``Initiatiefwetgeving`` for a
-    ``Voorstel van wet (initiatiefvoorstel)`` and ``Wetgeving`` for another voorstel van wet
-    (``document``); else ``(None, None)``."""
+    Zaak.Soort of its zaken (``case``); else ``(None, None)``, a dossier without a kind."""
     kinds = set(case_kinds)
     for kind in CARRYING_KINDS:
         if kind in kinds:
             return kind, KIND_BASIS_CASE
-    if INITIATIVE_BILL_DOCUMENT in document_kinds:
-        return "Initiatiefwetgeving", KIND_BASIS_DOCUMENT
-    if any(_is_bill(kind) for kind in document_kinds):
-        return "Wetgeving", KIND_BASIS_DOCUMENT
     return None, None
 
 
@@ -171,7 +157,7 @@ def phase_props(
     decisions: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """The props that record what a dossier is and how far its bill got."""
-    kind, basis = dossier_kind(case_kinds, [d.get("kind") or "" for d in docs])
+    kind, basis = dossier_kind(case_kinds)
     phases = dossier_phases(kind, docs, activities, decisions)
     return {
         "kind": kind,
@@ -189,6 +175,26 @@ ROYAL_MESSAGE_DOCUMENT = "Koninklijke boodschap"
 OPENED_BY_FIRST_PAPER = "first_paper"
 OPENED_BY_ROYAL_MESSAGE = "royal_message"
 OPENED_BY_EARLIEST_RECORD = "earliest_record"
+
+
+def last_activity(
+    docs: list[dict[str, Any]],
+    activities: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+) -> str | None:
+    """The day of the newest thing that happened in a dossier: a paper, an activity that
+    took place (not one only planned, cancelled or moved) or a decision, as the Kamer dates
+    them; None without any."""
+    days = [
+        *(d.get("date") for d in docs),
+        *(
+            a.get("date")
+            for a in activities
+            if a.get("status") not in ACTIVITY_NOT_HELD
+        ),
+        *(d.get("date") for d in decisions),
+    ]
+    return max((day for day in days if day), default=None)
 
 
 def opened_on(

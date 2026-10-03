@@ -116,10 +116,26 @@ def test_the_eu_link_says_what_it_rests_on() -> None:
     assert link.instrument.celex == "32016L0680" and link.meta == _META
     assert set(IMPLEMENTS_BASES) == {IMPLEMENTS_BASIS_NIM, IMPLEMENTS_BASIS_CONSIDERANS}
 
+    # an edge written before its measures were kept: the publications alone
+    assert [(m.publication, m.citation, m.title) for m in link.via] == [
+        ("stb-2018-401", "Stb. 2018, 401", None)
+    ]
+    measure = {
+        "publication": "stb-2013-102",
+        "citation": "Stb. 2013, 102",
+        "title": "Wet van 20 december 2012 tot wijziging van de Algemene wet bestuursrecht",
+        "type": "Wet",
+    }
+    with_measures = EuLinkDTO.from_row(
+        {**row, "edge": {**row["edge"], "meta": {**_META, "measures": [measure]}}}
+    )
+    assert [m.model_dump() for m in with_measures.via] == [measure]
+
     mention = EuLinkDTO.from_row(
         {**row, "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}}}
     )
     assert mention.relation == "REFERS_TO" and mention.bases == []
+    assert mention.via == []
     assert mention.confidence is None
 
 

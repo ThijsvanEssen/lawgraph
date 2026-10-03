@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.mentions import Mention
-from lawgraph.core.models import parse_arango_id
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
@@ -335,6 +335,15 @@ class CitedByJudgment(BaseModel):
     )
     date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
     display_name: str | None
+    inbound_citation_count: int | None = Field(
+        default=None,
+        description="The judgments that cite it, or another publication of the same "
+        "decision, each once (as in `/api/judgments`): a standard judgment has many.",
+    )
+
+
+def _count(value: Any) -> int | None:
+    return int(value) if isinstance(value, int | float) else None
 
 
 class ArticleCitedByItem(QualifierFields):
@@ -377,6 +386,7 @@ class ArticleCitedByItem(QualifierFields):
                 court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
+                inbound_citation_count=_count(props.get("inbound_citation_count")),
             ),
             paragraph_id=mention.paragraph_id,
             paragraph_number=mention.paragraph_number,
@@ -403,6 +413,13 @@ class ArticleCitedByResponse(BaseModel):
     judgment_total: int = Field(
         description="The judgments those passages are in: a judgment that cites the "
         "article in three places is three passages and one judgment."
+    )
+    echr_judgment_total: int = Field(
+        default=0,
+        description="The ECHR judgments that cite the article, whatever the filters. "
+        "HUDOC names the articles a judgment applies, not the passage, so they are no "
+        "row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them "
+        "(`international`).",
     )
 
 
@@ -500,7 +517,7 @@ class ArticleExplanationDTO(BaseModel):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleExplanationDTO:
         """Build from a row of ``get_article_explanations``."""
-        collection, key = parse_arango_id(row["target_id"])
+        collection, key = parse_node_id(row["target_id"])
         target = _TARGET_OF_COLLECTION[collection]
         section_anchor = row.get("section_anchor") or None
         return cls(

@@ -1,17 +1,31 @@
-"""ArangoDB schema: collections, indexes, analyzers and search views."""
+"""PostgreSQL schema: a table per collection, the edges, the SQL helpers and the data version.
+
+Every node collection is a table of the same shape: ``id`` (``collection/key``, the key of the
+graph), ``key``, ``type``, ``labels`` and ``props``. ``props`` is ``json``, not ``jsonb``: the
+API serves props as they are, and ``jsonb`` sorts the keys of an object (probe P1). What the
+queries filter, sort or count on is a column of its own (a derived column, which a trigger of
+the table fills from ``props``: ``_derive``), with the indexes the ArangoDB schema had on it.
+
+Strings sort and compare as in ArangoDB: the database is created with the ICU root collation
+with upper case first (``und-u-kf-upper``, probe P2); ``lg_tokens`` cuts and stems words as
+the ``text_nl`` analyzer does (probe P3).
+
+Everything here is idempotent: ``ensure_schema`` runs on every connect.
+"""
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+import re
+from dataclasses import dataclass
 
-from arango.exceptions import CollectionCreateError
+import psycopg
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
@@ -19,561 +33,1267 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
-    DOCUMENT_COLLECTIONS,
-    TEXT_ANALYZER,
+)
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
+
+# The collation of the database: how ArangoDB sorts and compares strings (probe P2).
+COLLATION = "und-u-kf-upper"
+
+# The node collections: every collection but the raw records, the pipeline state and the
+# edges, which have tables of their own.
+NODE_COLLECTIONS: tuple[str, ...] = (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_ACTIVITIES,
+    COLLECTION_DECISIONS,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_MEMBERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_CABINETS,
+    COLLECTION_ANNEXES,
 )
 
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-    from arango.result import Result
+# ── SQL helpers ──────────────────────────────────────────────────────────────
 
-logger = logging.getLogger(__name__)
+FUNCTIONS = r"""
+-- Inside a body every function, table and dictionary of this schema is named with its
+-- schema, ``public.``: a restore (pg_restore) runs with an empty search_path, and builds the
+-- generated columns, which inline these functions, and fires the data version trigger.
+-- (A ``SET search_path`` on the function would keep the planner from inlining it.)
 
-T = TypeVar("T")
+-- The value of a props field, only when it has the type the column holds: a string, a
+-- number or a boolean; anything else is NULL, as ArangoDB compares values of another type
+-- unequal.
+CREATE OR REPLACE FUNCTION lg_str(v json) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN json_typeof(v) = 'string' THEN v #>> '{}' END
+$$;
+CREATE OR REPLACE FUNCTION lg_num(v json) RETURNS double precision
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN json_typeof(v) = 'number' THEN (v #>> '{}')::double precision END
+$$;
+CREATE OR REPLACE FUNCTION lg_bool(v json) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN json_typeof(v) = 'boolean' THEN (v #>> '{}')::boolean END
+$$;
+
+-- AQL's truthiness of a json value (``x ? a : b``, ``x || y``, ``FILTER x``): null or a
+-- missing value, false, 0 and "" are false; anything else is true, an empty array or
+-- object too.
+CREATE OR REPLACE FUNCTION lg_truthy(v json) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE json_typeof(v)
+        WHEN 'boolean' THEN (v #>> '{}')::boolean
+        WHEN 'number' THEN (v #>> '{}')::numeric <> 0
+        WHEN 'string' THEN v #>> '{}' <> ''
+        WHEN 'array' THEN true
+        WHEN 'object' THEN true
+        ELSE false
+    END
+$$;
+
+-- A value without the attributes that are null, at every depth, objects inside arrays too,
+-- and without the nulls an array ends in. What AQL compares: an object with an attribute set
+-- to null equals one without it, and an array compares position by position with what the
+-- shorter one lacks as null (``[1] == [1, null]``); a null between elements stays
+-- (``jsonb_strip_nulls`` with ``strip_in_arrays`` would drop those as well).
+CREATE OR REPLACE FUNCTION lg_strip_nulls(v jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+DECLARE
+    stripped jsonb := CASE jsonb_typeof(v) WHEN 'object' THEN jsonb_strip_nulls(v) ELSE v END;
+    name text;
+    value jsonb;
+    n bigint;
+BEGIN
+    -- jsonb_strip_nulls strips nested objects, not the objects inside an array: each
+    -- array (and an object that may hold one) is stripped in its place
+    IF jsonb_typeof(stripped) = 'object' THEN
+        FOR name, value IN SELECT e.key, e.value FROM jsonb_each(stripped) AS e LOOP
+            IF jsonb_typeof(value) IN ('object', 'array') THEN
+                stripped := jsonb_set(stripped, ARRAY[name], public.lg_strip_nulls(value));
+            END IF;
+        END LOOP;
+    ELSIF jsonb_typeof(stripped) = 'array' THEN
+        FOR value, n IN SELECT e.value, e.n - 1
+                        FROM jsonb_array_elements(stripped) WITH ORDINALITY AS e(value, n) LOOP
+            IF jsonb_typeof(value) IN ('object', 'array') THEN
+                stripped := jsonb_set(stripped, ARRAY[n::text], public.lg_strip_nulls(value));
+            END IF;
+        END LOOP;
+        WHILE jsonb_typeof(stripped -> -1) = 'null' LOOP
+            stripped := stripped - -1;
+        END LOOP;
+    END IF;
+    RETURN stripped;
+END
+$$;
+
+-- Whether two values are equal as AQL compares them (``==``, ``MATCHES``): an attribute
+-- set to null is the same as a missing one. Equal values are not stripped.
+CREATE OR REPLACE FUNCTION lg_same(a jsonb, b jsonb) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN a IS NOT DISTINCT FROM b THEN true
+                ELSE public.lg_strip_nulls(a) IS NOT DISTINCT FROM public.lg_strip_nulls(b) END
+$$;
+
+-- The strings of a JSON array, in order (``doc.props.subjects[*]``); NULL for another type.
+CREATE OR REPLACE FUNCTION lg_text_array(v json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN json_typeof(v) = 'array' THEN ARRAY(
+        SELECT e #>> '{}' FROM json_array_elements(v) WITH ORDINALITY AS a(e, n)
+        WHERE json_typeof(e) = 'string' ORDER BY n
+    ) END
+$$;
+
+-- The main areas of law of a judgment's subjects (``Bestuursrecht; Belastingrecht`` is in
+-- ``Bestuursrecht``): each subject up to its first ';', trimmed, each area once, in order.
+CREATE OR REPLACE FUNCTION lg_subject_areas(subjects text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(area ORDER BY first), '{}'::text[]) FROM (
+        SELECT btrim(split_part(s, ';', 1)) AS area, min(n) AS first
+        FROM unnest(subjects) WITH ORDINALITY AS u(s, n)
+        WHERE btrim(split_part(s, ';', 1)) <> ''
+        GROUP BY 1
+    ) areas
+$$;
+
+-- The keys a regulation is filed under by its WTI (`legal_areas`, normalize bwb): the TOOI id
+-- and the slug of every main and specific area, so that a filter on a main area also finds
+-- the regulations under its specific areas. Lower case, each once.
+CREATE OR REPLACE FUNCTION lg_legal_area_keys(props json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT lower(k)), '{}'::text[])
+    FROM json_array_elements(CASE WHEN json_typeof(props -> 'legal_areas') = 'array'
+                                  THEN props -> 'legal_areas' END) AS a(area)
+    CROSS JOIN LATERAL unnest(ARRAY[
+        area ->> 'main_id', area ->> 'main_slug',
+        area ->> 'specific_id', area ->> 'specific_slug'
+    ]) AS u(k)
+    WHERE k IS NOT NULL AND k <> ''
+$$;
+
+-- The keys of the government themes of a regulation (`policy_domains`): id and slug.
+CREATE OR REPLACE FUNCTION lg_policy_domain_keys(props json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT lower(k)), '{}'::text[])
+    FROM json_array_elements(CASE WHEN json_typeof(props -> 'policy_domains') = 'array'
+                                  THEN props -> 'policy_domains' END) AS d(domain)
+    CROSS JOIN LATERAL unnest(ARRAY[domain ->> 'id', domain ->> 'slug']) AS u(k)
+    WHERE k IS NOT NULL AND k <> ''
+$$;
+
+-- A member is seated: one of their faction memberships has no end date.
+CREATE OR REPLACE FUNCTION lg_member_seated(props json) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM json_array_elements(
+            CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'
+                 THEN props -> 'faction_memberships' ELSE '[]'::json END
+        ) AS f(period)
+        WHERE coalesce(json_typeof(period -> 'to_date'), 'null') = 'null'
+    )
+$$;
+
+-- The string *field* of every object of a JSON array (``[*].cabinet_key``).
+CREATE OR REPLACE FUNCTION lg_path_array(v json, field text) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN json_typeof(v) = 'array' THEN ARRAY(
+        SELECT e ->> field FROM json_array_elements(v) WITH ORDINALITY AS a(e, n)
+        WHERE json_typeof(e) = 'object' AND json_typeof(e -> field) = 'string' ORDER BY n
+    ) END
+$$;
+
+-- MERGE(a, b) as ArangoDB does it (probe P1): the keys of *a* in byte order with the values
+-- of *b* where it has them, then the keys only *b* has, in its order. (ArangoDB takes those
+-- from a hash map, so with two or more new keys its order is arbitrary.)
+CREATE OR REPLACE FUNCTION lg_merge(a json, b json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(key, value ORDER BY grp, sort_key COLLATE "C", ord),
+                    '{}'::json)
+    FROM (
+        SELECT l.key, coalesce(r.value, l.value) AS value, 0 AS grp, l.key AS sort_key,
+               0::bigint AS ord
+        FROM json_each(coalesce(a, '{}')) AS l(key, value)
+        LEFT JOIN json_each(coalesce(b, '{}')) AS r(key, value) USING (key)
+        UNION ALL
+        SELECT r.key, r.value, 1, '', r.ord
+        FROM json_each(coalesce(b, '{}')) WITH ORDINALITY AS r(key, value, ord)
+        WHERE r.key NOT IN (SELECT key FROM json_each(coalesce(a, '{}')))
+    ) merged
+$$;
+
+-- An update of props or meta: *a* with the values of *b*, one level deep, every key in the
+-- order of the collation. How the store and the steps that set props in place write (D11): an
+-- order that does not depend on what was written first, or on a hash.
+CREATE OR REPLACE FUNCTION lg_update(a json, b json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(key, value ORDER BY key), '{}'::json)
+    FROM (
+        SELECT key, CASE WHEN r.value IS NOT NULL THEN r.value ELSE l.value END AS value
+        FROM json_each(coalesce(a, '{}')) AS l(key, value)
+        FULL JOIN json_each(coalesce(b, '{}')) AS r(key, value) USING (key)
+    ) merged
+$$;
+
+-- UNSET(a, keys): *a* without *keys*, the others in their order.
+CREATE OR REPLACE FUNCTION lg_unset(a json, keys text[]) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(key, value ORDER BY n), '{}'::json)
+    FROM json_each(coalesce(a, '{}')) WITH ORDINALITY AS e(key, value, n)
+    WHERE key <> ALL(keys)
+$$;
+
+-- UNIQUE(APPEND(a, b)) and UNION_DISTINCT: every value once, where it first occurs.
+CREATE OR REPLACE FUNCTION lg_array_union(a text[], b text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(v ORDER BY first), '{}')
+    FROM (
+        SELECT v, min(n) AS first
+        FROM unnest(coalesce(a, '{}') || coalesce(b, '{}')) WITH ORDINALITY AS u(v, n)
+        GROUP BY v
+    ) once
+$$;
+
+-- The norm analyzers: lower case, combining marks off (not unaccent, which also rewrites
+-- ß, æ and the typographic apostrophe; probe P3).
+CREATE OR REPLACE FUNCTION lg_fold(t text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT normalize(regexp_replace(normalize(lower(t), NFD), '[̀-ͯ]', '', 'g'), NFC)
+$$;
+
+-- text_nl: the folded text cut into words as ArangoDB does (letters, digits and '_'; ':'
+-- and apostrophes join letters, '.' and ',' join digits), each word stemmed by the Dutch
+-- snowball stemmer without stop words. In order, with repeats (probe P3).
+CREATE OR REPLACE FUNCTION lg_tokens(t text) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(
+        array_agg(coalesce((ts_lexize('public.lawgraph_dutch', m[1]))[1], m[1]) ORDER BY o), '{}')
+    FROM regexp_matches(
+        public.lg_fold(t),
+        '([[:alnum:]_]+(?:(?:(?<=[[:alpha:]])[:''’](?=[[:alpha:]])'
+        '|(?<=[[:digit:]])[.,](?=[[:digit:]]))[[:alnum:]_]+)*)',
+        'g'
+    ) WITH ORDINALITY AS r(m, o)
+$$;
+
+-- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
+-- one statement: a level is read whole (the neighbours along the edges of the relations
+-- and status asked for, in the directions asked for, not seen before) and kept in id order
+-- until the cap; a node that is gone is not one; a node outside w_collections (when given)
+-- is seen but neither kept nor walked through. Whether a neighbour is there is asked of
+-- its own table only (w_tables), w_chunk at a time in id order, so a capped walk does not
+-- look up the neighbours it will never keep.
+CREATE OR REPLACE FUNCTION lg_walk(
+    w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
+    w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
+    w_chunk int DEFAULT 500
+) RETURNS text[]
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    seen text[] := ARRAY[w_focal];
+    kept text[] := '{}';
+    frontier text[] := ARRAY[w_focal];
+    reached text[];
+    chunk text[];
+    present text[];
+    level text[];
+    reads text;
+    node text;
+    start int;
+BEGIN
+    FOR step IN 1..w_depth LOOP
+        reached := ARRAY(
+            SELECT f.id FROM (
+                SELECT e.to_id AS id FROM public.edges e
+                WHERE w_outbound AND e.from_id = ANY(frontier)
+                  AND (w_relations IS NULL OR e.relation = ANY(w_relations))
+                  AND (w_status IS NULL OR e.status = w_status)
+                UNION
+                SELECT e.from_id FROM public.edges e
+                WHERE w_inbound AND e.to_id = ANY(frontier)
+                  AND (w_relations IS NULL OR e.relation = ANY(w_relations))
+                  AND (w_status IS NULL OR e.status = w_status)
+                EXCEPT
+                SELECT unnest(seen)
+            ) f
+            ORDER BY f.id
+        );
+        level := '{}';
+        start := 1;
+        WHILE start <= coalesce(array_length(reached, 1), 0) LOOP
+            chunk := reached[start:start + w_chunk - 1];
+            start := start + w_chunk;
+            SELECT string_agg(
+                format('SELECT id FROM public.%I WHERE id = ANY($1)', c), ' UNION ALL '
+            ) INTO reads
+            FROM (
+                SELECT DISTINCT split_part(x, '/', 1) AS c FROM unnest(chunk) x
+            ) cs
+            WHERE c = ANY(w_tables);
+            IF reads IS NULL THEN
+                CONTINUE;
+            END IF;
+            EXECUTE 'SELECT coalesce(array_agg(id ORDER BY id), ''{}'') FROM ('
+                || reads || ') t' INTO present USING chunk;
+            seen := seen || present;
+            FOREACH node IN ARRAY present LOOP
+                IF w_collections IS NULL OR split_part(node, '/', 1) = ANY(w_collections) THEN
+                    level := level || node;
+                    IF coalesce(array_length(kept, 1), 0)
+                       + array_length(level, 1) = w_cap THEN
+                        RETURN kept || level;
+                    END IF;
+                END IF;
+            END LOOP;
+        END LOOP;
+        kept := kept || level;
+        frontier := level;
+        EXIT WHEN coalesce(array_length(frontier, 1), 0) = 0;
+    END LOOP;
+    RETURN kept;
+END
+$$;
+
+"""
+
+SEARCH_FUNCTIONS = r"""
+-- The strings a field holds: a string, or the strings of an array (``names``, ``aliases``).
+CREATE OR REPLACE FUNCTION lg_values(v json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE json_typeof(v)
+        WHEN 'string' THEN ARRAY[v #>> '{}']
+        WHEN 'array' THEN public.lg_text_array(v)
+        ELSE '{}'::text[]
+    END
+$$;
+CREATE OR REPLACE FUNCTION lg_tokens_all(vs text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(t ORDER BY n, m), '{}')
+    FROM unnest(vs) WITH ORDINALITY AS v(value, n),
+         unnest(public.lg_tokens(value)) WITH ORDINALITY AS w(t, m)
+$$;
+CREATE OR REPLACE FUNCTION lg_fold_all(vs text[]) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(public.lg_fold(value) ORDER BY n), '{}')
+    FROM unnest(vs) WITH ORDINALITY AS v(value, n)
+$$;
+-- The folded values in one string, for a substring search (array_to_string is only STABLE:
+-- for the text arrays here its answer does not change).
+CREATE OR REPLACE FUNCTION lg_join(vs text[]) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT array_to_string(vs, chr(31))
+$$;
+-- BM25 of one term in one field (``queries/_bm25.py``): *tf* is evaluated once.
+CREATE OR REPLACE FUNCTION lg_bm25(tf float8, len float8, weight float8, avglen float8)
+RETURNS float8 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN tf > 0
+        THEN weight * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * len / avglen)) ELSE 0 END
+$$;
+-- The 3- to 12-grams of a string of *l* characters.
+CREATE OR REPLACE FUNCTION lg_ngrams(l int) RETURNS int
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN l >= 12 THEN 10 * l - 75 WHEN l >= 3 THEN (l - 2) * (l - 1) / 2 ELSE 0 END
+$$;
+-- The names a member or a faction is searched by, in lower case (``queries/search.py``):
+-- its name, its party, and the abbreviation, name and aliases of every faction it was in.
+CREATE OR REPLACE FUNCTION lg_member_names(props json) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT lower(concat_ws(' ',
+        coalesce(props ->> 'name', ''),
+        coalesce(props ->> 'party', ''),
+        (SELECT string_agg(concat_ws(' ',
+                    coalesce(m ->> 'abbreviation', ''),
+                    coalesce(m ->> 'name', ''),
+                    public.lg_join(public.lg_text_array(m -> 'aliases'))
+                ), ' ' ORDER BY n)
+         FROM json_array_elements(
+             CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'
+                  THEN props -> 'faction_memberships' ELSE '[]'::json END
+         ) WITH ORDINALITY AS fm(m, n))
+    ))
+$$;
+CREATE OR REPLACE FUNCTION lg_faction_names(props json) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT lower(concat_ws(' ',
+        coalesce(props ->> 'name', ''),
+        coalesce(props ->> 'abbreviation', ''),
+        public.lg_join(public.lg_text_array(props -> 'aliases'))
+    ))
+$$;
+-- A word as a LIKE pattern that matches it literally.
+CREATE OR REPLACE FUNCTION lg_like(t text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT replace(replace(replace(t, '\', '\\'), '%', '\%'), '_', '\_')
+$$;
+-- Tokens as a tsvector of one weight, each at its position, for the rank of a hit.
+CREATE OR REPLACE FUNCTION lg_tsv(tokens text[], weight "char") RETURNS tsvector
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(
+        string_agg(quote_literal(t) || ':' || least(n, 16383) || weight::text, ' ')::tsvector,
+        ''::tsvector
+    )
+    FROM unnest(tokens) WITH ORDINALITY AS w(t, n)
+$$;
+"""
+
+DICTIONARY = """
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_ts_dict WHERE dictname = 'lawgraph_dutch') THEN
+        CREATE TEXT SEARCH DICTIONARY lawgraph_dutch (TEMPLATE = snowball, Language = dutch);
+    END IF;
+END $$
+"""
+
+# Substring search on the ngram columns (``LIKE '%word%'`` from an index).
+TRIGRAMS = "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+
+# ── node tables ──────────────────────────────────────────────────────────────
 
 
-def _at_once(answer: Result[T]) -> T:
-    """The driver types every call as its answer or a job that will have it; a plain
-    database connection, the only kind used here, answers at once."""
-    return cast(T, answer)
+@dataclass(frozen=True)
+class Column:
+    """A derived column of a node table: *name*, its SQL type and the props it holds
+    (*expression*, over ``props``). The trigger of the table computes it (``_derive``)."""
+
+    name: str
+    sql_type: str
+    expression: str
 
 
-_DUPLICATE_NAME = 1207  # ArangoDB: a collection of that name exists
+def _str(field: str, name: str | None = None) -> Column:
+    return Column(name or field, "text", f"lg_str(props -> '{field}')")
 
 
-def ensure_schema(db: StandardDatabase) -> None:
-    """Ensure all collections, indexes, analyzers, and search views exist."""
-    ensure_collections(db)
-    _ensure_indexes(db)
-    _ensure_analyzers(db)
-    _ensure_search_views(db)
+def _num(field: str) -> Column:
+    return Column(field, "double precision", f"lg_num(props -> '{field}')")
 
 
-def ensure_collections(db: StandardDatabase) -> None:
-    """Create missing document and edge collections."""
-    for name in (*DOCUMENT_COLLECTIONS, COLLECTION_EDGES):
-        if db.has_collection(name):
-            continue
-        try:
-            db.create_collection(name, edge=name == COLLECTION_EDGES)
-        except CollectionCreateError as exc:
-            # Two processes that start on an empty database both find it missing; the one
-            # that comes second must not die of "duplicate name".
-            if exc.error_code != _DUPLICATE_NAME:
-                raise
-            continue
-        logger.info("Created collection %s", name)
+def _bool(field: str) -> Column:
+    return Column(field, "boolean", f"lg_bool(props -> '{field}')")
 
 
-def _ensure_analyzers(db: StandardDatabase) -> None:
-    """Ensure custom analyzers used by /api/search exist.
+def _json(field: str) -> Column:
+    """A prop as stored (its JSON value), for a document whose props are large: reading it
+    from ``props`` parses them whole."""
+    return Column(f"pj_{field}", "json", f"props -> '{field}'")
 
-    * ``lawgraph_ngram_v2`` — 3..12 char ngrams over lowercased UTF-8, so
-      substring queries like 'Vordering' resolve against compound words
-      like 'Wetboek van Strafvordering' (which standard stemmers split
-      on whitespace only).
-    * ``lawgraph_norm`` — lowercased identity, so identifier fields like
-      ``bwb_id='BWBR0001903'`` match a case-insensitive prefix query.
-    """
-    specs: list[dict[str, Any]] = [
-        {
-            # Pipeline: lowercase → ngram. The bare ngram analyzer is
-            # case-preserving, which would cause 'Vordering' (capital V)
-            # to miss 'Strafvordering' (lowercase v mid-word).
-            "name": "lawgraph_ngram_v2",
-            "type": "pipeline",
-            "properties": {
-                "pipeline": [
-                    {
-                        "type": "norm",
-                        "properties": {
-                            "locale": "en",
-                            "case": "lower",
-                            "accent": False,
-                        },
-                    },
-                    {
-                        "type": "ngram",
-                        "properties": {
-                            "min": 3,
-                            "max": 12,
-                            "preserveOriginal": False,
-                            "streamType": "utf8",
-                        },
-                    },
-                ],
-            },
-            "features": ["position", "frequency", "norm"],
-        },
-        {
-            "name": "lawgraph_norm",
-            "type": "norm",
-            "properties": {"locale": "en", "case": "lower", "accent": False},
-            "features": ["frequency", "norm"],
-        },
-    ]
-    # Analyzers are immutable in ArangoDB — to change properties, bump the
-    # name (e.g. _v2 → _v3) rather than trying to drop-and-recreate, since
-    # any view referencing the analyzer would block the drop. Stored
-    # properties are also normalised on read (defaults injected,
-    # field ordering changes), so comparing them is unreliable.
-    existing = {a["name"].split("::")[-1] for a in _at_once(db.analyzers())}
-    for spec in specs:
-        if spec["name"] in existing:
-            continue
-        try:
-            db.create_analyzer(
-                name=spec["name"],
-                analyzer_type=spec["type"],
-                properties=spec["properties"],
-                features=spec["features"],
+
+def _strings(field: str) -> Column:
+    return Column(field, "text[]", f"lg_text_array(props -> '{field}')")
+
+
+# collection -> the props it is filtered, sorted and counted on (the persistent indexes of
+# the ArangoDB schema).
+COLUMNS: dict[str, tuple[Column, ...]] = {
+    COLLECTION_INSTRUMENTS: (
+        _str("bwb_id"),
+        _str("celex"),
+        _str("jurisdiction"),
+        _str("kind"),
+        _num("article_count"),
+        _bool("stub"),
+        _str("citation_title"),
+        _str("treaty_number"),
+        _str("date_published"),
+    ),
+    COLLECTION_ARTICLES: (
+        _str("bwb_id"),
+        _str("celex"),
+        _str("article_number"),
+        _str("stam_id"),
+        _num("inbound_citation_count"),
+        _num("position"),
+        _bool("stub"),
+        _bool("repealed"),
+    ),
+    COLLECTION_INSTRUMENT_VERSIONS: (
+        _str("bwb_id"),
+        _str("valid_from"),
+        _bool("current"),
+    ),
+    COLLECTION_ARTICLE_VERSIONS: (
+        _str("bwb_id"),
+        _str("stam_id"),
+        _str("article_number"),
+        _str("valid_from"),
+        _str("valid_until"),
+        # whether there is a valid_until at all, of any type (a version without one is in
+        # force still); the props of a version, its text too, need not be read for it
+        Column("valid_until_set", "boolean", "props ->> 'valid_until' IS NOT NULL"),
+        _num("position"),
+        _bool("current"),
+    ),
+    COLLECTION_JUDGMENTS: (
+        _str("ecli"),
+        _str("appno"),
+        _strings("case_number_keys"),
+        _str("series_id"),
+        _str("replaced_by"),
+        _str("same_as"),
+        _str("source"),
+        _str("date_eff"),
+        # "Datum publicatie": the date the feed shows a judgment on
+        _str("published_on"),
+        _str("tier"),
+        _str("court_kind"),
+        _str("court_code"),
+        _str("court"),
+        # the procedure (psi:procedure) as the source gives it: "Hoger beroep", "Cassatie"
+        Column("procedure", "text", "lg_str(props -> 'judgment_metadata' -> 'type')"),
+        _bool("stub"),
+        _strings("subjects"),
+        _num("inbound_citation_count"),
+        # what the lists and the citing judgments show of a judgment (its props hold its
+        # text and paragraphs)
+        *(
+            _json(field)
+            for field in (
+                "ecli",
+                "display_name",
+                "summary",
+                "names",
+                "decision_kind",
+                "court_code",
+                "tier",
+                "court_kind",
+                "date_eff",
+                "source",
+                "subjects",
+                "inbound_citation_count",
+                "outbound_citation_count",
+                "series_id",
+                "series_size",
             )
-            logger.info("Created analyzer %s", spec["name"])
-        except Exception as exc:
-            logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
+        ),
+    ),
+    COLLECTION_DOCUMENTS: (
+        _str("source"),
+        _str("kind"),
+        _str("date"),
+        _str("dossier_number"),
+        _strings("dossier_numbers"),
+        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # whole record of the source
+        *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
+    ),
+    COLLECTION_DOSSIERS: (
+        _str("number"),
+        _str("order", "sort_order"),
+        _str("label"),
+        _str("opened_on"),
+        _str("last_activity"),
+        _bool("closed"),
+        _str("closed_on"),
+        _str("cabinet"),
+        _str("ministry"),
+        # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
+        _str("kind"),
+        _bool("initiative"),
+        # what the dossier lists filter, sort and count on, as stored (any type, as
+        # ArangoDB compared it): read without the rest of the props
+        *(
+            _json(field)
+            for field in (
+                "outcome",
+                "kind",
+                "current_phase",
+                "ministry",
+                "order",
+                "opened_on",
+                "last_activity",
+                "closed_on",
+                "title",
+                "phases",
+                "initiative",
+            )
+        ),
+    ),
+    COLLECTION_ACTIVITIES: (_str("date"),),
+    COLLECTION_DECISIONS: (
+        _bool("passed"),
+        _str("date"),
+        _strings("dossier_numbers"),
+    ),
+    COLLECTION_COMMITMENTS: (
+        _str("dossier_id"),
+        _str("status"),
+        _str("number"),
+        _str("member_key"),
+        _str("cabinet"),
+        _str("ministry"),
+        _str("made_on"),
+    ),
+    COLLECTION_MEMBERS: (
+        Column(
+            "cabinet_keys",
+            "text[]",
+            "lg_path_array(props -> 'government_functions', 'cabinet_key')",
+        ),
+        _bool("active"),
+        _str("name"),
+        Column("search_names", "text", "lg_member_names(props)"),
+        # what the member lists filter and sort on (``queries/committees.py``): the name a
+        # member goes by (``name OR known_as OR government_name``), whether they ever held
+        # a seat, hold one now, and are in the Eerste Kamer list
+        Column(
+            "list_name",
+            "text",
+            "CASE WHEN lg_truthy(props -> 'name') THEN props ->> 'name'"
+            " WHEN lg_truthy(props -> 'known_as') THEN props ->> 'known_as'"
+            " ELSE props ->> 'government_name' END",
+        ),
+        Column(
+            "in_parliament",
+            "boolean",
+            "CASE WHEN json_typeof(props -> 'faction_memberships') = 'array'"
+            " THEN json_array_length(props -> 'faction_memberships') > 0 ELSE false END",
+        ),
+        Column("seated", "boolean", "lg_member_seated(props)"),
+        _json("faction_memberships"),
+        Column(
+            "in_ek", "boolean", "coalesce(json_typeof(props -> 'ek'), 'null') <> 'null'"
+        ),
+    ),
+    COLLECTION_FACTIONS: (
+        _bool("active"),
+        _str("name"),
+        _num("seats"),
+        Column("search_names", "text", "lg_faction_names(props)"),
+    ),
+    COLLECTION_ANNEXES: (_str("bwb_id"),),
+}
+
+# collection -> indexes: the columns of each and whether it is unique. An array column
+# alone (``labels``, ``subjects``) gets a GIN index. A column may carry its order
+# (``date_eff DESC NULLS LAST``): an index in the order of a list serves its page without
+# sorting the list (read backwards, it serves the opposite order too).
+INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
+    COLLECTION_INSTRUMENTS: (
+        (("bwb_id",), True),
+        (("celex",), True),
+        (("jurisdiction",), False),
+        (("kind",), False),
+        (("article_count",), False),
+        (("stub",), False),
+        (("citation_title",), False),
+        (("treaty_number",), False),
+        (("kind", "date_published"), False),
+    ),
+    COLLECTION_ARTICLES: (
+        (("labels",), False),
+        (("bwb_id", "article_number"), True),
+        (("celex", "article_number"), True),
+        (("bwb_id", "stam_id"), False),
+        (("celex",), False),
+        (("inbound_citation_count",), False),
+        (("stub",), False),
+    ),
+    COLLECTION_INSTRUMENT_VERSIONS: (
+        (("bwb_id", "valid_from"), False),
+        (("bwb_id", "current"), False),
+        (("valid_from",), False),
+    ),
+    COLLECTION_ARTICLE_VERSIONS: (
+        (("bwb_id", "stam_id"), False),
+        (("bwb_id", "article_number", "valid_from"), False),
+        (("bwb_id", "valid_from"), False),
+        (("bwb_id", "article_number", "current"), False),
+    ),
+    COLLECTION_CASES: ((("labels",), False),),
+    COLLECTION_DOCUMENTS: (
+        (("labels",), False),
+        (("source",), False),
+        (("kind", "date"), False),
+        (("date",), False),
+        (("dossier_number",), False),
+        (("dossier_numbers",), False),
+    ),
+    COLLECTION_JUDGMENTS: (
+        (("labels",), False),
+        (("ecli",), True),
+        (("appno",), False),
+        (("case_number_keys",), False),
+        (("series_id",), False),
+        (("replaced_by",), False),
+        (("same_as",), False),
+        (("procedure",), False),
+        (("source", "date_eff", "tier", "court_kind", "stub", "same_as"), False),
+        (("stub", "source", "tier", "court_code", "court", "date_eff"), False),
+        (("tier", "court_kind", "date_eff", "stub", "source", "same_as"), False),
+        (
+            (
+                "court_code",
+                "date_eff",
+                "tier",
+                "court_kind",
+                "stub",
+                "source",
+                "same_as",
+            ),
+            False,
+        ),
+        (("date_eff", "tier", "court_kind", "stub", "source", "same_as"), False),
+        (("court_kind", "date_eff", "stub", "source", "same_as"), False),
+        (("subjects",), False),
+        (("date_eff DESC NULLS LAST", "key DESC"), False),
+        (("inbound_citation_count DESC NULLS LAST", "key DESC"), False),
+        # the feed: per tier, newest publication first (``db/queries/feed.py``)
+        (("tier", "published_on"), False),
+    ),
+    COLLECTION_DOSSIERS: (
+        (("labels",), False),
+        (("number",), False),
+        (("sort_order",), False),
+        (("label",), False),
+        (("opened_on",), False),
+        (("last_activity",), False),
+        (("closed",), False),
+        (("closed_on",), False),
+        (("cabinet",), False),
+        (("ministry",), False),
+    ),
+    COLLECTION_ACTIVITIES: ((("date",), False),),
+    COLLECTION_DECISIONS: (
+        (("passed",), False),
+        (("date",), False),
+        (("dossier_numbers",), False),
+    ),
+    COLLECTION_COMMITMENTS: (
+        (("dossier_id",), False),
+        (("status",), False),
+        (("number",), False),
+        (("member_key",), False),
+        (("cabinet",), False),
+        (("ministry",), False),
+        (("made_on",), False),
+    ),
+    COLLECTION_MEMBERS: ((("cabinet_keys",), False),),
+    COLLECTION_ANNEXES: ((("bwb_id",), False),),
+}
 
 
-def _flat_fields(fields: dict[str, Any], prefix: str = "") -> dict[str, frozenset[str]]:
-    """Dotted field path (``breadcrumb.title``) -> analyzers, from nested link fields."""
-    flat: dict[str, frozenset[str]] = {}
-    for name, spec in fields.items():
-        if spec.get("fields"):
-            flat.update(_flat_fields(spec["fields"], f"{prefix}{name}."))
-        else:
-            flat[f"{prefix}{name}"] = frozenset(spec.get("analyzers", ()))
-    return flat
+# ── search ───────────────────────────────────────────────────────────────────
 
-
-def _indexed_fields(links: dict[str, Any]) -> dict[str, dict[str, frozenset[str]]]:
-    """collection -> field -> analyzers: the part of a view definition that we specify.
-
-    The server returns links with its own defaults added and analyzers in its own order.
-    """
-    return {
-        collection: _flat_fields(link["fields"]["props"]["fields"])
-        for collection, link in links.items()
-    }
-
-
-def _nested_fields(fields: dict[str, list[str]]) -> dict[str, Any]:
-    """Link fields from dotted paths: ``breadcrumb.title`` indexes the ``title`` of every
-    element of the ``breadcrumb`` array (list positions are not tracked)."""
-    nested: dict[str, Any] = {}
-    for path, analyzers in fields.items():
-        head, _, rest = path.partition(".")
-        if rest:
-            inner = nested.setdefault(head, {"fields": {}})["fields"]
-            inner.update(_nested_fields({rest: analyzers}))
-        else:
-            nested[head] = {"analyzers": list(analyzers)}
-    return nested
-
-
-# view -> {collection: {field: analyzers}}; each view indexes one collection.
-_VIEW_SPECS: dict[str, dict[str, dict[str, list[str]]]] = {
-    "search_articles": {
-        COLLECTION_ARTICLES: {
-            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
-            "text": [TEXT_ANALYZER],
-            "article_number": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
-            "bwb_id": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
-            "heading": [
-                TEXT_ANALYZER,
-                "identity",
-                "lawgraph_norm",
-                "lawgraph_ngram_v2",
-            ],
-            "breadcrumb.title": [TEXT_ANALYZER],
-        },
+# What ArangoSearch indexed, per collection and field, with which analyzers: ``text``
+# (text_nl, stemmed words), ``identity`` (the value as is, for a prefix), ``norm``
+# (lawgraph_norm, the folded value) and ``ngram`` (lawgraph_ngram_v2, a part of the folded
+# value). Each becomes a column the search reads (``queries/search.py``).
+SEARCH_FIELDS: dict[str, dict[str, tuple[str, ...]]] = {
+    COLLECTION_ARTICLES: {
+        "display_name": ("text", "identity", "ngram"),
+        "text": ("text",),
+        "article_number": ("text", "identity", "norm"),
+        "bwb_id": ("text", "identity", "norm"),
+        "heading": ("text", "identity", "norm", "ngram"),
+        "breadcrumb.title": ("text",),
     },
-    "search_instruments": {
-        COLLECTION_INSTRUMENTS: {
-            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "citation_title": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
-            "official_title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
-            "short_title": ["identity", "lawgraph_norm"],
-            "aliases": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
-            "bwb_id": ["identity", "lawgraph_norm"],
-        },
+    COLLECTION_INSTRUMENTS: {
+        "title": ("text", "ngram"),
+        "citation_title": ("text", "identity", "ngram"),
+        "official_title": ("text", "ngram"),
+        "display_name": ("text", "identity", "ngram"),
+        "short_title": ("identity", "norm"),
+        "aliases": ("text", "identity", "norm"),
+        "bwb_id": ("identity", "norm"),
     },
-    "search_judgments": {
-        COLLECTION_JUDGMENTS: {
-            "display_name": [TEXT_ANALYZER, "identity", "lawgraph_ngram_v2"],
-            # every element of the array: "Haviltex", "Lindenbaum/Cohen"
-            "names": [TEXT_ANALYZER, "identity", "lawgraph_norm", "lawgraph_ngram_v2"],
-            "summary": [TEXT_ANALYZER],
-            "ecli": ["identity", "lawgraph_norm"],
-            "appno": ["identity", "lawgraph_norm"],
-        },
+    COLLECTION_JUDGMENTS: {
+        "display_name": ("text", "identity", "ngram"),
+        "names": ("text", "identity", "norm", "ngram"),
+        "summary": ("text",),
+        "ecli": ("identity", "norm"),
+        "appno": ("identity", "norm"),
     },
-    "search_dossiers": {
-        COLLECTION_DOSSIERS: {
-            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "display_name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "number": ["identity", "lawgraph_norm"],
-        },
+    COLLECTION_DOSSIERS: {
+        "title": ("text", "ngram"),
+        "display_name": ("text", "ngram"),
+        "number": ("identity", "norm"),
     },
-    "search_documents": {
-        COLLECTION_DOCUMENTS: {
-            "title": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "display_name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "external_id": ["identity", "lawgraph_norm"],
-        },
+    COLLECTION_DOCUMENTS: {
+        "title": ("text", "ngram"),
+        "display_name": ("text", "ngram"),
+        "external_id": ("identity", "norm"),
     },
-    "search_committees": {
-        COLLECTION_COMMITTEES: {
-            "name": [TEXT_ANALYZER, "lawgraph_ngram_v2"],
-            "abbreviation": [TEXT_ANALYZER, "identity", "lawgraph_norm"],
-        },
+    COLLECTION_COMMITTEES: {
+        "name": ("text", "ngram"),
+        "abbreviation": ("text", "identity", "norm"),
     },
 }
 
-# view -> the collection it indexes (``lawgraph check`` compares their sizes).
-SEARCH_VIEWS: dict[str, str] = {
-    view: next(iter(links)) for view, links in _VIEW_SPECS.items()
+# The weight of a field's words in the rank of a hit (``search_tsv``): the boosts of the
+# search, A the highest. A field not named weighs D.
+SEARCH_WEIGHTS: dict[str, dict[str, str]] = {
+    COLLECTION_ARTICLES: {"heading": "A", "display_name": "B", "breadcrumb.title": "C"},
+    COLLECTION_INSTRUMENTS: {"aliases": "A", "citation_title": "B"},
 }
 
 
-def _ensure_search_views(db: StandardDatabase) -> None:
-    """Ensure ArangoSearch views back the /api/search text-search path.
-
-    Each searchable collection gets its own view linking the relevant
-    nested ``props`` fields with the right analyzers:
-      * ``TEXT_ANALYZER`` (Dutch) — tokenises, lowercases and stems display_name,
-        title, text, summary.
-      * ``identity`` — keeps identifiers intact for exact-match queries.
-      * ``lawgraph_norm`` — lowercased identifier match (bwb_id, ecli).
-      * ``lawgraph_ngram_v2`` — substring match within compound words.
-
-    Indexes are populated asynchronously by the engine; the first request
-    after a fresh start may briefly miss recently inserted docs.
-    """
-    view_specs = _VIEW_SPECS
-    existing_views = {v["name"] for v in _at_once(db.views())}
-    for view_name, links in view_specs.items():
-        view_links: dict[str, Any] = {}
-        for coll, fields in links.items():
-            view_links[coll] = {
-                "includeAllFields": False,
-                "storeValues": "id",
-                "analyzers": ["identity"],
-                "fields": {"props": {"fields": _nested_fields(fields)}},
-            }
-        properties = {"links": view_links}
-        try:
-            if view_name not in existing_views:
-                db.create_arangosearch_view(view_name, properties=properties)
-                logger.info("Created ArangoSearch view %s", view_name)
-            else:
-                current_links = _at_once(db.view(view_name)).get("links", {})
-                if _indexed_fields(current_links) != _indexed_fields(view_links):
-                    db.update_arangosearch_view(view_name, properties=properties)
-                    logger.info("Updated ArangoSearch view %s", view_name)
-        except Exception as exc:
-            logger.warning("Failed to ensure ArangoSearch view %s: %s", view_name, exc)
-
-
-def _ensure_indexes(db: StandardDatabase) -> None:
-    """Ensure performance-critical persistent indexes exist.
-
-    Each spec is ``(collection, fields, unique, sparse)``. Use
-    ``sparse=False`` whenever the field is a sort key for a list
-    endpoint — sparse indexes drop null entries, which forces the
-    optimiser back to a collection scan for ``SORT field DESC LIMIT n``
-    because the result must include nulls. Equality filters are fine
-    with sparse indexes (the filter inherently excludes nulls).
-    """
-    # (collection, fields, unique) or (collection, fields, unique, sparse);
-    # an omitted ``sparse`` defaults to True.
-    index_specs: list[
-        tuple[str, list[str], bool] | tuple[str, list[str], bool, bool]
-    ] = [
-        # Array indexes on labels
-        (COLLECTION_ARTICLES, ["labels[*]"], False),
-        (COLLECTION_DOCUMENTS, ["labels[*]"], False),
-        (COLLECTION_JUDGMENTS, ["labels[*]"], False),
-        (COLLECTION_CASES, ["labels[*]"], False),
-        (COLLECTION_DOSSIERS, ["labels[*]"], False),
-        # Node field indexes
-        (COLLECTION_INSTRUMENTS, ["props.bwb_id"], True),
-        (COLLECTION_INSTRUMENTS, ["props.celex"], True),
-        (COLLECTION_ARTICLES, ["props.bwb_id", "props.article_number"], True),
-        (COLLECTION_ARTICLES, ["props.celex", "props.article_number"], True),
-        # the articles of one instrument: a sparse compound index holds only articles that
-        # have both fields, so the optimiser cannot use it for `bwb_id == x` alone (a
-        # historical article has no number) and read every article
-        (COLLECTION_ARTICLES, ["props.bwb_id"], False, True),
-        (COLLECTION_ARTICLES, ["props.celex"], False, True),
-        # article identity across versions (BWB stam-id): the amendments pipeline
-        # resolves (bwb_id, stam_id) pairs in bulk and streams versions sorted by them
-        (COLLECTION_ARTICLES, ["props.bwb_id", "props.stam_id"], False, True),
-        (
-            COLLECTION_ARTICLE_VERSIONS,
-            ["props.bwb_id", "props.stam_id"],
-            False,
-            False,
-        ),
-        # Law history version indexes
-        (
-            COLLECTION_INSTRUMENT_VERSIONS,
-            ["props.bwb_id", "props.valid_from"],
-            False,
-            False,
-        ),
-        (
-            COLLECTION_INSTRUMENT_VERSIONS,
-            ["props.bwb_id", "props.current"],
-            False,
-            True,
-        ),
-        (
-            COLLECTION_ARTICLE_VERSIONS,
-            ["props.bwb_id", "props.article_number", "props.valid_from"],
-            False,
-            False,
-        ),
-        (
-            COLLECTION_ARTICLE_VERSIONS,
-            ["props.bwb_id", "props.valid_from"],
-            False,
-            False,
-        ),
-        (
-            COLLECTION_ARTICLE_VERSIONS,
-            ["props.bwb_id", "props.article_number", "props.current"],
-            False,
-            True,
-        ),
-        (COLLECTION_JUDGMENTS, ["props.ecli"], True),
-        (COLLECTION_JUDGMENTS, ["props.appno"], False),
-        # A conclusion and its judgment share a case number; a preliminary ruling names
-        # the case number of the decision that asked its questions.
-        # Not sparse: a sparse index is not used for a value that is a loop variable (`FOR
-        # key IN @keys ... FILTER key IN j.props.case_number_keys[*]`), only for a constant.
-        (COLLECTION_JUDGMENTS, ["props.case_number_keys[*]"], False, False),
-        # the judgments of one series (``semantic rechtspraak-series``)
-        (COLLECTION_JUDGMENTS, ["props.series_id"], False, True),
-        # the publications a later one replaces, and those SAME_AS the one kept
-        # (``semantic rechtspraak-duplicates``); the lists leave the latter out
-        (COLLECTION_JUDGMENTS, ["props.replaced_by"], False, True),
-        (COLLECTION_JUDGMENTS, ["props.same_as"], False, True),
-        # What `/api/stats` counts per value is not sparse, so the count walks the index
-        # and sees the documents without a value too; sparse, each count read every document.
-        # It holds the tier, the kind of court and the date for the facets of
-        # `/api/judgments?source=`.
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.source",
-                "props.date_eff",
-                "props.tier",
-                "props.court_kind",
-                "props.stub",
-                "props.same_as",
-            ],
-            False,
-            False,
-        ),
-        # ``/api/stats/coverage`` counts per court from this index alone
-        # (``queries/stats.py``): every field it reads is in it.
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.stub",
-                "props.source",
-                "props.tier",
-                "props.court_code",
-                "props.court",
-                "props.date_eff",
-            ],
-            False,
-            False,
-        ),
-        (COLLECTION_DOCUMENTS, ["props.source"], False, False),
-        # Precomputed list-endpoint keys, written by ``graph-list-stats`` and the
-        # normalize pipelines. Required for index-served filters and sorts on
-        # /api/instruments and /api/judgments.
-        # What is sorted on (article_count, date_eff) or counted per value (jurisdiction,
-        # kind) is not sparse, so the optimiser can use the index for it; the rest stay
-        # sparse since they only serve equality filters.
-        (COLLECTION_INSTRUMENTS, ["props.jurisdiction"], False, False),
-        (COLLECTION_INSTRUMENTS, ["props.kind"], False, False),
-        (COLLECTION_INSTRUMENTS, ["props.article_count"], False, False),
-        # `/api/judgments` counts per tier, per kind of court, per source and per year of
-        # `date_eff` under the filters (`queries/judgments.py`): each filter's index holds
-        # all four, `stub` and `same_as` (the list leaves the stubs and the replaced
-        # publications out), so a count reads the index alone, not the judgments.
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.tier",
-                "props.court_kind",
-                "props.date_eff",
-                "props.stub",
-                "props.source",
-                "props.same_as",
-            ],
-            False,
-            False,
-        ),
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.court_code",
-                "props.date_eff",
-                "props.tier",
-                "props.court_kind",
-                "props.stub",
-                "props.source",
-                "props.same_as",
-            ],
-            False,
-            False,
-        ),
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.date_eff",
-                "props.tier",
-                "props.court_kind",
-                "props.stub",
-                "props.source",
-                "props.same_as",
-            ],
-            False,
-            False,
-        ),
-        # `/api/judgments?court_kind=` and its facets
-        (
-            COLLECTION_JUDGMENTS,
-            [
-                "props.court_kind",
-                "props.date_eff",
-                "props.stub",
-                "props.source",
-                "props.same_as",
-            ],
-            False,
-            False,
-        ),
-        # `/api/judgments?subject=`: `@subject IN doc.props.subjects[*]`
-        (COLLECTION_JUDGMENTS, ["props.subjects[*]"], False),
-        (COLLECTION_JUDGMENTS, ["props.inbound_citation_count"], False, False),
-        (COLLECTION_ARTICLES, ["props.inbound_citation_count"], False, False),
-        # `/api/stats` counts the stubs (the judgments count them from the coverage index)
-        (COLLECTION_ARTICLES, ["props.stub"], False, True),
-        (COLLECTION_INSTRUMENTS, ["props.stub"], False, True),
-        # Title-sort key for /api/instruments default list.
-        (COLLECTION_INSTRUMENTS, ["props.citation_title"], False, False),
-        # one treaty in the BWB and in the Verdragenbank (`same_treaty` of an instrument)
-        (COLLECTION_INSTRUMENTS, ["props.treaty_number"], False),
-        (COLLECTION_DOCUMENTS, ["props.kind"], False),
-        (COLLECTION_DOCUMENTS, ["props.date"], False),
-        (COLLECTION_DOCUMENTS, ["props.dossier_number"], False),
-        (COLLECTION_DOSSIERS, ["props.number"], False),
-        # the orders and the number prefix of `GET /api/dossiers`
-        (COLLECTION_DOSSIERS, ["props.order"], False),
-        (COLLECTION_DOSSIERS, ["props.label"], False),
-        (COLLECTION_DOSSIERS, ["props.opened_on"], False),
-        (COLLECTION_DOSSIERS, ["props.closed"], False),
-        (COLLECTION_DOSSIERS, ["props.closed_on"], False),
-        (COLLECTION_ACTIVITIES, ["props.date"], False),
-        (COLLECTION_DECISIONS, ["props.passed"], False),
-        (COLLECTION_DECISIONS, ["props.date"], False),
-        # `GET /api/decisions?dossier=`: `@number IN decision.props.dossier_numbers`
-        (COLLECTION_DECISIONS, ["props.dossier_numbers[*]"], False),
-        # the memorie van toelichting of a bill's dossier (`queries/feed.py`); not sparse:
-        # the dossier is a loop variable there
-        (COLLECTION_DOCUMENTS, ["props.dossier_numbers[*]"], False, False),
-        (COLLECTION_COMMITMENTS, ["props.dossier_id"], False),
-        (COLLECTION_COMMITMENTS, ["props.status"], False),
-        (COLLECTION_COMMITMENTS, ["props.number"], False),
-        # who made it and under which cabinet (``semantic tk-government``)
-        (COLLECTION_COMMITMENTS, ["props.member_key"], False),
-        (COLLECTION_COMMITMENTS, ["props.cabinet"], False),
-        (COLLECTION_COMMITMENTS, ["props.ministry"], False),
-        (COLLECTION_DOSSIERS, ["props.cabinet"], False),
-        (COLLECTION_DOSSIERS, ["props.ministry"], False),
-        # `GET /api/feed` reads each kind of event newest first by its date
-        # (`queries/feed.py`); decisions by `props.date` above.
-        (COLLECTION_DOCUMENTS, ["props.kind", "props.date"], False, False),
-        (COLLECTION_COMMITMENTS, ["props.made_on"], False, False),
-        (COLLECTION_INSTRUMENTS, ["props.kind", "props.date_published"], False, False),
-        (COLLECTION_INSTRUMENT_VERSIONS, ["props.valid_from"], False, False),
-        # `GET /api/members?cabinet=`: `@cabinet IN ...government_functions[*].cabinet_key`
-        (COLLECTION_MEMBERS, ["props.government_functions[*].cabinet_key"], False),
-        # raw_sources: the normalize pipelines read by source and kind. Not sparse, so a
-        # count per kind walks the index and reads no document (an EU act is up to 1 MB).
-        (COLLECTION_RAW_SOURCES, ["source", "kind"], False, False),
-        # Edge indexes — critical for all traversal queries
-        (COLLECTION_EDGES, ["relation"], False, False),  # counted per relation
-        (COLLECTION_EDGES, ["_from", "relation"], False),
-        (COLLECTION_EDGES, ["_to", "relation"], False),
-        (COLLECTION_EDGES, ["status"], False),
-        (COLLECTION_EDGES, ["status", "relation"], False),
-        # edges confidence — for semantic filtering by confidence threshold
-        (COLLECTION_EDGES, ["confidence"], False),
-        # the TK records an edge is made of (a vote, a seat), which a deleted one takes along
-        (COLLECTION_EDGES, ["meta.record_ids[*]"], False),
-        # Semantic relationship type layer — equality filters only, so sparse
-        # is fine and skips the (large) majority of unclassified edges.
-        (COLLECTION_EDGES, ["semantic_type"], False),
-        (COLLECTION_EDGES, ["_from", "semantic_type"], False),
-        # annexes — lookups by parent law
-        (COLLECTION_ANNEXES, ["props.bwb_id"], False),
-        # NOTE: we deliberately *don't* index ``edges.created_at``. The planner
-        # picks it up for the heat-window scan, but the index range covers 25%
-        # of the collection so it triggers a MaterializeNode (load full doc per
-        # match) — about 2× slower than the bare collection scan, which already
-        # has the doc in memory. A covering index with storedValues=["_to"] would
-        # help, but the gain is small (~100 ms) for the added write cost.
+def search_column(field: str, analyzer: str) -> str:
+    """The column of *field* a search under *analyzer* reads."""
+    suffix = {"identity": "v", "text": "t", "norm": "n", "ngram": "g", "prefix": "p"}[
+        analyzer
     ]
-    for spec in index_specs:
-        coll_name, fields, unique = spec[0], spec[1], spec[2]
-        sparse = spec[3] if len(spec) > 3 else True
-        if not db.has_collection(coll_name):
-            continue
-        coll = db.collection(coll_name)
-        existing_by_fields = {
-            tuple(idx["fields"]): idx
-            for idx in _at_once(coll.indexes())
-            if idx.get("type") == "persistent"
+    return f"s_{field.replace('.', '_')}_{suffix}"
+
+
+def _values_sql(field: str) -> str:
+    if "." in field:
+        parent, child = field.split(".", 1)
+        return f"coalesce(lg_path_array(props -> '{parent}', '{child}'), '{{}}')"
+    return f"lg_values(props -> '{field}')"
+
+
+def _search_columns(collection: str) -> list[Column]:
+    columns: list[Column] = []
+    weighted: list[str] = []
+    for field, analyzers in SEARCH_FIELDS.get(collection, {}).items():
+        values = _values_sql(field)
+        expressions = {
+            "identity": ("text[]", values),
+            "text": ("text[]", f"lg_tokens_all({values})"),
+            "norm": ("text[]", f"lg_fold_all({values})"),
+            "ngram": ("text", f"lg_join(lg_fold_all({values}))"),
         }
-        key = tuple(fields)
-        if key in existing_by_fields:
-            existing_idx = existing_by_fields[key]
-            existing_unique = existing_idx.get("unique", False)
-            existing_sparse = existing_idx.get("sparse", False)
-            if existing_unique == unique and existing_sparse == sparse:
-                continue
-            try:
-                coll.delete_index(existing_idx["id"])
-            except Exception as exc:
-                logger.warning(
-                    "Failed to drop outdated index on %s %s: %s", coll_name, fields, exc
+        for analyzer in analyzers:
+            sql_type, expression = expressions[analyzer]
+            columns.append(Column(search_column(field, analyzer), sql_type, expression))
+        if "identity" in analyzers:
+            # every value after a separator: a prefix of a value is an indexed part of it
+            columns.append(
+                Column(
+                    search_column(field, "prefix"),
+                    "text",
+                    f"chr(31) || lg_join({values})",
                 )
-                continue
-        try:
-            # In the background: a foreground build locks the collection for as long as it
-            # takes to read it (minutes for raw_sources), and a load running in another
-            # process would time out on its writes.
-            coll.add_persistent_index(
-                fields=fields, unique=unique, sparse=sparse, in_background=True
             )
-            logger.info(
-                "Created index on %s %s (unique=%s, sparse=%s)",
-                coll_name,
-                fields,
-                unique,
-                sparse,
+        if "text" in analyzers:
+            weight = SEARCH_WEIGHTS.get(collection, {}).get(field, "D")
+            weighted.append(f"lg_tsv(lg_tokens_all({values}), '{weight}')")
+    if weighted:
+        columns.append(Column("search_tsv", "tsvector", " || ".join(weighted)))
+    return columns
+
+
+# The words a cabinet and a commitment are searched by, lower case, as ``search_names`` of
+# members and factions: a trigram index on the expression serves "every word in it". An
+# expression, not a column: the tables keep their columns (no rebuild).
+SEARCH_WORDS: dict[str, str] = {
+    COLLECTION_CABINETS: "lower(coalesce({p}props ->> 'name', ''))",
+    COLLECTION_COMMITMENTS: (
+        "lower(coalesce({p}props ->> 'text', '') || ' ' || coalesce({p}props ->> 'number', ''))"
+    ),
+    # a vote: what was voted on and its kind (Motie, Amendement, Wetgeving)
+    COLLECTION_DECISIONS: (
+        "lower(coalesce({p}props ->> 'subject', '') || ' ' || coalesce({p}props ->> 'kind', ''))"
+    ),
+}
+
+
+def search_words(collection: str, alias: str = "") -> str:
+    """The expression of ``SEARCH_WORDS`` over the props of the row *alias*."""
+    return SEARCH_WORDS[collection].format(p=f"{alias}." if alias else "")
+
+
+def _search_indexes(collection: str) -> list[str]:
+    statements = []
+    if collection in SEARCH_WORDS:
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_search_words ON {collection}"
+            f" USING gin (({search_words(collection)}) gin_trgm_ops)"
+        )
+    if collection in (COLLECTION_MEMBERS, COLLECTION_FACTIONS):
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"
+            " USING gin (search_names gin_trgm_ops)"
+        )
+    for column in _search_columns(collection):
+        name = f"{collection}_{column.name}"
+        if column.name.endswith(("_t", "_n")):
+            statements.append(
+                f"CREATE INDEX IF NOT EXISTS {name} ON {collection} USING gin ({column.name})"
             )
-        except Exception as exc:
-            logger.warning(
-                "Could not create index on %s %s: %s", coll_name, fields, exc
+        elif column.name.endswith(("_g", "_p")):
+            statements.append(
+                f"CREATE INDEX IF NOT EXISTS {name} ON {collection}"
+                f" USING gin ({column.name} gin_trgm_ops)"
             )
+    return statements
+
+
+def _array_columns(collection: str) -> set[str]:
+    arrays = {c.name for c in COLUMNS.get(collection, ()) if c.sql_type.endswith("[]")}
+    return arrays | {"labels"}
+
+
+def _derived(collection: str) -> list[Column]:
+    return [*COLUMNS.get(collection, ()), *_search_columns(collection)]
+
+
+_PROP = re.compile(r"props -> '(\w+)'")
+_FUNCTION_CALL = re.compile(r"(?<![\w.])(lg_\w+)\(")
+_WHOLE_PROPS = re.compile(r"(?<![\w.\"])props\b")
+
+
+def _derive(collection: str) -> list[str]:
+    """The trigger that fills the derived columns of *collection* from ``props`` when a row
+    is written, its function and the trigger itself.
+
+    Generated columns would each read their prop with ``props -> 'x'``, and on ``json`` that
+    parses the whole document: a judgment (its text, some 20 KB) was parsed 48 times a row.
+    The trigger parses it once (``json_each``, which keeps every value as written, key order
+    of a nested object included) and evaluates the same expressions on those values. Of a
+    key that occurs twice the last one counts, as with ``->``. The names are qualified: a
+    restore runs without a search path."""
+    columns = _derived(collection)
+    keys = sorted({k for c in columns for k in _PROP.findall(c.expression)})
+    values = ", ".join(
+        f"(array_agg(value ORDER BY n) FILTER (WHERE key = '{k}'))"
+        f"[count(*) FILTER (WHERE key = '{k}')] AS \"p_{k}\""
+        for k in keys
+    )
+
+    def over_values(expression: str) -> str:
+        expression = _PROP.sub(lambda m: f'v."p_{m.group(1)}"', expression)
+        # what reads the props whole (lg_member_names, ->>) reads the row's own
+        expression = _WHOLE_PROPS.sub("NEW.props", expression)
+        return _FUNCTION_CALL.sub(r"public.\1(", expression)
+
+    targets = ", ".join(f"NEW.{c.name}" for c in columns)
+    expressions = ",\n        ".join(over_values(c.expression) for c in columns)
+    return [
+        f"""CREATE OR REPLACE FUNCTION public.lg_derive_{collection}() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT {expressions}
+    INTO {targets}
+    FROM (SELECT {values}
+          FROM json_each(NEW.props) WITH ORDINALITY AS e(key, value, n)) v;
+    RETURN NEW;
+END $$""",
+        f"CREATE OR REPLACE TRIGGER {collection}_derive"
+        f" BEFORE INSERT OR UPDATE OF props ON {collection}"
+        f" FOR EACH ROW EXECUTE FUNCTION public.lg_derive_{collection}()",
+    ]
+
+
+def node_table(collection: str) -> list[str]:
+    derived = _derived(collection)
+    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived)
+    prefix = len(collection) + 2
+    statements = [
+        f"""CREATE TABLE IF NOT EXISTS {collection} (
+    id text PRIMARY KEY CHECK (id LIKE '{collection}/%'),
+    key text GENERATED ALWAYS AS (substr(id, {prefix})) STORED NOT NULL,
+    type text NOT NULL,
+    labels text[] NOT NULL DEFAULT '{{}}',
+    props json NOT NULL DEFAULT '{{}}'{columns}
+)""",
+        f"CREATE UNIQUE INDEX IF NOT EXISTS {collection}_key ON {collection} (key)",
+    ]
+    for fields, unique in INDEXES.get(collection, ()):
+        name = f"{collection}_{'_'.join(f.split()[0] for f in fields)}"
+        gin = len(fields) == 1 and fields[0] in _array_columns(collection)
+        method = " USING gin" if gin else ""
+        kind = "UNIQUE INDEX" if unique else "INDEX"
+        statements.append(
+            f"CREATE {kind} IF NOT EXISTS {name} ON {collection}{method} ({', '.join(fields)})"
+        )
+    return (
+        statements
+        + (_derive(collection) if derived else [])
+        + list(_LIST_INDEXES.get(collection, ()))
+        + _search_indexes(collection)
+    )
+
+
+# The instruments list holds every instrument but the publications: an index per sort of
+# it over those alone, so that a page does not pass every publication on the way.
+_LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
+_LIST_INDEXES: dict[str, tuple[str, ...]] = {
+    COLLECTION_INSTRUMENTS: (
+        "CREATE INDEX IF NOT EXISTS instruments_list_title"
+        f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
+        "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
+        f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
+        # /api/instruments by legal area and theme (BE-14): GIN indexes on their keys
+        "CREATE INDEX IF NOT EXISTS instruments_legal_areas"
+        " ON instruments USING gin (public.lg_legal_area_keys(props))",
+        "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
+        " ON instruments USING gin (public.lg_policy_domain_keys(props))",
+    ),
+    # /api/documents, newest first: a page without a kind or dossier reads only itself.
+    COLLECTION_DOCUMENTS: (
+        "CREATE INDEX IF NOT EXISTS documents_list_date"
+        " ON documents (date DESC NULLS LAST, key)",
+    ),
+    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
+    COLLECTION_JUDGMENTS: (
+        "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
+        " ON judgments USING gin (public.lg_subject_areas(subjects))",
+    ),
+    # the member lists in name order: those who held a seat, and the Eerste Kamer's
+    COLLECTION_MEMBERS: (
+        "CREATE INDEX IF NOT EXISTS members_list_name ON members"
+        " (list_name NULLS FIRST, key) WHERE in_parliament AND list_name <> ''",
+        "CREATE INDEX IF NOT EXISTS members_list_ek ON members"
+        " (list_name NULLS FIRST, key) WHERE in_ek",
+    ),
+}
+
+
+# ── edges, raw records, pipeline state ───────────────────────────────────────
+
+EDGES = f"""
+CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
+    key text PRIMARY KEY,
+    from_id text NOT NULL,
+    to_id text NOT NULL,
+    from_collection text GENERATED ALWAYS AS (split_part(from_id, '/', 1)) STORED,
+    to_collection text GENERATED ALWAYS AS (split_part(to_id, '/', 1)) STORED,
+    -- every other attribute of the edge document, in its order
+    doc json NOT NULL DEFAULT '{{}}',
+    relation text GENERATED ALWAYS AS (lg_str(doc -> 'relation')) STORED,
+    source text GENERATED ALWAYS AS (lg_str(doc -> 'source')) STORED,
+    status text GENERATED ALWAYS AS (lg_str(doc -> 'status')) STORED,
+    confidence double precision GENERATED ALWAYS AS (lg_num(doc -> 'confidence')) STORED,
+    semantic_type text GENERATED ALWAYS AS (lg_str(doc -> 'semantic_type')) STORED,
+    record_ids text[] GENERATED ALWAYS AS
+        (lg_text_array(doc -> 'meta' -> 'record_ids')) STORED,
+    created_at text GENERATED ALWAYS AS (lg_str(doc -> 'created_at')) STORED
+);
+CREATE INDEX IF NOT EXISTS edges_from ON edges (from_id, relation, to_collection);
+CREATE INDEX IF NOT EXISTS edges_to ON edges (to_id, relation, from_collection);
+CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
+CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
+CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);
+CREATE INDEX IF NOT EXISTS edges_confidence ON edges (confidence);
+CREATE INDEX IF NOT EXISTS edges_record_ids ON edges USING gin (record_ids);
+CREATE INDEX IF NOT EXISTS edges_semantic_type ON edges (semantic_type)
+    WHERE semantic_type IS NOT NULL;
+CREATE INDEX IF NOT EXISTS edges_from_semantic_type ON edges (from_id, semantic_type)
+    WHERE semantic_type IS NOT NULL
+"""
+
+RAW_SOURCES = f"""
+CREATE TABLE IF NOT EXISTS {COLLECTION_RAW_SOURCES} (
+    key text PRIMARY KEY,
+    -- the record as ``raw_source_doc`` makes it, without ``_key``
+    doc json NOT NULL,
+    source text GENERATED ALWAYS AS (lg_str(doc -> 'source')) STORED,
+    kind text GENERATED ALWAYS AS (lg_str(doc -> 'kind')) STORED,
+    external_id text GENERATED ALWAYS AS (lg_str(doc -> 'external_id')) STORED,
+    fetched_at text GENERATED ALWAYS AS (lg_str(doc -> 'fetched_at')) STORED
+);
+CREATE INDEX IF NOT EXISTS raw_sources_source_kind ON raw_sources (source, kind, key);
+CREATE INDEX IF NOT EXISTS raw_sources_source_fetched_at ON raw_sources (source, fetched_at)
+"""
+
+PIPELINE_STATE = f"""
+CREATE TABLE IF NOT EXISTS {COLLECTION_PIPELINE_STATE} (
+    key text PRIMARY KEY,
+    doc json NOT NULL
+)
+"""
+
+# ── data version ─────────────────────────────────────────────────────────────
+
+# A number per table that a statement which changed rows raises: ``data_version`` hashes
+# them as it hashed the revisions of the collections. A statement that changed nothing (an
+# upsert of what was stored) leaves it, as ArangoDB left its revision.
+DATA_VERSION = """
+CREATE TABLE IF NOT EXISTS lg_data_version (
+    collection text PRIMARY KEY,
+    version bigint NOT NULL DEFAULT 0
+);
+CREATE OR REPLACE FUNCTION lg_bump_data_version() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM changed) THEN
+        UPDATE public.lg_data_version SET version = version + 1 WHERE collection = TG_TABLE_NAME;
+    END IF;
+    RETURN NULL;
+END $$
+"""
+
+
+def data_version_triggers(table: str) -> list[str]:
+    statements = [
+        f"INSERT INTO lg_data_version (collection) VALUES ('{table}') ON CONFLICT DO NOTHING"
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER {table}_version_{event.lower()}"
+            f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version()"
+        )
+    return statements
+
+
+# ── nodes view ───────────────────────────────────────────────────────────────
+
+
+def nodes_view() -> str:
+    """Every node of every collection, for a lookup by id (``DOCUMENT(id)``)."""
+    parts = "\nUNION ALL\n".join(
+        f"SELECT id, key, '{c}' AS collection, type, labels, props FROM {c}"
+        for c in NODE_COLLECTIONS
+    )
+    return f"CREATE OR REPLACE VIEW nodes AS\n{parts}"
+
+
+def statements() -> list[str]:
+    """The whole schema, in the order it is created."""
+    found = [DICTIONARY, FUNCTIONS, SEARCH_FUNCTIONS, DATA_VERSION, TRIGRAMS]
+    for collection in NODE_COLLECTIONS:
+        found += node_table(collection)
+        found += data_version_triggers(collection)
+    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, nodes_view()]
+    found += data_version_triggers(COLLECTION_EDGES)
+    return found
+
+
+class SchemaOutdated(RuntimeError):
+    """The tables of the database are not those of the schema: it needs building again."""
+
+
+_TABLE = re.compile(r"CREATE TABLE IF NOT EXISTS (\w+) \(")
+_COMMENT = re.compile(r"--[^\n]*")
+_NOT_A_COLUMN = ("PRIMARY", "UNIQUE", "CONSTRAINT", "CHECK", "FOREIGN", "EXCLUDE")
+
+
+def _definitions(text: str, start: int) -> list[str]:
+    """The definitions between the parenthesis that opens at *start* in *text* and the one
+    that closes it, split on the commas outside parentheses."""
+    parts: list[str] = []
+    depth, begin = 0, start + 1
+    for i in range(start, len(text)):
+        char = text[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return [*parts, text[begin:i]]
+        elif char == "," and depth == 1:
+            parts.append(text[begin:i])
+            begin = i + 1
+    raise ValueError("a CREATE TABLE without its closing parenthesis")
+
+
+def _columns(generated: bool) -> dict[str, set[str]]:
+    found: dict[str, set[str]] = {}
+    for statement in statements():
+        text = _COMMENT.sub("", statement)
+        for match in _TABLE.finditer(text):
+            found[match.group(1)] = {
+                words[0]
+                for part in _definitions(text, match.end() - 1)
+                if (words := part.split())
+                and words[0].upper() not in _NOT_A_COLUMN
+                and (not generated or "GENERATED ALWAYS" in part)
+            }
+    return found
+
+
+def expected_columns() -> dict[str, set[str]]:
+    """table -> the names of its columns, read from the schema's own CREATE TABLE
+    statements."""
+    return _columns(generated=False)
+
+
+def expected_generated() -> dict[str, set[str]]:
+    """table -> the names of its generated columns. The derived columns of a node table are
+    no generated columns: its trigger fills them (``_derive``)."""
+    return _columns(generated=True)
+
+
+def schema_drift(conn: psycopg.Connection) -> list[str]:
+    """What differs between the tables of the database and those of the schema: a column
+    the schema has and the table lacks, or the other way round, and a column that is
+    generated in one and not in the other. A table that is not there yet differs in
+    nothing."""
+    expected, generated = expected_columns(), expected_generated()
+    actual: dict[str, set[str]] = {}
+    actual_generated: dict[str, set[str]] = {}
+    for table, column, is_generated in conn.execute(
+        "SELECT table_name, column_name, is_generated = 'ALWAYS'"
+        " FROM information_schema.columns"
+        " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
+        (list(expected),),
+    ):
+        actual.setdefault(table, set()).add(column)
+        if is_generated:
+            actual_generated.setdefault(table, set()).add(column)
+    differences = []
+    for table, columns in sorted(expected.items()):
+        present = actual.get(table)
+        if present is None:
+            continue  # not there yet: it is created as the schema says
+        differences += [f"{table}.{c} ontbreekt" for c in sorted(columns - present)]
+        differences += [
+            f"{table}.{c} staat niet in het schema" for c in sorted(present - columns)
+        ]
+        was, wanted = actual_generated.get(table, set()), generated.get(table, set())
+        differences += [
+            f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
+            for c in sorted((was - wanted) & columns)
+        ]
+        differences += [
+            f"{table}.{c} is niet gegenereerd" for c in sorted((wanted - was) & present)
+        ]
+    return differences
+
+
+def ensure_schema(conn: psycopg.Connection) -> None:
+    """Create what is missing of the schema in the database of *conn*, in one transaction
+    that holds a lock, so two processes that start together do not race.
+
+    A table that exists keeps its columns: ``CREATE TABLE IF NOT EXISTS`` adds none. When
+    they are not those of the schema any more (a column added to or dropped from the schema
+    since the database was built), this stops with ``SchemaOutdated`` before anything is
+    created, instead of letting queries fail later: the database is built again, there is
+    no migration (clean slate). A changed expression is not seen: of a generated column, nor
+    of a derived column of a node table (its trigger is replaced here, but rows written
+    before keep what the old one computed)."""
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
+        # before anything is created: an index on a column the table lacks would fail first
+        differences = schema_drift(conn)
+        if differences:
+            raise SchemaOutdated(
+                "schema verouderd: herbouw nodig (" + "; ".join(differences) + ")"
+            )
+        for statement in statements():
+            conn.execute(statement.encode())
+
+
+def create_database_sql(name: str) -> str:
+    """The database, with the collation that sorts strings as ArangoDB did."""
+    return (
+        f'CREATE DATABASE "{name}" TEMPLATE template0 ENCODING UTF8 LOCALE_PROVIDER icu'
+        f" ICU_LOCALE '{COLLATION}' LOCALE 'C.UTF-8'"
+    )
+
+
+# view -> the table it indexed (``lawgraph check`` names the views as before, D7).
+SEARCH_VIEWS: dict[str, str] = {
+    "search_articles": COLLECTION_ARTICLES,
+    "search_instruments": COLLECTION_INSTRUMENTS,
+    "search_judgments": COLLECTION_JUDGMENTS,
+    "search_dossiers": COLLECTION_DOSSIERS,
+    "search_documents": COLLECTION_DOCUMENTS,
+    "search_committees": COLLECTION_COMMITTEES,
+}

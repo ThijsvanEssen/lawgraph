@@ -19,7 +19,8 @@ from typing import Any, Literal
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.models import make_node_key
-from lawgraph.db import ArangoStore
+from lawgraph.db import GraphStore
+from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _ensure_doc
 
 
@@ -47,30 +48,33 @@ def scope_of(identifier: str) -> InstrumentScope:
     return InstrumentScope("bwb_id", value)
 
 
-def resolve_instrument(store: ArangoStore, identifier: str) -> dict[str, Any] | None:
+def resolve_instrument(store: GraphStore, identifier: str) -> dict[str, Any] | None:
     """The instrument node named by a BWB id, CELEX number or node key; ``None`` if unknown.
 
     One lookup in the primary index: instrument keys are `make_node_key` of the BWB id, the
     CELEX number or the source's own id, and the key of an identifier is the same in any case.
     """
     key = make_node_key(identifier)
-    return _ensure_doc(store.collection(COLLECTION_INSTRUMENTS).get(key))
+    return _ensure_doc(store.get_document(COLLECTION_INSTRUMENTS, key))
 
 
-def same_treaty(store: ArangoStore, doc: dict[str, Any]) -> list[dict[str, Any]]:
+def same_treaty(store: GraphStore, doc: dict[str, Any]) -> list[dict[str, Any]]:
     """The other instruments with the treaty number of *doc*: the Verdragenbank record of a
     BWB treaty, the BWB text of a Verdragenbank treaty; by key. Empty for an instrument
     without a treaty number."""
     number = (doc.get("props") or {}).get("treaty_number")
-    if not number:
+    # Treaty numbers are strings; the column holds nothing else.
+    if not number or not isinstance(number, str):
         return []
-    aql = f"""
-        FOR i IN {COLLECTION_INSTRUMENTS}
-            FILTER i.props.treaty_number == @number AND i._key != @key
-            SORT i._key
-            RETURN i
-        """
-    return list(store.query(aql, {"number": number, "key": doc["_key"]}))
+    rows = store.query(
+        f"""
+        SELECT id, key, type, labels, props FROM {COLLECTION_INSTRUMENTS}
+        WHERE treaty_number = %(number)s AND key <> %(key)s
+        ORDER BY key
+        """,
+        {"number": number, "key": doc["_key"]},
+    )
+    return [node_doc(row) for row in rows]
 
 
 def scope_of_node(doc: dict[str, Any]) -> InstrumentScope | None:

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Iterator
 from typing import Any
+
+import pytest
 
 from lawgraph.core.bwb_xml import article_version_key, historical_article_key
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import (
     BWBHistoryNormalizePipeline,
@@ -62,34 +67,60 @@ class _Store(RawSourcesFake):
         self.existence_calls += 1
         return set(keys) & set(self.nodes.get(collection, {}))
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw):
-        self.queries.append(aql)
-        ids = set((bind_vars or {}).get("ids", []))
-        if "article_versions" in aql:
-            return [
-                {
-                    "key": k,
-                    "bwb_id": d["props"].get("bwb_id"),
-                    "stam_id": d["props"].get("stam_id"),
-                    "number": d["props"].get("article_number"),
-                    "valid_from": d["props"].get("valid_from"),
-                    "valid_until": d["props"].get("valid_until"),
-                    "title": d["props"].get("instrument_citation_title"),
-                }
-                for k, d in self.nodes.get("article_versions", {}).items()
-                if d["props"].get("bwb_id") in ids
-            ]
-        if "FROM" not in aql and "articles" in aql:
-            return [
-                {
-                    "key": k,
-                    "bwb_id": d["props"].get("bwb_id"),
-                    "stam_id": d["props"].get("stam_id"),
-                }
-                for k, d in self.nodes.get("articles", {}).items()
-                if d["props"].get("bwb_id") in ids
-            ]
-        return []
+
+def patch_store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The queries of the BWB normalize pipelines, answered from the nodes of a ``_Store``;
+    each call is recorded in ``store.queries``. No raw record is stored, and no toestand
+    start: a version ends where the next one begins."""
+
+    def recorded(name: str, answer: Any) -> Any:
+        def recording(store: _Store, *args: Any, **kwargs: Any) -> Any:
+            store.queries.append(name)
+            return answer(store, *args, **kwargs)
+
+        return recording
+
+    def article_versions(store: _Store, bwb_ids: list[str]) -> Iterator[dict]:
+        return iter(
+            {
+                "key": k,
+                "bwb_id": d["props"].get("bwb_id"),
+                "stam_id": d["props"].get("stam_id"),
+                "number": d["props"].get("article_number"),
+                "valid_from": d["props"].get("valid_from"),
+                "valid_until": d["props"].get("valid_until"),
+                "title": d["props"].get("instrument_citation_title"),
+            }
+            for k, d in store.nodes.get("article_versions", {}).items()
+            if d["props"].get("bwb_id") in bwb_ids
+        )
+
+    def article_identities(store: _Store, bwb_ids: list[str]) -> Iterator[dict]:
+        return iter(
+            {
+                "key": k,
+                "bwb_id": d["props"].get("bwb_id"),
+                "stam_id": d["props"].get("stam_id"),
+            }
+            for k, d in store.nodes.get("articles", {}).items()
+            if d["props"].get("bwb_id") in bwb_ids
+        )
+
+    for name, answer in (
+        ("article_versions", article_versions),
+        ("article_identities", article_identities),
+        ("toestand_starts", lambda store, bwb_ids: {}),
+        ("update_abbreviations", lambda store, rows: 0),
+        ("update_instrument_abbreviations", lambda store, rows: 0),
+    ):
+        monkeypatch.setattr(normalize_bwb, name, recorded(name, answer))
+    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)
+    monkeypatch.setattr(raw_queries, "iter_raw_records", lambda *_, **__: iter([]))
+
+
+@pytest.fixture(autouse=True)
+def _store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_store_queries(monkeypatch)
 
 
 def _record(xml: str, start: str, end: str) -> dict[str, Any]:
@@ -286,7 +317,11 @@ def test_database_calls_do_not_grow_with_the_number_of_versions() -> None:
     _run_history(store, records)
 
     # versions, toestand starts and articles, once for the single chunk
-    assert len(store.queries) == 3
+    assert store.queries == [
+        "article_versions",
+        "toestand_starts",
+        "article_identities",
+    ]
 
 
 def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
@@ -375,20 +410,23 @@ def test_placeholders_lapses_and_inclusive_ends_are_recognised() -> None:
     assert exclusive_end("9999-12-31") is None and exclusive_end(None) is None
 
 
-def test_only_the_current_toestand_is_normalized_not_the_history() -> None:
+def test_only_the_current_toestand_is_normalized_not_the_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A historical toestand has the bwb_id of the regulation too: it must not be read."""
     from lawgraph.config.constants import (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
     )
 
-    asked: list[dict] = []
+    asked: list[list[str]] = []
 
-    class Store(_Store):
-        def query(self, aql, bind_vars=None, **kw):  # type: ignore[override]
-            asked.append(dict(bind_vars or {}))
-            return iter([])
+    def iter_raw_records(store: Any, *, kinds: list[str], **_: Any) -> Iterator:
+        asked.append(kinds)
+        return iter([])
 
-    list(BWBNormalizePipeline(store=Store()).fetch_raw())
-    assert asked[0]["kinds"] == [RAW_KIND_BWB_TOESTAND]
-    assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]["kinds"]
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+
+    list(BWBNormalizePipeline(store=_Store()).fetch_raw())
+    assert asked == [[RAW_KIND_BWB_TOESTAND]]
+    assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]

@@ -11,6 +11,8 @@ import pytest
 import requests
 
 from lawgraph.clients.echr import EchrClient
+from lawgraph.config.constants import RAW_KIND_ECHR_TEXT
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline, text_items
 from tests.fakes import RawSourcesFake
 
@@ -42,14 +44,32 @@ def _client(responses: list[Any], calls: list[dict]) -> EchrClient:
 class _Store(RawSourcesFake):
     """Nothing stored before the run: no judgments, texts or missing records."""
 
+    items: list[
+        dict[str, Any]
+    ] = []  # {item_id, ecli, language} of the stored judgments
+    texts: list[dict[str, Any]] = []  # {id, at} of the stored texts
+
     def __init__(self) -> None:
         self.stored: list[dict[str, Any]] = []
 
     def insert_raw_source(self, **kw: Any) -> None:
         self.stored.append(kw)
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list:
-        return []
+
+@pytest.fixture(autouse=True)
+def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What the pipeline reads of raw_sources, from the ``_Store``."""
+    monkeypatch.setattr(raw_queries, "echr_items", lambda store: iter(store.items))
+    monkeypatch.setattr(
+        raw_queries,
+        "fetch_times",
+        lambda store, *, source, kind: iter(
+            store.texts if kind == RAW_KIND_ECHR_TEXT else []
+        ),
+    )
+    monkeypatch.setattr(
+        raw_queries, "ids_waiting_for_retry", lambda store, **kw: iter([])
+    )
 
 
 def test_the_columns_of_each_result_are_the_judgment() -> None:
@@ -203,23 +223,11 @@ def test_a_judgment_gets_the_text_of_its_english_record_else_the_french_one() ->
 class _StoredBefore(_Store):
     """A judgment stored before the run, with the text of another one."""
 
-    def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list:
-        if "payload_json.languageisocode" in aql:
-            return [
-                {
-                    "item_id": "001-10",
-                    "ecli": "ECLI:CE:ECHR:2000:10",
-                    "language": "ENG",
-                },
-                {
-                    "item_id": "001-11",
-                    "ecli": "ECLI:CE:ECHR:2000:11",
-                    "language": "ENG",
-                },
-            ]
-        if (bind_vars or {}).get("kind") == "echr-judgment-docx-xml":
-            return [{"id": "001-11", "at": "2026-09-01T00:00:00Z"}]
-        return []
+    items = [
+        {"item_id": "001-10", "ecli": "ECLI:CE:ECHR:2000:10", "language": "ENG"},
+        {"item_id": "001-11", "ecli": "ECLI:CE:ECHR:2000:11", "language": "ENG"},
+    ]
+    texts = [{"id": "001-11", "at": "2026-09-01T00:00:00Z"}]
 
 
 def _texts_of(store: _Store, client: EchrClient) -> list[tuple[str, str]]:
@@ -332,17 +340,10 @@ def test_a_text_hudoc_answers_http_500_for_is_skipped_and_remembered() -> None:
 
 def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
     class ManyStored(_Store):
-        def query(self, aql: str, bind_vars: dict | None = None, **_kw: Any) -> list:
-            if "payload_json.languageisocode" in aql:
-                return [
-                    {
-                        "item_id": f"001-{n}",
-                        "ecli": f"ECLI:CE:ECHR:2000:{n}",
-                        "language": "ENG",
-                    }
-                    for n in range(40)
-                ]
-            return []
+        items = [
+            {"item_id": f"001-{n}", "ecli": f"ECLI:CE:ECHR:2000:{n}", "language": "ENG"}
+            for n in range(40)
+        ]
 
     client = _client([{"results": []}], [])
 

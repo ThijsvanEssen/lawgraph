@@ -21,8 +21,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import (
-    ArangoStore,
     EdgeWriter,
+    GraphStore,
     NodeWriter,
     RawSourceWriter,
     raw_source_doc,
@@ -43,7 +43,7 @@ def page(name: str, sworn_in: str, *seats: tuple[str, list[str]]) -> str:
     )
 
 
-def store_pages(store: ArangoStore, pages: dict[str, str]) -> None:
+def store_pages(store: GraphStore, pages: dict[str, str]) -> None:
     with RawSourceWriter(store) as writer:
         for slug, html in pages.items():
             writer.add(
@@ -77,7 +77,7 @@ def _member(
     )
 
 
-def _get(store: ArangoStore, path: str) -> Any:
+def _get(store: GraphStore, path: str) -> Any:
     app.dependency_overrides[get_store] = lambda: store
     try:
         return TestClient(app).get(path).json()
@@ -108,7 +108,7 @@ D66 = {"short": "D66", "faction": None}
 def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -173,7 +173,7 @@ VAN_WEEL_ID = VAN_WEEL.replace("_", "-")
 def test_a_minister_outside_parliament_is_found_by_signatures(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     function = "minister van Justitie en Veiligheid"
     with NodeWriter(store) as writer:
         writer.add_all(
@@ -247,7 +247,7 @@ HOOGERVORST = "27b6eea7_b816_4d7c_b7dd_7f982a10a8b7"
 ACHAHBAR = "achahbar"
 
 
-def _signed(store: ArangoStore, member: str, key: str, day: str, function: str) -> None:
+def _signed(store: GraphStore, member: str, key: str, day: str, function: str) -> None:
     with NodeWriter(store) as writer:
         writer.add(
             Node(
@@ -271,7 +271,7 @@ def _signed(store: ArangoStore, member: str, key: str, day: str, function: str) 
 def test_a_post_gets_its_ministry_from_the_official_sources(
     database: str, cli: Any
 ) -> None:
-    store = ArangoStore()
+    store = GraphStore()
     with NodeWriter(store) as writer:
         writer.add_all(
             [
@@ -350,10 +350,11 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
     done = cli("normalize", "rijksoverheid")
 
     posts = {
-        row["function"]: row
+        row["post"]["function"]: {**row["post"], "member": row["member"]}
         for row in store.query(
-            "FOR m IN members FOR f IN m.props.government_functions OR [] "
-            "RETURN MERGE(f, {member: m._key})"
+            "SELECT m.key AS member, f.post FROM members m,"
+            " json_array_elements(CASE WHEN json_typeof(m.props -> 'government_functions')"
+            " = 'array' THEN m.props -> 'government_functions' ELSE '[]' END) AS f(post)"
         )
     }
     found = {

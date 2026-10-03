@@ -225,9 +225,13 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         >= parameters["limit"]["schema"]["default"]
     )
     assert parameters["offset"]["schema"]["minimum"] == 0
-    assert {"article_id", "items", "total", "judgment_total"} == _properties(
-        "ArticleCitedByResponse"
-    )
+    assert {
+        "article_id",
+        "items",
+        "total",
+        "judgment_total",
+        "echr_judgment_total",
+    } == _properties("ArticleCitedByResponse")
     assert {
         "judgment",
         "paragraph_id",
@@ -251,4 +255,5 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "court_kind",
         "date",
         "display_name",
+        "inbound_citation_count",
     } == _properties("CitedByJudgment")
