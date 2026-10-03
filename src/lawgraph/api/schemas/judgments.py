@@ -390,6 +390,12 @@ class JudgmentDetailResponse(BaseModel):
         description="The other publications of the same decision (`SAME_AS`): for the one "
         "kept those it replaces, for a replaced one the one kept. Empty for most.",
     )
+    related_to: list[JudgmentSummaryDTO] = Field(
+        default_factory=list,
+        description="The connected cases (`RELATED_TO`, as between dossiers), both ways: "
+        'those its summary names ("Samenhang met 24/03860 E", "Zie ook: ECLI:…") and those '
+        "whose summary names it, each found by its exact ECLI or case number. Empty for most.",
+    )
     series: list[JudgmentSummaryDTO] = Field(
         default_factory=list,
         description="The other judgments of its series (`judgment.series_id`), in the "

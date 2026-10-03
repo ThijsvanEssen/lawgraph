@@ -8,7 +8,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
-| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
+| Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -526,6 +526,23 @@ else a roll number (`22/2463T`), else all their letters and digits
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
 
+
+**Semantic `rechtspraak-related`.** `RELATED_TO` from a judgment to the connected cases its
+summary names (`core/related_cases.py`). The metadata relates judgments only along their
+chain of instances; the court tells connected cases in its inhoudsindicatie: "Samenhang met
+24/03860 E en 24/03859 P (niet gepubliceerd)", "Zie ook: ECLI:NL:GHDHA:2025:1539". Each such
+sentence is read as written:
+- the ECLIs it names, also as the courts abbreviate them (`HR:2025:404`);
+- its case numbers, compared exactly with `case_number_keys` of the judgments of the same
+  court. **The Hoge Raad's type letter is not part of the comparison:** it writes its type
+  of case after the number (`24/03860 E`, `16/01894 UA`) where its metadata gives the
+  number alone, and the number is unique within the Hoge Raad. `meta.text` keeps the
+  sentence as written, letter included.
+
+What stands between brackets names no case, and an old LJN is not read. An edge only on an
+exact match with a judgment in the graph (`meta.basis` `summary_text`, `meta.text` the
+sentence); what is named and not found gets no edge and is counted (`skipped`). Derived in
+full on every run.
 **Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
 A text is its lower-case word 8-shingles, one in eight kept by CRC-32; two judgments are a pair

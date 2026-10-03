@@ -519,3 +519,17 @@ def remove_unreached_judgment_stubs(store: Store) -> int:
         """
     )
     return len(rows)
+
+
+def judgments_naming_related_cases(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, ecli, court_code, summary}`` of the judgments whose summary has a sentence that
+    names connected cases ("Samenhang met", "Zie ook", "Zie tevens"), by key."""
+    return store.query(
+        """
+        SELECT j.id, j.props -> 'ecli' AS ecli, j.props -> 'court_code' AS court_code,
+               j.props ->> 'summary' AS summary
+        FROM judgments j
+        WHERE j.props ->> 'summary' ~* '(samenhang[[:space:]]+met|zie[[:space:]]+(ook|tevens))'
+        ORDER BY j.key
+        """
+    )

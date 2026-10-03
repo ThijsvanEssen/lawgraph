@@ -105,6 +105,9 @@ from lawgraph.pipelines.semantic.rechtspraak_duplicates import (
 from lawgraph.pipelines.semantic.rechtspraak_referrals import (
     RechtspraakReferralsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.rechtspraak_related import (
+    RechtspraakRelatedSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.rechtspraak_series import (
     RechtspraakSeriesSemanticPipeline,
 )
@@ -619,6 +622,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        RechtspraakRelatedSemanticPipeline,
+        (
+            "RELATED_TO from a judgment to the connected cases its summary names "
+            '("Samenhang met", "Zie ook"), on an exact ECLI or case number of the same court.'
+        ),
     ),
     _pipeline(
         RechtspraakDuplicatesSemanticPipeline,

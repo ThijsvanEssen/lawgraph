@@ -280,11 +280,16 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "RELATED_TO",
-        (_DOSSIER,),
-        (_DOSSIER,),
-        "The Kamer relates a case of this dossier to a case of the other "
+        (_DOSSIER, _J),
+        (_DOSSIER, _J),
+        "Dossier → dossier: the Kamer relates a case of this dossier to a case of the other "
         "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
-        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them.",
+        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. "
+        'Judgment → judgment: its summary names the other as a connected case, "Samenhang '
+        'met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` '
+        "`summary_text`, `meta.text` the sentence as written); only on an exact match of the "
+        "ECLI, or of the case number among the judgments of the same court (the Hoge Raad's "
+        "type letter is not part of the comparison).",
     ),
     RelationSpec(
         "REVISES",
