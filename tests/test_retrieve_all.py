@@ -19,7 +19,7 @@ from lawgraph.pipelines.orchestration import (
     run_pipelines,
 )
 from lawgraph.sources import registry
-from lawgraph.sources.registry import Pipeline, RetrieveCtx
+from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 from tests.fakes import PipelineStateFake, patch_pipeline_state
 
 WINDOW = "2024-09-20T00:00:00+00:00"
@@ -30,8 +30,18 @@ WINDOW = "2024-09-20T00:00:00+00:00"
 
 def test_full_mode_without_a_window_loads_everything() -> None:
     ctx = RetrieveCtx(since="1d", mode="full")
-    assert registry._windowed_argv(ctx) == ["--mode", "full", "--since", "1d"]
+    assert registry._windowed_argv(ctx) == ["--mode", "full"]
     assert registry._tk_dossiers_argv(ctx) == []
+
+
+def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
+    """``--window all``: no source gets the ``--since`` of ``retrieve all`` (1d), which its
+    start line would show while a full load reads none."""
+    ctx = RetrieveCtx(since="1d", mode="full")
+    argvs = {
+        p.name: p.argv_for_all(ctx) for p in PIPELINES["retrieve"] if p.argv_for_all
+    }
+    assert [name for name, argv in argvs.items() if "--since" in argv] == []
 
 
 def test_full_mode_with_a_window_limits_only_the_tweede_kamer() -> None:
