@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -231,6 +232,22 @@ def test_remove_edges_except(tk_graph: GraphStore) -> None:
     tk_graph.bulk_insert_or_update_edges([_edge("x1", "a/1", "b/1", relation="AMENDS")])
     assert normalize_edges.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
     assert _edge_keys(tk_graph) == ["e2", "e8", "x1"]
+
+
+def test_the_keep_removals_write_in_chunks(
+    tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Read in full, removed a few keys at a time: the same rows go as in one statement."""
+    monkeypatch.setattr(chunks, "CHUNK", 2)
+    assert normalize_edges.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
+    assert _edge_keys(tk_graph) == ["e2", "e8"]
+    assert normalize_edges.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
+    assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
+    assert (
+        semantic_edges.remove_edges_of_source_except(tk_graph, "REFERS_TO", "s", [])
+        == 2
+    )
+    assert _edge_keys(tk_graph) == []
 
 
 # ── gaps: laws ───────────────────────────────────────────────────────────────
