@@ -291,9 +291,14 @@ def _mode_argv(ctx: RetrieveCtx) -> list[str]:
 
 
 def _windowed_argv(ctx: RetrieveCtx) -> list[str]:
-    """Sources that keep producing: a full load only reads what changed inside the window."""
-    if ctx.mode == "full" and ctx.window:
-        return ["--mode", "incremental", "--since", ctx.window]
+    """Sources that keep producing: a full load only reads what changed inside the window,
+    and all of it without one (no ``--since``: a full load reads none)."""
+    if ctx.mode == "full":
+        return (
+            ["--mode", "incremental", "--since", ctx.window]
+            if ctx.window
+            else ["--mode", "full"]
+        )
     return ["--mode", ctx.mode, "--since", ctx.since]
 
 
