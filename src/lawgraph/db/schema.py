@@ -171,6 +171,31 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) areas
 $$;
 
+-- The keys a regulation is filed under by its WTI (`legal_areas`, normalize bwb): the TOOI id
+-- and the slug of every main and specific area, so that a filter on a main area also finds
+-- the regulations under its specific areas. Lower case, each once.
+CREATE OR REPLACE FUNCTION lg_legal_area_keys(props json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT lower(k)), '{}'::text[])
+    FROM json_array_elements(CASE WHEN json_typeof(props -> 'legal_areas') = 'array'
+                                  THEN props -> 'legal_areas' END) AS a(area)
+    CROSS JOIN LATERAL unnest(ARRAY[
+        area ->> 'main_id', area ->> 'main_slug',
+        area ->> 'specific_id', area ->> 'specific_slug'
+    ]) AS u(k)
+    WHERE k IS NOT NULL AND k <> ''
+$$;
+
+-- The keys of the government themes of a regulation (`policy_domains`): id and slug.
+CREATE OR REPLACE FUNCTION lg_policy_domain_keys(props json) RETURNS text[]
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT lower(k)), '{}'::text[])
+    FROM json_array_elements(CASE WHEN json_typeof(props -> 'policy_domains') = 'array'
+                                  THEN props -> 'policy_domains' END) AS d(domain)
+    CROSS JOIN LATERAL unnest(ARRAY[domain ->> 'id', domain ->> 'slug']) AS u(k)
+    WHERE k IS NOT NULL AND k <> ''
+$$;
+
 -- A member is seated: one of their faction memberships has no end date.
 CREATE OR REPLACE FUNCTION lg_member_seated(props json) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -1003,6 +1028,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
         "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
         f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
+        # /api/instruments by legal area and theme (BE-14): GIN indexes on their keys
+        "CREATE INDEX IF NOT EXISTS instruments_legal_areas"
+        " ON instruments USING gin (public.lg_legal_area_keys(props))",
+        "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
+        " ON instruments USING gin (public.lg_policy_domain_keys(props))",
     ),
     # /api/documents, newest first: a page without a kind or dossier reads only itself.
     COLLECTION_DOCUMENTS: (

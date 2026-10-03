@@ -12,9 +12,11 @@ label.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from lawgraph.core.code_families import CODE_FAMILIES
@@ -63,30 +65,116 @@ def parse_subjects(general_info_xml: str) -> tuple[list[dict[str, Any]], list[st
     return areas, domains
 
 
+def slugify(text: str) -> str:
+    """``staats-en-bestuursrecht`` for "Staats- en bestuursrecht": lower case ASCII words
+    joined by ``-``."""
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+
+
+def assign_slugs(concepts: Sequence[tuple[str, str, str | None]]) -> dict[str, str]:
+    """``key -> slug`` of the *concepts* ``(key, label, broader key)`` of one list, each
+    slug once in the list. A slug is that of the label; a narrower concept whose slug is
+    taken gets the slug of its broader concept in front (``bestuursrecht-algemeen``), and
+    one still taken a number. Top concepts first, then by key, so the same list gives the
+    same slugs."""
+    ordered = sorted(concepts, key=lambda c: (c[2] is not None, c[0]))
+    slugs: dict[str, str] = {}
+    taken: set[str] = set()
+    for key, label, broader in ordered:
+        slug = slugify(label) or "concept"
+        if slug in taken and broader in slugs:
+            slug = f"{slugs[broader]}-{slug}"
+        base, n = slug, 2
+        while slug in taken:
+            slug, n = f"{base}-{n}", n + 1
+        slugs[key] = slug
+        taken.add(slug)
+    return slugs
+
+
+Concepts = dict[str, dict[str, Any]]  # label casefolded -> {id, uri, slug}
+
+
+def thesaurus_concepts(items: Sequence[Mapping[str, Any]]) -> Concepts:
+    """The concepts of a TOOI thesaurus (its JSON-LD items) by label, without regard to
+    case: ``{id, uri, slug}``, ``id`` the last part of the URI (``c_e49bce03``)."""
+    found: dict[str, tuple[str, str | None]] = {}  # uri -> (label, broader uri)
+    for item in items:
+        labels = item.get(SKOS_PREF_LABEL) or []
+        label = (
+            labels[0].get("@value") if labels and isinstance(labels[0], dict) else None
+        )
+        if label and item.get("@id"):
+            broader = item.get(SKOS_BROADER) or []
+            parent = (
+                broader[0].get("@id")
+                if broader and isinstance(broader[0], dict)
+                else None
+            )
+            found.setdefault(str(item["@id"]), (str(label), parent))
+    slugs = assign_slugs(
+        [(uri, label, parent) for uri, (label, parent) in found.items()]
+    )
+    concepts: Concepts = {}
+    for uri, (label, _) in found.items():
+        concepts.setdefault(
+            label.casefold(),
+            {"id": uri.rstrip("/").rsplit("/", 1)[-1], "uri": uri, "slug": slugs[uri]},
+        )
+    return concepts
+
+
+def label_concepts(pairs: Iterable[tuple[str, str | None]]) -> Concepts:
+    """Concepts from the labels alone, for when the thesaurus was not retrieved: the
+    ``(label, broader label)`` pairs the WTI records give, without id or URI."""
+    found: dict[str, tuple[str, str | None]] = {}
+    for label, broader in pairs:
+        found.setdefault(
+            label.casefold(), (label, broader.casefold() if broader else None)
+        )
+    slugs = assign_slugs(
+        [(key, label, parent) for key, (label, parent) in found.items()]
+    )
+    return {key: {"id": None, "uri": None, "slug": slugs[key]} for key in found}
+
+
 def with_concepts(
     areas: Sequence[Mapping[str, Any]],
     domains: Sequence[str],
-    legal_areas: Mapping[str, str],
-    themes: Mapping[str, str],
+    legal_areas: Concepts,
+    themes: Concepts,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """The legal areas and themes of a regulation with the URI of their TOOI concept, found
-    by label without regard to case in *legal_areas* and *themes* (label casefolded -> URI);
-    None for a label the thesaurus does not have."""
+    """The legal areas and themes of a regulation with the id, URI and slug of their
+    concept, found by label without regard to case; None for a label the list lacks."""
 
-    def uri(index: Mapping[str, str], label: Any) -> str | None:
-        return index.get(str(label).casefold()) if label else None
+    def concept(index: Concepts, label: Any, field: str) -> Any:
+        found = index.get(str(label).casefold()) if label else None
+        return found.get(field) if found else None
 
     return (
         [
             {
                 "main": area["main"],
-                "main_uri": uri(legal_areas, area["main"]),
+                "main_id": concept(legal_areas, area["main"], "id"),
+                "main_uri": concept(legal_areas, area["main"], "uri"),
+                "main_slug": concept(legal_areas, area["main"], "slug"),
                 "specific": area.get("specific"),
-                "specific_uri": uri(legal_areas, area.get("specific")),
+                "specific_id": concept(legal_areas, area.get("specific"), "id"),
+                "specific_uri": concept(legal_areas, area.get("specific"), "uri"),
+                "specific_slug": concept(legal_areas, area.get("specific"), "slug"),
             }
             for area in areas
         ],
-        [{"label": domain, "uri": uri(themes, domain)} for domain in domains],
+        [
+            {
+                "label": domain,
+                "id": concept(themes, domain, "id"),
+                "uri": concept(themes, domain, "uri"),
+                "slug": concept(themes, domain, "slug"),
+            }
+            for domain in domains
+        ],
     )
 
 
@@ -193,16 +281,4 @@ def instrument_aliases(
 
 
 SKOS_PREF_LABEL = "http://www.w3.org/2004/02/skos/core#prefLabel"
-
-
-def concept_index(items: Sequence[Mapping[str, Any]]) -> dict[str, str]:
-    """Label casefolded -> URI of every concept of a TOOI thesaurus (its JSON-LD items)."""
-    index: dict[str, str] = {}
-    for item in items:
-        labels = item.get(SKOS_PREF_LABEL) or []
-        label = (
-            labels[0].get("@value") if labels and isinstance(labels[0], dict) else None
-        )
-        if label and item.get("@id"):
-            index.setdefault(str(label).casefold(), str(item["@id"]))
-    return index
+SKOS_BROADER = "http://www.w3.org/2004/02/skos/core#broader"

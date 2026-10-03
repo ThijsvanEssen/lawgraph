@@ -393,4 +393,12 @@ def test_without_the_thesauri_the_labels_are_written_without_a_uri() -> None:
     row = store.subjects[make_node_key(BW1)]
     assert row["legal_areas"][0]["main"] == "Personen- en familierecht"
     assert row["legal_areas"][0]["main_uri"] is None
-    assert row["policy_domains"] == [{"label": "Familie, jeugd en gezin", "uri": None}]
+    assert row["policy_domains"] == [
+        {
+            "label": "Familie, jeugd en gezin",
+            "id": None,
+            "uri": None,
+            "slug": "familie-jeugd-en-gezin",
+        }
+    ]
+    assert row["legal_areas"][0]["main_slug"] == "personen-en-familierecht"

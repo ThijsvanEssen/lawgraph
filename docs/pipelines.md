@@ -692,8 +692,12 @@ And `legal_areas` and `policy_domains`, how the WTI files a regulation (`core/bw
 and `specific` (`specifiekgebied`, "Bestuursrecht"), each `<overheidsdomein>` as `label`
 ("Overheid, bestuur en koninkrijk"), each with the URI of its concept in the TOOI thesauri
 `scw_bwb_rechtsgebieden` and `scw_bwb_themas` (`retrieve tooi`), found by label without regard
-to case (`main_uri`, `specific_uri`, `uri`; null without the thesauri or for a label they
-lack). An empty list removes the prop.
+to case (`main_id`/`main_uri`, `specific_id`/`specific_uri`, `id`/`uri`; null without the
+thesauri or for a label they lack), and a slug unique in its list (`main_slug`,
+`specific_slug`, `slug`; `core/bwb_wti.assign_slugs`): that of the label, a narrower concept
+whose slug is taken with its broader concept's in front (`bestuursrecht-algemeen`), then a
+number. The slugs are made over the whole thesaurus, or without it over the labels of every
+WTI record. An empty list removes the prop.
 
 **The code families.** `lawgraph code-families build` makes `src/lawgraph/data/code_families.json`
 from the stored WTI records (`core/code_families.families_from_wti`) and prints what changed;

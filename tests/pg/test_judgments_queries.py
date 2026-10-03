@@ -495,8 +495,39 @@ def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
     assert found["total"] == 2
     # counted without its own filter: every main area, a judgment once in each
     assert found["facets"]["subject_area"] == [
-        {"value": "Bestuursrecht", "count": 3},
-        {"value": "Civiel recht", "count": 2},
+        {
+            "value": "Bestuursrecht",
+            "count": 3,
+            # the subjects of the source under it, without the area and subject filters
+            "narrower": [
+                {
+                    "value": "Bestuursrecht; Belastingrecht",
+                    "label": "Belastingrecht",
+                    "count": 1,
+                },
+                {
+                    "value": "Bestuursrecht; Omgevingsrecht",
+                    "label": "Omgevingsrecht",
+                    "count": 1,
+                },
+                {
+                    "value": "Bestuursrecht; Ruimtelijk bestuursrecht",
+                    "label": "Ruimtelijk bestuursrecht",
+                    "count": 1,
+                },
+            ],
+        },
+        {
+            "value": "Civiel recht",
+            "count": 2,
+            "narrower": [
+                {
+                    "value": "Civiel recht; Verbintenissenrecht",
+                    "label": "Verbintenissenrecht",
+                    "count": 1,
+                },
+            ],
+        },
     ]
     # the whole subjects under the area filter
     assert {f["value"] for f in found["facets"]["subjects"]} == {
@@ -505,3 +536,50 @@ def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
         "Civiel recht; Verbintenissenrecht",
         "Civiel recht",
     }
+
+
+def test_the_tree_of_the_areas_of_law_is_counted_without_both_its_filters(
+    store: GraphStore,
+) -> None:
+    """With a subject chosen (`Bestuursrecht; Belastingrecht`), the main areas and the
+    subjects under them still count every judgment, not only the chosen subject's."""
+
+    def judgment(key: str, *subjects: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "type": "judgment",
+            "labels": [],
+            "props": {
+                "ecli": key,
+                "date_eff": "2026-01-01",
+                "subjects": list(subjects),
+            },
+        }
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            judgment("t1", "Bestuursrecht; Belastingrecht"),
+            judgment("v1", "Bestuursrecht; Vreemdelingenrecht"),
+            judgment("b1", "Bestuursrecht"),
+            judgment("s1", "Strafrecht"),
+        ],
+    )
+    for filters in (
+        JudgmentFilters(subject="Bestuursrecht; Belastingrecht"),
+        JudgmentFilters(subject_area="Strafrecht"),
+        JudgmentFilters(),
+    ):
+        tree = get_judgments_list(store, filters)["facets"]["subject_area"]
+        assert [(a["value"], a["count"]) for a in tree] == [
+            ("Bestuursrecht", 3),
+            ("Strafrecht", 1),
+        ], filters
+        assert [(n["label"], n["count"]) for n in tree[0]["narrower"]] == [
+            ("Belastingrecht", 1),
+            ("Vreemdelingenrecht", 1),
+        ]
+    chosen = get_judgments_list(
+        store, JudgmentFilters(subject="Bestuursrecht; Belastingrecht")
+    )
+    assert chosen["total"] == 1

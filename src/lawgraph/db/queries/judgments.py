@@ -308,7 +308,9 @@ _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "source": ("j.source", _SOURCE_FILTERS),
     "year": ("substr(j.date_eff, 1, 4)", _YEAR_FILTERS),
     "subjects": ("s.value", _SUBJECT_FILTERS),
-    "subject_area": ("a.value", _SUBJECT_AREA_FILTERS),
+    # the tree of the areas of law: main areas and the subjects under them (``narrower``),
+    # counted alike, without the ``subject_area`` and ``subject`` filters
+    "subject_area": ("a.value", _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS),
     "procedure": ("j.procedure", _PROCEDURE_FILTERS),
 }
 # what a facet reads besides the judgment; a judgment counts once per area of law
@@ -340,7 +342,8 @@ def get_judgments_list(
         source filter), per year of ``date_eff`` (without ``from`` and ``to``), per area of
         law (``subjects``, without the ``subject`` filter; a judgment counts for each of
         its areas), per main area of law (``subject_area``, the part of a subject before
-        its first ';', without the ``subject_area`` filter; a judgment counts once for each)
+        its first ';', without the ``subject_area`` and ``subject`` filters, as its ``narrower``
+        subjects; a judgment counts once for each)
         and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
@@ -402,18 +405,53 @@ def get_judgments_list(
             )
         )
 
+    def narrower() -> list[Any]:
+        leave_out = _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS
+        return list(
+            store.query(
+                f"""
+                SELECT value, count(*)::int AS count
+                FROM (
+                    SELECT s.value FROM judgments j
+                    CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
+                ) subjects
+                WHERE strpos(value, ';') > 0
+                GROUP BY 1
+                ORDER BY count DESC, value NULLS FIRST
+                """,
+                params,
+            )
+        )
+
     filtered = [*names, *(["search"] if search else [])]
     answers: list[Any] = run_together(
         items,
         *(facet(name) for name in _FACETS),
+        narrower,
         lambda: _total(store, filtered, where(), params),
     )
+    facets = dict(zip(_FACETS, answers[1:-2], strict=True))
+    facets["subject_area"] = _with_narrower(facets["subject_area"], answers[-2])
     result: dict[str, Any] = {
         "total": answers[-1],
         "items": answers[0],
-        "facets": dict(zip(_FACETS, answers[1:-1], strict=True)),
+        "facets": facets,
     }
     return result
+
+
+def _with_narrower(
+    areas: list[dict[str, Any]], subjects: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The main areas of law, each with the subjects of the source under it (``value``
+    the subject as written, ``label`` the part after its first ';')."""
+    under: dict[str, list[dict[str, Any]]] = {}
+    for row in subjects:
+        main, _, rest = str(row["value"]).partition(";")
+        under.setdefault(main.strip(), []).append(
+            {"value": row["value"], "label": rest.strip(), "count": row["count"]}
+        )
+    return [{**area, "narrower": under.get(str(area["value"]), [])} for area in areas]
 
 
 def _total(

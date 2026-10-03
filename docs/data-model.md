@@ -189,10 +189,12 @@ statutes made by the legislator:
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
 - `legal_areas` and `policy_domains` of a BWB regulation are how its WTI files it: `{main,
-  main_uri, specific, specific_uri}` per legal area ("Staats- en bestuursrecht",
-  "Bestuursrecht") and `{label, uri}` per government theme ("Overheid, bestuur en
-  koninkrijk"), the URIs those of the TOOI concepts (`scw_bwb_rechtsgebieden`,
-  `scw_bwb_themas`). Written by `normalize bwb`.
+  main_id, main_uri, main_slug, specific, specific_id, specific_uri, specific_slug}` per legal
+  area ("Staats- en bestuursrecht", "Bestuursrecht") and `{label, id, uri, slug}` per
+  government theme ("Overheid, bestuur en koninkrijk"), the ids and URIs those of the TOOI
+  concepts (`scw_bwb_rechtsgebieden`, `scw_bwb_themas`), the slugs unique in their list.
+  Written by `normalize bwb`; `lg_legal_area_keys` and `lg_policy_domain_keys` (GIN indexes)
+  are what `/api/instruments` filters on.
 - `abbreviation` of an instrument is the abbreviation it is cited by
   (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
