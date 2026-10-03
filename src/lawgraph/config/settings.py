@@ -24,6 +24,13 @@ def _env_list(name: str, default: str = "") -> list[str]:
     ]
 
 
+def _env_positive_int(name: str, default: int) -> int:
+    value = int(os.getenv(name) or default)
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive number, not {value}")
+    return value
+
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 LOG_LEVEL = os.getenv("LAWGRAPH_LOG_LEVEL", "INFO").upper()
@@ -47,6 +54,9 @@ DB_URL = os.getenv(
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+# The longest a statement that writes may run (``statement_timeout``, db/store.py), in
+# milliseconds: a ceiling that is never off. A build on a slow disk raises it.
+WRITE_TIMEOUT_MS = _env_positive_int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
 
 # ── ArangoDB connection ───────────────────────────────────────────────────────
 

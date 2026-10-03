@@ -39,6 +39,7 @@ from lawgraph.config.settings import (
     S3_ENDPOINT,
     S3_REGION,
     S3_SECRET_KEY,
+    WRITE_TIMEOUT_MS,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
@@ -124,7 +125,9 @@ def raw_source_doc(
 # failure is real and is raised.
 WRITE_RETRY_WAITS = (2.0, 10.0, 30.0)
 
-# The server cannot be reached, is starting up or shutting down; not: it refused the query.
+# The server cannot be reached, is starting up or shutting down; not: it refused the query,
+# nor cancelled it (``57014``, a statement that ran past ``LAWGRAPH_WRITE_TIMEOUT_MS``: sent
+# again, it would run as long).
 _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03", "08000", "08003", "08006"})
 
 
@@ -158,7 +161,6 @@ def _sleep(seconds: float) -> None:
 # A statement with one of these changes data (SQL keywords are written in capitals
 # throughout the code); it runs to the end at once, in a transaction of its own.
 _WRITES = re.compile(r"\b(INSERT|UPDATE|DELETE|MERGE|TRUNCATE)\b")
-WRITE_MAX_RUNTIME_MS = 600_000
 
 
 def _rows(cursor: psycopg.Cursor[Any]) -> RowMaker[Any]:
@@ -385,7 +387,7 @@ class GraphStore:
 
         def run() -> list[Any]:
             with self.pool.connection() as conn:
-                conn.execute(f"SET LOCAL statement_timeout = {WRITE_MAX_RUNTIME_MS}")
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
                 with conn.cursor(row_factory=_rows) as cursor:
                     cursor.execute(_query(statement), params)
                     return cursor.fetchall() if cursor.description else []

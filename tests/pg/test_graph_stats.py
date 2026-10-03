@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
+import pytest
 from psycopg import sql
 
 from lawgraph.core.courts import COURT_BY_CODE
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import graph_stats
 from lawgraph.db.store import _query
 
@@ -143,6 +145,34 @@ def test_articles_count_what_refers_to_and_explains_them(store: GraphStore) -> N
     )
     assert graph_stats.refresh_articles(store, dry_run=False) == 1
     assert _props(store, "articles", "a") == {"inbound_citation_count": 2}
+
+
+def test_the_keys_are_written_a_chunk_at_a_time(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The differing documents are read, then written in chunks: every one is written once,
+    the props they had stay, and a second run finds nothing to write."""
+    monkeypatch.setattr(chunks, "CHUNK", 2)
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node(f"a{n}", "article", heading=f"h{n}") for n in range(5)]
+        + [_node("a5", "article", inbound_citation_count=0)],
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge(str(n), "judgments/j", f"articles/a{n}", "REFERS_TO") for n in range(5)]
+    )
+    writes: list[int] = []
+    execute = store.execute
+    monkeypatch.setattr(store, "execute", lambda *a: writes.append(1) or execute(*a))
+    assert graph_stats.refresh_articles(store, dry_run=True) == 5
+    assert graph_stats.refresh_articles(store, dry_run=False) == 5
+    assert len(writes) == 3
+    assert _props(store, "articles", "a4") == {
+        "heading": "h4",
+        "inbound_citation_count": 1,
+    }
+    assert _props(store, "articles", "a5") == {"inbound_citation_count": 0}
+    assert graph_stats.refresh_articles(store, dry_run=True) == 0
 
 
 def _scans(node: dict[str, Any]) -> Iterator[tuple[str, str, str]]:

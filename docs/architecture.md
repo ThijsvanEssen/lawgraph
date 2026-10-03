@@ -172,8 +172,10 @@ order (`lg_update`), so the API serves them in one order whatever ran first.
 
 `GraphStore.query` streams every query that reads on a server-side cursor, a batch of rows
 at a time (44,000 toestanden are 3.5 GB), and gives its connection back to the pool when the
-reader stops; a statement that writes runs at once, for at most 600 s. Bulk writes are sent
-again (after 2, 10 and 30 s) while the database is unreachable.
+reader stops; a statement that writes runs at once, for at most `LAWGRAPH_WRITE_TIMEOUT_MS`
+(600 s). One that would find its rows across a whole table reads them and writes them in
+chunks (`db/queries/_chunks.py`). Bulk writes are sent again (after 2, 10 and 30 s) while
+the database is unreachable; a statement cancelled for running too long is not.
 `GraphStore()` creates the database `LAWGRAPH_DB_NAME` when it is missing (and the user may),
 then what is missing of the schema of `db/schema.py`: tables, indexes, functions and
 triggers. A database whose tables differ from the schema is refused at the start (build it

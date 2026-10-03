@@ -203,6 +203,28 @@ def test_a_write_the_database_refuses_is_not_sent_again(monkeypatch) -> None:
         store_module._retry_write("1 raw record", write)
 
 
+def test_a_write_that_ran_past_its_time_is_not_sent_again(monkeypatch) -> None:
+    """A statement cancelled by ``statement_timeout`` would run as long a second time."""
+    import psycopg
+
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(
+        store_module, "_sleep", lambda _s: pytest.fail("no retry expected")
+    )
+    calls: list[int] = []
+
+    def write() -> None:
+        calls.append(1)
+        raise psycopg.errors.QueryCanceled(
+            "canceling statement due to statement timeout"
+        )
+
+    with pytest.raises(psycopg.errors.QueryCanceled):
+        store_module._retry_write("a statement", write)
+    assert calls == [1]
+
+
 def test_a_database_that_stays_away_is_an_error_after_the_waits(monkeypatch) -> None:
     from lawgraph.db import store as store_module
 
