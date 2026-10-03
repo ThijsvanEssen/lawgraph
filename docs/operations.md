@@ -385,8 +385,12 @@ The server it expects:
 
 The user of `DEPLOY_USER` owns `/srv/lawgraph`, has `uv` in `~/.local/bin` and may run
 `sudo -n systemctl restart lawgraph-api`. Secrets of the repository: `DEPLOY_SSH_KEY` (a private
-key whose public half is in that user's `~/.ssh/authorized_keys`), `DEPLOY_HOST` and
-`DEPLOY_USER`.
+key whose public half is in that user's `~/.ssh/authorized_keys`), `DEPLOY_HOST`,
+`DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS`. That last one is the known_hosts line of the server's
+host key, taken on the server itself and not over the network:
+`echo "<DEPLOY_HOST> $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"`. The deploy connects
+with `StrictHostKeyChecking=yes`, so a host that answers with another key gets no deploy key and
+no code.
 
 ## Observability
 
