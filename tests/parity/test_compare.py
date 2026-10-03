@@ -5,7 +5,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from tests.parity.catalogue import Pools, Request, _resolve, _walk, fill
+from tests.parity.catalogue import (
+    Pools,
+    Request,
+    _resolve,
+    _values,
+    _walk,
+    facet_values,
+    fill,
+)
 from tests.parity.compare import compare, first_difference, parse, search_agreement
 
 
@@ -181,3 +189,48 @@ def test_a_member_slug_is_no_committee_slug() -> None:
     )
     assert pools.sample("slug") == ["justitie-en-veiligheid"]
     assert pools.sample("member_slug") == ["rob-jetten"]
+
+
+def test_a_register_slug_is_no_committee_slug() -> None:
+    """The facets of the instruments name their legal areas and themes by TOOI id and slug
+    (``familierecht``): those go to a pool of their own, for ``legal_area=`` and
+    ``policy_domain=``, not to ``/api/committees/familierecht``."""
+    pools = Pools()
+    _walk(
+        {
+            "facets": {
+                "legal_area": [
+                    {
+                        "id": "c_5d8350bb",
+                        "slug": "personen-en-familierecht",
+                        "count": 3,
+                        "narrower": [
+                            {"id": "c_e49bce03", "slug": "familierecht", "count": 2}
+                        ],
+                    }
+                ]
+            },
+            "items": [{"id": "committees/c1", "slug": "justitie-en-veiligheid"}],
+        },
+        pools,
+    )
+    assert pools.sample("slug") == ["justitie-en-veiligheid"]
+    assert sorted(pools.sample("register_slug", 4)) == [
+        "familierecht",
+        "personen-en-familierecht",
+    ]
+
+
+def test_a_filter_whose_facet_names_no_values_takes_its_pool() -> None:
+    """``facets.legal_area`` is a tree by id and slug, without ``value``: the catalogue asks
+    ``legal_area=`` with the register slugs it harvested."""
+    pools = Pools()
+    _walk(
+        {"facets": {"legal_area": [{"id": "c_1", "slug": "familierecht", "count": 2}]}},
+        pools,
+    )
+    facets = facet_values(
+        {"facets": {"legal_area": [{"id": "c_1", "slug": "familierecht"}]}}
+    )
+    assert facets == {"legal_area": []}
+    assert _values("legal_area", {"type": "string"}, pools, facets) == ["familierecht"]

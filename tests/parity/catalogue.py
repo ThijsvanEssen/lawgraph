@@ -257,14 +257,16 @@ def _walk(value: Any, pools: Pools) -> None:
 
 def _pool_of(field: str, owner: dict[str, Any]) -> str:
     """The pool of a value of *field* in *owner*: a member's ``slug`` (``rob-jetten``) is
-    no committee's, whose slugs ``/api/committees/{slug}`` takes."""
+    no committee's, whose slugs ``/api/committees/{slug}`` takes; nor is the slug of a
+    concept of the registers of the instruments (``familierecht``, a facet item with a
+    TOOI id and a count)."""
     owner_id = owner.get("id")
-    if (
-        field == "slug"
-        and isinstance(owner_id, str)
-        and owner_id.startswith("members/")
-    ):
+    if field != "slug" or not isinstance(owner_id, str):
+        return field
+    if owner_id.startswith("members/"):
         return "member_slug"
+    if "/" not in owner_id and "count" in owner:
+        return "register_slug"
     return field
 
 
@@ -295,6 +297,8 @@ QUERY_POOLS = {
     "dossier": "dossier",
     "committee": "slug",
     "slug": "member_slug",  # ``/api/members?slug=``
+    "legal_area": "register_slug",  # ``/api/instruments?legal_area=``
+    "policy_domain": "register_slug",
     "ministry": "ministry",
     "type": "semantic_type",
     "exclude_type": "semantic_type",
@@ -394,7 +398,9 @@ def _values(
         return NUMBERS.get(name, ["1", "3"])
     if name in DATE_PARAMS:
         return DATES
-    if name in facets:
+    if facets.get(
+        name
+    ):  # a facet without ``value``s (a tree by id and slug) names none
         return facets[name][:6]
     if name in QUERY_POOLS:
         return pools.sample(QUERY_POOLS[name], 4)
