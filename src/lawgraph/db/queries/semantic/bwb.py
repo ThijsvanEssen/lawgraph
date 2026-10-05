@@ -359,20 +359,57 @@ ORDER BY pub.key
 
 # Strategy 2: for a publication without a BWB id, the instrument whose citation title its
 # title contains: the longest title the publication names wins (the key settles a tie).
-_BY_TITLE = """
-SELECT pub.id AS pub_id, pub.key AS pub_key, inst.id AS inst_id, inst.key AS inst_key,
-       'title' AS match_type
-FROM documents pub
-CROSS JOIN LATERAL (
-    SELECT i.id, i.key FROM instruments i
-    WHERE i.citation_title IS NOT NULL {instruments}
-      AND strpos(lower(coalesce(lg_str(pub.props -> 'title'), '')),
-                 lower(i.citation_title)) > 0
-    ORDER BY length(i.citation_title) DESC, i.key
-    LIMIT 1
-) inst
-WHERE pub.source = %(source)s AND {filters}
-ORDER BY pub.key
+#
+# Testing every title against every publication is 13,000 x 120,000 ``strpos``. A title
+# contained in another contains each of its pieces of _GRAM characters, so also the one
+# piece of it that fewest titles share: only the instruments whose rarest piece the
+# publication's title has are tested. A title shorter than a piece is tested against every
+# publication, as before. Both titles are lowered once, and the props of a publication are
+# read once (MATERIALIZED: an inlined CTE would read them again per test). Each candidate
+# carries what the answer needs, so nothing is joined back; run with ``hash_joins``.
+_GRAM = 6
+_BY_TITLE = f"""
+WITH insts AS MATERIALIZED (
+    SELECT i.id, i.key, lower(i.citation_title) AS title,
+           length(i.citation_title) AS len
+    FROM instruments i
+    WHERE i.citation_title IS NOT NULL {{instruments}}
+),
+inst_grams AS (
+    SELECT s.id, substr(s.title, g, {_GRAM}) AS gram
+    FROM insts s, generate_series(1, length(s.title) - {_GRAM - 1}) AS g
+),
+rarest AS (
+    SELECT DISTINCT ON (g.id) g.id, g.gram
+    FROM inst_grams g
+    JOIN (SELECT gram, count(*) AS n FROM inst_grams GROUP BY gram) f USING (gram)
+    ORDER BY g.id, f.n, g.gram NULLS FIRST
+),
+rare_insts AS (
+    SELECT r.gram, s.id, s.key, s.title, s.len FROM rarest r JOIN insts s USING (id)
+),
+pubs AS MATERIALIZED (
+    SELECT pub.id, pub.key, lower(coalesce(lg_str(pub.props -> 'title'), '')) AS title
+    FROM documents pub
+    WHERE pub.source = %(source)s AND {{filters}}
+),
+pub_grams AS (
+    SELECT DISTINCT p.id, p.key, p.title, substr(p.title, g, {_GRAM}) AS gram
+    FROM pubs p, generate_series(1, length(p.title) - {_GRAM - 1}) AS g
+),
+candidates AS (
+    SELECT pg.id AS pub_id, pg.key AS pub_key, pg.title AS pub_title,
+           s.id AS inst_id, s.key AS inst_key, s.title AS inst_title, s.len
+    FROM pub_grams pg JOIN rare_insts s USING (gram)
+    UNION ALL
+    SELECT p.id, p.key, p.title, s.id, s.key, s.title, s.len
+    FROM pubs p CROSS JOIN insts s
+    WHERE length(s.title) < {_GRAM}
+)
+SELECT DISTINCT ON (pub_key) pub_id, pub_key, inst_id, inst_key, 'title' AS match_type
+FROM candidates
+WHERE strpos(pub_title, inst_title) > 0
+ORDER BY pub_key, len DESC NULLS FIRST, inst_key
 """
 
 _STAATSBLAD_BY_BWB_ID_SQL = _BY_BWB_ID.format(
@@ -394,7 +431,7 @@ def staatsblad_instrument_matches(store: Store) -> list[dict[str, Any]]:
     params = {"source": SOURCE_STAATSBLAD}
     rows: list[dict[str, Any]] = []
     rows.extend(store.query(_STAATSBLAD_BY_BWB_ID_SQL, params))
-    rows.extend(store.query(_STAATSBLAD_BY_TITLE_SQL, params))
+    rows.extend(store.query(_STAATSBLAD_BY_TITLE_SQL, params, hash_joins=True))
     return rows
 
 
@@ -406,8 +443,8 @@ def staatscourant_instrument_matches(
     *since_date* only the publications of that date or later."""
     params = {"source": SOURCE_STAATSCOURANT, "since_iso": since_date or None}
     rows: list[dict[str, Any]] = []
-    for statement in (_STAATSCOURANT_BY_BWB_ID_SQL, _STAATSCOURANT_BY_TITLE_SQL):
-        rows.extend(store.query(statement, params))
+    rows.extend(store.query(_STAATSCOURANT_BY_BWB_ID_SQL, params))
+    rows.extend(store.query(_STAATSCOURANT_BY_TITLE_SQL, params, hash_joins=True))
     return rows
 
 

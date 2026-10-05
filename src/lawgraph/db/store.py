@@ -341,6 +341,7 @@ class GraphStore:
         *,
         batch_size: int = 1000,
         indexes_only: bool = False,
+        hash_joins: bool = False,
     ) -> Iterator[Any]:
         """Run a statement; one that only reads streams its result.
 
@@ -359,10 +360,16 @@ class GraphStore:
         table for cheaper than the indexes when a word is common. The search uses it for
         its ranking and its document frequencies; ``tests/pg/test_query_plans.py`` checks
         that it still does.
+
+        ``hash_joins`` keeps the planner from nested loops where it can join otherwise
+        (``SET LOCAL enable_nestloop = off``, for this statement alone): for a statement
+        that joins sets the planner cannot count (a CTE over a condition on props, which
+        it takes for a row or twenty where there are thousands), and that a nested loop
+        over them makes run for hours. A loop over ``generate_series`` stays one.
         """
         if _WRITES.search(_text(statement)):
             return iter(self.execute(statement, params))
-        return self._stream(statement, params, batch_size, indexes_only)
+        return self._stream(statement, params, batch_size, indexes_only, hash_joins)
 
     def _stream(
         self,
@@ -370,11 +377,15 @@ class GraphStore:
         params: Params,
         batch_size: int,
         indexes_only: bool = False,
+        hash_joins: bool = False,
     ) -> Iterator[Any]:
         with self.pool.connection() as conn:
             if indexes_only:
                 # The planner prices detoasting at nothing (see ``query``).
                 conn.execute("SET LOCAL enable_seqscan = off")
+            if hash_joins:
+                # The planner cannot count the rows of the sets it joins (see ``query``).
+                conn.execute("SET LOCAL enable_nestloop = off")
             name = f"lg_{uuid.uuid4().hex}"
             with conn.cursor(name=name, row_factory=_rows) as cursor:
                 cursor.itersize = batch_size
