@@ -248,6 +248,13 @@ def test_indexes_only_holds_for_its_own_statement(store: GraphStore) -> None:
         assert list(store.query(setting)) == ["on"]
 
 
+def test_hash_joins_holds_for_its_own_statement(store: GraphStore) -> None:
+    setting = "SELECT current_setting('enable_nestloop')"
+    assert list(store.query(setting, hash_joins=True)) == ["off"]
+    for _ in range(3):
+        assert list(store.query(setting)) == ["on"]
+
+
 def test_the_connections_of_the_pool_run_without_jit(store: GraphStore) -> None:
     with store.pool.connection() as conn:
         assert conn.execute("SHOW jit").fetchone() == ("off",)
