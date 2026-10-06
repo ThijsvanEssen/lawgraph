@@ -138,3 +138,24 @@ def test_the_write_timeout_is_a_ceiling_that_cannot_be_turned_off(
     finally:
         monkeypatch.undo()
         importlib.reload(settings)
+
+
+@pytest.mark.parametrize(
+    ("variable", "default"),
+    [("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000), ("LAWGRAPH_WATCHDOG_MINUTES", 10)],
+)
+def test_the_read_ceiling_and_the_watchdog_are_positive_settings(
+    monkeypatch: pytest.MonkeyPatch, variable: str, default: int
+) -> None:
+    from lawgraph.config import settings
+
+    name = variable.removeprefix("LAWGRAPH_")
+    try:
+        monkeypatch.delenv(variable, raising=False)
+        assert getattr(importlib.reload(settings), name) == default
+        monkeypatch.setenv(variable, "0")
+        with pytest.raises(ValueError, match=variable):
+            importlib.reload(settings)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(settings)

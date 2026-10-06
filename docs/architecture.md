@@ -172,8 +172,12 @@ order (`lg_update`), so the API serves them in one order whatever ran first.
 
 `GraphStore.query` streams every query that reads on a server-side cursor, a batch of rows
 at a time (44,000 toestanden are 3.5 GB), and gives its connection back to the pool when the
-reader stops; a statement that writes runs at once, for at most `LAWGRAPH_WRITE_TIMEOUT_MS`
-(600 s). One that would find its rows across a whole table reads them and writes them in
+reader stops. Each statement of a read (a batch of rows) runs for at most
+`LAWGRAPH_READ_TIMEOUT_MS` (3 h); a statement that writes runs at once, for at most
+`LAWGRAPH_WRITE_TIMEOUT_MS` (600 s). Every connection is named after its process
+(`application_name`), so the watchdog of a running step (`pipelines/watchdog.py`) can log the
+statements of its own process that run long, a streamed read with the query behind its
+`FETCH`. A statement that would find its rows across a whole table reads them and writes them in
 chunks (`db/queries/_chunks.py`). Bulk writes are sent again (after 2, 10 and 30 s) while
 the database is unreachable; a statement cancelled for running too long is not.
 `GraphStore()` creates the database `LAWGRAPH_DB_NAME` when it is missing (and the user may),
