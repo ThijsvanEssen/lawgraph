@@ -292,26 +292,38 @@ def court_decisions_between(
         "coalesce(court_code::jsonb, 'null'), coalesce(ecli::jsonb, 'null'), date,"
         " coalesce(case_number::jsonb, 'null')"
     )
+    # The judgments of a span's court, or of none when it names none: two branches, so
+    # the first finds them through the index on (court_code, date_eff). One OR of both
+    # read every judgment of the span's years, of every court (and its props), per span.
+    # A row both branches find is the same row; DISTINCT ON keeps it once.
+    found = """
+        SELECT s.n, j.key,
+               j.props -> 'court_code' AS court_code,
+               j.props -> 'ecli' AS ecli,
+               j.date_eff AS date,
+               j.props -> 'case_number' AS case_number,
+               j.props -> 'judgment_metadata' -> 'document_type' AS document_type
+        FROM json_array_elements(%(spans)s::json) WITH ORDINALITY AS s(span, n)
+        JOIN judgments j ON {court}
+        WHERE j.date_eff >= lg_str(s.span -> 'start')
+          AND j.date_eff <= lg_str(s.span -> 'end')
+    """
+    of_its_court = "j.court_code = lg_str(s.span -> 'court_code')"
+    # (a condition on the span alone: it leaves out the spans that name a court before
+    # any judgment is read)
+    of_no_court = (
+        _absent("s.span -> 'court_code'") + " AND " + _absent("j.props -> 'court_code'")
+    )
     sql = f"""
         SELECT court_code, ecli, date, case_number
         FROM (
-            SELECT DISTINCT ON ({distinct}) *
+            SELECT DISTINCT ON ({distinct}) n, key, court_code, ecli, date, case_number
             FROM (
-                SELECT s.n, j.key,
-                       j.props -> 'court_code' AS court_code,
-                       j.props -> 'ecli' AS ecli,
-                       j.date_eff AS date,
-                       j.props -> 'case_number' AS case_number
-                FROM json_array_elements(%(spans)s::json) WITH ORDINALITY AS s(span, n)
-                JOIN judgments j
-                  ON j.court_code = lg_str(s.span -> 'court_code')
-                  OR ({_absent("s.span -> 'court_code'")}
-                      AND {_absent("j.props -> 'court_code'")})
-                WHERE j.date_eff >= lg_str(s.span -> 'start')
-                  AND j.date_eff <= lg_str(s.span -> 'end')
-                  AND lg_str(j.props -> 'judgment_metadata' -> 'document_type')
-                      IS DISTINCT FROM %(conclusion)s
+                {found.format(court=of_its_court)}
+                UNION ALL
+                {found.format(court=of_no_court)}
             ) found
+            WHERE lg_str(document_type) IS DISTINCT FROM %(conclusion)s
             ORDER BY {distinct}, n, key
         ) once
         ORDER BY n, key
