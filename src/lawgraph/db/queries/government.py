@@ -153,7 +153,11 @@ ORDER BY dossier.key COLLATE "C"
 def dossier_first_signatures(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, first, props}`` of every dossier: ``first`` the first signature of its
     earliest document signed first by a Kamerlid or a bewindspersoon (``{date, member,
-    capacity, function}``, null when there is none), ``props`` what is stored now."""
+    capacity, function}``, null when there is none), ``props`` what is stored now.
+
+    With ``hash_joins``: the planner takes the first signatures (a condition on ``meta``)
+    for a few dozen rows where there are a hundred thousand, and loops over them for every
+    paper; on the server that ran for hours."""
     return store.query(
         _FIRST_SIGNATURES_SQL,
         {
@@ -162,4 +166,5 @@ def dossier_first_signatures(store: Store) -> Iterator[dict[str, Any]]:
             "first_role": ROLE_FIRST_SIGNATORY,
             "capacities": [CAPACITY_MEMBER, CAPACITY_GOVERNMENT],
         },
+        hash_joins=True,
     )

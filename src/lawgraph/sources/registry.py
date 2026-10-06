@@ -24,7 +24,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, cast, get_args
 
+from lawgraph.config.constants import (
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
+)
 from lawgraph.pipelines.command import Command, PipelineCommand
+from lawgraph.pipelines.inputs import Reads, reading
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -195,6 +201,9 @@ class Pipeline:
     # Retrieve only: the command has ``--mode gaps`` (what the graph refers to and lacks),
     # so it is part of ``retrieve all --mode gaps`` and of every round of ``expand-graph``.
     fills_gaps: bool = False
+    # Retrieve only: the nodes of a normalize pipeline it chooses its work from (not what
+    # another retrieve stored: that is ``after``); its command warns when there are none.
+    reads: tuple[Reads, ...] = ()
 
     @property
     def name(self) -> str:
@@ -247,6 +256,7 @@ def _pipeline(
     lane: str = "",
     after: tuple[str, ...] = (),
     fills_gaps: bool = False,
+    reads: tuple[Reads, ...] = (),
 ) -> Pipeline:
     """Register a pipeline class, a ``PipelineCommand`` or a hand-written command."""
     cls = runs.pipeline_cls if isinstance(runs, PipelineCommand) else runs
@@ -265,9 +275,18 @@ def _pipeline(
         )
     else:
         phase, source, part = _address_of(runs.__module__, runs.__name__)
-        command = runs
+        command = reading(runs, reads) if reads else runs
     return Pipeline(
-        phase, source, part, command, description, argv_for_all, lane, after, fills_gaps
+        phase,
+        source,
+        part,
+        command,
+        description,
+        argv_for_all,
+        lane,
+        after,
+        fills_gaps,
+        reads,
     )
 
 
@@ -345,8 +364,9 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
-        after=("tk-dossiers",),  # the papers are the documents tk-dossiers stored
+        after=("tk-dossiers",),
         fills_gaps=True,
+        reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
     ),
     _pipeline(
         retrieve_rechtspraak,
@@ -372,6 +392,10 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_no_argv,
         fills_gaps=True,
+        # the acts already in the graph; full and nim list them at EUR-Lex, gaps reads BWB
+        reads=(
+            Reads("eurlex", COLLECTION_INSTRUMENTS, "EU", modes=("incremental", "com")),
+        ),
     ),
     _pipeline(
         retrieve_eurlex_nim,
@@ -450,6 +474,8 @@ RETRIEVE: list[Pipeline] = [
         "lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
         lane=LANE_EERSTEKAMER_SITE,
+        # those it voted on: the bill_url of its decisions
+        reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
     _pipeline(
         retrieve_echr,

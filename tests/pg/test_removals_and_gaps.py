@@ -572,3 +572,17 @@ def test_dossiers_missing_papers(store: GraphStore) -> None:
         ],
     )
     assert gap_queries.dossiers_missing_papers(store) == ["35000", "36000"]
+
+
+# ── what a retrieve chooses its work from ────────────────────────────────────
+
+
+def test_holds_label(store: GraphStore) -> None:
+    assert gap_queries.holds_label(store, "decisions", "EK") is False
+    store.bulk_insert_or_update_nodes("decisions", [_tk("d1")])
+    assert gap_queries.holds_label(store, "decisions", "EK") is False
+    store.bulk_insert_or_update_nodes(
+        "decisions", [{"_key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
+    )
+    assert gap_queries.holds_label(store, "decisions", "EK") is True
+    assert gap_queries.holds_label(store, "decisions", "TK") is True
