@@ -16,6 +16,8 @@ the same values; a variable already set in the process environment wins over `.e
 | `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again |
 | `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
 | `LAWGRAPH_WRITE_TIMEOUT_MS` | `600000` | the longest a statement that writes may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A build setting: a full build on a slow disk raises it (the server: `14400000`, four hours). The writes that find their rows across a whole table (`graph-list-stats`, the removals of edges and nodes a step no longer derives) read those rows first and write them 5,000 at a time, so they stay well below it |
+| `LAWGRAPH_READ_TIMEOUT_MS` | `10800000` | the longest one statement that reads may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A streamed read is a statement per batch of rows, so only a plan that never ends hits it: the step fails with `ReadTimedOut`, naming the setting and the statement, instead of hanging |
+| `LAWGRAPH_WATCHDOG_MINUTES` | `10` | every this many minutes a running step logs which steps run and for how long, and every statement of its process that has run for over a minute: its state, what it waits on, and its text (for a streamed read the `FETCH` and the read behind it) |
 | `LAWGRAPH_PG_MEMORY` | `4g` | memory limit of the server's container (`mem_limit`); `8g` on a 16 GB machine |
 | `LAWGRAPH_PG_SHARED_BUFFERS` | `1GB` | `shared_buffers`, the server's own cache; `4GB` on 16 GB |
 | `LAWGRAPH_PG_CACHE` | `3GB` | `effective_cache_size`, what the planner may count on the operating system to cache; `6GB` on 16 GB |
@@ -300,7 +302,10 @@ per host, with the number of HTTP 429/503 answers since the last one; the retrie
 are logged at `DEBUG`. The pacer is shared inside one process. The first process that reaches a
 host holds a lock file for it (in `~/.cache/lawgraph`); a second `lawgraph` process finds
 it taken, says so once and paces that host at half speed, so two commands started side by
-side stay under the limit together.
+side stay under the limit together. The lock goes with the use: a process gives it back after
+five minutes without a request to that host (a `retrieve all` whose sources on that host are
+done), and a process at half speed tries to take it every minute and goes back to full speed
+when it can.
 
 **Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
 `external`: compose uses it and cannot remove it. Create it once

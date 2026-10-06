@@ -57,6 +57,12 @@ DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
 # The longest a statement that writes may run (``statement_timeout``, db/store.py), in
 # milliseconds: a ceiling that is never off. A build on a slow disk raises it.
 WRITE_TIMEOUT_MS = _env_positive_int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
+# The longest one statement that reads may run, in milliseconds (a FETCH of a streamed
+# read is a statement of its own): a ceiling for a plan that never ends, never off.
+READ_TIMEOUT_MS = _env_positive_int("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000)
+# Every this many minutes a running step logs how long it runs and the statements of its
+# process that have run for over a minute (``pipelines/watchdog.py``).
+WATCHDOG_MINUTES = _env_positive_int("LAWGRAPH_WATCHDOG_MINUTES", 10)
 
 # ── ArangoDB connection ───────────────────────────────────────────────────────
 

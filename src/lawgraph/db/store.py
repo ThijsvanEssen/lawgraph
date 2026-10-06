@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import datetime as dt
 import hashlib
+import os
 import re
 import time
 import uuid
@@ -35,6 +36,7 @@ from lawgraph.config.settings import (
     DB_POOL_SIZE,
     DB_URL,
     PAYLOAD_STORE,
+    READ_TIMEOUT_MS,
     S3_ACCESS_KEY,
     S3_ENDPOINT,
     S3_REGION,
@@ -199,6 +201,58 @@ def _configure(conn: psycopg.Connection[Any]) -> None:
     conn.commit()
 
 
+# The name of every connection of this process (``pg_stat_activity.application_name``): the
+# watchdog finds the statements of its own process by it.
+APPLICATION_NAME = f"lawgraph-{os.getpid()}"
+
+
+# The statement of every server-side cursor open in this process, by its name: a streamed
+# read shows in ``pg_stat_activity`` as ``FETCH FORWARD 1000 FROM "lg_…"`` alone.
+_open_cursors: dict[str, str] = {}
+_CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
+
+
+class ReadTimedOut(RuntimeError):
+    """A statement that reads ran past ``LAWGRAPH_READ_TIMEOUT_MS`` and was cancelled."""
+
+
+def own_activity(min_seconds: float) -> list[dict[str, Any]]:
+    """The statements of this process that have run for over *min_seconds*: ``{pid, state,
+    seconds, wait, query}``, the longest first. On a connection of its own, so a pool whose
+    connections are all busy does not keep it waiting; empty when the server cannot be
+    reached."""
+    try:
+        with psycopg.connect(
+            _server_url(DB_NAME),
+            application_name="lawgraph-watchdog",
+            connect_timeout=10,
+            autocommit=True,
+        ) as conn:
+            rows = conn.execute(
+                """
+                SELECT pid, state,
+                       extract(epoch FROM now() - query_start)::int AS seconds,
+                       concat_ws(':', wait_event_type, wait_event) AS wait,
+                       left(regexp_replace(query, '\\s+', ' ', 'g'), 300) AS query
+                FROM pg_stat_activity
+                WHERE application_name = %(name)s AND state <> 'idle'
+                  AND now() - query_start > make_interval(secs => %(min)s)
+                ORDER BY query_start NULLS LAST
+                """,
+                {"name": APPLICATION_NAME, "min": min_seconds},
+            ).fetchall()
+    except psycopg.Error as exc:
+        logger.debug("No activity from the server: %s", exc)
+        return []
+    names = ("pid", "state", "seconds", "wait", "query")
+    found = [dict(zip(names, row, strict=True)) for row in rows]
+    for row in found:
+        cursor = _CURSOR_NAME.search(row["query"] or "")
+        if cursor and (read := _open_cursors.get(cursor.group(1))):
+            row["query"] = f"{row['query']}, a read of: {read}"
+    return found
+
+
 # The stores still open: closed at exit, while the interpreter can still join the threads
 # of their pools (a pool left to its finalizer cannot, and says so on every command).
 _OPEN: weakref.WeakSet[GraphStore] = weakref.WeakSet()
@@ -226,6 +280,7 @@ class GraphStore:
                 timeout=60,
                 name="lawgraph",
                 configure=_configure,
+                kwargs={"application_name": APPLICATION_NAME},
             )
             with self.pool.connection() as conn:
                 ensure_schema(conn)
@@ -380,6 +435,8 @@ class GraphStore:
         hash_joins: bool = False,
     ) -> Iterator[Any]:
         with self.pool.connection() as conn:
+            # a ceiling for each statement (the DECLARE, every FETCH), not for the stream
+            conn.execute(f"SET LOCAL statement_timeout = {READ_TIMEOUT_MS}")
             if indexes_only:
                 # The planner prices detoasting at nothing (see ``query``).
                 conn.execute("SET LOCAL enable_seqscan = off")
@@ -387,10 +444,20 @@ class GraphStore:
                 # The planner cannot count the rows of the sets it joins (see ``query``).
                 conn.execute("SET LOCAL enable_nestloop = off")
             name = f"lg_{uuid.uuid4().hex}"
-            with conn.cursor(name=name, row_factory=_rows) as cursor:
-                cursor.itersize = batch_size
-                cursor.execute(_query(statement), params)
-                yield from cursor
+            text = re.sub(r"\s+", " ", _text(statement)).strip()
+            _open_cursors[name] = text[:300]
+            try:
+                with conn.cursor(name=name, row_factory=_rows) as cursor:
+                    cursor.itersize = batch_size
+                    cursor.execute(_query(statement), params)
+                    yield from cursor
+            except psycopg.errors.QueryCanceled as exc:
+                raise ReadTimedOut(
+                    f"A read ran for over {READ_TIMEOUT_MS / 60_000:.0f} minutes "
+                    f"(LAWGRAPH_READ_TIMEOUT_MS) and was cancelled: {text[:300]}"
+                ) from exc
+            finally:
+                _open_cursors.pop(name, None)
 
     def execute(self, statement: Statement, params: Params = None) -> list[Any]:
         """Run a statement that writes, in a transaction of its own, sent again when the
