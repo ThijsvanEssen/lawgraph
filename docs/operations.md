@@ -165,7 +165,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 
 | Command | Behaviour |
 |---------|-----------|
-| `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--skip-expand] [--strict] [--skip-retrieve] [--plan]` | `retrieve all --mode full --window DATE --jobs N` (default `730d` and one job per server; `all` loads the whole history of the producing sources), `normalize all`, `semantic all`, then `expand-graph` (up to `--max-expand`, default 5). `--plan` runs nothing and prints the plan of a build: the window, every step in its lane (one per server for the retrieves, one write lane for the rest), what each waits for, which are done (`pipeline_state`, `bootstrap <step>`), and those done on other code than the checkout's (`version (git describe)`) |
+| `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--redo STEP] [--skip-expand] [--skip-retrieve] [--strict] [--plan]` | every step of a build: the retrieves of a full load in `--window` (default `730d`; `all` loads the whole history of the producing sources) in a lane per server, at most `--jobs` at once; every normalize and semantic step one at a time in the write lane, each as soon as what it reads is there; then `expand-graph` (up to `--max-expand` rounds, default 5) and `check`. A step that ends ok is marked (`pipeline_state`, `bootstrap <step>`, with the code it ran on); a run started again skips the marked steps, `--redo STEP` runs one again (repeatable). A failed step leaves out the steps that wait for it, the others go on (`--strict`: nothing starts after it). `--skip-retrieve` and `--skip-expand` count those steps as done. When every step of a phase is marked, the phase is on record for `--since last` from its first start. `--plan` runs nothing and prints the plan of a build: the window, every step in its lane (one per server for the retrieves, one write lane for the rest), what each waits for, which are done (`pipeline_state`, `bootstrap <step>`), and those done on other code than the checkout's (`version (git describe)`) |
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
@@ -202,7 +202,8 @@ lawgraph normalize all
 lawgraph semantic all
 ```
 
-`lawgraph bootstrap` runs these three and then `expand-graph`. In full mode `retrieve all`
+`lawgraph bootstrap` runs the same steps, side by side where they can, and then
+`expand-graph` and `check`; `lawgraph bootstrap --plan` shows how. In full mode `retrieve all`
 enumerates every BWB regulation and fetches every toestand of each (`bwb-history`), the XML
 of the explanatory memoranda (`tk-content`) and the judgments of every court; EU acts come
 from `expand-graph`, which fetches the ones the loaded records refer to. The sources that keep producing (Tweede Kamer,
@@ -228,7 +229,10 @@ checkout, and the build moves to it between steps:
 3. Switch between steps, never inside one: the next step starts from the new checkout once the
    running one has ended. A step the fix is about waits for it; one it is not about may end on
    the old code. Ctrl-C stops a step safely: a retrieve stores what it has and its next run
-   fetches only what is missing; a normalize or semantic step is run again whole.
+   fetches only what is missing; a normalize or semantic step is run again whole. A build
+   with `lawgraph bootstrap` moves by stopping it (Ctrl-C) and starting it again from the new
+   checkout: it skips the steps that are marked done, `--plan` shows which ran on which code,
+   and `--redo STEP` runs one again on the new code.
 4. Never two lawgraph processes that write at once, from either checkout. Every process makes
    sure of the schema when it starts; that takes locks on the tables (it replaces their
    triggers), which wait behind a long write, and every other statement on that table then

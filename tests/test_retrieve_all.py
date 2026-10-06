@@ -6,7 +6,6 @@ import dataclasses
 import threading
 import time
 from collections.abc import Callable
-from typing import Any
 
 import pytest
 
@@ -364,40 +363,6 @@ def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_pa
     assert recorded["bwb-history"] == ["--mode", "incremental"]
     assert recorded["tk-content"] == []
     assert set(recorded) == {p.name for p in registry.PIPELINES["retrieve"]}
-
-
-# ── bootstrap ────────────────────────────────────────────────────────────────
-
-
-def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
-    from lawgraph.commands import bootstrap
-
-    seen: dict[str, list[str]] = {}
-
-    def record(label: str, command: Callable[..., Any], argv: list[str]) -> Outcome:
-        seen[label] = argv
-        return Outcome(label, State.OK)
-
-    monkeypatch.setattr(bootstrap, "run_command", record)
-    bootstrap.main(argv)
-    return seen["retrieve all"]
-
-
-def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
-    assert _bootstrap_retrieve_argv(monkeypatch, []) == [
-        "--mode",
-        "full",
-        "--window",
-        "730d",
-        "--jobs",
-        "9",  # one job per server
-    ]
-
-
-def test_bootstrap_passes_the_window_and_jobs_on(monkeypatch) -> None:
-    argv = _bootstrap_retrieve_argv(monkeypatch, ["--window", "all", "--jobs", "2"])
-    assert argv[argv.index("--window") + 1] == "all"
-    assert argv[argv.index("--jobs") + 1] == "2"
 
 
 # ── a step that reads what another source stored ─────────────────────────────
