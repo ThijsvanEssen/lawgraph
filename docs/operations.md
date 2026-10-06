@@ -406,7 +406,9 @@ no code.
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
   duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
-  at the end. A node or edge that a run would write as it already is, is not written: it is
+  at the end, and as each step ends a line under their own label with how far the run is:
+  `[retrieve all] 3 of 21 ended: retrieve tk-dossiers ok in 2h 03m, 1,234 created; running:
+  retrieve rechtspraak, retrieve bwb.` A node or edge that a run would write as it already is, is not written: it is
   counted as `unchanged`, so `updated` is what really changed.
 - Progress (`core/progress.py`, used by every pipeline of every phase; a test enforces it): no
   line per record. In a terminal every running step has one line at the bottom,
