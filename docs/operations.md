@@ -106,7 +106,7 @@ and exits 1 when any of them failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb` and `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers` (its papers are the documents that step stored), `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages) |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb` and `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk` and `tk-dossiers`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers`, `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages). Three sources choose their work from what a normalize step wrote, which `retrieve all` does not run: `tk-content` the TK documents of `normalize tk-dossiers`, `eerstekamer-bills` the bills named by the EK decisions of `normalize eerstekamer-votes`, and `eurlex` (incremental and `com`) the EU instruments of `normalize eurlex`. On a graph without them the command warns before it runs, and the table at the end notes `no TK documents yet: run normalize tk-dossiers first`; run it again after that normalize. A gaps list longer than 50,000 is cut, and the table notes `50,000 of 93,818 Kamerstukken without XML, again for the rest` |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since` (both override `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, the first reading a change in the Grondwet in its second reading refers to, and the dossiers the Tweede Kamer papers and cases are part of) or lacks papers of (a number below the highest it has), each fetched with all its documents; a number the Tweede Kamer has no dossier of (`tk-dossier-missing`), or not all papers of (`tk-document-missing`), is remembered for 30 days |
 | `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `--kind ""` every paper numbered in a dossier), `--dry-run` |
@@ -208,6 +208,37 @@ Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, an
 `expand-graph` later adds what the loaded records refer to. The whole history for research is
 one option away: `--window all` (the Tweede Kamer alone is over 400K documents and hours), or
 a date such as `--window 2015-01-01`.
+
+**A code fix during a build.** A running process keeps the code it started with only as long
+as nobody changes it: the install is editable and a module is imported when a step first needs
+it, so a checkout changed under a running build mixes two versions. A fix goes into a second
+checkout, and the build moves to it between steps:
+
+1. The fix is merged and tagged (`build-<version>`).
+2. A second checkout beside the running one, with its own venv and the same `.env`:
+
+   ```bash
+   git -C /srv/lawgraph/app fetch --tags
+   git -C /srv/lawgraph/app worktree add /srv/lawgraph/app-<tag> <tag>
+   cd /srv/lawgraph/app-<tag> && uv venv && uv pip install -e . && cp ../app/.env .
+   ```
+
+3. Switch between steps, never inside one: the next step starts from the new checkout once the
+   running one has ended. A step the fix is about waits for it; one it is not about may end on
+   the old code. Ctrl-C stops a step safely: a retrieve stores what it has and its next run
+   fetches only what is missing; a normalize or semantic step is run again whole.
+4. Never two lawgraph processes that write at once, from either checkout. Every process makes
+   sure of the schema when it starts; that takes locks on the tables (it replaces their
+   triggers), which wait behind a long write, and every other statement on that table then
+   waits behind them.
+5. When the build is done, `/srv/lawgraph/app` itself goes to the tag (`git checkout <tag> &&
+   uv pip install -e .`), the API and the timers run from there, and the second checkout goes
+   (`git -C /srv/lawgraph/app worktree remove /srv/lawgraph/app-<tag>`).
+
+Two more rules for scripts around a build: a script that is running is never changed in place
+(`sh` reads it as it goes), a new one is written beside it and moved over it with `mv`; and
+`.env` is read by lawgraph itself, not by a shell script that runs it, so a variable a script
+needs is set in that script's own environment.
 
 **Incremental.**
 
@@ -409,7 +440,9 @@ no code.
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
   duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
-  at the end. A node or edge that a run would write as it already is, is not written: it is
+  at the end, and as each step ends a line under their own label with how far the run is:
+  `[retrieve all] 3 of 21 ended: retrieve tk-dossiers ok in 2h 03m, 1,234 created; running:
+  retrieve rechtspraak, retrieve bwb.` A node or edge that a run would write as it already is, is not written: it is
   counted as `unchanged`, so `updated` is what really changed.
 - Progress (`core/progress.py`, used by every pipeline of every phase; a test enforces it): no
   line per record. In a terminal every running step has one line at the bottom,
