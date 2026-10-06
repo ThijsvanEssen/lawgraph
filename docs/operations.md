@@ -209,6 +209,37 @@ Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, an
 one option away: `--window all` (the Tweede Kamer alone is over 400K documents and hours), or
 a date such as `--window 2015-01-01`.
 
+**A code fix during a build.** A running process keeps the code it started with only as long
+as nobody changes it: the install is editable and a module is imported when a step first needs
+it, so a checkout changed under a running build mixes two versions. A fix goes into a second
+checkout, and the build moves to it between steps:
+
+1. The fix is merged and tagged (`build-<version>`).
+2. A second checkout beside the running one, with its own venv and the same `.env`:
+
+   ```bash
+   git -C /srv/lawgraph/app fetch --tags
+   git -C /srv/lawgraph/app worktree add /srv/lawgraph/app-<tag> <tag>
+   cd /srv/lawgraph/app-<tag> && uv venv && uv pip install -e . && cp ../app/.env .
+   ```
+
+3. Switch between steps, never inside one: the next step starts from the new checkout once the
+   running one has ended. A step the fix is about waits for it; one it is not about may end on
+   the old code. Ctrl-C stops a step safely: a retrieve stores what it has and its next run
+   fetches only what is missing; a normalize or semantic step is run again whole.
+4. Never two lawgraph processes that write at once, from either checkout. Every process makes
+   sure of the schema when it starts; that takes locks on the tables (it replaces their
+   triggers), which wait behind a long write, and every other statement on that table then
+   waits behind them.
+5. When the build is done, `/srv/lawgraph/app` itself goes to the tag (`git checkout <tag> &&
+   uv pip install -e .`), the API and the timers run from there, and the second checkout goes
+   (`git -C /srv/lawgraph/app worktree remove /srv/lawgraph/app-<tag>`).
+
+Two more rules for scripts around a build: a script that is running is never changed in place
+(`sh` reads it as it goes), a new one is written beside it and moved over it with `mv`; and
+`.env` is read by lawgraph itself, not by a shell script that runs it, so a variable a script
+needs is set in that script's own environment.
+
 **Incremental.**
 
 ```bash
