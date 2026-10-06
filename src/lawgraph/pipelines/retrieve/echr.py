@@ -59,11 +59,17 @@ def _server_error(exc: Exception) -> bool:
 
 
 def _no_text(exc: Exception) -> bool:
-    """HUDOC has no text for this item: HTTP 404, an answer that is no DOCX, or an HTTP 5xx
-    that outlasted the client's retries (HUDOC answers HTTP 500 for an item it cannot
-    convert, every time). The item is remembered as missing and asked for again after
+    """HUDOC has no text for this item: HTTP 404, HTTP 204 (an empty answer, for 001-168072
+    and three more of the full load), an answer that is no DOCX, or an HTTP 5xx that
+    outlasted the client's retries (HUDOC answers HTTP 500 for an item it cannot convert,
+    every time). The item is remembered as missing and asked for again after
     ``MISSING_FOR_DAYS``."""
-    return is_not_found(exc) or isinstance(exc, ValueError) or _server_error(exc)
+    return (
+        is_not_found(exc)
+        or status_of(exc) == 204
+        or isinstance(exc, ValueError)
+        or _server_error(exc)
+    )
 
 
 class ECHRRetrievePipeline(RetrievePipelineBase):

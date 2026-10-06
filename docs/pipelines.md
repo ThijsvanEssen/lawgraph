@@ -1023,8 +1023,8 @@ reads up to 50,000 and fetches every text again; `--mode gaps` the judgments cit
 against any state (the English item, else the French one). After the judgments, every run
 fetches the text of each stored or fetched judgment that has none: of its English item, else
 its French one (none for a judgment in neither), 0.5 s apart. An item HUDOC has no text for is
-skipped and remembered as missing, and asked for again after 30 days: HTTP 404, an answer that
-is no DOCX, or an HTTP 5xx that outlasted the retries (HUDOC answers HTTP 500, run after run,
+skipped and remembered as missing, and asked for again after 30 days: HTTP 404, HTTP 204 (an
+empty answer, as for 001-168072), an answer that is no DOCX, or an HTTP 5xx that outlasted the retries (HUDOC answers HTTP 500, run after run,
 for an item it cannot convert, such as 001-208029). A 5xx counts toward the failures in a
 row that end the run as a host that is down. The 200 judgments against the Netherlands take
 about 100 s the first time (on average 170 KB of XML, 22 KB compressed, the largest about
