@@ -174,6 +174,7 @@ def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
         total.updated += outcome.result.updated
         total.unchanged += outcome.result.unchanged
         total.skipped += outcome.result.skipped
+        total.notes += [f"{outcome.label}: {note}" for note in outcome.result.notes]
         if outcome.state is State.FAILED:
             total.add_error(f"{outcome.label} failed")
     return total

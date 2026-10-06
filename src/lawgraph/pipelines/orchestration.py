@@ -129,7 +129,14 @@ def run_pipelines(
             if outcome.state is not State.SKIPPED
             else ""
         )
-        logger.info("  %-32s %8s  %s", outcome.label, took, outcome.state.value)
+        notes = "; ".join(outcome.result.notes)
+        logger.info(
+            "  %-32s %8s  %s%s",
+            outcome.label,
+            took,
+            outcome.state.value,
+            f"  ({notes})" if notes else "",
+        )
     return outcomes
 
 

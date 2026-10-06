@@ -26,6 +26,7 @@ from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.identifiers import kamerstuk_identifier
 from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
 from lawgraph.db.queries import gaps as gap_queries
@@ -73,18 +74,33 @@ def loaded_bwb_ids(store: Store) -> set[str]:
     return {str(bwb_id) for bwb_id in gap_queries.loaded_bwb_ids(store)}
 
 
-def _capped(rows: list[Any], what: str) -> list[Any]:
-    """The first ``MAX_GAPS_PER_RUN`` of *rows*; a longer list is said out loud."""
-    if len(rows) > MAX_GAPS_PER_RUN:
-        logger.warning(
-            "%d %s found; this run takes the first %d (`retrieve all --mode gaps` or expand-graph "
-            "again for the rest).",
-            len(rows),
-            what,
-            MAX_GAPS_PER_RUN,
-        )
-        return rows[:MAX_GAPS_PER_RUN]
-    return rows
+class Gaps(list):  # type: ignore[type-arg]
+    """A work list of gaps; ``note`` says so when it is the first part of a longer one."""
+
+    note: str | None = None
+
+
+def _capped(rows: list[Any], what: str) -> Gaps:
+    """The first ``MAX_GAPS_PER_RUN`` of *rows*; a longer list is said out loud, and in the
+    ``note`` the table of ``retrieve all`` shows."""
+    if len(rows) <= MAX_GAPS_PER_RUN:
+        return Gaps(rows)
+    logger.warning(
+        "%d %s found; this run takes the first %d (`retrieve all --mode gaps` or expand-graph "
+        "again for the rest).",
+        len(rows),
+        what,
+        MAX_GAPS_PER_RUN,
+    )
+    gaps = Gaps(rows[:MAX_GAPS_PER_RUN])
+    gaps.note = f"{MAX_GAPS_PER_RUN:,} of {len(rows):,} {what}, again for the rest"
+    return gaps
+
+
+def noted(result: PipelineResult, *work: Sequence[Any]) -> PipelineResult:
+    """*result*, with the note of each work list that was cut off."""
+    result.notes += [w.note for w in work if isinstance(w, Gaps) and w.note]
+    return result
 
 
 def stub_article_counts(store: Store) -> list[dict[str, Any]]:
@@ -92,7 +108,7 @@ def stub_article_counts(store: Store) -> list[dict[str, Any]]:
     return list(gap_queries.stub_article_counts(store))
 
 
-def rechtspraak_gaps(store: Store) -> list[str]:
+def rechtspraak_gaps(store: Store) -> Gaps:
     """ECLIs of the Dutch stub judgments, sorted; Rechtspraak has no EU or ECHR judgments."""
     # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
     # where they sort, and a first 50,000 full of judgments that are not published would
@@ -136,7 +152,7 @@ def eurlex_gaps(store: Store) -> list[str]:
     return cast(list[str], list(gap_queries.unretrieved_celex_refs(store)))
 
 
-def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:
+def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
     """The Tweede Kamer papers whose kind contains one of *kinds*, and whose XML was not
     retrieved.
 
@@ -201,7 +217,7 @@ def verdragenbank_gaps(store: Store) -> list[str]:
     return [e for e in gap_queries.stub_treaty_ids(store) if e]
 
 
-def tk_dossier_gaps(store: Store) -> list[str]:
+def tk_dossier_gaps(store: Store) -> Gaps:
     """The numbers of the dossiers the graph names and has not, or has not in full.
 
     Named: by the publications that amended or brought into force a version of an article,
