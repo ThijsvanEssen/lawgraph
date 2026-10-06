@@ -187,7 +187,7 @@ def run_pipelines(
     return outcomes
 
 
-def _window(value: str) -> dt.datetime | None:
+def window_since(value: str) -> dt.datetime | None:
     """A ``--window``: a date like ``--since``, or ``all`` for no window at all."""
     if value.strip().lower() == "all":
         return None
@@ -262,8 +262,8 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
     )
     parser.add_argument(
         "--window",
-        type=_window,
-        default=_window(DEFAULT_WINDOW),
+        type=window_since,
+        default=window_since(DEFAULT_WINDOW),
         metavar="DATE",
         help="Full mode: the sources that keep producing (Tweede Kamer, "
         "Rechtspraak, Staatscourant, Eerste Kamer, ECHR) read only what changed since then. "
