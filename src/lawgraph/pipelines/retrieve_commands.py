@@ -283,11 +283,11 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
 
     store = GraphStore()
     if args.mode == GAPS:  # the cited and the referring judgments, of whatever court
-        return RechtspraakRetrievePipeline(store).run(
-            courts=[],
-            eclis=_gaps.rechtspraak_gaps(store),
-            referrals=_gaps.unanswered_referrals(store),
+        eclis = _gaps.rechtspraak_gaps(store)
+        result = RechtspraakRetrievePipeline(store).run(
+            courts=[], eclis=eclis, referrals=_gaps.unanswered_referrals(store)
         )
+        return _gaps.noted(result, eclis)
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
     date_from = modified_from = None
@@ -400,9 +400,9 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
 
     store = GraphStore()
     if args.mode == GAPS:
-        return TKDossiersRetrievePipeline(store=store).run_gaps(
-            _gaps.tk_dossier_gaps(store)
-        )
+        numbers = _gaps.tk_dossier_gaps(store)
+        result = TKDossiersRetrievePipeline(store=store).run_gaps(numbers)
+        return _gaps.noted(result, numbers)
     return TKDossiersRetrievePipeline(store=store).run(
         since=args.since,
         decisions_since=args.decisions_since,

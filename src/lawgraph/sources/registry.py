@@ -24,7 +24,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, cast, get_args
 
+from lawgraph.config.constants import (
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
+)
 from lawgraph.pipelines.command import Command, PipelineCommand
+from lawgraph.pipelines.inputs import Reads, reading
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -185,13 +191,19 @@ class Pipeline:
     description: str  # printed by ``lawgraph sources`` and in the first log line
     # Retrieve only (every retrieve pipeline has it). ``argv_for_all`` turns the options of
     # ``retrieve all`` into those of the command; ``lane`` names the server it talks to, so no
-    # server gets two request streams; ``after`` names pipelines that must have ended first.
+    # server gets two request streams.
+    # Retrieve and normalize: ``after`` names pipelines of the same phase that must have
+    # ended first, because this one reads what they wrote (normalize: the nodes of the
+    # Ordering table in docs/pipelines.md; registry order already keeps them before it).
     argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None
     lane: str = ""
     after: tuple[str, ...] = ()
     # Retrieve only: the command has ``--mode gaps`` (what the graph refers to and lacks),
     # so it is part of ``retrieve all --mode gaps`` and of every round of ``expand-graph``.
     fills_gaps: bool = False
+    # Retrieve only: the nodes of a normalize pipeline it chooses its work from (not what
+    # another retrieve stored: that is ``after``); its command warns when there are none.
+    reads: tuple[Reads, ...] = ()
 
     @property
     def name(self) -> str:
@@ -244,6 +256,7 @@ def _pipeline(
     lane: str = "",
     after: tuple[str, ...] = (),
     fills_gaps: bool = False,
+    reads: tuple[Reads, ...] = (),
 ) -> Pipeline:
     """Register a pipeline class, a ``PipelineCommand`` or a hand-written command."""
     cls = runs.pipeline_cls if isinstance(runs, PipelineCommand) else runs
@@ -262,9 +275,18 @@ def _pipeline(
         )
     else:
         phase, source, part = _address_of(runs.__module__, runs.__name__)
-        command = runs
+        command = reading(runs, reads) if reads else runs
     return Pipeline(
-        phase, source, part, command, description, argv_for_all, lane, after, fills_gaps
+        phase,
+        source,
+        part,
+        command,
+        description,
+        argv_for_all,
+        lane,
+        after,
+        fills_gaps,
+        reads,
     )
 
 
@@ -342,8 +364,9 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
-        after=("tk-dossiers",),  # the papers are the documents tk-dossiers stored
+        after=("tk-dossiers",),
         fills_gaps=True,
+        reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
     ),
     _pipeline(
         retrieve_rechtspraak,
@@ -369,6 +392,10 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_no_argv,
         fills_gaps=True,
+        # the acts already in the graph; full and nim list them at EUR-Lex, gaps reads BWB
+        reads=(
+            Reads("eurlex", COLLECTION_INSTRUMENTS, "EU", modes=("incremental", "com")),
+        ),
     ),
     _pipeline(
         retrieve_eurlex_nim,
@@ -447,6 +474,8 @@ RETRIEVE: list[Pipeline] = [
         "lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
         lane=LANE_EERSTEKAMER_SITE,
+        # those it voted on: the bill_url of its decisions
+        reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
     _pipeline(
         retrieve_echr,
@@ -493,6 +522,7 @@ NORMALIZE: list[Pipeline] = [
             "Committees, members, factions, dossiers, activities, votes, commitments and "
             "documents as nodes, with their edges."
         ),
+        after=("tk",),  # the case-to-dossier links read the cases
     ),
     _pipeline(
         TKContentNormalizePipeline,
@@ -500,6 +530,7 @@ NORMALIZE: list[Pipeline] = [
             "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
             "retrieved, on their documents."
         ),
+        after=("tk-dossiers",),  # it writes on the documents
     ),
     _pipeline(
         RechtspraakNormalizePipeline,
@@ -516,6 +547,7 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         BWBHistoryNormalizePipeline,
         "Article and instrument versions from the stored toestanden.",
+        after=("bwb",),  # the articles and instruments
     ),
     _pipeline(
         StaatsbladNormalizePipeline,
@@ -533,21 +565,25 @@ NORMALIZE: list[Pipeline] = [
         EerstekamerCompositionNormalizePipeline,
         "The factions, committees and members of the Eerste Kamer as its pages show them "
         "on the day they were read; periods as observed.",
+        after=("tk-dossiers",),  # the members it is matched to
     ),
     _pipeline(
         EerstekamerAgendaNormalizePipeline,
         "The agendas of the Eerste Kamer as activities: each block of a plenary sitting "
         "and each committee meeting, about the dossiers it names.",
+        after=("tk-dossiers", "eerstekamer-composition"),  # cases, dossiers, committees
     ),
     _pipeline(
         EerstekamerBillsNormalizePipeline,
         "The page of each bill of the Eerste Kamer onto its dossier: the day it was "
         "submitted and its progress, as the page gives them.",
+        after=("tk-dossiers",),  # the dossiers it writes on
     ),
     _pipeline(
         EerstekamerVotesNormalizePipeline,
         "The votes of the Eerste Kamer on bills as decisions about their dossiers; the "
         "day each rejected bill was rejected on its dossier.",
+        after=("tk-dossiers",),  # the dossiers it writes on
     ),
     _pipeline(
         ECHRNormalizePipeline,
@@ -558,6 +594,7 @@ NORMALIZE: list[Pipeline] = [
         "Cabinets with their phases and parties, and every post held in them onto the "
         "member who held it (surname and initials, or signatures); a holder without a "
         "Tweede Kamer person becomes a member of their own.",
+        after=("tk-dossiers",),  # members, signatures, commitments
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,

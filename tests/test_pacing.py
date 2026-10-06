@@ -292,8 +292,27 @@ def test_a_404_is_not_retried(slept) -> None:
 def lock_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(pacing, "_lock_dir", lambda: tmp_path)
     monkeypatch.setattr(pacing, "_pacers", {})
-    monkeypatch.setattr(pacing, "_host_locks", [])
+    monkeypatch.setattr(pacing, "_host_locks", {})
+    monkeypatch.setattr(pacing, "_start_releaser", lambda: None)  # the tests release
     return tmp_path
+
+
+def _held_elsewhere(lock_dir, host: str):
+    """Another process holding the lock of *host* (another open file is another holder)."""
+    import fcntl
+
+    other = (lock_dir / f"lawgraph-pacer-{host}.lock").open("w")
+    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    return other
+
+
+def _free(lock_dir, host: str) -> bool:
+    """Whether another process could take the lock of *host* now."""
+    try:
+        _held_elsewhere(lock_dir, host).close()
+    except BlockingIOError:
+        return False
+    return True
 
 
 def test_the_first_process_on_a_host_paces_it_at_the_base_interval(lock_dir) -> None:
@@ -327,3 +346,64 @@ def test_without_a_lock_directory_the_host_is_paced_as_usual(
 ) -> None:
     monkeypatch.setattr(pacing, "_lock_dir", lambda: lock_dir / "missing")
     assert pacing.pacer_for("https://repository.overheid.nl/sru").base_interval == 0.5
+
+
+REPOSITORY = "https://repository.overheid.nl/sru"
+
+
+def test_a_process_gives_the_lock_back_when_it_no_longer_asks_the_host(
+    lock_dir, clock
+) -> None:
+    pacer = pacing.pacer_for(REPOSITORY)
+    pacer.wait()
+    clock.now += pacing.RELEASE_AFTER - 1
+    assert pacing.release_idle_hosts(clock.now) == []
+    assert not _free(lock_dir, "repository.overheid.nl")
+
+    clock.now += 1
+    assert pacing.release_idle_hosts(clock.now) == ["repository.overheid.nl"]
+    assert _free(lock_dir, "repository.overheid.nl")
+    assert pacer.base_interval == 0.5  # unchanged while it asks nothing
+
+
+def test_a_process_that_gave_the_lock_back_takes_it_again_with_its_next_request(
+    lock_dir, clock
+) -> None:
+    pacer = pacing.pacer_for(REPOSITORY)
+    clock.now += pacing.RELEASE_AFTER
+    pacing.release_idle_hosts(clock.now)
+    pacer.wait()
+    assert pacer.holding and pacer.base_interval == 0.5
+    assert not _free(lock_dir, "repository.overheid.nl")
+
+
+def test_a_process_that_finds_the_lock_taken_again_goes_to_half_speed(
+    lock_dir, clock
+) -> None:
+    pacer = pacing.pacer_for(REPOSITORY)
+    clock.now += pacing.RELEASE_AFTER
+    pacing.release_idle_hosts(clock.now)
+    other = _held_elsewhere(lock_dir, "repository.overheid.nl")
+    try:
+        pacer.wait()
+    finally:
+        other.close()
+    assert not pacer.holding and pacer.base_interval == 1.0
+
+
+def test_a_process_at_half_speed_goes_back_to_full_speed_when_the_other_is_done(
+    lock_dir, clock, caplog
+) -> None:
+    other = _held_elsewhere(lock_dir, "repository.overheid.nl")
+    pacer = pacing.pacer_for(REPOSITORY)
+    assert pacer.base_interval == pacer.interval == 1.0
+    other.close()  # the other process gave it back, or ended
+
+    pacer.wait()  # tried again only every RECLAIM_EVERY seconds
+    assert pacer.base_interval == 1.0
+    clock.now += pacing.RECLAIM_EVERY
+    with caplog.at_level("INFO"):
+        pacer.wait()
+    assert pacer.holding and pacer.base_interval == 0.5 and pacer.interval == 0.5
+    assert not _free(lock_dir, "repository.overheid.nl")
+    assert any("full speed" in m for m in caplog.messages)

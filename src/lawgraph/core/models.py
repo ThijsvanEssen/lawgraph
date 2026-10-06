@@ -47,6 +47,9 @@ class PipelineResult:
     unchanged: int = 0  # written as it already was: looked up, left alone
     skipped: int = 0
     errors: list[str] = field(default_factory=list)
+    # What the counts do not say and whoever reads the table of a phase must know: work
+    # left for a next run, or work the graph gave nothing to choose from.
+    notes: list[str] = field(default_factory=list)
 
     def add_error(self, msg: str) -> None:
         self.errors.append(msg)
@@ -58,6 +61,7 @@ class PipelineResult:
             unchanged=self.unchanged + other.unchanged,
             skipped=self.skipped + other.skipped,
             errors=[*self.errors, *other.errors],
+            notes=[*self.notes, *other.notes],
         )
 
     def summary(self) -> str:

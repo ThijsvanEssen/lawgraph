@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -107,6 +108,33 @@ def test_normalize_order_puts_what_is_looked_up_first() -> None:
     assert order.index("tk") < order.index("tk-dossiers")
     # the history only adds seed instruments for the regulations bwb did not load
     assert order.index("bwb") < order.index("bwb-history")
+
+
+def test_what_a_pipeline_comes_after_is_of_its_phase_and_before_it() -> None:
+    """``after`` is what a planner waits for; registry order is what ``<phase> all`` runs."""
+    for phase in PHASES:
+        order = _order(phase)
+        for pipeline in PIPELINES[phase]:
+            for name in pipeline.after:
+                assert name in order, (pipeline.address, name)
+                if (
+                    phase != "retrieve"
+                ):  # a retrieve waits in its lane (_run_pipelines_in_lanes)
+                    assert order.index(name) < order.index(pipeline.name), (
+                        pipeline.address
+                    )
+
+
+def test_the_ordering_table_of_the_docs_is_what_normalize_comes_after() -> None:
+    """Each normalize row of the Ordering table names the normalize steps of ``after``."""
+    text = (Path(__file__).resolve().parents[1] / "docs" / "pipelines.md").read_text()
+    table = text.split("## Ordering", 1)[1].split("\n## ", 1)[0]
+    rows = re.findall(r"^\| normalize `([a-z-]+)` \| (.*) \|$", table, flags=re.M)
+    documented = {
+        name: set(re.findall(r"`normalize ([a-z-]+)`", needs)) for name, needs in rows
+    }
+    declared = {p.name: set(p.after) for p in PIPELINES["normalize"] if p.after}
+    assert documented == declared
 
 
 def test_semantic_order_puts_what_is_read_first() -> None:
