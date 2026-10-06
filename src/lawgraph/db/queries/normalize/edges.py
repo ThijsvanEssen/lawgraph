@@ -30,14 +30,13 @@ def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
     """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
     A key without a node is passed over."""
     # The edges first, then the nodes, in one statement: a node never goes without its edges.
+    # ``= ANY`` of a list on both ends: the indexes on from_id and to_id find the edges (an
+    # ``IN`` of a subquery on either end read the whole edges table for every chunk).
     statement = sql.SQL(
         """
-        WITH ids AS (
-            SELECT %(collection)s || '/' || key AS id FROM unnest(%(keys)s::text[]) AS key
-        ),
-        edges_gone AS (
+        WITH edges_gone AS (
             DELETE FROM edges e
-            WHERE e.from_id IN (SELECT id FROM ids) OR e.to_id IN (SELECT id FROM ids)
+            WHERE e.from_id = ANY(%(ids)s::text[]) OR e.to_id = ANY(%(ids)s::text[])
         )
         DELETE FROM {} n WHERE n.key = ANY(%(keys)s::text[])
         RETURNING 1
@@ -46,9 +45,8 @@ def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
     removed = 0
     for start in range(0, len(keys), _REMOVE_CHUNK):
         chunk = keys[start : start + _REMOVE_CHUNK]
-        removed += len(
-            store.execute(statement, {"keys": chunk, "collection": collection})
-        )
+        ids = [f"{collection}/{key}" for key in chunk]
+        removed += len(store.execute(statement, {"keys": chunk, "ids": ids}))
     return removed
 
 
