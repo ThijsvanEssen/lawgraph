@@ -1345,7 +1345,9 @@ uses a name before its first period keeps that name.
 
 ## Ordering
 
-`normalize all` and `semantic all` run in registry order; each row needs what is above it.
+`normalize all` and `semantic all` run in registry order; each row needs what is above it. A
+retrieve that needs a normalize step names it in the registry (`reads`), and warns when the
+graph holds none of what it chooses from.
 
 | Step | Needs |
 |------|-------|
@@ -1354,6 +1356,9 @@ uses a name before its first period keeps that name.
 | normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, the factions a party is matched to, and the commitments) and `retrieve staatscourant-posts` |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
 | retrieve `staatsblad` (from-graph) | `retrieve bwb` |
+| retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
+| retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
+| retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |

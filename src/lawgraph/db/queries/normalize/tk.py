@@ -426,7 +426,8 @@ _LAST = """coalesce(
 
 # The government signatures: the AUTHORED edges in that capacity from a Tweede Kamer person
 # (``m``, its props cut down to *fields*) to a document with a date. ``function`` null when
-# the edge has none.
+# the edge has none. Read with ``hash_joins``: the planner takes the signatures (a condition
+# on ``meta``) for a row or two and loops over them.
 _SIGNED = f"""
 tk_members AS MATERIALIZED (
     SELECT m.id, m.key, {_MEMBER_CUT} AS p
@@ -484,7 +485,7 @@ def government_signatures(store: Store) -> Iterator[dict[str, Any]]:
     """The signatures as a minister or state secretary of the Tweede Kamer persons without a
     name of their own (a minister who never sat in parliament): ``{key, name, function,
     first, last}`` per person, signed name and function, with the first and last date."""
-    return store.query(_SIGNATURES_SQL, _signature_bind())
+    return store.query(_SIGNATURES_SQL, _signature_bind(), hash_joins=True)
 
 
 # ``month``: the first seven characters of the date, of the text of a date of another type
@@ -505,7 +506,7 @@ ORDER BY x.key ASC, {_json_keys("x.function::json")}, x.month ASC NULLS FIRST
 def government_signatures_by_month(store: Store) -> Iterator[dict[str, Any]]:
     """The signatures as a minister or state secretary of every Tweede Kamer person:
     ``{key, function, first, last}`` per person, function and month."""
-    return store.query(_BY_MONTH_SQL, _signature_bind())
+    return store.query(_BY_MONTH_SQL, _signature_bind(), hash_joins=True)
 
 
 def labelled_members(store: Store, label: str) -> Iterator[str]:

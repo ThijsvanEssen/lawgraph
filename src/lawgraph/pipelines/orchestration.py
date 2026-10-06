@@ -1,9 +1,9 @@
 """The ``<phase> all`` commands: every pipeline of a phase, in registry order.
 
 ``run_pipeline`` runs one pipeline of the registry through ``command.run_command``,
-``run_pipelines`` a list of them (side by side in lanes for retrieve) with the table of how
-each ended, and ``_run_phase`` all pipelines of a phase, keeping the mark of ``--since
-last``. The three commands at the end are what ``lawgraph <phase> all`` runs.
+``run_pipelines`` a list of them (side by side in lanes for retrieve), with a line as each
+ends and the table of how each ended, and ``_run_phase`` all pipelines of a phase, keeping
+the mark of ``--since last``. The three commands at the end are what ``lawgraph <phase> all`` runs.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from lawgraph.config.settings import skip_step, skip_variable
-from lawgraph.core.logging import get_logger, log_step
+from lawgraph.core.logging import current_step, get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import GraphStore
@@ -53,6 +53,51 @@ def run_pipeline(pipeline: Pipeline, argv: list[str]) -> Outcome:
 ArgvOf = Callable[[Pipeline], list[str]]  # the options a pipeline gets in this run
 
 
+class _Tally:
+    """Runs the pipelines of one run and says of each, as it ends, how it ended and how far
+    the run is: the table comes at the end of the run, which may be days away."""
+
+    def __init__(self, pipelines: list[Pipeline]) -> None:
+        self.total = len(pipelines)
+        self.ended = 0
+        self.running: list[str] = []
+        self.step = current_step()  # of the run: a thread of a lane has none of its own
+        self._lock = threading.Lock()
+
+    def run(self, pipeline: Pipeline, argv: list[str]) -> Outcome:
+        with self._lock:
+            self.running.append(pipeline.address)
+        try:
+            outcome = run_pipeline(pipeline, argv)
+        finally:
+            with self._lock:
+                self.running.remove(pipeline.address)
+        with self._lock:
+            self.ended += 1
+            running = f"; running: {', '.join(self.running)}" if self.running else ""
+            with log_step(self.step):
+                logger.info(
+                    "%d of %d ended: %s %s%s.",
+                    self.ended,
+                    self.total,
+                    outcome.label,
+                    _how_it_ended(outcome),
+                    running,
+                )
+        return outcome
+
+
+def _how_it_ended(outcome: Outcome) -> str:
+    """``ok in 2h 03m, 1,234 created (a note)``."""
+    if outcome.state is State.SKIPPED:
+        return "skipped"
+    notes = "; ".join(outcome.result.notes)
+    return (
+        f"{outcome.state.value} in {format_duration(outcome.seconds)}, "
+        f"{outcome.result.summary()}{f' ({notes})' if notes else ''}"
+    )
+
+
 def _run_pipelines_in_lanes(
     pipelines: list[Pipeline], argv_of: ArgvOf, jobs: int
 ) -> list[Outcome]:
@@ -68,6 +113,7 @@ def _run_pipelines_in_lanes(
         lanes.setdefault(pipeline.lane_id, []).append(pipeline)
     ended = {pipeline.name: threading.Event() for pipeline in pipelines}
     places = threading.Semaphore(jobs)
+    tally = _Tally(pipelines)
 
     def run_lane(lane: list[Pipeline]) -> list[Outcome]:
         outcomes = []
@@ -80,7 +126,7 @@ def _run_pipelines_in_lanes(
                     ended[name].wait()
             try:
                 with places:
-                    outcomes.append(run_pipeline(pipeline, argv_of(pipeline)))
+                    outcomes.append(tally.run(pipeline, argv_of(pipeline)))
             finally:
                 ended[pipeline.name].set()
         return outcomes
@@ -117,8 +163,9 @@ def run_pipelines(
         outcomes = _run_pipelines_in_lanes(pipelines, argv_of, jobs)
     else:
         outcomes = []
+        tally = _Tally(pipelines)
         for pipeline in pipelines:
-            outcomes.append(run_pipeline(pipeline, argv_of(pipeline)))
+            outcomes.append(tally.run(pipeline, argv_of(pipeline)))
             if strict and outcomes[-1].state is State.FAILED:
                 logger.error("Stopping after '%s' (--strict).", pipeline.address)
                 break
@@ -129,7 +176,14 @@ def run_pipelines(
             if outcome.state is not State.SKIPPED
             else ""
         )
-        logger.info("  %-32s %8s  %s", outcome.label, took, outcome.state.value)
+        notes = "; ".join(outcome.result.notes)
+        logger.info(
+            "  %-32s %8s  %s%s",
+            outcome.label,
+            took,
+            outcome.state.value,
+            f"  ({notes})" if notes else "",
+        )
     return outcomes
 
 
