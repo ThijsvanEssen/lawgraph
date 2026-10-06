@@ -204,6 +204,9 @@ class Pipeline:
     # Retrieve only: the nodes of a normalize pipeline it chooses its work from (not what
     # another retrieve stored: that is ``after``); its command warns when there are none.
     reads: tuple[Reads, ...] = ()
+    # Normalize only: the retrieve pipelines whose raw records it reads besides the one of its
+    # own name (``normalize bwb`` also reads the TOOI thesaurus of ``retrieve tooi``).
+    fed_by: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -257,6 +260,7 @@ def _pipeline(
     after: tuple[str, ...] = (),
     fills_gaps: bool = False,
     reads: tuple[Reads, ...] = (),
+    fed_by: tuple[str, ...] = (),
 ) -> Pipeline:
     """Register a pipeline class, a ``PipelineCommand`` or a hand-written command."""
     cls = runs.pipeline_cls if isinstance(runs, PipelineCommand) else runs
@@ -287,6 +291,7 @@ def _pipeline(
         after,
         fills_gaps,
         reads,
+        fed_by,
     )
 
 
@@ -543,6 +548,7 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         BWBNormalizePipeline,
         "Instruments and articles; short titles and aliases from the WTI abbreviations.",
+        fed_by=("tooi",),  # the subjects of the TOOI thesaurus
     ),
     _pipeline(
         BWBHistoryNormalizePipeline,
@@ -595,6 +601,7 @@ NORMALIZE: list[Pipeline] = [
         "member who held it (surname and initials, or signatures); a holder without a "
         "Tweede Kamer person becomes a member of their own.",
         after=("tk-dossiers",),  # members, signatures, commitments
+        fed_by=("staatscourant-posts",),  # the ministries of the posts that name none
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,

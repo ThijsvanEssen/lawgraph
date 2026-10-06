@@ -58,3 +58,13 @@ def set_state(store: Any, key: str, doc: dict[str, Any] | None) -> None:
         """,
         {"key": key, "doc": Json(doc)},
     )
+
+
+def states_starting_with(store: Any, prefix: str) -> dict[str, dict[str, Any]]:
+    """Every document kept under a key that starts with *prefix*, by key."""
+    rows = store.query(
+        f"SELECT key, doc FROM {COLLECTION_PIPELINE_STATE} "
+        "WHERE starts_with(key, %(prefix)s)",
+        {"prefix": prefix},
+    )
+    return {row["key"]: dict(row["doc"]) for row in rows}

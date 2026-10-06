@@ -1347,7 +1347,10 @@ uses a name before its first period keeps that name.
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it. A
 retrieve that needs a normalize step names it in the registry (`reads`), and warns when the
-graph holds none of what it chooses from.
+graph holds none of what it chooses from. A normalize step reads the raw records of the
+retrieve of its own name, and of those its `fed_by` names: `normalize bwb` also the TOOI
+thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscourant-posts`.
+`lawgraph bootstrap --plan` shows every step of a build with what it waits for.
 
 | Step | Needs |
 |------|-------|
