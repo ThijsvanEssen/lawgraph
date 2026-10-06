@@ -81,13 +81,13 @@ class _Tally:
                     self.ended,
                     self.total,
                     outcome.label,
-                    _how_it_ended(outcome),
+                    how_it_ended(outcome),
                     running,
                 )
         return outcome
 
 
-def _how_it_ended(outcome: Outcome) -> str:
+def how_it_ended(outcome: Outcome) -> str:
     """``ok in 2h 03m, 1,234 created (a note)``."""
     if outcome.state is State.SKIPPED:
         return "skipped"

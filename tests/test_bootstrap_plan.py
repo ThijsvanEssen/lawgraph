@@ -33,7 +33,8 @@ def test_every_pipeline_is_a_step_once_and_the_build_ends_with_a_check(plan) -> 
     labels = [step.label for step in plan.steps]
     every = [p.address for phase in PIPELINES.values() for p in phase]
     assert sorted(labels) == sorted(
-        [a for a in every if a not in plan.left_out] + ["expand-graph", "check"]
+        [a for a in every if a not in plan.left_out]
+        + [bp.ANALYZE, "expand-graph", "check"]
     )
     assert labels[-2:] == ["expand-graph", "check"]
 
@@ -93,11 +94,11 @@ def test_a_normalize_waits_for_its_retrieve_what_feeds_it_and_what_it_comes_afte
 def test_the_semantic_phase_comes_after_everything_and_in_registry_order(plan) -> None:
     semantic = [s for s in plan.steps if s.label.startswith("semantic ")]
     assert [s.label for s in semantic] == [p.address for p in PIPELINES["semantic"]]
-    first_after = set(semantic[0].after)
-    assert {s.label for s in plan.steps if s.label.split()[0] != "semantic"} - {
-        "expand-graph",
-        "check",
-    } == first_after
+    # analyze waits for every retrieve and normalize step, the semantic phase for analyze
+    assert set(_step(plan, bp.ANALYZE).after) == {
+        s.label for s in plan.steps if s.label.split()[0] in ("retrieve", "normalize")
+    }
+    assert semantic[0].after == (bp.ANALYZE,)
     for before, step in zip(semantic, semantic[1:], strict=False):
         assert step.after == (before.label,)
     assert _step(plan, "expand-graph").after == (semantic[-1].label,)

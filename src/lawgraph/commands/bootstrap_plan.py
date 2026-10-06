@@ -10,9 +10,10 @@ that runs one step at a time: every normalize and semantic pipeline, ``expand-gr
   names (``retrieve tk-content`` after ``normalize tk-dossiers``);
 * a normalize for the retrieve of its own name and of its ``fed_by``, and for the normalize
   steps of its ``after``;
-* the first semantic step for every retrieve and normalize step, each next one for the one
-  before it (the semantic phase reads raw records too); ``expand-graph`` for the last of them
-  and ``check`` for ``expand-graph``.
+* ``analyze`` (``VACUUM (ANALYZE)``, as ``normalize all`` ends, so the planner knows the
+  tables the semantic phase reads) for every retrieve and normalize step;
+* the first semantic step for ``analyze``, each next one for the one before it;
+  ``expand-graph`` for the last of them and ``check`` for ``expand-graph``.
 
 A retrieve that chooses its work from what its own normalize step makes of it (``retrieve
 eurlex``: the acts already in the graph) has nothing to choose from in a build and is left
@@ -32,12 +33,15 @@ from typing import Any
 
 from lawgraph.commands.check import main as check_main
 from lawgraph.commands.expand_graph import main as expand_graph
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import state as state_queries
 from lawgraph.pipelines.command import Command
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
 WRITE_LANE = "graph"  # the lane of every step that writes the graph
+ANALYZE = "analyze"
 MARK_PREFIX = "bootstrap "
 DEFAULT_MAX_EXPAND = 5
 
@@ -102,7 +106,10 @@ def make_plan(
         )
         for n in normalize.values()
     ]
-    previous = tuple(step.label for step in steps)
+    steps.append(
+        Step(ANALYZE, WRITE_LANE, analyze, after=tuple(step.label for step in steps))
+    )
+    previous: tuple[str, ...] = (ANALYZE,)
     for pipeline in PIPELINES["semantic"]:
         steps.append(
             Step(pipeline.address, WRITE_LANE, pipeline.command, after=previous)
@@ -119,6 +126,12 @@ def make_plan(
     )
     steps.append(Step("check", WRITE_LANE, check_main, after=("expand-graph",)))
     return Plan(window, since, steps, left_out)
+
+
+def analyze(argv: list[str] | None = None) -> PipelineResult:
+    """``VACUUM (ANALYZE)``: what normalize wrote, known to the planner of the semantic phase."""
+    GraphStore().vacuum_analyze()
+    return PipelineResult()
 
 
 def _reads(pipeline: Pipeline, ctx: RetrieveCtx) -> list[str]:

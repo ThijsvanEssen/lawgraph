@@ -69,7 +69,7 @@ own address. The commands outside the phases are sequences of them or reports:
 
 | Command | What it is |
 |---------|------------|
-| `bootstrap` | `retrieve all --mode full`, `normalize all`, `semantic all`, `expand-graph` |
+| `bootstrap` | the steps of a build (`commands/bootstrap_plan.py`): the retrieves of a full load in a lane per server, normalize and semantic in one write lane as soon as what each reads is there, `expand-graph`, `check`; marked per step |
 | `expand-graph` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>`, `semantic all --since <round>`, then one full `semantic all` |
 | `check` | reads only: is the database what the pipelines should have made of the sources? |
 | `gaps` | reads only: what a gaps run would fetch |
