@@ -318,3 +318,17 @@ def dossiers_missing_papers(store: Store) -> list[str]:
         """
     )
     return list(rows)
+
+
+def holds_label(store: Store, collection: str, label: str) -> bool:
+    """Whether *collection* holds a node with *label* (``documents``, ``TK``): whether the
+    normalize pipeline that writes them has run."""
+    return bool(
+        next(
+            store.query(
+                f"SELECT EXISTS (SELECT 1 FROM {collection} "
+                "WHERE labels @> ARRAY[%(label)s]::text[])",
+                {"label": label},
+            )
+        )
+    )

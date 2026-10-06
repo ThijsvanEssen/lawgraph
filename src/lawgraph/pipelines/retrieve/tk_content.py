@@ -94,7 +94,8 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
             list(kinds),
             " — DRY RUN" if dry_run else "",
         )
-        return self._store_all(self._fetch_papers(papers, dry_run), what="papers")
+        result = self._store_all(self._fetch_papers(papers, dry_run), what="papers")
+        return _gaps.noted(result, papers)
 
     def _fetch_papers(
         self, papers: list[dict[str, Any]], dry_run: bool
