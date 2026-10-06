@@ -269,7 +269,10 @@ per host, with the number of HTTP 429/503 answers since the last one; the retrie
 are logged at `DEBUG`. The pacer is shared inside one process. The first process that reaches a
 host holds a lock file for it (in `~/.cache/lawgraph`); a second `lawgraph` process finds
 it taken, says so once and paces that host at half speed, so two commands started side by
-side stay under the limit together.
+side stay under the limit together. The lock goes with the use: a process gives it back after
+five minutes without a request to that host (a `retrieve all` whose sources on that host are
+done), and a process at half speed tries to take it every minute and goes back to full speed
+when it can.
 
 **Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
 `external`: compose uses it and cannot remove it. Create it once
