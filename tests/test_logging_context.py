@@ -196,3 +196,62 @@ def test_the_start_line_ends_with_one_full_stop(lines) -> None:
         "normalize tk", lambda argv: PipelineResult(), [], description="Cases as nodes."
     )
     assert lines()[0].endswith("Starting: Cases as nodes.")
+
+
+# ── how far a run is, as each pipeline ends ──────────────────────────────────
+
+
+def _pipeline(
+    phase: str, name: str, result: PipelineResult, lane: str = ""
+) -> Pipeline:
+    return Pipeline(phase, name, None, lambda argv: result, "", None, lane)  # type: ignore[arg-type]
+
+
+def test_each_pipeline_that_ends_is_said_under_the_run(lines, monkeypatch) -> None:
+    monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_ECHR", "true")
+    pipelines = [
+        _pipeline("normalize", "tk", PipelineResult(created=1234)),
+        _pipeline("normalize", "echr", PipelineResult()),
+    ]
+    with lg.log_step("normalize all"):
+        run_pipelines(pipelines, lambda p: [])
+    said = [line for line in lines() if " ended: " in line]
+    assert len(said) == 2
+    assert "[normalize all]" in said[0]
+    assert said[0].endswith("1 of 2 ended: normalize tk ok in 0s, 1,234 created.")
+    assert said[1].endswith("2 of 2 ended: normalize echr skipped.")
+
+
+def test_a_line_names_the_notes_and_what_is_still_running(lines) -> None:
+    slow_may_end = threading.Event()
+
+    def slow(argv: list[str]) -> PipelineResult:
+        slow_may_end.wait(timeout=5)
+        return PipelineResult()
+
+    def fast(argv: list[str]) -> PipelineResult:
+        return PipelineResult(
+            created=2, notes=["50,000 of 60,000 x, again for the rest"]
+        )
+
+    def fast_then_release(argv: list[str]) -> PipelineResult:
+        try:
+            return fast(argv)
+        finally:
+            threading.Timer(0.2, slow_may_end.set).start()
+
+    pipelines = [
+        Pipeline("retrieve", "rechtspraak", None, slow, "", None, "a"),
+        Pipeline("retrieve", "tk", None, fast_then_release, "", None, "b"),
+    ]
+    with lg.log_step("retrieve all"):
+        run_pipelines(pipelines, lambda p: [], jobs=2)
+    said = [line for line in lines() if " ended: " in line]
+    assert "[retrieve all]" in said[0]  # said from the thread of a lane
+    assert said[0].endswith(
+        "1 of 2 ended: retrieve tk ok in 0s, 2 created "
+        "(50,000 of 60,000 x, again for the rest); running: retrieve rechtspraak."
+    )
+    assert said[1].endswith(
+        "2 of 2 ended: retrieve rechtspraak ok in 0s, nothing to do."
+    )
