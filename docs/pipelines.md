@@ -1365,6 +1365,9 @@ graph holds none of what it chooses from.
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
+| normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
+| normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
+| normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
