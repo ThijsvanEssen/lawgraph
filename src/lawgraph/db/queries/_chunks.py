@@ -27,7 +27,9 @@ def delete_keys(
         "DELETE FROM {} WHERE key = ANY(%(keys)s::text[]) RETURNING 1"
     ).format(sql.Identifier(table))
     removed = 0
-    for keys in chunked(store.query(select_keys, bind), CHUNK):
+    # hash_joins: *select_keys* is an anti-join of a table with a list of keys, which the
+    # planner takes for a row or two and tests the whole list against per row
+    for keys in chunked(store.query(select_keys, bind, hash_joins=True), CHUNK):
         removed += len(store.execute(statement, {"keys": keys}))
     return removed
 
