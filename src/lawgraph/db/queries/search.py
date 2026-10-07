@@ -13,10 +13,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, cast
+from typing import Any
 
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
-from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import GraphStore
@@ -24,8 +23,7 @@ from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
-
-_law_cache: TTLCache[str, Any] = TTLCache(maxsize=4, ttl=60.0)
+from lawgraph.db.version_cache import cached
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -123,14 +121,13 @@ def tokenize_search_query(q: str) -> list[str]:
 
 
 def load_code_aliases(store: GraphStore) -> dict[str, str]:
-    """Law abbreviation (``Sr``, ``AVG``) → BWB id or CELEX number, cached for 60 s
-    (``core.aliases.code_aliases``)."""
-    cached = _law_cache.get("codes")
-    if cached is not _MISSING:
-        return cast(dict[str, str], cached)
-    codes = code_aliases(code_alias_rows(store), curated_abbreviations())
-    _law_cache.set("codes", codes)
-    return codes
+    """Law abbreviation (``Sr``, ``AVG``) → BWB id or CELEX number
+    (``core.aliases.code_aliases``), kept per data version."""
+    return cached(
+        store,
+        ("code-aliases",),
+        lambda: code_aliases(code_alias_rows(store), curated_abbreviations()),
+    )
 
 
 def _load_law_names(store: GraphStore) -> dict[str, list[str]]:
@@ -158,17 +155,19 @@ def _load_law_names(store: GraphStore) -> dict[str, list[str]]:
 
 
 def load_notation_parser(store: GraphStore) -> NotationParser:
-    """The parser of typed citations over the laws in the graph, cached for 60 s.
-
-    Every search and every resolve shares one read of the instruments per minute instead of
-    issuing one per request.
-    """
-    cached = _law_cache.get("parser")
-    if cached is not _MISSING:
-        return cast(NotationParser, cached)
-    parser = NotationParser(load_code_aliases(store), _load_law_names(store))
-    _law_cache.set("parser", parser)
-    return parser
+    """The parser of typed citations over the laws in the graph, kept per data version:
+    it reads every instrument (134,000 on the full graph), once for every search and
+    resolve until the data changes, and once while many ask (``version_cache``)."""
+    return cached(
+        store,
+        ("notation-parser",),
+        # the aliases computed here, not through ``load_code_aliases``: a computation of
+        # the cache does not wait for another one (they share a pool)
+        lambda: NotationParser(
+            code_aliases(code_alias_rows(store), curated_abbreviations()),
+            _load_law_names(store),
+        ),
+    )
 
 
 # ── Per-type search helpers ───────────────────────────────────────────────────

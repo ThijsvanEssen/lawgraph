@@ -333,8 +333,10 @@ def get_judgments_list(
     sort: str = "date_desc",
     limit: int = 50,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """Paginated, filterable list of judgments, with facets.
+    """Paginated, filterable list of judgments, with facets (``facets=False``: the page and
+    the total alone, ``facets`` None).
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
@@ -358,7 +360,9 @@ def get_judgments_list(
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)
     if exact is not None:
-        found = get_judgments_list(store, exact, sort=sort, limit=limit, offset=offset)
+        found = get_judgments_list(
+            store, exact, sort=sort, limit=limit, offset=offset, facets=facets
+        )
         if found["total"]:
             return found
     tokens = tokenize_search_query(filters.q) if filters.q else []
@@ -428,18 +432,23 @@ def get_judgments_list(
         )
 
     filtered = [*names, *(["search"] if search else [])]
+    if not facets:
+        page, total = run_together(
+            items, lambda: _total(store, filtered, where(), params)
+        )
+        return {"total": total, "items": page, "facets": None}
     answers: list[Any] = run_together(
         items,
         *(facet(name) for name in _FACETS),
         narrower,
         lambda: _total(store, filtered, where(), params),
     )
-    facets = dict(zip(_FACETS, answers[1:-2], strict=True))
-    facets["subject_area"] = _with_narrower(facets["subject_area"], answers[-2])
+    counted = dict(zip(_FACETS, answers[1:-2], strict=True))
+    counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
     result: dict[str, Any] = {
         "total": answers[-1],
         "items": answers[0],
-        "facets": facets,
+        "facets": counted,
     }
     return result
 

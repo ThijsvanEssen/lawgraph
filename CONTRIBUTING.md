@@ -2,73 +2,66 @@
 
 ## Setup
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env                 # set LAWGRAPH_DB_PASSWORD
-docker volume create lawgraph_pgdata # once
-docker compose up -d postgres        # the database itself is created on first use
-```
+As in the README's "Quick start": a virtualenv with `pip install -e ".[dev]"`, a `.env` with
+`LAWGRAPH_DB_PASSWORD`, and the development server of `docker-compose.yml`.
 
 ## Checks
 
 ```bash
-pytest tests -q                      # unit suite: fake stores, no database, a few seconds
+pytest tests -q                      # unit suite: no database, a few seconds
 ruff check src tests
 ruff format --check src tests
 mypy src
-pre-commit run --all-files           # ruff --fix, ruff format, whitespace and YAML checks
+pre-commit run --all-files           # the hooks of .pre-commit-config.yaml
 ```
 
-Pull requests run the same checks in CI. Fix all findings before pushing.
-
-**Integration tests** (`tests/integration/`) run the real code and the real CLI against a
-second, deliberately small PostgreSQL — the unit suite above never executes a query, so what only
-a server shows (a result built in its memory, a cursor that is killed, a run restarted midway)
-stays invisible there. They need their own database, never the one `.env` points at:
+The unit suite never runs a query. What only a server shows (a result built in its memory, a
+cursor that is killed, a run restarted halfway) is tested in `tests/pg/` and
+`tests/integration/`, against the small test server of `docker-compose.test.yml`, never the
+database of `.env`:
 
 ```bash
-docker compose -f docker-compose.test.yml up -d
-ALLOW_DB_TESTS=1 pytest tests/pg tests/integration   # some minutes, one file at a time on a small machine
+docker compose -f docker-compose.test.yml up -d postgres-test
+ALLOW_DB_TESTS=1 pytest tests/pg tests/integration   # some minutes
 docker compose -f docker-compose.test.yml down
 ```
 
-`tests/pg/test_sql_validity.py` (with `ALLOW_DB_TESTS=1`) asks a real PostgreSQL to plan every
-static SQL statement in `src/lawgraph`, in a scratch database of its own, so a statement the
-server rejects (a function it does not know, a column that is not there) fails here instead of in
-a real run.
+`tests/pg/test_sql_validity.py` asks the server to plan every static SQL statement in
+`src/lawgraph`, so a statement it rejects fails there instead of in a real run. What `seed.py`
+can build, and at which scale: `docs/operations.md`, "Tests and CI".
 
-Details, including what `seed.py` can build and at what scale: `docs/operations.md`,
-"Tests and CI".
+CI runs the unit suite and mypy on Python 3.11 and 3.14 for every push. For a pull request,
+and on `develop` and `main`, it also runs `tests/pg` and `tests/integration` against
+PostgreSQL 18. Fix every finding before you push.
 
-When a real run shows a problem the unit suite could not have caught, reproduce it here first —
-as a failing integration test on the small server — before fixing it; small data on a small
-server fails the way the real corpus does on the real one. Do not substitute a database-free
-benchmark or a sampled measurement for that reproduction.
+When a real run shows a problem the unit suite could not catch, first reproduce it as a failing
+integration test on the test server, then fix it. Small data on a small server fails the way the
+real corpus does on the real one; a measurement without a database does not replace that test.
 
 ## Conventions
 
-- Python 3.11+, type annotations on all code.
-- Keys come from `make_node_key()` (`lawgraph.core.models`); re-running a pipeline must
-  produce the same keys and upsert, never duplicate.
+- Python 3.11+, with type annotations everywhere.
+- Keys come from `make_node_key()` (`lawgraph.core.models`). Running a pipeline again gives the
+  same keys and upserts; it never duplicates.
 - Collection names, relation names and source ids are constants in
-  `src/lawgraph/config/constants.py`, also inside AQL. Only
-  `src/lawgraph/config/settings.py` reads the environment; a new variable also goes into
-  `.env.example` and `docs/operations.md`.
-- A command ends through `run_command` (`pipelines/command.py`) so that exit codes stay uniform;
-  the one date option is `--since`, offered only where the pipeline filters on it.
-- New relation names go into `src/lawgraph/core/relations.py`; regenerate the tables in
-  `docs/data-model.md` with `python -m lawgraph.core.relations`.
-- Pipelines follow the naming rule, return a `PipelineResult` from `run()`, write in bulk
-  (`NodeWriter`, `EdgeWriter`, `existing_keys`) and are registered in
-  `src/lawgraph/sources/registry.py`. Details: `docs/architecture.md`.
-- Pure logic (text in, hits out) lives in `core/` or in a detector module without store
+  `src/lawgraph/config/constants.py`. Only `src/lawgraph/config/settings.py` reads the
+  environment; a new variable also goes into `.env.example` and `docs/operations.md`.
+- SQL lives in `src/lawgraph/db/` only.
+- A command runs through `run_command` (`pipelines/command.py`), so exit codes are the same
+  everywhere. A pipeline offers `--since` only where it filters on it.
+- A new relation goes into `src/lawgraph/core/relations.py`; `python -m lawgraph.core.relations`
+  regenerates its tables in `docs/data-model.md`.
+- A pipeline follows the naming rule, returns a `PipelineResult` from `run()`, writes in bulk
+  (`NodeWriter`, `EdgeWriter`, `existing_keys`) and is registered in
+  `src/lawgraph/sources/registry.py` (`docs/architecture.md`).
+- Logic without I/O (text in, hits out) lives in `core/` or in a detector module without store
   access, and is tested without fakes. `api/` and `pipelines/` never import each other.
 - McCabe complexity at most 15 (ruff C901).
 - Log with `get_logger(__name__)`; no `print()` in library code.
-- Test with small real fixtures where a source has structure (`tests/fixtures/`).
+- Where a source has structure, test with small real fixtures (`tests/fixtures/`).
 
 ## Branches and pull requests
 
-Work on a feature branch and open a pull request against `develop`. Describe which
-pipelines and sources are affected. `main` receives release merges only; do not force-push it.
+Work on a feature branch and open a pull request against `develop`; say which sources and
+pipelines it touches. `main` receives release merges only. A push to `release` deploys to the
+server (`docs/operations.md`, "Deploy"): never push there by hand, and never force-push `main`.

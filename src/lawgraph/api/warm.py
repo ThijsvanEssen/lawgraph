@@ -14,26 +14,50 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.documents import list_documents
+from lawgraph.db.queries.feed import FEED_KINDS, FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+from lawgraph.db.queries.search import load_code_aliases, load_notation_parser
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)
 
 
+# The data version the last warm-up was done for (``/api/health`` says whether it is the
+# current one).
+_warmed: str | None = None
+
+
+def is_warm(store: GraphStore) -> bool:
+    """Whether the warm-up is done for the data as it is now."""
+    return _warmed is not None and _warmed == store.data_version()
+
+
 def warm_up(store: GraphStore) -> None:
     """Compute what every visitor asks: each part on its own, so one that fails leaves the
-    others."""
+    others; then the version it was done for is kept (``is_warm``)."""
+    global _warmed
+    version = store.data_version()
     parts: dict[str, Callable[[], object]] = {
-        "stats": lambda: stats_data(store),
-        "coverage": lambda: coverage_data(store),
+        # what the first visitors ask first: the lists and the search
         "judgments": lambda: get_judgments_list(store, JudgmentFilters(), limit=20),
-        "instruments": lambda: get_instruments_list(store, limit=20),
-        "documents": lambda: list_documents(store, limit=20),
-        "heat": lambda: heat_counts(store),
+        "search notation": lambda: load_notation_parser(store),
+        "search codes": lambda: load_code_aliases(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
+        },
+        "feed": lambda: get_feed(store, FeedFilters(), limit=50),
+        "instruments": lambda: get_instruments_list(store, limit=20),
+        "documents": lambda: list_documents(store, limit=20),
+        "stats": lambda: stats_data(store),
+        "coverage": lambda: coverage_data(store),
+        "heat": lambda: heat_counts(store),
+        **{
+            f"feed {kind}": partial(
+                get_feed, store, FeedFilters(kinds=(kind,)), limit=50
+            )
+            for kind in FEED_KINDS
         },
     }
     for name, part in parts.items():
@@ -43,4 +67,5 @@ def warm_up(store: GraphStore) -> None:
             logger.warning(
                 "Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc
             )
+    _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))

@@ -43,7 +43,12 @@ _ARTICLE_CITATION_RELATIONS = [
 
 
 def get_heat_counts(
-    store: GraphStore, *, months: int = 6, min_count: int = 1
+    store: GraphStore,
+    *,
+    months: int = 6,
+    min_count: int = 1,
+    ids: list[str] | None = None,
+    limit: int | None = None,
 ) -> dict[str, int]:
     """Return a map of node_id → activity count.
 
@@ -53,14 +58,31 @@ def get_heat_counts(
     - Citation activity: edges pointing at an article (they carry no created_at
       timestamp, so they always count as a supplemental article-layer signal).
 
-    ``min_count`` filters the long tail server-side. The corpus has ~46K
-    nodes with count ≥ 1 but only ~20K with count ≥ 5 — bumping the
-    threshold halves response size without affecting the visible heat
-    overlay (low-count halos are barely perceptible anyway).
+    ``min_count`` filters the long tail server-side. With *ids* only those nodes are
+    counted, through the index on ``to_id``: what a view of the graph draws (the whole
+    graph holds 1.85 million nodes with a count). Without, *limit* keeps the nodes with
+    the highest counts (the key settles ties).
     """
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30 * months)
     ).isoformat()
+    if ids is not None:
+        rows = store.query(
+            """
+            SELECT e.to_id AS id,
+                   (count(*) FILTER (WHERE e.created_at >= %(cutoff)s)
+                    + count(*) FILTER (WHERE e.relation = ANY(%(relations)s)
+                                         AND e.to_collection = 'articles'))::int AS count
+            FROM edges e
+            WHERE e.to_id = ANY(%(ids)s::text[])
+            GROUP BY e.to_id
+            ORDER BY e.to_id
+            """,
+            {"cutoff": cutoff, "relations": _ARTICLE_CITATION_RELATIONS, "ids": ids},
+        )
+        return {
+            row["id"]: row["count"] for row in rows if row["count"] >= max(min_count, 1)
+        }
     recent = store.query(
         """
         SELECT to_id AS id, count(*)::int AS count FROM edges
@@ -84,5 +106,8 @@ def get_heat_counts(
         result[row["id"]] = result.get(row["id"], 0) + row["count"]
 
     if min_count > 1:
-        return {k: v for k, v in result.items() if v >= min_count}
+        result = {k: v for k, v in result.items() if v >= min_count}
+    if limit is not None and len(result) > limit:
+        kept = sorted(result.items(), key=lambda item: (-item[1], item[0]))[:limit]
+        result = dict(sorted(kept))
     return result

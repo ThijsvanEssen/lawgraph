@@ -35,7 +35,13 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.base import STOP
-from lawgraph.pipelines.command import Outcome, State, combined_result, run_command
+from lawgraph.pipelines.command import (
+    Outcome,
+    State,
+    combined_result,
+    command_parser,
+    run_command,
+)
 from lawgraph.pipelines.orchestration import (
     DEFAULT_RETRIEVE_JOBS,
     DEFAULT_WINDOW,
@@ -92,7 +98,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Fill an empty LawGraph database.")
+    parser = command_parser(description="Fill an empty LawGraph database.")
     parser.add_argument(
         "--window",
         default=DEFAULT_WINDOW,

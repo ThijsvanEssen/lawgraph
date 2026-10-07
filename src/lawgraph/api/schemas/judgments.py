@@ -564,4 +564,5 @@ class JudgmentListResponse(BaseModel):
 
     items: list[JudgmentListItemDTO]
     total: int
-    facets: JudgmentFacets = Field(default_factory=JudgmentFacets)
+    # null when asked for without them (``facets=false``)
+    facets: JudgmentFacets | None = Field(default_factory=JudgmentFacets)

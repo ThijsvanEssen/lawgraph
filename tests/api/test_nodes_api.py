@@ -181,3 +181,11 @@ def test_the_type_of_a_neighbor_collection_is_read_from_the_collection():
     assert node_type_of("article_versions") == "article_version"
     assert node_type_of("annexes") == "annex"
     assert node_type_of("unknown") == ""
+
+
+def test_heat_names_at_most_500_nodes() -> None:
+    from lawgraph.api.routes.nodes import HEAT_MAX_IDS
+
+    ids = ",".join(f"articles/a{n}" for n in range(HEAT_MAX_IDS + 1))
+    response = TestClient(app).get("/api/nodes/heat", params={"ids": ids})
+    assert response.status_code == 422
