@@ -6,7 +6,7 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Any
 
 import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -37,6 +37,7 @@ from lawgraph.api.routes import (
     search,
     stats,
 )
+from lawgraph.api.schemas.health import HealthDTO
 from lawgraph.config.settings import (
     API_ALLOWED_ORIGINS,
     API_HOST,
@@ -366,30 +367,30 @@ async def root() -> dict[str, str]:
     return {"name": "lawgraph-api", "version": app.version}
 
 
-@app.get("/api/health", tags=["root"])
+@app.get("/api/health", tags=["root"], response_model=HealthDTO)
 async def health(
     store: Annotated[GraphStore, Depends(get_store)],
-) -> dict[str, str | bool | None]:
+) -> HealthDTO:
     """Health check — verifies database connectivity. ``warm``: the answers every visitor
     asks are computed for the data as it is now (null when the API does not warm up); a
     deploy waits for true before its smoke test. ``warm_version`` the data version they
     were last computed for (the answers a request gets while a newer one computes, null
     before the first warm-up), ``data_version`` the version now, ``computing`` whether a
-    warm-up or an answer of a newer version is being computed."""
+    warm-up or an answer of a newer version is being computed. ``pools``: per connection
+    pool its size, the free connections and the reads waiting for one."""
     try:
         store.ping()
-        if not API_WARM_UP:
-            return {"status": "ok", "database": "connected", "warm": None}
-        from lawgraph.api.warm import is_warm, warmed_version
+        answer: dict[str, Any] = {"status": "ok", "database": "connected", "warm": None}
+        if API_WARM_UP:
+            from lawgraph.api.warm import is_warm, warmed_version
 
-        return {
-            "status": "ok",
-            "database": "connected",
-            "warm": is_warm(store),
-            "warm_version": warmed_version(),
-            "data_version": store.data_version(),
-            "computing": version_cache.computing(store),
-        }
+            answer |= {
+                "warm": is_warm(store),
+                "warm_version": warmed_version(),
+                "data_version": store.data_version(),
+                "computing": version_cache.computing(store),
+            }
+        return HealthDTO.model_validate(answer | {"pools": store.pool_usage()})
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"

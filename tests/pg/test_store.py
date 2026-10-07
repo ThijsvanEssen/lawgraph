@@ -338,3 +338,22 @@ def test_a_read_in_the_background_has_connections_of_its_own(
             store.pool.putconn(conn)
     assert store._background_pool is not None
     assert store._background_pool.max_size == store_module.DB_BACKGROUND_POOL_SIZE
+
+
+def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
+    """``/api/health`` shows whether requests or the background wait for a connection."""
+    held = store.pool.getconn()
+    try:
+        usage = store.pool_usage()
+    finally:
+        store.pool.putconn(held)
+    requests = usage["requests"]
+    assert requests is not None
+    assert requests["size"] == store.pool.max_size
+    assert requests["free"] == store.pool.max_size - 1
+    assert requests["waiting"] == 0
+    with store_module.in_background():
+        list(store.query("SELECT 1 AS one"))
+    background = store.pool_usage()["background"]
+    assert background is not None
+    assert background["size"] == store_module.DB_BACKGROUND_POOL_SIZE

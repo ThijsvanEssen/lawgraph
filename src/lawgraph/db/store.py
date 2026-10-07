@@ -406,6 +406,25 @@ class GraphStore:
                 )
             return self._background_pool
 
+    def pool_usage(self) -> dict[str, dict[str, int] | None]:
+        """Per pool (``requests``, ``background``; null before the background one opened)
+        its connections, how many are free and how many reads wait for one."""
+
+        def usage(pool: ConnectionPool | None) -> dict[str, int] | None:
+            if pool is None:
+                return None
+            stats = pool.get_stats()
+            return {
+                "size": stats.get("pool_size", 0),
+                "free": stats.get("pool_available", 0),
+                "waiting": stats.get("requests_waiting", 0),
+            }
+
+        return {
+            "requests": usage(self.pool),
+            "background": usage(self._background_pool),
+        }
+
     def ping(self) -> None:
         """Raise when the database cannot be reached."""
         with self.pool.connection() as conn:
