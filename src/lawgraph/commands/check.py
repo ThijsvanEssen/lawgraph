@@ -19,7 +19,6 @@ command does. Every check is one read-only query; a problem is an error of the c
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -55,7 +54,8 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.schema_arango import SEARCH_VIEWS
+from lawgraph.db.schema import SEARCH_VIEWS
+from lawgraph.pipelines.command import command_parser, docstring_title
 
 logger = get_logger(__name__)
 
@@ -384,7 +384,7 @@ def _check_curated(store: GraphStore, report: Report) -> None:
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     parser.add_argument(
         "--skip-edges",
         action="store_true",

@@ -15,7 +15,6 @@ retrieve all --mode gaps``, or until nothing new turns up with ``lawgraph expand
 
 from __future__ import annotations
 
-import argparse
 from typing import Any
 
 from lawgraph.clients.bwb import BWBClient
@@ -25,6 +24,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
+from lawgraph.pipelines.command import command_parser, docstring_title
 from lawgraph.pipelines.retrieve import _gaps
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     parser.add_argument(
         "--min-stubs",
         type=int,
