@@ -22,10 +22,11 @@ from typing import Any
 
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult
+from lawgraph.pipelines.command import command_parser, docstring_title
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     sub = parser.add_subparsers(dest="action", required=True)
     shown = sub.add_parser("list", help="The lists, or the entries of one.")
     shown.add_argument("name", nargs="?", choices=sorted(LISTS))
