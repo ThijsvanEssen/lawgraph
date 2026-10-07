@@ -299,7 +299,11 @@ def _pipeline(
 
 
 def _bwb_articles_add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--store-citations", action="store_true")
+    parser.add_argument(
+        "--store-citations",
+        action="store_true",
+        help="Also keep the references found on each article (props.citations).",
+    )
 
 
 def _bwb_articles_extra_kwargs(args: argparse.Namespace) -> dict:
@@ -364,8 +368,8 @@ RETRIEVE: list[Pipeline] = [
     _pipeline(
         retrieve_tk_content,
         (
-            "XML of Tweede Kamer papers (explanatory memoranda) from the KOOP repository: those "
-            "of which none is stored yet, one XML per paper."
+            "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
+            "repository: those of which none is stored yet, one XML per paper."
         ),
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
@@ -689,8 +693,9 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakCitationsSemanticPipeline,
         (
-            "ECLI references between judgments: REFERS_TO, none between judgments the steps "
-            "above tie; cited judgments that are not loaded become stubs."
+            "ECLI references between judgments: REFERS_TO, none between judgments that "
+            "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; "
+            "cited judgments that are not loaded become stubs."
         ),
     ),
     _pipeline(

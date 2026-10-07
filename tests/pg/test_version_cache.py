@@ -112,6 +112,8 @@ def test_a_new_data_version_warms_up_in_the_background(
 ) -> None:
     warmed: list[str] = []
     monkeypatch.setattr(version_cache, "_warmers", [lambda s: warmed.append(s.name)])
+    # it starts once the version has stood still this long (90 s on a server)
+    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.2)
 
     version_cache.cached(store, ("x",), lambda: 1)  # the first version: no warm-up
     time.sleep(0.2)
@@ -119,8 +121,77 @@ def test_a_new_data_version_warms_up_in_the_background(
 
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
     version_cache.cached(store, ("x",), lambda: 2)  # a version it did not know
-    for _ in range(50):
+    for _ in range(60):
         if warmed:
             break
         time.sleep(0.05)
     assert warmed == [store.name]
+
+
+def test_after_a_change_a_request_takes_the_last_answer_while_the_new_one_computes(
+    store: GraphStore, monkeypatch
+) -> None:
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(version_cache, "STALE_WAIT", 0.1)
+    assert version_cache.cached(store, ("stale",), lambda: "old") == "old"
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+
+    def slow() -> str:
+        time.sleep(0.5)
+        return "new"
+
+    token = store_module.set_read_deadline(30)
+    try:
+        started = time.monotonic()
+        assert version_cache.cached(store, ("stale",), slow) == "old"
+        assert time.monotonic() - started < 0.4
+    finally:
+        store_module.reset_read_deadline(token)
+    time.sleep(0.6)
+    assert version_cache.cached(store, ("stale",), slow) == "new"
+
+
+def test_outside_a_request_the_new_answer_is_waited_for(
+    store: GraphStore, monkeypatch
+) -> None:
+    """The warm-up has no deadline: it waits for the answer of the new version."""
+    monkeypatch.setattr(version_cache, "STALE_WAIT", 0.1)
+    assert version_cache.cached(store, ("warm",), lambda: "old") == "old"
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+
+    def slow() -> str:
+        time.sleep(0.3)
+        return "new"
+
+    assert version_cache.cached(store, ("warm",), slow) == "new"
+
+
+def test_computing_says_whether_an_answer_is_on_its_way(store: GraphStore) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow() -> str:
+        started.set()
+        release.wait(5)
+        return "answer"
+
+    assert not version_cache.computing(store)
+    waiter = threading.Thread(
+        target=lambda: version_cache.cached(store, ("busy",), slow)
+    )
+    waiter.start()
+    started.wait(5)
+    assert version_cache.computing(store)
+    release.set()
+    waiter.join()
+    assert not version_cache.computing(store)
+
+
+def test_lasting_rows_are_kept_when_the_data_changes(store: GraphStore) -> None:
+    """A facet of a filter: kept its ``max_age``, not per data version."""
+    statement = "SELECT count(*)::int FROM instruments"
+    assert version_cache.lasting_rows(store, statement, max_age=3600) == [0]
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    assert version_cache.lasting_rows(store, statement, max_age=3600) == [0]
+    assert version_cache.lasting_rows(store, statement, max_age=0) == [1]

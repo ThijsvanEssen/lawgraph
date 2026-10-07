@@ -18,7 +18,7 @@ from lawgraph.core.judgments import case_number_keys
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
-from lawgraph.db.version_cache import cached_rows
+from lawgraph.db.version_cache import lasting_rows
 
 
 @dataclass
@@ -308,6 +308,11 @@ _ITEM = """json_build_object(
 
 # facet -> the value it counts and the filters it leaves out. A judgment counts once for
 # each of its areas of law (``subjects``).
+# How long the facets and the total of a list are kept (seconds), whatever the data does:
+# under a filter that holds a few hundred thousand judgments each reads them all, and a run
+# of the pipelines hardly moves them. The page itself is read fresh.
+FACETS_MAX_AGE = 3600.0
+
 _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "tier": ("j.tier", _TIER_FILTERS),
     "court_kind": ("j.court_kind", _COURT_KIND_FILTERS),
@@ -333,8 +338,10 @@ def get_judgments_list(
     sort: str = "date_desc",
     limit: int = 50,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """Paginated, filterable list of judgments, with facets.
+    """Paginated, filterable list of judgments, with facets (``facets=False``: the page and
+    the total alone, ``facets`` None).
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
@@ -358,7 +365,9 @@ def get_judgments_list(
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)
     if exact is not None:
-        found = get_judgments_list(store, exact, sort=sort, limit=limit, offset=offset)
+        found = get_judgments_list(
+            store, exact, sort=sort, limit=limit, offset=offset, facets=facets
+        )
         if found["total"]:
             return found
     tokens = tokenize_search_query(filters.q) if filters.q else []
@@ -399,7 +408,7 @@ def get_judgments_list(
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
         join = _FACET_JOINS.get(name, "")
-        return lambda: cached_rows(
+        return lambda: lasting_rows(
             store,
             f"""
             SELECT {value} AS value, count(*)::int AS count
@@ -408,11 +417,12 @@ def get_judgments_list(
             ORDER BY {by_count}value NULLS FIRST
             """,
             _without_page(params),
+            max_age=FACETS_MAX_AGE,
         )
 
     def narrower() -> list[Any]:
         leave_out = _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS
-        return cached_rows(
+        return lasting_rows(
             store,
             f"""
             SELECT value, count(*)::int AS count
@@ -425,21 +435,27 @@ def get_judgments_list(
             ORDER BY count DESC, value NULLS FIRST
             """,
             _without_page(params),
+            max_age=FACETS_MAX_AGE,
         )
 
     filtered = [*names, *(["search"] if search else [])]
+    if not facets:
+        page, total = run_together(
+            items, lambda: _total(store, filtered, where(), params)
+        )
+        return {"total": total, "items": page, "facets": None}
     answers: list[Any] = run_together(
         items,
         *(facet(name) for name in _FACETS),
         narrower,
         lambda: _total(store, filtered, where(), params),
     )
-    facets = dict(zip(_FACETS, answers[1:-2], strict=True))
-    facets["subject_area"] = _with_narrower(facets["subject_area"], answers[-2])
+    counted = dict(zip(_FACETS, answers[1:-2], strict=True))
+    counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
     result: dict[str, Any] = {
         "total": answers[-1],
         "items": answers[0],
-        "facets": facets,
+        "facets": counted,
     }
     return result
 
@@ -472,7 +488,9 @@ def _total(
             """
     else:
         statement = f"SELECT count(*) FROM judgments j {where}"
-    return int(cached_rows(store, statement, _without_page(params))[0])
+    return int(
+        lasting_rows(store, statement, _without_page(params), max_age=FACETS_MAX_AGE)[0]
+    )
 
 
 def _without_page(params: dict[str, Any]) -> dict[str, Any]:

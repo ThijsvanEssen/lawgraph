@@ -1,8 +1,8 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
-    lawgraph <retrieve|normalize|semantic> <source|all> [options]
+    lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
     lawgraph <bootstrap|check|code-families|courts|curated|expand-graph|gaps|ministries|
-              verify> [options]
+              poll|search-stats|verify> [options]
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
@@ -22,8 +22,10 @@ from lawgraph.commands.curated import main as curated
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.commands.gaps import main as gaps
 from lawgraph.commands.ministries import main as ministries
+from lawgraph.commands.poll import main as poll
+from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.verify import main as verify
-from lawgraph.core.logging import setup_logging
+from lawgraph.core.logging import log_step, setup_logging
 from lawgraph.pipelines.command import Command, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, find
@@ -37,6 +39,8 @@ _COMMANDS: dict[str, Command] = {
     "expand-graph": expand_graph,
     "gaps": gaps,
     "ministries": ministries,
+    "poll": poll,
+    "search-stats": search_stats,
     "verify": verify,
 }
 _PHASE_ALL: dict[str, Command] = {
@@ -105,8 +109,13 @@ def main(argv: list[str] | None = None) -> None:
         print(_usage(), file=sys.stderr)
         sys.exit(2)
 
-    setup_logging()
     label, command, options, description = chosen
+    if any(option in ("-h", "--help") for option in options):
+        # the help of the command alone: no log lines, and its usage names the command
+        with log_step(label):
+            command(options)  # argparse prints the help and ends the process
+        return
+    setup_logging()
     outcome = run_command(label, command, options, description=description)
     if outcome.state is State.FAILED:
         sys.exit(1)

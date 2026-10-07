@@ -306,3 +306,70 @@ def test_own_activity_names_the_long_statements_of_this_process(
     assert found and found[0]["state"] == "active"
     assert found[0]["query"].startswith("FETCH")
     assert "a read of: SELECT pg_sleep(3) AS watched_sleep" in found[0]["query"]
+
+
+def test_a_request_waits_for_a_connection_no_longer_than_its_deadline(
+    store: GraphStore,
+) -> None:
+    """Every connection of the pool busy: a read of a request gives up at its deadline."""
+    held = [store.pool.getconn() for _ in range(store.pool.max_size)]
+    token = store_module.set_read_deadline(0.3)
+    try:
+        with pytest.raises(store_module.ReadTimedOut, match="No connection"):
+            list(store.query("SELECT 1"))
+    finally:
+        store_module.reset_read_deadline(token)
+        for conn in held:
+            store.pool.putconn(conn)
+    assert list(store.query("SELECT 1")) == [1]
+
+
+def test_a_read_in_the_background_has_connections_of_its_own(
+    store: GraphStore,
+) -> None:
+    """Every connection of the requests busy: what the API computes in the background
+    reads on its own pool, and a request is never kept waiting by it."""
+    held = [store.pool.getconn() for _ in range(store.pool.max_size)]
+    try:
+        with store_module.in_background():
+            assert list(store.query("SELECT 1 AS one")) == [1]
+    finally:
+        for conn in held:
+            store.pool.putconn(conn)
+    assert store._background_pool is not None
+    assert store._background_pool.max_size == store_module.DB_BACKGROUND_POOL_SIZE
+
+
+def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
+    """``/api/health`` shows whether requests or the background wait for a connection."""
+    held = store.pool.getconn()
+    try:
+        usage = store.pool_usage()
+    finally:
+        store.pool.putconn(held)
+    requests = usage["requests"]
+    assert requests is not None
+    assert requests["size"] == store.pool.max_size
+    assert requests["free"] == store.pool.max_size - 1
+    assert requests["waiting"] == 0
+    with store_module.in_background():
+        list(store.query("SELECT 1 AS one"))
+    background = store.pool_usage()["background"]
+    assert background is not None
+    assert background["size"] == store_module.DB_BACKGROUND_POOL_SIZE
+
+
+def test_health_names_the_version_of_the_api(store: GraphStore) -> None:
+    """A deploy checks the version it put live against its tag."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        health = TestClient(app).get("/api/health").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert health["version"] == app.version
+    assert health["status"] == "ok"

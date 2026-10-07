@@ -34,7 +34,13 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
+from lawgraph.core.documents import (
+    chamber_of,
+    document_sender,
+    is_explanatory,
+    numbered_in,
+    paper_number,
+)
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
@@ -86,6 +92,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "document_number",
         "url",
         "source",
+        "actors",
     ],
     "activity": [
         "kind",
@@ -479,12 +486,14 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "number": paper_number(chamber_of(document.get("labels")), props),
         "dossier_number": numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": tk_url(NodeType.DOCUMENT.value, props),
+        "sender": document_sender(props.get("actors"), props.get("date")),
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
@@ -497,12 +506,14 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
 # pass (a TK document carries its whole API payload, which every ``props -> 'x'`` would
 # parse again).
 _DOSSIER_DOCUMENT_KEYS = [
+    "actors",
     "date",
     "display_name",
     "document_number",
     "dossier_number",
     "dossier_suffix",
     "kind",
+    "number",
     "sequence",
     "session_year",
     "source",
@@ -516,6 +527,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'kind', dp.props -> 'kind',
             'title', {_not_null("dp.props -> 'title'", "dp.props -> 'display_name'")},
             'sequence', dp.props -> 'sequence',
+            'number', dp.props -> 'number',
             'dossier_number', dp.props -> 'dossier_number',
             'dossier_suffix', dp.props -> 'dossier_suffix',
             'session_year', dp.props -> 'session_year',
@@ -523,6 +535,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'document_number', dp.props -> 'document_number',
             'display_name', dp.props -> 'display_name',
             'source', dp.props -> 'source',
+            'actors', dp.props -> 'actors',
             'labels', to_json(d.labels)
         )"""
 

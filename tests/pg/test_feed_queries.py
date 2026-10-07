@@ -1145,7 +1145,10 @@ def test_one_statement_reads_a_page_whatever_its_size(
         for facets in (True, False):
             get_feed(store, FeedFilters(), limit=limit, facets=facets)
     get_feed_summary(store, FeedFilters(since="2026-01-01"))
-    assert len(statements) == 5
+    feed = [s for s in statements if "lg_data_version" not in str(s)]
+    # a page each (4), the total and facets once (kept for the second page with facets,
+    # whatever its size), the summary
+    assert len(feed) == 6
 
 
 def test_props_of_another_type_are_no_event_or_no_dossier(store: GraphStore) -> None:
@@ -1474,3 +1477,42 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
         judgments = _plan(store, sql, bind)
         assert _seq_scans(judgments) == []
         assert _limit_over_index(judgments, "judgments")
+
+
+def test_one_reading_counts_the_feed_and_every_kind_alike(store: GraphStore) -> None:
+    """The total and the facets of the feed without a kind and of each kind on its own,
+    from one reading of the events, are what each counts on its own, in the same order."""
+    from lawgraph.core.feed import DEFAULT_KINDS, FEED_KINDS
+    from lawgraph.db.queries import feed
+
+    _seed(store)
+    for since in (None, "2026-01-01"):
+        shared = feed._counts_per_kind(store, FeedFilters(since=since))
+        assert shared[DEFAULT_KINDS] == feed._counts(store, FeedFilters(since=since))
+        for kind in FEED_KINDS:
+            alone = feed._counts(store, FeedFilters(kinds=(kind,), since=since))
+            assert shared[(kind,)] == alone, (kind, since)
+
+
+def test_the_kinds_of_the_feed_are_counted_once_for_all(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.core.feed import FEED_KINDS
+    from lawgraph.db.queries import feed
+
+    _seed(store)
+    readings: list[FeedFilters] = []
+    real = feed._counts_per_kind
+
+    def counted(store_: GraphStore, filters: FeedFilters) -> Any:
+        readings.append(filters)
+        return real(store_, filters)
+
+    monkeypatch.setattr(feed, "_counts_per_kind", counted)
+    feed.feed_counts(store, FeedFilters())
+    for kind in FEED_KINDS:
+        feed.feed_counts(store, FeedFilters(kinds=(kind,)))
+    assert readings == [FeedFilters()]
+    # a filter on more than the kind is counted on its own
+    assert feed._shared_kinds(FeedFilters(kinds=(FEED_KINDS[0],), q="wet")) is None
+    assert feed._shared_kinds(FeedFilters(kinds=FEED_KINDS[:2])) is None

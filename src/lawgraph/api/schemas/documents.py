@@ -6,14 +6,51 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.decisions import DecisionDTO
-from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.documents import (
+    chamber_of,
+    document_sender,
+    is_explanatory,
+    paper_number,
+)
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import submitters
 
 Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
+
+
+class SenderDTO(BaseModel):
+    """Who sent a Tweede Kamer paper: its first signatory, else the signature the source
+    calls its sender (``Afzender``), as the source gives it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(None, description="As the source writes it.")
+    function: str | None = Field(
+        None,
+        description="The function they signed in: 'minister van Financiën', "
+        "'Tweede Kamerlid'; null when the source gives none.",
+    )
+    faction: str | None = Field(None, description="Of a Kamerlid: the faction.")
+    capacity: SigningCapacity | None = Field(
+        None,
+        description="'bewindspersoon' (a letter of the government), 'kamerlid' or "
+        "'overig' (the griffier, the Raad van State, ...).",
+    )
+    member_key: str | None = Field(None, description="Their Member node, if named.")
+    ministry: MinistryKey | None = Field(
+        None, description="Of a bewindspersoon the ministry their function names."
+    )
+
+
+def sender_of(props: dict[str, Any]) -> SenderDTO | None:
+    """The ``SenderDTO`` of a document with these props (its ``actors`` and ``date``)."""
+    sender = document_sender(props.get("actors"), props.get("date"))
+    return SenderDTO(**sender) if sender else None
 
 
 class DocumentOrigin(BaseModel):
@@ -49,15 +86,6 @@ def origin_fields(
         "source": source or None,
         "is_explanatory": is_explanatory(kind),
     }
-
-
-def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
-    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
-    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
-    if chamber == "EK":
-        return props.get("number")
-    sequence = props.get("sequence")
-    return str(sequence) if chamber == "TK" and sequence else None
 
 
 class ArticleRefDTO(BaseModel):
@@ -154,6 +182,16 @@ class DocumentTextResponse(DocumentOrigin):
     document_id: str
     title: str | None = None
     kind: str | None = None
+    number: str | None = Field(
+        None,
+        description="Its number in its dossier as its chamber numbers it: the nr. of a "
+        "Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``).",
+    )
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
     date: str | None = None
     external_id: str | None = None
     tk_url: str | None = Field(None, description="The document on tweedekamer.nl.")
@@ -194,11 +232,16 @@ class DocumentTextResponse(DocumentOrigin):
         external_id: str | None = props.get("external_id")
         date = props.get("date") or (props.get("raw") or {}).get("Datum")
         text: str | None = props.get("text")
+        origin = origin_fields(
+            doc.get("labels"), props.get("source"), props.get("kind")
+        )
         return cls(
             key=doc["_key"],
             document_id=doc["_id"],
             title=props.get("title"),
             kind=props.get("kind"),
+            number=paper_number(origin["chamber"], props),
+            sender=sender_of(props),
             date=strip_time_component(date),
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
@@ -217,7 +260,7 @@ class DocumentTextResponse(DocumentOrigin):
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
             decisions=[DecisionDTO.from_document(d) for d in decisions or []],
-            **origin_fields(doc.get("labels"), props.get("source"), props.get("kind")),
+            **origin,
         )
 
 
@@ -311,6 +354,11 @@ class DocumentListItemDTO(BaseModel):
         description="The session year as the source writes it (``2025-2026``): with the "
         "chamber, dossier and number the citation, Kamerstukken I 2025/26, 36791, C.",
     )
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
@@ -326,6 +374,7 @@ class DocumentListItemDTO(BaseModel):
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),
+            sender=sender_of(row),
         )
 
 

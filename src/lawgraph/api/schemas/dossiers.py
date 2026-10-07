@@ -10,11 +10,13 @@ from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.documents import (
     DocumentOrigin,
+    SenderDTO,
+    SigningCapacity,
     origin_fields,
-    paper_number,
+    sender_of,
 )
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.documents import numbered_in
+from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
@@ -23,8 +25,6 @@ from lawgraph.core.tk_links import tk_url
 DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
 TitleSource = Literal["dossier", "document", "activiteit"]
-
-SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
 DossierOutcome = Literal["aangenomen", "verworpen"]
 
@@ -140,6 +140,11 @@ class DocumentEntryDTO(DocumentOrigin):
     sequence: int | None = Field(
         None, description="The number of the paper in ``dossier_number``."
     )
+    number: str | None = Field(
+        None,
+        description="Its number in the dossier as its chamber numbers it: the nr. of a "
+        "Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``).",
+    )
     dossier_number: str | None = Field(
         None,
         description="The dossier the paper is numbered in (``31058``, ``37020-XV``): a "
@@ -149,6 +154,11 @@ class DocumentEntryDTO(DocumentOrigin):
     session_year: str | None = Field(None, description="Parliamentary year.")
     date: str | None = None
     tk_url: str | None = None
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
 
 
 class TimelineDocumentSummaryDTO(DocumentEntryDTO):
@@ -186,6 +196,11 @@ class TimelineDocumentBody(DocumentOrigin):
     session_year: str | None = Field(None, description="Parliamentary year.")
     tk_url: str | None = None
     url: str | None = None
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
 
 
 class TimelineActivityBody(BaseModel):
@@ -361,6 +376,7 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
             ),
             "tk_url": link,
             "url": body.get("url"),
+            "sender": document_sender(body.get("actors"), row.get("date")),
             **origin,
         }
     elif node_type == "decision":
@@ -392,12 +408,14 @@ class DossierDocumentDTO(DocumentEntryDTO):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DossierDocumentDTO:
         """From a document row of ``get_dossier_documents``."""
+        origin = origin_fields(row.get("labels"), row.get("source"), row.get("kind"))
         return cls(
             id=row["id"],
             key=row["key"],
             kind=row.get("kind"),
             title=row.get("title"),
             sequence=row.get("sequence"),
+            number=paper_number(origin["chamber"], row),
             dossier_number=numbered_in(
                 row.get("dossier_number"), row.get("dossier_suffix")
             ),
@@ -405,7 +423,8 @@ class DossierDocumentDTO(DocumentEntryDTO):
             date=row.get("date"),
             tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
-            **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
+            sender=sender_of(row),
+            **origin,
         )
 
 

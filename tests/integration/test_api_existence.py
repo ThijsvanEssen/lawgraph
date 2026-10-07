@@ -46,7 +46,14 @@ def test_cited_by_of_an_article_that_is_not_there_is_a_404(client: TestClient) -
 
 
 def test_the_health_check_asks_the_database(client: TestClient) -> None:
-    assert client.get("/api/health").json() == {
+    # ``warm`` null: the suite runs the API without its warm-up
+    health = client.get("/api/health").json()
+    assert {k: health[k] for k in ("status", "database", "warm")} == {
         "status": "ok",
         "database": "connected",
+        "warm": None,
     }
+    assert health["version"] == app.version
+    # the pools: the background one opens when it is first needed
+    assert health["pools"]["requests"]["size"] > 0
+    assert set(health["pools"]["requests"]) == {"size", "free", "waiting"}

@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.version_cache import cached
 
 # The kind (Zaak.Soort) of a bill the government brings in.
 KIND_BILL = "Wetgeving"
@@ -130,7 +131,14 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One cabinet with every member and their posts in it, and per member the counts
     ``dossiers`` (signed first or with others as a bewindspersoon within the cabinet's
     period, directly or through a case), ``bills`` (of those, government bills) and
-    ``open_commitments`` (made under it and still open); None when unknown."""
+    ``open_commitments`` (made under it and still open); None when unknown. Kept per data
+    version and day: the counts read every paper a member ever signed, for a long-serving
+    minister thousands, a minute from disk."""
+    today = dt.date.today().isoformat()
+    return cached(store, ("cabinet", key, today), lambda: _cabinet(store, key, today))
+
+
+def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
     rows = store.query(
         f"""
         SELECT c.id, c.key, c.type, c.labels, c.props,
@@ -169,7 +177,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
         """,
         {
             "key": key,
-            "today": dt.date.today().isoformat(),
+            "today": today,
             "served_in": RELATION_SERVED_IN,
             "authored": RELATION_AUTHORED,
             "government": CAPACITY_GOVERNMENT,
