@@ -317,6 +317,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "session_year": "2024-2025",
         "tk_url": _MVT_PAGE,
         "url": None,
+        "sender": None,  # the seed has no signatures
     }
     # The pages on tweedekamer.nl follow from the numbers, never from a stored link.
     assert document["tk_url"] == _MVT_PAGE

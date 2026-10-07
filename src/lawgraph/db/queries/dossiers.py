@@ -36,6 +36,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.documents import (
     chamber_of,
+    document_sender,
     is_explanatory,
     numbered_in,
     paper_number,
@@ -91,6 +92,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "document_number",
         "url",
         "source",
+        "actors",
     ],
     "activity": [
         "kind",
@@ -491,6 +493,7 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": tk_url(NodeType.DOCUMENT.value, props),
+        "sender": document_sender(props.get("actors"), props.get("date")),
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
@@ -503,6 +506,7 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
 # pass (a TK document carries its whole API payload, which every ``props -> 'x'`` would
 # parse again).
 _DOSSIER_DOCUMENT_KEYS = [
+    "actors",
     "date",
     "display_name",
     "document_number",
@@ -531,6 +535,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'document_number', dp.props -> 'document_number',
             'display_name', dp.props -> 'display_name',
             'source', dp.props -> 'source',
+            'actors', dp.props -> 'actors',
             'labels', to_json(d.labels)
         )"""
 
