@@ -42,3 +42,42 @@ def test_cors_allows_the_front_end_and_no_credentials() -> None:
     )
     assert response.headers.get("access-control-allow-origin") == origin
     assert "access-control-allow-credentials" not in response.headers
+
+
+def test_a_request_with_the_origin_of_our_front_end_counts_toward_the_limit(
+    monkeypatch,
+) -> None:
+    """Any client can send ``Origin``: it is no pass past the limit."""
+    import asyncio
+
+    from lawgraph.api import app as app_module
+
+    monkeypatch.setattr(app_module, "API_RATE_LIMIT_CALLS", 2)
+    monkeypatch.setattr(app_module, "API_RATE_LIMIT_PERIOD", 60)
+
+    async def ok(scope, receive, send) -> None:
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    limiter = _RateLimitMiddleware(ok)
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/api/health",
+        "client": ("198.51.100.7", 4711),
+        "headers": [(b"origin", b"https://concordans.nl")],
+    }
+
+    def status() -> int:
+        sent: list[dict] = []
+
+        async def send(message: dict) -> None:
+            sent.append(message)
+
+        async def receive() -> dict:
+            return {"type": "http.request"}
+
+        asyncio.run(limiter(scope, receive, send))
+        return sent[0]["status"]
+
+    assert [status() for _ in range(3)] == [200, 200, 429]

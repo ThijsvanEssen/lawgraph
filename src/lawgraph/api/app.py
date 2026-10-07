@@ -148,10 +148,8 @@ def _if_none_match(scope) -> list[bytes]:
 class _RateLimitMiddleware:
     """Simple sliding-window rate limiter keyed by client IP.
 
-    Requests originating from our own frontends — i.e. carrying an
-    ``Origin`` header that matches ``LAWGRAPH_ALLOWED_ORIGINS`` — bypass
-    the limit entirely. The limit still backstops anonymous traffic
-    (curl, scrapers, server-to-server abuse).
+    Every request counts, also one with the ``Origin`` of our own front end: any client
+    can send that header, and a visitor of the front end has an address of their own.
 
     Configuration (env vars):
       LAWGRAPH_RATE_LIMIT_CALLS    — max requests per window (default 200)
@@ -169,11 +167,10 @@ class _RateLimitMiddleware:
 
     _LOOPBACK_PROXIES = frozenset({"127.0.0.1", "::1"})
 
-    def __init__(self, app, *, trusted_origins: frozenset[str]) -> None:
+    def __init__(self, app) -> None:
         self._app = app
         self._calls = API_RATE_LIMIT_CALLS
         self._period = API_RATE_LIMIT_PERIOD
-        self._trusted_origins = trusted_origins
         # X-Forwarded-For is honoured only from these hops; loopback is always trusted so
         # a reverse proxy on the same host works.
         self._trusted_proxies = API_TRUSTED_PROXIES | self._LOOPBACK_PROXIES
@@ -205,16 +202,7 @@ class _RateLimitMiddleware:
             await self._app(scope, receive, send)
             return
 
-        # Bypass for first-party callers: the browser sets Origin and
-        # the user can't forge it from a same-origin context, so
-        # matching it against the CORS allow-list is a faithful
-        # "our own app" check.
         headers = dict(scope.get("headers") or [])
-        origin = headers.get(b"origin", b"").decode("latin-1").strip()
-        if origin and origin in self._trusted_origins:
-            await self._app(scope, receive, send)
-            return
-
         ip = self._client_ip(scope, headers, self._trusted_proxies)
         now = time.time()
         cutoff = now - self._period
@@ -309,7 +297,7 @@ async def _log_requests(request: Request, call_next):
     return response
 
 
-app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_ORIGINS))
+app.add_middleware(_RateLimitMiddleware)
 app.add_middleware(
     _CacheControlMiddleware,
     store=lambda: app.dependency_overrides.get(get_store, get_store)(),
