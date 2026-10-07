@@ -7,7 +7,10 @@ the counts of ``/api/stats`` take seconds to a minute, and the answer is the sam
 next run of the pipelines. The computation runs in a thread of its own, without the
 deadline of the request that asked first (a thread of the pool does not inherit it): a
 request waits for it no longer than its own deadline, then answers 503, and the
-computation goes on for the next. ``on_new_version`` functions (the API's warm-up) run in
+computation goes on for the next. Once the data changed a request waits ``STALE_WAIT`` for
+the new answer at most, then takes the last one (of the version before): a facet count or
+the statistics of the search minutes old is good, a search that hangs on every write of the
+pipelines is not. ``on_new_version`` functions (the API's warm-up) run in
 the background when a store shows a version it did not have. A store without
 ``data_version`` (a fake) keeps nothing.
 """
@@ -33,22 +36,37 @@ T = TypeVar("T")
 VERSION_TTL = 2.0
 # Answers kept, the least recently used going first.
 MAX_ENTRIES = 4096
+# How long a request waits for the answer of a new data version (seconds) before it takes
+# the answer of the version before, while the new one goes on computing.
+STALE_WAIT = 2.0
 # Computations at the same time (each holds a connection of the pool while it reads).
 WORKERS = 3
 
 _lock = threading.Lock()
 _versions: dict[str, tuple[str | None, float]] = {}  # database -> (version, read at)
 _values: OrderedDict[Hashable, Any] = OrderedDict()
-_running: dict[Hashable, concurrent.futures.Future[Any]] = {}
+_running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]] = {}
+# The last answer per (database, key), of whatever version: what a request takes while the
+# answer of a new version computes.
+_latest: OrderedDict[Hashable, Any] = OrderedDict()
+_NONE = object()
 _pool = concurrent.futures.ThreadPoolExecutor(
     max_workers=WORKERS, thread_name_prefix="lawgraph-cache"
 )
-# The warm-up runs apart, one at a time: it waits for computations of the pool above, and
-# would hold every worker of it if it ran there.
-_warm_pool = concurrent.futures.ThreadPoolExecutor(
-    max_workers=1, thread_name_prefix="lawgraph-warm"
-)
+# The warm-up: one worker, and per database one wanted warm-up, always of the newest data.
+# A run of the pipelines raises the data version with every statement that writes; a warm-up
+# starts only once the version has stood still for ``WARM_UP_SETTLE`` seconds, a newer
+# version replaces the one waiting, and one that changes during a warm-up stops it
+# (``superseded``) and asks for the next. The worker runs apart from the pool above: it waits
+# for its computations, and would hold every worker of it if it ran there.
+WARM_UP_SETTLE = 90.0
 _warmers: list[Callable[[Any], None]] = []
+_wanted: dict[
+    str, tuple[Any, float, str | None]
+] = {}  # database -> (store, due, version)
+_warm_wake = threading.Condition(_lock)
+_warm_worker: threading.Thread | None = None
+_warming: set[str] = set()  # the databases a warm-up runs for now
 
 
 def on_new_version(warm: Callable[[Any], None]) -> None:
@@ -58,12 +76,74 @@ def on_new_version(warm: Callable[[Any], None]) -> None:
         _warmers.append(warm)
 
 
-def warm(store: Any) -> None:
-    """Run the ``on_new_version`` functions for *store* now, in the background."""
+def warm(store: Any, *, settle: float | None = None) -> None:
+    """Warm *store* up in the background, once its data version has stood still for
+    *settle* seconds (``WARM_UP_SETTLE``; 0 at the start of the API). It replaces a warm-up
+    of the same database that waits; one that runs finishes or stops on its own."""
+    global _warm_worker
+    wait = WARM_UP_SETTLE if settle is None else settle
+    name = str(getattr(store, "name", ""))
+    try:
+        known: str | None = store.data_version()
+    except Exception:  # noqa: BLE001 — the worker reads it again when it is due
+        known = None
     with _lock:
-        warmers = list(_warmers)
-    for function in warmers:
-        _warm_pool.submit(_quietly, function, store)
+        _wanted[name] = (store, time.monotonic() + wait, known)
+        if _warm_worker is None or not _warm_worker.is_alive():
+            _warm_worker = threading.Thread(
+                target=_warm_forever, name="lawgraph-warm", daemon=True
+            )
+            _warm_worker.start()
+        _warm_wake.notify()
+
+
+def superseded(store: Any, version: str | None) -> bool:
+    """Whether *store* holds newer data than *version* (read now): a warm-up of *version*
+    stops between its parts."""
+    try:
+        return bool(store.data_version() != version)
+    except Exception:  # noqa: BLE001 — no answer is no reason to stop
+        return False
+
+
+def _warm_forever() -> None:
+    while True:
+        with _lock:
+            while not _wanted:
+                _warm_wake.wait()
+            name, (store, due, version) = min(_wanted.items(), key=lambda kv: kv[1][1])
+            left = due - time.monotonic()
+            if left > 0:
+                _warm_wake.wait(timeout=left)
+                continue
+            del _wanted[name]
+        if superseded(store, version):
+            # the data moved while it settled: wait for it to stand still again
+            warm(store)
+            continue
+        with _lock:
+            warmers = list(_warmers)
+            _warming.add(name)
+        try:
+            for function in warmers:
+                _quietly(function, store)
+        finally:
+            with _lock:
+                _warming.discard(name)
+        if superseded(store, version):
+            warm(store)
+
+
+def computing(store: Any) -> bool:
+    """Whether anything is computed for *store* now: a warm-up that waits or runs, or an
+    answer of the cache (``/api/health``: a newer version is on its way)."""
+    name = str(getattr(store, "name", ""))
+    with _lock:
+        return (
+            name in _wanted
+            or name in _warming
+            or any(entry[0][0] == name for entry in _running)
+        )
 
 
 def _quietly(function: Callable[[Any], None], store: Any) -> None:
@@ -75,7 +155,7 @@ def _quietly(function: Callable[[Any], None], store: Any) -> None:
         )
 
 
-def _version(store: Any) -> Hashable | None:
+def _version(store: Any) -> tuple[str, str] | None:
     """``(database, data version)`` of *store*, read at most every ``VERSION_TTL``; None
     when it has none or the database cannot be read. A version this process did not know
     starts the warm-up."""
@@ -102,7 +182,8 @@ def _version(store: Any) -> Hashable | None:
 def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
     """The answer for *key* of the current data version of *store*: kept, or computed once
     in the background while this request waits for it no longer than its deadline
-    (``ReadTimedOut`` then, and the computation goes on)."""
+    (``ReadTimedOut`` then, and the computation goes on). A request that has the answer of
+    an earlier version waits ``STALE_WAIT`` at most, then takes that one."""
     version = _version(store)
     if version is None:
         return compute()
@@ -115,16 +196,25 @@ def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
         if future is None:
             future = _pool.submit(_compute, entry_key, compute)
             _running[entry_key] = future
+        last = _latest.get((version[0], key), _NONE)
+    wait = read_time_left()
+    if last is not _NONE and wait is not None:
+        # only a request takes an old answer; the warm-up waits for the new one
+        wait = min(wait, STALE_WAIT)
     try:
-        return future.result(timeout=read_time_left())  # type: ignore[no-any-return]
+        return future.result(timeout=wait)  # type: ignore[no-any-return]
     except concurrent.futures.TimeoutError as exc:
+        if last is not _NONE:
+            return last  # type: ignore[return-value]
         raise ReadTimedOut(
             f"The request ran past its deadline waiting for {key!r}, which goes on "
             "computing for the next."
         ) from exc
 
 
-def _compute(entry_key: Hashable, compute: Callable[[], T]) -> T:
+def _compute(
+    entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
+) -> T:
     """Compute and keep one answer (in a thread of the pool: no request deadline, the read
     ceiling alone); a failure is not kept, the next request asks again."""
     try:
@@ -133,10 +223,15 @@ def _compute(entry_key: Hashable, compute: Callable[[], T]) -> T:
         with _lock:
             _running.pop(entry_key, None)
         raise
+    (database, _), key = entry_key
     with _lock:
         _values[entry_key] = value
         while len(_values) > MAX_ENTRIES:
             _values.popitem(last=False)
+        _latest[(database, key)] = value
+        _latest.move_to_end((database, key))
+        while len(_latest) > MAX_ENTRIES:
+            _latest.popitem(last=False)
         _running.pop(entry_key, None)
     return value
 
@@ -160,7 +255,9 @@ def clear() -> None:
     with _lock:
         _versions.clear()
         _values.clear()
+        _latest.clear()
         _running.clear()
+        _wanted.clear()
 
 
 def _frozen(value: Any) -> Hashable:

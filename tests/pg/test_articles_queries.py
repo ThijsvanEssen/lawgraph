@@ -108,7 +108,6 @@ def test_an_article_with_its_instrument_and_judgments(store: GraphStore) -> None
         "props": {"article_number": "5", "bwb_id": BWB},
     }
     assert data.instrument is not None and data.instrument["_id"] == INSTRUMENT
-    assert [j["_key"] for j in data.judgments] == ["j2", "j1"]
     assert data.metadata == {"judgment_count": 2}
     with pytest.raises(ValueError, match="article not found"):
         get_article_with_relations(store, BWB, "99")

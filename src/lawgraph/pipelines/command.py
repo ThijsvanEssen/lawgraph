@@ -33,13 +33,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import inspect
+import re
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from lawgraph.core.logging import get_logger, log_step
+from lawgraph.core.logging import current_step, get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import GraphStore
@@ -63,6 +64,23 @@ _TOUCHED_SINCE_HELP = (
 )
 
 
+def command_parser(description: str = "", **kwargs: Any) -> argparse.ArgumentParser:
+    """The parser of a command: its usage names the command as one types it (``lawgraph
+    retrieve tk``), from the label ``run_command`` runs it under."""
+    step = current_step()
+    return argparse.ArgumentParser(
+        prog=f"lawgraph {step}" if step else None, description=description, **kwargs
+    )
+
+
+def docstring_title(doc: str | None) -> str:
+    r"""The first line of a command's docstring, without the command it opens with:
+    ``\`\`lawgraph check\`\`: is the database …`` is ``Is the database …``."""
+    first = (doc or "").strip().splitlines()[0] if (doc or "").strip() else ""
+    rest = re.sub(r"``([^`]*)``", r"\1", re.sub(r"^``[^`]*``:\s*", "", first))
+    return rest[:1].upper() + rest[1:]
+
+
 def add_since_argument(
     parser: argparse.ArgumentParser,
     flag: str = "--since",
@@ -73,6 +91,8 @@ def add_since_argument(
 ) -> None:
     """With *last* the value ``last`` is passed on as it is (see ``pipelines/watermark``)."""
     parse = _since_or_last if last else _since
+    if default:
+        help = f"{help} Default: {default}."
     parser.add_argument(flag, type=parse, default=_since(default), help=help)
 
 
@@ -111,7 +131,7 @@ class PipelineCommand:
         return "touched_since" in inspect.signature(self.pipeline_cls.run).parameters
 
     def __call__(self, argv: list[str] | None = None) -> PipelineResult:
-        parser = argparse.ArgumentParser(description=self.description)
+        parser = command_parser(self.description)
         if self.accepts_since:
             add_since_argument(parser)
         if self.accepts_touched_since:

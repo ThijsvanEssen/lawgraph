@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextvars
+import threading
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
@@ -18,6 +20,7 @@ from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
+from lawgraph.db.store import ReadTimedOut, read_time_left
 
 
 def _find_instrument_for_article(
@@ -37,33 +40,26 @@ def _find_instrument_for_article(
     return node_doc(row) if row else None
 
 
-def _find_judgments_for_article(
-    store: GraphStore, article_id: str
-) -> list[dict[str, Any]]:
-    # What the response shows of a judgment, newest first; the id settles judgments of the
-    # same day. A much cited article has thousands of them, and whole judgments (text,
-    # paragraphs) are not read for it.
-    rows = store.query(
-        """
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'ecli', j.pj_ecli, 'display_name', j.pj_display_name
-            )
+def _count_judgments_for_article(store: GraphStore, article_id: str) -> int:
+    """How many judgments cite the article: counted on the index of the edges alone (a much
+    cited article has thousands, ``/cited-by`` pages them)."""
+    return int(
+        next(
+            store.query(
+                """
+                SELECT count(*)::int FROM edges e
+                WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+                  AND e.from_collection = %(judgments)s
+                """,
+                {
+                    "article_id": article_id,
+                    "relation": RELATION_REFERS_TO,
+                    "judgments": COLLECTION_JUDGMENTS,
+                },
+            ),
+            0,
         )
-        FROM edges e JOIN judgments j ON j.id = e.from_id
-        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-          AND e.from_collection = %(judgments)s
-        ORDER BY j.date_eff DESC NULLS LAST, j.id
-        """,
-        {
-            "article_id": article_id,
-            "relation": RELATION_REFERS_TO,
-            "judgments": COLLECTION_JUDGMENTS,
-        },
     )
-    return list(rows)
 
 
 def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
@@ -198,7 +194,28 @@ _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 
 def run_together(*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
-    return list(_TOGETHER.map(lambda call: call(), calls))
+    return side_by_side(_TOGETHER, list(calls))
+
+
+def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
+    """The results of *calls*, run on the threads of *pool*, in their order.
+
+    Each call runs in a copy of the caller's context, so the deadline of a request
+    (``store.read_time_left``) holds in the thread too; the caller waits for them no longer
+    than that deadline (``ReadTimedOut``: a 503, while the calls end at their own statement
+    timeout). A call from a thread of *pool* itself runs the calls there, one after the
+    other: the pool is shared by every request, and a thread of it waiting for the others
+    could wait for itself."""
+    prefix = getattr(pool, "_thread_name_prefix", "")
+    if prefix and threading.current_thread().name.startswith(prefix):
+        return [call() for call in calls]
+    futures = [pool.submit(contextvars.copy_context().run, call) for call in calls]
+    done, waiting = wait(futures, timeout=read_time_left())
+    if waiting:
+        raise ReadTimedOut(
+            "The request ran past its deadline waiting for queries run side by side."
+        )
+    return [future.result() for future in futures]
 
 
 def chamber_sql(alias: str) -> str:

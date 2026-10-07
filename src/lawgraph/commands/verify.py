@@ -14,7 +14,6 @@ the posts comes from and every post without one by reason
 
 from __future__ import annotations
 
-import argparse
 from collections import Counter
 from typing import Any
 
@@ -22,6 +21,7 @@ from lawgraph.core.cabinet_checks import cabinet_row, ministry_report, violation
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import cabinets_with_posts
+from lawgraph.pipelines.command import command_parser, docstring_title
 
 _COLUMNS = (
     ("key", 22),
@@ -47,7 +47,7 @@ _COLUMNS = (
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     parser.add_argument("what", choices=["cabinets"], help="What to verify.")
     parser.parse_args(argv)
     result = PipelineResult()

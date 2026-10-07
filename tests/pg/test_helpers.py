@@ -51,24 +51,9 @@ def test_the_instrument_and_the_judgments_of_an_article(store: GraphStore) -> No
     instrument = _helpers._find_instrument_for_article(store, "articles/w_1")
     assert instrument is not None and instrument["props"] == {"title": "W"}
     assert _helpers._find_instrument_for_article(store, "articles/none") is None
-    judgments = _helpers._find_judgments_for_article(store, "articles/w_1")
-    assert judgments == [
-        {
-            "_id": "judgments/b",
-            "_key": "b",
-            "props": {"ecli": "ECLI:B", "display_name": "B"},
-        },
-        {
-            "_id": "judgments/a",
-            "_key": "a",
-            "props": {"ecli": "ECLI:A", "display_name": None},
-        },
-        {
-            "_id": "judgments/c",
-            "_key": "c",
-            "props": {"ecli": "ECLI:C", "display_name": None},
-        },
-    ]
+    # the judgments that cite it, not the document
+    assert _helpers._count_judgments_for_article(store, "articles/w_1") == 3
+    assert _helpers._count_judgments_for_article(store, "articles/none") == 0
 
 
 def test_a_judgment_by_ecli_item_id_or_appno(store: GraphStore) -> None:

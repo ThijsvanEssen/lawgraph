@@ -1,0 +1,46 @@
+"""Queries run side by side keep the deadline of the request: in their threads, and in how
+long the request waits for them; and a pool shared by every request cannot wait for itself."""
+
+from __future__ import annotations
+
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import pytest
+
+from lawgraph.db import store as store_module
+from lawgraph.db.queries._helpers import side_by_side
+
+
+def test_the_deadline_of_the_request_holds_in_the_threads() -> None:
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-side")
+    token = store_module.set_read_deadline(5.0)
+    try:
+        left = side_by_side(pool, [store_module.read_time_left] * 3)
+    finally:
+        store_module.reset_read_deadline(token)
+    assert all(t is not None and 0 < t <= 5.0 for t in left)
+    # outside a request: no deadline in the threads either
+    assert side_by_side(pool, [store_module.read_time_left]) == [None]
+
+
+def test_the_request_waits_no_longer_than_its_deadline() -> None:
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-slow")
+    token = store_module.set_read_deadline(0.2)
+    started = time.monotonic()
+    try:
+        with pytest.raises(store_module.ReadTimedOut):
+            side_by_side(pool, [lambda: time.sleep(1.0)])
+    finally:
+        store_module.reset_read_deadline(token)
+    assert time.monotonic() - started < 0.6
+
+
+def test_a_call_from_the_pool_itself_runs_its_calls_there() -> None:
+    """With every thread of the pool waiting for calls queued behind them, it would hang."""
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="test-nest")
+
+    def outer() -> list[int]:
+        return side_by_side(pool, [lambda: 1, lambda: 2])
+
+    assert side_by_side(pool, [outer]) == [[1, 2]]
