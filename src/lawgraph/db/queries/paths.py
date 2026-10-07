@@ -24,7 +24,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db._rows import edge_doc, light_props, node_doc
 
 LEVEL_CAP = 5000  # the nodes a side keeps of one level
 _ROWS_PER_LEVEL = LEVEL_CAP * 20  # the edges read for one level, at most
@@ -48,8 +48,8 @@ ORDER BY 2, 3
 LIMIT %(limit)s
 """
 
-_NODES_SQL = """
-SELECT n.id, n.key, n.type, n.labels, n.props
+_NODES_SQL = f"""
+SELECT n.id, n.key, n.type, n.labels, {light_props("n")} AS props
 FROM nodes n
 WHERE n.id = ANY(%(ids)s)
   AND n.collection = ANY(ARRAY(SELECT DISTINCT split_part(x, '/', 1) FROM unnest(%(ids)s) x))

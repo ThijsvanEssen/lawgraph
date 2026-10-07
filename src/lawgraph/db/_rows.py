@@ -11,6 +11,17 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 
+# The props a node carries as a neighbour, a node of a neighbourhood or of a path leave out:
+# the text of a paper (its sections and footnotes, hundreds of kB). A neighbour is light;
+# its text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
+HEAVY_PROPS = ("sections", "footnotes")
+
+
+def light_props(alias: str) -> str:
+    """SQL: the props of the node row *alias* without ``HEAVY_PROPS``, in their order."""
+    keys = ", ".join(f"'{key}'" for key in HEAVY_PROPS)
+    return f"lg_unset({alias}.props, ARRAY[{keys}])"
+
 
 def node_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A node row (``id``, ``key``, ``type``, ``labels``, ``props``) as its document."""
