@@ -374,17 +374,23 @@ noted in `runs.log` and changes nothing else. With cron:
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
 0  7 * * 0        /path/to/lawgraph/scripts/weekly.sh
 0,30 8-19 * * 1-5 /path/to/lawgraph/scripts/poll.sh tk
-0 15,18 * * 2     /path/to/lawgraph/scripts/poll.sh ek
-0 9-18 * * 1-5    /path/to/lawgraph/scripts/poll.sh rechtspraak
-0 11 * * 2,4      /path/to/lawgraph/scripts/poll.sh echr
+10 15,18 * * 2    /path/to/lawgraph/scripts/poll.sh ek
+15 9-18 * * 1-5   /path/to/lawgraph/scripts/poll.sh rechtspraak
+20 11 * * 2,4     /path/to/lawgraph/scripts/poll.sh echr
 ```
 
 These times follow the sources: the votes of a Tuesday in the Tweede Kamer come out on
 Wednesday morning in one batch, and papers all working day; the Eerste Kamer votes on Tuesday;
 the Hoge Raad and the Raad van State publish on the day of the decision, on working days; the
 ECHR gives its judgments on Tuesday and Thursday mornings. A poll that finds another run holding
-the lock exits 75 and leaves it to the next; a missed poll is not caught up, the nightly run
-covers it. Each chain logs to `poll-<chain>-<date>.log`.
+the lock exits 75 and leaves it to the next, so the polls start at different minutes; a missed
+poll is not caught up, the nightly run covers it. Each chain logs to
+`poll-<chain>-<date>.log`.
+
+A poll that finds nothing new writes nothing, and the data version stays as it was. One that
+writes a row raises it: the API then drops the answers it keeps and warms up again once the
+data has stood still for 90 seconds (`/api/health` says `computing` meanwhile). So a poll can
+come no more often than the warm-up takes on the server.
 
 On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
 closed lid on battery still sleeps: the run pauses until the next wake and its log shows

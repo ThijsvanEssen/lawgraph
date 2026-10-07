@@ -7,7 +7,7 @@
 case "$1" in
   tk) window=4h ;;           # every 30 minutes on working days; the first at 08:00
   ek) window=4h ;;           # Tuesday afternoon, after the votes of the Eerste Kamer
-  rechtspraak) window=6h ;;  # every hour on working days; the first at 09:00
+  rechtspraak) window=6h ;;  # every hour on working days; the first at 09:15
   echr) window=1d ;;         # Tuesday and Thursday, after the judgments of 10:00
   *)
     echo "usage: $0 <tk|ek|rechtspraak|echr> [window]" >&2
