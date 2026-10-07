@@ -75,6 +75,7 @@ _ITEM_PROPS = (
     "subject",
     "display_name",
     "document_number",
+    "sequence",
     "status",
     "expected_resolution",
     "minister_name",

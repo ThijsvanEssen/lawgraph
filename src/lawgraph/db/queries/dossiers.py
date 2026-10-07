@@ -34,7 +34,12 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
+from lawgraph.core.documents import (
+    chamber_of,
+    is_explanatory,
+    numbered_in,
+    paper_number,
+)
 from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
@@ -479,6 +484,7 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "number": paper_number(chamber_of(document.get("labels")), props),
         "dossier_number": numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
@@ -503,6 +509,7 @@ _DOSSIER_DOCUMENT_KEYS = [
     "dossier_number",
     "dossier_suffix",
     "kind",
+    "number",
     "sequence",
     "session_year",
     "source",
@@ -516,6 +523,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'kind', dp.props -> 'kind',
             'title', {_not_null("dp.props -> 'title'", "dp.props -> 'display_name'")},
             'sequence', dp.props -> 'sequence',
+            'number', dp.props -> 'number',
             'dossier_number', dp.props -> 'dossier_number',
             'dossier_suffix', dp.props -> 'dossier_suffix',
             'session_year', dp.props -> 'session_year',

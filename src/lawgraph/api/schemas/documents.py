@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.decisions import DecisionDTO
-from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.documents import chamber_of, is_explanatory, paper_number
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import submitters
@@ -49,15 +49,6 @@ def origin_fields(
         "source": source or None,
         "is_explanatory": is_explanatory(kind),
     }
-
-
-def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
-    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
-    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
-    if chamber == "EK":
-        return props.get("number")
-    sequence = props.get("sequence")
-    return str(sequence) if chamber == "TK" and sequence else None
 
 
 class ArticleRefDTO(BaseModel):
@@ -154,6 +145,11 @@ class DocumentTextResponse(DocumentOrigin):
     document_id: str
     title: str | None = None
     kind: str | None = None
+    number: str | None = Field(
+        None,
+        description="Its number in its dossier as its chamber numbers it: the nr. of a "
+        "Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``).",
+    )
     date: str | None = None
     external_id: str | None = None
     tk_url: str | None = Field(None, description="The document on tweedekamer.nl.")
@@ -194,11 +190,15 @@ class DocumentTextResponse(DocumentOrigin):
         external_id: str | None = props.get("external_id")
         date = props.get("date") or (props.get("raw") or {}).get("Datum")
         text: str | None = props.get("text")
+        origin = origin_fields(
+            doc.get("labels"), props.get("source"), props.get("kind")
+        )
         return cls(
             key=doc["_key"],
             document_id=doc["_id"],
             title=props.get("title"),
             kind=props.get("kind"),
+            number=paper_number(origin["chamber"], props),
             date=strip_time_component(date),
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
@@ -217,7 +217,7 @@ class DocumentTextResponse(DocumentOrigin):
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
             decisions=[DecisionDTO.from_document(d) for d in decisions or []],
-            **origin_fields(doc.get("labels"), props.get("source"), props.get("kind")),
+            **origin,
         )
 
 

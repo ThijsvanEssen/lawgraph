@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.core.models import TYPE_OF_COLLECTION
+from lawgraph.core.documents import chamber_of, paper_number
+from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
 
 # Props a node response leaves out by default: none (the graph views drop the large ones).
@@ -49,6 +50,11 @@ def _build_node_payload(
     link = tk_url(doc.get("type"), props)
     if link:
         sanitized["tk_url"] = link
+    if doc.get("type") == NodeType.DOCUMENT.value and "number" not in props:
+        # A paper's number as its chamber cites it, under the name an EK paper stores it.
+        number = paper_number(chamber_of(doc.get("labels")), props)
+        if number:
+            sanitized["number"] = number
     return {
         "id": doc["_id"],
         "key": doc["_key"],

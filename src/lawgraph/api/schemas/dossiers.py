@@ -8,13 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.api.schemas.documents import (
-    DocumentOrigin,
-    origin_fields,
-    paper_number,
-)
+from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.documents import numbered_in
+from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
@@ -139,6 +135,11 @@ class DocumentEntryDTO(DocumentOrigin):
     title: str | None = None
     sequence: int | None = Field(
         None, description="The number of the paper in ``dossier_number``."
+    )
+    number: str | None = Field(
+        None,
+        description="Its number in the dossier as its chamber numbers it: the nr. of a "
+        "Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``).",
     )
     dossier_number: str | None = Field(
         None,
@@ -392,12 +393,14 @@ class DossierDocumentDTO(DocumentEntryDTO):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DossierDocumentDTO:
         """From a document row of ``get_dossier_documents``."""
+        origin = origin_fields(row.get("labels"), row.get("source"), row.get("kind"))
         return cls(
             id=row["id"],
             key=row["key"],
             kind=row.get("kind"),
             title=row.get("title"),
             sequence=row.get("sequence"),
+            number=paper_number(origin["chamber"], row),
             dossier_number=numbered_in(
                 row.get("dossier_number"), row.get("dossier_suffix")
             ),
@@ -405,7 +408,7 @@ class DossierDocumentDTO(DocumentEntryDTO):
             date=row.get("date"),
             tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
-            **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
+            **origin,
         )
 
 
