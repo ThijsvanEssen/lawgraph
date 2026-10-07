@@ -195,3 +195,37 @@ def test_lasting_rows_are_kept_when_the_data_changes(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
     assert version_cache.lasting_rows(store, statement, max_age=3600) == [0]
     assert version_cache.lasting_rows(store, statement, max_age=0) == [1]
+
+
+def test_a_computation_that_asks_for_another_one_does_not_wait_for_the_pool(
+    store: GraphStore, monkeypatch, caplog
+) -> None:
+    """With every worker of the pool busy, an answer a computation asks for would wait in
+    the queue behind it for ever: it is computed in the worker that asks, with a warning
+    whose stack names the caller."""
+    import concurrent.futures
+
+    monkeypatch.setattr(
+        version_cache,
+        "_pool",
+        concurrent.futures.ThreadPoolExecutor(1, thread_name_prefix="lawgraph-cache"),
+    )
+    done: list[str] = []
+
+    def outer() -> str:
+        inner = version_cache.lasting(store, ("inner",), lambda: "inner", 3600)
+        also = version_cache.cached(store, ("also",), lambda: "also")
+        return f"{inner} {also}"
+
+    with caplog.at_level("WARNING"):
+        asking = threading.Thread(
+            target=lambda: done.append(version_cache.cached(store, ("outer",), outer)),
+            daemon=True,
+        )
+        asking.start()
+        asking.join(timeout=10)
+    assert done == ["inner also"], "the computation waited for the pool"
+    nested = [
+        r for r in caplog.records if "A computation of the cache asked" in r.message
+    ]
+    assert len(nested) == 2 and nested[0].stack_info

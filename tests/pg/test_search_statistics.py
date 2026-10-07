@@ -159,3 +159,50 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
     # a word outside the statistics is counted
     assert counts and any("s_summary_t &&" in s for s in counts)
+
+
+def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Twelve searchers of every type at once on a cache of one worker, the statistics
+    computed again on every call: before ``_frequencies`` read them outside its computation
+    of the cache, this stood still for ever (as a search did on 2026-10-08)."""
+    import concurrent.futures
+    import threading
+
+    from lawgraph.api.schemas.search import SEARCH_TYPES
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries.search import search_all
+
+    _judgments_with_words(store, 1500)
+    monkeypatch.setattr(
+        version_cache,
+        "_pool",
+        concurrent.futures.ThreadPoolExecutor(1, thread_name_prefix="lawgraph-cache"),
+    )
+    monkeypatch.setattr(_bm25, "STATS_MAX_AGE", 0.0)
+    queries = [
+        "beroep",
+        "asiel",
+        "beroep asiel",
+        "onrechtmatige daad",
+        "huurovereenkomst",
+    ]
+    done: list[int] = []
+
+    def search(n: int) -> None:
+        for r in range(4):
+            if n == 0:
+                version_cache.clear()
+            q = queries[(n + r) % len(queries)]
+            search_all(store, q=q, types=sorted(SEARCH_TYPES), limit=10)
+        done.append(n)
+
+    searchers = [
+        threading.Thread(target=search, args=(n,), daemon=True) for n in range(12)
+    ]
+    for searcher in searchers:
+        searcher.start()
+    for searcher in searchers:
+        searcher.join(timeout=60)
+    assert len(done) == 12, f"{12 - len(done)} of 12 searchers stood still"
