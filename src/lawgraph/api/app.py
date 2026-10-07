@@ -11,6 +11,7 @@ import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
@@ -40,10 +41,16 @@ from lawgraph.config.settings import (
     API_PORT,
     API_RATE_LIMIT_CALLS,
     API_RATE_LIMIT_PERIOD,
+    API_REQUEST_TIMEOUT_MS,
     API_TRUSTED_PROXIES,
 )
 from lawgraph.core.logging import setup_logging
 from lawgraph.db import GraphStore
+from lawgraph.db.store import (
+    ReadTimedOut,
+    reset_read_deadline,
+    set_read_deadline,
+)
 
 setup_logging()
 
@@ -143,6 +150,26 @@ def _if_none_match(scope) -> list[bytes]:
         if name == b"if-none-match"
         for tag in value.split(b",")
     ]
+
+
+class _ReadDeadlineMiddleware:
+    """Every request reads the database for at most ``LAWGRAPH_API_REQUEST_TIMEOUT_MS`` in
+    all: each statement gets what is left (``store.set_read_deadline``), so a request of
+    eight counts does not last eight read ceilings. Past it the request answers 503
+    (``ReadTimedOut``)."""
+
+    def __init__(self, app) -> None:
+        self._app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        token = set_read_deadline(API_REQUEST_TIMEOUT_MS / 1000)
+        try:
+            await self._app(scope, receive, send)
+        finally:
+            reset_read_deadline(token)
 
 
 class _RateLimitMiddleware:
@@ -304,6 +331,7 @@ async def _log_requests(request: Request, call_next):
     return response
 
 
+app.add_middleware(_ReadDeadlineMiddleware)
 app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_ORIGINS))
 app.add_middleware(
     _CacheControlMiddleware,
@@ -340,6 +368,22 @@ async def health(
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
         ) from exc
+
+
+# How long a client waits before it asks again after a read ran past its ceiling.
+READ_TIMEOUT_RETRY_AFTER = 30
+
+
+@app.exception_handler(ReadTimedOut)
+async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
+    """A query that ran past ``LAWGRAPH_READ_TIMEOUT_MS``: the server is busy, not broken
+    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client."""
+    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The query took too long. Try again later, or narrow it."},
+        headers={"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)},
+    )
 
 
 def _run_server() -> None:
