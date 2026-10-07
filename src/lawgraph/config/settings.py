@@ -184,6 +184,9 @@ API_ALLOWED_ORIGINS = _env_list(
 # The longest one request to the API may read the database, in milliseconds: every
 # statement of it gets what is left (a request of eight counts lasts no eight ceilings).
 API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30_000)
+# The API computes the answers every visitor asks (facets of the unfiltered lists, the
+# statistics, the heat) at its start and after every data change, in the background.
+API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))

@@ -43,9 +43,10 @@ from lawgraph.config.settings import (
     API_RATE_LIMIT_PERIOD,
     API_REQUEST_TIMEOUT_MS,
     API_TRUSTED_PROXIES,
+    API_WARM_UP,
 )
 from lawgraph.core.logging import setup_logging
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.store import (
     ReadTimedOut,
     reset_read_deadline,
@@ -361,6 +362,24 @@ async def health(
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
         ) from exc
+
+
+def _start_warm_up() -> None:
+    """Compute what every visitor asks, in the background: now, and after every change of
+    the data (``api/warm.py``). A database that cannot be reached is warmed later."""
+    if not API_WARM_UP:
+        return
+    from lawgraph.api.dependencies import get_store as store_of
+    from lawgraph.api.warm import warm_up
+
+    version_cache.on_new_version(warm_up)
+    try:
+        version_cache.warm(store_of())
+    except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
+        _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
+
+
+app.router.on_startup.append(_start_warm_up)
 
 
 # How long a client waits before it asks again after a read ran past its ceiling.

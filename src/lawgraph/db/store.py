@@ -244,6 +244,13 @@ def no_read_deadline() -> Iterator[None]:
         _deadline.reset(token)
 
 
+def read_time_left() -> float | None:
+    """The seconds the reads of the current request have left (at least 0); None outside
+    a request."""
+    deadline = _deadline.get()
+    return None if deadline is None else max(0.0, deadline - time.monotonic())
+
+
 def _read_budget_ms() -> int:
     """The ``statement_timeout`` of the next read: ``LAWGRAPH_READ_TIMEOUT_MS``, or the time
     left before the deadline of the request when that is less. ``ReadTimedOut`` when none
