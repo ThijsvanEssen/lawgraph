@@ -395,7 +395,7 @@ def _start_warm_up() -> None:
 
     version_cache.on_new_version(warm_up)
     try:
-        version_cache.warm(store_of())
+        version_cache.warm(store_of(), settle=0)
     except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
         _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
 
