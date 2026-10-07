@@ -30,7 +30,11 @@ def checkout(tmp_path: Path) -> Path:
 
 
 def _run(
-    checkout: Path, script: str, fail_on: str = "-", **extra: str
+    checkout: Path,
+    script: str,
+    fail_on: str = "-",
+    args: list[str] | None = None,
+    **extra: str,
 ) -> subprocess.CompletedProcess:
     env = {
         **os.environ,
@@ -41,7 +45,7 @@ def _run(
         "TMPDIR": str(checkout),
     }
     return subprocess.run(
-        ["sh", str(checkout / "scripts" / script)],
+        ["sh", str(checkout / "scripts" / script), *(args or [])],
         env=env,
         # the scripts run from cron with nothing on stdin; a fake that reads it waits otherwise
         stdin=subprocess.DEVNULL,
@@ -91,6 +95,33 @@ def test_two_scheduled_runs_never_write_side_by_side(checkout: Path) -> None:
     assert done.returncode == 75
     assert not (checkout / "calls").exists()
     assert "not started" in (checkout / "logs" / "runs.log").read_text()
+
+
+@pytest.mark.parametrize(
+    ("chain", "window"),
+    [("tk", "4h"), ("ek", "4h"), ("rechtspraak", "6h"), ("echr", "1d")],
+)
+def test_a_poll_reaches_back_past_the_poll_before_it(
+    checkout: Path, chain: str, window: str
+) -> None:
+    done = _run(checkout, "poll.sh", args=[chain])
+    assert done.returncode == 0, done.stderr
+    assert _calls(checkout) == [f"poll {chain} --since {window}"]
+    assert "poll.sh: ok" in (checkout / "logs" / "runs.log").read_text()
+
+
+def test_a_poll_takes_another_window_and_refuses_another_chain(checkout: Path) -> None:
+    assert _run(checkout, "poll.sh", args=["tk", "90m"]).returncode == 0
+    assert _calls(checkout) == ["poll tk --since 90m"]
+    refused = _run(checkout, "poll.sh", args=["bwb"])
+    assert refused.returncode == 2 and "usage" in refused.stderr
+    assert not (checkout / "lawgraph-scheduled.lock").exists()
+
+
+def test_a_poll_leaves_the_database_to_a_run_that_holds_it(checkout: Path) -> None:
+    (checkout / "lawgraph-scheduled.lock").mkdir()  # the nightly run is still going
+    assert _run(checkout, "poll.sh", args=["tk"]).returncode == 75
+    assert not (checkout / "calls").exists()
 
 
 def test_the_lock_is_given_back_also_after_a_failure(checkout: Path) -> None:

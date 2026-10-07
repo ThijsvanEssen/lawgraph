@@ -349,13 +349,14 @@ redirect that leads nowhere, is asked for again after 30 days (3 when the source
 itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
 
-**Scheduled.** `scripts/daily.sh` and `scripts/weekly.sh` are what a scheduler runs; nothing
-is installed for you.
+**Scheduled.** `scripts/daily.sh`, `scripts/weekly.sh` and `scripts/poll.sh` are what a
+scheduler runs; nothing is installed for you.
 
 | Script | Runs | Why |
 |--------|------|-----|
 | `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges` | what the sources changed; a day without a run is caught up by the next |
 | `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
 failing command fails the run and the next command still runs, one log per run in
@@ -366,9 +367,20 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 noted in `runs.log` and changes nothing else. With cron:
 
 ```
-30 5 * * *   /path/to/lawgraph/scripts/daily.sh
-0  7 * * 0   /path/to/lawgraph/scripts/weekly.sh
+30 5 * * *        /path/to/lawgraph/scripts/daily.sh
+0  7 * * 0        /path/to/lawgraph/scripts/weekly.sh
+0,30 8-19 * * 1-5 /path/to/lawgraph/scripts/poll.sh tk
+0 15,18 * * 2     /path/to/lawgraph/scripts/poll.sh ek
+0 9-18 * * 1-5    /path/to/lawgraph/scripts/poll.sh rechtspraak
+0 11 * * 2,4      /path/to/lawgraph/scripts/poll.sh echr
 ```
+
+These times follow the sources: the votes of a Tuesday in the Tweede Kamer come out on
+Wednesday morning in one batch, and papers all working day; the Eerste Kamer votes on Tuesday;
+the Hoge Raad and the Raad van State publish on the day of the decision, on working days; the
+ECHR gives its judgments on Tuesday and Thursday mornings. A poll that finds another run holding
+the lock exits 75 and leaves it to the next; a missed poll is not caught up, the nightly run
+covers it. Each chain logs to `poll-<chain>-<date>.log`.
 
 On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
 closed lid on battery still sleeps: the run pauses until the next wake and its log shows
