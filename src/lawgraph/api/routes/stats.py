@@ -21,8 +21,19 @@ from lawgraph.db.queries.stats import (
     get_db_stats,
     get_judgment_coverage,
 )
+from lawgraph.db.version_cache import cached
 
 router = APIRouter()
+
+
+def stats_data(store: GraphStore) -> dict:
+    """The counts of ``/api/stats``: the same for every visitor until the data changes."""
+    return cached(store, ("stats",), lambda: get_db_stats(store))
+
+
+def coverage_data(store: GraphStore) -> dict:
+    """The counts of ``/api/stats/coverage``, kept as ``stats_data``."""
+    return cached(store, ("coverage",), lambda: get_judgment_coverage(store))
 
 
 @router.get(
@@ -38,7 +49,7 @@ router = APIRouter()
     tags=["stats"],
 )
 def get_stats(store: Annotated[GraphStore, Depends(get_store)]) -> StatsResponse:
-    data = get_db_stats(store)
+    data = stats_data(store)
     return StatsResponse(
         nodes=data["nodes"],
         stubs=data.get("stubs", {}),
@@ -98,7 +109,7 @@ def _kind(row: dict) -> str | None:
 def get_coverage(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentCoverageResponse:
-    data = get_judgment_coverage(store)
+    data = coverage_data(store)
     courts = sorted(
         (
             CoverageCourtDTO(**row, court_kind=_kind(row))

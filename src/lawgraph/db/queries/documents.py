@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.version_cache import cached_rows
 
 
 def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
@@ -259,29 +260,29 @@ def list_documents(
         ) page
         JOIN {COLLECTION_DOCUMENTS} d ON d.id = page.id
     )"""
+    page = list(store.query(f"SELECT {items} AS items", bind))[0]
     if not facets:
-        page = list(store.query(f"SELECT {items} AS items", bind))[0]
         return {"items": page, "total": None, "facets": None}
-    row = list(
-        store.query(
-            f"""
-            WITH base AS (
-                SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
-                FROM {COLLECTION_DOCUMENTS} d
-                WHERE {where}
-            )
-            SELECT
-                {items} AS items,
-                (SELECT count(*)::int FROM base d WHERE {by_chamber} AND {by_kind})
-                    AS total,
-                {_facet("d.kind", by_chamber)} AS kind,
-                {_facet("d.chamber", by_kind)} AS chamber
-            """,
-            bind,
+    # The counts are the same on every page and for every visitor: kept per data version
+    # under the filters alone (on the full graph they read 650,000 papers).
+    counted = {k: v for k, v in bind.items() if k not in ("limit", "offset")}
+    row = cached_rows(
+        store,
+        f"""
+        WITH base AS (
+            SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
+            FROM {COLLECTION_DOCUMENTS} d
+            WHERE {where}
         )
+        SELECT
+            (SELECT count(*)::int FROM base d WHERE {by_chamber} AND {by_kind}) AS total,
+            {_facet("d.kind", by_chamber)} AS kind,
+            {_facet("d.chamber", by_kind)} AS chamber
+        """,
+        counted,
     )[0]
     return {
-        "items": row["items"],
+        "items": page,
         "total": row["total"],
         "facets": {"kind": row["kind"], "chamber": row["chamber"]},
     }

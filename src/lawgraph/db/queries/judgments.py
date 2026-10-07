@@ -18,6 +18,7 @@ from lawgraph.core.judgments import case_number_keys
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.version_cache import cached_rows
 
 
 @dataclass
@@ -398,34 +399,32 @@ def get_judgments_list(
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
         join = _FACET_JOINS.get(name, "")
-        return lambda: list(
-            store.query(
-                f"""
-                SELECT {value} AS value, count(*)::int AS count
-                FROM judgments j {join} {where(leave_out)}
-                GROUP BY 1
-                ORDER BY {by_count}value NULLS FIRST
-                """,
-                params,
-            )
+        return lambda: cached_rows(
+            store,
+            f"""
+            SELECT {value} AS value, count(*)::int AS count
+            FROM judgments j {join} {where(leave_out)}
+            GROUP BY 1
+            ORDER BY {by_count}value NULLS FIRST
+            """,
+            _without_page(params),
         )
 
     def narrower() -> list[Any]:
         leave_out = _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS
-        return list(
-            store.query(
-                f"""
-                SELECT value, count(*)::int AS count
-                FROM (
-                    SELECT s.value FROM judgments j
-                    CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
-                ) subjects
-                WHERE strpos(value, ';') > 0
-                GROUP BY 1
-                ORDER BY count DESC, value NULLS FIRST
-                """,
-                params,
-            )
+        return cached_rows(
+            store,
+            f"""
+            SELECT value, count(*)::int AS count
+            FROM (
+                SELECT s.value FROM judgments j
+                CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
+            ) subjects
+            WHERE strpos(value, ';') > 0
+            GROUP BY 1
+            ORDER BY count DESC, value NULLS FIRST
+            """,
+            _without_page(params),
         )
 
     filtered = [*names, *(["search"] if search else [])]
@@ -473,7 +472,13 @@ def _total(
             """
     else:
         statement = f"SELECT count(*) FROM judgments j {where}"
-    return int(next(store.query(statement, params)))
+    return int(cached_rows(store, statement, _without_page(params))[0])
+
+
+def _without_page(params: dict[str, Any]) -> dict[str, Any]:
+    """*params* without the page: the counts are the same on every page, and are kept per
+    data version (``version_cache``) under the filters alone."""
+    return {k: v for k, v in params.items() if k not in ("limit", "offset")}
 
 
 # A case number as a query: a token with a digit and a slash or dash, as courts write them
