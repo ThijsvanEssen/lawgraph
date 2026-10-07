@@ -17,6 +17,7 @@ def test_the_warm_up_is_done_for_the_data_as_it_was(
 
     warm.warm_up(store)
     assert warm.is_warm(store)
+    assert warm.warmed_version() == store.data_version()
 
     store.bulk_insert_or_update_nodes(
         "instruments",

@@ -306,3 +306,19 @@ def test_own_activity_names_the_long_statements_of_this_process(
     assert found and found[0]["state"] == "active"
     assert found[0]["query"].startswith("FETCH")
     assert "a read of: SELECT pg_sleep(3) AS watched_sleep" in found[0]["query"]
+
+
+def test_a_request_waits_for_a_connection_no_longer_than_its_deadline(
+    store: GraphStore,
+) -> None:
+    """Every connection of the pool busy: a read of a request gives up at its deadline."""
+    held = [store.pool.getconn() for _ in range(store.pool.max_size)]
+    token = store_module.set_read_deadline(0.3)
+    try:
+        with pytest.raises(store_module.ReadTimedOut, match="No connection"):
+            list(store.query("SELECT 1"))
+    finally:
+        store_module.reset_read_deadline(token)
+        for conn in held:
+            store.pool.putconn(conn)
+    assert list(store.query("SELECT 1")) == [1]

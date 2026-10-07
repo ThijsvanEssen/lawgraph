@@ -52,7 +52,8 @@ logger = get_logger(__name__)
 Command = Callable[..., PipelineResult]  # ``command(argv)``
 
 _SINCE_HELP = (
-    "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d')."
+    "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d', '2h', "
+    "'90m')."
 )
 
 

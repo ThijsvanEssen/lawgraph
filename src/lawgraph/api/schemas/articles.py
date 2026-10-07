@@ -15,7 +15,6 @@ from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
     InstrumentSummaryDTO,
-    JudgmentSummaryDTO,
     PublicationDTO,
     QualifierFields,
     address_of,
@@ -296,7 +295,6 @@ class ArticleDetailResponse(BaseModel):
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
-    judgments: list[JudgmentSummaryDTO]
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
     references: list[ArticleReferenceDTO] = Field(
         default_factory=list,

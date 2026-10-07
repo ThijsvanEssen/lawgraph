@@ -469,3 +469,22 @@ def test_the_posts_of_every_cabinet_oldest_first(government: GraphStore) -> None
         ]
     )
     assert rows[0]["posts"] == []
+
+
+def test_a_cabinet_is_read_once_per_data_version(
+    store: GraphStore, monkeypatch
+) -> None:
+    """The counts read every paper its members signed: kept until the data changes."""
+    from lawgraph.db.queries import cabinets
+
+    read: list[str] = []
+    real = cabinets._cabinet
+
+    def counted(store_: GraphStore, key: str, today: str):  # type: ignore[no-untyped-def]
+        read.append(key)
+        return real(store_, key, today)
+
+    monkeypatch.setattr(cabinets, "_cabinet", counted)
+    assert cabinets.get_cabinet(store, "schoof") is None
+    assert cabinets.get_cabinet(store, "schoof") is None
+    assert read == ["schoof"]
