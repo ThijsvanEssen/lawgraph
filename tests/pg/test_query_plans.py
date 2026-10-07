@@ -315,7 +315,7 @@ def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
         client = TestClient(app)
         for url in URLS:
             current["url"] = url
-            response = client.get(url, headers={"Origin": "http://localhost:5173"})
+            response = client.get(url)
             assert response.status_code == 200, (url, response.text[:300])
         yield captured
     finally:
