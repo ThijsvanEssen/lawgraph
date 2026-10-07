@@ -83,31 +83,83 @@ def get_heat_counts(
         return {
             row["id"]: row["count"] for row in rows if row["count"] >= max(min_count, 1)
         }
-    recent = store.query(
-        """
-        SELECT to_id AS id, count(*)::int AS count FROM edges
-        WHERE created_at >= %(cutoff)s
-        GROUP BY to_id
-        ORDER BY to_id
+    # One statement: both signals counted in one pass over the edges, and only the *limit*
+    # highest leave the database (the whole graph has 1.85 million nodes with a count).
+    rows = store.query(
+        f"""
+        SELECT id, count FROM (
+            SELECT to_id AS id,
+                   (count(*) FILTER (WHERE created_at >= %(cutoff)s)
+                    + count(*) FILTER (WHERE relation = ANY(%(relations)s)
+                                         AND to_collection = 'articles'))::int AS count
+            FROM edges
+            WHERE created_at >= %(cutoff)s
+               OR (relation = ANY(%(relations)s) AND to_collection = 'articles')
+            GROUP BY to_id
+        ) counted
+        WHERE count >= %(min_count)s
+        ORDER BY count DESC, id
+        {"LIMIT %(limit)s" if limit is not None else ""}
         """,
-        {"cutoff": cutoff},
+        {
+            "cutoff": cutoff,
+            "relations": _ARTICLE_CITATION_RELATIONS,
+            "min_count": max(min_count, 1),
+            "limit": limit,
+        },
     )
-    result = {row["id"]: row["count"] for row in recent}
-    citations = store.query(
-        """
-        SELECT to_id AS id, count(*)::int AS count FROM edges
-        WHERE relation = ANY(%(relations)s) AND to_collection = 'articles'
-        GROUP BY to_id
-        ORDER BY to_id
-        """,
-        {"relations": _ARTICLE_CITATION_RELATIONS},
-    )
-    for row in citations:
-        result[row["id"]] = result.get(row["id"], 0) + row["count"]
+    return dict(sorted((row["id"], row["count"]) for row in rows))
 
-    if min_count > 1:
-        result = {k: v for k, v in result.items() if v >= min_count}
-    if limit is not None and len(result) > limit:
-        kept = sorted(result.items(), key=lambda item: (-item[1], item[0]))[:limit]
-        result = dict(sorted(kept))
-    return result
+
+# The windows (months) the heat of the whole graph is counted for, all in one pass.
+HEAT_WINDOWS = (3, 6, 12, 24)
+
+
+def get_heat_tops(store: GraphStore, top: int) -> dict[int, list[tuple[str, int]]]:
+    """Per window of ``HEAT_WINDOWS`` the *top* nodes with the highest heat (as
+    ``get_heat_counts``), highest first, the id settling ties: one pass over the edges for
+    every window, from which each ``months``, ``min_count`` and ``limit`` up to *top* is
+    read without another (``heat_top``)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    params: dict[str, object] = {"relations": _ARTICLE_CITATION_RELATIONS, "top": top}
+    for months in HEAT_WINDOWS:
+        params[f"c{months}"] = (now - dt.timedelta(days=30 * months)).isoformat()
+    windows = ",\n".join(
+        f"count(*) FILTER (WHERE created_at >= %(c{m})s)::int AS m{m}"
+        for m in HEAT_WINDOWS
+    )
+    tops = "\nUNION ALL\n".join(
+        f"(SELECT {m} AS months, id, m{m} + cited AS count FROM counted"
+        f" WHERE m{m} + cited > 0 ORDER BY count DESC, id LIMIT %(top)s)"
+        for m in HEAT_WINDOWS
+    )
+    rows = store.query(
+        f"""
+        WITH counted AS MATERIALIZED (
+            SELECT to_id AS id,
+                   {windows},
+                   count(*) FILTER (WHERE relation = ANY(%(relations)s)
+                                      AND to_collection = 'articles')::int AS cited
+            FROM edges
+            WHERE created_at >= %(c{max(HEAT_WINDOWS)})s
+               OR (relation = ANY(%(relations)s) AND to_collection = 'articles')
+            GROUP BY to_id
+        )
+        {tops}
+        """,
+        params,
+    )
+    found: dict[int, list[tuple[str, int]]] = {months: [] for months in HEAT_WINDOWS}
+    for row in rows:
+        found[row["months"]].append((row["id"], row["count"]))
+    for listed in found.values():
+        listed.sort(key=lambda item: (-item[1], item[0]))
+    return found
+
+
+def heat_top(
+    tops: dict[int, list[tuple[str, int]]], months: int, min_count: int, limit: int
+) -> dict[str, int]:
+    """The *limit* highest of window *months* with at least *min_count*, by node id."""
+    kept = [item for item in tops[months] if item[1] >= max(min_count, 1)][:limit]
+    return dict(sorted(kept))

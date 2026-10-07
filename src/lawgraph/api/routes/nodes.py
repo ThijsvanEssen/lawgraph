@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,6 +19,7 @@ from lawgraph.api.schemas.nodes import (
     node_type_of,
 )
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
+from lawgraph.config.settings import API_HEAT
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
@@ -33,7 +33,13 @@ from lawgraph.db.queries.nodes import (
     get_node_neighborhood,
     get_node_with_neighbors,
 )
-from lawgraph.db.queries.overlay import get_heat_counts, get_in_flux_counts
+from lawgraph.db.queries.overlay import (
+    HEAT_WINDOWS,
+    get_heat_counts,
+    get_heat_tops,
+    get_in_flux_counts,
+    heat_top,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -141,23 +147,37 @@ def bulk_heat(
         return JSONResponse(
             get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
         )
+    if not API_HEAT:
+        raise HTTPException(
+            status_code=503,
+            detail="The heat of the whole graph is off (LAWGRAPH_API_HEAT); ask with ids.",
+            headers={"Retry-After": "3600"},
+        )
     return JSONResponse(
         heat_counts(store, months=months, min_count=min_count, limit=limit)
     )
 
 
+# How long the heat of the whole graph is kept (seconds), whatever the data does.
+HEAT_MAX_AGE = 24 * 3600.0
+
+
 def heat_counts(
     store: GraphStore, *, months: int = 6, min_count: int = 1, limit: int = HEAT_LIMIT
-) -> Any:
-    """The heat of ``/api/nodes/heat`` for the whole graph, the *limit* highest, counted
-    once per data version and day (the window ends today): on the full graph a count of
-    the edges of six months takes over a minute."""
-    key = ("heat", months, min_count, limit, dt.date.today().isoformat())
-    return version_cache.cached(
+) -> dict[str, int]:
+    """The heat of ``/api/nodes/heat`` for the whole graph, the *limit* highest of the
+    window of ``HEAT_WINDOWS`` that holds *months* (5 counts as 6). Every window is counted
+    in one pass over the edges (minutes from disk on the full graph), once for every
+    variant asked, on the background connections, and kept ``HEAT_MAX_AGE`` whatever the
+    data does; a request waits for it no longer than its deadline (503)."""
+    window = next((w for w in HEAT_WINDOWS if w >= months), max(HEAT_WINDOWS))
+    tops = version_cache.lasting(
         store,
-        key,
-        lambda: get_heat_counts(store, months=months, min_count=min_count, limit=limit),
+        ("heat", HEAT_MAX_LIMIT),
+        lambda: get_heat_tops(store, HEAT_MAX_LIMIT),
+        HEAT_MAX_AGE,
     )
+    return heat_top(tops, window, min_count, limit)
 
 
 def neighbor_filter(

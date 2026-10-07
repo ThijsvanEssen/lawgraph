@@ -39,6 +39,7 @@ def test_a_small_table_is_counted(store: GraphStore) -> None:
 def test_a_large_table_is_sampled_the_same_every_time(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(_bm25, "STATS_MAX_AGE", 0.0)  # computed again on every call
     _fill(store, 2000)
     counted = _bm25._stats(store, "instruments")
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 100)
@@ -66,3 +67,13 @@ def test_a_large_table_is_sampled_the_same_every_time(
     assert sampled["aliases/identity"] == 3
     assert again["N"] == pytest.approx(sampled["N"], rel=0.01)
     assert again["title/text"] == pytest.approx(sampled["title/text"], rel=0.05)
+
+
+def test_the_statistics_are_kept_when_the_data_changes(store: GraphStore) -> None:
+    """A run of the pipelines hardly moves them: kept ``STATS_MAX_AGE``, not per version."""
+    _fill(store, 40)
+    first = _bm25._stats(store, "instruments")
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_instrument(n) for n in range(40, 80)]
+    )
+    assert _bm25._stats(store, "instruments") == first

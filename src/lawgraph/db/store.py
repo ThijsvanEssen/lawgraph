@@ -14,6 +14,7 @@ import datetime as dt
 import hashlib
 import os
 import re
+import threading
 import time
 import uuid
 import weakref
@@ -35,6 +36,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import (
     ALLOW_COLLATION,
+    DB_BACKGROUND_POOL_SIZE,
     DB_NAME,
     DB_POOL_SIZE,
     DB_URL,
@@ -232,6 +234,26 @@ def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
     _deadline.reset(token)
 
 
+# Whether the reads of the current context are computed in the background (the API's warm-up
+# and kept answers, ``in_background``): they take a connection of the store's background
+# pool, not one of the requests.
+_background: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "lawgraph_background", default=False
+)
+
+
+@contextlib.contextmanager
+def in_background() -> Iterator[None]:
+    """The reads of the block take connections of the background pool
+    (``LAWGRAPH_DB_BACKGROUND_POOL_SIZE``): what the API computes for every visitor waits
+    for those, and leaves the connections of the requests free."""
+    token = _background.set(True)
+    try:
+        yield
+    finally:
+        _background.reset(token)
+
+
 @contextlib.contextmanager
 def no_read_deadline() -> Iterator[None]:
     """The reads of the block have the ceiling alone, not the deadline of the request: for
@@ -334,6 +356,8 @@ class GraphStore:
                 configure=_configure,
                 kwargs={"application_name": APPLICATION_NAME},
             )
+            self._background_pool: ConnectionPool | None = None
+            self._background_lock = threading.Lock()
             with self.pool.connection() as conn:
                 ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
         except Exception as exc:
@@ -360,7 +384,27 @@ class GraphStore:
     def close(self) -> None:
         _OPEN.discard(self)
         self.pool.close()
+        if self._background_pool is not None:
+            self._background_pool.close()
         self._payload_io.shutdown(wait=False)
+
+    def _reading_pool(self) -> ConnectionPool:
+        """The pool a read of the current context takes its connection from."""
+        if not _background.get():
+            return self.pool
+        with self._background_lock:
+            if self._background_pool is None:
+                self._background_pool = ConnectionPool(
+                    _server_url(self.name),
+                    min_size=DB_BACKGROUND_POOL_SIZE,
+                    max_size=DB_BACKGROUND_POOL_SIZE,
+                    open=True,
+                    timeout=60,
+                    name="lawgraph-background",
+                    configure=_configure,
+                    kwargs={"application_name": APPLICATION_NAME},
+                )
+            return self._background_pool
 
     def ping(self) -> None:
         """Raise when the database cannot be reached."""
@@ -490,8 +534,11 @@ class GraphStore:
     ) -> Iterator[Any]:
         budget = _read_budget_ms()
         try:
-            # a request waits for a connection of the pool no longer than it has left
-            with self.pool.connection(timeout=min(60.0, budget / 1000)) as conn:
+            # a request waits for a connection of the pool no longer than it has left; a
+            # computation in the background waits its turn
+            pool = self._reading_pool()
+            wait = budget / 1000 if _background.get() else min(60.0, budget / 1000)
+            with pool.connection(timeout=wait) as conn:
                 yield from self._read(
                     conn,
                     statement,

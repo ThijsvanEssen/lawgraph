@@ -55,6 +55,10 @@ DB_URL = os.getenv(
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+# Connections of one process for what the API computes in the background (its warm-up and
+# the answers it keeps per data version), apart from the ones above: a slow computation
+# never keeps a request waiting for a connection. Opened when first needed.
+DB_BACKGROUND_POOL_SIZE = _env_positive_int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 2)
 # A database whose strings sort by another collation than the schema's ICU collation is
 # refused; this names the one let through anyway, for the dump and restore that replaces it
 # (``libc en_US.utf8``, as the refusal names it).
@@ -192,6 +196,9 @@ API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30
 # The API computes the answers every visitor asks (facets of the unfiltered lists, the
 # statistics, the heat) at its start and after every data change, in the background.
 API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
+# The heat of the whole graph (``/api/nodes/heat`` without ``ids``), which reads every
+# edge; ``false`` answers it 503 at once (the heat of named nodes stays).
+API_HEAT = os.getenv("LAWGRAPH_API_HEAT", "true").strip().lower() != "false"
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))

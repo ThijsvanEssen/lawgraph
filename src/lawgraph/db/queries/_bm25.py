@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.db.schema import SEARCH_FIELDS, search_column
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import cached, lasting
 
 K1 = 1.2
 B = 0.75
@@ -27,6 +27,8 @@ B = 0.75
 SAMPLE_ROWS = 20_000
 # A field found fewer times in the sample is measured over the whole table (``_stats``).
 MIN_SAMPLED = 100
+# How long the statistics of a table are kept (seconds), whatever the data does.
+STATS_MAX_AGE = 6 * 3600.0
 
 # The statistics of a table and the document frequencies of terms are kept per data version
 # (``version_cache``): on the full graph they take a minute, and change only with the data.
@@ -60,7 +62,9 @@ def _stats(store: Any, table: str) -> dict[str, float]:
     and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
     as counting a million judgments takes minutes from disk. A field the sample holds
     fewer than ``MIN_SAMPLED`` times (the names of a judgment: a few hundred of a million)
-    is measured over the whole table, which reads that field alone."""
+    is measured over the whole table, reading that field alone (a scan of the table, not of
+    its large values). Kept ``STATS_MAX_AGE`` whatever the data does, computed on the
+    background connections: a run of the pipelines hardly moves them."""
 
     def count() -> dict[str, float]:
         names = [
@@ -81,7 +85,7 @@ def _stats(store: Any, table: str) -> dict[str, float]:
             means.update(_means(store, table, rare, "")[1])
         return {"N": estimate, **means}
 
-    return cached(store, ("bm25-stats", table), count)
+    return lasting(store, ("bm25-stats", table), count, STATS_MAX_AGE)
 
 
 def _means(
