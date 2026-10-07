@@ -459,3 +459,35 @@ def test_a_page_read_whole_is_found() -> None:
     on_partial = {"Node Type": "Index Scan", "Index Name": "edges_semantic_type"}
     sorted_partial = {"Node Type": "Sort", "Plans": [on_partial]}
     assert _faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
+
+
+def _shape(node: dict[str, Any]) -> list[str]:
+    """The plan as its nodes, their tables and indexes, without costs."""
+    own = " ".join(
+        str(node[k]) for k in ("Node Type", "Relation Name", "Index Name") if k in node
+    )
+    return [own] + [line for child in node.get("Plans", []) for line in _shape(child)]
+
+
+def test_a_cursor_is_planned_as_the_query_it_reads(
+    store: GraphStore, statements: list[tuple[str, Any, Any]]
+) -> None:
+    """``store.query`` reads every statement through a server-side cursor; planned for its
+    first tenth (the default ``cursor_tuple_fraction``), a statement with ``ORDER BY …
+    LIMIT`` may walk a table in index order. The connections of the pool plan a cursor
+    for all its rows: as the statement itself."""
+    differ = []
+    with store.pool.connection() as conn:
+        assert conn.execute("SHOW cursor_tuple_fraction").fetchone() == ("1",)
+        for url, statement, params in statements:
+            query = _query(statement)
+            plain = sql.SQL("EXPLAIN (FORMAT JSON) ") + query
+            cursor = (
+                sql.SQL("EXPLAIN (FORMAT JSON) DECLARE plan_check CURSOR FOR ") + query
+            )
+            (as_query,) = conn.execute(plain, params).fetchone()  # type: ignore[misc]
+            (as_cursor,) = conn.execute(cursor, params).fetchone()  # type: ignore[misc]
+            if _shape(as_query[0]["Plan"]) != _shape(as_cursor[0]["Plan"]):
+                differ.append(f"{url}: {' '.join(_text(statement).split())[:200]}")
+            conn.rollback()
+    assert not differ, "\n".join(sorted(set(differ)))
