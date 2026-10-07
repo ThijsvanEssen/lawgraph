@@ -25,6 +25,7 @@ from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
+from lawgraph.db.version_cache import cached_rows
 
 # Edges from an amending instrument to the articles it changes.
 _MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
@@ -738,19 +739,20 @@ def get_instruments_list(
         "policy_domain": policy_domain.strip().lower() if policy_domain else None,
         **words,
     }
+    # The facets are the same on every page and for every visitor: kept per data version
+    # under the filters alone.
+    counted = {k: v for k, v in params.items() if k not in ("limit", "offset")}
     rows, areas, domains = run_together(
         lambda: list(store.query(_paged(matched, page), params)),
-        lambda: list(
-            store.query(
-                _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
-                params,
-            )
+        lambda: cached_rows(
+            store,
+            _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
+            counted,
         ),
-        lambda: list(
-            store.query(
-                _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
-                params,
-            )
+        lambda: cached_rows(
+            store,
+            _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
+            counted,
         ),
     )
     items, total = _split_page(iter(rows))
