@@ -12,7 +12,6 @@ follows: a text that was loaded long ago can name a law that was loaded just now
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
@@ -20,7 +19,12 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.command import Outcome, combined_result, run_command
+from lawgraph.pipelines.command import (
+    Outcome,
+    combined_result,
+    command_parser,
+    run_command,
+)
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.pipelines.retrieve_commands import GAPS
 
@@ -67,12 +71,18 @@ def _expand(max_iterations: int) -> list[Outcome]:
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description=(
             "Repeat `retrieve all --mode gaps` and, for what it retrieved, normalize all and "
             "semantic all, while records keep coming; then one full semantic all."
         ),
     )
-    parser.add_argument("--max-iterations", type=int, default=10)
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=10,
+        metavar="N",
+        help="At most this many rounds (default: %(default)s).",
+    )
     args = parser.parse_args(argv)
     return combined_result(_expand(args.max_iterations))
