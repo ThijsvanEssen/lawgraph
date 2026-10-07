@@ -12,6 +12,9 @@ services:
       - POSTGRES_USER=lawgraph
       - POSTGRES_PASSWORD=${LAWGRAPH_DB_PASSWORD}
       - POSTGRES_DB=${LAWGRAPH_DB_NAME:-lawgraph}
+      # the database made at the first start sorts strings as the schema expects (the ICU
+      # collation of create_database_sql); lawgraph refuses one that does not
+      - POSTGRES_INITDB_ARGS=--locale-provider=icu --icu-locale=und-u-kf-upper --locale=C.UTF-8
     mem_limit: ${LAWGRAPH_PG_MEMORY:-4g}
     # parallel workers share their rows through /dev/shm; Docker gives it 64 MB
     shm_size: 1g

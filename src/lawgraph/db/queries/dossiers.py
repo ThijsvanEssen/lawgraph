@@ -1026,10 +1026,10 @@ def _dossier_filters(
             own[name] = clause
             bind[name] = list(value) if isinstance(value, tuple) else value
     if filters.number:
-        # a prefix as a range, so the index on the label answers it
-        shared.append("ds.label >= %(number)s AND ds.label < %(number_end)s")
+        # byte for byte, whatever the collation of the database: a range up to a bound
+        # that sorts after every label holds under ICU, not under glibc
+        shared.append("starts_with(ds.label, %(number)s)")
         bind["number"] = filters.number
-        bind["number_end"] = filters.number + "\uffff"
     if filters.subject:
         shared.append(_subject_filter(filters.subject, bind))
     if filters.has_phase:

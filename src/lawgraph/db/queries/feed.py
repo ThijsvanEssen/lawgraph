@@ -67,8 +67,6 @@ from lawgraph.db import GraphStore
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
-# The end of every date range: after any ISO date.
-_NO_END = "￿"
 # The props of the page's nodes the items show; never the text of a paper.
 _ITEM_PROPS = (
     "kind",
@@ -155,7 +153,9 @@ def _text(value: str) -> str:
 
 def _kind_parts(field: str, kind: str) -> tuple[str, str]:
     """SQL: *field* is *kind* itself, and *field* is ``kind (…)``: a range, as the AQL had
-    it (the collation is ArangoDB's)."""
+    it, so the index on the kind and the date reads a page of it. The range holds under the
+    ICU collation of the schema, which counts the space and the brackets (glibc ignores
+    them); ``schema.check_collation`` refuses a database without it."""
     return (
         f"{field} = {_lit(kind)}",
         f"{field} >= {_lit(kind + ' (')} AND {field} < {_lit(kind + ' )')}",
@@ -435,11 +435,12 @@ _PREAMBLE = f"""
         ) firsts
     )"""
 
-# The period of the cabinet asked for: from its beëdiging to that of the next one.
-_UNTIL = _or("nx.v", "%(no_end)s::json")
+# The period of the cabinet asked for: from its beëdiging to that of the next one; the
+# cabinet in office has no end (NULL), not a bound that sorts after every date, which
+# depends on the collation.
 _CABINET_PERIOD = f""",
     period AS (
-        SELECT lg_str(cf.v) AS cabinet_from, lg_str({_UNTIL}) AS cabinet_until
+        SELECT lg_str(cf.v) AS cabinet_from, NULLIF(lg_str(nx.v), '') AS cabinet_until
         FROM (
             SELECT (SELECT c.props -> 'from_date' FROM {COLLECTION_CABINETS} c
                     WHERE c.key = %(cabinet)s) AS v
@@ -462,7 +463,8 @@ _MEMBER_PERSON = f""",
 _IN_PERIOD = (
     "(SELECT cabinet_from FROM period) IS NOT NULL"
     " AND {date} >= (SELECT cabinet_from FROM period)"
-    " AND {date} < (SELECT cabinet_until FROM period)"
+    " AND ((SELECT cabinet_until FROM period) IS NULL"
+    " OR {date} < (SELECT cabinet_until FROM period))"
 )
 
 
@@ -581,6 +583,16 @@ class _Plan:
     shared: list[str]
     dimensions: dict[str, str]
     cursor: FeedCursor | None
+
+    @property
+    def until(self) -> str | None:
+        """The last day a kind reads: ``until``, and without facets no later than the
+        cursor's day; None is no end (no bound after every date: that would depend on the
+        collation of the database)."""
+        days = [self.filters.until]
+        if self.cursor is not None and not self.facets:
+            days.append(self.cursor.date)
+        return min((day for day in days if day), default=None)
 
     @property
     def needs_factions(self) -> bool:
@@ -727,7 +739,9 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
     newest first: before anything else is looked up when no filter needs it."""
     kind = _Kind(source, plan)
     date = f"n.{source.date}"
-    head = [f"{date} >= %(since)s AND {date} <= %(until)s", source.condition]
+    head = [f"{date} >= %(since)s", source.condition]
+    if plan.until is not None:
+        head.insert(1, f"{date} <= %(until)s")
     if plan.filters.chamber and source.kind == EVENT_VOTE and not plan.facets:
         head.append(f"{_VOTE_CHAMBER} = %(chamber)s")
     tail = [clause.replace(_WORDS, kind.words()) for clause in plan.shared]
@@ -1043,9 +1057,7 @@ def _rows_of(filters: FeedFilters, plan: _Plan, *, facets: bool) -> str:
 def _base_bind(filters: FeedFilters, limit: int) -> dict[str, Any]:
     return {
         "since": filters.since or "0",
-        "until": filters.until or _NO_END,
         "page_size": limit + 1,
-        "no_end": f'"{_NO_END}"',
         "cited": _CITED,
         "trim": _TRIM,
         "item_props": list(_ITEM_PROPS),
@@ -1106,9 +1118,7 @@ def feed_query(
         bind["cursor_date"] = cursor.date
         bind["cursor_id"] = cursor.id
         bind["cursor_rank"] = cursor.rank
-        if not facets:
-            # A kind reads no row after the cursor's date.
-            bind["until"] = min(bind["until"], cursor.date)
+    bind["until"] = plan.until  # a kind reads no row after the cursor's date
     return _rows_of(filters, plan, facets=facets) + _page_query(plan), bind
 
 
@@ -1218,6 +1228,7 @@ def summary_query(
         dimensions=_dimension_filters(filters, bind),
         cursor=None,
     )
+    bind["until"] = plan.until
     dimensions = _where(list(plan.dimensions.values()), "        ")
     summary = _SUMMARY.replace("{dimensions}", dimensions)
     return _rows_of(filters, plan, facets=True) + summary, bind
