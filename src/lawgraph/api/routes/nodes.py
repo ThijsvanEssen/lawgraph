@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,7 +24,7 @@ from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.relations import RELATION_NAMES
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.nodes import (
     DEFAULT_BUCKET_LIMIT,
     NeighborFilter,
@@ -115,12 +116,13 @@ def bulk_heat(
     ),
 ) -> JSONResponse:
     """Return activity counts per node for the heat-layer overlay."""
-    cache_key = f"heat:m={months}:mc={min_count}"
-    cached = _overlay_cache.get(cache_key)
-    if cached is _MISSING:
-        cached = get_heat_counts(store, months=months, min_count=min_count)
-        _overlay_cache.set(cache_key, cached)
-    return JSONResponse(cached)
+    # Counted once per data version and day (the window ends today): on the full graph a
+    # count of the edges of six months takes over a minute.
+    key = ("heat", months, min_count, dt.date.today().isoformat())
+    counts = version_cache.cached(
+        store, key, lambda: get_heat_counts(store, months=months, min_count=min_count)
+    )
+    return JSONResponse(counts)
 
 
 def neighbor_filter(

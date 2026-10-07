@@ -15,6 +15,18 @@ os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 
 
 @pytest.fixture(autouse=True)
+def _fresh_version_cache(monkeypatch) -> Iterator[None]:
+    """Every test reads the data version at every call and starts with nothing kept: a test
+    writes and reads again within the seconds the API keeps an answer."""
+    from lawgraph.db import version_cache
+
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
+    version_cache.clear()
+    yield
+    version_cache.clear()
+
+
+@pytest.fixture(autouse=True)
 def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
     """The host locks of the pacer in a directory of the test run, not the machine's.
 
