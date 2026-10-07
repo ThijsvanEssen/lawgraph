@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 # The suite is offline unless asked otherwise; a developer's .env must not switch that on.
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
+# The API warms its answers up in the background at its start; the tests ask themselves.
+os.environ["LAWGRAPH_API_WARM_UP"] = "false"
 
 
 @pytest.fixture(autouse=True)

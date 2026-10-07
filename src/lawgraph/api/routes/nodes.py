@@ -116,13 +116,16 @@ def bulk_heat(
     ),
 ) -> JSONResponse:
     """Return activity counts per node for the heat-layer overlay."""
-    # Counted once per data version and day (the window ends today): on the full graph a
-    # count of the edges of six months takes over a minute.
+    return JSONResponse(heat_counts(store, months=months, min_count=min_count))
+
+
+def heat_counts(store: GraphStore, *, months: int = 6, min_count: int = 1) -> Any:
+    """The heat of ``/api/nodes/heat``, counted once per data version and day (the window
+    ends today): on the full graph a count of the edges of six months takes over a minute."""
     key = ("heat", months, min_count, dt.date.today().isoformat())
-    counts = version_cache.cached(
+    return version_cache.cached(
         store, key, lambda: get_heat_counts(store, months=months, min_count=min_count)
     )
-    return JSONResponse(counts)
 
 
 def neighbor_filter(

@@ -62,3 +62,65 @@ def test_many_at_once_compute_it_once(store: GraphStore) -> None:
         thread.join()
     assert answers == ["answer"] * 6
     assert computed == [1]
+
+
+def test_a_request_past_its_deadline_gives_up_and_the_computation_goes_on(
+    store: GraphStore,
+) -> None:
+    import pytest
+
+    from lawgraph.db import store as store_module
+
+    computed: list[int] = []
+
+    def slow() -> str:
+        computed.append(1)
+        time.sleep(0.5)
+        return "answer"
+
+    token = store_module.set_read_deadline(0.1)
+    try:
+        with pytest.raises(store_module.ReadTimedOut):
+            version_cache.cached(store, ("slow-deadline",), slow)
+    finally:
+        store_module.reset_read_deadline(token)
+    time.sleep(0.6)
+    # computed on, kept for the next request
+    assert version_cache.cached(store, ("slow-deadline",), slow) == "answer"
+    assert computed == [1]
+
+
+def test_a_failed_computation_is_not_kept(store: GraphStore) -> None:
+    import pytest
+
+    attempts: list[int] = []
+
+    def flaky() -> str:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("the database went away")
+        return "answer"
+
+    with pytest.raises(RuntimeError):
+        version_cache.cached(store, ("flaky",), flaky)
+    assert version_cache.cached(store, ("flaky",), flaky) == "answer"
+    assert attempts == [1, 1]
+
+
+def test_a_new_data_version_warms_up_in_the_background(
+    store: GraphStore, monkeypatch
+) -> None:
+    warmed: list[str] = []
+    monkeypatch.setattr(version_cache, "_warmers", [lambda s: warmed.append(s.name)])
+
+    version_cache.cached(store, ("x",), lambda: 1)  # the first version: no warm-up
+    time.sleep(0.2)
+    assert warmed == []
+
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    version_cache.cached(store, ("x",), lambda: 2)  # a version it did not know
+    for _ in range(50):
+        if warmed:
+            break
+        time.sleep(0.05)
+    assert warmed == [store.name]
