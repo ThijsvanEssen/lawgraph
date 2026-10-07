@@ -13,6 +13,16 @@ class PoolUsageDTO(BaseModel):
     waiting: int = Field(description="Reads waiting for a connection of it.")
 
 
+class BusyCallDTO(BaseModel):
+    """A call a thread of a shared pool runs now (queries side by side, the searches)."""
+
+    thread: str
+    call: str = Field(
+        description="The function: module, name and, of a lambda, its line."
+    )
+    seconds: float = Field(description="How long it has run.")
+
+
 class HealthDTO(BaseModel):
     """Whether the API reaches its database, and how warm and busy it is."""
 
@@ -40,4 +50,8 @@ class HealthDTO(BaseModel):
             "Per connection pool (`requests`, `background`; null before the background "
             "one is first needed) its use."
         )
+    )
+    busy: list[BusyCallDTO] = Field(
+        default_factory=list,
+        description="The calls the threads of the shared pools run now, longest first.",
     )

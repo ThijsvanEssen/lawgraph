@@ -472,8 +472,12 @@ no code.
   into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
-  `GET /api/health` checks the database connection; `GET /api/stats` gives counts per
-  collection and relation.
+  `GET /api/health` checks the database connection and shows, from memory, the use of both
+  connection pools (`pools`) and what the threads shared by every request run now (`busy`);
+  `GET /api/stats` gives counts per collection and relation.
+- A request that hangs: `systemctl kill -s USR1 lawgraph-api` writes the stack of every
+  thread of the API to its stderr, the journal (`journalctl -u lawgraph-api`). Nothing is
+  written without the signal.
 
 ## Tests and CI
 

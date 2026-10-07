@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import collections
+import faulthandler
 import ipaddress
 import logging
+import signal
+import sys
 import time
 import uuid
 from collections.abc import Callable
@@ -50,6 +53,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import setup_logging
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.store import (
     ReadTimedOut,
     reset_read_deadline,
@@ -377,7 +381,8 @@ async def health(
     were last computed for (the answers a request gets while a newer one computes, null
     before the first warm-up), ``data_version`` the version now, ``computing`` whether a
     warm-up or an answer of a newer version is being computed. ``pools``: per connection
-    pool its size, the free connections and the reads waiting for one."""
+    pool its size, the free connections and the reads waiting for one; ``busy`` what the
+    threads of the shared pools run now, and how long."""
     try:
         store.ping()
         answer: dict[str, Any] = {"status": "ok", "database": "connected", "warm": None}
@@ -390,7 +395,9 @@ async def health(
                 "data_version": store.data_version(),
                 "computing": version_cache.computing(store),
             }
-        return HealthDTO.model_validate(answer | {"pools": store.pool_usage()})
+        return HealthDTO.model_validate(
+            answer | {"pools": store.pool_usage(), "busy": busy_calls()}
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
@@ -412,6 +419,15 @@ def _start_warm_up() -> None:
         _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
 
 
+def _thread_dump_on_signal() -> None:
+    """``SIGUSR1`` writes the stack of every thread of the process to stderr (under
+    systemd, the journal): ``systemctl kill -s USR1 lawgraph-api`` shows what a hanging
+    request waits on. Nothing is written without the signal."""
+    if hasattr(signal, "SIGUSR1"):
+        faulthandler.register(signal.SIGUSR1, file=sys.stderr, all_threads=True)
+
+
+app.router.on_startup.append(_thread_dump_on_signal)
 app.router.on_startup.append(_start_warm_up)
 app.router.on_startup.append(search_terms.start)
 app.router.on_shutdown.append(search_terms.stop)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextvars
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
@@ -249,10 +250,44 @@ def _free_threads(pool: ThreadPoolExecutor) -> threading.BoundedSemaphore:
 
 
 def _releasing(free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
+    thread = threading.current_thread().name
+    with _free_lock:
+        _busy[thread] = (_call_name(call), time.monotonic())
     try:
         return call()
     finally:
+        with _free_lock:
+            _busy.pop(thread, None)
         free.release()
+
+
+# What each thread of the shared pools runs now, and since when (``busy_calls``).
+_busy: dict[str, tuple[str, float]] = {}
+
+
+def _call_name(call: Callable[..., Any]) -> str:
+    """The function a call runs: its module and name (a lambda by where it is written)."""
+    code = getattr(call, "__code__", None)
+    module = getattr(call, "__module__", "") or ""
+    name = getattr(call, "__qualname__", None) or type(call).__name__
+    if code is not None and name.endswith("<lambda>"):
+        return f"{module}.{name}:{code.co_firstlineno}"
+    return f"{module}.{name}"
+
+
+def busy_calls() -> list[dict[str, Any]]:
+    """The calls the threads of the shared pools run now, the longest first: ``thread``,
+    ``call`` and ``seconds`` (``/api/health``)."""
+    now = time.monotonic()
+    with _free_lock:
+        running = list(_busy.items())
+    return sorted(
+        (
+            {"thread": thread, "call": name, "seconds": round(now - began, 1)}
+            for thread, (name, began) in running
+        ),
+        key=lambda call: -call["seconds"],
+    )
 
 
 def chamber_sql(alias: str) -> str:

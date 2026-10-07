@@ -69,3 +69,28 @@ def test_a_request_does_not_queue_behind_the_calls_of_others() -> None:
         busy.join()
     assert time.monotonic() - started < 0.5
     assert all(f.result() for f in others)
+
+
+def test_health_names_the_calls_the_shared_threads_run() -> None:
+    import threading
+
+    from lawgraph.db.queries._helpers import busy_calls
+
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-named")
+    release = threading.Event()
+
+    def slow_count() -> bool:
+        return release.wait(5)
+
+    runner = threading.Thread(target=lambda: side_by_side(pool, [slow_count]))
+    runner.start()
+    time.sleep(0.2)
+    try:
+        running = [c for c in busy_calls() if c["thread"].startswith("test-named")]
+    finally:
+        release.set()
+        runner.join()
+    assert len(running) == 1
+    assert running[0]["call"].endswith("slow_count")
+    assert running[0]["seconds"] >= 0.1
+    assert not [c for c in busy_calls() if c["thread"].startswith("test-named")]
