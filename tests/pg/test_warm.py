@@ -34,19 +34,17 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     monkeypatch.setattr(warm, "_warmed", None)
     asked: list[str] = []
 
-    def judgments_while_a_pipeline_writes(store_: GraphStore, *a, **k) -> None:
-        asked.append("judgments")
+    def stats_while_a_pipeline_writes(store_: GraphStore) -> None:
+        asked.append("stats")
         store_.bulk_insert_or_update_nodes(
             "instruments",
             [{"_key": "y", "type": "instrument", "labels": [], "props": {}}],
         )
 
-    monkeypatch.setattr(warm, "get_judgments_list", judgments_while_a_pipeline_writes)
-    monkeypatch.setattr(
-        warm, "load_notation_parser", lambda s: asked.append("search notation")
-    )
+    monkeypatch.setattr(warm, "stats_data", stats_while_a_pipeline_writes)
+    monkeypatch.setattr(warm, "coverage_data", lambda s: asked.append("coverage"))
     warm.warm_up(store)
-    assert asked == ["judgments"]  # stopped before the next part
+    assert asked == ["stats"]  # stopped before the next part
     assert not warm.is_warm(store)
 
 

@@ -18,7 +18,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
-from lawgraph.db.queries.feed import FEED_KINDS, FeedFilters, get_feed
+from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.search import load_code_aliases, load_notation_parser
@@ -72,26 +72,22 @@ def warm_up(store: GraphStore) -> None:
     global _warmed
     version = store.data_version()
     parts: dict[str, Callable[[], object]] = {
-        # what the first visitors ask first: the lists and the search
-        "judgments": lambda: get_judgments_list(store, JudgmentFilters(), limit=20),
+        # cheap and asked most first, so that a deploy is warm for them within a minute
+        "stats": lambda: stats_data(store),
+        "coverage": lambda: coverage_data(store),
+        "cabinets": lambda: _warm_cabinets(store),
+        "instruments": lambda: get_instruments_list(store, limit=20),
+        "documents": lambda: list_documents(store, limit=20),
         "search notation": lambda: load_notation_parser(store),
         "search codes": lambda: load_code_aliases(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
         },
+        "judgments": lambda: get_judgments_list(store, JudgmentFilters(), limit=20),
+        # the slow ones last: the feed and every kind of it in one reading of the events
+        # (``feed_counts``), then the largest areas of law
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
-        "instruments": lambda: get_instruments_list(store, limit=20),
-        "documents": lambda: list_documents(store, limit=20),
-        "stats": lambda: stats_data(store),
-        "coverage": lambda: coverage_data(store),
-        **{
-            f"feed {kind}": partial(
-                get_feed, store, FeedFilters(kinds=(kind,)), limit=50
-            )
-            for kind in FEED_KINDS
-        },
-        "cabinets": lambda: _warm_cabinets(store),
         "judgments by area of law": lambda: _warm_subject_areas(store),
     }
     for name, part in parts.items():
