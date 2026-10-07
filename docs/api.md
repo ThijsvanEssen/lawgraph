@@ -153,6 +153,13 @@ nr. of a Tweede Kamer paper (`12`, its `sequence` as text), the letter of an Eer
 (`A`, which has no `sequence`). Read it rather than `sequence`; it is null for a paper numbered
 in no dossier.
 
+`sender` of a Tweede Kamer document, in the same places but search hits (the feed has `persons`
+and `ministry`), is who sent it as the source signs it: its first signatory, else the signature
+the source calls its `Afzender` (the griffier). `name`, `function` (`minister van Financiën`,
+`Tweede Kamerlid`), `faction`, `capacity` (`bewindspersoon`: a letter of the government,
+`kamerlid`, `overig`), `member_key` and, of a bewindspersoon, the `ministry` the function names on
+the document's date. Null for an Eerste Kamer paper and a paper without signatures.
+
 The Eerste Kamer (`?chamber=EK` on the lists of factions, committees and members and on the
 seats) is what eerstekamer.nl shows on the day it was read: the site gives the composition of
 today, and no start or end of a membership as data. So a period is what was observed:

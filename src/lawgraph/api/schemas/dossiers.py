@@ -8,9 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
-from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.api.schemas.documents import (
+    DocumentOrigin,
+    SenderDTO,
+    SigningCapacity,
+    origin_fields,
+    sender_of,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.documents import numbered_in, paper_number
+from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_links import tk_url
 
@@ -19,8 +25,6 @@ from lawgraph.core.tk_links import tk_url
 DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
 TitleSource = Literal["dossier", "document", "activiteit"]
-
-SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
 DossierOutcome = Literal["aangenomen", "verworpen"]
 
@@ -150,6 +154,11 @@ class DocumentEntryDTO(DocumentOrigin):
     session_year: str | None = Field(None, description="Parliamentary year.")
     date: str | None = None
     tk_url: str | None = None
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
 
 
 class TimelineDocumentSummaryDTO(DocumentEntryDTO):
@@ -187,6 +196,11 @@ class TimelineDocumentBody(DocumentOrigin):
     session_year: str | None = Field(None, description="Parliamentary year.")
     tk_url: str | None = None
     url: str | None = None
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
 
 
 class TimelineActivityBody(BaseModel):
@@ -362,6 +376,7 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
             ),
             "tk_url": link,
             "url": body.get("url"),
+            "sender": document_sender(body.get("actors"), row.get("date")),
             **origin,
         }
     elif node_type == "decision":
@@ -408,6 +423,7 @@ class DossierDocumentDTO(DocumentEntryDTO):
             date=row.get("date"),
             tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
+            sender=sender_of(row),
             **origin,
         )
 

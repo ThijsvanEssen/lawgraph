@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.core.documents import chamber_of, paper_number
+from lawgraph.core.documents import chamber_of, document_sender, paper_number
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
 
@@ -55,6 +55,9 @@ def _build_node_payload(
         number = paper_number(chamber_of(doc.get("labels")), props)
         if number:
             sanitized["number"] = number
+        sender = document_sender(props.get("actors"), props.get("date"))
+        if sender:
+            sanitized["sender"] = sender
     return {
         "id": doc["_id"],
         "key": doc["_key"],
