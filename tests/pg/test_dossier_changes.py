@@ -84,8 +84,20 @@ def _seed(store: GraphStore) -> None:
         "documents",
         [
             _node("bill", "document", display_name="Voorstel van wet"),
-            _node("amendment", "document", display_name="Amendement"),
+            {
+                **_node(
+                    "amendment",
+                    "document",
+                    display_name="Amendement",
+                    kind="Amendement",
+                    sequence=12,
+                ),
+                "labels": ["TK"],
+            },
         ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments", [_node("j1", "judgment"), _node("j2", "judgment")]
     )
     stb = "instruments/stb_2026_154"
     store.bulk_insert_or_update_edges(
@@ -134,6 +146,10 @@ def _seed(store: GraphStore) -> None:
             _edge("x3", "documents/bill", "articles/bwbr0002_9", "AMENDS"),
             # a change of another dossier's publication
             _edge("x4", "instruments/other", "articles/bwbr0001_2", "AMENDS"),
+            # two judgments cite article 1; a paper's citation is no judgment
+            _edge("c1", "judgments/j1", "articles/bwbr0001_1", "REFERS_TO"),
+            _edge("c2", "judgments/j2", "articles/bwbr0001_1", "REFERS_TO"),
+            _edge("c3", "judgments/j1", "articles/bwbr0002_9", "REFERS_TO"),
         ]
     )
 
@@ -177,8 +193,30 @@ def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
         "key": "stb_2026_154",
         "display_name": "Stb. 2026, 154",
         "official_id": "stb-2026-154",
+        "kind": "publicatie",
+        "sequence": None,
+        "number": None,
     }
     assert enacted["effective_date"] == "2026-09-01"
+    # the paper that proposes a change, by its kind and number
+    proposed = laws[0]["changes"][1]["source"]
+    assert (proposed["kind"], proposed["sequence"], proposed["number"]) == (
+        "Amendement",
+        12,
+        "12",
+    )
+    # the judgments that cite each article, the same on every change of it
+    totals = {
+        c["article"]["key"]: c["article"]["judgment_total"]
+        for law in laws
+        for c in law["changes"]
+    }
+    assert totals == {
+        "bwbr0001_1": 2,
+        "bwbr0001_2": 0,  # a paper's REFERS_TO is no judgment
+        "bwbr0002_9": 1,
+        "bwbr0003_5": 0,
+    }
     assert laws[0]["changes"][1]["effective_date"] is None
     assert get_dossier_changed_articles(store, "dossiers/none") == []
 
