@@ -17,16 +17,14 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.core.cache import TTLCache
 from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.version_cache import cached
 
 K1 = 1.2
 B = 0.75
 
-_stats_cache: TTLCache[str, dict[str, float]] = TTLCache(maxsize=16, ttl=60.0)
-# The document frequencies of terms, per table, field, analyzer and term: they change with
-# the data as the lengths do.
-_df_cache: TTLCache[tuple[str, str, str, str], float] = TTLCache(maxsize=4096, ttl=60.0)
+# The statistics of a table and the document frequencies of terms are kept per data version
+# (``version_cache``): on the full graph they take a minute, and change only with the data.
 # The stems of a word: what the stemmer makes of it does not change.
 _stems: dict[str, list[str]] = {}
 # The types of one search are scored side by side; the caches are not thread-safe.
@@ -53,28 +51,28 @@ def _length(field: str, analyzer: str) -> str:
 
 def _stats(store: Any, table: str) -> dict[str, float]:
     """``N`` and the mean length per ``field/analyzer`` over the rows that have it."""
-    with _stats_lock:
-        cached = _stats_cache.get(table)
-    if isinstance(cached, dict):
-        return cached
-    names = [
-        f"{field}/{analyzer}"
-        for field, analyzers in SEARCH_FIELDS[table].items()
-        for analyzer in analyzers
-    ]
-    means = [
-        f"avg(nullif({_length(*name.split('/'))}, 0))::float AS a{n}"
-        for n, name in enumerate(names)
-    ]
-    row = next(
-        store.query(f"SELECT count(*)::float AS n, {', '.join(means)} FROM {table} doc")
-    )
-    found = {"N": float(row["n"] or 0)}
-    for n, name in enumerate(names):
-        found[name] = float(row[f"a{n}"] or 1.0)
-    with _stats_lock:
-        _stats_cache.set(table, found)
-    return found
+
+    def count() -> dict[str, float]:
+        names = [
+            f"{field}/{analyzer}"
+            for field, analyzers in SEARCH_FIELDS[table].items()
+            for analyzer in analyzers
+        ]
+        means = [
+            f"avg(nullif({_length(*name.split('/'))}, 0))::float AS a{n}"
+            for n, name in enumerate(names)
+        ]
+        row = next(
+            store.query(
+                f"SELECT count(*)::float AS n, {', '.join(means)} FROM {table} doc"
+            )
+        )
+        found = {"N": float(row["n"] or 0)}
+        for n, name in enumerate(names):
+            found[name] = float(row[f"a{n}"] or 1.0)
+        return found
+
+    return cached(store, ("bm25-stats", table), count)
 
 
 def _tf(term: _Term) -> str:
@@ -130,23 +128,28 @@ def _stems_of(store: Any, word: str) -> list[str]:
 def _frequencies(
     store: Any, table: str, terms: list[_Term], params: dict[str, Any]
 ) -> list[float]:
-    """The document frequency of each term, from the cache or counted in one statement."""
-    keys = [(table, t.field, t.analyzer, str(params[t.param])) for t in terms]
-    with _stats_lock:
-        cached = [_df_cache.get(key) for key in keys]
-    missing = [n for n, value in enumerate(cached) if not isinstance(value, float)]
-    if missing:
-        counts = [f"{_df(table, terms[n])} AS d{n}" for n in missing]
+    """The document frequency of each term, counted in one statement, kept per data
+    version."""
+    if not terms:
+        return []
+    key = (
+        "bm25-df",
+        table,
+        tuple((t.field, t.analyzer, str(params[t.param])) for t in terms),
+    )
+
+    def count() -> list[float]:
+        counts = [f"{_df(table, term)} AS d{n}" for n, term in enumerate(terms)]
         # Counted from the indexes: a scan would detoast the search columns of every row.
+        # (one more column: a row of one column is its value, not a dict)
         row = next(
-            store.query(f"SELECT {', '.join(counts)}", params, indexes_only=True)
+            store.query(
+                f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
+            )
         )
-        with _stats_lock:
-            for n in missing:
-                counted = float(row[f"d{n}"])
-                cached[n] = counted
-                _df_cache.set(keys[n], counted)
-    return [float(value) for value in cached]  # type: ignore[arg-type]
+        return [float(row[f"d{n}"]) for n in range(len(terms))]
+
+    return cached(store, key, count)
 
 
 def _terms(

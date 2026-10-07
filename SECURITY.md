@@ -13,12 +13,10 @@ is available. You get an acknowledgement within five working days.
 
 ## Supported versions
 
-The current state of `main`. Reports about older forks or releases are handled only when they
-affect `main`.
+The latest release on `main`. A report about a fork or an older release is handled only when it
+affects that release.
 
 ## Scope notes
 
-- The API is read-only apart from watches, relationship voting and the curation endpoint;
-  curation is protected by one shared key (`LAWGRAPH_CURATION_API_KEY`), not by user
-  accounts.
+- The API is read-only: it answers `GET`, `HEAD` and `OPTIONS` and has no accounts.
 - Credentials belong in `.env`, which is not committed.

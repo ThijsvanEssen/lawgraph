@@ -15,6 +15,20 @@ os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 # Every TestClient request comes from one address, and a suite asks the API far more than
 # the 200 a minute a visitor may: the limit itself is tested on an instance of its own.
 os.environ["LAWGRAPH_RATE_LIMIT_CALLS"] = "1000000"
+# The API warms its answers up in the background at its start; the tests ask themselves.
+os.environ["LAWGRAPH_API_WARM_UP"] = "false"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_version_cache(monkeypatch) -> Iterator[None]:
+    """Every test reads the data version at every call and starts with nothing kept: a test
+    writes and reads again within the seconds the API keeps an answer."""
+    from lawgraph.db import version_cache
+
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
+    version_cache.clear()
+    yield
+    version_cache.clear()
 
 
 @pytest.fixture(autouse=True)

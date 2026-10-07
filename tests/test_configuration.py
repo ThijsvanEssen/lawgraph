@@ -142,7 +142,11 @@ def test_the_write_timeout_is_a_ceiling_that_cannot_be_turned_off(
 
 @pytest.mark.parametrize(
     ("variable", "default"),
-    [("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000), ("LAWGRAPH_WATCHDOG_MINUTES", 10)],
+    [
+        ("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000),
+        ("LAWGRAPH_WATCHDOG_MINUTES", 10),
+        ("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30_000),
+    ],
 )
 def test_the_read_ceiling_and_the_watchdog_are_positive_settings(
     monkeypatch: pytest.MonkeyPatch, variable: str, default: int

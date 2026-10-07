@@ -57,8 +57,16 @@ def _mode(argv: Sequence[str]) -> str:
     return DEFAULT_MODE
 
 
+def _asks_for_help(argv: Sequence[str]) -> bool:
+    """``-h``/``--help``: the command prints its options and runs nothing."""
+    return any(arg in ("-h", "--help") for arg in argv)
+
+
 def missing(reads: Sequence[Reads], argv: Sequence[str]) -> list[Reads]:
-    """Those of *reads* this run chooses from and the graph does not hold."""
+    """Those of *reads* this run chooses from and the graph does not hold; none for a
+    request for help, which needs no database."""
+    if _asks_for_help(argv):
+        return []
     wanted = [r for r in reads if r.applies(argv)]
     if not wanted:
         return []
