@@ -157,3 +157,32 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
     heat = overlay.get_heat_counts(store)
     assert heat == {"dossiers/1": 1, "articles/a": 2, "articles/b": 1}
     assert overlay.get_heat_counts(store, min_count=2) == {"articles/a": 2}
+
+
+def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -> None:
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("1", "articles/a", "REFERS_TO", created_at="2000-01-01"),
+            # recent and a citation of an article: it counts in both, as in the whole map
+            _edge("2", "articles/a", "REFERS_TO", created_at="2999-01-01"),
+            _edge("3", "dossiers/1", "ABOUT", created_at="2999-01-01"),
+            _edge("4", "dossiers/1", "ABOUT", created_at="2999-01-01"),
+            _edge("5", "dossiers/2", "ABOUT", created_at="2999-01-01"),
+            _edge("6", "articles/b", "AMENDS"),
+        ]
+    )
+    whole = overlay.get_heat_counts(store)
+    assert whole == {"articles/a": 3, "articles/b": 1, "dossiers/1": 2, "dossiers/2": 1}
+    named = ["articles/a", "dossiers/2", "instruments/none"]
+    for min_count in (1, 2):
+        assert overlay.get_heat_counts(store, ids=named, min_count=min_count) == {
+            k: v for k, v in whole.items() if k in named and v >= min_count
+        }
+    assert overlay.get_heat_counts(store, ids=[]) == {}
+    # the whole map, the highest counts first kept (the id settles ties)
+    assert overlay.get_heat_counts(store, limit=2) == {"articles/a": 3, "dossiers/1": 2}
+    assert overlay.get_heat_counts(store, limit=3) == {
+        "articles/a": 3,
+        "articles/b": 1,
+        "dossiers/1": 2,
+    }
