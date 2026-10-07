@@ -9,27 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.core.documents import chamber_of, paper_number
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
+from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
 
 # Props a node response leaves out by default: none (the graph views drop the large ones).
 _DROP_PROPS_KEYS: tuple[str, ...] = ()
 
 
-# Props that bloat the wire size of graph-view payloads without serving any
-# frontend rendering need. Stripped from focal node + every neighbor on the
-# /api/nodes/{coll}/{key} response. The detail endpoints
-# (/api/judgments/{ecli}, /api/articles/...) still return them when the
-# reader actually needs the body.
-DROP_PROPS_KEYS_GRAPH = (
-    "text",
-    "paragraphs",
-    "parties",
-    "subjects",
-    "judgment_metadata",
-    "raw_data",
-    "raw",  # documents carry the source TK payload here
-    "entries",  # annexes carry their table rows here
-    "unresolved_citations",
-)
+# Props the graph views leave out of every node, the node itself too (``db/_rows.py``; a
+# neighbour leaves out more, in its SQL: ``NEIGHBOUR_PROPS_LEFT_OUT``).
+DROP_PROPS_KEYS_GRAPH = GRAPH_PROPS_LEFT_OUT
 
 
 def node_type_of(collection: str) -> str:

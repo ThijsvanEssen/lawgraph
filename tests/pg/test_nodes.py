@@ -205,3 +205,31 @@ def test_a_neighbour_carries_no_text_and_the_node_itself_does(
 
     own = node_queries.get_node_with_neighbors(store, "documents", "a")
     assert own.node["props"] == paper["props"]
+
+
+def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> None:
+    """Its parts, references and breadcrumb (and its text) are for the reader of the article:
+    three quarters of what the articles of a law weigh as neighbours of the law."""
+    article = {
+        "_key": "w_1",
+        "type": "article",
+        "labels": [],
+        "props": {
+            "article_number": "1",
+            "text": "Lid 1.",
+            "parts": [{"kind": "lid", "number": "1"}],
+            "heading": "Begrippen",
+            "references": [{"target": "w_2"}],
+            "breadcrumb": [{"label": "Hoofdstuk 1"}],
+        },
+    }
+    law = {"_key": "w", "type": "instrument", "labels": [], "props": {"title": "Wet"}}
+    store.bulk_insert_or_update_nodes("articles", [article])
+    store.bulk_insert_or_update_nodes("instruments", [law])
+    store.bulk_insert_or_update_edges(
+        [_edge("p1", "articles/w_1", "instruments/w", "PART_OF")]
+    )
+
+    data = node_queries.get_node_with_neighbors(store, "instruments", "w")
+    (entry,) = [e for bucket in data.buckets for e in bucket.entries]
+    assert entry.doc["props"] == {"article_number": "1", "heading": "Begrippen"}
