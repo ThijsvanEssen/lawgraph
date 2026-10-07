@@ -13,7 +13,8 @@ the same values; a variable already set in the process environment wins over `.e
 |----------|---------|---------|
 | `LAWGRAPH_DB_URL` | `postgresql://lawgraph:<LAWGRAPH_DB_PASSWORD>@localhost:5432` | PostgreSQL server (`postgresql://user:password@host:port`); without it, the server of `docker-compose.yml` with `LAWGRAPH_DB_PASSWORD` |
 | `LAWGRAPH_DB_PASSWORD` | none | password of the user `lawgraph`; `docker-compose.yml` gives the server this password |
-| `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again |
+| `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again. So is a database that does not sort strings by the ICU collation `und-u-kf-upper` lawgraph makes its databases with (`create_database_sql`): the feed, the dossier and paper kinds and every sort by a name rely on it. The postgres image of `docker-compose.yml` makes its first database with it (`POSTGRES_INITDB_ARGS`); one made otherwise is moved into a database lawgraph makes, by a dump and a restore |
+| `LAWGRAPH_ALLOW_COLLATION` | none | the collation of a database let through anyway, as the refusal names it (`libc en_US.utf8`): for the dump and restore that replaces it, never for a running API |
 | `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
 | `LAWGRAPH_WRITE_TIMEOUT_MS` | `600000` | the longest a statement that writes may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A build setting: a full build on a slow disk raises it (the server: `14400000`, four hours). The writes that find their rows across a whole table (`graph-list-stats`, the removals of edges and nodes a step no longer derives) read those rows first and write them 5,000 at a time, so they stay well below it |
 | `LAWGRAPH_READ_TIMEOUT_MS` | `10800000` | the longest one statement that reads may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A streamed read is a statement per batch of rows, so only a plan that never ends hits it: the step fails with `ReadTimedOut`, naming the setting and the statement, instead of hanging. In the API a request has `LAWGRAPH_API_REQUEST_TIMEOUT_MS` in all as well |
@@ -76,9 +77,9 @@ All default to the public endpoints; no key is required.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LAWGRAPH_API_HOST` / `LAWGRAPH_API_PORT` | `127.0.0.1` / `8000` | listen address of `lawgraph-api`; `0.0.0.0` serves other machines |
-| `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list; these origins also bypass the rate limit |
+| `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list (no credentials); a request from these origins counts toward the rate limit like any other |
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
-| `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
+| `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
