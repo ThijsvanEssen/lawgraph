@@ -321,7 +321,12 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         procedure="Cassatie",
         date_from="2020-01-01",
     )
-    assert asked[0][1] == {"sort": "date_desc", "limit": 50, "offset": 0}
+    assert asked[0][1] == {
+        "sort": "date_desc",
+        "limit": 50,
+        "offset": 0,
+        "facets": True,
+    }
     assert body["total"] == 8
     assert body["items"][0]["subjects"] == ["Bestuursrecht; Belastingrecht"]
     assert body["facets"] == facets
@@ -392,3 +397,17 @@ def test_the_detail_names_the_day_it_was_published() -> None:
     }
     assert JudgmentDTO.from_document(doc).published_on == "2026-09-23"
     assert JudgmentDTO.from_document(_JUDGMENT_DOC).published_on is None
+
+
+def test_facets_false_asks_for_none_and_answers_null(monkeypatch) -> None:
+    asked: list[dict] = []
+
+    def fake(store, filters, **options):
+        asked.append(options)
+        return {"total": 3, "items": [], "facets": None}
+
+    monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
+    response = client.get("/api/judgments", params={"facets": "false"})
+    assert response.status_code == 200
+    assert response.json()["facets"] is None and response.json()["total"] == 3
+    assert asked[0]["facets"] is False
