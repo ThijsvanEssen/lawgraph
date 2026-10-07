@@ -100,10 +100,11 @@ All default to the public endpoints; no key is required.
 ## CLI
 
 `lawgraph` or `python -m lawgraph`; `lawgraph <phase> <source> --help` shows the options of
-a command. `--since` is the only date option: ISO 8601 (`2024-01-01`) or relative (`7d`). A relative value
-reaches six hours further back than it says, so that runs that follow each other overlap: a
-run that starts late or a source that indexes a change late leaves no hole, and everything
-is an upsert.
+a command. `--since` is the only date option: ISO 8601 (`2024-01-01`) or relative in days (`7d`),
+hours (`2h`) or minutes (`90m`). A value in days reaches six hours further back than it says, so
+that runs that follow each other overlap: a run that starts late or a source that indexes a
+change late leaves no hole, and everything is an upsert. A value in hours or minutes is taken as
+it is: a poll chooses it wider than the time between its runs.
 Every command exits with code 1 when it raised or its result has errors; a composite command
 (`<phase> all`, `bootstrap`, `expand-graph`) continues after a failing pipeline unless `--strict`
 and exits 1 when any of them failed.

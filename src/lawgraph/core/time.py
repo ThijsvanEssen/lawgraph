@@ -67,20 +67,28 @@ def strip_time_component(value: str | None) -> str | None:
 RELATIVE_SINCE_OVERLAP = dt.timedelta(hours=6)
 
 
+_RELATIVE_SINCE = re.compile(r"^(\d+)([dhm])$")
+_RELATIVE_UNIT = {"d": "days", "h": "hours", "m": "minutes"}
+
+
 def parse_since(value: str | None) -> dt.datetime | None:
     """Parse a --since CLI argument into a UTC datetime.
 
-    Accepts ISO 8601 strings (e.g. ``2024-01-01``) or relative shorthand
-    like ``7d`` (last 7 days).  Returns ``None`` when *value* is empty.
+    Accepts ISO 8601 strings (e.g. ``2024-01-01``) or a relative window: ``7d`` (days),
+    ``2h`` (hours) or ``90m`` (minutes).  Returns ``None`` when *value* is empty.
     """
     if not value:
         return None
     value = value.strip()
-    if value.endswith("d") and value[:-1].isdigit():
-        # A run every N days with `--since Nd` has no slack at all: a run that starts a
-        # minute late, or a source that indexes a change an hour after it was made, leaves
-        # a hole that no later run looks into. Everything is an upsert, so overlap is free.
-        window = dt.timedelta(days=int(value[:-1])) + RELATIVE_SINCE_OVERLAP
+    if relative := _RELATIVE_SINCE.match(value):
+        window = dt.timedelta(**{_RELATIVE_UNIT[relative[2]]: int(relative[1])})
+        if relative[2] == "d":
+            # A run every N days with `--since Nd` has no slack at all: a run that starts a
+            # minute late, or a source that indexes a change an hour after it was made,
+            # leaves a hole that no later run looks into. Everything is an upsert, so
+            # overlap is free. A window in hours or minutes is a poll's: it is taken as it
+            # is, and the poll chooses it wider than the time between its runs.
+            window += RELATIVE_SINCE_OVERLAP
         return dt.datetime.now(dt.timezone.utc) - window
     try:
         parsed = dt.datetime.fromisoformat(value)
