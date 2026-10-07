@@ -32,6 +32,7 @@ from lawgraph.config.constants import (
     COLLECTION_RAW_SOURCES,
 )
 from lawgraph.config.settings import (
+    ALLOW_COLLATION,
     DB_NAME,
     DB_POOL_SIZE,
     DB_URL,
@@ -283,8 +284,10 @@ class GraphStore:
                 kwargs={"application_name": APPLICATION_NAME},
             )
             with self.pool.connection() as conn:
-                ensure_schema(conn)
+                ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
         except Exception as exc:
+            if getattr(self, "pool", None) is not None:
+                self.pool.close()  # its workers would go on connecting
             raise ConnectionError(
                 f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
                 f"Original error: {exc}"

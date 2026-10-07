@@ -54,6 +54,10 @@ DB_URL = os.getenv(
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+# A database whose strings sort by another collation than the schema's ICU collation is
+# refused; this names the one let through anyway, for the dump and restore that replaces it
+# (``libc en_US.utf8``, as the refusal names it).
+ALLOW_COLLATION = os.getenv("LAWGRAPH_ALLOW_COLLATION", "").strip()
 # The longest a statement that writes may run (``statement_timeout``, db/store.py), in
 # milliseconds: a ceiling that is never off. A build on a slow disk raises it.
 WRITE_TIMEOUT_MS = _env_positive_int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
