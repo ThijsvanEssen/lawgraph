@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0.0",
+  "pytest-xdist>=3.6",  # CI runs the database tests side by side (-n auto)
   "ruff>=0.5.0",
   "mypy>=2.1",
   "httpx>=0.28.1",

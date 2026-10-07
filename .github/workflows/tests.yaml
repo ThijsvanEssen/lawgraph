@@ -20,8 +20,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv pip install --system -e ".[dev]"
 
       - name: Check types
         run: mypy
@@ -29,50 +34,60 @@ jobs:
       - name: Run tests
         run: pytest
 
-  # The tests that need a database (tests/pg, tests/integration), against the PostgreSQL of
-  # docker-compose.test.yml (postgres-test). Without it they are skipped above. On a pull
-  # request and on develop and main, not on every push to a branch.
-  database:
+  # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
+  # postgres-test of docker-compose.test.yml. On a pull request and on develop and main, not on
+  # every push to a branch. Each suite is a shard of its own, spread over the cores of its
+  # runner; every test makes a database of its own, so the tests do not meet.
+  database-shard:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: lawgraph
-          POSTGRES_PASSWORD: lawgraph-test
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U lawgraph"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [pg, integration]
 
     env:
       ALLOW_DB_TESTS: '1'
       LAWGRAPH_TEST_DB_URL: postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph
-      PGPASSWORD: lawgraph-test
 
     steps:
       - uses: actions/checkout@v4
+
+      # Test data only: the data directory in memory, and no waiting for the disk (fsync,
+      # synchronous_commit and full_page_writes off). JIT off, as on postgres-test.
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name postgres -p 5433:5432 \
+            --tmpfs /var/lib/postgresql:rw,size=8g \
+            -e POSTGRES_USER=lawgraph -e POSTGRES_PASSWORD=lawgraph-test \
+            postgres:18 \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
+            -c jit=off -c max_connections=300
+          for _ in $(seq 1 60); do
+            docker exec postgres pg_isready -U lawgraph -h localhost && break
+            sleep 1
+          done
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv pip install --system -e ".[dev]"
 
-      # postgres-test runs with `-c jit=off`; a service takes no command, so set it here.
-      - name: Turn off JIT
-        run: |
-          psql -h localhost -p 5433 -U lawgraph -d postgres -c "ALTER SYSTEM SET jit = off"
-          psql -h localhost -p 5433 -U lawgraph -d postgres -c "SELECT pg_reload_conf()"
+      - name: Run tests/${{ matrix.suite }}
+        run: pytest tests/${{ matrix.suite }} -n auto --dist loadfile
 
-      - name: Run the PostgreSQL tests
-        run: pytest tests/pg
-
-      - name: Run the integration tests
-        run: pytest tests/integration
+  # The one check of the database tests the merge gate reads: green when every shard is.
+  database:
+    if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    needs: database-shard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed
+        run: test "${{ needs.database-shard.result }}" = success
