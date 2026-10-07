@@ -5,12 +5,14 @@ the statistics of the search. Off with ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from functools import partial
 
 from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.documents import list_documents
@@ -65,11 +67,19 @@ def warm_up(store: GraphStore) -> None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", name)
             return
+        logger.info("Warm-up of %s.", name)
+        began = time.monotonic()
         try:
             part()
         except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
             logger.warning(
                 "Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc
+            )
+        else:
+            logger.info(
+                "Warm-up of %s took %s.",
+                name,
+                format_duration(time.monotonic() - began),
             )
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
