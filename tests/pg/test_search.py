@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
 
@@ -17,7 +17,7 @@ def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
 
 @pytest.fixture()
 def graph(store: GraphStore) -> GraphStore:
-    search_queries._law_cache.clear()
+    version_cache.clear()
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -230,3 +230,25 @@ def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
     assert resolve_queries.resolve(store, "31746, nr. 12")["match"]["id"] == (
         "documents/d12"
     )
+
+
+def test_the_laws_are_read_once_per_data_version(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The parser of citations reads every instrument: once for every search until the
+    data changes, not once a minute (``version_cache``)."""
+    reads: list[int] = []
+    names = search_queries._load_law_names
+
+    def counted(store: GraphStore) -> dict[str, list[str]]:
+        reads.append(1)
+        return names(store)
+
+    monkeypatch.setattr(search_queries, "_load_law_names", counted)
+    first = search_queries.load_notation_parser(graph)
+    assert search_queries.load_notation_parser(graph) is first
+    assert reads == [1]
+
+    graph.bulk_insert_or_update_nodes("instruments", [_node("x", "instrument")])
+    assert search_queries.load_notation_parser(graph) is not first
+    assert reads == [1, 1]
