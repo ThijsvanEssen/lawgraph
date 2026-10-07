@@ -48,3 +48,20 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     warm.warm_up(store)
     assert asked == ["judgments"]  # stopped before the next part
     assert not warm.is_warm(store)
+
+
+def test_the_warm_up_leaves_the_heat_of_the_whole_graph(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It reads every edge: ``warm`` never waits for it."""
+    from lawgraph.api.routes import nodes
+    from lawgraph.db.queries import overlay
+
+    def no_heat(*args, **kwargs):  # type: ignore[no-untyped-def]
+        pytest.fail("the warm-up counted the heat")
+
+    monkeypatch.setattr(nodes, "get_heat_tops", no_heat)
+    monkeypatch.setattr(overlay, "get_heat_tops", no_heat)
+    monkeypatch.setattr(warm, "_warmed", None)
+    warm.warm_up(store)
+    assert warm.is_warm(store)

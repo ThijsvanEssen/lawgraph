@@ -25,7 +25,7 @@ from collections.abc import Callable, Hashable
 from typing import Any, TypeVar
 
 from lawgraph.core.logging import get_logger
-from lawgraph.db.store import ReadTimedOut, _text, read_time_left
+from lawgraph.db.store import ReadTimedOut, _text, in_background, read_time_left
 
 logger = get_logger(__name__)
 
@@ -50,6 +50,8 @@ _running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]]
 # answer of a new version computes.
 _latest: OrderedDict[Hashable, Any] = OrderedDict()
 _NONE = object()
+# The answers of ``lasting``, with the moment each was computed (``time.monotonic``).
+_lasting: dict[Hashable, tuple[Any, float]] = {}
 _pool = concurrent.futures.ThreadPoolExecutor(
     max_workers=WORKERS, thread_name_prefix="lawgraph-cache"
 )
@@ -148,7 +150,8 @@ def computing(store: Any) -> bool:
 
 def _quietly(function: Callable[[Any], None], store: Any) -> None:
     try:
-        function(store)
+        with in_background():
+            function(store)
     except Exception as exc:  # noqa: BLE001 — a warm-up that fails is asked again later
         logger.warning(
             "Warming %s failed: %s: %s", function.__name__, type(exc).__name__, exc
@@ -197,28 +200,72 @@ def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
             future = _pool.submit(_compute, entry_key, compute)
             _running[entry_key] = future
         last = _latest.get((version[0], key), _NONE)
+    return _answer(future, last, key)
+
+
+def lasting(store: Any, key: Hashable, compute: Callable[[], T], max_age: float) -> T:
+    """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
+    statistics that a change of the data hardly moves and that take long to compute.
+    Once older, it is computed again in the background, and a request waits for that
+    ``STALE_WAIT`` at most, then takes the one it had."""
+    if getattr(store, "data_version", None) is None:
+        return compute()
+    entry_key = ((str(getattr(store, "name", "")), "lasting"), key)
+    with _lock:
+        kept = _lasting.get(entry_key)
+        if kept is not None and time.monotonic() - kept[1] < max_age:
+            return kept[0]  # type: ignore[no-any-return]
+        future = _running.get(entry_key)
+        if future is None:
+            future = _pool.submit(_compute_lasting, entry_key, compute)
+            _running[entry_key] = future
+    return _answer(future, _NONE if kept is None else kept[0], key)
+
+
+def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) -> Any:
+    """The answer *future* computes, waited for no longer than the deadline of the request;
+    with an earlier answer (*last*) a request waits ``STALE_WAIT`` at most, then takes that."""
     wait = read_time_left()
     if last is not _NONE and wait is not None:
         # only a request takes an old answer; the warm-up waits for the new one
         wait = min(wait, STALE_WAIT)
     try:
-        return future.result(timeout=wait)  # type: ignore[no-any-return]
+        return future.result(timeout=wait)
     except concurrent.futures.TimeoutError as exc:
         if last is not _NONE:
-            return last  # type: ignore[return-value]
+            return last
         raise ReadTimedOut(
             f"The request ran past its deadline waiting for {key!r}, which goes on "
             "computing for the next."
         ) from exc
 
 
+def _compute_lasting(
+    entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
+) -> T:
+    """Compute one answer of ``lasting`` and keep it with the moment it was computed."""
+    try:
+        with in_background():
+            value = compute()
+    except BaseException:
+        with _lock:
+            _running.pop(entry_key, None)
+        raise
+    with _lock:
+        _lasting[entry_key] = (value, time.monotonic())
+        _running.pop(entry_key, None)
+    return value
+
+
 def _compute(
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute and keep one answer (in a thread of the pool: no request deadline, the read
-    ceiling alone); a failure is not kept, the next request asks again."""
+    ceiling alone, on a connection of the background pool); a failure is not kept, the
+    next request asks again."""
     try:
-        value = compute()
+        with in_background():
+            value = compute()
     except BaseException:
         with _lock:
             _running.pop(entry_key, None)
@@ -256,6 +303,7 @@ def clear() -> None:
         _versions.clear()
         _values.clear()
         _latest.clear()
+        _lasting.clear()
         _running.clear()
         _wanted.clear()
 

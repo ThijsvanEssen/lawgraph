@@ -322,3 +322,19 @@ def test_a_request_waits_for_a_connection_no_longer_than_its_deadline(
         for conn in held:
             store.pool.putconn(conn)
     assert list(store.query("SELECT 1")) == [1]
+
+
+def test_a_read_in_the_background_has_connections_of_its_own(
+    store: GraphStore,
+) -> None:
+    """Every connection of the requests busy: what the API computes in the background
+    reads on its own pool, and a request is never kept waiting by it."""
+    held = [store.pool.getconn() for _ in range(store.pool.max_size)]
+    try:
+        with store_module.in_background():
+            assert list(store.query("SELECT 1 AS one")) == [1]
+    finally:
+        for conn in held:
+            store.pool.putconn(conn)
+    assert store._background_pool is not None
+    assert store._background_pool.max_size == store_module.DB_BACKGROUND_POOL_SIZE

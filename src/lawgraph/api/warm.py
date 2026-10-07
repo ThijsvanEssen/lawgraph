@@ -1,6 +1,6 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
-The facets and totals of the unfiltered lists, the statistics and coverage, the heat, the
+The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search and the pages of the newest cabinets. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
@@ -10,7 +10,6 @@ import time
 from collections.abc import Callable
 from functools import partial
 
-from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import format_duration
@@ -70,7 +69,6 @@ def warm_up(store: GraphStore) -> None:
         "documents": lambda: list_documents(store, limit=20),
         "stats": lambda: stats_data(store),
         "coverage": lambda: coverage_data(store),
-        "heat": lambda: heat_counts(store),
         **{
             f"feed {kind}": partial(
                 get_feed, store, FeedFilters(kinds=(kind,)), limit=50
