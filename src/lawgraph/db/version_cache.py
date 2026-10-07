@@ -43,12 +43,19 @@ _running: dict[Hashable, concurrent.futures.Future[Any]] = {}
 _pool = concurrent.futures.ThreadPoolExecutor(
     max_workers=WORKERS, thread_name_prefix="lawgraph-cache"
 )
-# The warm-up runs apart, one at a time: it waits for computations of the pool above, and
-# would hold every worker of it if it ran there.
-_warm_pool = concurrent.futures.ThreadPoolExecutor(
-    max_workers=1, thread_name_prefix="lawgraph-warm"
-)
+# The warm-up: one worker, and per database one wanted warm-up, always of the newest data.
+# A run of the pipelines raises the data version with every statement that writes; a warm-up
+# starts only once the version has stood still for ``WARM_UP_SETTLE`` seconds, a newer
+# version replaces the one waiting, and one that changes during a warm-up stops it
+# (``superseded``) and asks for the next. The worker runs apart from the pool above: it waits
+# for its computations, and would hold every worker of it if it ran there.
+WARM_UP_SETTLE = 90.0
 _warmers: list[Callable[[Any], None]] = []
+_wanted: dict[
+    str, tuple[Any, float, str | None]
+] = {}  # database -> (store, due, version)
+_warm_wake = threading.Condition(_lock)
+_warm_worker: threading.Thread | None = None
 
 
 def on_new_version(warm: Callable[[Any], None]) -> None:
@@ -58,12 +65,57 @@ def on_new_version(warm: Callable[[Any], None]) -> None:
         _warmers.append(warm)
 
 
-def warm(store: Any) -> None:
-    """Run the ``on_new_version`` functions for *store* now, in the background."""
+def warm(store: Any, *, settle: float | None = None) -> None:
+    """Warm *store* up in the background, once its data version has stood still for
+    *settle* seconds (``WARM_UP_SETTLE``; 0 at the start of the API). It replaces a warm-up
+    of the same database that waits; one that runs finishes or stops on its own."""
+    global _warm_worker
+    wait = WARM_UP_SETTLE if settle is None else settle
+    name = str(getattr(store, "name", ""))
+    try:
+        known: str | None = store.data_version()
+    except Exception:  # noqa: BLE001 — the worker reads it again when it is due
+        known = None
     with _lock:
-        warmers = list(_warmers)
-    for function in warmers:
-        _warm_pool.submit(_quietly, function, store)
+        _wanted[name] = (store, time.monotonic() + wait, known)
+        if _warm_worker is None or not _warm_worker.is_alive():
+            _warm_worker = threading.Thread(
+                target=_warm_forever, name="lawgraph-warm", daemon=True
+            )
+            _warm_worker.start()
+        _warm_wake.notify()
+
+
+def superseded(store: Any, version: str | None) -> bool:
+    """Whether *store* holds newer data than *version* (read now): a warm-up of *version*
+    stops between its parts."""
+    try:
+        return bool(store.data_version() != version)
+    except Exception:  # noqa: BLE001 — no answer is no reason to stop
+        return False
+
+
+def _warm_forever() -> None:
+    while True:
+        with _lock:
+            while not _wanted:
+                _warm_wake.wait()
+            name, (store, due, version) = min(_wanted.items(), key=lambda kv: kv[1][1])
+            left = due - time.monotonic()
+            if left > 0:
+                _warm_wake.wait(timeout=left)
+                continue
+            del _wanted[name]
+        if superseded(store, version):
+            # the data moved while it settled: wait for it to stand still again
+            warm(store)
+            continue
+        with _lock:
+            warmers = list(_warmers)
+        for function in warmers:
+            _quietly(function, store)
+        if superseded(store, version):
+            warm(store)
 
 
 def _quietly(function: Callable[[Any], None], store: Any) -> None:
@@ -161,6 +213,7 @@ def clear() -> None:
         _versions.clear()
         _values.clear()
         _running.clear()
+        _wanted.clear()
 
 
 def _frozen(value: Any) -> Hashable:

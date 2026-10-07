@@ -11,7 +11,7 @@ from functools import partial
 from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.core.logging import get_logger
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.feed import FEED_KINDS, FeedFilters, get_feed
@@ -61,6 +61,10 @@ def warm_up(store: GraphStore) -> None:
         },
     }
     for name, part in parts.items():
+        if version_cache.superseded(store, version):
+            # newer data arrived: the warm-up of that version follows once it stands still
+            logger.info("Warm-up stopped before %s: the data changed.", name)
+            return
         try:
             part()
         except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
