@@ -7,58 +7,65 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-dossiers`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
-| EUR-Lex | `eurlex` | `eurlex` | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition` | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr` |
-| Verdragenbank | `verdragenbank` | `verdragenbank` | none |
-| Rijksoverheid | `rijksoverheid` | `rijksoverheid` | `tk-government` |
+| Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
+| Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | The graph itself (`graph`) | none | none | `graph-list-stats` |
 
-Clients (`clients/`) share `BaseClient`: base URL from `config/settings.py` (trailing
-slash enforced), one `requests.Session`, 30 s timeout, and retry with exponential backoff
-(5 tries, factor 2) on HTTP 429, 502, 503, 504 and connection errors. No source needs an API key.
+Clients (`clients/`) share `BaseClient`: a base URL from `config/settings.py`, a 30 s timeout,
+and retries with exponential backoff (factor 2) on HTTP 429, 502, 503, 504 and connection
+errors, following a longer `Retry-After`. Every client paces its requests per host through one
+`PacedSession` (`clients/pacing.py`; the intervals: `docs/operations.md`, "Pacing"). No source
+needs an API key.
 
-Citation detectors resolve law abbreviations (`Sr`, `Sv`, `BW`) through
-`instruments.props.short_title` and `aliases` and law names through instrument titles;
-`normalize bwb` writes both from the official abbreviations in the BWB WTI files (see BWB
-below), `normalize eurlex` the short title of an EU act. `core/aliases.code_aliases` makes the
-table. The sources rank: short titles, then the other abbreviations of the source (the WTI's),
-then the curated ones; the first that has an abbreviation decides, and it is a law's only when
-one law has it there (`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's). An EU act
-or treaty whose source gives no abbreviation gets one from
-`src/lawgraph/data/curated/instrument_abbreviations.json` (`lawgraph curated set
-instrument-abbreviations`: `AVG` for Verordening (EU) 2016/679), for an instrument in the graph
-only; the EVRM is the BWB treaty `BWBV0001000`. Its First Protocol (`BWBV0001001`) is cited as
-`EP EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the
-Europees Parlement: it is the Protocol in a judgment that also names the EVRM or the Eerste
+Citation detectors resolve a law's abbreviation (`Sr`, `Sv`) through
+`instruments.props.short_title` and `aliases`, and its name through instrument titles.
+`core/aliases.code_aliases` makes the table, which also serves `/api/resolve`, the search and
+the instrument-level matches of `semantic tk`. `normalize bwb` writes the official
+abbreviations of the WTI files (see BWB), `normalize eurlex` the short title of an EU act.
+
+The sources rank: short titles, then the other abbreviations of the WTI, then the curated ones
+(`data/curated/instrument_abbreviations.json`, `lawgraph curated set instrument-abbreviations`:
+`AVG` for Verordening (EU) 2016/679, for an instrument in the graph only). The first source
+that has an abbreviation decides, and the abbreviation is a law's only when one law has it there
+(`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's).
+
+The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
+EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
+Parlement, so it is the Protocol only in a judgment that also names the EVRM or the Eerste
 Protocol (`in_context` of the curated entry; `semantic rechtspraak` only), or that names the
-Protocol so itself (`art. 1 Eerste Protocol EVRM (hierna: EP)`). The same table serves `/api/resolve`, the
-search, and the instrument-level matches of `semantic tk`. A code split over books
-(`src/lawgraph/data/code_families.json`, `core/code_families.CODE_FAMILIES`: the Burgerlijk
-Wetboek, book 1 to 10 and 7A, each its own BWB id; see the code families under BWB) resolves through the book in the article number: `artikel 6:162 BW` cites
-article `162` of book 6 (`BWBR0005289`, key `bwbr0005289_162`), whichever books are loaded, so a
-citation of a book that is not loaded becomes a stub of that book, which its load fills; without
-a book (`artikel 162 BW`) or with an unknown one there is no hit. The code of the family itself
-(`BW`) is never a short title. A law that numbers `Hoofdstuk:artikel` in one regulation (the
-Awb: `8:54`) is no family; its articles keep the colon.
+Protocol so itself (`art. 1 Eerste Protocol EVRM (hierna: EP)`).
+
+A code split over books (`data/code_families.json`, `core/code_families.CODE_FAMILIES`: the
+Burgerlijk Wetboek, books 1–8, 7A and 10, each its own BWB id) resolves through the book in the
+article number: `artikel 6:162 BW` cites article `162` of book 6 (`BWBR0005289`, key
+`bwbr0005289_162`), whichever books are loaded, so a citation of a book that is not loaded
+becomes a stub of that book. Without a book (`artikel 162 BW`) or with an unknown one there is
+no hit, and the family code (`BW`) is never a short title. A law that numbers
+`Hoofdstuk:artikel` in one regulation (the Awb: `8:54`) is no family; its articles keep the
+colon. How the families are built: see BWB.
 
 A number with a leading zero (`047`) is no article number, and the letters of a number are
 lower case (`36e`, `420bis`): in `artikel 82Sr` the `Sr` is the law. The linkers of running
 text (`semantic tk`, `semantic rechtspraak`) resolve a cited article in one way
-(`SemanticPipelineBase._cited_article`): the article with that number; else, of a law whose
-articles are loaded, the historical article that last had the number (a repealed or
-renumbered article cited by an older text: `bwbr0001854_248e_stam_…`), and no edge for a
-number of a shape none of the law's articles has (`core.citations.number_shape`: digits as
-`9`, letters as `a`; `140.1 Sr` is `9.9` while Sr has `9`, `9a` and `9a.9`: article 140, first
-lid, written short), also when a stub of it exists; else a stub, when the
-citation is sure enough (`tk` 0.85, `rechtspraak` 0.9).
+(`SemanticPipelineBase._cited_article`), the first that holds:
+
+1. the article with that number;
+2. of a law whose articles are loaded, the historical article that last had the number (a
+   repealed or renumbered article cited by an older text: `bwbr0001854_248e_stam_…`);
+3. no edge, when the number has a shape none of the law's articles has
+   (`core.citations.number_shape`: digits as `9`, letters as `a`; `140.1 Sr` is `9.9` while Sr
+   has `9`, `9a` and `9a.9`: article 140, first lid, written short), also when a stub of it
+   exists;
+4. a stub, when the citation is sure enough (`tk` 0.85, `rechtspraak` 0.9).
 
 ## Tweede Kamer
 
@@ -74,11 +81,13 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
-`tk-dossiers` options: `--since`, `--skip-members` (also skips Fractie and FractieZetelPersoon),
-`--skip-decisions`, `--decisions-since`, `--skip-documents`, `--documents-since`,
-`--dossier-number N` (fetches only the documents of that dossier, ignoring dates). Commissie,
-Persoon, Fractie and FractieZetelPersoon are always full refreshes. Each entity type is
-stored while it is fetched (a buffer at a time), so an interrupted run keeps what it fetched.
+`retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
+other options are in `docs/operations.md`. Commissie, Persoon, Fractie and FractieZetelPersoon
+are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
+an interrupted run keeps what it fetched. A gaps run takes at most 50,000 dossiers (and
+`retrieve tk-content` at most 50,000 papers, `retrieve rechtspraak --mode gaps` 50,000
+judgments; `MAX_GAPS_PER_RUN`); the table of `retrieve all` says how many are left, and the next
+run takes them.
 
 Client quirks:
 
@@ -89,12 +98,12 @@ Client quirks:
   `$skip` until a page is short. Zaak follows `@odata.nextLink` when no `$top` is sent
   (`$top=0` answers no records at all).
 - Votes arrive as one row per faction per `Besluit`.
-- A full Document fetch is about 400K records; use a date window (`retrieve all --window 730d`, or `--documents-since 730d`).
 - `tk-content` does not use the PDF the API serves: the same paper is published as structured
   XML in the KOOP repository, filed under its dossier
   (`.../kst/<dossier>/kst-<dossier>-<number>/1/xml/kst-<dossier>-<number>.xml`, the dossier
   being the number with its addition, `37020-X` for a budget chapter). It builds the identifier
-  from the dossier the paper is `PART_OF` and its `sequence`, and stores the XML unchanged as
+  from the dossier the paper is numbered in (`dossier_number`, `dossier_suffix`) and its
+  `sequence`, and stores the XML unchanged as
   `tk-kamerstuk-xml` under that identifier (`meta.document` is the key of the Document). The
   papers it fetches are those without such a record and without a `-missing` record that is
   still to wait (`lawgraph gaps` lists them). A paper the repository has no XML for (404)
@@ -143,8 +152,7 @@ headings: an opener ("Artikelsgewijs", "Artikelsgewijze toelichting", "Artikelen
 article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n`,
 `Artikel I, onderdeel B (artikel 1a)`), `onderdeel` and `lid` headings under them, until a
 heading of the opener's level or a bijlage. Article numbers come from the grammar of
-`core/citations.py`. On a corpus of 147 real papers a structure with an opener and articles
-is found in about 70%, and article headings without an opener in another 5%.
+`core/citations.py`.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title, kind, phases and
@@ -213,7 +221,7 @@ else its `AMENDS` edges to instruments). Targets must exist. Every edge is writt
 | `In artikel N ... wordt` | `AMENDS` | 0.80 |
 
 **Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
-document whose `kind` contains `toelichting`, one AQL pass walks
+document whose `kind` contains `toelichting`, one query walks
 `Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`
 and writes `EXPLAINS` at confidence 0.5 (`DOSSIER_CONFIDENCE`: the memorandum explains the
 change as a whole, each article is a candidate) to the `meta.article_version` of each change
@@ -282,8 +290,7 @@ aannemen` for a hamerstuk, `Stemmen - uitstellen`, …), with its `BesluitTekst`
 `ek_outcome` (`core/dossier_stages.ek_outcome`): `Verworpen` when the list of rejected bills
 names the bill (`ek_rejected`), with the vote `Verworpen` of that day as its vote (else the list
 as its source); otherwise `Aangenomen` by its latest vote `Aangenomen`; none when neither (a
-bill with only a motion voted down). `{outcome, date, method, source_url, retrieved_on}`, as the
-Kamer writes them. The vote chosen gets `bill_decision: true` and `kind`, the kind of the
+bill with only a motion voted down). Its fields are in the data model (Dossier). The vote chosen gets `bill_decision: true` and `kind`, the kind of the
 dossier (the list of the Eerste Kamer names none); the other votes of the Eerste Kamer about
 the dossier `bill_decision: false` and no `kind`.
 
@@ -310,14 +317,9 @@ motions) are `RELATED_TO` it. The Kamer relates none of the cases of `37035`; `3
 `RELATED_TO` from the dossiers whose letters answer the motions of the Algemene Politieke
 Beschouwingen, which are filed under it (16 on 24 Sep 2026).
 
-Checked by hand: `37035-XXII`, `-III`, `-IX`, `-M` → `36800` of the same suffix; `36038`
-(incidental, IenW, no chapter in the title) → `35925-XII` by name; `35830-B` (slotwet
-Gemeentefonds 2020) → `35300-B`; `36945-IX` (slotwet Financiën 2025) → `36600-IX`; `35975-XIV`
-→ `Najaarsnota 2021`, `33280-IIB` → `Voorjaarsnota 2012`, `37035-*` → `37020`.
-
 It reads every dossier and every related case on every run, since a dossier loaded today can be
-the other end of a relation stated earlier. Like every semantic pipeline it only adds and updates
-edges: an edge whose evidence is gone stays until the database is built again.
+the other end of a relation stated earlier. It only adds and updates edges: an edge whose
+evidence is gone stays until the database is built again.
 
 ## Rechtspraak
 
@@ -330,20 +332,21 @@ for a `--since` up to 60 days back, also by when a judgment was published or cha
 (`modified`), which finds one published long after its decision. Further back `modified` is no
 filter: the Rechtspraak republished nearly its whole corpus. For each judgment of the index one `rs-content` record is stored, as soon as it is
 downloaded. A judgment that is stored and was fetched after its last change (`updated` in the
-index) is skipped, so a re-run or a resumed run only downloads the rest.
+index) is skipped, so a re-run or a resumed run only downloads the rest. The index is asked
+for `type=Uitspraak` only, so a conclusion arrives through `--ecli` or `--mode gaps` (a
+conclusion that is cited). A judgment that answers HTTP 404 becomes an `rs-content-missing`
+record (data model, raw_sources), which `--mode gaps` leaves out while it waits.
 
 | Option | Meaning |
 |--------|---------|
 | `--court NAME` (repeatable) | `all` (every court of the index: the rechtbanken, the special courts and the courts that no longer exist too), an ECLI court code (`HR`, `RVS`, `GHAMS`, any case), or a tier of the court table (`gerechtshof`: every court of appeal, the older ones too; `rechtbank`, ...). The court table gives each court its OWMS term, the `creator` the index is filtered by (`owms_term` of `data/courts.json`, from the `Identifier` of the Instanties list); a court without one (the courts before ECLI, `XX`) cannot be asked for. Default: `all`; none when only `--ecli` is given |
 | `--mode incremental` (default) | judgments decided from `--since` (default `1d`) minus 30 days, because judgments are published up to weeks after the decision |
-| `--mode full` | no date filter: every judgment of the courts (928,955 of every court on 2026-09-29) |
+| `--mode full` | no date filter: every judgment of the courts |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 | `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
-Over the last two years the index holds 160,718 judgments of every court (Hoge Raad 4,100,
-Raad van State 11,000, the four courts of appeal about 18,000, the rechtbanken most of the
-rest), about 5.5 hours at the paced rate (`docs/operations.md`, slow steps). `retrieve all`
-reads the `--window` (a judgment is in it by decision date).
+`retrieve all` reads the `--window` (a judgment is in it by its decision date). How many
+judgments that is and how long it takes: `docs/operations.md`, "Slow steps".
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number` (and split, lower case and without spaces, as `case_number_keys`: `C/19/117301 /
@@ -356,9 +359,8 @@ a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (the kop,
 heading, subheading, body; see the paragraph props in the data model), `isReplacedBy` (an ECLI)
 as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
-advocate-general its opening lines name as `advocate_general` (data model, Judgment). Every judgment normalized before `parties` existed gets them from a run of
-`normalize rechtspraak` without `--since`; run `semantic rechtspraak` after it, since the kop is
-one paragraph now. The XML itself stays in the payload store. `court_code` is the ECLI court
+advocate-general its opening lines name as `advocate_general` (data model, Judgment). The XML
+itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
 `graph-list-stats` reads too; see [Courts](#courts)) gives a judgment two levels: `tier`, the
 `Type` of its court in the Instanties value list of the Rechtspraak, and `court_kind`, the kind
@@ -390,7 +392,8 @@ opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, a
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
-`beschikking`), and last the college (`core.judgments.KIND_OF_TIER`): `arrest` for the Hoge Raad,
+`beschikking`), and last the kind of court (`core.judgments.KIND_OF_COURT_KIND`, from
+`data/curated/decision_kinds.json`): `arrest` for the Hoge Raad,
 a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
 in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,
 every other administrative college and a tuchtcollege, `conclusie` for the Parket; a gerechtshof,
@@ -401,10 +404,9 @@ or the kop tells.
 
 `names` comes from `src/lawgraph/data/curated/judgment_names.json` (`core/judgment_names.py`;
 `lawgraph curated set judgment-names`), a list of landmark cases kept by hand: the open data
-carries no name for a judgment. Its RDF has no `dcterms:alternative` (none of 14,446 judgments
-checked), its vindplaatsen (`dcterms:hasVersion`) are citations without a title ("NJ 1981/635
-met annotatie van C.J.H. Brunner"), and an inhoudsindicatie names the precedent it applies as
-readily as the judgment itself ("Uitleg. Haviltex." in a judgment of 2026). A name is added for
+carries no name for a judgment (no `dcterms:alternative`; its vindplaatsen are citations without
+a title, and an inhoudsindicatie names the precedent it applies as readily as itself). A name is
+added for
 an ECLI checked against the judgment (court, date, inhoudsindicatie); an English translation
 carries the name of the judgment it translates. `semantic graph-list-stats` gives a stub its
 names and the kind of its kind of court.
@@ -526,7 +528,6 @@ else a roll number (`22/2463T`), else all their letters and digits
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
 
-
 **Semantic `rechtspraak-related`.** `RELATED_TO` from a judgment to the connected cases its
 summary names (`core/related_cases.py`). The metadata relates judgments only along their
 chain of instances; the court tells connected cases in its inhoudsindicatie: "Samenhang met
@@ -534,7 +535,7 @@ chain of instances; the court tells connected cases in its inhoudsindicatie: "Sa
 sentence is read as written:
 - the ECLIs it names, also as the courts abbreviate them (`HR:2025:404`);
 - its case numbers, compared exactly with `case_number_keys` of the judgments of the same
-  court. **The Hoge Raad's type letter is not part of the comparison:** it writes its type
+  court. The type letter of the Hoge Raad is not compared: it writes its type
   of case after the number (`24/03860 E`, `16/01894 UA`) where its metadata gives the
   number alone, and the number is unique within the Hoge Raad. `meta.text` keeps the
   sentence as written, letter included.
@@ -543,6 +544,7 @@ What stands between brackets names no case, and an old LJN is not read. An edge 
 exact match with a judgment in the graph (`meta.basis` `summary_text`, `meta.text` the
 sentence); what is named and not found gets no edge and is counted (`skipped`). Derived in
 full on every run.
+
 **Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
 A text is its lower-case word 8-shingles, one in eight kept by CRC-32; two judgments are a pair
@@ -572,13 +574,15 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 |------|-----------------------|
 | `incremental` (default) | those of instruments already in the graph, or `--celex` (repeatable) |
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
+| `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`) that were not retrieved |
 | `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
-| `cjeu` | judgments that cite acts in the graph |
+| `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments related to `--country` |
 | `com` | Commission proposals for acts in the graph |
 
-`--lang` (default `NL`). Stored as `eu-celex-html` while the acts are fetched. An act
-without an HTML text (HTTP 404, in every language: old regulations and every corrigendum)
-counts as skipped, not as an error.
+Stored as `eu-celex-html` while the acts are fetched; an act stored in the last 24 hours is
+skipped. An act without an HTML text (HTTP 404, in every language: old regulations and every
+corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
+(data model, raw_sources).
 
 **Normalize.** Instrument per CELEX (`jurisdiction: eu`). Its names come from the printed
 title (`core/eu_titles.py`): the `doc-ti` paragraphs, or the `DC.description` of a page of
@@ -626,13 +630,15 @@ divisions (`type` `hoofdstuk`, `label` `Hoofdstuk III`, `title`). `PART_OF` from
 
 | Pattern | Confidence |
 |---------|-----------|
-| `artikel N` + code `Sr` / `Sv` / `BW` | 0.95 |
+| `artikel N Sr` / `artikel N Sv`, and `artikel 6:162 BW` (through its book, as in the Overview) | 0.95 |
 | `CELEX:<id>` | 0.90 |
 | `artikel N van Richtlijn / Verordening YYYY/N` | 0.85 |
 | `Richtlijn` or `Verordening YYYY/N` | 0.70 |
 | `BWBR0...` id | 0.70 |
 
-All hits become `REFERS_TO` edges; missing articles with confidence 0.85 or more become stubs.
+All hits become `REFERS_TO` edges; missing articles with confidence 0.85 or more become stubs
+(the article number as cited, without the historical articles and the number shapes of the
+Overview).
 
 ## BWB (Dutch legislation)
 
