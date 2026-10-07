@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextvars
+import threading
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
@@ -18,6 +20,7 @@ from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
+from lawgraph.db.store import ReadTimedOut, read_time_left
 
 
 def _find_instrument_for_article(
@@ -198,7 +201,28 @@ _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 
 def run_together(*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
-    return list(_TOGETHER.map(lambda call: call(), calls))
+    return side_by_side(_TOGETHER, list(calls))
+
+
+def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
+    """The results of *calls*, run on the threads of *pool*, in their order.
+
+    Each call runs in a copy of the caller's context, so the deadline of a request
+    (``store.read_time_left``) holds in the thread too; the caller waits for them no longer
+    than that deadline (``ReadTimedOut``: a 503, while the calls end at their own statement
+    timeout). A call from a thread of *pool* itself runs the calls there, one after the
+    other: the pool is shared by every request, and a thread of it waiting for the others
+    could wait for itself."""
+    prefix = getattr(pool, "_thread_name_prefix", "")
+    if prefix and threading.current_thread().name.startswith(prefix):
+        return [call() for call in calls]
+    futures = [pool.submit(contextvars.copy_context().run, call) for call in calls]
+    done, waiting = wait(futures, timeout=read_time_left())
+    if waiting:
+        raise ReadTimedOut(
+            "The request ran past its deadline waiting for queries run side by side."
+        )
+    return [future.result() for future in futures]
 
 
 def chamber_sql(alias: str) -> str:
