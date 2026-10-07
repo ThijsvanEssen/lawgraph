@@ -59,11 +59,12 @@ def document_sender(
     gives them, and of a bewindspersoon the ``ministry`` the function names on *date*.
     None for a paper without such a signature, as every Eerste Kamer paper."""
     by_role: dict[str, dict[str, Any]] = {}
-    for actor in actors or ():
-        by_role.setdefault(actor.get("role") or "", actor)
-    actor = next((by_role[r] for r in SENDER_ROLES if r in by_role), None)
-    if actor is None:
+    for signature in actors or ():
+        by_role.setdefault(signature.get("role") or "", signature)
+    role = next((r for r in SENDER_ROLES if r in by_role), None)
+    if role is None:
         return None
+    actor = by_role[role]
     capacity = actor.get("capacity")
     function = actor.get("function")
     person = actor.get("person_id")
