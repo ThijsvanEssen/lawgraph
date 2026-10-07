@@ -7,7 +7,8 @@ of the four matches of ``queries/search.py``: each stem of a word (``text``), th
 the start of a value (``identity``; a value is mostly unique, so its df is taken as 1), the
 folded word as a whole value (``norm``) and the word as a part of the folded value
 (``ngram``). The document frequencies of a query's terms are counted first, in one
-statement of index lookups; the mean lengths of the fields per table once a minute.
+statement of index lookups; the mean lengths of the fields per table once per data version,
+from a sample on a large table.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ from lawgraph.db.version_cache import cached
 
 K1 = 1.2
 B = 0.75
+# The rows a large table's mean field lengths are taken from (``_stats``).
+SAMPLE_ROWS = 20_000
 
 # The statistics of a table and the document frequencies of terms are kept per data version
 # (``version_cache``): on the full graph they take a minute, and change only with the data.
@@ -50,7 +53,10 @@ def _length(field: str, analyzer: str) -> str:
 
 
 def _stats(store: Any, table: str) -> dict[str, float]:
-    """``N`` and the mean length per ``field/analyzer`` over the rows that have it."""
+    """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
+    large table ``N`` is the planner's count (``pg_class.reltuples``) and the means are
+    those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time: counting a million
+    judgments takes minutes from disk, and BM25 does not tell the difference."""
 
     def count() -> dict[str, float]:
         names = [
@@ -62,17 +68,35 @@ def _stats(store: Any, table: str) -> dict[str, float]:
             f"avg(nullif({_length(*name.split('/'))}, 0))::float AS a{n}"
             for n, name in enumerate(names)
         ]
+        estimate = _estimated_rows(store, table)
+        sample = ""
+        if estimate >= SAMPLE_ROWS * 5:
+            percent = 100.0 * SAMPLE_ROWS / estimate
+            sample = f" TABLESAMPLE SYSTEM ({percent:.6f}) REPEATABLE (0)"
         row = next(
             store.query(
                 f"SELECT count(*)::float AS n, {', '.join(means)} FROM {table} doc"
+                + sample
             )
         )
-        found = {"N": float(row["n"] or 0)}
+        found = {"N": estimate if sample else float(row["n"] or 0)}
         for n, name in enumerate(names):
             found[name] = float(row[f"a{n}"] or 1.0)
         return found
 
     return cached(store, ("bm25-stats", table), count)
+
+
+def _estimated_rows(store: Any, table: str) -> float:
+    """The rows of *table* as the planner counts them (-1 before its first ``ANALYZE``)."""
+    return float(
+        next(
+            store.query(
+                "SELECT reltuples::float FROM pg_class WHERE oid = %(table)s::regclass",
+                {"table": table},
+            )
+        )
+    )
 
 
 def _tf(term: _Term) -> str:
