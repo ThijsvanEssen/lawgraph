@@ -27,6 +27,9 @@ class HealthDTO(BaseModel):
     """Whether the API reaches its database, and how warm and busy it is."""
 
     status: str
+    version: str = Field(
+        description="The version of the API (a deploy checks its tag)."
+    )
     database: str
     warm: bool | None = Field(
         description=(

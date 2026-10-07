@@ -269,7 +269,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.5",
+    version="0.79.6",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -375,7 +375,8 @@ async def root() -> dict[str, str]:
 async def health(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> HealthDTO:
-    """Health check — verifies database connectivity. ``warm``: the answers every visitor
+    """Health check — verifies database connectivity; ``version`` the version of the API
+    (what a deploy checks against its tag). ``warm``: the answers every visitor
     asks are computed for the data as it is now (null when the API does not warm up); a
     deploy waits for true before its smoke test. ``warm_version`` the data version they
     were last computed for (the answers a request gets while a newer one computes, null
@@ -385,7 +386,12 @@ async def health(
     threads of the shared pools run now, and how long."""
     try:
         store.ping()
-        answer: dict[str, Any] = {"status": "ok", "database": "connected", "warm": None}
+        answer: dict[str, Any] = {
+            "status": "ok",
+            "version": app.version,
+            "database": "connected",
+            "warm": None,
+        }
         if API_WARM_UP:
             from lawgraph.api.warm import is_warm, warmed_version
 
