@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
 
+from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import format_duration
@@ -56,13 +58,19 @@ def _warm_cabinets(store: GraphStore) -> None:
 WARM_SUBJECT_AREAS = 5
 
 
+# What the front end asks of a list first (its ``Bladeren``): the judgments of Rechtspraak,
+# the instruments with articles and the papers of the Tweede Kamer. The facets and totals
+# are kept per filter, so the warm-up asks with the same filters.
+FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
+
+
 def _warm_subject_areas(store: GraphStore) -> None:
-    listed = get_judgments_list(store, JudgmentFilters(), limit=1)
+    listed = get_judgments_list(store, FIRST_JUDGMENTS, limit=1)
     areas = (listed.get("facets") or {}).get("subject_area") or []
     for area in areas[:WARM_SUBJECT_AREAS]:
         if area.get("value"):
             get_judgments_list(
-                store, JudgmentFilters(subject_area=area["value"]), limit=20
+                store, replace(FIRST_JUDGMENTS, subject_area=area["value"]), limit=20
             )
 
 
@@ -76,15 +84,17 @@ def warm_up(store: GraphStore) -> None:
         "stats": lambda: stats_data(store),
         "coverage": lambda: coverage_data(store),
         "cabinets": lambda: _warm_cabinets(store),
-        "instruments": lambda: get_instruments_list(store, limit=20),
-        "documents": lambda: list_documents(store, limit=20),
+        "instruments": lambda: get_instruments_list(
+            store, article_count_min=1, limit=20
+        ),
+        "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
         "search notation": lambda: load_notation_parser(store),
         "search codes": lambda: load_code_aliases(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
         },
-        "judgments": lambda: get_judgments_list(store, JudgmentFilters(), limit=20),
+        "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
         # the slow ones last: the feed and every kind of it in one reading of the events
         # (``feed_counts``), then the largest areas of law
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
@@ -95,19 +105,24 @@ def warm_up(store: GraphStore) -> None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", name)
             return
-        logger.info("Warm-up of %s.", name)
-        began = time.monotonic()
-        try:
-            part()
-        except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
-            logger.warning(
-                "Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc
-            )
-        else:
-            logger.info(
-                "Warm-up of %s took %s.",
-                name,
-                format_duration(time.monotonic() - began),
-            )
+        _run(name, part)
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
+    # after ``warm``: it reads every edge, once a day (``heat_counts``), and the first
+    # visitor of the heat finds it computed
+    _run("heat", lambda: heat_counts(store))
+
+
+def _run(name: str, part: Callable[[], object]) -> None:
+    """One part of the warm-up, logged with how long it took; one that fails leaves the
+    others."""
+    logger.info("Warm-up of %s.", name)
+    began = time.monotonic()
+    try:
+        part()
+    except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
+        logger.warning("Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc)
+    else:
+        logger.info(
+            "Warm-up of %s took %s.", name, format_duration(time.monotonic() - began)
+        )

@@ -48,21 +48,21 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     assert not warm.is_warm(store)
 
 
-def test_the_warm_up_leaves_the_heat_of_the_whole_graph(
+def test_the_heat_is_counted_after_the_warm_up_is_done(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """It reads every edge: ``warm`` never waits for it."""
-    from lawgraph.api.routes import nodes
-    from lawgraph.db.queries import overlay
+    """It reads every edge: ``warm`` never waits for it, and the first visitor of the heat
+    finds it computed."""
+    warm_when_counted: list[bool] = []
 
-    def no_heat(*args, **kwargs):  # type: ignore[no-untyped-def]
-        pytest.fail("the warm-up counted the heat")
+    def heat(store_: GraphStore) -> dict[str, int]:
+        warm_when_counted.append(warm.is_warm(store_))
+        return {}
 
-    monkeypatch.setattr(nodes, "get_heat_tops", no_heat)
-    monkeypatch.setattr(overlay, "get_heat_tops", no_heat)
+    monkeypatch.setattr(warm, "heat_counts", heat)
     monkeypatch.setattr(warm, "_warmed", None)
     warm.warm_up(store)
-    assert warm.is_warm(store)
+    assert warm_when_counted == [True]
 
 
 def test_the_warm_up_counts_the_largest_areas_of_law(
@@ -71,11 +71,15 @@ def test_the_warm_up_counts_the_largest_areas_of_law(
     """The first page of an area of law counts its facets over all its judgments."""
     areas = [{"value": f"Area {n}", "count": 10 - n} for n in range(7)]
     asked: list[str | None] = []
+    sources: list[str | None] = []
 
     def listed(store_: GraphStore, filters, limit: int = 20):  # type: ignore[no-untyped-def]
         asked.append(filters.subject_area)
+        sources.append(filters.source)
         return {"total": 0, "items": [], "facets": {"subject_area": areas}}
 
     monkeypatch.setattr(warm, "get_judgments_list", listed)
     warm._warm_subject_areas(store)
     assert asked == [None, "Area 0", "Area 1", "Area 2", "Area 3", "Area 4"]
+    # with the filters the front end sends, whose facets are kept per filter
+    assert sources == ["rechtspraak"] * 6

@@ -357,3 +357,19 @@ def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
     background = store.pool_usage()["background"]
     assert background is not None
     assert background["size"] == store_module.DB_BACKGROUND_POOL_SIZE
+
+
+def test_health_names_the_version_of_the_api(store: GraphStore) -> None:
+    """A deploy checks the version it put live against its tag."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        health = TestClient(app).get("/api/health").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert health["version"] == app.version
+    assert health["status"] == "ok"
