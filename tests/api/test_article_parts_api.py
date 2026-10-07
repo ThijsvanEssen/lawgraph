@@ -115,7 +115,7 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_with_relations",
         lambda store, bwb_id, article_number: ArticleDetailData(
-            article=ARTICLE, instrument=None, judgments=[], metadata={}
+            article=ARTICLE, instrument=None, metadata={}
         ),
     )
     target = {
