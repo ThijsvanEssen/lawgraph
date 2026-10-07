@@ -112,6 +112,8 @@ def test_a_new_data_version_warms_up_in_the_background(
 ) -> None:
     warmed: list[str] = []
     monkeypatch.setattr(version_cache, "_warmers", [lambda s: warmed.append(s.name)])
+    # it starts once the version has stood still this long (90 s on a server)
+    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.2)
 
     version_cache.cached(store, ("x",), lambda: 1)  # the first version: no warm-up
     time.sleep(0.2)
@@ -119,7 +121,7 @@ def test_a_new_data_version_warms_up_in_the_background(
 
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
     version_cache.cached(store, ("x",), lambda: 2)  # a version it did not know
-    for _ in range(50):
+    for _ in range(60):
         if warmed:
             break
         time.sleep(0.05)
