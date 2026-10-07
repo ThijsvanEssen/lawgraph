@@ -1,7 +1,8 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
-The facets and totals of the unfiltered lists, the statistics and coverage, the heat, and
-the statistics of the search. Off with ``LAWGRAPH_API_WARM_UP=false``."""
+The facets and totals of the unfiltered lists, the statistics and coverage, the heat, the
+statistics of the search and the pages of the newest cabinets. Off with
+``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import _stats as search_statistics
+from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.feed import FEED_KINDS, FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
@@ -33,6 +35,15 @@ _warmed: str | None = None
 def is_warm(store: GraphStore) -> bool:
     """Whether the warm-up is done for the data as it is now."""
     return _warmed is not None and _warmed == store.data_version()
+
+
+# The newest cabinets, whose pages are warmed (each reads every paper its members signed).
+WARM_CABINETS = 4
+
+
+def _warm_cabinets(store: GraphStore) -> None:
+    for item in get_cabinets(store)[:WARM_CABINETS]:
+        get_cabinet(store, item["cabinet"]["_key"])
 
 
 def warm_up(store: GraphStore) -> None:
@@ -61,6 +72,7 @@ def warm_up(store: GraphStore) -> None:
             )
             for kind in FEED_KINDS
         },
+        "cabinets": lambda: _warm_cabinets(store),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):
