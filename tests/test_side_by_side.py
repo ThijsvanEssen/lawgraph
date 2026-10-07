@@ -44,3 +44,28 @@ def test_a_call_from_the_pool_itself_runs_its_calls_there() -> None:
         return side_by_side(pool, [lambda: 1, lambda: 2])
 
     assert side_by_side(pool, [outer]) == [[1, 2]]
+
+
+def test_a_request_does_not_queue_behind_the_calls_of_others() -> None:
+    """Every thread of the shared pool busy with a slow call of another request: the calls
+    of this one run in its own thread, at once."""
+    import threading
+
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-busy")
+    release = threading.Event()
+    others = [
+        pool.submit(release.wait, 5) for _ in range(2)
+    ]  # not through side_by_side
+    busy = threading.Thread(
+        target=lambda: side_by_side(pool, [lambda: release.wait(5)] * 2)
+    )
+    busy.start()
+    time.sleep(0.1)
+    started = time.monotonic()
+    try:
+        assert side_by_side(pool, [lambda: 1, lambda: 2]) == [1, 2]
+    finally:
+        release.set()
+        busy.join()
+    assert time.monotonic() - started < 0.5
+    assert all(f.result() for f in others)
