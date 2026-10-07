@@ -31,12 +31,12 @@ from lawgraph.db.queries._helpers import (
     _coerce_float,
     _coerce_int,
     _coerce_text,
+    _count_judgments_for_article,
     _ensure_doc,
     _extract_confidence,
     _extract_qualifier,
     _extract_span,
     _find_instrument_for_article,
-    _find_judgments_for_article,
     _resolve_target_from_entry,
     run_together,
 )
@@ -47,7 +47,6 @@ from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_ti
 class ArticleDetailData:
     article: dict[str, Any]
     instrument: dict[str, Any] | None
-    judgments: list[dict[str, Any]]
     metadata: dict[str, Any]
 
 
@@ -105,7 +104,8 @@ def get_article_with_relations(
     bwb_id: str,
     article_number: str,
 ) -> ArticleDetailData:
-    """Fetch an article with its parent instrument and the judgments citing it."""
+    """Fetch an article with its parent instrument and the number of judgments citing it
+    (``metadata.judgment_count``; ``get_article_cited_by`` pages them)."""
     article_key = make_node_key(bwb_id, article_number)
     article_doc = store.get_document(COLLECTION_ARTICLES, article_key)
     article_doc = _ensure_doc(article_doc)
@@ -115,17 +115,13 @@ def get_article_with_relations(
     article_id = article_doc["_id"]
     found = run_together(
         lambda: _find_instrument_for_article(store, article_id),
-        lambda: _find_judgments_for_article(store, article_id),
+        lambda: _count_judgments_for_article(store, article_id),
     )
     instrument_doc = cast("dict[str, Any] | None", found[0])
-    judgments = cast("list[dict[str, Any]]", found[1])
-
-    metadata = {"judgment_count": len(judgments)}
     return ArticleDetailData(
         article=article_doc,
         instrument=instrument_doc,
-        judgments=judgments,
-        metadata=metadata,
+        metadata={"judgment_count": cast(int, found[1])},
     )
 
 
