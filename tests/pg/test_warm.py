@@ -65,3 +65,19 @@ def test_the_warm_up_leaves_the_heat_of_the_whole_graph(
     monkeypatch.setattr(warm, "_warmed", None)
     warm.warm_up(store)
     assert warm.is_warm(store)
+
+
+def test_the_warm_up_counts_the_largest_areas_of_law(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first page of an area of law counts its facets over all its judgments."""
+    areas = [{"value": f"Area {n}", "count": 10 - n} for n in range(7)]
+    asked: list[str | None] = []
+
+    def listed(store_: GraphStore, filters, limit: int = 20):  # type: ignore[no-untyped-def]
+        asked.append(filters.subject_area)
+        return {"total": 0, "items": [], "facets": {"subject_area": areas}}
+
+    monkeypatch.setattr(warm, "get_judgments_list", listed)
+    warm._warm_subject_areas(store)
+    assert asked == [None, "Area 0", "Area 1", "Area 2", "Area 3", "Area 4"]

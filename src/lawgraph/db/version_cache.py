@@ -297,6 +297,28 @@ def cached_rows(
     return cached(store, key, lambda: list(store.query(statement, params, **options)))
 
 
+def lasting_rows(
+    store: Any,
+    statement: Any,
+    params: dict[str, Any] | None = None,
+    *,
+    max_age: float,
+    **options: Any,
+) -> list[Any]:
+    """The rows of *statement* with *params*, kept *max_age* seconds whatever the data does
+    (``lasting``): for a count every visitor of a filter asks, that a run of the pipelines
+    hardly moves and that reads many rows."""
+    key = (
+        "rows",
+        _text(statement),
+        _frozen(params or {}),
+        tuple(sorted(options.items())),
+    )
+    return lasting(
+        store, key, lambda: list(store.query(statement, params, **options)), max_age
+    )
+
+
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
