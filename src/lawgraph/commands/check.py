@@ -85,9 +85,13 @@ RECORD_KIND = {
     SOURCE_EERSTEKAMER: RAW_KIND_EK_KAMERSTUK,
 }
 NORMALIZED_SHARE = 0.9
-# Sources of which several records make one node, and how many nodes their records make:
-# HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them.
-NODES_OF_RECORDS = {SOURCE_ECHR: checks.count_echr_judgments_in_raw}
+# Sources of which not every record makes a node, and how many nodes their records make:
+# HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them; the
+# Tweede Kamer's change feed holds the zaken it deleted, of which ``normalize tk`` makes none.
+NODES_OF_RECORDS = {
+    SOURCE_ECHR: checks.count_echr_judgments_in_raw,
+    SOURCE_TK: checks.count_tk_cases_in_raw,
+}
 
 
 @dataclass
@@ -224,7 +228,7 @@ def _check_nodes(
 
 def _records(records: int, expected: int, kind: str) -> str:
     stored = f"{records:,} {kind} records"
-    return stored if expected == records else f"{stored}, {expected:,} distinct,"
+    return stored if expected == records else f"{stored} ({expected:,} make a node)"
 
 
 def _check_edges(store: GraphStore, report: Report) -> None:
