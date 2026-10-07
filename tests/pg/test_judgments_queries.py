@@ -583,3 +583,26 @@ def test_the_tree_of_the_areas_of_law_is_counted_without_both_its_filters(
         store, JudgmentFilters(subject="Bestuursrecht; Belastingrecht")
     )
     assert chosen["total"] == 1
+
+
+def test_without_facets_the_page_and_the_total_alone(
+    corpus: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``facets=False``: the same page and total, ``facets`` None, and no count of a facet
+    sent to the database (eight statements over every judgment on the full graph)."""
+    with_facets = get_judgments_list(corpus, JudgmentFilters(tier="hoge_raad"))
+    statements: list[str] = []
+    query = corpus.query
+
+    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append(str(statement))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(corpus, "query", counting)
+    without = get_judgments_list(
+        corpus, JudgmentFilters(tier="hoge_raad"), facets=False
+    )
+    assert without["items"] == with_facets["items"]
+    assert without["total"] == with_facets["total"]
+    assert without["facets"] is None
+    assert not [s for s in statements if "GROUP BY" in s]
