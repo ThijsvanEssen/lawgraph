@@ -47,14 +47,16 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
     ]
-    since = {argv[argv.index("--since") + 1] for _, argv in ran if "--since" in argv}
+    since = {argv[-1] for _, argv in ran}
     assert len(since) == 1  # the window starts at one moment for every step
     moment = dt.datetime.fromisoformat(since.pop())
     ago = dt.datetime.now(dt.timezone.utc) - moment
     assert abs(ago - dt.timedelta(hours=2)) < dt.timedelta(seconds=5)
     assert "--skip-members" in dict(ran)["retrieve tk-dossiers"]
-    # the semantic steps without --since run in full
-    assert dict(ran)["semantic tk-government"] == []
+    # the steps that would read every dossier read what was touched since then
+    moment = dict(ran)["normalize tk"][-1]
+    for step in ("semantic tk-dossier-outcomes", "semantic tk-government"):
+        assert dict(ran)[step] == ["--touched-since", moment]
 
 
 def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> None:
@@ -138,3 +140,14 @@ def test_each_retrieve_of_a_poll_takes_its_options_and_reads_a_window(
             if key in ("since", "since_date", "date_from")
         }
         assert windows and all(value is not None for value in windows.values())
+
+
+def test_only_a_poll_asks_for_what_was_touched() -> None:
+    """The nightly ``semantic all --since last`` passes ``--since`` alone: these steps
+    still read every dossier there, the safety net for what a poll does not see."""
+    from lawgraph.pipelines.command import accepts_since, accepts_touched_since
+    from lawgraph.sources.registry import find
+
+    for name in ("tk-government", "tk-dossier-outcomes"):
+        command = find("semantic", name).command  # type: ignore[union-attr]
+        assert accepts_touched_since(command) and not accepts_since(command)

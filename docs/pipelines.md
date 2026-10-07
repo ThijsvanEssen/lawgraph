@@ -291,6 +291,15 @@ It walks every dossier on every run, since a law published today closes a dossie
 record did not change, and writes only the dossiers whose answer changed. It runs after
 `bwb-amendments` and before `graph-list-stats`, which counts the open dossiers of a committee.
 
+With `--touched-since` (`lawgraph poll`) it walks only the dossiers touched since then, and
+`tk-government` only those dossiers and the commitments touched since then
+(`pipelines/semantic/_touched.py`): the dossier, commitment, paper, case or decision whose TK
+record was fetched since then (also the decision a fetched Stemming voted on), both ends of
+every edge written since then, and the dossiers these are `PART_OF`, `ABOUT` or `LEGISLATED_IN`,
+directly or through their case. For those it comes to what a run over all would. What changes
+in another way (a cabinet, a post, the date of a publication) waits for the nightly run, which
+walks all.
+
 <a id="semantic-tk-dossier-relations"></a>
 **Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record
 itself never names (`core/dossier_relations.py`). An edge is written only when both dossiers are

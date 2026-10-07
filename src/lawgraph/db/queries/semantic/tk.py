@@ -567,3 +567,73 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, kind, dossier_numbers, related_cases}`` of every case the Kamer relates to
     another."""
     return store.query(_RELATED_CASES_SQL)
+
+
+# What a poll touched: the nodes *ids* (made of the raw records it fetched), the dossiers of
+# the Kamerstukdossier records *guids* (a dossier's key is its number), and both ends of
+# every edge written since *since*; and the dossiers they belong to: a touched dossier, the
+# dossier a touched paper, case, decision or instrument is PART_OF, ABOUT or LEGISLATED_IN,
+# directly or through its case. ``created_at`` is set when an edge is inserted, never after.
+_TOUCHED_DOSSIERS_SQL = f"""
+WITH seeds AS (
+    SELECT unnest(%(ids)s::text[]) AS id
+    UNION
+    SELECT d.id FROM {COLLECTION_DOSSIERS} d
+    WHERE lg_str(d.props -> 'external_id') = ANY(%(guids)s::text[])
+    UNION
+    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+),
+parts AS (
+    SELECT id FROM seeds
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN seeds s ON e.from_id = s.id
+    WHERE e.relation = %(part_of)s AND e.to_collection = '{COLLECTION_CASES}'
+),
+touched AS (
+    SELECT id FROM parts
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN parts p ON e.from_id = p.id
+    WHERE e.relation = ANY(%(relations)s::text[])
+      AND e.to_collection = '{COLLECTION_DOSSIERS}'
+)
+SELECT ds.id FROM touched t JOIN {COLLECTION_DOSSIERS} ds ON ds.id = t.id
+ORDER BY ds.key
+"""
+
+
+def touched_dossier_ids(
+    store: Store, ids: list[str], guids: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the dossiers the nodes *ids*, the dossier records *guids*, or an
+    edge written at or after *since_iso* belong to (see ``_TOUCHED_DOSSIERS_SQL``)."""
+    params = {
+        "ids": ids,
+        "guids": guids,
+        "since": since_iso,
+        "part_of": RELATION_PART_OF,
+        "relations": [RELATION_PART_OF, RELATION_ABOUT, RELATION_LEGISLATED_IN],
+    }
+    return list(store.query(_TOUCHED_DOSSIERS_SQL, params))
+
+
+def touched_ids(
+    store: Store, collection: str, ids: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the nodes of *collection* among *ids* or at an end of an edge
+    written at or after *since_iso*."""
+    return list(
+        store.query(
+            f"""
+            SELECT n.id FROM {collection} n
+            WHERE n.id = ANY(%(ids)s::text[])
+               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e
+                           WHERE e.created_at >= %(since)s)
+               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e
+                           WHERE e.created_at >= %(since)s)
+            ORDER BY n.key
+            """,
+            {"ids": ids, "since": since_iso},
+        )
+    )

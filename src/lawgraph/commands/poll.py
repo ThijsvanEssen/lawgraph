@@ -3,9 +3,10 @@
 A poll is a light chain for one source: its retrieves over a window back, the normalize of
 what they fetched, and only the semantic steps the feed needs of it. Every step gets the
 same ``--since``, the moment the window starts, so the normalize reads what the retrieve
-of this run (and of the run before it) stored. A poll keeps no mark of its own: it is
-chronological, and its window is wider than the time between two polls, so that they
-overlap; everything is an upsert. The nightly ``<phase> all --since last`` does the rest.
+of this run (and of the run before it) stored; a semantic step that reads everything gets
+it as ``--touched-since`` (``pipelines/semantic/_touched.py``). A poll keeps no mark of its
+own: it is chronological, and its window is wider than the time between two polls, so that
+they overlap; everything is an upsert. The nightly ``<phase> all --since last`` does the rest.
 
 No ``VACUUM ANALYZE`` after a poll: what it writes is small, and the nightly run does it.
 """
@@ -19,6 +20,7 @@ from lawgraph.core.feed import FEED_TIERS
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import (
     accepts_since,
+    accepts_touched_since,
     add_since_argument,
     combined_result,
 )
@@ -82,9 +84,13 @@ def chain(name: str) -> list[tuple[Pipeline, tuple[str, ...]]]:
 
 def argv_of(pipeline: Pipeline, options: tuple[str, ...], since: str) -> list[str]:
     """``--since`` for every retrieve (each has it; without it some read everything) and
-    for a normalize or semantic step whose command has it; one without it runs in full."""
-    with_since = pipeline.phase == "retrieve" or accepts_since(pipeline.command)
-    return [*options, *(["--since", since] if with_since else [])]
+    for a normalize or semantic step whose command has it; ``--touched-since`` for a
+    semantic step that would otherwise read everything; one with neither runs in full."""
+    if pipeline.phase == "retrieve" or accepts_since(pipeline.command):
+        return [*options, "--since", since]
+    if accepts_touched_since(pipeline.command):
+        return [*options, "--touched-since", since]
+    return list(options)
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

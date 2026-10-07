@@ -19,11 +19,13 @@ then. Both are null for a dossier none of
 whose documents a Kamerlid or bewindspersoon signed first.
 
 Runs over every commitment and dossier after ``normalize rijksoverheid`` has written the cabinets
-and posts, and writes only what changed.
+and posts, and writes only what changed; with ``--touched-since`` over those a poll touched
+since then (``semantic/_touched.py``).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
@@ -36,6 +38,7 @@ from lawgraph.core.models import NodeType, PipelineResult
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db.queries import government as government_queries
 
+from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -136,15 +139,20 @@ def dossier_props(
 class TKGovernmentSemanticPipeline(SemanticPipelineBase):
     """Write who made each commitment and who brought each dossier in."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         people = list(government_queries.government_people(self.store))
         cabinets = list(government_queries.cabinet_periods(self.store))
+        some_commitments = some_dossiers = None
+        if touched_since is not None:
+            some_commitments = touched.touched_commitments(self.store, touched_since)
+            some_dossiers = touched.touched_dossiers(self.store, touched_since)
 
         commitments = []
         matched = total = 0
         for row in self._track(
-            list(government_queries.commitment_makers(self.store)), "commitments"
+            list(government_queries.commitment_makers(self.store, some_commitments)),
+            "commitments",
         ):
             props = commitment_props(row, people, cabinets)
             total += 1
@@ -154,7 +162,10 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         dossiers = []
         brought = 0
         for row in self._track(
-            list(government_queries.dossier_first_signatures(self.store)), "dossiers"
+            list(
+                government_queries.dossier_first_signatures(self.store, some_dossiers)
+            ),
+            "dossiers",
         ):
             props = dossier_props(row.get("first"), cabinets, people)
             brought += props["initiative"] is not None

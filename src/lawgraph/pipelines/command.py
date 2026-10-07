@@ -55,6 +55,13 @@ _SINCE_HELP = (
     "'90m')."
 )
 
+# A step that reads everything because what decides it can change anywhere: only what was
+# touched since then, which a poll asks for and ``<phase> all`` does not.
+_TOUCHED_SINCE_HELP = (
+    "Only what was touched since this moment (a poll); without it everything. ISO 8601 "
+    "or relative ('2h')."
+)
+
 
 def add_since_argument(
     parser: argparse.ArgumentParser,
@@ -99,22 +106,38 @@ class PipelineCommand:
     def accepts_since(self) -> bool:
         return "since" in inspect.signature(self.pipeline_cls.run).parameters
 
+    @property
+    def accepts_touched_since(self) -> bool:
+        return "touched_since" in inspect.signature(self.pipeline_cls.run).parameters
+
     def __call__(self, argv: list[str] | None = None) -> PipelineResult:
         parser = argparse.ArgumentParser(description=self.description)
         if self.accepts_since:
             add_since_argument(parser)
+        if self.accepts_touched_since:
+            add_since_argument(parser, "--touched-since", help=_TOUCHED_SINCE_HELP)
         if self.add_args:
             self.add_args(parser)
         args = parser.parse_args(argv)
 
         extra = self.make_extra_kwargs(args) if self.make_extra_kwargs else {}
         pipeline = self.pipeline_cls(store=GraphStore(), **extra)
-        return pipeline.run(since=args.since) if self.accepts_since else pipeline.run()
+        options: dict[str, Any] = {}
+        if self.accepts_since:
+            options["since"] = args.since
+        if self.accepts_touched_since:
+            options["touched_since"] = args.touched_since
+        return pipeline.run(**options)
 
 
 def accepts_since(command: Command) -> bool:
     """Whether *command* takes ``--since``; a hand-written command says so itself."""
     return bool(getattr(command, "accepts_since", False))
+
+
+def accepts_touched_since(command: Command) -> bool:
+    """Whether *command* takes ``--touched-since`` (``<phase> all`` never passes it)."""
+    return bool(getattr(command, "accepts_touched_since", False))
 
 
 # ── running one ──────────────────────────────────────────────────────────────
