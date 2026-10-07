@@ -97,6 +97,7 @@ records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`.
 |---------|------------|
 | `bootstrap` | a build of an empty database (below) |
 | `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` |
+| `poll` | one source between the nightly runs: its retrieves over a window back, their normalize and the semantic steps the feed needs (`commands/poll.py`) |
 | `check`, `gaps`, `verify` | reports that only read: is the graph what the pipelines should have made, what a gaps run would fetch, does every cabinet meet the rules of its seats and phases |
 | `courts`, `ministries`, `code-families` | build a table from an official source and commit it (`data/courts.json`, `ministries.json`, `code_families.json`) |
 | `curated` | lists, checks and sets what a person decides (`data/curated/`) |

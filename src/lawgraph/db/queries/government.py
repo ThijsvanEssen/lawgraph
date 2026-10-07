@@ -80,10 +80,12 @@ def cabinet_periods(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def commitment_makers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, name, role, ministry_name, text, date, props}`` of every commitment: who made
-    it as the source writes it, the ministry the source gives it, its text, and what is
-    stored now of who made it."""
+def commitment_makers(
+    store: Store, ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{key, name, role, ministry_name, text, date, props}`` of every commitment, or of
+    those with an ``_id`` in *ids*: who made it as the source writes it, the ministry the
+    source gives it, its text, and what is stored now of who made it."""
     return store.query(
         f"""
         SELECT json_build_object(
@@ -96,8 +98,10 @@ def commitment_makers(store: Store) -> Iterator[dict[str, Any]]:
             'props', {_keep("c.props", "member_key", "post", "ministry", "cabinet")}
         )
         FROM commitments c
+        WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
         ORDER BY c.key COLLATE "C"
-        """
+        """,
+        {"ids": ids},
     )
 
 
@@ -109,13 +113,13 @@ WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
     FROM edges p
     WHERE p.relation = %(part_of)s AND p.to_collection = '{COLLECTION_DOSSIERS}'
-      AND p.from_collection <> '{COLLECTION_CASES}'
+      AND p.from_collection <> '{COLLECTION_CASES}' /* papers */
     UNION
     SELECT c.to_id, p.from_id
     FROM edges c
     JOIN edges p ON p.to_id = c.from_id AND p.relation = %(part_of)s
     WHERE c.relation = %(part_of)s AND c.to_collection = '{COLLECTION_DOSSIERS}'
-      AND c.from_collection = '{COLLECTION_CASES}'
+      AND c.from_collection = '{COLLECTION_CASES}' /* cases */
 ),
 signatures AS (
     SELECT papers.dossier_id, papers.paper_id, a.key, a.from_id, a.doc -> 'meta' AS meta,
@@ -145,26 +149,40 @@ SELECT json_build_object(
     'props', {_keep("dossier.props", "ministry", "initiative", "cabinet")}
 )
 FROM dossiers dossier
-LEFT JOIN firsts ON firsts.dossier_id = dossier.id
+LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */
 ORDER BY dossier.key COLLATE "C"
 """
+# The same for the dossiers of ``%(ids)s`` alone: their papers, by index.
+_ONLY_SOME = {
+    " /* papers */": " AND p.to_id = ANY(%(ids)s::text[])",
+    " /* cases */": " AND c.to_id = ANY(%(ids)s::text[])",
+    " /* dossiers */": " WHERE dossier.id = ANY(%(ids)s::text[])",
+}
 
 
-def dossier_first_signatures(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, first, props}`` of every dossier: ``first`` the first signature of its
-    earliest document signed first by a Kamerlid or a bewindspersoon (``{date, member,
-    capacity, function}``, null when there is none), ``props`` what is stored now.
+def dossier_first_signatures(
+    store: Store, ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{key, first, props}`` of every dossier, or of those with an ``_id`` in *ids*:
+    ``first`` the first signature of its earliest document signed first by a Kamerlid or
+    a bewindspersoon (``{date, member, capacity, function}``, null when there is none),
+    ``props`` what is stored now.
 
     With ``hash_joins``: the planner takes the first signatures (a condition on ``meta``)
     for a few dozen rows where there are a hundred thousand, and loops over them for every
-    paper; on the server that ran for hours."""
+    paper; on the server that ran for hours. A few dossiers are read by index instead."""
+    some = ids is not None
+    statement = _FIRST_SIGNATURES_SQL
+    for marker, condition in _ONLY_SOME.items() if some else ():
+        statement = statement.replace(marker, condition)
     return store.query(
-        _FIRST_SIGNATURES_SQL,
+        statement,
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
             "first_role": ROLE_FIRST_SIGNATORY,
             "capacities": [CAPACITY_MEMBER, CAPACITY_GOVERNMENT],
+            "ids": ids,
         },
-        hash_joins=True,
+        hash_joins=not some,
     )
