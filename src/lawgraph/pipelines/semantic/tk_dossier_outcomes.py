@@ -11,11 +11,13 @@ gets ``bill_decision``.
 
 Runs over every dossier, since a law published today closes a dossier whose own record did
 not change, and writes only the dossiers whose ``closed``, ``outcome``, ``closed_on``,
-``tk_decision`` or ``ek_outcome`` changed.
+``tk_decision`` or ``ek_outcome`` changed; with ``--touched-since`` over the dossiers a poll
+touched since then (``semantic/_touched.py``).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DECISIONS, COLLECTION_DOSSIERS
@@ -30,6 +32,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType, PipelineResult
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
+from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -42,9 +45,13 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
     """Write ``closed``, ``outcome``, ``closed_on``, ``tk_decision`` and ``ek_outcome`` on
     every dossier, and ``bill_decision`` on the votes of the Eerste Kamer about it."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        ids = list(semantic_tk.dossier_ids(self.store))
+        ids = (
+            list(semantic_tk.dossier_ids(self.store))
+            if touched_since is None
+            else touched.touched_dossiers(self.store, touched_since)
+        )
         closed = 0
         for chunk in self._track(chunked(ids, _CHUNK), "dossier chunks"):
             rows = semantic_tk.dossier_outcome_signals(
