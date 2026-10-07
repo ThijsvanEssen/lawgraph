@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import contextvars
+import threading
+import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
@@ -18,16 +21,27 @@ from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
+from lawgraph.db.store import ReadTimedOut, read_time_left
 
 
 def _find_instrument_for_article(
     store: GraphStore, article_id: str
 ) -> dict[str, Any] | None:
+    # the PART_OF edges of the article first (OFFSET 0 keeps them apart), then the node of
+    # each by its id: never ``nodes`` in the order of its ids, which on the full graph is
+    # every node (a plan the server-side cursor of ``store.query`` may pick for a LIMIT)
     rows = store.query(
         """
         SELECT n.id, n.key, n.type, n.labels, n.props
-        FROM edges e JOIN nodes n ON n.id = e.to_id
-        WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+        FROM (
+            SELECT e.to_id FROM edges e
+            WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+            ORDER BY e.to_id
+            OFFSET 0
+        ) e
+        CROSS JOIN LATERAL (
+            SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n WHERE n.id = e.to_id
+        ) n
         ORDER BY e.to_id
         LIMIT 1
         """,
@@ -37,33 +51,26 @@ def _find_instrument_for_article(
     return node_doc(row) if row else None
 
 
-def _find_judgments_for_article(
-    store: GraphStore, article_id: str
-) -> list[dict[str, Any]]:
-    # What the response shows of a judgment, newest first; the id settles judgments of the
-    # same day. A much cited article has thousands of them, and whole judgments (text,
-    # paragraphs) are not read for it.
-    rows = store.query(
-        """
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'ecli', j.pj_ecli, 'display_name', j.pj_display_name
-            )
+def _count_judgments_for_article(store: GraphStore, article_id: str) -> int:
+    """How many judgments cite the article: counted on the index of the edges alone (a much
+    cited article has thousands, ``/cited-by`` pages them)."""
+    return int(
+        next(
+            store.query(
+                """
+                SELECT count(*)::int FROM edges e
+                WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+                  AND e.from_collection = %(judgments)s
+                """,
+                {
+                    "article_id": article_id,
+                    "relation": RELATION_REFERS_TO,
+                    "judgments": COLLECTION_JUDGMENTS,
+                },
+            ),
+            0,
         )
-        FROM edges e JOIN judgments j ON j.id = e.from_id
-        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-          AND e.from_collection = %(judgments)s
-        ORDER BY j.date_eff DESC NULLS LAST, j.id
-        """,
-        {
-            "article_id": article_id,
-            "relation": RELATION_REFERS_TO,
-            "judgments": COLLECTION_JUDGMENTS,
-        },
     )
-    return list(rows)
 
 
 def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
@@ -198,7 +205,99 @@ _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 
 def run_together(*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
-    return list(_TOGETHER.map(lambda call: call(), calls))
+    return side_by_side(_TOGETHER, list(calls))
+
+
+def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
+    """The results of *calls*, run on the threads of *pool*, in their order.
+
+    Each call runs in a copy of the caller's context, so the deadline of a request
+    (``store.read_time_left``) holds in the thread too; the caller waits for them no longer
+    than that deadline (``ReadTimedOut``: a 503, while the calls end at their own statement
+    timeout). The pool is shared by every request: a call for which no thread of it is
+    free runs in the caller's own thread, so that a request never queues behind the slow
+    queries of others, and a call from a thread of *pool* itself runs there (waiting for
+    the others, it could wait for itself)."""
+    prefix = getattr(pool, "_thread_name_prefix", "")
+    if prefix and threading.current_thread().name.startswith(prefix):
+        return [call() for call in calls]
+    free = _free_threads(pool)
+    futures: list[Future[T] | None] = []
+    for call in calls:
+        if free.acquire(blocking=False):
+            futures.append(
+                pool.submit(contextvars.copy_context().run, _releasing, free, call)
+            )
+        else:
+            futures.append(None)
+    results: dict[int, T] = {
+        n: call()
+        for n, (call, future) in enumerate(zip(calls, futures, strict=True))
+        if future is None
+    }
+    submitted = [future for future in futures if future is not None]
+    done, waiting = wait(submitted, timeout=read_time_left())
+    if waiting:
+        raise ReadTimedOut(
+            "The request ran past its deadline waiting for queries run side by side."
+        )
+    return [
+        results[n] if future is None else future.result()
+        for n, future in enumerate(futures)
+    ]
+
+
+# The threads of each shared pool not running a call now (``side_by_side``).
+_free: dict[int, threading.BoundedSemaphore] = {}
+_free_lock = threading.Lock()
+
+
+def _free_threads(pool: ThreadPoolExecutor) -> threading.BoundedSemaphore:
+    with _free_lock:
+        if id(pool) not in _free:
+            _free[id(pool)] = threading.BoundedSemaphore(pool._max_workers)
+        return _free[id(pool)]
+
+
+def _releasing(free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
+    thread = threading.current_thread().name
+    with _free_lock:
+        _busy[thread] = (_call_name(call), time.monotonic())
+    try:
+        return call()
+    finally:
+        with _free_lock:
+            _busy.pop(thread, None)
+        free.release()
+
+
+# What each thread of the shared pools runs now, and since when (``busy_calls``).
+_busy: dict[str, tuple[str, float]] = {}
+
+
+def _call_name(call: Callable[..., Any]) -> str:
+    """The function a call runs: its module and name (a lambda by where it is written)."""
+    code = getattr(call, "__code__", None)
+    module = getattr(call, "__module__", "") or ""
+    name = getattr(call, "__qualname__", None) or type(call).__name__
+    if code is not None and name.endswith("<lambda>"):
+        return f"{module}.{name}:{code.co_firstlineno}"
+    return f"{module}.{name}"
+
+
+def busy_calls() -> list[dict[str, Any]]:
+    """The calls the threads of the shared pools run now, the longest first: ``thread``,
+    ``call`` and ``seconds`` (``/api/health``)."""
+    now = time.monotonic()
+    with _free_lock:
+        running = list(_busy.items())
+    return sorted(
+        (
+            {"thread": thread, "call": name, "seconds": round(now - began, 1)}
+            for thread, (name, began) in running
+        ),
+        key=lambda call: -call["seconds"],
+    )
 
 
 def chamber_sql(alias: str) -> str:

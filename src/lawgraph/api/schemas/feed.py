@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
+from lawgraph.config.constants import CHAMBER_TK
+from lawgraph.core.documents import paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
@@ -283,6 +285,10 @@ class FeedItemDTO(BaseModel):
     tk_url: str | None = Field(
         None, description="The page of a paper on tweedekamer.nl."
     )
+    number: str | None = Field(
+        None,
+        description="Of a paper its nr. in its dossier (``12``); null for the other kinds.",
+    )
     headline: FeedHeadlineDTO
     vote: FeedVoteDTO | None = None
     commitment: FeedCommitmentDTO | None = None
@@ -332,6 +338,7 @@ class FeedItemDTO(BaseModel):
             tk_url=document_page(props.get("document_number"))
             if kind in DOCUMENT_EVENTS
             else None,
+            number=paper_number(CHAMBER_TK, props) if kind in DOCUMENT_EVENTS else None,
             vote=_vote(props) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,

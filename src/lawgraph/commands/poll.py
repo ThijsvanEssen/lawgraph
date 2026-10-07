@@ -13,7 +13,6 @@ No ``VACUUM ANALYZE`` after a poll: what it writes is small, and the nightly run
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 
 from lawgraph.core.feed import FEED_TIERS
@@ -23,6 +22,7 @@ from lawgraph.pipelines.command import (
     accepts_touched_since,
     add_since_argument,
     combined_result,
+    command_parser,
 )
 from lawgraph.pipelines.orchestration import run_pipelines
 from lawgraph.sources.registry import Phase, Pipeline, find
@@ -94,7 +94,7 @@ def argv_of(pipeline: Pipeline, options: tuple[str, ...], since: str) -> list[st
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve, normalize and the semantic steps the feed needs, for one "
         "source, over a window back (a poll between the nightly runs)."
     )

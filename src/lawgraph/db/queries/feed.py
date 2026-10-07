@@ -64,7 +64,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import lasting
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
@@ -75,6 +75,7 @@ _ITEM_PROPS = (
     "subject",
     "display_name",
     "document_number",
+    "sequence",
     "status",
     "expected_resolution",
     "minister_name",
@@ -1273,8 +1274,32 @@ def get_feed(
     page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
     if not facets:
         return {"items": page.get("items") or [], "total": None, "facets": None}
-    counted = cached(store, ("feed", filters), lambda: _counts(store, filters))
-    return {"items": page.get("items") or [], **counted}
+    return {"items": page.get("items") or [], **feed_counts(store, filters)}
+
+
+# How long the total and the facets of the feed under a filter are kept (seconds), whatever
+# the data does: each reads every event of every kind (a minute on the full graph), and a
+# run of the pipelines hardly moves them. The page itself is read fresh.
+COUNTS_MAX_AGE = 3600.0
+
+
+def feed_counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
+    """``total`` and ``facets`` of the feed under *filters*, of every page alike, kept
+    ``COUNTS_MAX_AGE``. The feed without filters and that of each single kind come from
+    one reading of the events for all of them (``_counts_per_kind``)."""
+    kinds = _shared_kinds(filters)
+    if kinds is None:
+        return lasting(
+            store, ("feed", filters), lambda: _counts(store, filters), COUNTS_MAX_AGE
+        )
+    shared = replace(filters, kinds=None)
+    per_kind = lasting(
+        store,
+        ("feed per kind", shared),
+        lambda: _counts_per_kind(store, shared),
+        COUNTS_MAX_AGE,
+    )
+    return per_kind[kinds]
 
 
 def _counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
@@ -1283,3 +1308,112 @@ def _counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
     rows = list(store.query(sql, bind))
     row = cast(dict[str, Any], rows[0]) if rows else {}
     return {"total": row.get("total"), "facets": row.get("facets")}
+
+
+# The sets of kinds counted in one reading of the events: the feed without a kind (its
+# ``DEFAULT_KINDS``) and every kind on its own.
+_KIND_SETS: tuple[tuple[str, ...], ...] = (
+    DEFAULT_KINDS,
+    *((kind,) for kind in FEED_KINDS),
+)
+
+
+def _shared_kinds(filters: FeedFilters) -> tuple[str, ...] | None:
+    """The set of ``_KIND_SETS`` *filters* asks for when it filters on nothing but the
+    kind (and the dates); None when it filters on more."""
+    if replace(filters, kinds=None, since=None, until=None) != FeedFilters():
+        return None
+    kinds = filters.kinds or DEFAULT_KINDS
+    return kinds if kinds in _KIND_SETS else None
+
+
+def _counts_per_kind(
+    store: GraphStore, filters: FeedFilters
+) -> dict[tuple[str, ...], dict[str, Any]]:
+    """Per set of ``_KIND_SETS`` the ``total`` and ``facets`` of the feed under *filters*
+    (which keeps no kind), from one reading of the events: what ``_counts`` gives for each,
+    in the same order (a facet by count, then by value)."""
+    sql, bind = counts_per_kind_query(filters)
+    rows = list(store.query(sql, bind))
+    found = cast(dict[str, Any], rows[0]) if rows else {}
+    totals = found.get("total") or {}
+    facets = {name: found.get(name) or {} for name in _DIMENSIONS if name != "kind"}
+    answers: dict[tuple[str, ...], dict[str, Any]] = {}
+    for n, kinds in enumerate(_KIND_SETS):
+        set_id = str(n)
+        answers[kinds] = {
+            "total": totals.get(set_id, 0),
+            "facets": {
+                name: (
+                    (found.get("kind") or [])
+                    if name == "kind"
+                    else facets[name].get(set_id, [])
+                )
+                for name in _DIMENSIONS
+            },
+        }
+    return answers
+
+
+def counts_per_kind_query(filters: FeedFilters) -> tuple[str, dict[str, Any]]:
+    """The SQL of ``_counts_per_kind`` and its parameters: the events of every kind read
+    once (``events``), each counted for every set of ``_KIND_SETS`` that holds its kind."""
+    bind = _base_bind(filters, 1)
+    plan = _Plan(
+        filters=filters,
+        facets=True,
+        shared=_shared_filters(filters, bind),
+        dimensions={},
+        cursor=None,
+    )
+    bind["until"] = plan.until
+    bind["set_ids"] = [str(n) for n, kinds in enumerate(_KIND_SETS) for _ in kinds]
+    bind["set_kinds"] = [kind for kinds in _KIND_SETS for kind in kinds]
+    per_set = ",\n        ".join(
+        f"{_lit(name)}, {_facet_per_set(name)}"
+        for name in _DIMENSIONS
+        if name != "kind"
+    )
+    return (
+        _rows_of(filters, plan, facets=True)
+        + f""",
+    in_set AS (
+        SELECT s.set_id, e.*
+        FROM events e
+        JOIN unnest(%(set_ids)s::text[], %(set_kinds)s::text[]) AS s(set_id, kind)
+            ON s.kind = e.kind
+    )
+    SELECT json_build_object(
+        'total', (SELECT json_object_agg(set_id, n) FROM (
+            SELECT set_id, count(*)::int AS n FROM in_set GROUP BY set_id) t),
+        'kind', ({_FACET_AGG} FROM (
+            SELECT kind AS value, count(*)::int AS cnt FROM events GROUP BY 1) counted),
+        {per_set}
+    )""",
+        bind,
+    )
+
+
+def _facet_per_set(name: str) -> str:
+    """SQL: per set of ``in_set`` the facet *name*, as ``_facet`` counts it (no other
+    filter than the set's kinds), by set id."""
+    if name == "cabinet":
+        counted = f"""SELECT set_id, value, sum(n)::int AS cnt FROM (
+                SELECT set_id, {_cabinet_on("per_day.date")} AS value, per_day.n
+                FROM (SELECT set_id, date, count(*) AS n FROM in_set
+                      GROUP BY set_id, date) per_day
+            ) dated GROUP BY set_id, value"""
+    elif name == "faction":
+        counted = f"""SELECT set_id, value, count(*)::int AS cnt FROM (
+                SELECT DISTINCT set_id, fx.faction AS value, id
+                FROM {_PER_FACTION.replace("events", "in_set")}
+            ) once GROUP BY set_id, value"""
+    else:
+        counted = f"""SELECT set_id, {name} AS value, count(*)::int AS cnt
+            FROM in_set GROUP BY set_id, value"""
+    return f"""(SELECT json_object_agg(set_id, facet) FROM (
+            SELECT set_id, coalesce(json_agg(json_build_object('value', value, 'count', cnt)
+                ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY}) AS facet
+            FROM ({counted}) counted
+            GROUP BY set_id
+        ) per_set)"""

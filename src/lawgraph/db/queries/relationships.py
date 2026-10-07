@@ -31,12 +31,20 @@ _TARGET = "t.id, t.key, t.type, t.labels, t.props"
 _NODE_FIELDS = ("id", "key", "type", "labels", "props")
 
 # The parent instrument of the article ``t`` (edges go article → instrument): the first
-# PART_OF edge by target id whose instrument exists.
+# PART_OF edge by target id whose instrument exists. Its edges first, then each node by its
+# id (as ``_helpers._find_instrument_for_article``): never ``nodes`` in the order of its ids.
 _INSTRUMENT_FOR = f"""
     LEFT JOIN LATERAL (
         SELECT n.id, n.key, n.type, n.labels, n.props
-        FROM edges pe JOIN nodes n ON n.id = pe.to_id
-        WHERE pe.from_id = t.id AND pe.relation = '{RELATION_PART_OF}'
+        FROM (
+            SELECT pe.to_id FROM edges pe
+            WHERE pe.from_id = t.id AND pe.relation = '{RELATION_PART_OF}'
+            ORDER BY pe.to_id
+            OFFSET 0
+        ) pe
+        CROSS JOIN LATERAL (
+            SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n WHERE n.id = pe.to_id
+        ) n
         ORDER BY pe.to_id
         LIMIT 1
     ) i ON true

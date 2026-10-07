@@ -8,7 +8,6 @@ nothing; a difference fails it. Commit the file a build writes.
 
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
 from typing import Any
@@ -20,10 +19,11 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.pipelines.command import command_parser, docstring_title
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     parser.add_argument("action", choices=["build", "check"])
     parser.add_argument(
         "--output",

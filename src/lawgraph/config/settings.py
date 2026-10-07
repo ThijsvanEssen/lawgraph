@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from urllib.parse import quote
 
 from dotenv import find_dotenv, load_dotenv
@@ -54,6 +55,11 @@ DB_URL = os.getenv(
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+# Connections of one process for what the API computes in the background (its warm-up and
+# the answers it keeps per data version), apart from the ones above: a slow computation
+# never keeps a request waiting for a connection. Opened when first needed. One for each
+# computation of ``version_cache`` (its ``WORKERS``, 3) and one for the warm-up.
+DB_BACKGROUND_POOL_SIZE = _env_positive_int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 4)
 # A database whose strings sort by another collation than the schema's ICU collation is
 # refused; this names the one let through anyway, for the dump and restore that replaces it
 # (``libc en_US.utf8``, as the refusal names it).
@@ -91,6 +97,10 @@ DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
 PAYLOAD_STORE = os.getenv(
     "LAWGRAPH_PAYLOAD_STORE", "file://~/.local/share/lawgraph/payloads"
 )
+# Where the API keeps the counts of the terms searched (``core/search_stats.py``).
+SEARCH_STATS_DIR = Path(
+    os.getenv("LAWGRAPH_SEARCH_STATS_DIR", "~/.local/share/lawgraph/search-stats")
+).expanduser()
 S3_ENDPOINT = os.getenv("LAWGRAPH_S3_ENDPOINT") or None
 S3_REGION = os.getenv("LAWGRAPH_S3_REGION") or None
 S3_ACCESS_KEY = os.getenv("LAWGRAPH_S3_ACCESS_KEY") or None
@@ -187,6 +197,9 @@ API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30
 # The API computes the answers every visitor asks (facets of the unfiltered lists, the
 # statistics, the heat) at its start and after every data change, in the background.
 API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
+# The heat of the whole graph (``/api/nodes/heat`` without ``ids``), which reads every
+# edge; ``false`` answers it 503 at once (the heat of named nodes stays).
+API_HEAT = os.getenv("LAWGRAPH_API_HEAT", "true").strip().lower() != "false"
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))

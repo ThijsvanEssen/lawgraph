@@ -30,18 +30,9 @@ _INSTRUMENT_DOC = {
     "labels": ["Instrument"],
 }
 
-_JUDGMENT_DOC = {
-    "_id": "judgments/NL:HR:2020:123",
-    "_key": "NL:HR:2020:123",
-    "props": {"display_name": "HR 2020", "ecli": "NL:HR:2020:123"},
-    "labels": ["Judgment"],
-}
-
-
 _PAYLOAD = ArticleDetailData(
     article=_ARTICLE_DOC,
     instrument=_INSTRUMENT_DOC,
-    judgments=[_JUDGMENT_DOC],
     metadata={"judgment_count": 1},
 )
 
@@ -65,7 +56,9 @@ def test_get_article_detail_returns_expected_fields(monkeypatch):
     assert article["bwb_id"] == "BWBR0001854"
     assert article["article_number"] == "287"
     assert article["text"] is not None and article["text"] != ""
-    assert isinstance(payload["judgments"], list)
+    # the number of citing judgments, not the list (``/cited-by`` pages them)
+    assert "judgments" not in payload
+    assert payload["metadata"] == {"judgment_count": 1}
     assert payload["citations"] == []
 
 

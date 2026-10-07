@@ -16,10 +16,12 @@ the same values; a variable already set in the process environment wins over `.e
 | `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again. So is a database that does not sort strings by the ICU collation `und-u-kf-upper` lawgraph makes its databases with (`create_database_sql`): the feed, the dossier and paper kinds and every sort by a name rely on it. The postgres image of `docker-compose.yml` makes its first database with it (`POSTGRES_INITDB_ARGS`); one made otherwise is moved into a database lawgraph makes, by a dump and a restore |
 | `LAWGRAPH_ALLOW_COLLATION` | none | the collation of a database let through anyway, as the refusal names it (`libc en_US.utf8`): for the dump and restore that replaces it, never for a running API |
 | `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
+| `LAWGRAPH_DB_BACKGROUND_POOL_SIZE` | `4` | connections per API process for what it computes in the background (the warm-up, the answers it keeps per data version such as the facets of a filtered list, the statistics of the search, the heat), apart from the ones above and opened when first needed: a slow computation never keeps a request waiting for a connection. One for each of the three computations at a time and one for the warm-up |
 | `LAWGRAPH_WRITE_TIMEOUT_MS` | `600000` | the longest a statement that writes may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A build setting: a full build on a slow disk raises it (the server: `14400000`, four hours). The writes that find their rows across a whole table (`graph-list-stats`, the removals of edges and nodes a step no longer derives) read those rows first and write them 5,000 at a time, so they stay well below it |
 | `LAWGRAPH_READ_TIMEOUT_MS` | `10800000` | the longest one statement that reads may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A streamed read is a statement per batch of rows, so only a plan that never ends hits it: the step fails with `ReadTimedOut`, naming the setting and the statement, instead of hanging. In the API a request has `LAWGRAPH_API_REQUEST_TIMEOUT_MS` in all as well |
 | `LAWGRAPH_API_REQUEST_TIMEOUT_MS` | `30000` | the longest one request to the API may read the database, in milliseconds, in all: every statement of it gets what is left, and past it the request answers 503 with `Retry-After` instead of computing on after its client gave up; never off (0 is refused) |
-| `LAWGRAPH_API_WARM_UP` | `true` | the API computes the answers every visitor asks (the facets and totals of the unfiltered lists, `/api/stats`, coverage, heat, the statistics of the search) at its start and after every change of the data, in the background, and keeps them until the next change (`db/version_cache.py`); a request waits for one no longer than its deadline (then 503) while it is computed on; `false` leaves the first visitor to ask |
+| `LAWGRAPH_API_WARM_UP` | `true` | the API computes the answers every visitor asks (the facets and totals of the unfiltered lists, `/api/stats`, coverage, the statistics of the search, the pages of the newest cabinets) at its start and, after a change of the data, once the data version has stood still for 90 s (a run of the pipelines raises it with every write), in the background: one warm-up at a time, of the newest data, and one that sees newer data between its parts stops and starts again later, and keeps them until the next change (`db/version_cache.py`); a request waits for one no longer than its deadline (then 503) while it is computed on, and after a change of the data no longer than 2 s before it takes the answer of the version before (the statistics of the search come from a fixed sample of a large table and are kept 6 hours whatever the data does); `false` leaves the first visitor to ask ; `/api/health` says `warm` true once it is done for the current data, so a deploy waits for that |
+| `LAWGRAPH_API_HEAT` | `true` | the heat of the whole graph (`/api/nodes/heat` without `ids`), which reads every edge once a day in the background; `false` answers it 503 at once, an emergency switch when the disk cannot bear it (the heat of named nodes stays) |
 | `LAWGRAPH_WATCHDOG_MINUTES` | `10` | every this many minutes a running step logs which steps run and for how long, and every statement of its process that has run for over a minute: its state, what it waits on, and its text (for a streamed read the `FETCH` and the read behind it) |
 | `LAWGRAPH_PG_MEMORY` | `4g` | memory limit of the server's container (`mem_limit`); `8g` on a 16 GB machine |
 | `LAWGRAPH_PG_SHARED_BUFFERS` | `1GB` | `shared_buffers`, the server's own cache; `4GB` on 16 GB |
@@ -81,6 +83,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list (no credentials); a request from these origins counts toward the rate limit like any other |
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
+| `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address is only in the memory of the rate limiter |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
@@ -174,6 +177,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, every step with the same `--since`, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`. `tk`: `tk` and `tk-dossiers` (without members), `tk-dossier-outcomes`, `tk-government`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
+| `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
 | `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
@@ -354,7 +358,7 @@ scheduler runs; nothing is installed for you.
 
 | Script | Runs | Why |
 |--------|------|-----|
-| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges` | what the sources changed; a day without a run is caught up by the next |
+| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune` | what the sources changed; a day without a run is caught up by the next |
 | `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
@@ -427,7 +431,8 @@ versioning (or a replica in a second bucket) protects against a deleted or overw
 
 A push to the branch `release` deploys that commit (`.github/workflows/deploy.yml`): the unit
 suite, then over SSH a checkout of exactly that commit on the server, `uv pip install -e .`
-into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds.
+into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds,
+with the `version` of the release.
 The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
 load; when a run holds it, the job fails and is run again later. Data migrations that a release
 needs (a `normalize` or `semantic` step) are not part of it: run them on the server after the
@@ -481,8 +486,13 @@ no code.
   into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
-  `GET /api/health` checks the database connection; `GET /api/stats` gives counts per
-  collection and relation.
+  `GET /api/health` checks the database connection, gives the `version` of the API (after a
+  deploy it is the version of the tag that was put live) and shows, from memory, the use of both
+  connection pools (`pools`) and what the threads shared by every request run now (`busy`);
+  `GET /api/stats` gives counts per collection and relation.
+- A request that hangs: `systemctl kill -s USR1 lawgraph-api` writes the stack of every
+  thread of the API to its stderr, the journal (`journalctl -u lawgraph-api`). Nothing is
+  written without the signal.
 
 ## Tests and CI
 

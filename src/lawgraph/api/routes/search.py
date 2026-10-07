@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.resolve import ResolveResponse
@@ -63,6 +64,7 @@ def search(
             ),
         )
     requested_types = types or list(SEARCH_TYPES)
+    search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
