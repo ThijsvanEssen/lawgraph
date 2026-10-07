@@ -157,7 +157,9 @@ class _RateLimitMiddleware:
       LAWGRAPH_RATE_LIMIT_CALLS    — max requests per window (default 200)
       LAWGRAPH_RATE_LIMIT_PERIOD   — window in seconds (default 60)
       LAWGRAPH_TRUSTED_PROXIES     — comma-separated IPs that may set
-                                     X-Forwarded-For (default loopback only)
+                                     X-Forwarded-For (default loopback only);
+                                     its right-most address that is no such
+                                     proxy is the client
 
     Note: state is stored in-process. With multiple uvicorn workers the
     effective limit is N_workers × LAWGRAPH_RATE_LIMIT_CALLS. Use a
@@ -185,14 +187,17 @@ class _RateLimitMiddleware:
     ) -> str:
         client = scope.get("client")
         hop_ip = client[0] if client else "unknown"
-        if hop_ip in trusted_proxies:
-            xff = headers.get(b"x-forwarded-for", b"").decode("latin-1").strip()
-            if xff:
-                # XFF is a comma-separated list; the left-most entry is the
-                # original client. Trust it when the hop IP is a known proxy.
-                first = xff.split(",", 1)[0].strip()
-                if first:
-                    return first
+        if hop_ip not in trusted_proxies:
+            return hop_ip
+        # X-Forwarded-For is a list each proxy appends the address it was called from to.
+        # The client writes what it likes at the left, so read from the right: the first
+        # address that is no proxy of ours is the one our own proxy saw. (The left-most
+        # entry let a made-up header pass the limit as a new client every time.)
+        xff = headers.get(b"x-forwarded-for", b"").decode("latin-1")
+        hops = [hop.strip() for hop in xff.split(",") if hop.strip()]
+        for hop in reversed(hops):
+            if hop not in trusted_proxies:
+                return hop
         return hop_ip
 
     async def __call__(self, scope, receive, send) -> None:
@@ -316,7 +321,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    # no allow_credentials: the API has no cookies and no authentication to send along
     allow_methods=["GET", "HEAD", "OPTIONS"],
     allow_headers=["*"],
 )

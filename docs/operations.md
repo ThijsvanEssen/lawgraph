@@ -77,7 +77,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_API_HOST` / `LAWGRAPH_API_PORT` | `127.0.0.1` / `8000` | listen address of `lawgraph-api`; `0.0.0.0` serves other machines |
 | `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list; these origins also bypass the rate limit |
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
-| `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured |
+| `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
