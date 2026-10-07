@@ -396,6 +396,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"
         "?id=2025D00003&did=2025D00003",
         "url": None,
+        "sender": None,  # the seed has no signatures
     }
     ek = entries["ek_1"].model_dump()["body"]
     assert ek["chamber"] == "EK" and ek["url"] == "https://ek.example/1"
@@ -1260,6 +1261,7 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "document_number",
         "display_name",
         "source",
+        "actors",
         "labels",
     ]
     assert (a["id"], a["title"], a["sequence"], a["labels"]) == (

@@ -15,7 +15,7 @@ the same values; a variable already set in the process environment wins over `.e
 | `LAWGRAPH_DB_PASSWORD` | none | password of the user `lawgraph`; `docker-compose.yml` gives the server this password |
 | `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema, or have one it no longer has, is refused at the start ("schema verouderd: herbouw nodig"): build it again. So is a database that does not sort strings by the ICU collation `und-u-kf-upper` lawgraph makes its databases with (`create_database_sql`): the feed, the dossier and paper kinds and every sort by a name rely on it. The postgres image of `docker-compose.yml` makes its first database with it (`POSTGRES_INITDB_ARGS`); one made otherwise is moved into a database lawgraph makes, by a dump and a restore |
 | `LAWGRAPH_ALLOW_COLLATION` | none | the collation of a database let through anyway, as the refusal names it (`libc en_US.utf8`): for the dump and restore that replaces it, never for a running API |
-| `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too |
+| `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too. And plans a server-side cursor for all its rows (`cursor_tuple_fraction = 1.0`): every read goes through one, and planned for its first tenth (the default) a statement with `ORDER BY … LIMIT` may walk a whole table in the order of an index |
 | `LAWGRAPH_DB_BACKGROUND_POOL_SIZE` | `4` | connections per API process for what it computes in the background (the warm-up, the answers it keeps per data version such as the facets of a filtered list, the statistics of the search, the heat), apart from the ones above and opened when first needed: a slow computation never keeps a request waiting for a connection. One for each of the three computations at a time and one for the warm-up |
 | `LAWGRAPH_WRITE_TIMEOUT_MS` | `600000` | the longest a statement that writes may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A build setting: a full build on a slow disk raises it (the server: `14400000`, four hours). The writes that find their rows across a whole table (`graph-list-stats`, the removals of edges and nodes a step no longer derives) read those rows first and write them 5,000 at a time, so they stay well below it |
 | `LAWGRAPH_READ_TIMEOUT_MS` | `10800000` | the longest one statement that reads may run (`statement_timeout`), in milliseconds; a ceiling, never off (0 is refused). A streamed read is a statement per batch of rows, so only a plan that never ends hits it: the step fails with `ReadTimedOut`, naming the setting and the statement, instead of hanging. In the API a request has `LAWGRAPH_API_REQUEST_TIMEOUT_MS` in all as well |
@@ -354,13 +354,14 @@ redirect that leads nowhere, is asked for again after 30 days (3 when the source
 itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated).
 
-**Scheduled.** `scripts/daily.sh` and `scripts/weekly.sh` are what a scheduler runs; nothing
-is installed for you.
+**Scheduled.** `scripts/daily.sh`, `scripts/weekly.sh` and `scripts/poll.sh` are what a
+scheduler runs; nothing is installed for you.
 
 | Script | Runs | Why |
 |--------|------|-----|
 | `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune` | what the sources changed; a day without a run is caught up by the next |
 | `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
 failing command fails the run and the next command still runs, one log per run in
@@ -371,9 +372,26 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 noted in `runs.log` and changes nothing else. With cron:
 
 ```
-30 5 * * *   /path/to/lawgraph/scripts/daily.sh
-0  7 * * 0   /path/to/lawgraph/scripts/weekly.sh
+30 5 * * *        /path/to/lawgraph/scripts/daily.sh
+0  7 * * 0        /path/to/lawgraph/scripts/weekly.sh
+0,30 8-19 * * 1-5 /path/to/lawgraph/scripts/poll.sh tk
+10 15,18 * * 2    /path/to/lawgraph/scripts/poll.sh ek
+15 9-18 * * 1-5   /path/to/lawgraph/scripts/poll.sh rechtspraak
+20 11 * * 2,4     /path/to/lawgraph/scripts/poll.sh echr
 ```
+
+These times follow the sources: the votes of a Tuesday in the Tweede Kamer come out on
+Wednesday morning in one batch, and papers all working day; the Eerste Kamer votes on Tuesday;
+the Hoge Raad and the Raad van State publish on the day of the decision, on working days; the
+ECHR gives its judgments on Tuesday and Thursday mornings. A poll that finds another run holding
+the lock exits 75 and leaves it to the next, so the polls start at different minutes; a missed
+poll is not caught up, the nightly run covers it. Each chain logs to
+`poll-<chain>-<date>.log`.
+
+A poll that finds nothing new writes nothing, and the data version stays as it was. One that
+writes a row raises it: the API then drops the answers it keeps and warms up again once the
+data has stood still for 90 seconds (`/api/health` says `computing` meanwhile). So a poll can
+come no more often than the warm-up takes on the server.
 
 On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
 closed lid on battery still sleeps: the run pauses until the next wake and its log shows

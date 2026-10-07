@@ -220,8 +220,18 @@ def _configure(conn: psycopg.Connection[Any]) -> None:
     """Every connection of the pool, as it opens: without JIT compilation. PostgreSQL 18
     compiles a statement above ``jit_above_cost``; for the statements of this API that
     costs more than it gains (a feed page 249 ms against 17 ms without, a page with facets
-    4.45 s against 1.31 s), whatever the server is configured with."""
+    4.45 s against 1.31 s), whatever the server is configured with.
+
+    And a server-side cursor planned as the query it reads: ``query`` reads every
+    statement through one (``DECLARE``), and by default the planner plans a cursor for its
+    first tenth (``cursor_tuple_fraction`` 0.1). For a statement with ``ORDER BY … LIMIT``
+    that picks a plan which walks a table in the order of an index until enough rows pass
+    the conditions: a rare name of a judgment in date order, or the ``nodes`` view in the
+    order of its ids. On the full graph that read nearly every row (the article detail and
+    the search of the judgments, 30 s), while the statement itself takes milliseconds.
+    Every row of a cursor is read, so it is planned for all of them."""
     conn.execute("SET jit = off")
+    conn.execute("SET cursor_tuple_fraction = 1.0")
     conn.commit()
 
 
