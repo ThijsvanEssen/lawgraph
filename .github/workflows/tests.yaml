@@ -36,15 +36,23 @@ jobs:
 
   # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
   # postgres-test of docker-compose.test.yml. On a pull request and on develop and main, not on
-  # every push to a branch. Each suite is a shard of its own, spread over the cores of its
+  # every push to a branch. The suites run in three shards side by side (tests/integration
+  # split by file name: a-l, and every other file), each spread over the cores of its
   # runner; every test makes a database of its own, so the tests do not meet.
   database-shard:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    name: database-shard (${{ matrix.shard }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        suite: [pg, integration]
+        include:
+          - shard: pg
+            tests: tests/pg
+          - shard: integration-a-l
+            tests: tests/integration/test_[a-l]*.py
+          - shard: integration-rest
+            tests: tests/integration --ignore-glob=tests/integration/test_[a-l]*.py
 
     env:
       ALLOW_DB_TESTS: '1'
@@ -80,8 +88,8 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
 
-      - name: Run tests/${{ matrix.suite }}
-        run: pytest tests/${{ matrix.suite }} -n auto --dist loadfile
+      - name: Run ${{ matrix.shard }}
+        run: pytest ${{ matrix.tests }} -n auto --dist loadfile
 
   # The one check of the database tests the merge gate reads: green when every shard is.
   database:
