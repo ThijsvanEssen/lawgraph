@@ -64,6 +64,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
+from lawgraph.db.version_cache import cached
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
@@ -1261,9 +1262,24 @@ def get_feed(
     facets: bool = True,
 ) -> dict[str, Any]:
     """One page of the feed: ``items`` (up to ``limit + 1``: one more than the page when
-    there is a next page), and with *facets* ``total`` and ``facets`` (null without)."""
-    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=facets)
+    there is a next page), and with *facets* ``total`` and ``facets`` (null without).
+
+    The page is read without the facets: each kind reads its rows in date order and stops
+    after one page. The total and the facets read every row under the filters (20 s on the
+    full graph), whatever the cursor: they are kept per data version under the filters
+    (``version_cache``)."""
+    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
     rows = list(store.query(sql, bind))
-    if not rows:
-        return {"items": [], "total": None, "facets": None}
-    return cast(dict[str, Any], rows[0])
+    page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
+    if not facets:
+        return {"items": page.get("items") or [], "total": None, "facets": None}
+    counted = cached(store, ("feed", filters), lambda: _counts(store, filters))
+    return {"items": page.get("items") or [], **counted}
+
+
+def _counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
+    """``total`` and ``facets`` of the feed under *filters*, of every page alike."""
+    sql, bind = feed_query(filters, limit=1, facets=True)
+    rows = list(store.query(sql, bind))
+    row = cast(dict[str, Any], rows[0]) if rows else {}
+    return {"total": row.get("total"), "facets": row.get("facets")}

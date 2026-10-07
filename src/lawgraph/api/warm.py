@@ -14,6 +14,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.documents import list_documents
+from lawgraph.db.queries.feed import FEED_KINDS, FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.schema import SEARCH_FIELDS
@@ -31,6 +32,13 @@ def warm_up(store: GraphStore) -> None:
         "instruments": lambda: get_instruments_list(store, limit=20),
         "documents": lambda: list_documents(store, limit=20),
         "heat": lambda: heat_counts(store),
+        "feed": lambda: get_feed(store, FeedFilters(), limit=50),
+        **{
+            f"feed {kind}": partial(
+                get_feed, store, FeedFilters(kinds=(kind,)), limit=50
+            )
+            for kind in FEED_KINDS
+        },
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
