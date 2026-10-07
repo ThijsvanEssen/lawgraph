@@ -36,9 +36,10 @@ jobs:
 
   # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
   # postgres-test of docker-compose.test.yml. On a pull request and on develop and main, not on
-  # every push to a branch. The suites run in three shards side by side (tests/integration
-  # split by file name: a-l, and every other file), each spread over the cores of its
-  # runner; every test makes a database of its own, so the tests do not meet.
+  # every push to a branch. tests/pg runs in a shard of its own and tests/integration in three,
+  # side by side, each spread over the cores of its runner; scripts/ci_shard.py divides the
+  # files by the time each took (.github/test-durations.json). Every test makes a database of
+  # its own, so the tests do not meet.
   database-shard:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     name: database-shard (${{ matrix.shard }})
@@ -49,10 +50,12 @@ jobs:
         include:
           - shard: pg
             tests: tests/pg
-          - shard: integration-a-l
-            tests: tests/integration/test_[a-l]*.py
-          - shard: integration-rest
-            tests: tests/integration --ignore-glob=tests/integration/test_[a-l]*.py
+          - shard: integration-1
+            tests: $(python scripts/ci_shard.py tests/integration 3 1)
+          - shard: integration-2
+            tests: $(python scripts/ci_shard.py tests/integration 3 2)
+          - shard: integration-3
+            tests: $(python scripts/ci_shard.py tests/integration 3 3)
 
     env:
       ALLOW_DB_TESTS: '1'
@@ -89,7 +92,7 @@ jobs:
         run: uv pip install --system -e ".[dev]"
 
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist loadfile --durations=0 --durations-min=0.05
+        run: pytest ${{ matrix.tests }} -n auto --dist loadfile
 
   # The one check of the database tests the merge gate reads: green when every shard is.
   database:

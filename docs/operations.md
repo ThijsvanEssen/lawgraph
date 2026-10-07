@@ -515,10 +515,14 @@ Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and
 afterwards, so tests stay independent of each other and safe to run in parallel; none of them
 touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
 when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
-stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
-their own (`database`, on a pull request and on a push to `develop` or `main`) against a
-`postgres:18` service with JIT off, as the test server; it has
-no S3 server, so the tests of the payload store in a bucket are skipped there.
+stays green. CI (`.github/workflows/tests.yaml`, on a pull request and on a push to `develop` or
+`main`) runs `tests/pg` in one shard and `tests/integration` in three, side by side, each with
+`pytest -n auto --dist loadfile` against a `postgres:18` with JIT off, as the test server;
+`database` is green when every shard is. `scripts/ci_shard.py` divides the integration files by
+the time each took (`.github/test-durations.json`; a new file counts as the average). After a
+test file changes much in time, record the times again:
+`ALLOW_DB_TESTS=1 pytest tests -n auto --dist loadfile --durations=0 | python scripts/ci_shard.py --record`.
+CI has no S3 server, so the tests of the payload store in a bucket are skipped there.
 
 Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
 `test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure
