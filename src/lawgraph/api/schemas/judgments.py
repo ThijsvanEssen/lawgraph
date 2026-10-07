@@ -368,6 +368,39 @@ def _count(meta: dict[str, Any], mentions: list[Mention]) -> int:
     return count if isinstance(count, int) and count >= len(mentions) else len(mentions)
 
 
+class RelatedLinkDTO(BaseModel):
+    """One RELATED_TO edge between two judgments: which summary names which, and how."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    direction: Literal["outbound", "inbound"] = Field(
+        description="`outbound`: this judgment's summary names the other; `inbound`: the "
+        "other's summary names this one."
+    )
+    basis: str | None = Field(
+        None,
+        description="Where the link was read: `summary_text` (the inhoudsindicatie).",
+    )
+    text: str | None = Field(
+        None,
+        description='The sentence that names the case: "Samenhang met 24/03860 E".',
+    )
+
+
+class RelatedJudgmentDTO(JudgmentSummaryDTO):
+    """A connected case, with the edges that connect it (one each way at most)."""
+
+    links: list[RelatedLinkDTO] = Field(default_factory=list)
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> RelatedJudgmentDTO:
+        summary = JudgmentSummaryDTO.from_document(doc)
+        return cls(
+            **summary.model_dump(),
+            links=[RelatedLinkDTO(**link) for link in doc.get("links") or []],
+        )
+
+
 class JudgmentDetailResponse(BaseModel):
     """Response for GET /api/judgments/{ecli}."""
 
@@ -390,11 +423,12 @@ class JudgmentDetailResponse(BaseModel):
         description="The other publications of the same decision (`SAME_AS`): for the one "
         "kept those it replaces, for a replaced one the one kept. Empty for most.",
     )
-    related_to: list[JudgmentSummaryDTO] = Field(
+    related_to: list[RelatedJudgmentDTO] = Field(
         default_factory=list,
         description="The connected cases (`RELATED_TO`, as between dossiers), both ways: "
         'those its summary names ("Samenhang met 24/03860 E", "Zie ook: ECLI:…") and those '
-        "whose summary names it, each found by its exact ECLI or case number. Empty for most.",
+        "whose summary names it, each found by its exact ECLI or case number, with the "
+        "sentence that names it (`links`). Empty for most.",
     )
     series: list[JudgmentSummaryDTO] = Field(
         default_factory=list,

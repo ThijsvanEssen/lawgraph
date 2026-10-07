@@ -372,6 +372,31 @@ def test_the_judgments_it_cites_and_the_same_decision(detail: GraphStore) -> Non
     assert data.same_as[0]["props"] == {"display_name": None, "ecli": COPY}
 
 
+def test_a_connected_case_carries_the_sentence_that_names_it(
+    detail: GraphStore,
+) -> None:
+    named = {"basis": "summary_text", "text": "Samenhang met ECLI:NL:RBAMS:2019:7"}
+    names_back = {"basis": "summary_text", "text": "Zie ook: ECLI:NL:HR:2020:1"}
+    detail.bulk_insert_or_update_edges(
+        [
+            _edge("rel1", _jid(HR1), _jid(RB), "RELATED_TO", meta=named),
+            _edge("rel2", _jid(RB), _jid(HR1), "RELATED_TO", meta=names_back),
+            _edge("rel3", _jid(HR10), _jid(HR1), "RELATED_TO", meta=names_back),
+        ]
+    )
+    data = judgment_queries.get_judgment_with_relations(detail, HR1)
+    links = {j["_id"]: j["links"] for j in data.related_to}
+    # each case once, with an edge each way: its own summary first
+    assert links == {
+        _jid(HR10): [{"direction": "inbound", **names_back}],
+        _jid(RB): [
+            {"direction": "outbound", **named},
+            {"direction": "inbound", **names_back},
+        ],
+    }
+    assert [j["_id"] for j in data.related_to] == [_jid(HR10), _jid(RB)]
+
+
 def test_the_series_by_ecli_number(detail: GraphStore) -> None:
     detail.bulk_insert_or_update_nodes(
         "judgments",

@@ -101,9 +101,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         same_as=_linked_judgments(
             store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
         ),
-        related_to=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_RELATED_TO, both_ways=True
-        ),
+        related_to=_related_judgments(store, judgment_doc["_id"]),
         metadata=metadata,
         series=[
             doc
@@ -151,6 +149,48 @@ def _linked_judgments(
         ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
         """,
         {"jid": judgment_id, "relation": relation, "both_ways": both_ways},
+    )
+    return list(rows)
+
+
+def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]]:
+    """The connected cases (``RELATED_TO``) of *judgment_id*, both ways, as
+    ``_linked_judgments`` gives them, each with its ``links``: per edge the ``direction``
+    (``outbound``: this judgment's summary names it; ``inbound``: its summary names this
+    one) and the ``basis`` and ``text`` of the edge's meta, the sentence that names it."""
+    rows = store.query(
+        """
+        WITH l AS (
+            SELECT e.to_id AS id, 'outbound' AS direction, e.doc -> 'meta' AS meta
+            FROM edges e
+            WHERE e.from_id = %(jid)s AND e.relation = %(relation)s
+              AND e.to_collection = 'judgments'
+            UNION ALL
+            SELECT e.from_id, 'inbound', e.doc -> 'meta'
+            FROM edges e
+            WHERE e.to_id = %(jid)s AND e.relation = %(relation)s
+              AND e.from_collection = 'judgments'
+        )
+        SELECT json_build_object(
+            '_id', j.id,
+            '_key', j.key,
+            'props', json_build_object(
+                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
+            ),
+            'links', (
+                SELECT json_agg(json_build_object(
+                    'direction', l.direction,
+                    'basis', l.meta -> 'basis',
+                    'text', l.meta -> 'text'
+                ) ORDER BY l.direction DESC NULLS LAST)
+                FROM l WHERE l.id = j.id
+            )
+        )
+        FROM judgments j
+        WHERE j.id IN (SELECT id FROM l)
+        ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
+        """,
+        {"jid": judgment_id, "relation": RELATION_RELATED_TO},
     )
     return list(rows)
 
