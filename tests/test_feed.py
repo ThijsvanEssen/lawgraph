@@ -250,6 +250,23 @@ def test_a_bill_is_named_by_its_dossier() -> None:
     )
 
 
+def test_a_paper_has_its_number_and_a_vote_none() -> None:
+    letter = FeedItemDTO.from_row(
+        {
+            "kind": "Brief regering",
+            "id": "documents/l1",
+            "date": "2026-09-15",
+            "props": {
+                "kind": "Brief regering",
+                "title": "Brief over de huurwet",
+                "sequence": 12,
+            },
+        }
+    )
+    assert letter.number == "12"
+    assert FeedItemDTO.from_row(VOTE_ROW).number is None
+
+
 def test_a_page_is_an_atom_feed() -> None:
     page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)], next_cursor="abc")
     body = atom_feed(

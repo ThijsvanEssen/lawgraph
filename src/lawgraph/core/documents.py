@@ -1,5 +1,5 @@
-"""What a document node says about itself: its chamber, whether it explains a law, and the
-dossier it is numbered in.
+"""What a document node says about itself: its chamber, whether it explains a law, the
+dossier it is numbered in and its number there.
 
 Pure functions over the values stored on a document, shared by the semantic pipelines
 (``tk-mvt`` links the explanatory documents) and the API (which reports both on every
@@ -9,6 +9,7 @@ document), so that each fact has one definition.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, EXPLANATORY_KIND_MARKER
 from lawgraph.core.tk_records import dossier_label
@@ -32,6 +33,15 @@ def chamber_of(labels: Iterable[str] | None) -> str | None:
         if chamber in found:
             return chamber
     return None
+
+
+def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
+    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
+    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
+    if chamber == CHAMBER_EK:
+        return props.get("number")
+    sequence = props.get("sequence")
+    return str(sequence) if chamber == CHAMBER_TK and sequence else None
 
 
 def is_explanatory(kind: str | None) -> bool:

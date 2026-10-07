@@ -553,6 +553,10 @@ def _search_documents(
                 'dossier_number', CASE WHEN json_typeof(doc.props -> 'dossier_numbers') = 'array'
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
                 'sequence', doc.props -> 'sequence',
+                'number', CASE {_CHAMBER}
+                              WHEN 'EK' THEN doc.props ->> 'number'
+                              WHEN 'TK' THEN doc.props ->> 'sequence'
+                          END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}
             )
