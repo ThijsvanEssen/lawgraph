@@ -1,0 +1,85 @@
+name: release
+
+# One release, started by hand (Actions → release → Run workflow, or
+# `gh workflow run release -f version=X.Y.Z`): the head of develop, once its tests are green,
+# gets the annotated tag vX.Y.Z (the version of the package comes from that tag), `release`
+# moves to it, and deploy.yml puts it on the server with its warm-up, smoke test and rollback.
+# Data migrations stay a separate, deliberate step on the server (docs/operations.md, "Deploy").
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version, X.Y.Z (the tag becomes vX.Y.Z)
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      sha: ${{ steps.head.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Version
+        run: |
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version '$VERSION' is not X.Y.Z"; exit 1; }
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" > /dev/null 2>&1; then
+            echo "tag v$VERSION exists already"; exit 1
+          fi
+
+      - name: Head of develop
+        id: head
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/develop" -q .object.sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "develop is at $sha"
+
+      # the run of tests.yaml for the push of that commit to develop (unit suite and database
+      # tests); a run still going is waited for, up to 45 minutes
+      - name: Tests green on that commit
+        env:
+          SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          for _ in $(seq 90); do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yaml/runs?head_sha=$SHA&branch=develop&event=push" \
+              -q '.workflow_runs | sort_by(.run_number) | last | if . == null then "none" else .status + " " + (.conclusion // "") end')
+            case "$state" in
+              "completed success") echo "tests green on $SHA"; exit 0 ;;
+              completed*) echo "tests on $SHA: $state"; exit 1 ;;
+              none) echo "no test run for $SHA on develop"; exit 1 ;;
+            esac
+            echo "tests on $SHA: $state; waiting"
+            sleep 30
+          done
+          echo "tests on $SHA not done within 45 minutes"
+          exit 1
+
+      - name: Tag and move release
+        env:
+          SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="v$VERSION" -f message="Release $VERSION" \
+            -f object="$SHA" -f type=commit -q .sha)
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$tag" > /dev/null
+          # a fast-forward only: release never loses a commit. A push made with this token starts
+          # no workflow, so deploy.yml runs once, from the job below.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/release" -f sha="$SHA" -F force=false > /dev/null
+          echo "v$VERSION on $SHA; release moved"
+
+  deploy:
+    needs: tag
+    uses: ./.github/workflows/deploy.yml
+    with:
+      sha: ${{ needs.tag.outputs.sha }}
+      version: ${{ inputs.version }}
+    secrets: inherit
