@@ -11,6 +11,7 @@ import anyio
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.api.dependencies import get_store
@@ -44,6 +45,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import setup_logging
 from lawgraph.db import GraphStore
+from lawgraph.db.store import ReadTimedOut
 
 setup_logging()
 
@@ -340,6 +342,22 @@ async def health(
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
         ) from exc
+
+
+# How long a client waits before it asks again after a read ran past its ceiling.
+READ_TIMEOUT_RETRY_AFTER = 30
+
+
+@app.exception_handler(ReadTimedOut)
+async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
+    """A query that ran past ``LAWGRAPH_READ_TIMEOUT_MS``: the server is busy, not broken
+    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client."""
+    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The query took too long. Try again later, or narrow it."},
+        headers={"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)},
+    )
 
 
 def _run_server() -> None:
