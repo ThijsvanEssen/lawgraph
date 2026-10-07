@@ -8,6 +8,7 @@ that would change nothing writes nothing.
 from __future__ import annotations
 
 import atexit
+import contextvars
 import datetime as dt
 import hashlib
 import os
@@ -210,6 +211,36 @@ APPLICATION_NAME = f"lawgraph-{os.getpid()}"
 # read shows in ``pg_stat_activity`` as ``FETCH FORWARD 1000 FROM "lg_…"`` alone.
 _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
+
+
+# When the reads of the current request must end (``time.monotonic``); None outside a
+# request. The API sets it per request (``read_deadline``); a statement then gets what is left.
+_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "lawgraph_read_deadline", default=None
+)
+
+
+def set_read_deadline(seconds: float) -> contextvars.Token[float | None]:
+    """From now, the reads of this context end within *seconds*; ``reset_read_deadline``
+    with the token ends that."""
+    return _deadline.set(time.monotonic() + seconds)
+
+
+def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
+    _deadline.reset(token)
+
+
+def _read_budget_ms() -> int:
+    """The ``statement_timeout`` of the next read: ``LAWGRAPH_READ_TIMEOUT_MS``, or the time
+    left before the deadline of the request when that is less. ``ReadTimedOut`` when none
+    is left."""
+    deadline = _deadline.get()
+    if deadline is None:
+        return READ_TIMEOUT_MS
+    left = int((deadline - time.monotonic()) * 1000)
+    if left <= 0:
+        raise ReadTimedOut("The request ran past its deadline before this read.")
+    return min(READ_TIMEOUT_MS, left)
 
 
 class ReadTimedOut(RuntimeError):
@@ -434,9 +465,11 @@ class GraphStore:
         indexes_only: bool = False,
         hash_joins: bool = False,
     ) -> Iterator[Any]:
+        budget = _read_budget_ms()
         with self.pool.connection() as conn:
-            # a ceiling for each statement (the DECLARE, every FETCH), not for the stream
-            conn.execute(f"SET LOCAL statement_timeout = {READ_TIMEOUT_MS}")
+            # a ceiling for each statement (the DECLARE, every FETCH), not for the stream;
+            # in a request of the API no more than the request has left
+            conn.execute(f"SET LOCAL statement_timeout = {budget}")
             if indexes_only:
                 # The planner prices detoasting at nothing (see ``query``).
                 conn.execute("SET LOCAL enable_seqscan = off")
@@ -453,8 +486,8 @@ class GraphStore:
                     yield from cursor
             except psycopg.errors.QueryCanceled as exc:
                 raise ReadTimedOut(
-                    f"A read ran for over {READ_TIMEOUT_MS / 60_000:.0f} minutes "
-                    f"(LAWGRAPH_READ_TIMEOUT_MS) and was cancelled: {text[:300]}"
+                    f"A read ran for over {budget / 1000:.0f} s (LAWGRAPH_READ_TIMEOUT_MS, "
+                    f"or what the request had left) and was cancelled: {text[:300]}"
                 ) from exc
             finally:
                 _open_cursors.pop(name, None)

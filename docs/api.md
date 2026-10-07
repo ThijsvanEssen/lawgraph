@@ -318,8 +318,8 @@ relations and status.
   own `items`, `total` and `next_offset`.
 - Errors: 400 a node collection the API does not serve or an unknown search type, 404
   unknown resource, 422 invalid parameter, 429 rate limited, 503 from `/api/health` when the
-  database is unreachable, and 503 with `Retry-After: 30` from any route whose query ran past
-  `LAWGRAPH_READ_TIMEOUT_MS`.
+  database is unreachable, and 503 with `Retry-After: 30` from any route whose reads ran past
+  `LAWGRAPH_API_REQUEST_TIMEOUT_MS` (30 s for the request in all) or `LAWGRAPH_READ_TIMEOUT_MS`.
 - Responses of the route handlers carry an `X-Request-ID` header.
 
 ## Layout
