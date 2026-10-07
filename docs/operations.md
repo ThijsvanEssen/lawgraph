@@ -391,7 +391,8 @@ poll is not caught up, the nightly run covers it. Each chain logs to
 A poll that finds nothing new writes nothing, and the data version stays as it was. One that
 writes a row raises it: the API then drops the answers it keeps and warms up again once the
 data has stood still for 90 seconds (`/api/health` says `computing` meanwhile). So a poll can
-come no more often than the warm-up takes on the server.
+come no more often than the warm-up takes on the server, or `LAWGRAPH_WARM_UP_MIN_INTERVAL`
+spaces the warm-ups out.
 
 On macOS the scripts run under `caffeinate -i`, which keeps the machine from idle sleep. A
 closed lid on battery still sleeps: the run pauses until the next wake and its log shows
