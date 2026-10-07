@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 # The suite is offline unless asked otherwise; a developer's .env must not switch that on.
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
+# Every TestClient request comes from one address, and a suite asks the API far more than
+# the 200 a minute a visitor may: the limit itself is tested on an instance of its own.
+os.environ["LAWGRAPH_RATE_LIMIT_CALLS"] = "1000000"
 # The API warms its answers up in the background at its start; the tests ask themselves.
 os.environ["LAWGRAPH_API_WARM_UP"] = "false"
 

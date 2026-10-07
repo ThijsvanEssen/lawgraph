@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.settings import API_ALLOWED_ORIGINS
 from lawgraph.db import GraphStore
 
 
@@ -68,7 +67,7 @@ def client(store: GraphStore) -> Iterator[TestClient]:
     )
     app.dependency_overrides[get_store] = lambda: store
     try:
-        yield TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
+        yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_store, None)
 

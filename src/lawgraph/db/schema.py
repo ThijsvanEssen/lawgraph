@@ -1169,6 +1169,46 @@ class SchemaOutdated(RuntimeError):
     """The tables of the database are not those of the schema: it needs building again."""
 
 
+class CollationMismatch(RuntimeError):
+    """The database compares and sorts strings by another collation than ``COLLATION``."""
+
+
+# ``pg_database.datlocprovider``: the library a database's collation comes from.
+_PROVIDERS = {"i": "icu", "c": "libc", "b": "builtin"}
+
+
+def collation_of(conn: psycopg.Connection) -> str:
+    """The collation of the database of *conn*: ``icu und-u-kf-upper``, ``libc en_US.utf8``."""
+    row = conn.execute(
+        "SELECT datlocprovider, datlocale, datcollate FROM pg_database"
+        " WHERE datname = current_database()"
+    ).fetchone()
+    assert row is not None  # the database of the connection exists
+    provider, locale, collate = row
+    name = _PROVIDERS.get(str(provider), str(provider))
+    return f"{name} {locale if provider in ('i', 'b') else collate}"
+
+
+def check_collation(conn: psycopg.Connection, allowed: str = "") -> None:
+    """Refuse a database that does not sort by ``COLLATION``, unless it is *allowed*.
+
+    A database lawgraph makes has it (``create_database_sql``); one the postgres image
+    made at its first start (``POSTGRES_DB``) has the collation of the system. Under that
+    one strings compare otherwise: a bound "after every date" falls before the dates, and
+    names, titles and keys sort in another order than the API promises."""
+    found = collation_of(conn)
+    if found == f"icu {COLLATION}":
+        return
+    if allowed and found == allowed:
+        return
+    raise CollationMismatch(
+        f"the database sorts strings by {found}, not by icu {COLLATION}; queries that "
+        "compare or sort strings answer otherwise. Make a database with lawgraph "
+        "(create_database_sql) and restore a dump of this one into it (docs/operations.md, "
+        f"Database). LAWGRAPH_ALLOW_COLLATION='{found}' lets this one through for that."
+    )
+
+
 _TABLE = re.compile(r"CREATE TABLE IF NOT EXISTS (\w+) \(")
 _COMMENT = re.compile(r"--[^\n]*")
 _NOT_A_COLUMN = ("PRIMARY", "UNIQUE", "CONSTRAINT", "CHECK", "FOREIGN", "EXCLUDE")
@@ -1257,7 +1297,7 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
     return differences
 
 
-def ensure_schema(conn: psycopg.Connection) -> None:
+def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> None:
     """Create what is missing of the schema in the database of *conn*, in one transaction
     that holds a lock, so two processes that start together do not race.
 
@@ -1267,8 +1307,10 @@ def ensure_schema(conn: psycopg.Connection) -> None:
     created, instead of letting queries fail later: the database is built again, there is
     no migration (clean slate). A changed expression is not seen: of a generated column, nor
     of a derived column of a node table (its trigger is replaced here, but rows written
-    before keep what the old one computed)."""
+    before keep what the old one computed). A database that does not sort by ``COLLATION``
+    is refused first (``check_collation``), unless it is *allowed_collation*."""
     with conn.transaction():
+        check_collation(conn, allowed_collation)
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
         # before anything is created: an index on a column the table lacks would fail first
         differences = schema_drift(conn)

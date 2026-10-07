@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_PART_OF,
 )
-from lawgraph.config.settings import API_ALLOWED_ORIGINS, SITE_URL
+from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
@@ -324,9 +324,8 @@ def _seed(store: GraphStore) -> None:
 
 
 def _test_client() -> TestClient:
-    """A client of the front end, whose origin the rate limit lets through: these tests ask
-    more than the limit allows one address, and the tests after them would get 429."""
-    return TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
+    """A client of the API (the suite's rate limit is set high in ``tests/conftest.py``)."""
+    return TestClient(app)
 
 
 def _serve(store: GraphStore) -> None:
