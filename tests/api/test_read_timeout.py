@@ -70,3 +70,17 @@ def test_outside_a_request_a_read_has_the_ceiling_alone(monkeypatch) -> None:
 
     monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 1234)
     assert store_module._read_budget_ms() == 1234
+
+
+def test_a_block_without_the_deadline_has_the_ceiling_alone(monkeypatch) -> None:
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 600_000)
+    token = store_module.set_read_deadline(0.5)
+    try:
+        assert store_module._read_budget_ms() <= 500
+        with store_module.no_read_deadline():
+            assert store_module._read_budget_ms() == 600_000
+        assert store_module._read_budget_ms() <= 500
+    finally:
+        store_module.reset_read_deadline(token)

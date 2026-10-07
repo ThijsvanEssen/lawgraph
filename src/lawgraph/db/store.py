@@ -8,6 +8,7 @@ that would change nothing writes nothing.
 from __future__ import annotations
 
 import atexit
+import contextlib
 import contextvars
 import datetime as dt
 import hashlib
@@ -228,6 +229,18 @@ def set_read_deadline(seconds: float) -> contextvars.Token[float | None]:
 
 def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
     _deadline.reset(token)
+
+
+@contextlib.contextmanager
+def no_read_deadline() -> Iterator[None]:
+    """The reads of the block have the ceiling alone, not the deadline of the request: for
+    an answer computed once for every visitor (``version_cache``), which a request's
+    deadline would cut off each time it is first asked."""
+    token = _deadline.set(None)
+    try:
+        yield
+    finally:
+        _deadline.reset(token)
 
 
 def _read_budget_ms() -> int:
