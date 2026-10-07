@@ -27,11 +27,21 @@ from lawgraph.db.store import ReadTimedOut, read_time_left
 def _find_instrument_for_article(
     store: GraphStore, article_id: str
 ) -> dict[str, Any] | None:
+    # the PART_OF edges of the article first (OFFSET 0 keeps them apart), then the node of
+    # each by its id: never ``nodes`` in the order of its ids, which on the full graph is
+    # every node (a plan the server-side cursor of ``store.query`` may pick for a LIMIT)
     rows = store.query(
         """
         SELECT n.id, n.key, n.type, n.labels, n.props
-        FROM edges e JOIN nodes n ON n.id = e.to_id
-        WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+        FROM (
+            SELECT e.to_id FROM edges e
+            WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
+            ORDER BY e.to_id
+            OFFSET 0
+        ) e
+        CROSS JOIN LATERAL (
+            SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n WHERE n.id = e.to_id
+        ) n
         ORDER BY e.to_id
         LIMIT 1
         """,

@@ -419,7 +419,8 @@ versioning (or a replica in a second bucket) protects against a deleted or overw
 
 A push to the branch `release` deploys that commit (`.github/workflows/deploy.yml`): the unit
 suite, then over SSH a checkout of exactly that commit on the server, `uv pip install -e .`
-into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds.
+into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds,
+with the `version` of the release.
 The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
 load; when a run holds it, the job fails and is run again later. Data migrations that a release
 needs (a `normalize` or `semantic` step) are not part of it: run them on the server after the
@@ -473,7 +474,8 @@ no code.
   into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
 - API: each request is logged with id, client, method, path, status, size and latency;
-  `GET /api/health` checks the database connection and shows, from memory, the use of both
+  `GET /api/health` checks the database connection, gives the `version` of the API (after a
+  deploy it is the version of the tag that was put live) and shows, from memory, the use of both
   connection pools (`pools`) and what the threads shared by every request run now (`busy`);
   `GET /api/stats` gives counts per collection and relation.
 - A request that hangs: `systemctl kill -s USR1 lawgraph-api` writes the stack of every

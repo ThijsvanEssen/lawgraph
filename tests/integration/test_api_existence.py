@@ -53,6 +53,7 @@ def test_the_health_check_asks_the_database(client: TestClient) -> None:
         "database": "connected",
         "warm": None,
     }
+    assert health["version"] == app.version
     # the pools: the background one opens when it is first needed
     assert health["pools"]["requests"]["size"] > 0
     assert set(health["pools"]["requests"]) == {"size", "free", "waiting"}
