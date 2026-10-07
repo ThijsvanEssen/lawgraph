@@ -174,8 +174,10 @@ def _stems_of(store: Any, word: str) -> list[str]:
 def _frequencies(
     store: Any, table: str, terms: list[_Term], params: dict[str, Any]
 ) -> list[float]:
-    """The document frequency of each term, counted in one statement, kept per data
-    version."""
+    """The document frequency of each term, kept per data version. A word whose stem is one
+    of the most common elements of its column (``_common_elements``) takes the frequency the
+    planner keeps of it; every other term is counted, in one statement: for a common word
+    those counts were the slowest part of a search (2 s of 3 on the full graph)."""
     if not terms:
         return []
     key = (
@@ -184,18 +186,66 @@ def _frequencies(
         tuple((t.field, t.analyzer, str(params[t.param])) for t in terms),
     )
 
+    # read here, not in the computation below: a computation of the cache does not wait
+    # for another one (they share a pool, whose workers would all wait for each other)
+    common = {
+        column: _common_elements(store, table, column)
+        for column in {
+            search_column(t.field, t.analyzer) for t in terms if t.analyzer == "text"
+        }
+    }
+
     def count() -> list[float]:
-        counts = [f"{_df(table, term)} AS d{n}" for n, term in enumerate(terms)]
-        # Counted from the indexes: a scan would detoast the search columns of every row.
-        # (one more column: a row of one column is its value, not a dict)
-        row = next(
-            store.query(
-                f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
+        found: dict[int, float] = {}
+        for n, term in enumerate(terms):
+            if term.analyzer == "text":
+                known = common[search_column(term.field, term.analyzer)]
+                if str(params[term.param]) in known:
+                    found[n] = known[str(params[term.param])]
+        counted = [n for n in range(len(terms)) if n not in found]
+        if counted:
+            counts = [f"{_df(table, terms[n])} AS d{n}" for n in counted]
+            # Counted from the indexes: a scan would detoast the search columns of every
+            # row. (one more column: a row of one column is its value, not a dict)
+            row = next(
+                store.query(
+                    f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
+                )
             )
-        )
-        return [float(row[f"d{n}"]) for n in range(len(terms))]
+            found.update({n: float(row[f"d{n}"]) for n in counted})
+        return [found[n] for n in range(len(terms))]
 
     return cached(store, key, count)
+
+
+def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
+    """The most common elements of the array *column* of *table* and the rows that hold
+    each, as ``ANALYZE`` sampled them (``pg_stats``: its share of the rows times the rows of
+    the table), kept ``STATS_MAX_AGE``; empty before the table is analyzed."""
+
+    def read() -> dict[str, float]:
+        row = next(
+            store.query(
+                """
+                SELECT coalesce(s.most_common_elems::text::text[], '{}') AS elements,
+                       coalesce(s.most_common_elem_freqs, '{}') AS shares,
+                       (SELECT reltuples::float FROM pg_class
+                        WHERE oid = %(table)s::regclass) AS n
+                FROM (SELECT 1) one
+                LEFT JOIN pg_stats s ON s.schemaname = current_schema()
+                    AND s.tablename = %(table)s AND s.attname = %(column)s
+                """,
+                {"table": table, "column": column},
+            )
+        )
+        rows = max(float(row["n"] or 0), 0.0)
+        # the shares end with three of their own (the least, the most, of null elements)
+        return {
+            element: share * rows
+            for element, share in zip(row["elements"], row["shares"], strict=False)
+        }
+
+    return lasting(store, ("bm25-common", table, column), read, STATS_MAX_AGE)
 
 
 def _terms(

@@ -42,6 +42,13 @@ WHOLE_BY_DESIGN = [
         "every window in one pass over the edges, once a day in the background",
     ),
     (
+        "ranking of the hits of a common word",
+        re.compile(r"AS rank FROM \(SELECT \* FROM \w+ doc WHERE"),
+        "a word that most rows hold makes them all candidates, and BM25 ranks every one"
+        " (the warm-up searches the terms searched most; narrowing the ranking to the"
+        " best candidates is a later decision, as it changes what is found)",
+    ),
+    (
         "counts of /api/stats and the coverage",
         re.compile(
             r'^SELECT (count\(\*\)::int FROM "\w+"'
@@ -143,7 +150,7 @@ def _whole_reads(plan: dict[str, Any], rows: dict[str, float]) -> list[str]:
 
 
 def test_the_background_reads_no_large_table_whole(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
 ) -> None:
     from lawgraph.api import warm
     from lawgraph.api.routes.nodes import heat_counts
@@ -151,15 +158,25 @@ def test_the_background_reads_no_large_table_whole(
 
     # the large tables sampled for the statistics of the search, as the real ones are
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 2_000)
+    # a term searched often enough for the warm-up to search it
+    import datetime as dt
+    from collections import Counter
+
+    from lawgraph.core import search_stats
+
+    search_stats.merge_day(
+        tmp_path, dt.date.today().isoformat(), Counter({"beroep": 9})
+    )
+    monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
 
     _seed(store)
     _shaped_like_the_real(store)
     store.vacuum_analyze()
-    captured: list[tuple[Any, Any]] = []
+    captured: list[tuple[Any, Any, dict[str, Any]]] = []
     query = store.query
 
     def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        captured.append((statement, params))
+        captured.append((statement, params, options))
         return query(statement, params, **options)
 
     store.query = recording  # type: ignore[method-assign]
@@ -179,8 +196,11 @@ def test_the_background_reads_no_large_table_whole(
                 {"large": list(LARGE)},
             ).fetchall()
         )
-        for statement, params in captured:
+        for statement, params, options in captured:
             text = " ".join(_text(statement).split())
+            # as the store runs it: a search reads with its indexes only
+            seqscan = "off" if options.get("indexes_only") else "on"
+            conn.execute(f"SET enable_seqscan = {seqscan}")
             design = [name for name, p, _ in WHOLE_BY_DESIGN if p.search(text)]
             explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
             (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]

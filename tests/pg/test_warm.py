@@ -83,3 +83,27 @@ def test_the_warm_up_counts_the_largest_areas_of_law(
     assert asked == [None, "Area 0", "Area 1", "Area 2", "Area 3", "Area 4"]
     # with the filters the front end sends, whose facets are kept per filter
     assert sources == ["rechtspraak"] * 6
+
+
+def test_the_warm_up_searches_the_terms_searched_most(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """At most ``WARM_SEARCH_TERMS``, each asked ``MIN_COUNT`` times or more; none without
+    counts."""
+    import datetime as dt
+    from collections import Counter
+
+    from lawgraph.core import search_stats
+
+    searched: list[str] = []
+    monkeypatch.setattr(warm, "search_all", lambda store_, q, **k: searched.append(q))
+    monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path / "none")
+    warm._warm_search_terms(store)
+    assert searched == []  # no counts: nothing searched
+
+    monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
+    counts = Counter({f"term {n}": 20 - n for n in range(8)})
+    counts["rechtszaak jansen"] = 2  # asked too rarely: never searched by the warm-up
+    search_stats.merge_day(tmp_path, dt.date.today().isoformat(), counts)
+    warm._warm_search_terms(store)
+    assert searched == [f"term {n}" for n in range(warm.WARM_SEARCH_TERMS)]
