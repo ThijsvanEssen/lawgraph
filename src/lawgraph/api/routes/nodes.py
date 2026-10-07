@@ -87,13 +87,21 @@ def bulk_in_flux(
     return JSONResponse(cached)
 
 
+# The nodes a request may name, and how many the map of the whole graph keeps.
+HEAT_MAX_IDS = 500
+HEAT_LIMIT = 10_000
+HEAT_MAX_LIMIT = 50_000
+
+
 @router.get(
     "/heat",
     summary="Bulk activity score per node (heat layer)",
     description=(
         "A map of node id → activity count over the past N months, where "
         "activity is the number of incoming edges created in that window. "
-        "Pass months=3 for a 90-day window."
+        "Pass months=3 for a 90-day window. `ids` (comma-separated node ids, at most "
+        f"{HEAT_MAX_IDS}) counts those nodes alone, the ones a view draws; without it the "
+        "`limit` nodes with the highest counts (the whole graph has 1.85 million)."
     ),
     tags=["nodes"],
     response_class=JSONResponse,
@@ -114,17 +122,41 @@ def bulk_heat(
             "without losing visible heat halos."
         ),
     ),
+    ids: str | None = Query(
+        default=None,
+        description=f"Comma-separated node ids to count, at most {HEAT_MAX_IDS}.",
+    ),
+    limit: int = Query(
+        default=HEAT_LIMIT,
+        ge=1,
+        le=HEAT_MAX_LIMIT,
+        description="Without ids: the nodes with the highest counts, this many.",
+    ),
 ) -> JSONResponse:
     """Return activity counts per node for the heat-layer overlay."""
-    return JSONResponse(heat_counts(store, months=months, min_count=min_count))
+    if ids is not None:
+        wanted = sorted({i.strip() for i in ids.split(",") if i.strip()})
+        if len(wanted) > HEAT_MAX_IDS:
+            raise HTTPException(status_code=422, detail=f"At most {HEAT_MAX_IDS} ids.")
+        return JSONResponse(
+            get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
+        )
+    return JSONResponse(
+        heat_counts(store, months=months, min_count=min_count, limit=limit)
+    )
 
 
-def heat_counts(store: GraphStore, *, months: int = 6, min_count: int = 1) -> Any:
-    """The heat of ``/api/nodes/heat``, counted once per data version and day (the window
-    ends today): on the full graph a count of the edges of six months takes over a minute."""
-    key = ("heat", months, min_count, dt.date.today().isoformat())
+def heat_counts(
+    store: GraphStore, *, months: int = 6, min_count: int = 1, limit: int = HEAT_LIMIT
+) -> Any:
+    """The heat of ``/api/nodes/heat`` for the whole graph, the *limit* highest, counted
+    once per data version and day (the window ends today): on the full graph a count of
+    the edges of six months takes over a minute."""
+    key = ("heat", months, min_count, limit, dt.date.today().isoformat())
     return version_cache.cached(
-        store, key, lambda: get_heat_counts(store, months=months, min_count=min_count)
+        store,
+        key,
+        lambda: get_heat_counts(store, months=months, min_count=min_count, limit=limit),
     )
 
 

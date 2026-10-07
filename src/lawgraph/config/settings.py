@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from urllib.parse import quote
 
 from dotenv import find_dotenv, load_dotenv
@@ -91,6 +92,10 @@ DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
 PAYLOAD_STORE = os.getenv(
     "LAWGRAPH_PAYLOAD_STORE", "file://~/.local/share/lawgraph/payloads"
 )
+# Where the API keeps the counts of the terms searched (``core/search_stats.py``).
+SEARCH_STATS_DIR = Path(
+    os.getenv("LAWGRAPH_SEARCH_STATS_DIR", "~/.local/share/lawgraph/search-stats")
+).expanduser()
 S3_ENDPOINT = os.getenv("LAWGRAPH_S3_ENDPOINT") or None
 S3_REGION = os.getenv("LAWGRAPH_S3_REGION") or None
 S3_ACCESS_KEY = os.getenv("LAWGRAPH_S3_ACCESS_KEY") or None

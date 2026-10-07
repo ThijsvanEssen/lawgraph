@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import ipaddress
 import logging
 import time
 import uuid
@@ -14,6 +15,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
     annexes,
@@ -262,7 +264,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.1",
+    version="0.79.3",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -299,6 +301,20 @@ for _name, _router in (
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 
 
+def truncated_ip(host: str) -> str:
+    """The network of *host*, not the host: an IPv4 address to its /24 (``203.0.113.0``),
+    an IPv6 address to its /48. The full address is in no log line; only the rate limiter
+    holds it, in memory. What is no address (``-``, a name) is left as it is."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    prefix = 24 if address.version == 4 else 48
+    return str(
+        ipaddress.ip_network(f"{address}/{prefix}", strict=False).network_address
+    )
+
+
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -307,10 +323,10 @@ async def _log_requests(request: Request, call_next):
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
+    # the path without its query string (a search term may name a person) and the
+    # network of the client, never its address
     path = request.url.path
-    if request.url.query:
-        path = f"{path}?{request.url.query}"
-    client = request.client.host if request.client else "-"
+    client = truncated_ip(request.client.host) if request.client else "-"
     size = response.headers.get("content-length", "-")
     _logger.info(
         "[%s] %s %s %s → %d %sb (%.1fms)",
@@ -353,11 +369,27 @@ async def root() -> dict[str, str]:
 @app.get("/api/health", tags=["root"])
 async def health(
     store: Annotated[GraphStore, Depends(get_store)],
-) -> dict[str, str]:
-    """Health check — verifies database connectivity."""
+) -> dict[str, str | bool | None]:
+    """Health check — verifies database connectivity. ``warm``: the answers every visitor
+    asks are computed for the data as it is now (null when the API does not warm up); a
+    deploy waits for true before its smoke test. ``warm_version`` the data version they
+    were last computed for (the answers a request gets while a newer one computes, null
+    before the first warm-up), ``data_version`` the version now, ``computing`` whether a
+    warm-up or an answer of a newer version is being computed."""
     try:
         store.ping()
-        return {"status": "ok", "database": "connected"}
+        if not API_WARM_UP:
+            return {"status": "ok", "database": "connected", "warm": None}
+        from lawgraph.api.warm import is_warm, warmed_version
+
+        return {
+            "status": "ok",
+            "database": "connected",
+            "warm": is_warm(store),
+            "warm_version": warmed_version(),
+            "data_version": store.data_version(),
+            "computing": version_cache.computing(store),
+        }
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
@@ -374,12 +406,14 @@ def _start_warm_up() -> None:
 
     version_cache.on_new_version(warm_up)
     try:
-        version_cache.warm(store_of())
+        version_cache.warm(store_of(), settle=0)
     except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
         _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
 
 
 app.router.on_startup.append(_start_warm_up)
+app.router.on_startup.append(search_terms.start)
+app.router.on_shutdown.append(search_terms.stop)
 
 
 # How long a client waits before it asks again after a read ran past its ceiling.

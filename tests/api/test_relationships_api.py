@@ -77,7 +77,7 @@ def test_the_article_detail_carries_its_relationships(monkeypatch):
     monkeypatch.setattr(
         "lawgraph.api.routes.articles.get_article_with_relations",
         lambda store, bwb_id, article_number: ArticleDetailData(
-            article=_SOURCE_ARTICLE, instrument=None, judgments=[], metadata={}
+            article=_SOURCE_ARTICLE, instrument=None, metadata={}
         ),
     )
     monkeypatch.setattr(
