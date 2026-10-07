@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import ipaddress
 import logging
 import time
 import uuid
@@ -14,6 +15,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
     annexes,
@@ -299,6 +301,20 @@ for _name, _router in (
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 
 
+def truncated_ip(host: str) -> str:
+    """The network of *host*, not the host: an IPv4 address to its /24 (``203.0.113.0``),
+    an IPv6 address to its /48. The full address is in no log line; only the rate limiter
+    holds it, in memory. What is no address (``-``, a name) is left as it is."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    prefix = 24 if address.version == 4 else 48
+    return str(
+        ipaddress.ip_network(f"{address}/{prefix}", strict=False).network_address
+    )
+
+
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -307,10 +323,10 @@ async def _log_requests(request: Request, call_next):
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
+    # the path without its query string (a search term may name a person) and the
+    # network of the client, never its address
     path = request.url.path
-    if request.url.query:
-        path = f"{path}?{request.url.query}"
-    client = request.client.host if request.client else "-"
+    client = truncated_ip(request.client.host) if request.client else "-"
     size = response.headers.get("content-length", "-")
     _logger.info(
         "[%s] %s %s %s → %d %sb (%.1fms)",
@@ -385,6 +401,8 @@ def _start_warm_up() -> None:
 
 
 app.router.on_startup.append(_start_warm_up)
+app.router.on_startup.append(search_terms.start)
+app.router.on_shutdown.append(search_terms.stop)
 
 
 # How long a client waits before it asks again after a read ran past its ceiling.

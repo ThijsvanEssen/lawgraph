@@ -81,6 +81,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list (no credentials); a request from these origins counts toward the rate limit like any other |
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
+| `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address is only in the memory of the rate limiter |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
 
@@ -172,6 +173,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
+| `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
 | `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
@@ -352,7 +354,7 @@ is installed for you.
 
 | Script | Runs | Why |
 |--------|------|-----|
-| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges` | what the sources changed; a day without a run is caught up by the next |
+| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune` | what the sources changed; a day without a run is caught up by the next |
 | `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
