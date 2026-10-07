@@ -130,6 +130,7 @@ def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) 
 
 
 def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
+    """Or on ``touched_since``: a step that otherwise reads all, which a poll narrows."""
     import inspect
 
     from lawgraph.sources.registry import PIPELINES
@@ -143,7 +144,8 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
     assert len(commands) > 25
     for command in commands:
         parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
-        assert parameters - {"self"} <= {"since"}, command.pipeline_cls.__name__
+        name = command.pipeline_cls.__name__
+        assert parameters - {"self"} in ({"since"}, {"touched_since"}, set()), name
     assert all(accepts_since(p.command) for p in PIPELINES["normalize"])
 
 
