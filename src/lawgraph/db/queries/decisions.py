@@ -117,9 +117,11 @@ _ITEM = f"""json_build_object(
     'key', d.key,
     'date', d.props -> 'date',
     'subject', d.props -> 'subject',
+    'display_name', d.props -> 'display_name',
     'external_id', d.props -> 'decision_id',
     'dossier_numbers', d.props -> 'dossier_numbers',
     'kind', d.props -> 'kind',
+    'primary_case_kind', d.props -> 'primary_case_kind',
     'decision_kind', d.props -> 'decision_kind',
     'passed', d.props -> 'passed',
     'chamber', CASE
