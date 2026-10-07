@@ -9,7 +9,7 @@ from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
-from lawgraph.db.queries._helpers import _find_judgments_for_article, _load_judgment
+from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_judgment
 from lawgraph.db.queries.instruments import get_instrument_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
@@ -30,11 +30,7 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     cli("semantic", "all")
 
     article_id = f"articles/{make_node_key(GRONDWET, '1')}"
-    citing = _find_judgments_for_article(store, article_id)
-    assert len(citing) == 60
-    assert set(citing[0]) == {"_id", "_key", "props"}
-    assert set(citing[0]["props"]) == {"ecli", "display_name"}
-    assert _size(citing) < 60 * 400  # a whole judgment is thousands of bytes each
+    assert _count_judgments_for_article(store, article_id) == 60
 
     items, total = get_instrument_judgments(store, GRONDWET, limit=10)
     assert total == 60 and len(items) == 10

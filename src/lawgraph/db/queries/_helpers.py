@@ -40,33 +40,26 @@ def _find_instrument_for_article(
     return node_doc(row) if row else None
 
 
-def _find_judgments_for_article(
-    store: GraphStore, article_id: str
-) -> list[dict[str, Any]]:
-    # What the response shows of a judgment, newest first; the id settles judgments of the
-    # same day. A much cited article has thousands of them, and whole judgments (text,
-    # paragraphs) are not read for it.
-    rows = store.query(
-        """
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'ecli', j.pj_ecli, 'display_name', j.pj_display_name
-            )
+def _count_judgments_for_article(store: GraphStore, article_id: str) -> int:
+    """How many judgments cite the article: counted on the index of the edges alone (a much
+    cited article has thousands, ``/cited-by`` pages them)."""
+    return int(
+        next(
+            store.query(
+                """
+                SELECT count(*)::int FROM edges e
+                WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
+                  AND e.from_collection = %(judgments)s
+                """,
+                {
+                    "article_id": article_id,
+                    "relation": RELATION_REFERS_TO,
+                    "judgments": COLLECTION_JUDGMENTS,
+                },
+            ),
+            0,
         )
-        FROM edges e JOIN judgments j ON j.id = e.from_id
-        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-          AND e.from_collection = %(judgments)s
-        ORDER BY j.date_eff DESC NULLS LAST, j.id
-        """,
-        {
-            "article_id": article_id,
-            "relation": RELATION_REFERS_TO,
-            "judgments": COLLECTION_JUDGMENTS,
-        },
     )
-    return list(rows)
 
 
 def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
