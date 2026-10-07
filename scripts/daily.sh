@@ -7,4 +7,5 @@ step retrieve all --since last
 step normalize all --since last
 step semantic all --since last
 step check --skip-edges
+step search-stats prune
 finish

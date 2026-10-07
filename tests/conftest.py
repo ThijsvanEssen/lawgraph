@@ -32,6 +32,17 @@ def _fresh_version_cache(monkeypatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _own_search_stats(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
+    """The counts of the terms searched in a directory of the test run: a test that runs
+    the API's start and stop flushes them, and the machine's files are no test's."""
+    from lawgraph.api import search_terms
+
+    monkeypatch.setattr(
+        search_terms, "SEARCH_STATS_DIR", tmp_path_factory.mktemp("search-stats")
+    )
+
+
+@pytest.fixture(autouse=True)
 def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
     """The host locks of the pacer in a directory of the test run, not the machine's.
 

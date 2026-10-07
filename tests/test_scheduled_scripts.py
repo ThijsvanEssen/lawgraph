@@ -54,7 +54,7 @@ def _calls(checkout: Path) -> list[str]:
     return (checkout / "calls").read_text().splitlines()
 
 
-def test_the_daily_run_is_the_three_phases_since_their_last_complete_run(
+def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_the_prune(
     checkout: Path,
 ) -> None:
     done = _run(checkout, "daily.sh")
@@ -64,6 +64,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run(
         "normalize all --since last",
         "semantic all --since last",
         "check --skip-edges",
+        "search-stats prune",  # the counts of the terms searched, older than a week
     ]
     assert (checkout / "logs" / "runs.log").read_text().count("daily.sh: ok") == 1
 
@@ -80,7 +81,7 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
 ) -> None:
     done = _run(checkout, "daily.sh", fail_on="normalize all")
     assert done.returncode == 1
-    assert len(_calls(checkout)) == 4  # semantic and check ran too
+    assert len(_calls(checkout)) == 5  # semantic, check and the prune ran too
     runs = (checkout / "logs" / "runs.log").read_text()
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
 
