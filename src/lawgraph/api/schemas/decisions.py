@@ -137,8 +137,9 @@ class DecisionSummaryDTO(BaseModel):
 
     ``tally`` sums the seats behind each choice — the number to show for a
     result — and ``voters`` counts how many factions (or members) made it.
-    ``external_id`` identifies the motion within a debate; use it rather than
-    ``subject``, which is shared by every motion on the same agenda item.
+    ``subject`` is that of the case the vote decided; a vote without a case of its own
+    on an agenda item of several shares the item's subject with its siblings, and
+    ``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -147,9 +148,19 @@ class DecisionSummaryDTO(BaseModel):
     key: str
     date: str | None = None
     subject: str | None = None
+    display_name: str | None = Field(
+        None,
+        description="The heading of the vote, distinct per sibling on an agenda item: "
+        "``Motie 2024Z17945: <subject>``, the subject alone when it names its kind.",
+    )
     external_id: str | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
     kind: str | None = Field(None, description=_KIND)
+    primary_case_kind: str | None = Field(
+        None,
+        description="The ``Zaak.Soort`` of the case the vote singled out (``Motie``, "
+        "``Amendement``, ``Wetgeving``); null when it singled out none.",
+    )
     decision_kind: str | None = Field(None, description=_DECISION_KIND)
     passed: bool | None = None
     chamber: str | None = None

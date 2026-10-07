@@ -19,6 +19,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentFacets,
     JudgmentListItemDTO,
     JudgmentListResponse,
+    RelatedJudgmentDTO,
     mentions_of,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
@@ -206,7 +207,7 @@ def get_judgment_detail(
         cited_articles=cited_articles,
         cited_judgments=cited_judgments,
         same_as=[JudgmentSummaryDTO.from_document(doc) for doc in data.same_as],
-        related_to=[JudgmentSummaryDTO.from_document(doc) for doc in data.related_to],
+        related_to=[RelatedJudgmentDTO.from_document(doc) for doc in data.related_to],
         series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
         metadata=data.metadata or None,
     )

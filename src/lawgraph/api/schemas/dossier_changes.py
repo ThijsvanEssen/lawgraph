@@ -15,6 +15,10 @@ class ChangedArticleRef(BaseModel):
     article_number: str | None = None
     display_name: str | None = None
     stub: bool = False
+    judgment_total: int = Field(
+        default=0,
+        description="The judgments that cite the article (as in `/cited-by`).",
+    )
 
 
 class ChangeSource(BaseModel):
@@ -30,6 +34,19 @@ class ChangeSource(BaseModel):
         default=None,
         description="Of a publication, its id on officielebekendmakingen.nl "
         "(`stb-2026-154`); null for a paper.",
+    )
+    kind: str | None = Field(
+        default=None,
+        description="Its kind as its source writes it: of a paper `Amendement`, `Voorstel "
+        "van wet`; of a publication `publicatie`.",
+    )
+    sequence: int | None = Field(
+        default=None, description="Of a Tweede Kamer paper its nr. in its dossier."
+    )
+    number: str | None = Field(
+        default=None,
+        description="Of a paper its number as its chamber cites it: the nr. (`12`), the "
+        "letter of an Eerste Kamer paper (`A`); null for a publication.",
     )
 
 
