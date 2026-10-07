@@ -154,7 +154,7 @@ says that two articles are linked, `semantic_type` says what the link means.
 | `explanation` | the phrase that decided the type and where it stood, in words |
 | `updated_at` | when the classification last changed |
 | `meta.semantic_pattern` | the pattern and where its phrase stood: `limiting_exception_adjacent`, `definitional_reference_window`, `cross_reference_fallback` |
-| `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right (0.25 to 0.9); the edge's `confidence` (1.0) is that the reference exists |
+| `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right ([per pattern](pipelines.md#bwb-dutch-legislation)); the edge's `confidence` (1.0) is that the reference exists |
 | `meta.linked_article` | the key of the article the link of the XML points at, when the words of the reference name another (`semantic bwb`) |
 
 ## Instrument
@@ -170,7 +170,12 @@ statutes made by the legislator:
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`), `celex_refs` (the EU acts its
   text names) and `implements_celex` (the EU acts its considerans says it implements);
   `retrieve eurlex --mode gaps` fetches the acts of `celex_refs` and `implements_celex`.
-  `enacted_publication` is the publication that enacted it (`stb-2018-144`). A Celex link
+  `enacted_publication` is the publication that enacted it (`stb-2018-144`). Its `title` is the
+  citeertitel, else the intitule; `kind` is `wetgeving@soort`. `date_signed`, `date_published`
+  and `dossier_numbers` are those of that publication, `date_in_force` the
+  `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
+  it): the `meta-data` of `<wetgeving>` names the last change to the structure of the law, not
+  the law. `version_date_in_force` is the start of the toestand. A Celex link
   whose id has an impossible year in the source is rebuilt from the text of the link
   ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records
@@ -224,7 +229,7 @@ renumbering; each version has a `versie-id`.
 
 | Node | Identity | Notes |
 |------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `heading` (the `<titel>` of its `<kop>`, numbered or not: `Definities`; absent when the BWB prints none, as for every article of the Wetboek van Strafrecht and the Burgerlijk Wetboek), `position` (its place in the current toestand: the order of the lists), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
+| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `heading` (the `<titel>` of its `<kop>`, numbered or not: `Definities`; absent when the BWB prints none, as for every article of the Wetboek van Strafrecht and the Burgerlijk Wetboek), `position` (its place in the current toestand: the order of the lists), `text` (a lid as `1. text`, list items on their own lines, a paragraph beside the leden included), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
 | ArticleVersion | one per `(stam_id, versie_id)`, not per toestand; a republication (`tekstplaatsing`) with the label, heading, place and text (`content_digest`) of the version before it is that version | `label`, `heading`, `position` (its place in one order of all versions of the law in which the versions of every toestand keep theirs), `breadcrumb` (the divisions of the first toestand holding it) and `breadcrumb_changes` (`[{from, breadcrumb}]`, oldest first: the toestand starts from which it stood under other divisions, as when a hoofdstuk is renamed; null for most); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article (the first day it no longer holds; its own `valid_from` for a version that says the article lapsed; the start of the first toestand without it for an article that left the law), null when current; `current`; `last_seen` (the start of the latest toestand holding it); `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
 | InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until` (exclusive: the day after the toestand's last day; null when open), `current`, `state_url` |
 
@@ -366,51 +371,24 @@ once. One whose replacement is not loaded has `replaced_by` and no `same_as`, an
 the judgments that cite a judgment or a publication `SAME_AS` it, each once;
 `outbound_citation_count` the judgments it cites.
 
-`paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list of `{id, number, kind, text, continues}`. `kind` is
-`heading` (a section or a bridgehead), `subheading` (a nested section, or the kop), `body`, `toc`
-or `signature`. `continues` is, of a `body` paragraph without a number, the `id` of the numbered
-consideration it goes on with, up to the next number or heading (absent otherwise).
-The kop is every line before the first section heading (`Procesverloop`, `De procedure`,
-`Onderzoek van de zaak`, `1 Het verloop van het geding`, ...): court, case number, date and
-parties, whether the court writes them in an `<uitspraak.info>`, in bridgeheads, in loose
-paragraphs or in sections titled with a party name. It is the first paragraph, a `subheading` of
-its lines with a blank line between (a `<?linebreak?>` starts a line too); a judgment without a
-heading, or with more than four lines of prose before it, has none. A conclusion writes its kop in
-a `<conclusie.info>`; when no heading ends the kop (or a list of abbreviations), the end of that
-element does. Once the kop has named a party (a line that opens with "hierna": "hierna: de
-verdachte") or its `<uitspraak.info>` is over, the first numbered unit ends it too: a title with
-its `<nr>`, a `<paragroup>` with its `<nr>`, or a numbered list of paragraphs (`<orderedlist
-numeration="arabic">` standing on its own, its items on average at least 120 characters: the
-points of a conclusion, numbered by their place) — unless the kop's last line joins parties
-("en", "tegen"), after which a party may be set as a numbered section.
-A title or bold line that is a line of text, not a heading (it opens with a quotation mark or a
-bracket, ends with a comma or semicolon, or is in small letters and ends in punctuation:
-"[verdachte] ,", "is niet verschenen." in a quoted record), is `body`. A plain paragraph set like a
-heading (one line of at most 80 characters, a capital first, no number in front, no closing
-punctuation, no year, amount, "label : value" or initials of a name) is a `heading` (a
-`subheading` when nested) when text follows it and it stands alone or with one more ("Procesverloop",
-"Overwegingen", "Inleiding" of the Raad van State); three or more in a row are a list. A table of
-contents (a line "Inhoudsopgave" or "Inhoud", then its lines up to the first heading, a longer
-paragraph or the repetition of its first line where the text begins) is `toc`: its numbered lines
-are no considerations and get an id from their text, not `rov-N`.
-A numbered unit that ends in a heading (its last line alone, all of it in emphasis, short and
-without closing punctuation: "Slotsom") has that heading as a paragraph of its own after it. A run
-of numbered headings that goes back in the numbering, after which the numbering goes on where it
-was (6, then 3 and 4, then 7), is the headings of a decision the text quotes: `body` paragraphs,
-the number in front of the text. The closing lines of a conclusion, from the last short line that
-opens with "De Procureur-Generaal" to the end ("Hoge Raad der Nederlanden", "A-G"; at most four
-short lines after it), are `signature`.
+`paragraphs` is the `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order, a list
+of `{id, number, kind, text, continues}`. `kind` is `heading` (a section or a bridgehead),
+`subheading` (a nested section, or the kop), `body`, `toc` or `signature`. `continues` is, of a
+`body` paragraph without a number, the `id` of the numbered consideration it goes on with, up to
+the next number or heading (absent otherwise). The first paragraph is the kop, a `subheading` of
+its lines with a blank line between: court, case number, date and parties, however the court
+sets them; a judgment may have none. How the kop, the headings, a table of contents and a
+signature are told apart: [pipelines](pipelines.md#judgment-paragraphs).
+
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
-its own text: the text of `5.3` does not hold `5.3.1`. Where the XML has no such structure a
-`<para>` is a paragraph, and a number that its text opens with (`1.    Bij het besluit`) is its
-number. `number` is the number as printed without its closing dot (`5.3`), null when there is
-none, and is not part of `text`. `id` names the paragraph in deep links and mentions and is
-unique in the judgment: `rov-5.3` for a numbered `body` paragraph (a consideration, cited as
-"rov. 5.3"), `kop-5` for a numbered heading, `p-3f2a9c1e` for a paragraph without a number (and a
-line of a table of contents, from its number and text): the first
-8 hex of the SHA-1 of its text, whitespace collapsed (`core.judgments.text_id`), so it follows
-the text and not the position. An id that repeats one before it gets `_<n>`, its occurrence
-(`rov-1_2`, or the same text twice).
+its own text: the text of `5.3` does not hold `5.3.1`. `number` is the number as printed without
+its closing dot (`5.3`), null when there is none, and is not part of `text`. `id` names the
+paragraph in deep links and mentions and is unique in the judgment: `rov-5.3` for a numbered
+`body` paragraph (a consideration, cited as "rov. 5.3"), `kop-5` for a numbered heading,
+`p-3f2a9c1e` for a paragraph without a number (and a line of a table of contents, from its
+number and text): the first 8 hex of the SHA-1 of its text, whitespace collapsed
+(`core.judgments.text_id`), so it follows the text and not the position. An id that repeats one
+before it gets `_<n>`, its occurrence (`rov-1_2`, or the same text twice).
 
 `advocate_general` is, for a conclusion, who wrote it, as the lines before its parties name them
 (`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
