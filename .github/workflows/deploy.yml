@@ -114,12 +114,21 @@ jobs:
           curl -fsS http://127.0.0.1:8000/api/health
           echo
           echo "[deploy] running $(git log --oneline -1)"
-          # /api/health says "warm": true once the caches of this data version are filled (null:
-          # warm-up off); an API without that field is followed by its journal instead
+          # Warm when /api/health has answers of some data version (warm_version) and computes
+          # nothing more (computing false): under constant writes "warm" itself can stay false
+          # while every request is answered from the last version. "warm": null is warm-up off;
+          # an API without these fields is followed by "warm": true or its journal line.
           for _ in $(seq "$((WARM / 5))"); do
             health=$(curl -fsS http://127.0.0.1:8000/api/health 2>/dev/null || true)
             case "$health" in
-              *'"warm":true'*|*'"warm":null'*) line="warm: $health"; break ;;
+              *'"warm":null'*) line="warm-up off: $health" ;;
+              *'"computing":false'*)
+                case "$health" in
+                  *'"warm_version":null'*) line="" ;;
+                  *) line="warm: $health" ;;
+                esac ;;
+              *'"computing":'*) line="" ;;
+              *'"warm":true'*) line="warm: $health" ;;
               *'"warm":'*) line="" ;;
               *) line=$(journalctl -u lawgraph-api --since "$since" -o cat 2>/dev/null \
                    | grep -m1 -E 'Warm-up done|No warm-up at the start' || true) ;;

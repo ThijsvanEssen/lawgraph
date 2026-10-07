@@ -419,8 +419,10 @@ from that tag), moves `release` to it (a fast-forward only), and calls the deplo
 The deploy (`.github/workflows/deploy.yml`; a push to `release` starts it too, with the unit
 suite first) checks out exactly that commit on the server over SSH, fetching the tags,
 runs `uv pip install -e .` into its venv, and restarts the API, which has to answer `/api/health`
-within 30 seconds. It then waits, up to 20 minutes, until `/api/health` says `"warm": true` (or
-`null`, warm-up off; an API without the field is followed by its journal line `Warm-up done`) and runs `scripts/smoke.sh` against the public
+within 30 seconds. It then waits, up to 20 minutes, until `/api/health` has a `warm_version` and
+`"computing": false` (under constant writes `warm` itself can stay false while requests are answered from the
+last version; `"warm": null` is warm-up off; an older API is followed by `"warm": true` or its journal line
+`Warm-up done`) and runs `scripts/smoke.sh` against the public
 address (the variable `PUBLIC_URL`, default `https://concordans.nl`): health, a page of
 judgments without facets, a search, the feed and an article (Sr art. 287), each within its time budget, and
 the version that `/api/health` reports. When the deploy or the smoke test fails, the job puts the
