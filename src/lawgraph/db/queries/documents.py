@@ -185,7 +185,8 @@ _ITEM = f"""json_build_object(
         'number', d.props -> 'number',
         'date', d.props -> 'date',
         'title', {_not_null("d.props -> 'title'", "d.props -> 'display_name'")},
-        'session_year', d.props -> 'session_year'
+        'session_year', d.props -> 'session_year',
+        'actors', d.props -> 'actors'
     )"""
 
 

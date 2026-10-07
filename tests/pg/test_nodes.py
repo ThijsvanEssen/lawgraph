@@ -161,3 +161,75 @@ def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
     nothing = node_queries.NeighborFilter(relations=())
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", filters=nothing)
     assert hood["nodes"] == [] and hood["edges"] == []
+
+
+def test_a_neighbour_carries_no_text_and_the_node_itself_does(
+    store: GraphStore,
+) -> None:
+    """The sections and footnotes of a paper are its text: a neighbour, a node of a
+    neighbourhood or of a path is light; the node itself keeps them."""
+    from lawgraph.db.queries.paths import get_paths
+
+    paper = {
+        "_key": "a",
+        "type": "document",
+        "labels": [],
+        "props": {
+            "title": "Memorie",
+            "sections": [{"heading": "1", "text": "lang"}],
+            "summary": "kort",
+            "footnotes": [{"n": 1, "text": "voetnoot"}],
+        },
+    }
+    store.bulk_insert_or_update_nodes("documents", [paper])
+    store.bulk_insert_or_update_nodes("dossiers", [_node("dossiers", "1")[1]])
+    store.bulk_insert_or_update_edges(
+        [_edge("e1", "documents/a", "dossiers/1", "PART_OF")]
+    )
+    light = {"title": "Memorie", "summary": "kort"}
+
+    data = node_queries.get_node_with_neighbors(store, "dossiers", "1")
+    (entry,) = [e for bucket in data.buckets for e in bucket.entries]
+    assert entry.doc["props"] == light  # in their order, without the text
+    assert list(entry.doc["props"]) == ["title", "summary"]
+
+    around = node_queries.get_node_neighborhood(store, "dossiers", "1", depth=1)
+    assert [n["props"] for n in around["nodes"]] == [light]
+
+    paths = get_paths(store, ["dossiers/1", "documents/a"], max_depth=2)
+    assert "documents/a" in [n["_id"] for n in paths["nodes"]]
+    assert all(
+        "sections" not in n["props"] and "footnotes" not in n["props"]
+        for n in paths["nodes"]
+    )
+
+    own = node_queries.get_node_with_neighbors(store, "documents", "a")
+    assert own.node["props"] == paper["props"]
+
+
+def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> None:
+    """Its parts, references and breadcrumb (and its text) are for the reader of the article:
+    three quarters of what the articles of a law weigh as neighbours of the law."""
+    article = {
+        "_key": "w_1",
+        "type": "article",
+        "labels": [],
+        "props": {
+            "article_number": "1",
+            "text": "Lid 1.",
+            "parts": [{"kind": "lid", "number": "1"}],
+            "heading": "Begrippen",
+            "references": [{"target": "w_2"}],
+            "breadcrumb": [{"label": "Hoofdstuk 1"}],
+        },
+    }
+    law = {"_key": "w", "type": "instrument", "labels": [], "props": {"title": "Wet"}}
+    store.bulk_insert_or_update_nodes("articles", [article])
+    store.bulk_insert_or_update_nodes("instruments", [law])
+    store.bulk_insert_or_update_edges(
+        [_edge("p1", "articles/w_1", "instruments/w", "PART_OF")]
+    )
+
+    data = node_queries.get_node_with_neighbors(store, "instruments", "w")
+    (entry,) = [e for bucket in data.buckets for e in bucket.entries]
+    assert entry.doc["props"] == {"article_number": "1", "heading": "Begrippen"}

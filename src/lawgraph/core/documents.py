@@ -1,5 +1,5 @@
 """What a document node says about itself: its chamber, whether it explains a law, the
-dossier it is numbered in and its number there.
+dossier it is numbered in, its number there and who sent it.
 
 Pure functions over the values stored on a document, shared by the semantic pipelines
 (``tk-mvt`` links the explanatory documents) and the API (which reports both on every
@@ -12,7 +12,9 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, EXPLANATORY_KIND_MARKER
-from lawgraph.core.tk_records import dossier_label
+from lawgraph.core.ministries import classify_function
+from lawgraph.core.models import make_node_key
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, dossier_label
 
 # The chambers in the order a node's labels are read: the first it carries is its chamber.
 # One definition for the API (``chamber_of``) and the SQL built from it
@@ -42,6 +44,42 @@ def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
         return props.get("number")
     sequence = props.get("sequence")
     return str(sequence) if chamber == CHAMBER_TK and sequence else None
+
+
+# The signature that says who sent a Tweede Kamer paper (``DocumentActor.Relatie``), the
+# first the paper has: its first signatory, else the one the source calls its sender.
+SENDER_ROLES: tuple[str, ...] = ("Eerste ondertekenaar", "Afzender")
+
+
+def document_sender(
+    actors: Iterable[dict[str, Any]] | None, date: str | None = None
+) -> dict[str, Any] | None:
+    """Who sent a Tweede Kamer paper, from its signatures (``tk_records.document_actors``):
+    ``name``, ``function``, ``faction``, ``capacity`` and ``member_key`` as the source
+    gives them, and of a bewindspersoon the ``ministry`` the function names on *date*.
+    None for a paper without such a signature, as every Eerste Kamer paper."""
+    by_role: dict[str, dict[str, Any]] = {}
+    for signature in actors or ():
+        by_role.setdefault(signature.get("role") or "", signature)
+    role = next((r for r in SENDER_ROLES if r in by_role), None)
+    if role is None:
+        return None
+    actor = by_role[role]
+    capacity = actor.get("capacity")
+    function = actor.get("function")
+    person = actor.get("person_id")
+    return {
+        "name": actor.get("name") or None,
+        "function": function,
+        "faction": actor.get("faction") or None,
+        "capacity": capacity,
+        "member_key": make_node_key(str(person)) if person else None,
+        "ministry": (
+            classify_function(function, on=date)[1]
+            if capacity == CAPACITY_GOVERNMENT
+            else None
+        ),
+    }
 
 
 def is_explanatory(kind: str | None) -> bool:
