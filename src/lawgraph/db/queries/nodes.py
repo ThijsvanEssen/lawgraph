@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db._rows import edge_doc, light_props, node_doc
 from lawgraph.db.queries._helpers import _extract_confidence
 
 
@@ -35,7 +35,6 @@ _EDGE_SIDES: dict[Direction, tuple[str, str, str]] = {
     "inbound": ("to_id", "from_id", "from_collection"),
 }
 
-_NODE_COLUMNS = "n.id, n.key, n.type, n.labels, n.props"
 # The columns of a node and an edge as the neighbourhood statement gives them, in order.
 _NODE_FIELDS = ("id", "key", "type", "labels", "props")
 _EDGE_FIELDS = ("key", "from_id", "to_id", "doc")
@@ -250,7 +249,8 @@ def _read_pages(
         parts.append(
             f"""
             SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
-                   e.key AS edge_key, e.from_id, e.to_id, e.doc, {_NODE_COLUMNS}
+                   e.key AS edge_key, e.from_id, e.to_id, e.doc,
+                   n.id, n.key, n.type, n.labels, {light_props("n")} AS props
             FROM unnest(%({direction}_relations)s::text[], %({direction}_collections)s::text[])
                 WITH ORDINALITY AS b(relation, collection, ord)
             CROSS JOIN LATERAL (
@@ -336,7 +336,7 @@ def get_node_neighborhood(
             )
             SELECT
                 (SELECT coalesce(json_agg(json_build_array(
-                     n.id, n.key, n.type, n.labels, n.props) ORDER BY n.id), '[]')
+                     n.id, n.key, n.type, n.labels, {light_props("n")}) ORDER BY n.id), '[]')
                  FROM walked w, nodes n
                  WHERE n.id = ANY(w.ids)
                    -- only the tables of the collections walked to are asked
