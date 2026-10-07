@@ -6,6 +6,7 @@ from __future__ import annotations
 from psycopg.types.json import Jsonb
 
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._chunks import delete_keys
 
 
 def remove_edges_of_source_except(
@@ -13,16 +14,16 @@ def remove_edges_of_source_except(
 ) -> int:
     """Remove the edges of *relation* made by *source* whose key is not in *keep*: for edges
     one pipeline derives in full on every run. How many went."""
-    rows = store.execute(
+    return delete_keys(
+        store,
+        "edges",
         """
-        DELETE FROM edges e
+        SELECT e.key FROM edges e
         WHERE e.relation = %(relation)s AND e.source = %(source)s
           AND NOT EXISTS (SELECT 1 FROM unnest(%(keep)s::text[]) AS k WHERE k = e.key)
-        RETURNING 1
         """,
         {"relation": relation, "source": source, "keep": keep},
     )
-    return len(rows)
 
 
 # The edges of a node that *keep* (``{node id: [edge key, ...]}``, as jsonb) does not name.

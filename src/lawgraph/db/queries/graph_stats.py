@@ -21,6 +21,7 @@ from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._chunks import update_props
 
 
 def _differs(field: str, value: str, *, stored: bool) -> str:
@@ -45,7 +46,9 @@ def _run(
 ) -> int:
     """Count the documents of *table* whose props differ from what *computed* gives (``id``
     and one column per key), or write the keys into them (``lg_update``, D11). *stored*: the
-    table keeps each key in a column ``pj_<key>`` (its props are large)."""
+    table keeps each key in a column ``pj_<key>`` (its props are large). The differing
+    documents are read, then written in chunks: one statement over a whole table of
+    judgments can run past ``LAWGRAPH_WRITE_TIMEOUT_MS``."""
     stale = f"""
         WITH computed AS ({computed}),
         stale AS (
@@ -55,17 +58,9 @@ def _run(
     """
     if dry_run:
         return next(store.query(stale + "SELECT count(*)::int FROM stale", bind), 0)
-    pairs = ", ".join(f"'{k}', s.{k}" for k in keys)
-    rows = store.execute(
-        stale
-        + f"""
-        UPDATE {table} t SET props = lg_update(t.props, json_build_object({pairs}))
-        FROM stale s WHERE t.id = s.id
-        RETURNING 1
-        """,
-        bind,
+    return update_props(
+        store, table, store.query(stale + "SELECT * FROM stale", bind), keys
     )
-    return len(rows)
 
 
 # ``(props -> 'x')`` again for every field, never the whole props into a column: a judgment's

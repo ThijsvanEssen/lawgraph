@@ -6,6 +6,7 @@ from __future__ import annotations
 from psycopg import sql
 
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._chunks import delete_keys
 
 # The rows whose key is not in ``%(keep)s``: an anti-join, not a scan of the list per row
 # (a pipeline keeps hundreds of thousands of keys).
@@ -15,10 +16,10 @@ _NOT_KEPT = "NOT EXISTS (SELECT 1 FROM unnest(%(keep)s::text[]) AS k WHERE k = {
 def remove_nodes_except(store: Store, collection: str, keep: list[str]) -> int:
     """Remove the nodes of *collection* whose key is not in *keep*, for a collection one
     pipeline derives in full; how many went. (The edges at them stay, as they did.)"""
-    statement = sql.SQL(
-        "DELETE FROM {} n WHERE " + _NOT_KEPT.format(key="n.key") + " RETURNING 1"
+    select = sql.SQL(
+        "SELECT n.key FROM {} n WHERE " + _NOT_KEPT.format(key="n.key")
     ).format(sql.Identifier(collection))
-    return len(store.execute(statement, {"keep": keep}))
+    return delete_keys(store, collection, select, {"keep": keep})
 
 
 # Keys removed in one statement.
@@ -29,14 +30,13 @@ def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
     """Remove the nodes *keys* of *collection* with every edge at them; how many nodes went.
     A key without a node is passed over."""
     # The edges first, then the nodes, in one statement: a node never goes without its edges.
+    # ``= ANY`` of a list on both ends: the indexes on from_id and to_id find the edges (an
+    # ``IN`` of a subquery on either end read the whole edges table for every chunk).
     statement = sql.SQL(
         """
-        WITH ids AS (
-            SELECT %(collection)s || '/' || key AS id FROM unnest(%(keys)s::text[]) AS key
-        ),
-        edges_gone AS (
+        WITH edges_gone AS (
             DELETE FROM edges e
-            WHERE e.from_id IN (SELECT id FROM ids) OR e.to_id IN (SELECT id FROM ids)
+            WHERE e.from_id = ANY(%(ids)s::text[]) OR e.to_id = ANY(%(ids)s::text[])
         )
         DELETE FROM {} n WHERE n.key = ANY(%(keys)s::text[])
         RETURNING 1
@@ -45,9 +45,8 @@ def remove_nodes(store: Store, collection: str, keys: list[str]) -> int:
     removed = 0
     for start in range(0, len(keys), _REMOVE_CHUNK):
         chunk = keys[start : start + _REMOVE_CHUNK]
-        removed += len(
-            store.execute(statement, {"keys": chunk, "collection": collection})
-        )
+        ids = [f"{collection}/{key}" for key in chunk]
+        removed += len(store.execute(statement, {"keys": chunk, "ids": ids}))
     return removed
 
 
@@ -122,9 +121,8 @@ def remove_edges_into_except(
 def remove_edges_except(store: Store, relation: str, keep: list[str]) -> int:
     """Remove the edges of *relation* whose key is not in *keep*; how many went. For edges
     one pipeline derives in full on every run, so an edge it no longer derives goes."""
-    statement = f"""
-        DELETE FROM edges e
+    select = f"""
+        SELECT e.key FROM edges e
         WHERE e.relation = %(relation)s AND {_NOT_KEPT.format(key="e.key")}
-        RETURNING 1
     """
-    return len(store.execute(statement, {"relation": relation, "keep": keep}))
+    return delete_keys(store, "edges", select, {"relation": relation, "keep": keep})

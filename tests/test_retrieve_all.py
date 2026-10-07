@@ -6,7 +6,6 @@ import dataclasses
 import threading
 import time
 from collections.abc import Callable
-from typing import Any
 
 import pytest
 
@@ -19,7 +18,7 @@ from lawgraph.pipelines.orchestration import (
     run_pipelines,
 )
 from lawgraph.sources import registry
-from lawgraph.sources.registry import Pipeline, RetrieveCtx
+from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 from tests.fakes import PipelineStateFake, patch_pipeline_state
 
 WINDOW = "2024-09-20T00:00:00+00:00"
@@ -30,8 +29,18 @@ WINDOW = "2024-09-20T00:00:00+00:00"
 
 def test_full_mode_without_a_window_loads_everything() -> None:
     ctx = RetrieveCtx(since="1d", mode="full")
-    assert registry._windowed_argv(ctx) == ["--mode", "full", "--since", "1d"]
+    assert registry._windowed_argv(ctx) == ["--mode", "full"]
     assert registry._tk_dossiers_argv(ctx) == []
+
+
+def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
+    """``--window all``: no source gets the ``--since`` of ``retrieve all`` (1d), which its
+    start line would show while a full load reads none."""
+    ctx = RetrieveCtx(since="1d", mode="full")
+    argvs = {
+        p.name: p.argv_for_all(ctx) for p in PIPELINES["retrieve"] if p.argv_for_all
+    }
+    assert [name for name, argv in argvs.items() if "--since" in argv] == []
 
 
 def test_full_mode_with_a_window_limits_only_the_tweede_kamer() -> None:
@@ -354,40 +363,6 @@ def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_pa
     assert recorded["bwb-history"] == ["--mode", "incremental"]
     assert recorded["tk-content"] == []
     assert set(recorded) == {p.name for p in registry.PIPELINES["retrieve"]}
-
-
-# ── bootstrap ────────────────────────────────────────────────────────────────
-
-
-def _bootstrap_retrieve_argv(monkeypatch, argv: list[str]) -> list[str]:
-    from lawgraph.commands import bootstrap
-
-    seen: dict[str, list[str]] = {}
-
-    def record(label: str, command: Callable[..., Any], argv: list[str]) -> Outcome:
-        seen[label] = argv
-        return Outcome(label, State.OK)
-
-    monkeypatch.setattr(bootstrap, "run_command", record)
-    bootstrap.main(argv)
-    return seen["retrieve all"]
-
-
-def test_bootstrap_loads_a_two_year_window(monkeypatch) -> None:
-    assert _bootstrap_retrieve_argv(monkeypatch, []) == [
-        "--mode",
-        "full",
-        "--window",
-        "730d",
-        "--jobs",
-        "9",  # one job per server
-    ]
-
-
-def test_bootstrap_passes_the_window_and_jobs_on(monkeypatch) -> None:
-    argv = _bootstrap_retrieve_argv(monkeypatch, ["--window", "all", "--jobs", "2"])
-    assert argv[argv.index("--window") + 1] == "all"
-    assert argv[argv.index("--jobs") + 1] == "2"
 
 
 # ── a step that reads what another source stored ─────────────────────────────

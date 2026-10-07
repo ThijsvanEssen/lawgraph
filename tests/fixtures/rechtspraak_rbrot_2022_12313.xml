@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBROT:2022:12313</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-09-09T13:17:51</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-06-04</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Rotterdam" scheme="overheid.RechterlijkeMacht">Rechtbank Rotterdam</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2022-07-28</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">ROT 21/3941</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#tussenuitspraak">Tussenuitspraak</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Rotterdam</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#bestuursrecht">Bestuursrecht</dcterms:subject>
+      <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:RBROT:2022:10632" psi:type="http://psi.rechtspraak.nl/tussenuitspraak" psi:aanleg="http://psi.rechtspraak.nl/latereAanleg">Einduitspraak: ECLI:NL:RBROT:2022:10632</dcterms:relation>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBROT:2022:12313">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBROT:2022:12313</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-06-04T10:40:39</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-06-04</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBROT:2022:12313 Rechtbank Rotterdam , 28-07-2022 / ROT 21/3941</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBROT:2022:12313:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <parablock>
+        <para>Tussenuitspraak. Afwijzen aanvragen exploitatievergunning, drank- en horecawetvergunning en aanwezigheidsvergunning. Motiveringsgebrek. </para>
+        <para>Zie ook ECLI:NL:RBROT:2022:10632 (einduitspraak) en ECLI:NL:RVS:2026:2737 (uitspraak in hoger beroep)</para>
+      </parablock>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBROT:2022:12313:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <para>
+    <emphasis role="bold">RECHTBANK ROTTERDAM</emphasis>
+  </para>
+  <parablock>
+    <para>Bestuursrecht</para>
+  </parablock>
+  <parablock>
+    <para>zaaknummer: ROT 21/3941 </para>
+  </parablock>
+  <bridgehead>
+    <?linebreak?>Tussenuitspraak van de enkelvoudige kamer van 28 juli 2022 in de zaak tussen</bridgehead>
+  <section>
+    <title>
+      <?linebreak?>
+      [naam eiser] , uit [plaats] , eiser</title>
+    <para>(gemachtigde: mr. T. Altindag),</para>
+    <para />
+    <parablock>
+      <para>en</para>
+    </parablock>
+    <para />
+  </section>
+  <section>
+    <title>de burgemeester van de gemeente Schiedam (verweerder)</title>
+    <para>(gemachtigden: [persoon A] en [persoon B] ).</para>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>Inleiding</title>
+    <para />
+    <parablock>
+      <para>In deze uitspraak beoordeelt de rechtbank het beroep van eiser tegen de afwijzing van eisers aanvraag om een exploitatie-, drank- en horecawet- en aanwezigheidsvergunning voor het horecabedrijf [naam horecagelegenheid 1] ( [naam horecagelegenheid 1] ) in het pand [adres 1] te Schiedam.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Verweerder heeft deze aanvraag bij besluit van 15 mei 2020 afgewezen. Met het bestreden besluit van 7 juni 2021 op het bezwaar van eiser is verweerder bij de afwijzing van de aanvraag gebleven.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Verweerder heeft op het beroep gereageerd met een verweerschrift. </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>De rechtbank heeft het beroep op 29 juni 2022 op zitting behandeld. Hieraan hebben deelgenomen: de gemachtigde van eiser en de gemachtigden van verweerder. </para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>Beoordeling door de rechtbank</title>
+    <para />
+    <para>1. De voor de beoordeling van het beroep belangrijke wet- en regelgeving is te vinden in de bijlage bij deze uitspraak. </para>
+    <para />
+    <para>2. Aan de weigering van de vergunningen legt verweerder - kort samengevat – ten grondslag dat:</para>
+    <para>- eiser de gewenste vorm van exploitatie onvoldoende duidelijk heeft gemaakt en redelijkerwijs moet worden aangenomen dat de feitelijke toestand niet in overeenstemming is met de aanvraag waardoor zich een vorm van schijnbeheer voordoet;</para>
+    <para>- eiser (en heer [persoon C] ) niet voldoen aan de eis dat zij niet in enig opzicht van slecht levensgedrag zijn;</para>
+    <para>- valsheid in geschrifte is gepleegd.</para>
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Schijnbeheer en feitelijke toestand</emphasis>
+      </para>
+    </parablock>
+    <para>3. Deze weigeringsgrond baseert verweerder op artikel 27, eerste lid sub b, van de Drank- en Horecawet (DHW). Verweerder wijst erop dat eiser in de aanvraagprocedure onvoldoende en telkens pas nadat vragen werden gesteld minimaal inzicht heeft gegeven in zijn gewenste exploitatie. Dat is volgens verweerder een vorm van schijnbeheer omdat redelijkerwijs moet worden aangenomen dat de feitelijke toestand niet in overeenstemming is met de aanvraag. Er wordt onvoldoende duidelijk gemaakt wat de daadwerkelijke exploitatie gaat zijn; verweerder vermoedt dat eiser ter plaatse een café wil gaan exploiteren. </para>
+    <para />
+    <para>4. Eiser betwist dat sprake is van schijnbeheer. Hij voert aan dat hij de aanvraag naar aanleiding van vragen van verweerder heeft aangevuld en dat duidelijk is dat hij een restaurant wil exploiteren.</para>
+    <para />
+    <para>5. Gelet op de zinsnede ‘redelijkerwijs moet worden aangenomen’ in artikel 27, eerste lid, sub b, van de DHW, kan alleen tot weigering van een vergunning op deze grond worden besloten als daarvoor voldoende objectieve aanknopingspunten bestaan. Een enkel vermoeden is onvoldoende. In dat verband is verder van belang dat verweerder ook de bevoegdheid heeft om handhavend op te treden tegen exploitatie in afwijking van een verleende vergunning. </para>
+    <para>In de aanvraag en in het ondernemingsplan is, evenals in de inschrijving bij de Kamer van Koophandel, vermeld dat eiser voornemens is een restaurant te exploiteren. <?linebreak?>De daarbij verstrekte informatie is, zoals verweerder terecht opmerkt, summier. Verweerder heeft daarom aanvullende informatie gevraagd, zoals een inrichtingstekening en een menukaart. Eiser heeft die informatie alsnog verstrekt. Op zichzelf begrijpt de rechtbank het standpunt van verweerder ter zitting dat het opmerkelijk is dat eiser niet uit zichzelf meer informatie heeft verstrekt. Uiteindelijk is de door verweerder verlangde informatie echter door eiser verstrekt en op basis daarvan ziet de rechtbank onvoldoende objectieve aanknopingspunten voor de conclusie dat redelijkerwijs moet worden aangenomen dat de feitelijke toestand niet met de aanvraag in overeenstemming zal zijn. Er is dan ook geen grond om de DHW-vergunning te weigeren op grond van artikel 27, eerste lid, sub b, van de DHW. </para>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Niet in enig opzicht van slecht levensgedrag zijn en wijze van bedrijfsvoering </emphasis>(<emphasis role="italic">artikel 8, eerste lid, aanhef en onder b, van de DHW en artikel 2:28a, eerste lid aanhef en sub b en tweede lid, aanhef en sub d, van de APV)</emphasis></para>
+    </parablock>
+    <para />
+    <para>6. Verweerder stelt dat eiser en de heer [persoon C] (beoogd leidinggevende van [naam horecagelegenheid 1] ) beiden leidinggevende zijn geweest bij café [naam horecagelegenheid 2] aan de [adres 2] te Schiedam waarvan de exploitatie-, drank- en horeca- en aanwezigheidsvergunning is ingetrokken vanwege slecht levensgedrag. Uit de ter beschikking staande stukken blijkt dat er bij dat café sprake was van misstanden. De omstandigheden die geleid hebben tot de sluiting van [naam horecagelegenheid 2] , de betrokkenheid van eiser en de heer [persoon C] daarbij en de wijze waarop de aanvraag is ingediend zijn volgens verweerder omstandigheden waardoor eiser en de heer [persoon C] niet voldoen aan de eis dat zij niet in enig opzicht van slecht levensgedrag zijn. Verweerder ziet in de wijze van bedrijfsvoering door eiser ook aanleiding de vergunningen te weigeren. </para>
+    <para />
+    <para />
+    <paragroup>
+      <nr>7.1</nr>
+      <para>In een uitspraak van 25 mei 2022 (ECLI:NL:RVS:2022:1493, r.o. 3.2) heeft de Afdeling bestuursrechtspraak van de Raad van State (de Afdeling) - voor zover hier relevant - overwogen dat, anders dan in eerdere rechtspraak, gelet op het specialiteitsbeginsel, zoals neergelegd in artikel 3:4, eerste lid, van de Awb, de feiten en omstandigheden die worden meegewogen in het oordeel over het levensgedrag van de vergunningaanvrager relevant moeten zijn voor de exploitatie van een horecabedrijf. Die feiten en omstandigheden moeten verband houden met de vraag of het horecabedrijf kan worden geëxploiteerd op een wijze die geen gevaar oplevert voor de veiligheid, de openbare orde en het woon- en leefklimaat<emphasis role="italic">.</emphasis> Indien de voorwaarde dat een betrokkene niet in enig opzicht van slecht levensgedrag mag zijn niet nader is gespecificeerd in een wettelijke regeling, beleidsregels of een ander beleidsstuk en de burgemeester een betrokkene zijn levensgedrag in een concreet geval wil tegenwerpen, moet de motivering van de burgemeester in ieder geval aan de volgende eisen voldoen. Ten eerste moet de burgemeester motiveren waarom de feiten en omstandigheden die aan zijn oordeel over het levensgedrag ten grondslag liggen in dat concrete geval relevant zijn voor de exploitatie van een horecabedrijf. Ten tweede moet de burgemeester motiveren hoe de betrokkene vooraf had kunnen weten dat hij, gezien die feiten en omstandigheden, niet aan die voorwaarde voldoet. Daarmee geeft de Afdeling een nadere invulling aan eerdere rechtspraak, waarin werd geoordeeld dat indien de voorwaarde dat een betrokkene niet in enig opzicht van slecht levensgedrag mag zijn niet nader is gespecificeerd, uitsluitend die gedragingen onder de voorwaarde vallen waarvan het voor eenieder evident is dat daarmee niet aan die voorwaarde is voldaan. Verder mag de toepassing van de voorwaarde dat een betrokkene niet in enig opzicht van slecht levensgedrag is op grond van het Unierechtelijke evenredigheidsbeginsel niet verder gaan dan nodig is om te waarborgen dat horecabedrijven worden geëxploiteerd op een wijze die geen gevaar oplevert voor de veiligheid, de openbare orde en het woon- en leefklimaat (artikel 10, tweede lid, aanhef en onder c, van de Dienstenrichtlijn). Dit betekent dat geringe feiten en omstandigheden die te maken hebben met het levensgedrag op zichzelf bezien niet mogen leiden tot een weigering van een vergunning en dat feiten en omstandigheden die wel kunnen leiden tot het oordeel dat de aanvrager van slecht levensgedrag is, niet gedurende een onredelijke lange periode in de weg mogen blijven staan aan verlening van de gevraagde vergunning. De burgemeester moet daarom motiveren waarom de feiten en omstandigheden waarop hij zijn weigering baseert niet gering zijn en waarom zij, ondanks een bepaald tijdsverloop, nog steeds iets zeggen over de betrouwbaarheid van betrokkene om een horecabedrijf op verantwoorde wijze uit te oefenen. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>7.2</nr>
+      <para>Uit de stukken blijkt dat de intrekking van de aan [naam horecagelegenheid 2] verleende vergunningen is gebaseerd op verweerders onderzoek naar sluitingen van twee andere horecagelegenheden van de eigenaar van [naam horecagelegenheid 2] waarbij verweerder tot het oordeel is gekomen dat die sluitingen de eigenaar kunnen worden verweten. Daarmee is de eigenaar volgens verweerder van slecht levensgedrag en daarom zijn de voor exploitatie van [naam horecagelegenheid 2] verleende vergunningen ingetrokken. In het besluit van 19 september 2017 waarbij de vergunningen van [naam horecagelegenheid 2] zijn ingetrokken, is ook een aantal misstanden bij [naam horecagelegenheid 2] genoemd:</para>
+      <para>- twee weken sluiting vanwege een geweldsincident in en voor het bedrijf op <?linebreak?>10 augustus 2015; </para>
+      <para>- bestuurlijke waarschuwingen op 28 juli 2015 en op 30 september 2015 voor het niet voldoen aan in het belang van de sociale hygiëne te stellen eisen en voor het voor publiek geopend zijn zonder dat er een leidinggevende in het bedrijf aanwezig was;</para>
+      <para>- het vermoeden van aanwezigheid van twee prostituees in het horecabedrijf op <?linebreak?>2 maart 2017 en illegaal gokken op 22 april 2017; </para>
+      <para>- op 29 juli 2017 geconstateerde overlast doordat vanuit het horecabedrijf livemuziek hoorbaar was op de openbare weg. </para>
+      <para>Daarnaast zouden zich in het horecabedrijf wapens, drugs en prostituees bevinden. <?linebreak?>Ook wordt er volgens een melding bij het horecabedrijf gesproken over onder andere wapens en de handel in drugs. Voorts bestaat er al gedurende langere periode het vermoeden dat er sprake is van schijnbeheer bij het horecabedrijf [naam horecagelegenheid 2] . </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>7.3</nr>
+      <para>Uit de stukken blijkt dat heer [persoon C] vanaf 7 september 2016 tot 5 december 2016 en eiser vanaf 25 oktober 2016 één van de leidinggevenden bij [naam horecagelegenheid 2] zijn geweest. Dit betekent dat de heer [persoon C] geen leidinggevende was op het moment van de in het besluit van 19 september 2017 door verweerder gestelde misstanden bij [naam horecagelegenheid 2] . <?linebreak?>Voor eiser geldt dat hij naast zeven anderen als leidinggevende geregistreerd was op het moment van de misstanden in 2017. Uit de door verweerder overgelegde rapportages over <?linebreak?>2 maart 2017 en 22 april 2017 blijkt niet dat eiser op die data als leidinggevende aanwezig was. Over de situatie op 29 juli 2017 en van de (anonieme) meldingen over overlast zitten geen stukken in het dossier, zodat evenmin duidelijk is of eiser op die data als leidinggevende aanwezig was. Wat de wijze van bedrijfsvoering van eiser als leidinggevende bij [naam horecagelegenheid 2] was, is ook overigens niet duidelijk. Verder zijn deze misstanden niet concreet aan de intrekking van de vergunningen (en dus de sluiting) van [naam horecagelegenheid 2] ten grondslag gelegd. Dit alles betekent dat verweerders stelling dat eiser betrokken was bij de omstandigheden die hebben geleid tot sluiting van [naam horecagelegenheid 2] , onvoldoende steun vindt in de stukken. Gelet hierop en op het tijdsverloop tussen de incidenten uit 2017 en eisers aanvraag van 12 februari 2020, heeft verweerder de weigering wegens slecht levensgedrag, ook in het licht van de hiervoor genoemde uitspraak van de Afdeling van 25 mei 2022, onvoldoende gemotiveerd. Ook de weigering wegens de wijze van bedrijfsvoering door eiser is door verweerder onvoldoende gemotiveerd.  </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Valsheid in geschrifte (artikel 3, zesde lid, van de Wet Bibob)</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <para>8. Verweerder stelt dat eiser een Bibob-formulier onjuist heeft ingevuld door te verzwijgen dat hij een B.V. op zijn naam heeft staan en dat hij een horecabedrijf in Rotterdam heeft. Gelet daarop is er volgens verweerder sprake van valsheid in geschrifte en dat is een reden voor weigering van de gevraagde vergunningen. </para>
+      <para />
+      <para>9. Niet in geschil is dat het Bibob-formulier niet juist is ingevuld. Eiser stelt nooit de intentie te hebben gehad om deze informatie over de B.V. en/of het horecabedrijf bewust te verzwijgen. Zoals eiser al in de voorfase en ook in de bezwaarprocedure meermaals onder de aandacht van verweerder heeft gebracht, is het Bibob-formulier niet door hem maar door iemand anders namens hem ingevuld (en ondertekend). </para>
+      <para />
+      <para>10. Op grond van artikel 3, zesde lid, van de Wet Bibob gaat het om feiten en omstandigheden die erop wijzen of redelijkerwijs doen vermoeden dat ter verkrijging van de gevraagde vergunningen een strafbaar feit is gepleegd. Eiser is verantwoordelijk en in dat verband is niet relevant dat het Bibob-formulier door een ander is ingevuld en ondertekend. Het gaat er niet om dat valsheid in geschrifte in strafrechtelijke zin is bewezen. Opzet is in dit verband dan ook niet relevant.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>11.1</nr>
+      <para>Verweerder legt aan de weigering van de gevraagde exploitatie- en DHW-vergunningen slechts ten grondslag dat er sprake is van valsheid in geschrifte. Daarmee heeft verweerder niet aannemelijk gemaakt dat eiser het oogmerk heeft gehad verweerder te misleiden door het Bibob-formulier niet juist in te vullen om daarmee de vergunningen te verkrijgen. De rechtbank vindt het ook niet aannemelijk dat eiser dat oogmerk heeft gehad, omdat de op het Bibob-formulier niet vermelde informatie openbaar toegankelijk is via de Kamer van Koophandel. Bovendien heeft verweerder eisers stelling dat die informatie geen grond geeft voor weigering van de vergunningen, niet betwist.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>11.2</nr>
+      <para>Verweerder heeft de exploitatie- en DHW-vergunningen dan ook niet kunnen weigeren op deze grond.  </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Aanwezigheidsvergunning </emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>12.	Een aanwezigheidsvergunning kan - kort samengevat - slechts worden verleend als er een DHW-vergunning is verleend. Nu nog niet vaststaat of verweerder de DHW-vergunning heeft kunnen weigeren, zal de rechtbank bij de einduitspraak in beroep oordelen over verweerders weigering eiser een aanwezigheidsvergunning te verlenen. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Conclusie</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>13.1</nr>
+      <para>Het onder 7.3 geconstateerde motiveringsgebrek is in beginsel te herstellen met een verbeterde motivering. De rechtbank ziet aanleiding om verweerder daartoe in de gelegenheid te stellen. Om het gebrek te herstellen, moet verweerder nader motiveren welke feiten en omstandigheden aan het oordeel over het levensgedrag ten grondslag liggen en waarom die feiten en omstandigheden hier relevant zijn voor de exploitatie van een horecabedrijf en hoe eiser vooraf had kunnen weten dat hij, gezien die feiten en omstandigheden, niet aan die voorwaarde voldoet. Verweerder dient ook te motiveren waarom de feiten en omstandigheden waarop hij zijn weigering baseert niet gering zijn en waarom zij, ondanks het tijdsverloop, nog steeds iets zeggen over de betrouwbaarheid van eiser om een horecabedrijf op verantwoorde wijze uit te oefenen. Verder dient verweerder de weigering wegens de wijze van bedrijfsvoering door eiser nader te motiveren. De rechtbank bepaalt de termijn waarbinnen verweerder de gebreken kan herstellen op acht weken na verzending van deze tussenuitspraak.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>13.2</nr>
+      <para>Verweerder moet op grond van artikel 8:51b, eerste lid, van de Awb én om nodeloze vertraging te voorkomen zo spoedig mogelijk, maar uiterlijk binnen twee weken, meedelen aan de rechtbank of hij gebruik maakt van de gelegenheid het gebrek te herstellen. Als verweerder gebruik maakt van die gelegenheid, zal de rechtbank eiser in de gelegenheid stellen binnen vier weken te reageren op de herstelpoging van verweerder. In beginsel, ook in de situatie dat verweerder de hersteltermijn ongebruikt laat verstrijken, zal de rechtbank zonder tweede zitting uitspraak doen op het beroep.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>13.3</nr>
+      <para>De rechtbank houdt iedere verdere beslissing aan tot de einduitspraak op het beroep. Dat laatste betekent ook dat zij over de proceskosten en het griffierecht nu nog geen beslissing neemt.</para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>Beslissing</title>
+    <para />
+    <parablock>
+      <para>De rechtbank:</para>
+    </parablock>
+    <para />
+    <para>- stelt verweerder in de gelegenheid om binnen acht weken na verzending van deze tussenuitspraak het gebrek te herstellen met inachtneming van de overwegingen en aanwijzingen in deze tussenuitspraak; </para>
+    <para>- houdt iedere verdere beslissing aan.</para>
+    <para />
+    <parablock>
+      <para>Deze tussenuitspraak is gedaan door mr. A.C. Rop, rechter, in aanwezigheid van </para>
+      <para>mr. M. Traousis-van Wingaarden, griffier. De uitspraak is uitgesproken in het openbaar op 28 juli 2022.</para>
+    </parablock>
+    <para />
+    <para />
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">De griffier is verhinderd de</emphasis>
+      </para>
+      <para>
+        <emphasis role="italic">uitspraak te ondertekenen.</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <para />
+    <informaltable>
+      <tgroup cols="2">
+        <colspec colname="colA" />
+        <colspec colname="colB" />
+        <tbody>
+          <row>
+            <entry>
+              <para>griffier</para>
+            </entry>
+            <entry>
+              <para>rechter</para>
+            </entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </informaltable>
+    <para />
+    <para />
+    <parablock>
+      <para>Een afschrift van deze uitspraak is verzonden aan partijen op:</para>
+    </parablock>
+    <para />
+  </section>
+  <section>
+    <title>Rechtsmiddel</title>
+    <para>Tegen deze tussenuitspraak staat nog geen hoger beroep open. Tegen deze tussenuitspraak kan hoger beroep worden ingesteld tegelijkertijd met hoger beroep tegen de (eventuele) einduitspraak in deze zaak.</para>
+    <para />
+  </section>
+  <section>
+    <title>Bijlage</title>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">APV</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Artikel 1:8, eerste lid: </para>
+      <para>Een vergunning of ontheffing kan worden geweigerd in het belang van:</para>
+    </parablock>
+    <para>a. de openbare orde;</para>
+    <para>b. de openbare veiligheid;</para>
+    <para>c. de volksgezondheid;</para>
+    <para>d. de bescherming van het milieu</para>
+    <para />
+    <parablock>
+      <para>Artikel 2:28a, eerste lid aanhef en onder b en tweede lid, aanhef en onder d </para>
+    </parablock>
+    <para>1. Onverminderd het bepaalde in artikel 1: 8 weigert de burgemeester de vergunning, indien:</para>
+    <para>b. de exploitant(-en) of leidinggevende(n) niet voldoen aan de eisen die bij en krachtens artikel 8, eerste en tweede lid, van de Drank- en Horecawet worden gesteld, (...).</para>
+    <para>2. Onverminderd het bepaalde in artikel 1:8 kan de burgemeester de vergunning geheel of</para>
+    <para>gedeeltelijk weigeren, indien naar zijn oordeel de woon- en leefsituatie in de omgeving van het horecabedrijf en/of de openbare orde op ontoelaatbare wijze nadelig wordt beïnvloed. Bij toepassing van deze weigeringsgrond houdt de burgemeester rekening met:</para>
+    <para>d. de wijze van bedrijfsvoering van de exploitant(en) en leidinggevende(n) van het horecabedrijf in dit horecabedrijf of in andere horecabedrijven.</para>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Drank- en Horecawet</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Artikel 8, eerste en tweede lid</para>
+    </parablock>
+    <para>1. Leidinggevenden van het horecabedrijf en het slijtersbedrijf voldoen aan de volgende eisen:</para>
+    <para>a. zij hebben de leeftijd van eenentwintig jaar bereikt;</para>
+    <para>b. zij zijn niet in enig opzicht van slecht levensgedrag;</para>
+    <para>c. zij mogen niet onder curatele staan.</para>
+    <para>2 Bij of krachtens algemene maatregel van bestuur worden naast de in het eerste lid gestelde eisen andere eisen ten aanzien van het zedelijk gedrag van leidinggevenden gesteld en kan de in dat lid, onder b, gestelde eis nader worden omschreven.</para>
+    <para />
+    <parablock>
+      <para>Artikel 27, eerste lid, sub b en derde lid </para>
+    </parablock>
+    <para>1. Een vergunning wordt geweigerd indien:</para>
+    <para>b. redelijkerwijs moet worden aangenomen, dat de feitelijke toestand niet met het in de aanvrage vermelde in overeenstemming zal zijn;;</para>
+    <para>3. Een vergunning kan worden geweigerd in het geval en onder de voorwaarden, bedoeld in artikel 3 van de Wet bevordering integriteitsbeoordelingen door het openbaar bestuur.</para>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Wet Bibob</emphasis>
+      </para>
+      <para>Artikel 3, eerste en zesde lid</para>
+    </parablock>
+    <para>1. Voorzover bestuursorganen bij of krachtens de wet daartoe de bevoegdheid hebben gekregen, kunnen zij weigeren een aangevraagde beschikking te geven dan wel een gegeven beschikking intrekken, indien ernstig gevaar bestaat dat de beschikking mede zal worden gebruikt om:</para>
+    <para>a. uit gepleegde strafbare feiten verkregen of te verkrijgen, op geld waardeerbare voordelen te benutten, of</para>
+    <para>b. strafbare feiten te plegen.</para>
+    <para>6. Eenzelfde bevoegdheid tot weigering dan wel intrekking als bedoeld in het eerste lid hebben bestuursorganen, indien feiten en omstandigheden erop wijzen of redelijkerwijs doen vermoeden dat ter verkrijging of behoud van de aangevraagde dan wel gegeven beschikking een strafbaar feit is gepleegd. De weigering dan wel intrekking vindt slechts plaats, indien deze tenminste evenredig is met, ingeval van vermoedens, de ernst daarvan en met de ernst van het strafbare feit. </para>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">Wok</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Artikel 30c, eerste lid onder 1</para>
+    </parablock>
+    <para>1. De vergunning kan slechts worden verleend, indien zij betreft het aanwezig hebben van een of meer kansspelautomaten:</para>
+    <para>a.in een hoogdrempelige inrichting.</para>
+    <para />
+    <parablock>
+      <para>Artikel 30 aanhef en onder d </para>
+      <para>In deze wet en de daarop berustende bepalingen wordt verstaan onder:</para>
+    </parablock>
+    <para>d. hoogdrempelige inrichting: een inrichting als bedoeld in artikel 1, eerste lid, van de Alcoholwet, waarin rechtmatig het horecabedrijf als bedoeld in dat artikellid wordt uitgeoefend:</para>
+    <parablock>
+      <para>1°.waar het café en het restaurantbezoek op zichzelf staat en waar geen andere activiteiten plaatsvinden, waaraan een zelfstandige betekenis kan worden toegekend en</para>
+      <para>2°.waarvan de activiteiten in belangrijke mate gericht zijn op personen van 18 jaar en ouder.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Artikel 30 e, eerste lid onder a</para>
+    </parablock>
+    <para>1. De vergunning wordt geweigerd indien:</para>
+    <para>a. door het verlenen der vergunning zou worden afgeweken van het bij of krachtens artikel 30c bepaalde</para>
+  </section>
+</uitspraak>
+</open-rechtspraak>

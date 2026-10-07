@@ -4,6 +4,7 @@ did from ArangoDB."""
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import psycopg
 import pytest
@@ -248,8 +249,60 @@ def test_indexes_only_holds_for_its_own_statement(store: GraphStore) -> None:
         assert list(store.query(setting)) == ["on"]
 
 
+def test_hash_joins_holds_for_its_own_statement(store: GraphStore) -> None:
+    setting = "SELECT current_setting('enable_nestloop')"
+    assert list(store.query(setting, hash_joins=True)) == ["off"]
+    for _ in range(3):
+        assert list(store.query(setting)) == ["on"]
+
+
 def test_the_connections_of_the_pool_run_without_jit(store: GraphStore) -> None:
     with store.pool.connection() as conn:
         assert conn.execute("SHOW jit").fetchone() == ("off",)
     # and so do the reads of the store, on whichever connection they get
     assert list(store.query("SELECT current_setting('jit')")) == ["off"]
+
+
+def test_a_read_has_a_ceiling_of_its_own_and_says_so(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``LAWGRAPH_READ_TIMEOUT_MS`` holds for every statement of a read; one that runs past
+    it is cancelled with an error that names the setting and the statement."""
+    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 1234)
+    assert list(store.query("SELECT current_setting('statement_timeout')")) == [
+        "1234ms"
+    ]
+    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 200)
+    with pytest.raises(store_module.ReadTimedOut, match="LAWGRAPH_READ_TIMEOUT_MS"):
+        list(store.query("SELECT pg_sleep(2) AS slept"))
+    # the connection goes back as it was: the next read runs
+    assert list(store.query("SELECT 1")) == [1]
+
+
+def test_own_activity_names_the_long_statements_of_this_process(
+    store: GraphStore,
+) -> None:
+    import threading
+    import time
+
+    sleeper = threading.Thread(
+        target=lambda: list(store.query("SELECT pg_sleep(3) AS watched_sleep"))
+    )
+    sleeper.start()
+    try:
+        found: list[dict[str, Any]] = []
+        for _ in range(40):
+            found = [
+                row
+                for row in store_module.own_activity(0.5)
+                if "watched_sleep" in row["query"]
+            ]
+            if found:
+                break
+            time.sleep(0.1)
+    finally:
+        sleeper.join()
+    # a streamed read runs as a FETCH; the watchdog names the read behind it
+    assert found and found[0]["state"] == "active"
+    assert found[0]["query"].startswith("FETCH")
+    assert "a read of: SELECT pg_sleep(3) AS watched_sleep" in found[0]["query"]

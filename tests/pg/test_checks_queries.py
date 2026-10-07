@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
+from lawgraph.config.constants import (
+    RAW_KIND_ECHR_JUDGMENT,
+    RAW_KIND_TK_ZAAK,
+    SOURCE_ECHR,
+    SOURCE_TK,
+)
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import checks as check_queries
 
@@ -83,3 +88,27 @@ def test_echr_judgments_per_ecli(store: GraphStore) -> None:
         ]
     )
     assert check_queries.count_echr_judgments_in_raw(store) == 2
+
+
+def test_tk_cases_in_raw_leave_out_the_deleted_and_those_without_an_id(
+    store: GraphStore,
+) -> None:
+    def record(key: str, payload: dict[str, object]) -> dict[str, object]:
+        return raw_source_doc(
+            source=SOURCE_TK,
+            kind=RAW_KIND_TK_ZAAK,
+            external_id=key,
+            payload_json=payload,
+        )
+
+    store.insert_raw_sources(
+        [
+            record("1", {"Id": "z1", "Soort": "Motie"}),
+            record("2", {"Id": "z2", "Verwijderd": False}),
+            record("3", {"Id": "z3", "Verwijderd": True}),  # the Kamer deleted it
+            record("4", {"Id": "z4", "Verwijderd": "true"}),  # not the boolean: a case
+            record("5", {"Id": " ", "Soort": "Motie"}),  # no id: no case
+            record("6", {"ZaakNummer": "2026Z01234"}),
+        ]
+    )
+    assert check_queries.count_tk_cases_in_raw(store) == 4

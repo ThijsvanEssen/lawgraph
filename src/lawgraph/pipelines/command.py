@@ -43,6 +43,7 @@ from lawgraph.core.logging import get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import GraphStore
+from lawgraph.pipelines.watchdog import watched
 from lawgraph.pipelines.watermark import LAST
 
 logger = get_logger(__name__)
@@ -137,8 +138,9 @@ class Outcome:
 def run_command(
     label: str, command: Command, argv: list[str], *, description: str = ""
 ) -> Outcome:
-    """Run ``command(argv)`` as the step *label*; never raises for what the step did wrong."""
-    with log_step(label):
+    """Run ``command(argv)`` as the step *label*; never raises for what the step did wrong.
+    While it runs, the watchdog names it in the log every ``LAWGRAPH_WATCHDOG_MINUTES``."""
+    with log_step(label), watched(label):
         said = ": ".join(filter(None, ["Starting", description.rstrip(".")]))
         logger.info("%s%s", said, f" ({' '.join(argv)})." if argv else ".")
         started = time.monotonic()
@@ -174,6 +176,7 @@ def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
         total.updated += outcome.result.updated
         total.unchanged += outcome.result.unchanged
         total.skipped += outcome.result.skipped
+        total.notes += [f"{outcome.label}: {note}" for note in outcome.result.notes]
         if outcome.state is State.FAILED:
             total.add_error(f"{outcome.label} failed")
     return total

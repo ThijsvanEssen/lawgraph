@@ -10,6 +10,7 @@ from typing import Any
 from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    RELATION_RELATED_TO,
     RELATION_SAME_AS,
 )
 from lawgraph.core.identifiers import find_eclis
@@ -36,6 +37,7 @@ class JudgmentDetailData:
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     # the other publications of the same decision (SAME_AS, either way), as slim documents
     same_as: list[dict[str, Any]] = field(default_factory=list)
+    related_to: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
@@ -97,6 +99,9 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         ),
         same_as=_linked_judgments(
             store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
+        ),
+        related_to=_linked_judgments(
+            store, judgment_doc["_id"], RELATION_RELATED_TO, both_ways=True
         ),
         metadata=metadata,
         series=[

@@ -338,6 +338,24 @@ def test_a_text_hudoc_answers_http_500_for_is_skipped_and_remembered() -> None:
     assert missing["meta"]["status"] == 500
 
 
+def test_a_text_hudoc_answers_http_204_for_is_skipped_and_remembered() -> None:
+    """HUDOC answers HTTP 204, an empty body, for some items (001-168072): no text, not a
+    failure, so a daily run does not fail on them every day."""
+    client = _client([{"results": []}], [])
+
+    def empty(item_id: str) -> str:
+        raise _http_error(204)
+
+    client.fetch_document_xml = empty  # type: ignore[method-assign]
+    store = _StoredBefore()
+    result = ECHRRetrievePipeline(store=store, client=client).run(respondent="NLD")
+
+    assert result.errors == [] and result.skipped == 1
+    (missing,) = store.stored
+    assert missing["kind"] == "echr-judgment-docx-xml-missing"
+    assert missing["meta"]["status"] == 204
+
+
 def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
     class ManyStored(_Store):
         items = [
