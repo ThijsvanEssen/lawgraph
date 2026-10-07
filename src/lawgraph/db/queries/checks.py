@@ -11,6 +11,7 @@ from psycopg import sql
 
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
+    RAW_KIND_TK_ZAAK,
     SOURCE_BWB,
     SOURCE_ECHR,
     SOURCE_TK,
@@ -52,6 +53,25 @@ def count_echr_judgments_in_raw(store: Store) -> int:
         ) judgments
         """
     bind = {"source": SOURCE_ECHR, "kind": RAW_KIND_ECHR_JUDGMENT}
+    return next(store.query(statement, bind), 0)
+
+
+def count_tk_cases_in_raw(store: Store) -> int:
+    """How many Zaak records make a case (``tk_records.case``): those with an id that the
+    Kamer did not delete. A full retrieve reads the change feed, deletions too (a record
+    with its id and ``Verwijderd: true`` alone), and ``normalize tk`` makes no node of them."""
+    statement = """
+        SELECT count(*)::int FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s
+          AND NOT coalesce(json_typeof(doc -> 'payload_json' -> 'Verwijderd') = 'boolean'
+                           AND doc -> 'payload_json' ->> 'Verwijderd' = 'true', false)
+          AND coalesce(
+                nullif(btrim(doc -> 'payload_json' ->> 'Id'), ''),
+                nullif(btrim(doc -> 'payload_json' ->> 'ZaakId'), ''),
+                nullif(btrim(doc -> 'payload_json' ->> 'ZaakNummer'), '')
+              ) IS NOT NULL
+        """
+    bind = {"source": SOURCE_TK, "kind": RAW_KIND_TK_ZAAK}
     return next(store.query(statement, bind), 0)
 
 

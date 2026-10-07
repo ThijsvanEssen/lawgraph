@@ -82,6 +82,6 @@ def test_a_normalize_that_is_behind_is_still_reported(
 
     (line,) = _echr_lines(check(store, edges=False).problems)
     assert line.startswith(
-        "echr: 32 echr-judgment-json records, 16 distinct, and 10 nodes"
+        "echr: 32 echr-judgment-json records (16 make a node) and 10 nodes"
     )
     assert "normalize echr" in line
