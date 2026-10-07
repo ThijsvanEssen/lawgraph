@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import contextvars
 import threading
+import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
@@ -203,19 +204,90 @@ def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list
     Each call runs in a copy of the caller's context, so the deadline of a request
     (``store.read_time_left``) holds in the thread too; the caller waits for them no longer
     than that deadline (``ReadTimedOut``: a 503, while the calls end at their own statement
-    timeout). A call from a thread of *pool* itself runs the calls there, one after the
-    other: the pool is shared by every request, and a thread of it waiting for the others
-    could wait for itself."""
+    timeout). The pool is shared by every request: a call for which no thread of it is
+    free runs in the caller's own thread, so that a request never queues behind the slow
+    queries of others, and a call from a thread of *pool* itself runs there (waiting for
+    the others, it could wait for itself)."""
     prefix = getattr(pool, "_thread_name_prefix", "")
     if prefix and threading.current_thread().name.startswith(prefix):
         return [call() for call in calls]
-    futures = [pool.submit(contextvars.copy_context().run, call) for call in calls]
-    done, waiting = wait(futures, timeout=read_time_left())
+    free = _free_threads(pool)
+    futures: list[Future[T] | None] = []
+    for call in calls:
+        if free.acquire(blocking=False):
+            futures.append(
+                pool.submit(contextvars.copy_context().run, _releasing, free, call)
+            )
+        else:
+            futures.append(None)
+    results: dict[int, T] = {
+        n: call()
+        for n, (call, future) in enumerate(zip(calls, futures, strict=True))
+        if future is None
+    }
+    submitted = [future for future in futures if future is not None]
+    done, waiting = wait(submitted, timeout=read_time_left())
     if waiting:
         raise ReadTimedOut(
             "The request ran past its deadline waiting for queries run side by side."
         )
-    return [future.result() for future in futures]
+    return [
+        results[n] if future is None else future.result()
+        for n, future in enumerate(futures)
+    ]
+
+
+# The threads of each shared pool not running a call now (``side_by_side``).
+_free: dict[int, threading.BoundedSemaphore] = {}
+_free_lock = threading.Lock()
+
+
+def _free_threads(pool: ThreadPoolExecutor) -> threading.BoundedSemaphore:
+    with _free_lock:
+        if id(pool) not in _free:
+            _free[id(pool)] = threading.BoundedSemaphore(pool._max_workers)
+        return _free[id(pool)]
+
+
+def _releasing(free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
+    thread = threading.current_thread().name
+    with _free_lock:
+        _busy[thread] = (_call_name(call), time.monotonic())
+    try:
+        return call()
+    finally:
+        with _free_lock:
+            _busy.pop(thread, None)
+        free.release()
+
+
+# What each thread of the shared pools runs now, and since when (``busy_calls``).
+_busy: dict[str, tuple[str, float]] = {}
+
+
+def _call_name(call: Callable[..., Any]) -> str:
+    """The function a call runs: its module and name (a lambda by where it is written)."""
+    code = getattr(call, "__code__", None)
+    module = getattr(call, "__module__", "") or ""
+    name = getattr(call, "__qualname__", None) or type(call).__name__
+    if code is not None and name.endswith("<lambda>"):
+        return f"{module}.{name}:{code.co_firstlineno}"
+    return f"{module}.{name}"
+
+
+def busy_calls() -> list[dict[str, Any]]:
+    """The calls the threads of the shared pools run now, the longest first: ``thread``,
+    ``call`` and ``seconds`` (``/api/health``)."""
+    now = time.monotonic()
+    with _free_lock:
+        running = list(_busy.items())
+    return sorted(
+        (
+            {"thread": thread, "call": name, "seconds": round(now - began, 1)}
+            for thread, (name, began) in running
+        ),
+        key=lambda call: -call["seconds"],
+    )
 
 
 def chamber_sql(alias: str) -> str:

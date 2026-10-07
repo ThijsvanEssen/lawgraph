@@ -22,6 +22,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from typing import Any, TypeVar
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 import psycopg
 from psycopg import sql
@@ -181,6 +182,24 @@ def _rows(cursor: psycopg.Cursor[Any]) -> RowMaker[Any]:
 
 def _server_url(database: str) -> str:
     return f"{DB_URL.rstrip('/')}/{database}"
+
+
+def redacted(text: str, url: str | None = None) -> str:
+    """*text* with the credentials of *url* (``DB_URL`` by default) masked: the URL itself as
+    ``scheme://***@host:port`` and its password wherever else it appears (an error message
+    that repeats it)."""
+    url = DB_URL if url is None else url
+    parts = urlsplit(url)
+    if parts.username is None and parts.password is None:
+        return text
+    host = parts.netloc.rpartition("@")[2]
+    text = text.replace(url, urlunsplit(parts._replace(netloc=f"***@{host}")))
+    password = parts.password
+    if password:
+        # As written in the URL (quoted) and as a message may repeat it (decoded).
+        for secret in {password, unquote(password)}:
+            text = text.replace(secret, "***")
+    return text
 
 
 def _create_database_if_missing() -> None:
@@ -364,8 +383,10 @@ class GraphStore:
             if getattr(self, "pool", None) is not None:
                 self.pool.close()  # its workers would go on connecting
             raise ConnectionError(
-                f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
-                f"Original error: {exc}"
+                redacted(
+                    f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
+                    f"Original error: {exc}"
+                )
             ) from exc
 
         self.payloads: PayloadStore = open_payload_store(
@@ -405,6 +426,25 @@ class GraphStore:
                     kwargs={"application_name": APPLICATION_NAME},
                 )
             return self._background_pool
+
+    def pool_usage(self) -> dict[str, dict[str, int] | None]:
+        """Per pool (``requests``, ``background``; null before the background one opened)
+        its connections, how many are free and how many reads wait for one."""
+
+        def usage(pool: ConnectionPool | None) -> dict[str, int] | None:
+            if pool is None:
+                return None
+            stats = pool.get_stats()
+            return {
+                "size": stats.get("pool_size", 0),
+                "free": stats.get("pool_available", 0),
+                "waiting": stats.get("requests_waiting", 0),
+            }
+
+        return {
+            "requests": usage(self.pool),
+            "background": usage(self._background_pool),
+        }
 
     def ping(self) -> None:
         """Raise when the database cannot be reached."""

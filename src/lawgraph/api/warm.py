@@ -1,7 +1,8 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
-statistics of the search and the pages of the newest cabinets. Off with
+statistics of the search, the pages of the newest cabinets and the first page of the
+judgments of the largest areas of law. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
@@ -50,6 +51,21 @@ def _warm_cabinets(store: GraphStore) -> None:
         get_cabinet(store, item["cabinet"]["_key"])
 
 
+# The main areas of law with the most judgments, whose first page with facets is warmed
+# (each counts the facets over every judgment of the area).
+WARM_SUBJECT_AREAS = 5
+
+
+def _warm_subject_areas(store: GraphStore) -> None:
+    listed = get_judgments_list(store, JudgmentFilters(), limit=1)
+    areas = (listed.get("facets") or {}).get("subject_area") or []
+    for area in areas[:WARM_SUBJECT_AREAS]:
+        if area.get("value"):
+            get_judgments_list(
+                store, JudgmentFilters(subject_area=area["value"]), limit=20
+            )
+
+
 def warm_up(store: GraphStore) -> None:
     """Compute what every visitor asks: each part on its own, so one that fails leaves the
     others; then the version it was done for is kept (``is_warm``)."""
@@ -76,6 +92,7 @@ def warm_up(store: GraphStore) -> None:
             for kind in FEED_KINDS
         },
         "cabinets": lambda: _warm_cabinets(store),
+        "judgments by area of law": lambda: _warm_subject_areas(store),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):

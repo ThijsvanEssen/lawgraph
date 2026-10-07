@@ -186,3 +186,12 @@ def test_computing_says_whether_an_answer_is_on_its_way(store: GraphStore) -> No
     release.set()
     waiter.join()
     assert not version_cache.computing(store)
+
+
+def test_lasting_rows_are_kept_when_the_data_changes(store: GraphStore) -> None:
+    """A facet of a filter: kept its ``max_age``, not per data version."""
+    statement = "SELECT count(*)::int FROM instruments"
+    assert version_cache.lasting_rows(store, statement, max_age=3600) == [0]
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    assert version_cache.lasting_rows(store, statement, max_age=3600) == [0]
+    assert version_cache.lasting_rows(store, statement, max_age=0) == [1]
