@@ -25,6 +25,8 @@ K1 = 1.2
 B = 0.75
 # The rows a large table's mean field lengths are taken from (``_stats``).
 SAMPLE_ROWS = 20_000
+# A field found fewer times in the sample is measured over the whole table (``_stats``).
+MIN_SAMPLED = 100
 
 # The statistics of a table and the document frequencies of terms are kept per data version
 # (``version_cache``): on the full graph they take a minute, and change only with the data.
@@ -54,9 +56,11 @@ def _length(field: str, analyzer: str) -> str:
 
 def _stats(store: Any, table: str) -> dict[str, float]:
     """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
-    large table ``N`` is the planner's count (``pg_class.reltuples``) and the means are
-    those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time: counting a million
-    judgments takes minutes from disk, and BM25 does not tell the difference."""
+    large table these are estimates: ``N`` is the planner's count (``pg_class.reltuples``)
+    and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
+    as counting a million judgments takes minutes from disk. A field the sample holds
+    fewer than ``MIN_SAMPLED`` times (the names of a judgment: a few hundred of a million)
+    is measured over the whole table, which reads that field alone."""
 
     def count() -> dict[str, float]:
         names = [
@@ -64,27 +68,41 @@ def _stats(store: Any, table: str) -> dict[str, float]:
             for field, analyzers in SEARCH_FIELDS[table].items()
             for analyzer in analyzers
         ]
-        means = [
-            f"avg(nullif({_length(*name.split('/'))}, 0))::float AS a{n}"
-            for n, name in enumerate(names)
-        ]
         estimate = _estimated_rows(store, table)
-        sample = ""
-        if estimate >= SAMPLE_ROWS * 5:
-            percent = 100.0 * SAMPLE_ROWS / estimate
-            sample = f" TABLESAMPLE SYSTEM ({percent:.6f}) REPEATABLE (0)"
-        row = next(
-            store.query(
-                f"SELECT count(*)::float AS n, {', '.join(means)} FROM {table} doc"
-                + sample
-            )
+        if estimate < SAMPLE_ROWS * 5:
+            n, means, _ = _means(store, table, names, "")
+            return {"N": n, **means}
+        percent = 100.0 * SAMPLE_ROWS / estimate
+        _, means, seen = _means(
+            store, table, names, f" TABLESAMPLE SYSTEM ({percent:.6f}) REPEATABLE (0)"
         )
-        found = {"N": estimate if sample else float(row["n"] or 0)}
-        for n, name in enumerate(names):
-            found[name] = float(row[f"a{n}"] or 1.0)
-        return found
+        rare = [name for name in names if seen[name] < MIN_SAMPLED]
+        if rare:
+            means.update(_means(store, table, rare, "")[1])
+        return {"N": estimate, **means}
 
     return cached(store, ("bm25-stats", table), count)
+
+
+def _means(
+    store: Any, table: str, names: list[str], sample: str
+) -> tuple[float, dict[str, float], dict[str, int]]:
+    """The rows of *table* (or of its *sample*), and per name the mean length over the rows
+    that have the field (1 when none has it) and how many have it."""
+    lengths = [_length(*name.split("/")) for name in names]
+    columns = [
+        f"avg(nullif({length}, 0))::float AS a{n}, count(nullif({length}, 0)) AS c{n}"
+        for n, length in enumerate(lengths)
+    ]
+    row = next(
+        store.query(
+            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} doc"
+            + sample
+        )
+    )
+    means = {name: float(row[f"a{n}"] or 1.0) for n, name in enumerate(names)}
+    seen = {name: int(row[f"c{n}"]) for n, name in enumerate(names)}
+    return float(row["n"] or 0), means, seen
 
 
 def _estimated_rows(store: Any, table: str) -> float:

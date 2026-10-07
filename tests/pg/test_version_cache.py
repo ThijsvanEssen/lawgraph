@@ -165,3 +165,24 @@ def test_outside_a_request_the_new_answer_is_waited_for(
         return "new"
 
     assert version_cache.cached(store, ("warm",), slow) == "new"
+
+
+def test_computing_says_whether_an_answer_is_on_its_way(store: GraphStore) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow() -> str:
+        started.set()
+        release.wait(5)
+        return "answer"
+
+    assert not version_cache.computing(store)
+    waiter = threading.Thread(
+        target=lambda: version_cache.cached(store, ("busy",), slow)
+    )
+    waiter.start()
+    started.wait(5)
+    assert version_cache.computing(store)
+    release.set()
+    waiter.join()
+    assert not version_cache.computing(store)

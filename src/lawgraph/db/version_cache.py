@@ -45,7 +45,7 @@ WORKERS = 3
 _lock = threading.Lock()
 _versions: dict[str, tuple[str | None, float]] = {}  # database -> (version, read at)
 _values: OrderedDict[Hashable, Any] = OrderedDict()
-_running: dict[Hashable, concurrent.futures.Future[Any]] = {}
+_running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]] = {}
 # The last answer per (database, key), of whatever version: what a request takes while the
 # answer of a new version computes.
 _latest: OrderedDict[Hashable, Any] = OrderedDict()
@@ -66,6 +66,7 @@ _wanted: dict[
 ] = {}  # database -> (store, due, version)
 _warm_wake = threading.Condition(_lock)
 _warm_worker: threading.Thread | None = None
+_warming: set[str] = set()  # the databases a warm-up runs for now
 
 
 def on_new_version(warm: Callable[[Any], None]) -> None:
@@ -122,10 +123,27 @@ def _warm_forever() -> None:
             continue
         with _lock:
             warmers = list(_warmers)
-        for function in warmers:
-            _quietly(function, store)
+            _warming.add(name)
+        try:
+            for function in warmers:
+                _quietly(function, store)
+        finally:
+            with _lock:
+                _warming.discard(name)
         if superseded(store, version):
             warm(store)
+
+
+def computing(store: Any) -> bool:
+    """Whether anything is computed for *store* now: a warm-up that waits or runs, or an
+    answer of the cache (``/api/health``: a newer version is on its way)."""
+    name = str(getattr(store, "name", ""))
+    with _lock:
+        return (
+            name in _wanted
+            or name in _warming
+            or any(entry[0][0] == name for entry in _running)
+        )
 
 
 def _quietly(function: Callable[[Any], None], store: Any) -> None:

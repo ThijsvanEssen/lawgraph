@@ -28,6 +28,11 @@ logger = get_logger(__name__)
 _warmed: str | None = None
 
 
+def warmed_version() -> str | None:
+    """The data version the last warm-up was done for."""
+    return _warmed
+
+
 def is_warm(store: GraphStore) -> bool:
     """Whether the warm-up is done for the data as it is now."""
     return _warmed is not None and _warmed == store.data_version()

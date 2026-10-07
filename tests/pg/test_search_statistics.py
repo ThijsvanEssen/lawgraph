@@ -14,7 +14,11 @@ def _instrument(n: int) -> dict[str, object]:
         "_key": f"i{n}",
         "type": "instrument",
         "labels": [],
-        "props": {"title": "wet op de " + " ".join(["regel"] * (n % 5 + 1))},
+        "props": {
+            "title": "wet op de " + " ".join(["regel"] * (n % 5 + 1)),
+            # a field few have, as the names of a judgment
+            **({"aliases": ["WA", "WB", "WC"]} if n % 500 == 0 else {}),
+        },
     }
 
 
@@ -38,6 +42,7 @@ def test_a_large_table_is_sampled_the_same_every_time(
     _fill(store, 2000)
     counted = _bm25._stats(store, "instruments")
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 100)
+    monkeypatch.setattr(_bm25, "MIN_SAMPLED", 10)
     statements: list[str] = []
     query = store.query
 
@@ -56,5 +61,8 @@ def test_a_large_table_is_sampled_the_same_every_time(
     assert any("TABLESAMPLE SYSTEM" in s for s in statements)
     assert sampled["N"] == pytest.approx(2000, rel=0.05)  # the planner's count
     assert sampled["title/text"] == pytest.approx(counted["title/text"], rel=0.25)
+    # too rare for the sample: measured over the whole table
+    assert counted["aliases/identity"] == 3
+    assert sampled["aliases/identity"] == 3
     assert again["N"] == pytest.approx(sampled["N"], rel=0.01)
     assert again["title/text"] == pytest.approx(sampled["title/text"], rel=0.05)
