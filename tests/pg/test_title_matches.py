@@ -1,17 +1,19 @@
 """The Staatsblad and Staatscourant publications matched to an instrument by title, on a real
 PostgreSQL: the pieces of a title find the same instrument as testing every title against
-every publication, and do so on thousands of publications and tens of thousands of
-instruments in seconds."""
+every publication, and on thousands of publications and tens of thousands of instruments
+test only a small share of those pairs, in one statement per source."""
 
 from __future__ import annotations
 
 import random
-import time
 from typing import Any
+
+from psycopg import sql
 
 from lawgraph.config.constants import SOURCE_STAATSBLAD, SOURCE_STAATSCOURANT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.store import _query
 
 # Every title against every publication: what the query found before, and must still find.
 _EVERY_TITLE = """
@@ -109,11 +111,51 @@ def test_the_pieces_of_a_title_find_what_every_title_found(store: GraphStore) ->
             assert len(expected) > 50
 
 
-def test_thousands_of_publications_are_matched_in_seconds(store: GraphStore) -> None:
-    _graph(store, random.Random(11), pubs=3_000, instruments=30_000)
-    started = time.monotonic()
+def _tested_pairs(node: dict[str, Any]) -> float:
+    """The (publication, title) pairs a plan run tested with ``strpos``: the rows in and out
+    of every node whose filter calls it, over all its loops (EXPLAIN ANALYZE gives the rows
+    of one loop). A count of work, the same on a busy machine as on an idle one."""
+    loops = node.get("Actual Loops") or 1
+    tested = 0.0
+    if "strpos" in (node.get("Join Filter") or "") + (node.get("Filter") or ""):
+        rows = node.get("Actual Rows", 0)
+        removed = node.get("Rows Removed by Join Filter", 0)
+        tested = (rows + removed + node.get("Rows Removed by Filter", 0)) * loops
+    return tested + sum(_tested_pairs(child) for child in node.get("Plans", ()))
+
+
+def test_thousands_of_publications_test_few_of_the_pairs(store: GraphStore) -> None:
+    pubs, instruments = 3_000, 30_000
+    _graph(store, random.Random(11), pubs=pubs, instruments=instruments)
+
+    # one statement per source and kind of match, never one per publication
+    statements: list[Any] = []
+    query = store.query
+
+    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        statements.append(statement)
+        return query(statement, *args, **kwargs)
+
+    store.query = counted  # type: ignore[method-assign]
     rows = semantic_bwb.staatsblad_instrument_matches(store)
     rows += semantic_bwb.staatscourant_instrument_matches(store, None)
-    took = time.monotonic() - started
+    store.query = query  # type: ignore[method-assign]
     assert len(rows) > 2_000
-    assert took < 30, f"{took:.1f} s"
+    assert len(statements) == 4
+
+    # Every title against every publication tests each pair: the pieces test a few in a
+    # hundred (about 7 here; the titles under six letters are tested whole).
+    with store.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_nestloop = off")  # as ``hash_joins`` runs them
+        for statement, source in (
+            (semantic_bwb._STAATSBLAD_BY_TITLE_SQL, SOURCE_STAATSBLAD),
+            (semantic_bwb._STAATSCOURANT_BY_TITLE_SQL, SOURCE_STAATSCOURANT),
+        ):
+            explain = sql.SQL("EXPLAIN (ANALYZE, FORMAT JSON) ") + _query(statement)
+            params = {"source": source, "since_iso": None}
+            (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
+            tested = _tested_pairs(plan[0]["Plan"])
+            every = (
+                pubs / 2 * instruments
+            )  # half of the publications are of each source
+            assert tested < 0.2 * every, f"{source}: {tested / every:.1%} of the pairs"
