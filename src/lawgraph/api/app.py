@@ -353,11 +353,16 @@ async def root() -> dict[str, str]:
 @app.get("/api/health", tags=["root"])
 async def health(
     store: Annotated[GraphStore, Depends(get_store)],
-) -> dict[str, str]:
-    """Health check — verifies database connectivity."""
+) -> dict[str, str | bool | None]:
+    """Health check — verifies database connectivity. ``warm``: the answers every visitor
+    asks are computed for the data as it is now (null when the API does not warm up); a
+    deploy waits for true before its smoke test."""
     try:
         store.ping()
-        return {"status": "ok", "database": "connected"}
+        from lawgraph.api.warm import is_warm
+
+        warm = is_warm(store) if API_WARM_UP else None
+        return {"status": "ok", "database": "connected", "warm": warm}
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"

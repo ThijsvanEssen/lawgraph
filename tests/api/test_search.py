@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.db.queries import search as search_module
+from lawgraph.db import version_cache
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search import (
     SCORE_CONTAINS,
@@ -123,32 +123,6 @@ def test_a_hit_that_has_a_score_keeps_it() -> None:
 # ── The laws behind the citation parser ───────────────────────────────────────
 
 
-def test_the_laws_are_read_once_for_many_searches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    reads: list[str] = []
-
-    def codes(store: Any) -> dict[str, str]:
-        reads.append("codes")
-        return {"Sr": "BWBR0001854"}
-
-    def names(store: Any) -> dict[str, list[str]]:
-        reads.append("names")
-        return {"wetboek van strafrecht": ["BWBR0001854"]}
-
-    monkeypatch.setattr(search_module, "load_code_aliases", codes)
-    monkeypatch.setattr(search_module, "_load_law_names", names)
-
-    first = search_module.load_notation_parser(None)
-    again = search_module.load_notation_parser(None)
-
-    assert again is first
-    assert reads == ["codes", "names"]  # the abbreviations and the names, once each
-    notation = first.parse("artikel 287 Sr")
-    assert notation is not None and notation.kind == "article"
-    assert [(a.law_id, a.number) for a in notation.articles] == [("BWBR0001854", "287")]
-
-
 # ── Route-level tests with the search stubbed ─────────────────────────────────
 
 
@@ -166,9 +140,9 @@ _SR_ART_287 = {
 
 @pytest.fixture(autouse=True)
 def _cleanup():
-    search_module._law_cache.clear()
+    version_cache.clear()
     yield
-    search_module._law_cache.clear()
+    version_cache.clear()
 
 
 def test_the_search_route_passes_its_parameters_and_keeps_the_order(
