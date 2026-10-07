@@ -20,6 +20,7 @@ from lawgraph.core.citations import (
     make_snippet,
     normalize_code_aliases,
 )
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.eu_citations import (
     ARTICLE_NUMBER_ONE_LETTER,
     EUCitationConfidence,
@@ -58,8 +59,9 @@ _ARTICLE_PATTERNS = build_article_patterns(
     kinds=("directive", "regulation"),
     allow_determiner=False,
 )
+# The article number of a code family (``BW``) carries its book: ``artikel 6:162 BW``.
 _ARTICLE_BWB_ALIAS_PATTERN = re.compile(
-    r"\bartikel\s+(\d+[a-z]?)\s*(Sr|Sv|BW)\b", re.IGNORECASE
+    r"\bartikel\s+(\d+[a-z]?(?::\d+[a-z]*)?)\s*(Sr|Sv|BW)\b", re.IGNORECASE
 )
 
 
@@ -96,11 +98,9 @@ def _collect_bwb_alias_hits(
     record: Callable[[CitationHit], None],
 ) -> None:
     for match in _ARTICLE_BWB_ALIAS_PATTERN.finditer(text):
-        article_number = match.group(1)
-        alias = match.group(2)
-        if not alias:
-            continue
-        bwb_id = normalized_codes.get(alias.strip().upper())
+        bwb_id, article_number = _alias_article(
+            match.group(2).strip().upper(), match.group(1), normalized_codes
+        )
         if not bwb_id or not article_number:
             continue
         record(
@@ -113,6 +113,21 @@ def _collect_bwb_alias_hits(
                 snippet=make_snippet(text, match.span()),
             )
         )
+
+
+def _alias_article(
+    alias: str, number: str, codes: dict[str, str]
+) -> tuple[str | None, str]:
+    """``(bwb_id, article_number)`` of ``artikel <number> <alias>``. A code family (``BW``)
+    never stands for one regulation: the book in front of the colon names it (``6:162`` is
+    article 162 of book 6), as in ``core.citations``; without a book there is none."""
+    family = CODE_FAMILIES.get(alias)
+    if family is None:
+        return codes.get(alias), number
+    book, colon, article = number.partition(":")
+    if not colon:
+        return None, number
+    return family.get(book.upper()), article
 
 
 class EurlexSemanticPipeline(SemanticPipelineBase):
