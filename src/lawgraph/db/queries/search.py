@@ -20,7 +20,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
-from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
 from lawgraph.db.version_cache import cached
@@ -841,7 +841,7 @@ def search_all(
     wanted = [t for t in types if t in searches]
     # The types are searched side by side, each on a connection of its own: the answer
     # takes as long as the slowest type, not as long as all of them.
-    found = _SEARCHES.map(lambda t: searches[t](), wanted)
+    found = side_by_side(_SEARCHES, [searches[t] for t in wanted])
     return {t: rank_hits(q, hits) for t, hits in zip(wanted, found, strict=True)}
 
 

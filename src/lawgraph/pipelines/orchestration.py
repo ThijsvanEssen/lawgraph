@@ -252,7 +252,8 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         parser,
         default="1d",
         last=True,
-        help="Incremental mode: what changed since then (ISO date or 7d)." + _LAST_HELP,
+        help="Incremental mode: what changed since then (ISO date, 7d, 2h or 90m)."
+        + _LAST_HELP,
     )
     parser.add_argument(
         "--mode",
@@ -320,7 +321,8 @@ def normalize_all(argv: list[str] | None = None) -> PipelineResult:
     add_since_argument(
         parser,
         last=True,
-        help="Only the raw records fetched since then (ISO date or 7d)." + _LAST_HELP,
+        help="Only the raw records fetched since then (ISO date, 7d, 2h or 90m)."
+        + _LAST_HELP,
     )
     args = parser.parse_args(argv)
     return _run_phase("normalize", parser, args, _since_argv)
