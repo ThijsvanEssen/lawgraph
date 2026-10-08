@@ -7,6 +7,13 @@ schema at `/openapi.json`: every route has a summary, a tag and a typed answer, 
 route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
 can generate its types from it.
 
+**Load lazily.** A page paints first on its cheapest call (about 0.4 s) and fills in the rest
+afterwards. So a route that heads a page (the detail of a member, an article, a dossier) stays
+cheap and never computes counts or lists; what is heavy is a route of its own, which the front
+end asks for when it shows it; and a slow part of an answer has a budget: past it the answer
+comes without that part, which it names in `partial` (the full search per type, the counts of
+the feed), rather than keeping the whole answer waiting.
+
 ## Endpoints
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the
