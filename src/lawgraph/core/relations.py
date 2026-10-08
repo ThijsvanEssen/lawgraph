@@ -251,9 +251,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "LED_BY",
-        (_ACT,),
+        (_ACT, _CASE),
         (_COMMITTEE,),
-        "The lead committee (`voortouwcommissie`) of an activity; absent for plenary.",
+        "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
+        "plenary.",
     ),
     RelationSpec(
         "MADE_IN",
