@@ -532,6 +532,15 @@ names the arrest under cassation and the conclusion in a footnote does not cite 
 after the steps that make those edges. `semantic graph-list-stats` recounts
 `inbound_citation_count` and `outbound_citation_count` after it.
 
+A decision of the ECHR is cited by application number, not by ECLI ("EHRM 28 maart 2000, nr.
+22492/93", "EHRM (GK) 12 november 2008, nrs. 34503/97 en 34504/97"): after each "EHRM", the
+numbers named with `nr.` or `nrs.` and a date before them (`core/echr_citations.py`).
+`REFERS_TO` to the ECHR decision of that number and date (0.9), or, without a date, to the only
+decision of the number (0.8); a number of several decisions (admissibility, Chamber, Grand
+Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, `meta.cited_date`).
+The language versions of one decision count once (`echr-versions`). The log says how many were
+linked, not loaded and ambiguous.
+
 **Semantic `rechtspraak-duplicates`.** The Rechtspraak published many old arresten again under a
 new ECLI (HR:1985:BH3435, BV4163 and BV4180 are AW8335); the old publication has no text and its
 `dcterms:isReplacedBy` (`replaced_by`) names the new one. That is the signal, not the court, date
@@ -1123,8 +1132,12 @@ the Protocol's own BWB treaty: the curated list `echr-protocols` gives it (P1 is
 signing the BWB gives; `meta.protocol` names the Protocol. A Dutch judgment that cites "art. 8
 EVRM" reaches the same article. While a treaty is not loaded its cited articles are stubs
 (`bwbv0001000_8`, `bwbv0001001_1`; `bwb_id` and `article_number`), as the cited articles of any
-law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The edges of a
-judgment are derived in full: one it no longer supports is removed.
+law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The text of a
+judgment (its DOCX) cites other decisions of the Court by application number ("Kılıç v. Turkey,
+no. 22492/93, § 62"; "(dec.), no. 12345/01, 3 May 2005"): `REFERS_TO` to the decision of that
+number and of the date that follows within the citation, or without one to the only decision of
+the number, as for a Dutch judgment (`rechtspraak-citations`); its own numbers are no citation.
+The edges of a judgment are derived in full: one it no longer supports is removed.
 
 **Known limits.** An article of a Protocol the list does not have (11, 14, 15, 16: they change
 the procedure of the Court) is not linked; `lawgraph check` counts them, and `semantic echr`
