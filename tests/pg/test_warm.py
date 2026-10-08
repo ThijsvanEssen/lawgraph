@@ -156,3 +156,39 @@ def test_a_write_waits_for_the_least_time_between_two_warm_ups(
     assert until(2, 2.0)
     assert done[1][0] - done[0][0] >= 1.0
     assert done[1][1] == store.data_version()  # of the new data
+
+
+def test_a_part_is_left_out_while_its_tables_stand_still(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll of judgments warms what reads judgments again, and leaves the list of the
+    instruments (``PART_TABLES``)."""
+    ran: list[str] = []
+    run = warm._run
+
+    def recorded(name: str, part) -> bool:  # type: ignore[no-untyped-def]
+        ran.append(name)
+        return run(name, part)
+
+    monkeypatch.setattr(warm, "_run", recorded)
+    monkeypatch.setattr(warm, "_warmed_parts", {})
+    warm.warm_up(store)
+    assert {"coverage", "instruments"} <= set(ran)
+
+    ran.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+    )
+    warm.warm_up(store)
+    assert "coverage" in ran
+    assert "instruments" not in ran and "search instruments" not in ran
+    assert warm.is_warm(store)
+
+    ran.clear()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
+    )
+    warm.warm_up(store)
+    assert "instruments" in ran and "coverage" not in ran

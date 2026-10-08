@@ -17,6 +17,7 @@ from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
@@ -141,6 +142,7 @@ def load_code_aliases(store: GraphStore) -> dict[str, str]:
         store,
         ("code-aliases",),
         lambda: code_aliases(code_alias_rows(store), curated_abbreviations()),
+        tables=(COLLECTION_INSTRUMENTS,),
     )
 
 
@@ -181,6 +183,7 @@ def load_notation_parser(store: GraphStore) -> NotationParser:
             code_aliases(code_alias_rows(store), curated_abbreviations()),
             _load_law_names(store),
         ),
+        tables=(COLLECTION_INSTRUMENTS,),
     )
 
 

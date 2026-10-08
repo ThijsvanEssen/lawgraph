@@ -390,8 +390,10 @@ poll is not caught up, the nightly run covers it. Each chain logs to
 `poll-<chain>-<date>.log`.
 
 A poll that finds nothing new writes nothing, and the data version stays as it was. One that
-writes a row raises it: the API then drops the answers it keeps and warms up again once the
-data has stood still for 90 seconds (`/api/health` says `computing` meanwhile). So a poll can
+writes a row raises it: the API then computes again what reads the tables it wrote (a poll of
+judgments leaves the instruments and the papers) and warms up again once the data has stood
+still for 90 seconds, leaving out the parts whose tables did not change (`/api/health` says
+`computing` meanwhile). So a poll can
 come no more often than the warm-up takes on the server, or `LAWGRAPH_WARM_UP_MIN_INTERVAL`
 spaces the warm-ups out.
 

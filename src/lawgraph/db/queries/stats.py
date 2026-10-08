@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from psycopg import sql
@@ -98,15 +100,48 @@ def _publication_count(store: GraphStore) -> int:
     )
 
 
-def get_db_stats(store: GraphStore) -> dict[str, Any]:
+# How a piece of the statistics is kept: ``keep(table, compute)`` returns what *compute*
+# returns; the API keeps each piece for as long as its table stands still.
+Keep = Callable[[str, Callable[[], dict[str, Any]]], dict[str, Any]]
+
+
+def _computed(table: str, compute: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    return compute()
+
+
+def _table_stats(store: GraphStore, table: str) -> dict[str, Any]:
+    """What ``get_db_stats`` counts in *table* alone: its rows, its stubs, and what is
+    counted by a value of it."""
+    piece: dict[str, Any] = {"rows": store.count(table)}
+    if table in _STUB_COLLECTIONS:
+        piece["stubs"] = _stub_count(store, table)
+    if table == COLLECTION_INSTRUMENTS:
+        piece["publications"] = _publication_count(store)
+        piece["by_kind"] = _count_by(store, table, "kind")
+        piece["by_jurisdiction"] = _count_by(store, table, "jurisdiction")
+    if table == COLLECTION_JUDGMENTS:
+        piece["replaced"] = _replaced_count(store)
+        piece["by_source"] = _count_by(store, table, "source")
+    if table == COLLECTION_DOCUMENTS:
+        piece["by_source"] = _count_by(store, table, "source")
+    if table == COLLECTION_EDGES:
+        piece["by_relation"] = _count_by(store, table, "relation")
+    return piece
+
+
+def get_db_stats(store: GraphStore, keep: Keep = _computed) -> dict[str, Any]:
     """Document counts per collection (without stubs, and a decision published twice
     once), stub counts, the replaced publications, edge counts per relation, and source
-    breakdowns."""
-    stubs = {name: _stub_count(store, name) for name in _STUB_COLLECTIONS}
-    publications = _publication_count(store)
-    replaced = {COLLECTION_JUDGMENTS: _replaced_count(store)}
+    breakdowns; each table counted on its own (*keep*)."""
+    pieces = {
+        table: keep(table, partial(_table_stats, store, table))
+        for table in (*_NODE_COLLECTIONS, COLLECTION_EDGES)
+    }
+    stubs = {name: pieces[name]["stubs"] for name in _STUB_COLLECTIONS}
+    publications = pieces[COLLECTION_INSTRUMENTS]["publications"]
+    replaced = {COLLECTION_JUDGMENTS: pieces[COLLECTION_JUDGMENTS]["replaced"]}
     nodes = {
-        name: store.count(name) - stubs.get(name, 0) - replaced.get(name, 0)
+        name: pieces[name]["rows"] - stubs.get(name, 0) - replaced.get(name, 0)
         for name in _NODE_COLLECTIONS
     }
     # an instrument node of a publication (Stb. 2019, 33) is no regulation: counted apart
@@ -117,16 +152,16 @@ def get_db_stats(store: GraphStore) -> dict[str, Any]:
         "stubs": stubs,
         "replaced": replaced,
         "edges": {
-            "total": store.count(COLLECTION_EDGES),
-            "by_relation": _count_by(store, COLLECTION_EDGES, "relation"),
+            "total": pieces[COLLECTION_EDGES]["rows"],
+            "by_relation": pieces[COLLECTION_EDGES]["by_relation"],
         },
         "by_source": {
-            "judgments": _count_by(store, COLLECTION_JUDGMENTS, "source"),
-            "documents": _count_by(store, COLLECTION_DOCUMENTS, "source"),
+            "judgments": pieces[COLLECTION_JUDGMENTS]["by_source"],
+            "documents": pieces[COLLECTION_DOCUMENTS]["by_source"],
         },
         "instruments": {
-            "by_kind": _count_by(store, COLLECTION_INSTRUMENTS, "kind"),
-            "by_jurisdiction": _count_by(store, COLLECTION_INSTRUMENTS, "jurisdiction"),
+            "by_kind": pieces[COLLECTION_INSTRUMENTS]["by_kind"],
+            "by_jurisdiction": pieces[COLLECTION_INSTRUMENTS]["by_jurisdiction"],
         },
     }
 
