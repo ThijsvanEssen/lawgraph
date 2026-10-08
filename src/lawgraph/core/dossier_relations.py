@@ -228,6 +228,25 @@ def first_readings(memoranda: Iterable[Mapping[str, Any]]) -> Iterator[DossierLi
                     yield DossierLink(label, number)
 
 
+def related_case_pairs(
+    cases: Iterable[Mapping[str, Any]],
+) -> Iterator[tuple[str, str, dict[str, Any]]]:
+    """``(case id, other case id, meta)`` for every pair of cases the Kamer relates
+    (``GerelateerdNaar``), as TK ids, each pair once, also within one dossier or without
+    one: a letter and the motion it answers. ``meta.case_kinds`` says what they are
+    ("Brief regering → Motie")."""
+    seen: set[tuple[str, str]] = set()
+    for case in cases:
+        own = str(case.get("id") or "")
+        for other in case.get("related_cases") or []:
+            other_id = str(other.get("id") or "")
+            if not own or not other_id or own == other_id or (own, other_id) in seen:
+                continue
+            seen.add((own, other_id))
+            kinds = f"{case.get('kind') or '?'} → {other.get('kind') or '?'}"
+            yield own, other_id, {"case_kinds": kinds}
+
+
 def related_dossiers(cases: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink]:
     """``RELATED_TO`` links between the dossiers of two cases the Kamer relates.
 
@@ -258,3 +277,20 @@ def related_dossiers(cases: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink
                 "case_kinds": sorted(kinds[(from_label, to_label)]),
             },
         )
+
+
+def moved_activities(
+    activities: Iterable[Mapping[str, Any]],
+) -> Iterator[tuple[str, str]]:
+    """``(id of the activity that replaced, id of the moved one)``: a moved activity names
+    the number of the one that replaced it (``replaced_by``, ``Activiteit.VervangenDoor``),
+    read from rows of ``{id, number, replaced_by}``; a number not stored is none."""
+    rows = list(activities)
+    by_number = {
+        str(row["number"]): str(row["id"]) for row in rows if row.get("number")
+    }
+    for row in rows:
+        for number in row.get("replaced_by") or []:
+            replacing = by_number.get(str(number))
+            if replacing and replacing != row["id"]:
+                yield replacing, str(row["id"])

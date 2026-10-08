@@ -191,11 +191,12 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "CONTINUES",
-        (_J,),
-        (_J,),
+        (_J, _ACT),
+        (_J, _ACT),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
-        "shares its court and case number.",
+        "shares its court and case number. An activity → the moved activity it replaced "
+        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`).",
     ),
     RelationSpec(
         "REFERRED_BY",
@@ -253,10 +254,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "MADE_IN",
-        (_COMMIT, _DOC),
+        (_COMMIT, _DOC, _DEC),
         (_ACT,),
-        "The activity in which a commitment (toezegging) was made, or of which a document "
-        "is the record (a stenogram of its debate: `Document.Activiteit`).",
+        "The activity in which a commitment (toezegging) was made, or a decision taken (the "
+        "activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the "
+        "record (a stenogram of its debate: `Document.Activiteit`).",
     ),
     RelationSpec(
         "MEMBER_OF",
@@ -274,15 +276,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "AUTHORED",
         (_MEMBER,),
-        (_DOC, _CASE),
+        (_DOC, _CASE, _COMMIT),
         "A person signed or submitted a document or case; `role` says how "
         "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
-        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`).",
+        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A "
+        "bewindspersoon made a commitment (`role` `toezegger`).",
     ),
     RelationSpec(
         "RELATED_TO",
-        (_DOSSIER, _J),
-        (_DOSSIER, _J),
+        (_DOSSIER, _J, _CASE),
+        (_DOSSIER, _J, _CASE),
+        "Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). "
         "Dossier → dossier: the Kamer relates a case of this dossier to a case of the other "
         "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
         "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. "

@@ -535,6 +535,8 @@ class DecisionProps(_CommonProps):
     # TK decisions
     decision_id: str | None = None
     agenda_item_id: str | None = None
+    # the activity of its agenda item, the meeting it was taken in (MADE_IN)
+    activity_id: str | None = None
     date: str | None = None
     subject: str | None = None
     agenda_item_subject: str | None = None

@@ -219,6 +219,30 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         )
     )
     assert sorted(served) == ["cabinets/jetten", "cabinets/schoof"]
+    # who made each commitment, as an edge: Heinen, as toezegger, to both of his
+    made = {
+        (row["to_id"], row["role"])
+        for row in store.query(
+            "SELECT to_id, doc -> 'meta' ->> 'role' AS role FROM edges"
+            " WHERE relation = 'AUTHORED' AND from_id = %(m)s"
+            " AND to_collection = 'commitments'",
+            {"m": f"{COLLECTION_MEMBERS}/heinen"},
+        )
+    }
+    assert {role for _, role in made} == {"toezegger"} and len(made) == 2
+    # a second run writes nothing new and removes nothing
+    cli("semantic", "tk-government")
+    assert (
+        len(
+            list(
+                store.query(
+                    "SELECT 1 FROM edges WHERE relation = 'AUTHORED'"
+                    " AND to_collection = 'commitments'"
+                )
+            )
+        )
+        == 2
+    )
 
     try:
         client = _client(store)
