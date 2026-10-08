@@ -17,10 +17,18 @@ An appeal whose metadata names none is read for the decision its text says it ap
 case number (``appeal_text``), else the decision is recorded on the judgment as
 ``props.unresolved_appeal_targets``. The edges of a judgment are derived in full each run: one
 no longer derived goes.
+
+With ``since`` only the judgments retrieved from then on are read (the daily run): their edges
+and those from the later instances they name are written, none removed. Three things wait for
+a run without it (the weekly run): an older judgment that names, as an earlier or a later
+instance, a judgment that arrived since; an older appeal whose text names a decision that
+arrived since; and the removal of the edges and ``unresolved_appeal_targets`` no longer derived.
+Each needs every judgment read.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import replace
 from typing import Any
 
@@ -40,6 +48,7 @@ from lawgraph.core.appeals import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -77,11 +86,17 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
     """Create APPEAL_OF, CONTINUES and REFERRED_BY edges from a judgment to the earlier
     judgments of its case."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
+        since_iso = iso_timestamp(since)
+        # the judgments retrieved since then; all of them without since
+        eclis = self._recent_eclis(since_iso) if since_iso else None
+        logger.info("Earlier instances of judgments (since=%s).", describe_since(since))
         rows = list(
             self._track(
-                semantic_rechtspraak.judgments_with_related_eclis(self.store),
+                semantic_rechtspraak.judgments_with_related_eclis(
+                    self.store, eclis=eclis
+                ),
                 "judgments",
             )
         )
@@ -96,6 +111,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                     self.store,
                     procedure=APPEAL_PROCEDURE.pattern,
                     paragraphs=APPEAL_TARGET_PARAGRAPHS,
+                    eclis=eclis,
                 ),
                 "appeals without an earlier instance",
             )
@@ -109,13 +125,14 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         )
 
         kept = self._write_edges(links, result)
-        removed = sum(
-            semantic_edges.remove_edges_from(
-                self.store, relation, SEMANTIC_SOURCE, read, kept.get(relation, {})
+        if eclis is None:
+            removed = sum(
+                semantic_edges.remove_edges_from(
+                    self.store, relation, SEMANTIC_SOURCE, read, kept.get(relation, {})
+                )
+                for relation in RELATIONS
             )
-            for relation in RELATIONS
-        )
-        logger.info("Removed %d edges no longer derived.", removed)
+            logger.info("Removed %d edges no longer derived.", removed)
         self._write_targets(texts, unresolved, result)
         return result
 

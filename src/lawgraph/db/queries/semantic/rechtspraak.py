@@ -139,9 +139,12 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
     )
 
 
-def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
+def judgments_with_related_eclis(
+    store: Store, *, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
-    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one."""
+    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one,
+    only those of *eclis* when it is given."""
     related = "j.props -> 'related_eclis'"
     later = "j.props -> 'later_eclis'"
     sql = f"""
@@ -154,10 +157,15 @@ def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
                {_or_empty(related)} AS related_eclis,
                {_or_empty(later)} AS later_eclis
         FROM judgments j
-        WHERE {_length(related)} > 0 OR {_length(later)} > 0
+        WHERE ({_length(related)} > 0 OR {_length(later)} > 0) {_of_eclis(eclis)}
         ORDER BY j.key
         """
-    return store.query(sql)
+    return store.query(sql, {"eclis": eclis})
+
+
+def _of_eclis(eclis: list[str] | None) -> str:
+    """SQL: only the judgments of ``%(eclis)s`` (the index on ``ecli``); nothing without."""
+    return "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
 
 
 def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
@@ -185,13 +193,13 @@ def _postgres_regex(pattern: str) -> str:
 
 
 def appeals_to_read(
-    store: Store, *, procedure: str, paragraphs: int
+    store: Store, *, procedure: str, paragraphs: int, eclis: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
     """``{key, j_id, ecli, read, paragraphs, unresolved_appeal_targets}`` of the appeals
     whose metadata names no earlier instance (``read``: *procedure*, a regular expression,
     matches their ``judgment_metadata.type``, case-insensitive), with their first
     *paragraphs* paragraphs; and of the judgments that carry unresolved appeal targets, so
-    that those no longer read lose them."""
+    that those no longer read lose them. Only those of *eclis* when it is given."""
     targets = "j.props -> 'unresolved_appeal_targets'"
     texts = _slice(
         "props -> 'paragraphs'",
@@ -210,7 +218,7 @@ def appeals_to_read(
                    {targets} AS unresolved_appeal_targets,
                    {_present(targets)} AS has_targets
             FROM judgments j
-            WHERE j.source = %(source)s
+            WHERE j.source = %(source)s {_of_eclis(eclis)}
         ) j
         WHERE read OR has_targets
         ORDER BY key
@@ -221,6 +229,7 @@ def appeals_to_read(
             "source": SOURCE_RECHTSPRAAK,
             "procedure": _postgres_regex(procedure),
             "paragraphs": paragraphs,
+            "eclis": eclis,
         },
     )
 

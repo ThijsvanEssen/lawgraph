@@ -12,6 +12,7 @@ made up around them.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -338,6 +339,59 @@ def test_an_earlier_judgment_is_appealed_continued_or_the_referral(
         detail["judgment"]["unresolved_appeal_targets"]
         == targets["ECLI:NL:RVS:2026:5642"]
     )
+
+
+def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
+    database: str, cli: Any
+) -> None:
+    """With --since only the judgments retrieved since then are read: their own earlier
+    instances are linked; an older judgment that names one of them waits for the full run,
+    and so does the removal of an edge no longer derived."""
+    store = GraphStore()
+    new = ("ECLI:NL:HR:2026:1357", "ECLI:NL:GHAMS:2026:100")
+    _load(store, {e: xml for e, xml in APPEALS.items() if e not in new})
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak-appeal")
+    with EdgeWriter(store, what=None) as edges:  # no longer derived
+        edges.add(
+            _key("ECLI:NL:GHARL:2026:5720"),
+            _key("ECLI:NL:GHARL:2024:7481"),
+            RELATION_APPEAL_OF,
+            source=APPEAL_SOURCE,
+        )
+    since = dt.datetime.now(dt.timezone.utc)
+    _load(store, {e: APPEALS[e] for e in new})
+    cli("normalize", "rechtspraak")
+
+    cli("semantic", "rechtspraak-appeal", "--since", since.isoformat())
+    daily = _edges(store, APPEAL_SOURCE)
+    # the cassation retrieved since names its earlier instance
+    assert (
+        "APPEAL_OF",
+        "ECLI:NL:HR:2026:1357",
+        "ECLI:NL:GHARL:2025:4000",
+        "formal_relation",
+    ) in daily
+    # the hof retrieved since is named only by the older rechtbank: not yet
+    assert not any(edge[1] == "ECLI:NL:GHAMS:2026:100" for edge in daily)
+    # nothing is removed
+    stale = (
+        "APPEAL_OF",
+        "ECLI:NL:GHARL:2026:5720",
+        "ECLI:NL:GHARL:2024:7481",
+        None,
+    )
+    assert stale in daily
+
+    cli("semantic", "rechtspraak-appeal")
+    weekly = _edges(store, APPEAL_SOURCE)
+    assert (
+        "APPEAL_OF",
+        "ECLI:NL:GHAMS:2026:100",
+        "ECLI:NL:RBAMS:2025:3600",
+        "later_instance",
+    ) in weekly
+    assert stale not in weekly
 
 
 CONCLUSIONS = {
