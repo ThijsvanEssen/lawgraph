@@ -782,12 +782,13 @@ the kind of court, the source, the date, `stub` and `same_as`, so its facets cou
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
 publications), the documents newest first, and the member lists in name order. `edges`:
-`(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, the same two
-with `key` after them and the other end and collection included (`edges_from_cover`,
-`edges_to_cover`: a level of `/api/paths` reads a node's edges from the index alone, and a
-page of a node's neighbours reads its keys from it in key order, stopping after its limit,
-and only those edges whole), `relation`,
-`(status, relation)`, `confidence`, `(created_at, to_id)`, a GIN index on `record_ids`, and
+`(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
+with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
+`/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours
+reads its keys from it in key order, stopping after its limit, and only those edges whole;
+the only indexes by end, so that the planner cannot take a smaller one without `key` and
+read the table for every edge of a hub), `relation`,
+`(status, relation)`, `(created_at, to_id)` (the edges written since a poll), a GIN index on `record_ids`, and
 `semantic_type` and `(from_id, semantic_type)` where `semantic_type` is set.
 
 ### Search
