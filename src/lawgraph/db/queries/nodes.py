@@ -160,7 +160,11 @@ def get_node_with_neighbors(
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
     pages = _read_pages(store, node["_id"], filters, facets, limit, offset)
-    lids = _count_lids(store, node["_id"], filters) if collection == "articles" else {}
+    lids = (
+        _count_lids(store, node["_id"], filters, _leden(node))
+        if collection == "articles"
+        else {}
+    )
     end = offset + limit
     buckets = [
         NeighborBucket(
@@ -237,13 +241,31 @@ _LIDS = """ARRAY(
 )"""
 
 
+def _leden(article: dict[str, Any]) -> list[str] | None:
+    """The numbers of the leden of *article* (``parts`` of kind ``lid``), in lower case;
+    None for an article without ``parts`` (a stub: what it has is not known)."""
+    parts = (article.get("props") or {}).get("parts")
+    if not isinstance(parts, list):
+        return None
+    return [
+        str(part["number"]).lower()
+        for part in parts
+        if isinstance(part, dict) and part.get("kind") == "lid" and part.get("number")
+    ]
+
+
 def _count_lids(
-    store: GraphStore, node_id: str, filters: NeighborFilter
+    store: GraphStore,
+    node_id: str,
+    filters: NeighborFilter,
+    leden: list[str] | None,
 ) -> dict[tuple[str | None, str, str], dict[str, int]]:
     """Per bucket of an article, how many of its edges cite each lid ("" those that cite
-    none; an edge that cites two counts for each): of the whole bucket, not its page.
-    Reads the ``meta`` of every edge of the article (hundreds; not of a faction's million);
-    a bucket of which no edge cites a lid is left out."""
+    none; an edge that cites two counts for each): of the whole bucket, not its page. Only
+    the *leden* the article has count (a citation can give it the lid of another article
+    it names); every lid of an article whose leden are not known. Reads the ``meta`` of
+    every edge of the article (hundreds; not of a faction's million); a bucket of which no
+    edge cites a lid is left out."""
     parts = []
     for direction in filters.directions:
         own, _, other_collection = _EDGE_SIDES[direction]
@@ -262,7 +284,13 @@ def _count_lids(
         )
     statement = f"""
         SELECT c.relation, c.direction, c.collection, lid, count(*)::int AS count
-        FROM ({" UNION ALL ".join(parts)}) c
+        FROM (
+            SELECT c.relation, c.direction, c.collection, ARRAY(
+                SELECT l FROM unnest(c.lids) AS l
+                WHERE %(leden)s::text[] IS NULL OR lower(l) = ANY(%(leden)s::text[])
+            ) AS lids
+            FROM ({" UNION ALL ".join(parts)}) c
+        ) c
         CROSS JOIN LATERAL unnest(
             CASE WHEN cardinality(c.lids) > 0 THEN c.lids ELSE ARRAY[''] END
         ) AS lid
@@ -273,6 +301,7 @@ def _count_lids(
     params = {
         "node_id": node_id,
         "collections": filters.collections,
+        "leden": leden,
         **filters.edge_params(),
     }
     found: dict[tuple[str | None, str, str], dict[str, int]] = {}

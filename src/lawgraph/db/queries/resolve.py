@@ -53,10 +53,25 @@ def _not_null(*fields: str) -> str:
     return f"(CASE {cases} END)"
 
 
+_DEFAULT_NAME = _not_null("display_name", "title")
+# An article that has no name of its own (a stub: a citation named it before, or without,
+# its law's text) is named by its number and its law: "Artikel 162 Burgerlijk Wetboek Boek 7".
+_ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
+    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(doc.props -> 'article_number'),
+                             coalesce(lg_str(i.props -> 'citation_title'),
+                                      lg_str(i.props -> 'title'))))
+    FROM (SELECT 1) one
+    LEFT JOIN LATERAL (
+        SELECT i.props FROM instruments i
+        WHERE i.bwb_id = doc.bwb_id OR i.celex = doc.celex
+        ORDER BY i.key LIMIT 1
+    ) i ON true
+    WHERE lg_str(doc.props -> 'article_number') IS NOT NULL
+))"""
 _NAME_OF = {
     COLLECTION_INSTRUMENTS: _not_null("citation_title", "display_name", "title"),
+    COLLECTION_ARTICLES: _ARTICLE_NAME,
 }
-_DEFAULT_NAME = _not_null("display_name", "title")
 
 NO_MATCH: dict[str, Any] = {
     "kind": "none",
@@ -185,7 +200,7 @@ def _articles_without_law(
     """
     folded = search_column("article_number", "norm")
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+        SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
         FROM articles doc
         WHERE doc.{folded} && (
             SELECT array_agg(lg_fold(n)) FROM unnest(%(numbers)s::text[]) AS n
@@ -214,7 +229,7 @@ def _headed_article(
         if not law_ids:
             continue
         statement = f"""
-            SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+            SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
             FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
             JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
             WHERE coalesce(json_typeof(doc.props -> 'article_number'), 'null') = 'null'
