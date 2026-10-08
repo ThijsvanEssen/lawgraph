@@ -852,12 +852,34 @@ def search_all(
     if not tokens:
         return {t: [] for t in types}
 
-    parser = (
-        load_notation_parser(store) if {"articles", "judgments"} & set(types) else None
-    )
-    notation = parser.parse(q) if parser else None
+    notation = _notation(store, q, types)
+    searches = _full_searches(store, q, tokens, notation, kinds, limit)
+    wanted = [t for t in types if t in searches]
+    # The types are searched side by side, each on a connection of its own: the answer
+    # takes as long as the slowest type, not as long as all of them.
+    found = side_by_side(_SEARCHES, [searches[t] for t in wanted])
+    return {t: rank_hits(q, hits) for t, hits in zip(wanted, found, strict=True)}
 
-    searches: dict[str, Callable[[], list[dict[str, Any]]]] = {
+
+Searches = dict[str, Callable[[], list[dict[str, Any]]]]
+
+
+def _notation(store: GraphStore, q: str, types: list[str]) -> Notation | None:
+    """The citation *q* is, when articles or judgments are searched."""
+    wanted = {"articles", "judgments"} & set(types)
+    return load_notation_parser(store).parse(q) if wanted else None
+
+
+def _full_searches(
+    store: GraphStore,
+    q: str,
+    tokens: list[str],
+    notation: Notation | None,
+    kinds: list[str] | None,
+    limit: int,
+) -> Searches:
+    """The search of each type, ranked by its words."""
+    return {
         "articles": lambda: _search_articles(store, tokens, notation, limit),
         "instruments": lambda: _search_instruments(store, q, tokens, limit),
         "judgments": lambda: _search_judgments(store, tokens, notation, limit, q),
@@ -870,11 +892,77 @@ def search_all(
         "commitments": lambda: _search_commitments(store, tokens, limit),
         "decisions": lambda: _search_decisions(store, tokens, limit),
     }
-    wanted = [t for t in types if t in searches]
-    # The types are searched side by side, each on a connection of its own: the answer
-    # takes as long as the slowest type, not as long as all of them.
-    found = side_by_side(_SEARCHES, [searches[t] for t in wanted])
-    return {t: rank_hits(q, hits) for t, hits in zip(wanted, found, strict=True)}
+
+
+def _live_searches(
+    store: GraphStore,
+    q: str,
+    tokens: list[str],
+    notation: Notation | None,
+    kinds: list[str] | None,
+    limit: int,
+) -> Searches:
+    """The search of each type while typing: nothing ranked by its words."""
+    return {
+        "articles": lambda: _search_articles(store, tokens, notation, limit, True),
+        "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
+        "judgments": lambda: _search_judgments_live(store, tokens, notation, limit, q),
+        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True),
+        "committees": lambda: _search_committees(store, tokens, limit, True),
+        "members": lambda: _search_members(store, tokens, limit),
+        "factions": lambda: _search_factions(store, tokens, limit),
+        "documents": lambda: _search_documents(store, tokens, kinds, limit, True),
+        "cabinets": lambda: _search_cabinets(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit),
+        "decisions": lambda: _search_decisions(store, tokens, limit),
+    }
+
+
+# How long one type of the full search may rank (seconds): past it, the type answers what
+# its live search finds within ``FALLBACK_BUDGET``, and is named in ``partial``, instead
+# of the whole request answering 503 at its deadline.
+FULL_BUDGET = 3.0
+FALLBACK_BUDGET = 1.0
+
+
+def search_full(
+    store: GraphStore,
+    *,
+    q: str,
+    types: list[str],
+    kinds: list[str] | None = None,
+    limit: int = 20,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
+    """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
+    its live search (``search_live``: the judgments by name and display name, the most
+    cited first; the other types by the start of a word of a name, without a rank).
+    Returns the hits per type and the types that fell back."""
+    tokens = tokenize_search_query(q)
+    if not tokens:
+        return {t: [] for t in types}, set()
+    notation = _notation(store, q, types)
+    full = _full_searches(store, q, tokens, notation, kinds, limit)
+    live = _live_searches(store, q, tokens, notation, kinds, limit)
+    wanted = [t for t in types if t in full]
+    found = side_by_side(
+        _SEARCHES,
+        [functools.partial(_full_or_live, full[t], live[t]) for t in wanted],
+    )
+    hits = {t: rank_hits(q, rows) for t, (rows, _) in zip(wanted, found, strict=True)}
+    partial = {t for t, (_, cut) in zip(wanted, found, strict=True) if cut}
+    return hits, partial
+
+
+def _full_or_live(
+    full: Callable[[], list[dict[str, Any]]],
+    live: Callable[[], list[dict[str, Any]]],
+) -> tuple[list[dict[str, Any]], bool]:
+    """The hits of *full* within ``FULL_BUDGET``; past it, those of *live* within
+    ``FALLBACK_BUDGET``, cut off."""
+    rows, cut = _within_budget(full, FULL_BUDGET)
+    if not cut:
+        return rows, False
+    return _within_budget(live, FALLBACK_BUDGET)[0], True
 
 
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
@@ -906,23 +994,9 @@ def search_live(
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
-    parser = (
-        load_notation_parser(store) if {"articles", "judgments"} & set(types) else None
+    searches = _live_searches(
+        store, q, tokens, _notation(store, q, types), kinds, limit
     )
-    notation = parser.parse(q) if parser else None
-    searches: dict[str, Callable[[], list[dict[str, Any]]]] = {
-        "articles": lambda: _search_articles(store, tokens, notation, limit, True),
-        "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
-        "judgments": lambda: _search_judgments_live(store, tokens, notation, limit, q),
-        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True),
-        "committees": lambda: _search_committees(store, tokens, limit, True),
-        "members": lambda: _search_members(store, tokens, limit),
-        "factions": lambda: _search_factions(store, tokens, limit),
-        "documents": lambda: _search_documents(store, tokens, kinds, limit, True),
-        "cabinets": lambda: _search_cabinets(store, tokens, limit),
-        "commitments": lambda: _search_commitments(store, tokens, limit),
-        "decisions": lambda: _search_decisions(store, tokens, limit),
-    }
     wanted = [t for t in types if t in searches]
     found = side_by_side(
         _SEARCHES, [functools.partial(_within_budget, searches[t]) for t in wanted]
@@ -1032,12 +1106,14 @@ def _live_clause(
 
 
 def _within_budget(
-    search: Callable[[], list[dict[str, Any]]],
+    search: Callable[[], list[dict[str, Any]]], budget: float | None = None
 ) -> tuple[list[dict[str, Any]], bool]:
-    """The hits of *search* within ``LIVE_BUDGET`` (or what the request has left); none and
-    cut off when it takes longer. A computation of the cache it waited for goes on."""
+    """The hits of *search* within *budget* seconds (``LIVE_BUDGET`` without one; or what
+    the request has left); none and cut off when it takes longer. A computation of the
+    cache it waited for goes on."""
+    budget = LIVE_BUDGET if budget is None else budget
     left = read_time_left()
-    token = set_read_deadline(LIVE_BUDGET if left is None else min(LIVE_BUDGET, left))
+    token = set_read_deadline(budget if left is None else min(budget, left))
     try:
         return search(), False
     except ReadTimedOut:
