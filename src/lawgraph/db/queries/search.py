@@ -1,7 +1,7 @@
 """Full-text and structured search query helpers.
 
 A word of the query matches a field as ArangoSearch matched it (probed, PR #102): by its
-stemmed tokens (``text``), as the start of the value as it is (``identity``), as the whole
+stemmed tokens (``text``), as the start of a value in any case (``identity``), as the whole
 folded value (``norm``) or as a part of 3 to 12 characters of the folded value (``ngram``).
 Every word must match some field. Which fields have which matches is ``SEARCH_FIELDS`` of
 ``db/schema.py``; the columns are generated there. The rank within a type is ``ts_rank``
@@ -22,7 +22,12 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
-from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
+from lawgraph.db.schema import (
+    SEARCH_FIELDS,
+    search_column,
+    search_words,
+    start_of_value_sql,
+)
 from lawgraph.db.version_cache import cached
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
@@ -60,11 +65,10 @@ def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
     if "identity" in analyzers:
         # from three characters, as a part of a value: the start of a value of two (``hu``,
-        # ``st``) is that of a large share of the rows, which the trigrams cannot narrow
-        parts.append(
-            f"(char_length(%({word})s) >= 3 AND {row}.{search_column(field, 'prefix')}"
-            f" LIKE '%%' || chr(31) || lg_like(%({word})s) || '%%')"
-        )
+        # ``st``) is that of a large share of the rows, which the trigrams cannot narrow;
+        # in any case, and without accents where the field is folded (``start_of_value_sql``)
+        start = start_of_value_sql(table, field, f"%({word})s", row)
+        parts.append(f"(char_length(%({word})s) >= 3 AND {start})")
     if "norm" in analyzers:
         parts.append(
             f"{row}.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
