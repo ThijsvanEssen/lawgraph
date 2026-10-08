@@ -78,9 +78,13 @@ def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
     return sorted(set(ids))
 
 
-def touched_dossiers(store: Store, since: dt.datetime) -> list[str]:
-    """The ``_id`` of the dossiers touched at or after *since*."""
-    seeds = tk_nodes_fetched_since(store, since)
+def touched_dossiers(
+    store: Store, since: dt.datetime, seeds: list[str] | None = None
+) -> list[str]:
+    """The ``_id`` of the dossiers touched at or after *since*; *seeds* the nodes of the
+    records fetched since then when the caller has them (``tk_nodes_fetched_since``)."""
+    if seeds is None:
+        seeds = tk_nodes_fetched_since(store, since)
     guids = [
         str(record)
         for record in raw_queries.ids_stored_since(
@@ -94,9 +98,12 @@ def touched_dossiers(store: Store, since: dt.datetime) -> list[str]:
     return semantic_tk.touched_dossier_ids(store, seeds, guids, edge_moment(since))
 
 
-def touched_commitments(store: Store, since: dt.datetime) -> list[str]:
-    """The ``_id`` of the commitments touched at or after *since*."""
-    seeds = tk_nodes_fetched_since(store, since)
+def touched_commitments(
+    store: Store, since: dt.datetime, seeds: list[str] | None = None
+) -> list[str]:
+    """The ``_id`` of the commitments touched at or after *since* (*seeds* as above)."""
+    if seeds is None:
+        seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(
         store, COLLECTION_COMMITMENTS, seeds, edge_moment(since)
     )

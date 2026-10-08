@@ -8,7 +8,7 @@ decision, PART_OF for a document).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -113,15 +113,34 @@ def link_subjects(
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
 
 
-def link_cases_to_dossiers(store: Store, *, source: str) -> None:
-    """PART_OF edges from every stored case to the dossiers it belongs to.
+def link_cases_to_dossiers(
+    store: Store,
+    *,
+    source: str,
+    cases: list[str] | None = None,
+    dossiers: Sequence[str] = (),
+) -> None:
+    """PART_OF edges from the stored cases to the dossiers they belong to: every case, or
+    on a run over a window the *cases* (``_id``) it touched and the cases that name one of
+    the *dossiers* (labels) it wrote, which may be new.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
     so the link is made here, once the dossiers are in place.
     """
+    if cases is None:
+        rows: Iterable[dict[str, Any]] = normalize_tk.case_dossier_numbers(store)
+    else:
+        rows = [
+            *normalize_tk.case_dossier_numbers_of(store, cases),
+            *(
+                normalize_tk.case_dossier_numbers_naming(store, list(dossiers))
+                if dossiers
+                else ()
+            ),
+        ]
     pairs = [
         (row["id"], COLLECTION_DOSSIERS, make_node_key(str(number)))
-        for row in normalize_tk.case_dossier_numbers(store)
+        for row in rows
         for number in row["dossier_numbers"] or []
     ]
     writer = EdgeWriter(store, what="case to dossier edges")

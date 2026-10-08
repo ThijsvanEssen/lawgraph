@@ -148,11 +148,16 @@ def _caller() -> str:
 
 
 def _exercise(store: GraphStore) -> None:
-    """Everything that keeps an answer per table: the warm-up, and the search counts."""
+    """Everything that keeps an answer per table: the warm-up, the search counts and the
+    lids an article's edges cite."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
         _bm25.bm25_sql(store, table, {"w": "beroep"}, list(fields), {})
+    from lawgraph.db.queries.nodes import get_node_with_neighbors
+
+    store.bulk_insert_or_update_nodes("articles", [_node("a1", article_number="1")])
+    get_node_with_neighbors(store, "articles", "a1")
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(
