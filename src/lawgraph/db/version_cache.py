@@ -24,6 +24,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Hashable
 from typing import Any, TypeVar
 
+from lawgraph.config.settings import API_WARM_UP_MIN_INTERVAL
 from lawgraph.core.logging import get_logger
 from lawgraph.db.store import ReadTimedOut, _text, in_background, read_time_left
 
@@ -62,6 +63,11 @@ _pool = concurrent.futures.ThreadPoolExecutor(
 # (``superseded``) and asks for the next. The worker runs apart from the pool above: it waits
 # for its computations, and would hold every worker of it if it ran there.
 WARM_UP_SETTLE = 90.0
+# Seconds from the start of one warm-up of a database to the start of the next at the least
+# (``LAWGRAPH_WARM_UP_MIN_INTERVAL``, in minutes; 0: none). A warm-up that falls due sooner
+# waits, still for the newest data; the first one never does.
+WARM_UP_MIN_INTERVAL = API_WARM_UP_MIN_INTERVAL * 60
+_warm_started: dict[str, float] = {}  # database -> when its last warm-up began
 _warmers: list[Callable[[Any], None]] = []
 _wanted: dict[
     str, tuple[Any, float, str | None]
@@ -114,6 +120,9 @@ def _warm_forever() -> None:
             while not _wanted:
                 _warm_wake.wait()
             name, (store, due, version) = min(_wanted.items(), key=lambda kv: kv[1][1])
+            started = _warm_started.get(name)
+            if started is not None:
+                due = max(due, started + WARM_UP_MIN_INTERVAL)
             left = due - time.monotonic()
             if left > 0:
                 _warm_wake.wait(timeout=left)
@@ -126,6 +135,7 @@ def _warm_forever() -> None:
         with _lock:
             warmers = list(_warmers)
             _warming.add(name)
+            _warm_started[name] = time.monotonic()
         try:
             for function in warmers:
                 _quietly(function, store)
@@ -355,6 +365,7 @@ def clear() -> None:
         _lasting.clear()
         _running.clear()
         _wanted.clear()
+        _warm_started.clear()
 
 
 def _frozen(value: Any) -> Hashable:

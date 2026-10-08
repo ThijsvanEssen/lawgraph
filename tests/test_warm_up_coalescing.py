@@ -79,3 +79,42 @@ def test_data_that_changes_during_a_warm_up_asks_for_one_more(
     assert _until(lambda: len(runs) == 2)
     time.sleep(0.5)
     assert runs == ["0", "1"]
+
+
+def _starts(monkeypatch: pytest.MonkeyPatch, interval: float) -> list[float]:
+    starts: list[float] = []
+    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.05)
+    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", interval)
+    monkeypatch.setattr(
+        version_cache, "_warmers", [lambda s: starts.append(time.monotonic())]
+    )
+    return starts
+
+
+def test_a_warm_up_waits_for_the_least_time_after_the_one_before(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A poll that writes every half hour with a warm-up of minutes: the next waits until
+    ``LAWGRAPH_WARM_UP_MIN_INTERVAL`` has gone by since the last began, for the newest data."""
+    starts = _starts(monkeypatch, interval=0.8)
+    data = _Data()
+    version_cache.warm(data, settle=0)  # the start of the API: at once
+    assert _until(lambda: len(starts) == 1, 1.0)
+    data.version += 1
+    version_cache.warm(data)
+    assert not _until(lambda: len(starts) == 2, 0.5)  # held back
+    assert _until(lambda: len(starts) == 2, 1.0)
+    assert starts[1] - starts[0] >= 0.8
+
+
+def test_without_a_least_time_a_warm_up_follows_when_the_data_stands_still(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    starts = _starts(monkeypatch, interval=0)
+    data = _Data()
+    version_cache.warm(data, settle=0)
+    assert _until(lambda: len(starts) == 1, 1.0)
+    data.version += 1
+    version_cache.warm(data)
+    assert _until(lambda: len(starts) == 2, 0.5)
+    assert starts[1] - starts[0] < 0.4
