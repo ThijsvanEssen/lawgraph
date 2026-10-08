@@ -59,9 +59,11 @@ def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
         parts.append(f"{row}.{search_column(field, 'text')} && lg_tokens(%({word})s)")
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
     if "identity" in analyzers:
+        # from three characters, as a part of a value: the start of a value of two (``hu``,
+        # ``st``) is that of a large share of the rows, which the trigrams cannot narrow
         parts.append(
-            f"{row}.{search_column(field, 'prefix')}"
-            f" LIKE '%%' || chr(31) || lg_like(%({word})s) || '%%'"
+            f"(char_length(%({word})s) >= 3 AND {row}.{search_column(field, 'prefix')}"
+            f" LIKE '%%' || chr(31) || lg_like(%({word})s) || '%%')"
         )
     if "norm" in analyzers:
         parts.append(
