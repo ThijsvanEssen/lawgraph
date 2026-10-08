@@ -25,9 +25,20 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
+from lawgraph.db.queries.path_groups import Children, children_of, is_group
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 
 LEVEL_CAP = 5000  # the nodes a side keeps of one level
 _ROWS_PER_LEVEL = LEVEL_CAP * 20  # the edges read for one level, at most
+# How long the search of a request may read (seconds): past it, the paths found so far,
+# ``partial``; what is left of the deadline of the request reads their nodes and edges.
+PATHS_BUDGET = 10.0
+PATHS_RESERVE = 3.0
 
 # The edges a path may follow: of ``relations`` (all when null), and the ``PART_OF`` of a
 # law only where the law is an end of the pair, unless ``through_laws``.
@@ -77,10 +88,21 @@ class _Side:
     reached: dict[str, tuple[int, str | None, str | None]] = field(default_factory=dict)
     frontier: list[str] = field(default_factory=list)
     depth: int = 0
+    # a group that starts from its children: their edges before its own in a level (a
+    # faction's own edges are its votes, which would fill the level)
+    children_first: bool = False
 
     def __post_init__(self) -> None:
         self.reached[self.start] = (0, None, None)
         self.frontier = [self.start]
+
+    def start_from(self, children: Children) -> None:
+        """Start from the children of the group too: each a step from it (or from its case),
+        reached at depth 0, as the group is its children."""
+        for child in children.kept:
+            self.reached[child.id] = (0, child.parent, child.edge)
+            self.frontier.append(child.id)
+        self.children_first = bool(children.kept)
 
     def steps_to(self, node: str) -> tuple[list[str], list[str]]:
         """The nodes from the start to *node* and the edges between them."""
@@ -152,6 +174,8 @@ def _expand(levels: _Levels, side: _Side, ends: list[str]) -> bool:
         for row in levels.at(side.frontier)
         if levels.followed.through_laws or row["law"] is None or row["law"] in ends
     ]
+    if side.children_first:
+        rows.sort(key=lambda row: row["node"] == side.start)
     side.depth += 1
     level: list[str] = []
     capped = False
@@ -168,12 +192,34 @@ def _expand(levels: _Levels, side: _Side, ends: list[str]) -> bool:
     return capped
 
 
+def _joined(ends: tuple[_Side, _Side], side: _Side, met: list[str]) -> Path:
+    """The path through the node of *met* nearest to the other end (then the lowest id)."""
+    other = ends[1] if side is ends[0] else ends[0]
+    node = min(met, key=lambda n: (other.reached[n][0], n))
+    to_node, edges_to = ends[0].steps_to(node)
+    from_node, edges_from = ends[1].steps_to(node)
+    nodes = (*to_node, *from_node[::-1][1:])
+    return Path(ends[0].start, ends[1].start, nodes, (*edges_to, *edges_from[::-1]))
+
+
 def _shortest(
-    levels: _Levels, source: str, target: str, max_depth: int
+    levels: _Levels,
+    source: str,
+    target: str,
+    max_depth: int,
+    groups: dict[str, Children],
 ) -> tuple[Path | None, bool]:
     """The shortest path from *source* to *target* within *max_depth* edges, or None; and
-    whether a level was cut on the way."""
+    whether a level was cut on the way. An end in *groups* starts from its children too
+    (their steps not counted in *max_depth*)."""
     ends = _Side(source), _Side(target)
+    for end in ends:
+        if end.start in groups:
+            end.start_from(groups[end.start])
+    # one is the other, or a child of it, or they share a child
+    met = [n for n in ends[0].reached if n in ends[1].reached]
+    if met:
+        return _joined(ends, ends[0], met), False
     capped = False
     while ends[0].depth + ends[1].depth < max_depth:
         side, other = sorted(ends, key=lambda s: (len(s.frontier), s is ends[1]))
@@ -182,14 +228,34 @@ def _shortest(
         capped |= _expand(levels, side, [source, target])
         met = [n for n in side.frontier if n in other.reached]
         if met:
-            # the nearest to the other end, then the lowest id
-            node = min(met, key=lambda n: (other.reached[n][0], n))
-            first, second = (side, other) if side is ends[0] else (other, side)
-            to_node, edges_to = first.steps_to(node)
-            from_node, edges_from = second.steps_to(node)
-            nodes = (*to_node, *from_node[::-1][1:])
-            return Path(source, target, nodes, (*edges_to, *edges_from[::-1])), capped
+            return _joined(ends, side, met), capped
     return None, capped
+
+
+def _search(
+    levels: _Levels,
+    chosen: list[str],
+    max_depth: int,
+    groups: dict[str, Children],
+) -> tuple[list[Path], bool, bool]:
+    """The paths of every pair of *chosen*, whether a level was cut, and whether the search
+    ran past ``PATHS_BUDGET`` (the paths found by then)."""
+    found: list[Path] = []
+    capped = False
+    left = read_time_left()
+    budget = PATHS_BUDGET if left is None else min(PATHS_BUDGET, left - PATHS_RESERVE)
+    token = set_read_deadline(max(0.0, budget))
+    try:
+        for source, target in combinations(chosen, 2):
+            path, cut = _shortest(levels, source, target, max_depth, groups)
+            capped |= cut
+            if path is not None:
+                found.append(path)
+    except ReadTimedOut:
+        return found, capped, True
+    finally:
+        reset_read_deadline(token)
+    return found, capped, False
 
 
 def get_paths(
@@ -197,20 +263,27 @@ def get_paths(
     ids: list[str],
     max_depth: int,
     followed: Followed = EVERY_EDGE_BUT_THROUGH_LAWS,
+    *,
+    expand_cap: int = 0,
 ) -> dict[str, Any]:
     """For every pair of *ids*, the shortest path between them within *max_depth* edges
-    along the edges *followed* lets through: ``{paths, nodes, edges, capped}``. ``paths`` holds a path for each pair that has one,
-    in the order of *ids*; ``nodes`` and ``edges`` every node and edge on them, each once.
-    A path through a node that is not there (an edge to a missing node) is left out."""
-    found: list[Path] = []
-    capped = False
+    along the edges *followed* lets through: ``{paths, nodes, edges, capped, partial,
+    expanded, membership}``. ``paths`` holds a path for each pair that has one, in the
+    order of *ids*; ``nodes`` and ``edges`` every node and edge on them, each once. A path
+    through a node that is not there (an edge to a missing node) is left out.
+
+    With *expand_cap* a group of *ids* (a law, a faction, a committee, a cabinet, a
+    dossier: ``path_groups``) starts from its *expand_cap* most telling children too:
+    ``expanded`` says per group how many of how many, ``membership`` the keys of the edges
+    that make a child. ``partial``: the search ran past ``PATHS_BUDGET``."""
     chosen = list(dict.fromkeys(ids))
+    groups = (
+        {i: children_of(store, i, expand_cap) for i in chosen if is_group(i)}
+        if expand_cap
+        else {}
+    )
     levels = _Levels(store, followed, chosen)
-    for source, target in combinations(chosen, 2):
-        path, cut = _shortest(levels, source, target, max_depth)
-        capped |= cut
-        if path is not None:
-            found.append(path)
+    found, capped, partial = _search(levels, chosen, max_depth, groups)
     node_ids = sorted({n for p in found for n in p.nodes})
     nodes = (
         {
@@ -232,4 +305,12 @@ def get_paths(
         "nodes": [nodes[n] for n in sorted({n for p in found for n in p.nodes})],
         "edges": edges,
         "capped": capped,
+        "partial": partial,
+        "expanded": {
+            group: {"used": len(children.kept), "total": children.total}
+            for group, children in groups.items()
+        },
+        "membership": {
+            child.edge for children in groups.values() for child in children.kept
+        },
     }
