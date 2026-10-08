@@ -41,10 +41,17 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
 
 
 def light_props(alias: str) -> str:
-    """SQL: the props of the node row *alias* without ``NEIGHBOUR_PROPS_LEFT_OUT``, the others
-    in their order."""
+    """SQL: the props of the row *alias* of the view ``nodes`` without
+    ``NEIGHBOUR_PROPS_LEFT_OUT``, the others in their order; of a judgment those kept in
+    ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and
+    their text, while it has them."""
     keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
-    return f"lg_unset({alias}.props, ARRAY[{keys}])"
+    unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
+    kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
+    return (
+        f"(CASE WHEN {alias}.collection = 'judgments'"
+        f" THEN coalesce({kept}, {unset}) ELSE {unset} END)"
+    )
 
 
 def node_doc(row: dict[str, Any]) -> dict[str, Any]:
