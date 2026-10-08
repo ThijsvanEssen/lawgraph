@@ -350,6 +350,9 @@ class JudgmentProps(_CommonProps):
     case_number_keys: list[str] | None = None
     # the earlier instances the metadata names (``dcterms:relation``)
     related_eclis: list[str] | None = None
+    # the later instances it names (``psi:aanleg`` latereAanleg): the courts that ruled on
+    # appeal of it, in cassation or after it
+    later_eclis: list[str] | None = None
     # the conclusion of a judgment, or the judgment of a conclusion (``psi:type`` conclusie)
     conclusion_eclis: list[str] | None = None
     # the decisions an appeal names in its text that are not loaded

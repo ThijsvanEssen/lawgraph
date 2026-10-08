@@ -533,13 +533,17 @@ court. A publication whose replacing one is loaded (followed to the last that is
 counts its citations with the one kept. One whose replacing publication is not loaded stands
 alone. Derived in full each run.
 
-**Semantic `rechtspraak-appeal`.** Judgments whose `judgment_metadata.type` contains `hoger
-beroep`, `cassatie` or `verwijzing` (`core/appeals.py`). To each of their `related_eclis`
+**Semantic `rechtspraak-appeal`.** From a judgment to each of its `related_eclis`
 (`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`): `CONTINUES` when it is of the
-same court with a case number the two share (an interim judgment, then the final one);
+same court with a case number the two share (an interim judgment, then the final one), whatever
+the procedure; and from a judgment whose `judgment_metadata.type` contains `hoger beroep`,
+`cassatie`, `verwijzing`, `artikel 80a RO` or `artikel 81 RO` (`core/appeals.py`):
 `REFERRED_BY` when it is a ruling of the Hoge Raad and the judgment is of another court (the
 decision after referral), no edge when that ruling is a preliminary ruling the court asked for;
-no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. An appeal without
+no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. A judgment's
+`later_eclis` (`psi:aanleg` latereAanleg) make the same edge from each later judgment that is
+loaded, by the same rules (`later_instance`, 0.95): a lower court names its appeal, which need
+not name it back. An appeal without
 `related_eclis` is read for the decision it appeals, in its first 12 paragraphs: `tegen
 de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
 followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
