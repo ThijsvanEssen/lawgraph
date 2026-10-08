@@ -38,7 +38,10 @@ graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the hig
 judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
 summary to 401 characters, date, court, case number, source, jurisdiction, stub, translation
 and advocate-general), kept by triggers on every write of `judgments` and filled once by
-`semantic graph-light`; it raises no data version either.
+`semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
+what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
+dossier numbers, case kinds, sequence), without its text, kept and filled the same way from
+`documents`.
 
 ## Node types and relation catalogue
 
