@@ -206,3 +206,61 @@ def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
     for searcher in searchers:
         searcher.join(timeout=60)
     assert len(done) == 12, f"{12 - len(done)} of 12 searchers stood still"
+
+
+def test_the_start_of_a_value_is_matched_from_three_characters(
+    store: GraphStore,
+) -> None:
+    """Two characters (``hu``) start the values of a large share of the rows, which the
+    trigrams cannot narrow: a start of a value counts from three."""
+    from lawgraph.db.queries.search import _INSTRUMENT_FIELDS, build_search_clause
+
+    law = {
+        "_key": "bwbr0002",
+        "type": "instrument",
+        "labels": [],
+        "props": {"citation_title": "huurwet", "bwb_id": "BWBR0002"},
+    }
+    store.bulk_insert_or_update_nodes("instruments", [law])
+
+    def matching(token: str) -> int:
+        clause, params = build_search_clause("instruments", [token], _INSTRUMENT_FIELDS)
+        return int(
+            next(
+                store.query(
+                    f"SELECT count(*) FROM instruments doc WHERE {clause}", params
+                )
+            )
+        )
+
+    assert matching("hu") == 0
+    assert matching("huu") == 1
+
+
+def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A count past ``DF_TIMEOUT`` takes every row as the frequency of its terms: the search
+    still finds what holds them, and the next one does not count again."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries.search import search_all
+
+    _judgments_with_words(store, 300)
+    version_cache.clear()
+    monkeypatch.setattr(_bm25, "DF_TIMEOUT", 0.0)
+    monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
+    counts: list[str] = []
+    query = store.query
+
+    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if str(statement).startswith("SELECT 1 AS one"):
+            counts.append(str(statement))
+        return query(statement, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", recording)
+    with caplog.at_level("INFO"):
+        first = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
+        again = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
+    assert first and [h["key"] for h in again] == [h["key"] for h in first]
+    assert any("took over" in r.message for r in caplog.records)
+    assert len(counts) <= 1  # kept: the second search counts nothing

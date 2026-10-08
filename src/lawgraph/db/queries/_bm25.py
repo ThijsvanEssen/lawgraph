@@ -18,8 +18,12 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
+from lawgraph.core.logging import get_logger
 from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.store import ReadTimedOut, reset_read_deadline, set_read_deadline
 from lawgraph.db.version_cache import cached, lasting
+
+logger = get_logger(__name__)
 
 K1 = 1.2
 B = 0.75
@@ -29,6 +33,9 @@ SAMPLE_ROWS = 20_000
 MIN_SAMPLED = 100
 # How long the statistics of a table are kept (seconds), whatever the data does.
 STATS_MAX_AGE = 6 * 3600.0
+# How long the count of the document frequencies of one search may take (seconds; it runs
+# in the background, for the next request too, ``_counted``).
+DF_TIMEOUT = 5.0
 
 # The statistics of a table and the document frequencies of terms are kept per data version
 # (``version_cache``): on the full graph they take a minute, and change only with the data.
@@ -128,7 +135,11 @@ def _tf(term: _Term) -> str:
     if term.analyzer == "text":
         return f"cardinality(array_positions({column}, {p}::text))"
     if term.analyzer == "identity":
-        return f"(SELECT count(*) FROM unnest({column}) AS v WHERE starts_with(v, {p}))"
+        # from three characters, as the condition of the search matches a start of a value
+        return (
+            f"(CASE WHEN char_length({p}) >= 3 THEN (SELECT count(*) FROM unnest({column})"
+            f" AS v WHERE starts_with(v, {p})) ELSE 0 END)"
+        )
     if term.analyzer == "norm":
         return f"cardinality(array_positions({column}, lg_fold({p})))"
     return (
@@ -152,9 +163,10 @@ def _df(table: str, term: _Term) -> str:
             f" AND {column} LIKE '%%' || replace(replace(replace({p}, '\\', '\\\\'),"
             f" '%%', '\\%%'), '_', '\\_') || '%%')"
         )
-    # identity: the rows that have a value starting with the word
+    # identity: the rows that have a value starting with the word, of three characters or
+    # more (as the condition of the search, ``search._field_condition``)
     return (
-        f"(SELECT count(*) FROM {table} WHERE"
+        f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND"
         f" {search_column(term.field, 'prefix')} LIKE '%%' || chr(31) || lg_like({p}) || '%%')"
     )
 
@@ -172,7 +184,7 @@ def _stems_of(store: Any, word: str) -> list[str]:
 
 
 def _frequencies(
-    store: Any, table: str, terms: list[_Term], params: dict[str, Any]
+    store: Any, table: str, terms: list[_Term], params: dict[str, Any], rows: float
 ) -> list[float]:
     """The document frequency of each term, kept per data version. A word whose stem is one
     of the most common elements of its column (``_common_elements``) takes the frequency the
@@ -204,18 +216,44 @@ def _frequencies(
                     found[n] = known[str(params[term.param])]
         counted = [n for n in range(len(terms)) if n not in found]
         if counted:
-            counts = [f"{_df(table, terms[n])} AS d{n}" for n in counted]
-            # Counted from the indexes: a scan would detoast the search columns of every
-            # row. (one more column: a row of one column is its value, not a dict)
-            row = next(
-                store.query(
-                    f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
-                )
-            )
-            found.update({n: float(row[f"d{n}"]) for n in counted})
+            found.update(_counted(store, table, terms, params, counted, rows))
         return [found[n] for n in range(len(terms))]
 
     return cached(store, key, count)
+
+
+def _counted(
+    store: Any,
+    table: str,
+    terms: list[_Term],
+    params: dict[str, Any],
+    counted: list[int],
+    rows: float,
+) -> dict[int, float]:
+    """The document frequencies of the terms *counted*, in one statement of index lookups,
+    within ``DF_TIMEOUT`` seconds. A count that takes longer is of terms too common to tell
+    apart: each takes *rows*, so it weighs next to nothing in the rank and still keeps the
+    rows that hold it (a short part of a word that half the rows start with)."""
+    counts = [f"{_df(table, terms[n])} AS d{n}" for n in counted]
+    token = set_read_deadline(DF_TIMEOUT)
+    try:
+        # Counted from the indexes: a scan would detoast the search columns of every row.
+        # (one more column: a row of one column is its value, not a dict)
+        row = next(
+            store.query(
+                f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
+            )
+        )
+    except ReadTimedOut:
+        logger.info(
+            "The frequencies of a search of %s took over %s s: taken as every row.",
+            table,
+            DF_TIMEOUT,
+        )
+        return dict.fromkeys(counted, rows)
+    finally:
+        reset_read_deadline(token)
+    return {n: float(row[f"d{n}"]) for n in counted}
 
 
 def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
@@ -287,7 +325,7 @@ def bm25_sql(
     if not terms:
         return "0", "", params
     stats = _stats(store, table)
-    frequencies = _frequencies(store, table, terms, params)
+    frequencies = _frequencies(store, table, terms, params, stats["N"])
     columns, parts = [], []
     lengths: dict[tuple[str, str], str] = {}  # one length per field and analyzer
     for n, term in enumerate(terms):
