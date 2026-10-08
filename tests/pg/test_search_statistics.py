@@ -264,3 +264,48 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     assert first and [h["key"] for h in again] == [h["key"] for h in first]
     assert any("took over" in r.message for r in caplog.records)
     assert len(counts) <= 1  # kept: the second search counts nothing
+
+
+def test_the_start_of_a_value_is_matched_in_any_case_and_without_accents(
+    store: GraphStore,
+) -> None:
+    """A value starts with a word whatever its case, and without its accents where the
+    field is folded for a part of its value as well (``start_of_value_sql``); a word
+    later in a value is no start of it."""
+    from lawgraph.db.schema import start_of_value_sql
+
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "_key": "a",
+                "type": "instrument",
+                "labels": [],
+                "props": {
+                    "citation_title": "Réglement op de huur",
+                    "short_title": "Huurwet",
+                },
+            },
+            {
+                "_key": "b",
+                "type": "instrument",
+                "labels": [],
+                "props": {"citation_title": "Algemene huurwet", "short_title": "AHW"},
+            },
+        ],
+    )
+
+    def starting(field: str, word: str) -> list[str]:
+        condition = start_of_value_sql("instruments", field, "%(w)s")
+        return list(
+            store.query(
+                f"SELECT doc.key FROM instruments doc WHERE {condition} ORDER BY doc.key",
+                {"w": word},
+            )
+        )
+
+    assert starting("citation_title", "reglement") == ["a"]  # folded: case and accent
+    assert starting("citation_title", "Régl") == ["a"]
+    assert starting("citation_title", "huur") == []  # later in a value: no start of it
+    assert starting("short_title", "huur") == ["a"]  # in any case, as it is
+    assert starting("short_title", "ahw") == ["b"]
