@@ -239,8 +239,9 @@ class TKClient(BaseClient):
         since: dt.datetime | None = None,
         top: int = 250,
     ) -> Iterable[dict[str, Any]]:
-        """Fetch Toezegging (ministerial commitment) records."""
-        params: dict[str, Any] = {}
+        """Fetch Toezegging (ministerial commitment) records, with the letters that fulfil
+        them (``KamerbriefNakoming``, their ids)."""
+        params: dict[str, Any] = {"$expand": "KamerbriefNakoming($select=Id)"}
         if since is not None:
             since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"

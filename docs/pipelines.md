@@ -184,7 +184,7 @@ Miljoenennota itself, so each record links to the dossier node with that key.
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`), `LED_BY` (Activity to
-Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
+Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity), `ANSWERS` (the letter that fulfils a commitment, `letter_ids`, to it), `MEMBER_OF`
 (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the

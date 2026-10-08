@@ -328,3 +328,17 @@ def test_the_links_of_documents_are_asked_for_alone_and_with_every_document(
     # every Document of tk-dossiers carries its links too
     assert documents["$expand"].endswith(links)
     assert all(entity == "Document" for entity, _ in asked)
+
+
+def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it(
+    monkeypatch: Any,
+) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[dict] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append(params) or iter(()),
+    )
+    list(client.fetch_toezeggingen())
+    assert asked == [{"$expand": "KamerbriefNakoming($select=Id)"}]

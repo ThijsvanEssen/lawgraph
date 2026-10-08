@@ -216,12 +216,13 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "ANSWERS",
-        (_J,),
-        (_J,),
+        (_J, _DOC),
+        (_J, _COMMIT),
         "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
         "questions: the earlier instance its metadata names (`meta.basis` "
         "`formal_relation`), else the ECLI or the case number and date its text names "
-        "(`referral_text`).",
+        "(`referral_text`). A letter → the commitment it fulfils "
+        "(`Toezegging.KamerbriefNakoming`).",
     ),
     RelationSpec(
         "SAME_AS",

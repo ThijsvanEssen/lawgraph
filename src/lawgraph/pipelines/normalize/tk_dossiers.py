@@ -267,6 +267,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             source=EDGE_SOURCE,
         )
         tk_cases.link_authors(store, normalized["documents"], source=EDGE_SOURCE)
+        tk_cases.link_letters_to_commitments(
+            store, normalized["commitments"].values(), source=EDGE_SOURCE
+        )
         tk_cases.link_documents(
             store,
             ((tk_id, node.props) for tk_id, node in normalized["documents"].items()),

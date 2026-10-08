@@ -61,6 +61,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         since: dt.datetime | None = None,
         decisions_since: dt.datetime | None = None,
         documents_since: dt.datetime | None = None,
+        commitments_since: dt.datetime | None = None,
         skip_members: bool = False,
         skip_decisions: bool = False,
         skip_documents: bool = False,
@@ -76,6 +77,8 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                    Pass None for a full refresh.
             decisions_since: Override ``since`` for Stemming and Besluit only.
                    Use to limit the very large Stemming dataset to a window.
+            commitments_since: Override ``since`` for Toezegging only (all of them, with
+                the letters that fulfil them, are a few hundred pages).
             documents_since: Override ``since`` for Document only.
                    Recommended: pass '730d' (2 years) as a starting window;
                    a full fetch is ~400K+ records.
@@ -148,7 +151,9 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             result,
             RAW_KIND_TK_TOEZEGGING,
             "Id",
-            lambda: self.client.fetch_toezeggingen(since=since),
+            lambda: self.client.fetch_toezeggingen(
+                since=commitments_since if commitments_since is not None else since
+            ),
         )
         self._fetch_and_store(
             result,
