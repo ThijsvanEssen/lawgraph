@@ -145,11 +145,12 @@ def _articles(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
 
 
 def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    """The articles a citation that leaves the book open may mean: of a code it names
-    (``art. 3 BW``) in the order of its books; without a law (``art. 8:69``) the article of
-    that book of the code with books and those of that number in any law together, the
-    most cited first (the Awb's 8:69 before Boek 8 BW). One alone is the citation, several
-    are a choice (each at most ``CONFIDENCE_AMBIGUOUS``)."""
+    """The articles a citation that leaves the book open may mean, the most cited first
+    (of as many, in the order of the books): of a code it names, its books (``artikel 162
+    BW``: Boek 6 before Boek 1); without a law (``art. 8:69``) the article of that book of
+    the code with books and those of that number in any law together (the Awb's 8:69
+    before Boek 8 BW). One alone is the citation, several are a choice (each at most
+    ``CONFIDENCE_AMBIGUOUS``)."""
     named = [a for a in notation.articles if a.law_id]
     keys = [make_node_key(a.law_id or "", a.number) for a in named]
     found = [
@@ -160,8 +161,7 @@ def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     if loose:
         seen = {t["id"] for t in found}
         found += [t for t in _articles_without_law(store, loose) if t["id"] not in seen]
-        found = _most_cited_first(store, found)
-    return _capped(found)
+    return _capped(_most_cited_first(store, found) if len(found) > 1 else found)
 
 
 def _most_cited_first(
