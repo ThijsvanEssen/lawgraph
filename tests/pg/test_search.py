@@ -384,3 +384,132 @@ def test_a_live_search_cuts_a_type_off_at_its_budget(
     )
     assert partial == {"judgments", "articles"}
     assert hits == {"judgments": [], "articles": []}
+
+
+def _live_names(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbr0001854",
+                "instrument",
+                bwb_id="BWBR0001854",
+                title="Wetboek van Strafrecht",
+                citation_title="Wetboek van Strafrecht",
+                article_count=10,
+            ),
+            _node(
+                "bwbr0005753",
+                "instrument",
+                bwb_id="BWBR0005753",
+                title="Wet strafrechtelijke handhaving",
+                citation_title="Wet strafrechtelijke handhaving",
+                article_count=900,
+            ),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                f"bwbr0047000_{n}",
+                "article",
+                bwb_id="BWBR0047000",
+                article_number=str(n),
+                display_name=f"Artikel {n} Omgevingswet",
+                heading=heading,
+                text="Regels over de omgeving.",
+                inbound_citation_count=cited,
+            )
+            for n, heading, cited in [
+                (1, "Regels voor stikstofdepositie", 2),
+                (2, "Beëindiging van de stikstofruimte", 7),
+                (3, "Vastikstofbinding", 40),  # "tikst" within a word only
+                (4, "Geluid", 90),
+            ]
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(
+                f"d{n}",
+                "document",
+                title=title,
+                kind="Brief regering",
+                date=date,
+                external_id=f"2024D0000{n}",
+            )
+            for n, title, date in [
+                (1, "Brief over stikstof", "2024-01-05"),
+                (2, "Kamerbrief over de stikstofbank", "2024-03-01"),
+                (3, "Woningbouw", "2024-06-01"),
+                (4, "Stikstofbeleid", "2020-01-01"),
+            ]
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node(
+                "36001",
+                "dossier",
+                number="36001",
+                title="Spoedwet stikstof",
+                last_activity="2023-01-01",
+            ),
+            _node(
+                "36002",
+                "dossier",
+                number="36002",
+                title="Wet stikstofreductie",
+                last_activity="2024-05-01",
+            ),
+        ],
+    )
+
+
+def test_a_live_search_finds_the_start_of_a_word_without_ranking(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """While typing, a part of a word is the start of a word of a name or title (an index
+    read each), never within one, and nothing is counted or ranked by its words: of hits
+    that score alike (``rank_hits``), articles the most cited first, laws the largest,
+    papers and dossiers the newest."""
+    version_cache.clear()
+    _live_names(store)
+    statements: list[str] = []
+    query = store.query
+
+    def recording(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        statements.append(" ".join(str(statement).split()))
+        return query(statement, *args, **kwargs)
+
+    def live(q: str, kind: str) -> list[str]:
+        hits, partial = search_queries.search_live(store, q=q, types=[kind])
+        assert partial == set()
+        return [h["key"] for h in hits[kind]]
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        assert live("stik", "articles") == ["bwbr0047000_2", "bwbr0047000_1"]
+        assert live("beeindiging", "articles") == ["bwbr0047000_2"]  # accents folded
+        assert live("tikst", "articles") == []
+        assert live("stik", "documents") == ["d4", "d2", "d1"]
+        assert live("2024D00003", "documents") == ["d3"]
+        assert live("stik", "dossiers") == ["36002", "36001"]
+        assert live("strafr", "instruments") == ["bwbr0005753", "bwbr0001854"]
+        assert live("st", "articles") == []  # two characters: whole words only
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    assert statements
+    assert not any("AS rank" in s or "lg_bm25" in s for s in statements)
+    # the full search, after Enter, finds a part within a word too
+    full = search_queries.search_all(store, q="tikst", types=["articles"])
+    assert "bwbr0047000_3" in [h["key"] for h in full["articles"]]
+    # of more than it keeps, the title that starts with the query before the newest
+    hits, _ = search_queries.search_live(store, q="stik", types=["documents"], limit=1)
+    assert [h["key"] for h in hits["documents"]] == ["d4"]
+    # a common word: of the first rows found, those first in order
+    monkeypatch.setattr(search_queries, "LIVE_CANDIDATES", 1)
+    assert len(live("stik", "articles")) == 1

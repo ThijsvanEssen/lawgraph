@@ -58,7 +58,8 @@ def search(
         Query(
             description=(
                 "`live` while typing: each type within 250 ms, cut off types in `partial`, "
-                "the judgments by ECLI, name and display name (court, date, case number), "
+                "nothing ranked by its words (a word, or the start of a word of a name or "
+                "title), the judgments by ECLI, name and display name (court, date, case number), "
                 "the most cited first, and only from three characters; `full` (the "
                 "default) ranks everything"
             )
