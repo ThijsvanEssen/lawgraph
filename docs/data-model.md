@@ -34,7 +34,11 @@ store) and `pipeline_state`: per phase when its last complete `<phase> all` bega
 `--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), and the marks
 of `lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
 graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the highest count, and
-`lg_heat_state` when it was counted; writing them raises no data version.
+`lg_heat_state` when it was counted; writing them raises no data version. `lg_judgment_light` holds per
+judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
+summary to 401 characters, date, court, case number, source, jurisdiction, stub, translation
+and advocate-general), kept by triggers on every write of `judgments` and filled once by
+`semantic graph-light`; it raises no data version either.
 
 ## Node types and relation catalogue
 

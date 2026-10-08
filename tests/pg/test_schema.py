@@ -30,8 +30,8 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
         " WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
     )
     # every node collection, edges, raw_sources, pipeline_state, the data versions and
-    # the kept heat (lg_heat, lg_heat_state)
-    assert tables == len(NODE_COLLECTIONS) + 6
+    # the kept heat (lg_heat, lg_heat_state) and the light judgments (lg_judgment_light)
+    assert tables == len(NODE_COLLECTIONS) + 7
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:
