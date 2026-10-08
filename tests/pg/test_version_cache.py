@@ -152,6 +152,61 @@ def test_after_a_change_a_request_takes_the_last_answer_while_the_new_one_comput
     assert version_cache.cached(store, ("stale",), slow) == "new"
 
 
+def test_while_typing_a_request_takes_the_last_answer_at_once(
+    store: GraphStore,
+) -> None:
+    """A search while typing (``stale_wait``) does not wait ``STALE_WAIT`` (2 s) for the
+    answer of a new data version (the parser of citations after a poll): it takes the last
+    one at once, and the new one goes on computing for the next."""
+    from lawgraph.db import store as store_module
+
+    assert version_cache.cached(store, ("typing",), lambda: "old") == "old"
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+
+    def slow() -> str:
+        time.sleep(1.0)
+        return "new"
+
+    token = store_module.set_read_deadline(30)
+    try:
+        started = time.monotonic()
+        with version_cache.stale_wait(0.05):
+            assert version_cache.cached(store, ("typing",), slow) == "old"
+        assert time.monotonic() - started < 0.5
+        # outside it a request waits STALE_WAIT, here long enough for the new answer
+        assert version_cache.cached(store, ("typing",), slow) == "new"
+    finally:
+        store_module.reset_read_deadline(token)
+
+
+def test_a_search_while_typing_takes_the_last_parser_of_citations(
+    store: GraphStore, monkeypatch
+) -> None:
+    """The live search sets it: the parser of citations of a new version of the
+    instruments, which reads every instrument, is not waited for (2 s per lane after every
+    poll, measured on prod); the full search waits for it as before."""
+    from lawgraph.db import store as store_module
+    from lawgraph.db.queries import search as search_queries
+
+    real = search_queries.code_alias_rows
+
+    def slow_rows(store_: GraphStore) -> object:
+        time.sleep(1.0)
+        return real(store_)
+
+    token = store_module.set_read_deadline(30)
+    try:
+        store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        store.bulk_insert_or_update_nodes("instruments", [_instrument("b")])
+        monkeypatch.setattr(search_queries, "code_alias_rows", slow_rows)
+        started = time.monotonic()
+        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        assert time.monotonic() - started < 0.6
+    finally:
+        store_module.reset_read_deadline(token)
+
+
 def test_outside_a_request_the_new_answer_is_waited_for(
     store: GraphStore, monkeypatch
 ) -> None:

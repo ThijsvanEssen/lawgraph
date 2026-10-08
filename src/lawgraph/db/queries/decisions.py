@@ -9,6 +9,7 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_CASES,
+    COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
     RELATION_ABOUT,
@@ -18,6 +19,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries import _words
+from lawgraph.db.schema import search_words
 
 
 @dataclass(frozen=True)
@@ -26,8 +29,8 @@ class DecisionFilters:
 
     *party* with *choice* keeps the decisions that party voted that way on (``Voor``,
     ``Tegen``: ``meta.choice`` of its VOTED edge); *party* alone the ones it voted on.
-    *dossier* is a dossier number, matched against the numbers on the decision; *q* a
-    substring of the subject, in any case.
+    *dossier* is a dossier number, matched against the numbers on the decision; *q* words
+    of the subject (``_words``: from the start of a word, a short one whole, any case).
     """
 
     kinds: tuple[str, ...] | None = None
@@ -62,9 +65,15 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         clauses.append("d.date <= %(date_to)s")
         bind["date_to"] = filters.date_to
     if filters.q:
+        bind["q"] = _words.words(filters.q)
+        bind["q_word"] = _words.word_pattern(bind["q"])
+        if len(bind["q"]) >= _words.TRIGRAM:
+            # the candidates by the trigram index on the words of a decision
+            clauses.append(
+                f"{search_words(COLLECTION_DECISIONS, 'd')} LIKE {_words.LOWER_LIKE}"
+            )
         # AQL LOWER of a missing subject is "", of a number its digits.
-        clauses.append("strpos(lower(coalesce(d.props ->> 'subject', '')), %(q)s) > 0")
-        bind["q"] = filters.q.lower()
+        clauses.append(_words.holds("coalesce(d.props ->> 'subject', '')"))
     if filters.party:
         # Start from the faction's own edges rather than scanning every vote.
         choice = ""

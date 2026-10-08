@@ -227,11 +227,13 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SAME_AS",
-        (_J,),
-        (_J,),
+        (_J, _I),
+        (_J, _I),
         "A publication of a decision → the publication of the same decision that replaces "
         "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
-        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept.",
+        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. "
+        "The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty "
+        "number the text names (`wetgeving@verdragnummer`).",
     ),
     RelationSpec(
         "SCOPED_BY",
@@ -249,9 +251,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "LED_BY",
-        (_ACT,),
+        (_ACT, _CASE),
         (_COMMITTEE,),
-        "The lead committee (`voortouwcommissie`) of an activity; absent for plenary.",
+        "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
+        "plenary.",
     ),
     RelationSpec(
         "MADE_IN",
