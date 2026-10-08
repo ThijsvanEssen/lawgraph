@@ -72,7 +72,7 @@ def test_every_route_gives_the_number_of_a_paper(store: GraphStore, paper: str) 
     doc = get_document(store, "d")
     assert doc is not None
 
-    assert DocumentListItemDTO.from_row(listed).number == number
+    assert DocumentListItemDTO.from_row(listed, {}).number == number
     assert hit["extra"]["number"] == number
     assert DossierDocumentDTO.from_row(row).number == number
     assert DocumentTextResponse.from_document(doc).number == number
