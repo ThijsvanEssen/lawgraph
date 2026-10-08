@@ -773,6 +773,47 @@ def document_actors(payload: Payload) -> list[dict[str, Any]]:
     return actors
 
 
+# The ZaakActor relations of the people who submitted a Zaak, and of its lead committee.
+CASE_SUBMITTER_RELATIONS = ("Indiener", "Medeindiener")
+CASE_LEAD_RELATION = "Voortouwcommissie"
+
+
+def case_actors(payload: Payload) -> dict[str, Any]:
+    """Who submitted a Zaak and which committee leads it, from its ``ZaakActor``:
+    ``submitters`` (``person_id``, ``role`` as the source writes it, ``function`` and the
+    ``capacity`` that makes it, as ``document_actors``) and ``committee_ids`` (the
+    voortouwcommissie; none when the plenary leads, as for an activity). Read from a record
+    of ``retrieve tk-case-actors``."""
+    actors = list(_dicts(payload.get("ZaakActor")))
+    submitters = []
+    for actor in actors:
+        person_id = str(actor.get("Persoon_Id") or "")
+        if actor.get("Relatie") not in CASE_SUBMITTER_RELATIONS or not person_id:
+            continue
+        function = (actor.get("Functie") or "").strip() or None
+        submitters.append(
+            {
+                "person_id": person_id,
+                "role": actor["Relatie"],
+                "function": function,
+                "capacity": signing_capacity(
+                    function, str(actor.get("Fractie_Id") or "") or None
+                ),
+            }
+        )
+    return {
+        "submitters": submitters,
+        "committee_ids": _distinct(
+            [
+                str(actor.get("Commissie_Id") or "")
+                for actor in actors
+                if actor.get("Relatie") == CASE_LEAD_RELATION
+                and actor.get("ActorAfkorting") != PLENARY_VOORTOUW
+            ]
+        ),
+    }
+
+
 def submitters(
     kind: str | None, actors: Iterable[dict[str, Any]]
 ) -> list[dict[str, Any]]:

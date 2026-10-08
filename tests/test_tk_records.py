@@ -956,3 +956,58 @@ def test_the_links_of_a_document_are_its_activities_attachments_and_letters() ->
     assert tk_records.document_links({"Id": "b1", "BronDocument": [{"Id": "x"}]})[
         "attached_to_ids"
     ] == ["x"]
+
+
+def test_the_actors_of_a_case_are_its_submitters_and_lead_committee() -> None:
+    # a motion of a member, and a bill of a minister, as retrieve tk-case-actors stores them
+    motion = {
+        "Id": "2965764e-cc8e-45f1-8f55-00003c0ab2dd",
+        "ZaakActor": [
+            {
+                "Relatie": "Voortouwcommissie",
+                "ActorAfkorting": "TK",
+                "Commissie_Id": "tk",
+            },
+            {"Relatie": "Indiener", "Persoon_Id": "p1", "Fractie_Id": "f1"},
+            {"Relatie": "Medeindiener", "Persoon_Id": "p2", "Fractie_Id": "f2"},
+            {"Relatie": "Gericht aan", "Persoon_Id": "p3", "Functie": "minister"},
+            {"Relatie": "Indiener", "Persoon_Id": None},  # no person: no submitter
+        ],
+    }
+    actors = tk_records.case_actors(motion)
+    assert actors["submitters"] == [
+        {
+            "person_id": "p1",
+            "role": "Indiener",
+            "function": None,
+            "capacity": "kamerlid",
+        },
+        {
+            "person_id": "p2",
+            "role": "Medeindiener",
+            "function": None,
+            "capacity": "kamerlid",
+        },
+    ]
+    assert actors["committee_ids"] == []  # the plenary leads: no committee
+
+    bill = {
+        "ZaakActor": [
+            {
+                "Relatie": "Voortouwcommissie",
+                "ActorAfkorting": "VWS",
+                "Commissie_Id": "befe416e-ca1b-4804-97d0-7aca1dcba888",
+            },
+            {
+                "Relatie": "Indiener",
+                "Persoon_Id": "07de26f3-a939-4ae4-b7a5-43f868a665d1",
+                "Functie": "minister voor Medische Zorg",
+            },
+            {"Relatie": "Volgcommissie", "Commissie_Id": "other"},
+        ]
+    }
+    actors = tk_records.case_actors(bill)
+    assert [(s["role"], s["capacity"]) for s in actors["submitters"]] == [
+        ("Indiener", "bewindspersoon")
+    ]
+    assert actors["committee_ids"] == ["befe416e-ca1b-4804-97d0-7aca1dcba888"]

@@ -45,6 +45,7 @@ from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_case_actors import TKCaseActorsRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
@@ -428,6 +429,19 @@ def retrieve_tk_document_links(argv: list[str] | None = None) -> PipelineResult:
 
     since = None if args.mode == "full" else args.since
     return TKDocumentLinksRetrievePipeline(GraphStore()).run(since=since)
+
+
+def retrieve_tk_case_actors(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the actors of Tweede Kamer cases: who submitted a case and "
+        "which committee leads it."
+    )
+    add_since_argument(parser, default="1d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    since = None if args.mode == "full" else args.since
+    return TKCaseActorsRetrievePipeline(GraphStore()).run(since=since)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
