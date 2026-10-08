@@ -437,14 +437,29 @@ versioning (or a replica in a second bucket) protects against a deleted or overw
 
 ## Deploy
 
-A push to the branch `release` deploys that commit (`.github/workflows/deploy.yml`): the unit
-suite, then over SSH a checkout of exactly that commit on the server, `uv pip install -e .`
-into its venv, and a restart of the API, which has to answer `/api/health` within 30 seconds,
-with the `version` of the release.
+A release is one run of `.github/workflows/release.yml`, started by hand with the version
+(`gh workflow run release -f version=X.Y.Z`). It takes the head of develop, waits for its run of
+`tests.yaml` to be green, gives it the annotated tag `vX.Y.Z` (the version of the package comes
+from that tag), moves `release` to it (a fast-forward only), and calls the deploy.
+
+The deploy (`.github/workflows/deploy.yml`; a push to `release` starts it too, with the unit
+suite first) checks out exactly that commit on the server over SSH, fetching the tags,
+runs `uv pip install -e .` into its venv, and restarts the API, which has to answer `/api/health`
+within 30 seconds, with the `version` of the release. It then waits, up to 20 minutes, until `/api/health` has a `warm_version` and
+`"computing": false` (under constant writes `warm` itself can stay false while requests are answered from the
+last version; `"warm": null` is warm-up off; an older API is followed by `"warm": true` or its journal line
+`Warm-up done`) and runs `scripts/smoke.sh` against the public
+address (the variable `PUBLIC_URL`, default `https://concordans.nl`): health, a page of
+judgments without facets, a search, the feed and an article (Sr art. 287), each within its time budget, and
+the version that `/api/health` reports. When the deploy or the smoke test fails, the job puts the
+previous commit back (`/srv/lawgraph/deploy/previous` holds it for that run), installs, restarts
+and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
+`/srv/lawgraph/scheduler.env` (or `/srv/lawgraph/bin/alert.sh`), and stays red.
+
 The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
-load; when a run holds it, the job fails and is run again later. Data migrations that a release
-needs (a `normalize` or `semantic` step) are not part of it: run them on the server after the
-deploy.
+load; when a run holds it, the job fails before it changes anything and is run again later. Data
+migrations that a release needs (a `normalize` or `semantic` step) are not part of it: run them
+on the server after the deploy.
 
 The server it expects:
 
@@ -452,9 +467,11 @@ The server it expects:
 |------|------|
 | `/srv/lawgraph/app` | a clone of this repository with `.venv` (made with `uv`) and `.env` |
 | `/srv/lawgraph/tmp` | `TMPDIR` of the scheduled runs, where their lock lives |
+| `/srv/lawgraph/deploy` | `previous`: the commit before the last deploy, for its rollback |
 | systemd unit `lawgraph-api` | `.venv/bin/lawgraph-api` in `/srv/lawgraph/app`, on 127.0.0.1:8000 behind a reverse proxy |
 
-The user of `DEPLOY_USER` owns `/srv/lawgraph`, has `uv` in `~/.local/bin` and may run
+The user of `DEPLOY_USER` owns `/srv/lawgraph`, has `uv` in `~/.local/bin`, may read the journal of `lawgraph-api` (group `adm` or
+`systemd-journal`) and may run
 `sudo -n systemctl restart lawgraph-api`. Secrets of the repository: `DEPLOY_SSH_KEY` (a private
 key whose public half is in that user's `~/.ssh/authorized_keys`), `DEPLOY_HOST`,
 `DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS`. That last one is the known_hosts line of the server's
