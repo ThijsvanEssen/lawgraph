@@ -56,13 +56,25 @@ _LAW = f"""CASE WHEN e.relation = '{RELATION_PART_OF}' THEN
          WHEN e.to_collection = '{COLLECTION_INSTRUMENTS}' THEN e.to_id END
 END"""
 
+# Per node of the frontier its share of the level (``share`` edges each way) in the order of
+# the covering indexes, so that a level stops at its rows: read whole and cut after, the 200
+# articles of Sr read their 689,000 citations for a level of 100,000. A child of a group
+# gets its share whatever the ids of the neighbours of a hub beside it.
 _NEIGHBOURS_SQL = f"""
-SELECT e.from_id AS node, e.to_id AS neighbour, e.key, {_LAW} AS law
-FROM edges e WHERE e.from_id = ANY(%(frontier)s) {_FOLLOWED}
-UNION ALL
-SELECT e.to_id, e.from_id, e.key, {_LAW}
-FROM edges e WHERE e.to_id = ANY(%(frontier)s) {_FOLLOWED}
-ORDER BY 2, 3
+SELECT r.node, r.neighbour, r.key, r.law
+FROM unnest(%(frontier)s::text[]) AS f(id)
+CROSS JOIN LATERAL (
+    (SELECT e.from_id AS node, e.to_id AS neighbour, e.key, {_LAW} AS law
+     FROM edges e WHERE e.from_id = f.id {_FOLLOWED}
+     ORDER BY e.relation NULLS LAST, e.to_collection NULLS LAST, e.key NULLS LAST
+     LIMIT %(share)s)
+    UNION ALL
+    (SELECT e.to_id, e.from_id, e.key, {_LAW}
+     FROM edges e WHERE e.to_id = f.id {_FOLLOWED}
+     ORDER BY e.relation NULLS LAST, e.from_collection NULLS LAST, e.key NULLS LAST
+     LIMIT %(share)s)
+) r
+ORDER BY 2 NULLS LAST, 3 NULLS LAST
 LIMIT %(limit)s
 """
 
@@ -157,6 +169,7 @@ class _Levels:
                     {
                         "frontier": frontier,
                         "limit": _ROWS_PER_LEVEL,
+                        "share": -(-_ROWS_PER_LEVEL // max(len(frontier), 1)),
                         "relations": self.followed.relations,
                         "through_laws": self.followed.through_laws,
                         "ends": self.ids,
