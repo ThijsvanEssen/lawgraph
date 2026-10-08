@@ -165,6 +165,41 @@ def test_members_by_every_word_of_their_names(graph: GraphStore) -> None:
     assert _ids(found) == ["members/m1"]
 
 
+def test_members_and_factions_without_accents_or_in_capitals(
+    store: GraphStore,
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [
+            _node("m1", "member", name="Dilan Yeşilgöz-Zegerius", party="VVD"),
+            _node(
+                "m2",
+                "member",
+                name="Jan Jansen",
+                faction_memberships=[{"name": "Christen-Democratisch Appèl"}],
+            ),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            _node(
+                "cda", "faction", name="Christen-Democratisch Appèl", abbreviation="CDA"
+            )
+        ],
+    )
+
+    def found(q: str, kind: str) -> list[str]:
+        return _ids(search_queries.search_all(store, q=q, types=[kind])[kind])
+
+    for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
+        assert found(q, "members") == ["members/m1"], q
+    assert found("appel", "factions") == ["factions/cda"]
+    # a member by the factions of their timeline only as written, not folded
+    assert found("appèl", "members") == ["members/m2"]
+    assert found("appel", "members") == []
+
+
 def test_resolve_an_article_without_its_law(graph: GraphStore) -> None:
     answer = resolve_queries.resolve(graph, "art. 1")
     assert answer["kind"] == "article"

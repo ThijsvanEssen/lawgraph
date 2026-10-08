@@ -628,10 +628,24 @@ def _all_words(
     return condition, params
 
 
+def _all_words_folded(tokens: list[str], folded: str) -> tuple[str, dict[str, Any]]:
+    """``_all_words``, and a token also found in the *folded* names, both folded as the
+    search folds them (``lg_fold``: ``yesilgoz`` finds Yeşilgöz), on a trigram index of
+    their own (``schema._search_indexes``): ``search_names`` is lower case only."""
+    params = {f"_word_{i}": token for i, token in enumerate(tokens)}
+    condition = " AND ".join(
+        f"(doc.search_names LIKE '%%' || lg_like(%({name})s) || '%%'"
+        f" OR {folded} LIKE '%%' || lg_like(lg_fold(%({name})s)) || '%%')"
+        for name in params
+    )
+    return condition, params
+
+
 def _search_members(
     store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    condition, params = _all_words(tokens)
+    # a member's own name folded: the factions of a timeline are found as they are written
+    condition, params = _all_words_folded(tokens, "lg_fold(doc.name)")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -653,7 +667,7 @@ def _search_members(
 def _search_factions(
     store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
-    condition, params = _all_words(tokens)
+    condition, params = _all_words_folded(tokens, "lg_fold(doc.search_names)")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,

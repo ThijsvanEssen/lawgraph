@@ -939,6 +939,18 @@ def _search_indexes(collection: str) -> list[str]:
             f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"
             " USING gin (search_names gin_trgm_ops)"
         )
+        # the name folded as the search folds (``lg_fold``): ``yesilgoz`` finds Yeşilgöz.
+        # An index, not a column: no row is written again (``search_names`` is lower case
+        # only, a stored column).
+        folded = (
+            "lg_fold(name)"
+            if collection == COLLECTION_MEMBERS
+            else "lg_fold(search_names)"
+        )
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_names_folded ON {collection}"
+            f" USING gin (({folded}) gin_trgm_ops)"
+        )
     for column in _search_columns(collection):
         name = f"{collection}_{column.name}"
         if column.name.endswith(("_t", "_n")):
