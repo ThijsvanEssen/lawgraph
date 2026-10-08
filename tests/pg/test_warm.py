@@ -83,3 +83,43 @@ def test_the_warm_up_counts_the_largest_areas_of_law(
     assert asked == [None, "Area 0", "Area 1", "Area 2", "Area 3", "Area 4"]
     # with the filters the front end sends, whose facets are kept per filter
     assert sources == ["rechtspraak"] * 6
+
+
+def test_a_write_waits_for_the_least_time_between_two_warm_ups(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On a real database: a write raises the data version, and the warm-up of the new
+    data waits until ``LAWGRAPH_WARM_UP_MIN_INTERVAL`` has gone by since the last began."""
+    import time
+
+    from lawgraph.db import version_cache
+
+    done: list[tuple[float, str]] = []
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0)
+    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.05)
+    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", 1.0)
+    monkeypatch.setattr(
+        version_cache,
+        "_warmers",
+        [lambda s: done.append((time.monotonic(), s.data_version()))],
+    )
+
+    def until(count: int, seconds: float) -> bool:
+        end = time.monotonic() + seconds
+        while time.monotonic() < end and len(done) < count:
+            time.sleep(0.02)
+        return len(done) >= count
+
+    version_cache._version(store)  # the version this process knows
+    version_cache.warm(store, settle=0)
+    assert until(1, 2.0)
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "z", "type": "instrument", "labels": [], "props": {"title": "z"}}],
+    )
+    version_cache._version(store)  # a request sees the new version: a warm-up is wanted
+    assert version_cache.computing(store)  # it waits, and health says so
+    assert not until(2, 0.6)
+    assert until(2, 2.0)
+    assert done[1][0] - done[0][0] >= 1.0
+    assert done[1][1] == store.data_version()  # of the new data

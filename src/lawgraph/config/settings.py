@@ -197,6 +197,10 @@ API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30
 # The API computes the answers every visitor asks (facets of the unfiltered lists, the
 # statistics, the heat) at its start and after every data change, in the background.
 API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
+# At least this many minutes between the starts of two warm-ups after a data change (0: none):
+# a poll that writes every half hour does not keep the database warming. Between them the API
+# answers from what it kept of the data before.
+API_WARM_UP_MIN_INTERVAL = float(os.getenv("LAWGRAPH_WARM_UP_MIN_INTERVAL", "0"))
 # The heat of the whole graph (``/api/nodes/heat`` without ``ids``), which reads every
 # edge; ``false`` answers it 503 at once (the heat of named nodes stays).
 API_HEAT = os.getenv("LAWGRAPH_API_HEAT", "true").strip().lower() != "false"
