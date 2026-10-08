@@ -22,6 +22,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
+    COLLECTION_CASES,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     RAW_KIND_TK_ACTIVITEIT,
@@ -34,6 +35,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
+    RAW_KIND_TK_ZAAK,
     RELATION_ABOUT,
     RELATION_PART_OF,
     SOURCE_TK,
@@ -91,6 +93,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     ) -> dict[str, Iterable[dict[str, Any]]]:
         """The records per kind, streamed when they are walked: 360K payloads are not kept."""
         self._incremental = since is not None
+        self._since = since
         raw: dict[str, Iterable[dict[str, Any]]] = {
             kind: RawRecords(
                 self, source=SOURCE_TK, kinds=[kind], since=since, batch_size=1000
@@ -229,7 +232,12 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         normalized: dict[str, Any],
     ) -> None:
         store = self.store
-        tk_cases.link_cases_to_dossiers(store, source=EDGE_SOURCE)
+        tk_cases.link_cases_to_dossiers(
+            store,
+            source=EDGE_SOURCE,
+            cases=self._cases_of_window(),
+            dossiers=sorted(normalized["dossiers"]),
+        )
         tk_cases.link_subjects(
             store,
             normalized["documents"].values(),
@@ -289,6 +297,20 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         self._backfill_titles_and_phases(
             {**self._touched_dossiers(normalized), **normalized["dossiers"]}
         )
+
+    def _cases_of_window(self) -> list[str] | None:
+        """On a run over a window, the cases (``_id``) whose Zaak was fetched in it
+        (``normalize tk`` wrote them); None on a run over everything. A poll links those,
+        not every case of the Kamer again (200,000 edges written as they were)."""
+        if self._since is None:
+            return None
+        records = raw_queries.ids_stored_since(
+            self.store,
+            source=SOURCE_TK,
+            kind=RAW_KIND_TK_ZAAK,
+            cutoff_iso=iso_timestamp(self._since),
+        )
+        return [f"{COLLECTION_CASES}/{make_node_key(str(r))}" for r in records if r]
 
     def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
         """On a run over a window, the stored dossiers (by label) that a paper, activity

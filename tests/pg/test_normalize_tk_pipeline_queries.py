@@ -76,6 +76,32 @@ def test_case_dossier_numbers_are_the_cases_with_numbers_by_key(
     assert [list(row) for row in rows] == [["id", "dossier_numbers"]] * 3
 
 
+def test_case_dossier_numbers_of_some_cases_and_of_those_naming_dossiers(
+    store: GraphStore,
+) -> None:
+    """What a poll links: the cases of its window, by id, and the cases that name a
+    dossier it wrote, as a list or as one string."""
+    _seed(
+        store,
+        "cases",
+        _node("case2", dossier_numbers=["36000", "36001"]),
+        _node("Case1", dossier_numbers="36002"),
+        _node("case3", dossier_numbers=None),
+        _node("case4", dossier_numbers=["36003"]),
+    )
+    assert [
+        row["id"]
+        for row in queries.case_dossier_numbers_of(
+            store, ["cases/case2", "cases/case3", "cases/none"]
+        )
+    ] == ["cases/case2"]
+    assert [
+        row["id"]
+        for row in queries.case_dossier_numbers_naming(store, ["36001", "36002"])
+    ] == ["cases/Case1", "cases/case2"]
+    assert list(queries.case_dossier_numbers_naming(store, ["99999"])) == []
+
+
 def test_case_dossier_numbers_of_no_cases(store: GraphStore) -> None:
     assert list(queries.case_dossier_numbers(store)) == []
 

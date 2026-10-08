@@ -49,6 +49,47 @@ def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_CASE_NUMBERS_SQL)
 
 
+def case_dossier_numbers_of(store: Store, ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{id, dossier_numbers}`` of the cases *ids* (``_id``) that name a dossier."""
+    return store.query(
+        f"""
+        SELECT c.id, x.numbers AS dossier_numbers
+        FROM {COLLECTION_CASES} c
+        CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
+        WHERE c.id = ANY(%(ids)s::text[]) AND {present_sql("x.numbers")}
+        ORDER BY c.key COLLATE "C"
+        """,
+        {"ids": ids},
+    )
+
+
+def case_dossier_numbers_naming(
+    store: Store, labels: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{id, dossier_numbers}`` of the cases that name one of the dossiers *labels*: a
+    read of every case (no column holds their dossiers), for a run that wrote dossiers."""
+    return store.query(
+        f"""
+        SELECT c.id, x.numbers AS dossier_numbers
+        FROM {COLLECTION_CASES} c
+        CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
+        WHERE {present_sql("x.numbers")}
+          AND (
+              (json_typeof(x.numbers) = 'string'
+               AND x.numbers #>> '{{}}' = ANY(%(labels)s::text[]))
+              OR EXISTS (
+                  SELECT 1 FROM json_array_elements_text(
+                      CASE WHEN json_typeof(x.numbers) = 'array' THEN x.numbers END
+                  ) AS n(label)
+                  WHERE n.label = ANY(%(labels)s::text[])
+              )
+          )
+        ORDER BY c.key COLLATE "C"
+        """,
+        {"labels": labels},
+    )
+
+
 # One pass over the props of each node: its ``external_id`` and the props kept, in the
 # byte order of their names as ``KEEP`` gave them.
 _BY_EXTERNAL_ID_SQL = """

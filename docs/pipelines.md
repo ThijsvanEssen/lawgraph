@@ -156,7 +156,9 @@ heading of the opener's level or a bijlage. Article numbers come from the gramma
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title, kind, phases and
-opening date onto each dossier (it needs the document edges).
+opening date onto each dossier (it needs the document edges). The `PART_OF` of a case to its
+dossiers: of every case, or on a run over a window (`--since`, a poll) of the cases whose Zaak
+it fetched and of the cases that name a dossier it wrote, which may be new.
 
 | Step | Detail |
 |------|--------|

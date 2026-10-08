@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+import time
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_COMMITMENTS, COLLECTION_DOSSIERS
@@ -35,6 +36,7 @@ from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.core.time import format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db.queries import government as government_queries
 
@@ -145,8 +147,19 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         cabinets = list(government_queries.cabinet_periods(self.store))
         some_commitments = some_dossiers = None
         if touched_since is not None:
-            some_commitments = touched.touched_commitments(self.store, touched_since)
-            some_dossiers = touched.touched_dossiers(self.store, touched_since)
+            began = time.monotonic()
+            seeds = touched.tk_nodes_fetched_since(self.store, touched_since)
+            some_commitments = touched.touched_commitments(
+                self.store, touched_since, seeds
+            )
+            some_dossiers = touched.touched_dossiers(self.store, touched_since, seeds)
+            logger.info(
+                "Touched since %s: %d commitments and %d dossiers, found in %s.",
+                touched_since.isoformat(timespec="seconds"),
+                len(some_commitments),
+                len(some_dossiers),
+                format_duration(time.monotonic() - began),
+            )
 
         commitments = []
         matched = total = 0
