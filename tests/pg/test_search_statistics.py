@@ -77,3 +77,132 @@ def test_the_statistics_are_kept_when_the_data_changes(store: GraphStore) -> Non
         "instruments", [_instrument(n) for n in range(40, 80)]
     )
     assert _bm25._stats(store, "instruments") == first
+
+
+def _judgments_with_words(store: GraphStore, rows: int) -> None:
+    """Judgments whose summaries mix words of every frequency, as the real ones do: a word
+    of the first ones in most summaries, of the last ones in a few."""
+    words = [
+        "beroep", "bestuursrecht", "huurovereenkomst", "ontbinding", "verblijfsvergunning",
+        "asiel", "onrechtmatige", "daad", "schadevergoeding", "aansprakelijkheid",
+        "zeldzaamheid",
+    ]  # fmt: skip
+    store.execute(
+        "INSERT INTO judgments (id, type, props)"
+        " SELECT 'judgments/w_' || n, 'judgment', json_build_object("
+        " 'source', 'rechtspraak', 'ecli', 'ECLI:NL:RBAMS:2020:' || n,"
+        " 'date_eff', '2020-01-01', 'display_name', 'Rechtbank ' || n,"
+        " 'summary', array_to_string(ARRAY("
+        "   SELECT w FROM unnest(%(words)s::text[]) WITH ORDINALITY AS x(w, i)"
+        "   WHERE (n * 7 + i * 13) %% (i + 1) = 0 OR (n %% (i * i + 1)) = 0), ' '))"
+        f" FROM generate_series(1, {rows}) n",
+        {"words": words},
+    )
+    store.execute("ANALYZE judgments")
+
+
+def test_common_words_take_their_frequency_from_the_statistics_alike(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The top 10 with the frequencies of the planner's statistics is the top 10 with the
+    counted ones; a word the statistics do not know is counted."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries.search import search_all
+
+    _judgments_with_words(store, 4000)
+    queries = [
+        "beroep bestuursrecht",
+        "huurovereenkomst ontbinding",
+        "onrechtmatige daad",
+        "asiel",
+        "zeldzaamheid",
+    ]
+
+    def top(estimated: bool) -> dict[str, list[str]]:
+        version_cache.clear()
+        if not estimated:
+            monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})
+        found = {
+            q: [
+                h["key"]
+                for h in search_all(store, q=q, types=["judgments"], limit=10)[
+                    "judgments"
+                ]
+            ]
+            for q in queries
+        }
+        monkeypatch.undo()
+        return found
+
+    counted = top(estimated=False)
+    assert top(estimated=True) == counted
+    assert all(counted[q] for q in queries)
+
+    version_cache.clear()
+    common = _bm25._common_elements(store, "judgments", "s_summary_t")
+    assert "beroep" in common
+    statements: list[str] = []
+    query = store.query
+
+    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
+        statements.append(str(statement))
+        return query(statement, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", recording)
+    search_all(store, q="beroep", types=["judgments"], limit=10)
+    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    # the summaries are not counted for a common word: the statistics give its frequency
+    assert counts and not any("s_summary_t &&" in s for s in counts)
+    statements.clear()
+    version_cache.clear()
+    search_all(store, q="voorbeeldloos", types=["judgments"], limit=10)
+    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    # a word outside the statistics is counted
+    assert counts and any("s_summary_t &&" in s for s in counts)
+
+
+def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Twelve searchers of every type at once on a cache of one worker, the statistics
+    computed again on every call: before ``_frequencies`` read them outside its computation
+    of the cache, this stood still for ever (as a search did on 2026-10-08)."""
+    import concurrent.futures
+    import threading
+
+    from lawgraph.api.schemas.search import SEARCH_TYPES
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries.search import search_all
+
+    _judgments_with_words(store, 1500)
+    monkeypatch.setattr(
+        version_cache,
+        "_pool",
+        concurrent.futures.ThreadPoolExecutor(1, thread_name_prefix="lawgraph-cache"),
+    )
+    monkeypatch.setattr(_bm25, "STATS_MAX_AGE", 0.0)
+    queries = [
+        "beroep",
+        "asiel",
+        "beroep asiel",
+        "onrechtmatige daad",
+        "huurovereenkomst",
+    ]
+    done: list[int] = []
+
+    def search(n: int) -> None:
+        for r in range(4):
+            if n == 0:
+                version_cache.clear()
+            q = queries[(n + r) % len(queries)]
+            search_all(store, q=q, types=sorted(SEARCH_TYPES), limit=10)
+        done.append(n)
+
+    searchers = [
+        threading.Thread(target=search, args=(n,), daemon=True) for n in range(12)
+    ]
+    for searcher in searchers:
+        searcher.start()
+    for searcher in searchers:
+        searcher.join(timeout=60)
+    assert len(done) == 12, f"{12 - len(done)} of 12 searchers stood still"
