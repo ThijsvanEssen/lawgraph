@@ -44,6 +44,18 @@ ORDER BY c.key COLLATE "C"
 """
 
 
+def dossiers_by_key(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """The stored dossiers of *keys*, as rows of ``node_doc``, in one read."""
+    return store.query(
+        f"""
+        SELECT id, key, type, labels, props FROM {COLLECTION_DOSSIERS}
+        WHERE key = ANY(%(keys)s::text[])
+        ORDER BY key COLLATE "C"
+        """,
+        {"keys": keys},
+    )
+
+
 def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, dossier_numbers}`` of every case that names a dossier."""
     return store.query(_CASE_NUMBERS_SQL)

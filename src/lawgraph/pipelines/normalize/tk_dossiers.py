@@ -53,6 +53,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
@@ -323,11 +324,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             for node in normalized[kind].values()
             for label in node.props.get("dossier_numbers") or []
         } - set(normalized["dossiers"])
-        found: dict[str, Node] = {}
-        for label in sorted(labels):
-            node = self.store.get_node(COLLECTION_DOSSIERS, make_node_key(label))
-            if node is not None:
-                found[label] = node
+        label_of = {make_node_key(label): label for label in sorted(labels)}
+        found: dict[str, Node] = {
+            label_of[row["key"]]: Node.from_document(COLLECTION_DOSSIERS, node_doc(row))
+            for row in normalize_tk.dossiers_by_key(self.store, sorted(label_of))
+        }
         logger.info(
             "Refreshing %d dossiers the window's records belong to.", len(found)
         )

@@ -772,20 +772,27 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
 # ── dossiers a window touches ────────────────────────────────────────────────
 
 
-def test_a_window_refreshes_the_dossiers_its_records_belong_to() -> None:
+def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> None:
+    """In one read of the dossiers, not one per dossier."""
     from types import SimpleNamespace
 
     from lawgraph.config.constants import COLLECTION_DOSSIERS
+    from lawgraph.db.queries.normalize import tk as normalize_tk
     from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
-    stored = {"36000": "stored 36000", "37020_xv": "stored 37020-XV"}
-    asked: list[str] = []
+    stored = {"36000", "37020_xv"}
+    asked: list[list[str]] = []
 
-    def get_node(collection: str, key: str) -> Any:
-        assert collection == COLLECTION_DOSSIERS
-        asked.append(key)
-        return stored.get(key)
+    def dossiers_by_key(store: Any, keys: list[str]) -> Any:
+        asked.append(keys)
+        return iter(
+            {"id": f"{COLLECTION_DOSSIERS}/{key}", "key": key, "type": "dossier",
+             "labels": [], "props": {"title": key}}
+            for key in keys
+            if key in stored
+        )  # fmt: skip
 
+    monkeypatch.setattr(normalize_tk, "dossiers_by_key", dossiers_by_key)
     own = _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36500")
     normalized = {
         "dossiers": {"36500": own, "guid-36500": own},
@@ -800,13 +807,14 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to() -> None:
         },
         "decisions": {},
     }
-    window = SimpleNamespace(
-        _incremental=True, store=SimpleNamespace(get_node=get_node)
-    )
+    window = SimpleNamespace(_incremental=True, store=object())
     touched = TKDossiersNormalizePipeline._touched_dossiers(window, normalized)  # type: ignore[arg-type]
     # the window's own dossier is refreshed anyway; one no record holds is passed over
-    assert touched == {"36000": "stored 36000", "37020-XV": "stored 37020-XV"}
-    assert sorted(asked) == ["36000", "37020_xv", "99999"]
+    assert {label: node.key for label, node in touched.items()} == {
+        "36000": "36000",
+        "37020-XV": "37020_xv",
+    }
+    assert asked == [["36000", "37020_xv", "99999"]]  # one read
     # a run over everything holds every dossier already
     whole = SimpleNamespace(_incremental=False, store=None)
     assert TKDossiersNormalizePipeline._touched_dossiers(whole, normalized) == {}  # type: ignore[arg-type]
