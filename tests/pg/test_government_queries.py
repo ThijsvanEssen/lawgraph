@@ -230,6 +230,7 @@ def test_a_dossier_is_brought_in_by_the_first_signature_of_its_earliest_document
             "member": "heinen",
             "capacity": "bewindspersoon",
             "function": "minister",
+            "paper": "documents/early",
         }
     )
     # KEEP: the three in byte order, the others left out
@@ -243,6 +244,7 @@ def test_a_dossier_is_brought_in_by_the_first_signature_of_its_earliest_document
         "member": "jetten",
         "capacity": "kamerlid",
         "function": None,
+        "paper": "documents/pair",
     }
     assert rows["D0"] == {"key": "D0", "first": None, "props": {"cabinet": "schoof"}}
 

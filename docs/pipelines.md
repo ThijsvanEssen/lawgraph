@@ -305,9 +305,11 @@ With `--touched-since` (`lawgraph poll`) it walks only the dossiers touched sinc
 (`pipelines/semantic/_touched.py`): the dossier, commitment, paper, case or decision whose TK
 record was fetched since then (also the decision a fetched Stemming voted on), both ends of
 every edge written since then, and the dossiers these are `PART_OF`, `ABOUT` or `LEGISLATED_IN`,
-directly or through their case. For those it comes to what a run over all would. What changes
-in another way (a cabinet, a post, the date of a publication) waits for the nightly run, which
-walks all.
+directly or through their case. For those it comes to what a run over all would. Of the
+touched dossiers `tk-government` reads the papers again only of those whose first signature
+can have changed: one that keeps none (`first_signed`), or of which a paper the window touched
+is dated on or before the one kept, or is it. What changes in another way (a cabinet, a post,
+the date of a publication) waits for the nightly run, which walks all.
 
 <a id="semantic-tk-dossier-relations"></a>
 **Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record

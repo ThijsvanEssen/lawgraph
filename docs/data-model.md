@@ -467,6 +467,7 @@ the Eerste Kamer adds its own votes, agendas, bills, factions and committees, ea
 | `ek_rejected` | the Eerste Kamer's list of rejected bills names it: `date`, `source_url`, `retrieved_on` (`normalize eerstekamer-votes`) |
 | `ek_bill` | the page of its bill on eerstekamer.nl (`normalize eerstekamer-bills`): `url`, `read_on`, `status`, `submitted_on`, and `progress` with `phase`, `house`, `state` and `papers`, as the page gives them |
 | `ministry`, `initiative`, `cabinet` | who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document, or `initiative: true` when a Kamerlid did; the cabinet in office that day |
+| `first_signed` | that first signature: `date`, `member`, `capacity`, `function` and the `paper` (its id); null when no paper is signed so |
 
 ### Case (`cases`)
 

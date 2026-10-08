@@ -123,12 +123,17 @@ WITH papers AS (
 ),
 signatures AS (
     SELECT papers.dossier_id, papers.paper_id, a.key, a.from_id, a.doc -> 'meta' AS meta,
-           CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-                THEN (SELECT d.date FROM documents d WHERE d.id = a.to_id)
-                ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
-           END AS date
+           dated.date
     FROM papers
     JOIN edges a ON a.to_id = papers.paper_id AND a.relation = %(authored)s
+    -- the date read once per signature, not once for each place that names it
+    CROSS JOIN LATERAL (
+        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
+                    THEN (SELECT d.date FROM documents d WHERE d.id = a.to_id)
+                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
+               END AS date
+        OFFSET 0
+    ) dated
     WHERE lg_str(a.doc -> 'meta' -> 'role') = %(first_role)s
       AND lg_str(a.doc -> 'meta' -> 'capacity') = ANY(%(capacities)s)
 ),
@@ -137,7 +142,8 @@ firsts AS (
         'date', date,
         'member', split_part(from_id, '/', 2),
         'capacity', meta -> 'capacity',
-        'function', meta -> 'function'
+        'function', meta -> 'function',
+        'paper', paper_id
     ) AS first
     FROM signatures
     WHERE date IS NOT NULL
@@ -146,7 +152,7 @@ firsts AS (
 SELECT json_build_object(
     'key', dossier.key,
     'first', firsts.first,
-    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet")}
+    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
 )
 FROM dossiers dossier
 LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */
@@ -185,4 +191,75 @@ def dossier_first_signatures(
             "ids": ids,
         },
         hash_joins=not some,
+    )
+
+
+# Of the dossiers *ids*, those whose first signature a window can have changed: the papers
+# it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
+# written since *since*), walked up to their dossiers (directly or through a case), and of
+# those the dossiers that keep no first signature yet, or whose touched paper is dated on or
+# before the one kept, or is the one kept. A paper that comes later than the first, as almost
+# every new one, changes nothing.
+_FIRST_MAY_CHANGE_SQL = f"""
+WITH touched AS (
+    SELECT unnest(%(seeds)s::text[]) AS paper_id
+    UNION
+    SELECT a.to_id FROM edges a
+    WHERE a.relation = %(authored)s AND a.created_at >= %(since)s
+),
+up AS (
+    SELECT e.to_id AS dossier_id, t.paper_id
+    FROM touched t
+    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
+     AND e.to_collection = '{COLLECTION_DOSSIERS}'
+    UNION
+    SELECT c.to_id, t.paper_id
+    FROM touched t
+    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
+     AND e.to_collection = '{COLLECTION_CASES}'
+    JOIN edges c ON c.from_id = e.to_id AND c.relation = %(part_of)s
+     AND c.to_collection = '{COLLECTION_DOSSIERS}'
+),
+dated AS (
+    SELECT up.dossier_id, up.paper_id,
+           CASE WHEN split_part(up.paper_id, '/', 1) = '{COLLECTION_DOCUMENTS}'
+                THEN (SELECT d.date FROM documents d WHERE d.id = up.paper_id)
+                ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = up.paper_id)
+           END AS date
+    FROM up
+    WHERE up.dossier_id = ANY(%(ids)s::text[])
+)
+SELECT ds.id
+FROM {COLLECTION_DOSSIERS} ds
+WHERE ds.id = ANY(%(ids)s::text[])
+  AND (
+      NOT lg_truthy(ds.props -> 'first_signed')
+      OR EXISTS (
+          SELECT 1 FROM dated t
+          WHERE t.dossier_id = ds.id
+            AND (t.paper_id = lg_str(ds.props -> 'first_signed' -> 'paper')
+                 OR t.date <= lg_str(ds.props -> 'first_signed' -> 'date'))
+      )
+  )
+ORDER BY ds.key COLLATE "C"
+"""
+
+
+def dossiers_whose_first_may_change(
+    store: Store, ids: list[str], seeds: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the dossiers among *ids* whose first signature a window can have
+    changed (see ``_FIRST_MAY_CHANGE_SQL``): the only ones ``semantic tk-government
+    --touched-since`` reads the papers of; the others keep what they have."""
+    return list(
+        store.query(
+            _FIRST_MAY_CHANGE_SQL,
+            {
+                "ids": ids,
+                "seeds": seeds,
+                "since": since_iso,
+                "authored": RELATION_AUTHORED,
+                "part_of": RELATION_PART_OF,
+            },
+        )
     )
