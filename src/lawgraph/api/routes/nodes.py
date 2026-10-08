@@ -34,11 +34,13 @@ from lawgraph.db.queries.nodes import (
     get_node_with_neighbors,
 )
 from lawgraph.db.queries.overlay import (
+    HEAT_MAX_LIMIT,
     HEAT_WINDOWS,
     get_heat_counts,
     get_heat_tops,
     get_in_flux_counts,
     heat_top,
+    stored_heat,
 )
 
 router = APIRouter()
@@ -96,7 +98,6 @@ def bulk_in_flux(
 # The nodes a request may name, and how many the map of the whole graph keeps.
 HEAT_MAX_IDS = 500
 HEAT_LIMIT = 10_000
-HEAT_MAX_LIMIT = 50_000
 
 
 @router.get(
@@ -166,11 +167,15 @@ def heat_counts(
     store: GraphStore, *, months: int = 6, min_count: int = 1, limit: int = HEAT_LIMIT
 ) -> dict[str, int]:
     """The heat of ``/api/nodes/heat`` for the whole graph, the *limit* highest of the
-    window of ``HEAT_WINDOWS`` that holds *months* (5 counts as 6). Every window is counted
-    in one pass over the edges (minutes from disk on the full graph), once for every
-    variant asked, on the background connections, and kept ``HEAT_MAX_AGE`` whatever the
-    data does; a request waits for it no longer than its deadline (503)."""
+    window of ``HEAT_WINDOWS`` that holds *months* (5 counts as 6). Read from ``lg_heat``,
+    which ``semantic graph-heat`` keeps. While it was never kept, every window is counted in one
+    pass over the edges (minutes from disk on the full graph), once for every variant
+    asked, on the background connections, and kept ``HEAT_MAX_AGE`` whatever the data
+    does; a request waits for it no longer than its deadline (503)."""
     window = next((w for w in HEAT_WINDOWS if w >= months), max(HEAT_WINDOWS))
+    kept = stored_heat(store, window, min_count, limit)
+    if kept is not None:
+        return kept
     tops = version_cache.lasting(
         store,
         ("heat", HEAT_MAX_LIMIT),

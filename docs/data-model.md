@@ -32,7 +32,9 @@ A node is a document `{_key, type, labels, props}`:
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store) and `pipeline_state`: per phase when its last complete `<phase> all` began (for
 `--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), and the marks
-of `lawgraph bootstrap` (`bootstrap <step>`).
+of `lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
+graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the highest count, and
+`lg_heat_state` when it was counted; writing them raises no data version.
 
 ## Node types and relation catalogue
 
