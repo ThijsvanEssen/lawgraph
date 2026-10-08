@@ -1051,6 +1051,10 @@ def node_table(collection: str) -> list[str]:
     )
 
 
+# The day an instrument came into force, as text: the expression of the index
+# ``instruments_date_in_force``.
+INSTRUMENT_DATE_IN_FORCE = "public.lg_str(props -> 'date_in_force')"
+
 # The dossier numbers of an instrument (a publication's), as text: the expression of the
 # index ``instruments_dossier_numbers``.
 INSTRUMENT_DOSSIER_NUMBERS = "public.lg_text_array(props -> 'dossier_numbers')"
@@ -1082,6 +1086,10 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         " ON instruments USING gin (public.lg_legal_area_keys(props))",
         "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
         " ON instruments USING gin (public.lg_policy_domain_keys(props))",
+        # the instruments of the list by the day they came into force (``from``/``to``);
+        # on a large database built beforehand with CREATE INDEX CONCURRENTLY
+        "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
+        f" ON instruments (({INSTRUMENT_DATE_IN_FORCE})) WHERE {_LISTED}",
         # the publications of a dossier, for the words (``q``) of the feed in its title
         "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
         f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",

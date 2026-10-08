@@ -56,6 +56,41 @@ def _array(value: str) -> str:
     return f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE '[]'::json END"
 
 
+def _overlaps(start: str, end: str) -> str:
+    """SQL: the period from the JSON *start* to the JSON *end* (inclusive; none: from the
+    first day, or still going on) overlaps the one asked (``%(active_from)s`` to
+    ``%(active_to)s``, inclusive; null: open on that side)."""
+    return (
+        f"(%(active_to)s::text IS NULL OR coalesce(lg_str({start}), '') <= %(active_to)s)"
+        f" AND (%(active_from)s::text IS NULL OR {_is_null(end)}"
+        f" OR lg_str({end}) >= %(active_from)s)"
+    )
+
+
+# The start and end of a period ``p.v`` of a list, and the posts a member held.
+_FROM_DATE = "p.v -> 'from_date'"
+_TO_DATE = "p.v -> 'to_date'"
+_GOVERNMENT_FUNCTIONS = "m.props -> 'government_functions'"
+
+
+def _a_period_overlaps(periods: str) -> str:
+    """SQL: one of the periods of the JSON list *periods* (``from_date``, ``to_date``)
+    overlaps the one asked (``_overlaps``)."""
+    return (
+        f"EXISTS (SELECT 1 FROM json_array_elements({_array(periods)}) AS p(v)"
+        f" WHERE {_overlaps(_FROM_DATE, _TO_DATE)})"
+    )
+
+
+def _period(
+    bind: dict[str, Any], active_from: str | None, active_to: str | None
+) -> bool:
+    """Put the period asked in *bind*; whether one was asked."""
+    bind["active_from"] = active_from
+    bind["active_to"] = active_to
+    return bool(active_from or active_to)
+
+
 def _nonempty(value: str) -> str:
     """SQL: AQL ``LENGTH(value) > 0`` of a list."""
     return (
@@ -93,21 +128,34 @@ def _page(source: str, *order: str) -> str:
     """
 
 
-def get_committees(store: GraphStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
+def get_committees(
+    store: GraphStore,
+    *,
+    chamber: str = "TK",
+    active_from: str | None = None,
+    active_to: str | None = None,
+) -> list[dict[str, Any]]:
     """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
     the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
-    graph-list-stats`` counted."""
+    graph-list-stats`` counted. With a period (*active_from*, *active_to*) those that
+    existed in it (``started_on`` to ``ended_on``), also the ones that ended since."""
+    bind: dict[str, Any] = {"guid": _GUID_NAME}
+    existing = (
+        _overlaps("c.props -> 'started_on'", "c.props -> 'ended_on'")
+        if _period(bind, active_from, active_to)
+        else _is_null("c.props -> 'observed_until'")
+    )
     rows = store.query(
         f"""
         SELECT {_NODE.format(t="c")}
         FROM {COLLECTION_COMMITTEES} c
         WHERE {_chamber("c", chamber)}
-          AND {_is_null("c.props -> 'observed_until'")}
+          AND {existing}
           AND c.props ->> 'name' <> ''
           AND c.props ->> 'name' !~* %(guid)s
         ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC
         """,
-        {"guid": _GUID_NAME},
+        bind,
     )
     return [node_doc(row) for row in rows]
 
@@ -403,6 +451,8 @@ def get_members(
     sort: str = "name",
     limit: int = 500,
     offset: int = 0,
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """Members of parliament, in name order (or *sort*); never a record without a name.
     *slug* keeps the one member of that slug, whoever they are.
@@ -413,6 +463,8 @@ def get_members(
     (both whether they sat in parliament or not). *party* matches the current party or
     any abbreviation, name or alias in the member's faction timeline; with *active* only a
     period without an end, so a member who left the party for another is not counted.
+    With a period (*active_from*, *active_to*) those who held a seat or a post in a cabinet
+    in it.
     """
     # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
     # with them a page of the list is read from an index in name order
@@ -436,6 +488,11 @@ def get_members(
     if q:
         filters.append(_contains("n.name"))
         bind["q"] = q.strip().lower()
+    if _period(bind, active_from, active_to):
+        filters.append(
+            f"{_a_period_overlaps('m.pj_faction_memberships')}"
+            f" OR {_a_period_overlaps(_GOVERNMENT_FUNCTIONS)}"
+        )
     return _members_page(store, filters, bind, "m.seated", sort)
 
 
@@ -452,10 +509,13 @@ def get_ek_members(
     sort: str = "name",
     limit: int = 500,
     offset: int = 0,
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """The members of the Eerste Kamer (``props.ek``), in name order (or *sort*): those the last
     snapshot shows (*active*), those it no longer does, or both. *party* matches the
-    abbreviation of their faction."""
+    abbreviation of their faction. With a period (*active_from*, *active_to*) those the
+    snapshots showed in it (``observed_from`` to ``observed_until``)."""
     filters = ["m.in_ek"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
     if party:
@@ -466,6 +526,13 @@ def get_ek_members(
     if q:
         filters.append(f"{_contains('n.name')} OR {_contains(_EK_NAME)}")
         bind["q"] = q.strip().lower()
+    if _period(bind, active_from, active_to):
+        filters.append(
+            _overlaps(
+                "m.props -> 'ek' -> 'observed_from'",
+                "m.props -> 'ek' -> 'observed_until'",
+            )
+        )
     seated = _is_null("m.props -> 'ek' -> 'observed_until'")
     return _members_page(store, filters, bind, seated, sort)
 
@@ -481,11 +548,18 @@ def get_factions(
     active: bool | None = None,
     q: str | None = None,
     chamber: str = "TK",
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
-    the members the last snapshot shows), seated ones first."""
+    the members the last snapshot shows), seated ones first; with a period (*active_from*,
+    *active_to*) those active in it (``active_from`` to ``active_until``)."""
     bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
+    if _period(bind, active_from, active_to):
+        filters.append(
+            _overlaps("f.props -> 'active_from'", "f.props -> 'active_until'")
+        )
     if active is not None:
         filters.append("f.active = %(active)s")
         bind["active"] = active

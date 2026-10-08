@@ -150,6 +150,14 @@ def list_commitments(
         dt.date | None, Query(description="Expected before this day.")
     ] = None,
     overdue: Annotated[bool, Query()] = False,
+    date_from: Annotated[
+        dt.date | None,
+        Query(alias="from", description="Made on or after this day, YYYY-MM-DD."),
+    ] = None,
+    date_to: Annotated[
+        dt.date | None,
+        Query(alias="to", description="Made on or before this day, YYYY-MM-DD."),
+    ] = None,
     q: Annotated[str | None, Query(description="Words of the text.")] = None,
     sort: Annotated[
         Literal["date", "expected_resolution"],
@@ -171,6 +179,8 @@ def list_commitments(
         sort=sort,
         limit=limit,
         offset=offset,
+        made_from=date_from.isoformat() if date_from else None,
+        made_to=date_to.isoformat() if date_to else None,
     )
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),

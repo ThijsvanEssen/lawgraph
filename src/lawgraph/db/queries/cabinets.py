@@ -283,9 +283,18 @@ def _commitment_filters(
     due_before: str | None,
     overdue: bool,
     q: str | None,
+    made_from: str | None = None,
+    made_to: str | None = None,
 ) -> list[str]:
     """The conditions on the commitment ``c`` of every count, their values in *bind*."""
     shared: list[str] = []
+    # the day it was made, inclusive (``commitments_made_on``)
+    if made_from:
+        shared.append("c.made_on >= %(made_from)s")
+        bind["made_from"] = made_from
+    if made_to:
+        shared.append("c.made_on <= %(made_to)s")
+        bind["made_to"] = made_to
     if member:
         shared.append("c.member_key = %(member)s")
         bind["member"] = member
@@ -334,12 +343,14 @@ def get_commitments(
     sort: str = "date",
     limit: int = 100,
     offset: int = 0,
+    made_from: str | None = None,
+    made_to: str | None = None,
 ) -> dict[str, Any]:
     """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
     ``ministry`` the number of commitments per value under the other filters, each
     dimension counted without its own filter. *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
-    has passed; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
+    has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
     first, those without one last)."""
     own: dict[str, str] = {}
     bind: dict[str, Any] = {
@@ -363,6 +374,8 @@ def get_commitments(
         due_before=due_before,
         overdue=overdue,
         q=q,
+        made_from=made_from,
+        made_to=made_to,
     )
     if sort == "expected_resolution":
         bind["no_date"] = NO_DUE_DATE
