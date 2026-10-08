@@ -1128,6 +1128,24 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_PIPELINE_STATE} (
 )
 """
 
+# The heat of the whole graph (``/api/nodes/heat`` without ids), kept by ``semantic graph-heat``:
+# per window of months the nodes with the highest count, and when it was counted. Not a
+# table of the graph: writing it raises no data version.
+HEAT = """
+CREATE TABLE IF NOT EXISTS lg_heat (
+    months int NOT NULL,
+    id text NOT NULL,
+    count int NOT NULL,
+    PRIMARY KEY (months, id)
+);
+CREATE INDEX IF NOT EXISTS lg_heat_highest ON lg_heat (months, count DESC, id);
+CREATE TABLE IF NOT EXISTS lg_heat_state (
+    one boolean PRIMARY KEY DEFAULT true CHECK (one),
+    computed_at text NOT NULL,
+    data_version text
+)
+"""
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1180,7 +1198,7 @@ def statements() -> list[str]:
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)
-    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, nodes_view()]
+    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, HEAT, nodes_view()]
     found += data_version_triggers(COLLECTION_EDGES)
     return found
 
