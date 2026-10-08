@@ -174,6 +174,8 @@ class _Levels:
                         "through_laws": self.followed.through_laws,
                         "ends": self.ids,
                     },
+                    # each node's share in index order, never a hub read whole and sorted
+                    index_order=True,
                 )
             )
         return self.read[key]
