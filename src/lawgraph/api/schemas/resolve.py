@@ -7,7 +7,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 MatchKind = Literal[
-    "article", "instrument", "judgment", "dossier", "document", "commitment"
+    "article",
+    "instrument",
+    "judgment",
+    "dossier",
+    "document",
+    "commitment",
+    "faction",
+    "member",
 ]
 
 
@@ -26,7 +33,8 @@ class ResolveMatch(BaseModel):
         le=1,
         description=(
             "1: an identifier (ECLI, BWB id, CELEX); 0.95: a citation read whole; "
-            "0.9: a law by exact abbreviation or name; lower for partial names, an "
+            "0.9: a law, faction or member by exact abbreviation or name; lower for "
+            "partial names, an "
             "article without a law, or several equally good nodes (at most 0.5)"
         ),
     )

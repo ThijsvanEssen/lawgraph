@@ -49,6 +49,7 @@ URLS = [
     "/api/search?q=statusbrief&types=commitments",
     "/api/search?q=stemming+abortus&types=decisions",
     "/api/resolve?q=art.+1+BWBR0001",
+    "/api/resolve?q=A.+Lid",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
     "/api/search?q=wet&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
