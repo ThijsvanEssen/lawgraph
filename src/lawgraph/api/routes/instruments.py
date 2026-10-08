@@ -223,8 +223,13 @@ def get_instrument_eu_links(
 ) -> InstrumentEuLinksResponse:
     doc = _instrument_or_404(store, identifier)
     eu = get_eu_links(store, doc["_id"], limit=limit)
+    cited = (doc.get("props") or {}).get("inbound_citation_count")
     international = get_international_links(
-        store, doc["_id"], scope_of_node(doc), limit=limit
+        store,
+        doc["_id"],
+        scope_of_node(doc),
+        limit=limit,
+        cited=cited if isinstance(cited, int) else None,
     )
     links = [_international_link(r, "treaty") for r in international.treaties] + [
         _international_link(r, "echr_judgment") for r in international.judgments
