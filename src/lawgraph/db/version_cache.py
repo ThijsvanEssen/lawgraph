@@ -18,10 +18,11 @@ the background when a store shows a version it did not have. A store without
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Iterator
 from typing import Any, TypeVar
 
 from lawgraph.config.settings import API_WARM_UP_MIN_INTERVAL
@@ -255,7 +256,7 @@ def _compute_lasting(
 ) -> T:
     """Compute one answer of ``lasting`` and keep it with the moment it was computed."""
     try:
-        with in_background():
+        with in_background(), doing(f"cache: {_kind(entry_key[1])}"):
             value = compute()
     except BaseException:
         with _lock:
@@ -267,6 +268,44 @@ def _compute_lasting(
     return value
 
 
+# What each thread of the background (the workers of ``_pool``, the warm-up) computes now,
+# and since when (``busy``).
+_doing: dict[str, tuple[str, float]] = {}
+
+
+@contextlib.contextmanager
+def doing(label: str) -> Iterator[None]:
+    """Count the block as what the current thread computes now (``busy``)."""
+    thread = threading.current_thread().name
+    with _lock:
+        _doing[thread] = (label, time.monotonic())
+    try:
+        yield
+    finally:
+        with _lock:
+            _doing.pop(thread, None)
+
+
+def busy() -> list[dict[str, Any]]:
+    """What the threads of the background compute now (``thread``, ``call``, ``seconds``),
+    for ``/api/health``: of an answer of the cache only its kind, never what it was asked
+    for (the words of a search are a visitor's)."""
+    now = time.monotonic()
+    with _lock:
+        running = list(_doing.items())
+    return [
+        {"thread": thread, "call": label, "seconds": round(now - began, 1)}
+        for thread, (label, began) in running
+    ]
+
+
+def _kind(key: Hashable) -> str:
+    """The kind of an answer of the cache: the name its key starts with."""
+    if isinstance(key, tuple) and key and isinstance(key[0], str):
+        return key[0]
+    return "answer"
+
+
 def _compute(
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
@@ -274,7 +313,7 @@ def _compute(
     ceiling alone, on a connection of the background pool); a failure is not kept, the
     next request asks again."""
     try:
-        with in_background():
+        with in_background(), doing(f"cache: {_kind(entry_key[1])}"):
             value = compute()
     except BaseException:
         with _lock:
