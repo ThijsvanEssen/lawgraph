@@ -13,8 +13,10 @@ from psycopg import sql
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
     RELATION_PART_OF,
 )
 from lawgraph.core.models import collection_from_id, make_node_key
@@ -26,7 +28,7 @@ from lawgraph.db.schema import search_column
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
 CONFIDENCE_CITATION = 0.95  # a citation read whole: article of a law, dossier, paper
-CONFIDENCE_NAME = 0.9  # a law by its exact abbreviation or full name
+CONFIDENCE_NAME = 0.9  # a law, faction or member by its exact abbreviation or full name
 CONFIDENCE_PARTIAL = 0.6  # the dossier of a paper that is not in the graph; a law by the start of its name
 CONFIDENCE_AMBIGUOUS = 0.5  # the ceiling when several nodes fit equally well
 CONFIDENCE_CONTAINS = 0.4  # a law by part of its name
@@ -347,6 +349,43 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return [_target(r, "dossier", CONFIDENCE_PARTIAL) for r in exact or rows]
 
 
+# ── factions and members ──────────────────────────────────────────────────────
+
+# The factions whose abbreviation, name or alias is the query, and the members whose name
+# it is, folded (``lg_fold``) and whole; each through its trigram index of folded names
+# (``schema._search_indexes``). The seated first, then the most seats, then the key.
+_PARTIES_SQL = f"""
+SELECT p.id, p.key, p.display_name, p.kind
+FROM (
+    SELECT f.id, f.key, coalesce(f.props ->> 'name', f.props ->> 'abbreviation')
+               AS display_name,
+           'faction' AS kind, 0 AS n, f.active, f.seats
+    FROM {COLLECTION_FACTIONS} f
+    WHERE lg_fold(f.search_names) LIKE '%%' || lg_like(lg_fold(%(q)s)) || '%%'
+      AND lg_fold(%(q)s) = ANY(
+          ARRAY[lg_fold(f.props ->> 'abbreviation'), lg_fold(f.props ->> 'name')]
+          || lg_fold_all(lg_text_array(f.props -> 'aliases'))
+      )
+    UNION ALL
+    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.active, NULL
+    FROM {COLLECTION_MEMBERS} m
+    WHERE lg_fold(m.name) LIKE lg_like(lg_fold(%(q)s))
+) p
+ORDER BY p.n, p.active DESC NULLS LAST, p.seats DESC NULLS LAST, p.key
+LIMIT %(limit)s
+"""
+
+
+def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
+    """The factions and members *q* is the name of: the first sure (a party named "VVD" goes
+    before the regulation whose abbreviation it is), the others as alternatives."""
+    rows = store.query(_PARTIES_SQL, {"q": q.strip(), "limit": ALTERNATIVES + 1})
+    return [
+        _target(row, row["kind"], CONFIDENCE_NAME if n == 0 else CONFIDENCE_AMBIGUOUS)
+        for n, row in enumerate(rows)
+    ]
+
+
 # ── the answer ────────────────────────────────────────────────────────────────
 
 
@@ -359,7 +398,11 @@ def _candidates(
     notation = parser.parse(q)
     if notation is None:
         headed = _headed_article(store, q, parser)
-        return headed or _laws_named(store, parser.law_matches(q)), None, False
+        if headed:
+            return headed, None, False
+        # a faction or member before a law of the same name, which then is an alternative
+        laws = _laws_named(store, parser.law_matches(q))
+        return [*_parties_named(store, q), *laws], None, False
     if notation.kind == "article":
         return _articles(store, notation), notation.qualifier, notation.choice
     if notation.kind == "dossier":

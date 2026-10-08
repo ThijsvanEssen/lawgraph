@@ -259,6 +259,64 @@ def test_resolve_a_law_by_its_abbreviation(graph: GraphStore) -> None:
     assert answer["match"]["display_name"] == "Wetboek van Strafrecht"
 
 
+def test_resolve_a_faction_or_member_before_a_law_of_that_name(
+    store: GraphStore,
+) -> None:
+    """ "VVD" is the faction before the regulation whose abbreviation it is (the Warenwet-
+    regeling Vrijstelling vitamine D), which stays an alternative; of two factions of that
+    abbreviation the seated one; a member by their whole name, with or without accents."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbr0021000",
+                "instrument",
+                bwb_id="BWBR0021000",
+                title="Warenwetregeling Vrijstelling vitamine D",
+                citation_title="Warenwetregeling Vrijstelling vitamine D",
+                short_title="VVD",
+            )
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            _node("ek_vvd", "faction", name="VVD Eerste Kamer", abbreviation="VVD"),
+            _node(
+                "vvd",
+                "faction",
+                name="Volkspartij voor Vrijheid en Democratie",
+                abbreviation="VVD",
+                active=True,
+                seats=24,
+            ),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "members", [_node("dy", "member", name="Dilan Yeşilgöz-Zegerius")]
+    )
+
+    answer = resolve_queries.resolve(store, "VVD")
+    assert (answer["kind"], answer["match"]["id"]) == ("faction", "factions/vvd")
+    assert answer["match"]["confidence"] == resolve_queries.CONFIDENCE_NAME
+    # the law by its abbreviation (0.9) before the other faction (0.5)
+    assert [a["id"] for a in answer["alternatives"]] == [
+        "instruments/bwbr0021000",
+        "factions/ek_vvd",
+    ]
+    for q in ("volkspartij voor vrijheid en democratie", "vvd "):
+        assert resolve_queries.resolve(store, q)["match"]["id"] == "factions/vvd", q
+    for q in ("Dilan Yeşilgöz-Zegerius", "dilan yesilgoz-zegerius"):
+        answer = resolve_queries.resolve(store, q)
+        assert (answer["kind"], answer["match"]["id"]) == ("member", "members/dy"), q
+    # a part of a name is no name: the search finds it, resolve does not
+    assert resolve_queries.resolve(store, "yesilgoz")["kind"] == "none"
+    # a law by its full name stays the law
+    answer = resolve_queries.resolve(store, "Warenwetregeling Vrijstelling vitamine D")
+    assert answer["match"]["id"] == "instruments/bwbr0021000"
+
+
 def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
     store: GraphStore,
 ) -> None:
