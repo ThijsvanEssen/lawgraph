@@ -13,7 +13,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import search_full, search_live
+from lawgraph.db.queries.search import LIVE_STALE_WAIT, search_full, search_live
+from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -114,12 +115,16 @@ def search(
         total=total,
         results=grouped,
         partial=dict.fromkeys(sorted(partial), True),
-        resolved=_resolved(store, q) if resolve else None,
+        resolved=_resolved(store, q, mode) if resolve else None,
     )
 
 
-def _resolved(store: GraphStore, q: str) -> ResolveResponse:
-    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``)."""
+def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
+    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``).
+    While typing (``live``) it takes the parser of citations of the version before at once,
+    as the search does (``LIVE_STALE_WAIT``)."""
     if len(q) > RESOLVE_MAX_LENGTH:
         return ResolveResponse(q=q, **NO_MATCH)
-    return ResolveResponse(q=q, **resolve_query(store, q))
+    wait = LIVE_STALE_WAIT if mode == "live" else STALE_WAIT
+    with stale_wait(wait):
+        return ResolveResponse(q=q, **resolve_query(store, q))

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import contextlib
+import contextvars
 import threading
 import time
 from collections import OrderedDict
@@ -47,6 +48,25 @@ MAX_ENTRIES = 4096
 # How long a request waits for the answer of a new data version (seconds) before it takes
 # the answer of the version before, while the new one goes on computing.
 STALE_WAIT = 2.0
+# What a request waits at most instead (``stale_wait``): a search while typing takes the
+# answer of the version before at once, as a computation after a poll would cost it seconds.
+_stale_wait: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "lawgraph_stale_wait", default=None
+)
+
+
+@contextlib.contextmanager
+def stale_wait(seconds: float) -> Iterator[None]:
+    """Within it a request that has the answer of an earlier version waits *seconds* at
+    most for the new one (``STALE_WAIT`` without it), then takes the earlier one; the new
+    one goes on computing. An answer never computed before is waited for as ever."""
+    token = _stale_wait.set(seconds)
+    try:
+        yield
+    finally:
+        _stale_wait.reset(token)
+
+
 # Computations at the same time (each holds a connection of the pool while it reads).
 WORKERS = 3
 
@@ -331,7 +351,8 @@ def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) ->
     wait = read_time_left()
     if last is not _NONE and wait is not None:
         # only a request takes an old answer; the warm-up waits for the new one
-        wait = min(wait, STALE_WAIT)
+        limit = _stale_wait.get()
+        wait = min(wait, STALE_WAIT if limit is None else limit)
     try:
         return future.result(timeout=wait)
     except concurrent.futures.TimeoutError as exc:
