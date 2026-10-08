@@ -703,6 +703,10 @@ def commitment(payload: Payload) -> Record | None:
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
         "display_name": shorten(text, 80),
+        # the letters that fulfil it (``KamerbriefNakoming``): ANSWERS
+        "letter_ids": _distinct(
+            [str(d.get("Id") or "") for d in _dicts(payload.get("KamerbriefNakoming"))]
+        ),
     }
 
 
@@ -1032,6 +1036,8 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
+        # the activity of its agenda item: the meeting it was taken in (MADE_IN)
+        "activity_id": str(activity.get("Id") or "") or None,
         # The day of the vote; a row's GewijzigdOp is when it was last edited.
         "date": iso_date(activity.get("Datum"))
         or (iso_date(votes[0].changed_at) if votes else None),

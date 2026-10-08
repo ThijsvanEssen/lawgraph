@@ -170,8 +170,10 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             related_eclis=[GH],
         ),
         _rs(HR2, related_eclis=[]),
-        _rs(HR3),
+        _rs(HR3, later_eclis=[]),
         _rs(RB, related_eclis=[GH, RB2], case_number_keys=[]),
+        # one that names only the instance that ruled on appeal of it
+        _rs(RB2, later_eclis=[GH]),
     )
     rows = list(queries.judgments_with_related_eclis(store))
     assert rows == [
@@ -183,6 +185,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             "case_number_keys": ["19/01234"],
             "procedure_type": "Cassatie",
             "related_eclis": [GH],
+            "later_eclis": [],
         },
         {
             "j_id": _jid(RB),
@@ -193,6 +196,17 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             "case_number_keys": [],
             "procedure_type": None,
             "related_eclis": [GH, RB2],
+            "later_eclis": [],
+        },
+        {
+            "j_id": _jid(RB2),
+            "ecli": RB2,
+            "date": None,
+            "case_number": None,
+            "case_number_keys": [],
+            "procedure_type": None,
+            "related_eclis": [],
+            "later_eclis": [GH],
         },
     ]
     assert list(rows[0]) == [
@@ -203,6 +217,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
         "case_number_keys",
         "procedure_type",
         "related_eclis",
+        "later_eclis",
     ]
 
 

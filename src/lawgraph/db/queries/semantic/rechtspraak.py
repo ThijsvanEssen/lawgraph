@@ -141,8 +141,9 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
 
 def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
     """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
-    related_eclis}`` of every judgment that names an earlier one."""
+    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one."""
     related = "j.props -> 'related_eclis'"
+    later = "j.props -> 'later_eclis'"
     sql = f"""
         SELECT j.id AS j_id,
                j.props -> 'ecli' AS ecli,
@@ -150,9 +151,10 @@ def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
                j.props -> 'case_number' AS case_number,
                {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure_type,
-               {related} AS related_eclis
+               {_or_empty(related)} AS related_eclis,
+               {_or_empty(later)} AS later_eclis
         FROM judgments j
-        WHERE {_length(related)} > 0
+        WHERE {_length(related)} > 0 OR {_length(later)} > 0
         ORDER BY j.key
         """
     return store.query(sql)
@@ -545,3 +547,44 @@ def judgments_naming_related_cases(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY j.key
         """
     )
+
+
+def echr_decisions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, appno, date}`` of every ECHR decision, one per decision: not a language
+    version that is ``SAME_AS`` another (``semantic echr-versions``). Columns only."""
+    sql = """
+        SELECT j.id, j.appno, j.date_eff AS date
+        FROM judgments j
+        WHERE j.source = %(source)s AND coalesce(j.appno, '') <> '' AND j.same_as IS NULL
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_texts(store: Store) -> Iterator[dict[str, Any]]:
+    """``{j_id, appno, text}`` of the ECHR judgments with a text (their DOCX, English or
+    French), one per decision."""
+    sql = """
+        SELECT j.id AS j_id, j.appno, j.props -> 'text' AS text
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.same_as IS NULL
+          AND json_typeof(j.props -> 'text') = 'string'
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_versions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, appno, date, item_id, language, same_as}`` of the ECHR decisions without
+    an ECLI and with an appno: HUDOC holds one per language, each a node of its own (a
+    decision with an ECLI is one node already)."""
+    sql = """
+        SELECT j.id, j.key, j.appno, j.date_eff AS date,
+               lg_str(j.props -> 'external_id') AS item_id,
+               lg_str(j.props -> 'language') AS language,
+               j.same_as
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.ecli IS NULL AND coalesce(j.appno, '') <> ''
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})

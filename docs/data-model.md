@@ -85,19 +85,19 @@ they are out of date. Do not edit inside the markers.
 | `REFERS_TO` | Article / Document / Judgment / Instrument | Article / Instrument / Judgment | A text refers to an article, instrument or judgment: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The source node says who refers; article → article edges also carry a `semantic_type`. From an instrument: a regulation whose text names the CELEX number of an EU act it does not `IMPLEMENTS`. |
 | `EXPLAINS` | Document | ArticleVersion / Article / Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
 | `APPEAL_OF` | Judgment | Judgment | An appeal or cassation judgment → the judgment it appeals: an earlier instance its metadata names (`meta.basis` `formal_relation`), else the decision its text says it appeals, by date and case number (`appeal_text`). |
-| `CONTINUES` | Judgment | Judgment | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. |
+| `CONTINUES` | Judgment / Activity | Judgment / Activity | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. An activity → the moved activity it replaced (`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). |
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
-| `ANSWERS` | Judgment | Judgment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). |
+| `ANSWERS` | Judgment / Document | Judgment / Commitment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). |
 | `SAME_AS` | Judgment | Judgment | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
-| `MADE_IN` | Commitment / Document | Activity | The activity in which a commitment (toezegging) was made, or of which a document is the record (a stenogram of its debate: `Document.Activiteit`). |
+| `MADE_IN` | Commitment / Document / Decision | Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`). |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
 | `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
-| `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). |
-| `RELATED_TO` | Dossier / Judgment | Dossier / Judgment | Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
+| `AUTHORED` | Member | Document / Case / Commitment | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A bewindspersoon made a commitment (`role` `toezegger`). |
+| `RELATED_TO` | Dossier / Judgment / Case | Dossier / Judgment / Case | Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
 | `ACCOMPANIES` | Dossier / Document | Dossier / Document | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an attachment is sent with its letter (Document → Document: `BijlageDocument`). |
 | `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
@@ -308,7 +308,7 @@ A Rechtspraak judgment carries:
 
 - its header: `court`, `date`, `case_number`, and `judgment_metadata` with `type`, the
   procedure, `document_type` (`Uitspraak` or `Conclusie`), `related_eclis` (earlier
-  instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
+  instances), `later_eclis` (later instances: `psi:aanleg` latereAanleg), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
   `subjects`;
 - derived from it: `court_code`, `tier` (the `Type` of its court in the Instanties list),
   `court_kind` (the kind of court within it), `date_eff` and `case_number_keys` (the case
@@ -322,7 +322,9 @@ A Rechtspraak judgment carries:
   `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
-`articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
+`articles`, `conclusion`, `importance`, `language` (of its HUDOC record; another language version
+without an ECLI is `SAME_AS` the one kept and names its item id in `same_as`: `semantic
+echr-versions`) and, from the DOCX of its English item (else its French
 one), `text` and `paragraphs`. Its paragraphs are read from the Word styles of the Court's
 templates (`core/echr_docx.py`): `heading` for a section heading (`JuHHead`, `OpiHHead`,
 `ECHRHeading1`), `subheading` for the levels below it (`JuHIRoman`, `JuHA`, `JuH1`,
@@ -524,6 +526,7 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | Prop | Meaning |
 |------|---------|
 | `decision_id`, `agenda_item_id` | the `Besluit` and its agendapunt |
+| `activity_id` | the activity of its agendapunt, the meeting it was taken in (`MADE_IN`) |
 | `date`, `subject`, `agenda_item_subject` | the day, and what the decision and its agendapunt are about |
 | `decision_kind`, `decision_text` | `BesluitSoort` (`Stemmen - aangenomen`, `Stemmen - verworpen`, `Stemmen - zonder stemming aannemen`, `Stemmen - uitstellen`, …) and its text |
 | `decision_order`, `meeting_kind` | its order on the agendapunt (`AgendapuntZaakBesluitVolgorde`); the kind of meeting (`Vergadering_Soort`) |
@@ -543,7 +546,8 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | `minister_name`, `minister_role`, `ministry_name` | as the Kamer writes them (`Toezegging.Ministerie`) |
 | `expected_resolution` | `0001-01-01` when the Kamer names none |
 | `status` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen` |
-| `member_key`, `post`, `ministry`, `cabinet` | `semantic tk-government`: who made it, in which post and ministry, and the cabinet in office that day |
+| `letter_ids` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it |
+| `member_key`, `post`, `ministry`, `cabinet` | `semantic tk-government`: who made it (also an `AUTHORED` edge from the member, `role` `toezegger`), in which post and ministry, and the cabinet in office that day |
 
 ### Member (`members`)
 
@@ -783,12 +787,13 @@ the kind of court, the source, the date, `stub` and `same_as`, so its facets cou
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
 publications), the documents newest first, and the member lists in name order. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
-`(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, the same two
-with `key` after them and the other end and collection included (`edges_from_cover`,
-`edges_to_cover`: a level of `/api/paths` reads a node's edges from the index alone, and a
-page of a node's neighbours reads its keys from it in key order, stopping after its limit,
-and only those edges whole), `relation`,
-`(status, relation)`, `confidence`, `(created_at, to_id)`, a GIN index on `record_ids`, and
+`(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
+with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
+`/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours
+reads its keys from it in key order, stopping after its limit, and only those edges whole;
+the only indexes by end, so that the planner cannot take a smaller one without `key` and
+read the table for every edge of a hub), `relation`,
+`(status, relation)`, `(created_at, to_id)` (the edges written since a poll), a GIN index on `record_ids`, and
 `semantic_type` and `(from_id, semantic_type)` where `semantic_type` is set.
 
 ### Search

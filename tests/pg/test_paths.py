@@ -265,6 +265,8 @@ def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
 
     def recording(statement: Any, params: Any = None, **options: Any) -> Any:
         if params and "frontier" in params:
+            # read in index order, never a node's edges whole and sorted
+            assert options.get("index_order"), options
             levels.append((statement, params))
         return query(statement, params, **options)
 
@@ -275,6 +277,7 @@ def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
         store.query = query  # type: ignore[method-assign]
     statement, params = next((s, p) for s, p in levels if p["frontier"] == [hub])
     with store.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
         explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
         plan = json.dumps(conn.execute(explain, params).fetchone()[0])
     assert "Index Only Scan" in plan and "edges_to_cover" in plan, plan
@@ -468,6 +471,8 @@ def test_two_groups_read_a_level_of_their_children_from_the_index(
 
     def recording(statement: Any, params: Any = None, **options: Any) -> Any:
         if params and len(params.get("frontier") or []) > 100:
+            # read in index order, never a node's edges whole and sorted
+            assert options.get("index_order"), options
             levels.append((statement, params))
         return query(statement, params, **options)
 
@@ -479,6 +484,7 @@ def test_two_groups_read_a_level_of_their_children_from_the_index(
     assert levels
     statement, params = levels[0]
     with store.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
         explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
         plan = json.dumps(conn.execute(explain, params).fetchone()[0])
     assert plan.count("Index Only Scan") == 2, plan
@@ -521,6 +527,8 @@ def test_a_level_reads_a_share_of_each_node_not_a_hub_whole(
 
     def recording(statement: Any, params: Any = None, **options: Any) -> Any:
         if params and len(params.get("frontier") or []) > 100:
+            # read in index order, never a node's edges whole and sorted
+            assert options.get("index_order"), options
             levels.append((statement, params))
         return query(statement, params, **options)
 
@@ -533,6 +541,7 @@ def test_a_level_reads_a_share_of_each_node_not_a_hub_whole(
     statement, params = levels[0]
     assert len(params["frontier"]) == 301  # the law and its 300 articles
     with store.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
         explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
         plan = conn.execute(explain, params).fetchone()[0]
 

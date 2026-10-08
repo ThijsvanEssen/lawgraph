@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
+    COLLECTION_MEMBERS,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
@@ -251,6 +252,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         tk_cases.link_subjects(
             store, normalized["decisions"].values(), RELATION_ABOUT, source=EDGE_SOURCE
         )
+        tk_cases.link_decisions_to_activities(
+            store, normalized["decisions"].values(), source=EDGE_SOURCE
+        )
         tk_cases.link_activities_to_committees(
             store, normalized["activities"], source=EDGE_SOURCE
         )
@@ -267,6 +271,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             source=EDGE_SOURCE,
         )
         tk_cases.link_authors(store, normalized["documents"], source=EDGE_SOURCE)
+        tk_cases.link_letters_to_commitments(
+            store, normalized["commitments"].values(), source=EDGE_SOURCE
+        )
         tk_cases.link_documents(
             store,
             ((tk_id, node.props) for tk_id, node in normalized["documents"].items()),
@@ -276,11 +283,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             store, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
         tk_members.link_members_to_factions(
-            store,
-            raw[RAW_KIND_TK_FRACTIEZETELPERSOON],
-            normalized["members"],
-            normalized["factions"],
-            source=EDGE_SOURCE,
+            store, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
         )
         tk_votes.link_votes(
             store,
@@ -353,10 +356,52 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     def _stored_faction_aliases(self) -> set[str]:
         return set(normalize_tk.faction_aliases(self.store))
 
-    def _stored(self, collection: str, node_type: NodeType) -> dict[str, Node]:
-        """The stored nodes of *collection* by TK ``Id``, with the props the edges read."""
+    def _seats_and_holders(
+        self, raw: dict[str, Iterable[dict[str, Any]]], normalized: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], dict[str, Node], dict[str, Node]]:
+        """The seat records, members and factions ``link_members_to_factions`` reads.
+
+        A run over a window holds the seats recorded in it, and the members and factions
+        whose own records changed. A member's timeline is made of all their seats, so of
+        every person a seat of the window names, every stored seat is read; the members
+        and factions the window does not hold come from the database."""
+        seats = list(raw[RAW_KIND_TK_FRACTIEZETELPERSOON])
+        members, factions = normalized["members"], normalized["factions"]
+        if not self._incremental or not seats:
+            return seats, members, factions
+        persons = sorted(
+            {
+                str(person)
+                for seat in seats
+                if (person := self._payload_json(seat).get("Persoon_Id"))
+            }
+        )
+        by_id = {
+            str(self._payload_json(seat).get("Id")): seat
+            for seat in raw_queries.seat_records_of_persons(self.store, persons)
+        }
+        by_id.update({str(self._payload_json(seat).get("Id")): seat for seat in seats})
+        members = {
+            **self._stored(COLLECTION_MEMBERS, NodeType.MEMBER, ["name"]),
+            **members,
+        }
+        factions = {
+            **self._stored(
+                COLLECTION_FACTIONS,
+                NodeType.FACTION,
+                ["name", "abbreviation", "aliases", "seats_changed_on"],
+            ),
+            **factions,
+        }
+        return list(by_id.values()), members, factions
+
+    def _stored(
+        self, collection: str, node_type: NodeType, names: list[str] | None = None
+    ) -> dict[str, Node]:
+        """The stored nodes of *collection* by TK ``Id``, with the props the edges read
+        (or *names*)."""
         rows = normalize_tk.nodes_by_external_id(
-            self.store, collection, list(tk_cases.LINK_PROPS)
+            self.store, collection, names or list(tk_cases.LINK_PROPS)
         )
         return {
             row["id"]: Node(
