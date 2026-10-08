@@ -173,12 +173,15 @@ class DecisionSummaryDTO(BaseModel):
 
 
 class DecisionKindCount(BaseModel):
-    """How many of the decisions are of one kind."""
+    """How many of the decisions are of one kind, and how many of those carried and did
+    not (the rest have no outcome)."""
 
     model_config = ConfigDict(extra="forbid")
 
     value: str | None
     count: int
+    passed: int = 0
+    rejected: int = 0
 
 
 class DecisionOutcomeCount(BaseModel):
@@ -200,6 +203,46 @@ class DecisionDayCount(BaseModel):
     passed: int
 
 
+class DecisionYearCount(BaseModel):
+    """The decisions of one year: how many, how many carried, how many did not."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: str | None
+    count: int
+    passed: int
+    rejected: int
+
+
+class PartyVoteCount(BaseModel):
+    """How a faction voted on some of the decisions: ``voor``, ``tegen``, and ``none``
+    (another choice, or no vote of the faction: a roll-call vote is one of members)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    voor: int
+    tegen: int
+    none: int
+
+
+class PartyVoteKindCount(PartyVoteCount):
+    value: str | None = Field(None, description="The kind, as in ``kind``.")
+
+
+class PartyVoteYearCount(PartyVoteCount):
+    year: str | None = None
+
+
+class PartyVotes(PartyVoteCount):
+    """How one faction voted on the decisions under every filter: in all, per kind (most
+    decisions first) and per year (oldest first)."""
+
+    party: str = Field(..., description="The key of the faction.")
+    name: str | None = Field(None, description="Its abbreviation, else its name.")
+    kind: list[PartyVoteKindCount] = Field(default_factory=list)
+    years: list[PartyVoteYearCount] = Field(default_factory=list)
+
+
 class DecisionFacets(BaseModel):
     """The decisions under the filters, counted.
 
@@ -218,6 +261,13 @@ class DecisionFacets(BaseModel):
     )
     days: list[DecisionDayCount] = Field(
         default_factory=list, description="Per date of the vote, oldest first."
+    )
+    years: list[DecisionYearCount] = Field(
+        default_factory=list, description="Per year of the vote, oldest first."
+    )
+    party_votes: list[PartyVotes] = Field(
+        default_factory=list,
+        description="With ``party_votes``: per faction asked, by key, how it voted.",
     )
 
 
