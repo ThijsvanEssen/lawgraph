@@ -301,3 +301,29 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         "qualifier": None,
     }
     assert client.get("/api/resolve", params={"q": ""}).status_code == 422
+
+
+def test_a_live_search_says_which_types_it_cut_off(monkeypatch) -> None:
+    """``mode=live``: ``partial`` names the types cut off; the full search has none."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.routes import search as route
+
+    monkeypatch.setattr(
+        route,
+        "search_live",
+        lambda store, **k: ({"judgments": [], "articles": []}, {"judgments"}),
+    )
+    monkeypatch.setattr(route, "search_all", lambda store, **k: {"articles": []})
+    client = TestClient(app)
+    live = client.get(
+        "/api/search",
+        params={"q": "huur", "mode": "live", "types": ["judgments", "articles"]},
+    )
+    assert live.status_code == 200 and live.json()["partial"] == {"judgments": True}
+    full = client.get("/api/search", params={"q": "huur", "types": ["articles"]})
+    assert full.status_code == 200 and full.json()["partial"] == {}
+    assert (
+        client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
+    )
