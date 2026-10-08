@@ -547,3 +547,44 @@ def judgments_naming_related_cases(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY j.key
         """
     )
+
+
+def echr_decisions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, appno, date}`` of every ECHR decision, one per decision: not a language
+    version that is ``SAME_AS`` another (``semantic echr-versions``). Columns only."""
+    sql = """
+        SELECT j.id, j.appno, j.date_eff AS date
+        FROM judgments j
+        WHERE j.source = %(source)s AND coalesce(j.appno, '') <> '' AND j.same_as IS NULL
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_texts(store: Store) -> Iterator[dict[str, Any]]:
+    """``{j_id, appno, text}`` of the ECHR judgments with a text (their DOCX, English or
+    French), one per decision."""
+    sql = """
+        SELECT j.id AS j_id, j.appno, j.props -> 'text' AS text
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.same_as IS NULL
+          AND json_typeof(j.props -> 'text') = 'string'
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_versions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, appno, date, item_id, language, same_as}`` of the ECHR decisions without
+    an ECLI and with an appno: HUDOC holds one per language, each a node of its own (a
+    decision with an ECLI is one node already)."""
+    sql = """
+        SELECT j.id, j.key, j.appno, j.date_eff AS date,
+               lg_str(j.props -> 'external_id') AS item_id,
+               lg_str(j.props -> 'language') AS language,
+               j.same_as
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.ecli IS NULL AND coalesce(j.appno, '') <> ''
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})

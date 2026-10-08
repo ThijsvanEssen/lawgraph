@@ -1552,3 +1552,109 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     assert again["partial"] is False
     assert again["total"] == expected["total"]
     assert again["facets"] == expected["facets"]
+
+
+def _ago(days: int) -> str:
+    import datetime as dt
+
+    return (dt.date.today() - dt.timedelta(days=days)).isoformat()
+
+
+# one Motie on stikstof in each window of ``WORDS_WINDOWS`` and one before them all, and
+# one on another subject
+WORDS_AGO = [10, 200, 800, 3000]
+
+
+def _words_over_the_years(store: GraphStore) -> None:
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: [
+                _raw(f"m{n}", ["TK"], kind="Motie", date=_ago(n), subject="Stikstof")
+                for n in WORDS_AGO
+            ]
+            + [_raw("other", ["TK"], kind="Motie", date=_ago(5), subject="Wonen")],
+        },
+    )
+
+
+@pytest.mark.parametrize("limit", [1, 2, 4, 50])
+def test_words_without_a_first_day_are_searched_back_window_by_window(
+    store: GraphStore, limit: int
+) -> None:
+    """``q`` without ``since``: the windows back from today find, page by page, what one
+    reading of every day finds, the oldest too, and say no day was left unsearched."""
+    _words_over_the_years(store)
+    every = FeedFilters(q="stikstof", since="1900-01-01")
+    expected = _ids(get_feed(store, every, facets=False))
+    assert expected == [f"documents/m{n}" for n in WORDS_AGO]
+    seen: list[str] = []
+    cursor = None
+    for _ in range(10):
+        raw = get_feed(store, FeedFilters(q="stikstof"), cursor=cursor, limit=limit)
+        assert "searched_from" not in raw and "partial" not in raw
+        seen += _ids(raw)[:limit]
+        if len(raw["items"]) <= limit:
+            break
+        last = raw["items"][limit - 1]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+    assert seen == expected
+    assert _ids(get_feed(store, FeedFilters(q="stikstof", until=_ago(100)))) == [
+        f"documents/m{n}" for n in WORDS_AGO[1:]
+    ]
+
+
+def test_words_searched_past_their_budget_answer_what_was_found(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the budget ends the search in a window, the page has what the windows before
+    found, ``partial``, and the first day searched; asked again with ``until`` the day
+    before, it goes on from there. With no budget at all nothing was searched."""
+    from lawgraph.db.queries import feed as feed_queries
+    from lawgraph.db.store import ReadTimedOut
+
+    _words_over_the_years(store)
+    rows = feed_queries._rows
+    calls: list[FeedFilters] = []
+
+    def timed_out_in_the_second(
+        store: GraphStore, filters: FeedFilters, *a: Any
+    ) -> Any:
+        calls.append(filters)
+        if len(calls) == 2:
+            raise ReadTimedOut("budget spent")
+        return rows(store, filters, *a)
+
+    monkeypatch.setattr(feed_queries, "_rows", timed_out_in_the_second)
+    raw = get_feed(store, FeedFilters(q="stikstof"), facets=False)
+    assert _ids(raw) == ["documents/m10"]
+    assert raw["partial"] is True and raw["searched_from"] == _ago(90)
+    assert calls[1].until == _ago(91) and calls[1].since == _ago(365)
+    monkeypatch.setattr(feed_queries, "_rows", rows)
+
+    on = get_feed(store, FeedFilters(q="stikstof", until=_ago(91)), facets=False)
+    assert _ids(on) == [f"documents/m{n}" for n in WORDS_AGO[1:]]
+
+    monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
+    none = get_feed(store, FeedFilters(q="stikstof"))
+    assert none["items"] == [] and none["partial"] is True
+    assert none["searched_from"] == _ago(-1)
+    # a first day, or no words, reads as before: one reading under the filters
+    assert _ids(get_feed(store, FeedFilters(q="stikstof", since=_ago(365)))) == [
+        "documents/m10",
+        "documents/m200",
+    ]
+    assert len(get_feed(store, FeedFilters())["items"]) == 5
+
+
+def test_a_feed_searched_past_its_budget_says_so(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``/api/feed`` has ``searched_from`` (null when every day was searched)."""
+    from lawgraph.db.queries import feed as feed_queries
+
+    assert _feed(client, q="grens")["searched_from"] is None
+    monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
+    raw = _feed(client, q="grens", facets="false")
+    assert raw["partial"] is True and raw["items"] == []
+    assert raw["searched_from"] == _ago(-1)

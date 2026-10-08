@@ -128,6 +128,8 @@ def _raw(payload: dict[str, Any]) -> dict[str, Any]:
         (RELATION_MADE_IN, COLLECTION_COMMITMENTS, {COLLECTION_ACTIVITIES}),
         (RELATION_MADE_IN, COLLECTION_DOCUMENTS, {COLLECTION_ACTIVITIES}),
         (RELATION_ANSWERS, COLLECTION_DOCUMENTS, {COLLECTION_COMMITMENTS}),
+        (RELATION_MADE_IN, COLLECTION_DECISIONS, {COLLECTION_ACTIVITIES}),
+        (RELATION_AUTHORED, COLLECTION_MEMBERS, {COLLECTION_COMMITMENTS}),
         (RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, {COLLECTION_DOCUMENTS}),
         (
             RELATION_MEMBER_OF,
@@ -880,4 +882,17 @@ def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
     tk_cases.link_letters_to_commitments(store, [commitment], source=SOURCE)
     assert set(store.edge_meta) == {
         ("documents/letter", RELATION_ANSWERS, "commitments/tz1")
+    }
+
+
+def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
+    store = _Store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
+    decisions = [
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b1", activity_id="ACT-1"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b2", activity_id="gone"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b3"),
+    ]
+    tk_cases.link_decisions_to_activities(store, decisions, source=SOURCE)
+    assert set(store.edge_meta) == {
+        ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
     }

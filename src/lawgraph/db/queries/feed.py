@@ -18,6 +18,8 @@ array as a FOR over ``[]``.
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from dataclasses import dataclass, replace
 from typing import Any, cast
 
@@ -66,6 +68,7 @@ from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.store import (
     ReadTimedOut,
+    RequestCancelled,
     read_time_left,
     reset_read_deadline,
     set_read_deadline,
@@ -1270,29 +1273,86 @@ def get_feed(
 ) -> dict[str, Any]:
     """One page of the feed: ``items`` (up to ``limit + 1``: one more than the page when
     there is a next page), and with *facets* ``total`` and ``facets`` (null without), or,
-    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``.
+    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``. Words
+    without a first day are searched back in windows (``_page_items``): when the budget
+    ends that search, ``partial`` and ``searched_from``.
 
     The page is read without the facets: each kind reads its rows in date order and stops
     after one page. The total and the facets read every row under the filters (20 s on the
     full graph), whatever the cursor: they are kept per data version under the filters
     (``version_cache``)."""
-    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
-    rows = list(store.query(sql, bind))
-    page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
-    items = page.get("items") or []
+    items, searched_from = _page_items(store, filters, cursor, limit)
+    shown: dict[str, Any] = {"items": items}
+    if searched_from:
+        shown.update(partial=True, searched_from=searched_from)
     if not facets:
-        return {"items": items, "total": None, "facets": None}
+        return {**shown, "total": None, "facets": None}
     left = read_time_left()
     token = set_read_deadline(
         COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
     )
     try:
-        return {"items": items, **feed_counts(store, filters)}
+        return {**shown, **feed_counts(store, filters)}
     except ReadTimedOut:
         # counted on for the next request (``lasting``); this one shows the page now
-        return {"items": items, "total": None, "facets": None, "partial": True}
+        return {**shown, "total": None, "facets": None, "partial": True}
     finally:
         reset_read_deadline(token)
+
+
+# Words without a first day (``q`` and no ``since``): a word that few events hold has every
+# event of every kind tested for it, the whole history. The page is read back in windows,
+# newest first, each of these many days further back from where it starts, then the rest,
+# until it is full or ``WORDS_BUDGET`` seconds are spent: then what was found is answered,
+# ``partial``, with the first day searched (``searched_from``), and a request with ``until``
+# the day before goes on from there.
+WORDS_WINDOWS = (90, 365, 3 * 365)
+WORDS_BUDGET = 8.0
+
+
+def _page_items(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
+    before the first event, the first day it searched."""
+    if not filters.q or filters.since:
+        return _rows(store, filters, cursor, limit), None
+    start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
+    end = dt.date.fromisoformat(start)
+    left = read_time_left()
+    deadline = time.monotonic() + (
+        WORDS_BUDGET if left is None else min(WORDS_BUDGET, left)
+    )
+    items: list[dict[str, Any]] = []
+    until = filters.until
+    searched_from = (end + dt.timedelta(days=1)).isoformat()  # nothing searched yet
+    for days in (*WORDS_WINDOWS, None):
+        since = (end - dt.timedelta(days=days)).isoformat() if days else None
+        window = replace(filters, since=since, until=until)
+        token = set_read_deadline(max(deadline - time.monotonic(), 0.0))
+        try:
+            items += _rows(store, window, cursor, limit - len(items))
+        except RequestCancelled:
+            raise
+        except ReadTimedOut:
+            return items, searched_from
+        finally:
+            reset_read_deadline(token)
+        if len(items) > limit or since is None:
+            return items[: limit + 1], None
+        searched_from = since
+        until = (dt.date.fromisoformat(since) - dt.timedelta(days=1)).isoformat()
+    return items, None
+
+
+def _rows(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> list[dict[str, Any]]:
+    """Up to ``limit + 1`` rows of the feed under *filters*, from *cursor* on."""
+    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
+    rows = list(store.query(sql, bind))
+    page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
+    return page.get("items") or []
 
 
 # How long the total and the facets of the feed under a filter are kept (seconds), whatever
