@@ -390,3 +390,80 @@ def test_an_article_counts_only_the_leden_it_has(store: GraphStore) -> None:
     data = node_queries.get_node_with_neighbors(store, "articles", "w_1")
     (bucket,) = data.buckets
     assert bucket.lid_counts == {"1": 1, "2": 1, "": 1}
+
+
+def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> None:
+    """``props=canvas``: of a neighbour only the props the canvas reads of its collection,
+    in their order (of an actor its role, name and faction), and of its edge only the meta
+    it reads, null when none; without it all as before."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    def node(collection: str, node_key: str, /, **props: Any) -> None:
+        store.bulk_insert_or_update_nodes(
+            collection,
+            [{"_key": node_key, "type": collection[:-1], "labels": [], "props": props}],
+        )
+
+    node("dossiers", "36547", number="36547", title="Wet", phases=[1, 2, 3])
+    node(
+        "documents",
+        "d1",
+        title="Memorie",
+        sections=[{"text": "lang"}],
+        kind="Memorie van toelichting",
+        case_ids=["c1"],
+        actors=[{"role": "minister", "name": "A", "faction": None, "person": "p1"}],
+        date="2024-01-01",
+    )
+    node("members", "m1", name="A. Lid", party="VVD", birth="1970")
+    node("instruments", "w", **{"title": "Wet x", "key": "w", "bwb_id": "BWBR0000001"})
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                **_edge("e1", "documents/d1", "dossiers/36547", "PART_OF"),
+                "meta": {"snippet": "s", "record_ids": ["r"], "lid": "1"},
+            },
+            {
+                **_edge("e2", "members/m1", "dossiers/36547", "AUTHORED"),
+                "meta": {"record_ids": ["r"]},
+            },
+            _edge("e3", "instruments/w", "dossiers/36547", "LEGISLATED_IN"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        canvas = client.get("/api/nodes/dossiers/36547", params={"props": "canvas"})
+        full = client.get("/api/nodes/dossiers/36547")
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    items = {
+        item["key"]: item
+        for bucket in canvas.json()["neighbors"]["buckets"]
+        for item in bucket["items"]
+    }
+    assert items["d1"]["props"] == {
+        "title": "Memorie",
+        "kind": "Memorie van toelichting",
+        "actors": [{"role": "minister", "name": "A", "faction": None}],
+        "date": "2024-01-01",
+    }
+    assert items["d1"]["meta"] == {"snippet": "s", "lid": "1"}
+    assert items["m1"]["props"] == {"name": "A. Lid", "party": "VVD"}
+    assert items["m1"]["meta"] is None  # nothing the canvas reads: null, not {}
+    assert items["w"]["props"] == {"title": "Wet x", "bwb_id": "BWBR0000001"}
+    assert items["w"]["display_name"] is None or isinstance(
+        items["w"]["display_name"], str
+    )
+    # the node itself, and the neighbours without the parameter, as before
+    assert canvas.json()["node"] == full.json()["node"]
+    whole = {
+        item["key"]: item
+        for bucket in full.json()["neighbors"]["buckets"]
+        for item in bucket["items"]
+    }
+    assert whole["d1"]["props"]["case_ids"] == ["c1"]
+    assert whole["m1"]["meta"] == {"record_ids": ["r"]}

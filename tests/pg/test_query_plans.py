@@ -88,6 +88,7 @@ URLS = [
     f"/api/relationships/search?law={BWB}",
     "/api/relationships/search?type=conditional_requirement",
     f"/api/nodes/articles/{BWB.lower()}_1",
+    f"/api/nodes/articles/{BWB.lower()}_1?props=canvas",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
