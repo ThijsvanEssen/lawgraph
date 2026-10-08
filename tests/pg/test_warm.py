@@ -107,3 +107,29 @@ def test_the_warm_up_searches_the_terms_searched_most(
     search_stats.merge_day(tmp_path, dt.date.today().isoformat(), counts)
     warm._warm_search_terms(store)
     assert searched == [f"term {n}" for n in range(warm.WARM_SEARCH_TERMS)]
+
+
+def test_the_warm_up_leaves_a_word_most_judgments_hold(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Its search would rank every judgment that holds it: not searched by the warm-up."""
+    import datetime as dt
+    from collections import Counter
+
+    from lawgraph.core import search_stats
+    from tests.pg.test_search_statistics import _judgments_with_words
+
+    _judgments_with_words(store, 2000)
+    searched: list[str] = []
+    monkeypatch.setattr(warm, "search_all", lambda store_, q, **k: searched.append(q))
+    monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
+    search_stats.merge_day(
+        tmp_path,
+        dt.date.today().isoformat(),
+        Counter({"beroep": 30, "zeldzaamheid": 20, "beroep zeldzaamheid": 10}),
+    )
+    assert warm._common_word(store, "beroep")
+    assert not warm._common_word(store, "zeldzaamheid")
+    warm._warm_search_terms(store)
+    # every word of the last must be held, so it is as rare as its rarest word
+    assert searched == ["zeldzaamheid", "beroep zeldzaamheid"]

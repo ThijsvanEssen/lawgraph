@@ -42,13 +42,6 @@ WHOLE_BY_DESIGN = [
         "every window in one pass over the edges, once a day in the background",
     ),
     (
-        "ranking of the hits of a common word",
-        re.compile(r"AS rank FROM \(SELECT \* FROM \w+ doc WHERE"),
-        "a word that most rows hold makes them all candidates, and BM25 ranks every one"
-        " (the warm-up searches the terms searched most; narrowing the ranking to the"
-        " best candidates is a later decision, as it changes what is found)",
-    ),
-    (
         "counts of /api/stats and the coverage",
         re.compile(
             r'^SELECT (count\(\*\)::int FROM "\w+"'
@@ -158,14 +151,17 @@ def test_the_background_reads_no_large_table_whole(
 
     # the large tables sampled for the statistics of the search, as the real ones are
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 2_000)
-    # a term searched often enough for the warm-up to search it
+    # terms searched often enough for the warm-up: one it searches, and one most judgments
+    # hold, which it leaves, as its search would rank them all
     import datetime as dt
     from collections import Counter
 
     from lawgraph.core import search_stats
 
     search_stats.merge_day(
-        tmp_path, dt.date.today().isoformat(), Counter({"beroep": 9})
+        tmp_path,
+        dt.date.today().isoformat(),
+        Counter({"beroep": 9, "verblijfsvergunning": 7}),
     )
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
 
@@ -186,6 +182,7 @@ def test_the_background_reads_no_large_table_whole(
     finally:
         store.query = query  # type: ignore[method-assign]
     assert len(captured) > 20  # the warm-up ran its parts
+    assert any("AS rank FROM" in " ".join(_text(c[0]).split()) for c in captured)
 
     faults, named = [], set()
     with store.pool.connection() as conn:

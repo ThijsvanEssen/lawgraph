@@ -21,6 +21,7 @@ from lawgraph.core import search_stats
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
@@ -31,6 +32,7 @@ from lawgraph.db.queries.search import (
     load_code_aliases,
     load_notation_parser,
     search_all,
+    tokenize_search_query,
 )
 from lawgraph.db.schema import SEARCH_FIELDS
 
@@ -135,7 +137,32 @@ def _warm_search_terms(store: GraphStore) -> None:
     )
     terms = [term for term, n in counts.most_common() if n >= search_stats.MIN_COUNT]
     for term in terms[:WARM_SEARCH_TERMS]:
+        if _common_word(store, term):
+            continue
         search_all(store, q=term, types=sorted(SEARCH_TYPES), limit=20)
+
+
+# A term whose judgments are more than this share of them is not searched by the warm-up:
+# BM25 ranks every judgment that holds it (``_common_word``).
+COMMON_SHARE = 0.10
+
+
+def _common_word(store: GraphStore, term: str) -> bool:
+    """Whether more than ``COMMON_SHARE`` of the judgments hold every word of *term*, by the
+    planner's statistics of their summaries (``_bm25._common_elements``): its search would
+    rank them all."""
+    common = _bm25._common_elements(store, "judgments", "s_summary_t")
+    rows = _bm25._estimated_rows(store, "judgments")
+    words = tokenize_search_query(term)
+    if not words or rows <= 0:
+        return False
+    # the judgments that hold every word: at most those of its least common word, a word
+    # as common as its most common stem
+    holding = min(
+        max((common.get(stem, 0.0) for stem in _bm25._stems_of(store, w)), default=0.0)
+        for w in words
+    )
+    return holding > COMMON_SHARE * rows
 
 
 def _run(name: str, part: Callable[[], object]) -> None:
