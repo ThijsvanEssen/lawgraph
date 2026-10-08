@@ -586,7 +586,10 @@ case number, where `<court>` names a court (not an administrative body). The dec
 date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
 0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
 `case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
-derived in full: one no longer derived is removed.
+derived in full: one no longer derived is removed. With `--since` (the daily run) only the
+judgments fetched since then are read, and edges are added, not removed; the run without it
+(weekly) links what an older judgment says of a newer one and removes what is no longer
+derived.
 
 **Semantic `rechtspraak-conclusions`.** `ADVISES_ON` from the conclusion of an
 advocate-general to the judgment of its case, one way only. A judgment is a conclusion by its
