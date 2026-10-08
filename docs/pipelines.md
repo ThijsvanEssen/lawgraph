@@ -18,7 +18,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
-| The graph itself (`graph`) | none | none | `graph-list-stats` |
+| The graph itself (`graph`) | none | none | `graph-heat`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a base URL from `config/settings.py`, a 30 s timeout,
 and retries with exponential backoff (factor 2) on HTTP 429, 502, 503, 504 and connection

@@ -849,6 +849,26 @@ def search_column(field: str, analyzer: str) -> str:
     return f"s_{field.replace('.', '_')}_{suffix}"
 
 
+def start_of_value_sql(table: str, field: str, word: str, row: str = "doc") -> str:
+    """SQL: a value of *field* (of the row *row*; no row: the table read) starts with the
+    word in the SQL *word*, in any case. A field searched for a part of its value as well
+    (``ngram``) is folded there, accents and all (``lg_fold``): its start is matched there,
+    at the start of the column or after the separator of its values. Another field (an
+    abbreviation, an identifier) is matched in any case on its values as they are."""
+    on = f"{row}." if row else ""
+    if "ngram" in SEARCH_FIELDS[table][field]:
+        column = f"{on}{search_column(field, 'ngram')}"
+        folded = f"lg_like(lg_fold({word}))"
+        return (
+            f"({column} LIKE {folded} || '%%'"
+            f" OR {column} LIKE '%%' || chr(31) || {folded} || '%%')"
+        )
+    return (
+        f"{on}{search_column(field, 'prefix')}"
+        f" ILIKE '%%' || chr(31) || lg_like({word}) || '%%'"
+    )
+
+
 def _values_sql(field: str) -> str:
     if "." in field:
         parent, child = field.split(".", 1)
@@ -1108,6 +1128,24 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_PIPELINE_STATE} (
 )
 """
 
+# The heat of the whole graph (``/api/nodes/heat`` without ids), kept by ``semantic graph-heat``:
+# per window of months the nodes with the highest count, and when it was counted. Not a
+# table of the graph: writing it raises no data version.
+HEAT = """
+CREATE TABLE IF NOT EXISTS lg_heat (
+    months int NOT NULL,
+    id text NOT NULL,
+    count int NOT NULL,
+    PRIMARY KEY (months, id)
+);
+CREATE INDEX IF NOT EXISTS lg_heat_highest ON lg_heat (months, count DESC, id);
+CREATE TABLE IF NOT EXISTS lg_heat_state (
+    one boolean PRIMARY KEY DEFAULT true CHECK (one),
+    computed_at text NOT NULL,
+    data_version text
+)
+"""
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1160,7 +1198,7 @@ def statements() -> list[str]:
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)
-    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, nodes_view()]
+    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, HEAT, nodes_view()]
     found += data_version_triggers(COLLECTION_EDGES)
     return found
 

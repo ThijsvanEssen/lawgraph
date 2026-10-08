@@ -1,5 +1,5 @@
 """What the API computes in the background (the warm-up, the answers it keeps per data
-version or for hours, the heat) reads no large table whole, on data shaped like the real:
+version or for hours) reads no large table whole, on data shaped like the real:
 judgments that nearly all come from Rechtspraak and hold an area of law, papers of the
 Tweede Kamer of this year, and edges that nearly all are recent (a database built weeks
 ago). A condition that every row meets finds nothing, so the check is the share of a table
@@ -35,11 +35,6 @@ WHOLE_BY_DESIGN = [
         re.compile(r"^SELECT count\(\*\)::float AS n, (?!.*summary).*FROM \w+ doc$"),
         "a field too rare for the sample (the names of a judgment) is measured over the"
         " table without its large values, once every 6 hours in the background",
-    ),
-    (
-        "heat of the whole graph",
-        re.compile(r"WITH counted AS MATERIALIZED"),
-        "every window in one pass over the edges, once a day in the background",
     ),
     (
         "counts of /api/stats and the coverage",
@@ -146,7 +141,6 @@ def test_the_background_reads_no_large_table_whole(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
 ) -> None:
     from lawgraph.api import warm
-    from lawgraph.api.routes.nodes import heat_counts
     from lawgraph.db.queries import _bm25
 
     # the large tables sampled for the statistics of the search, as the real ones are
@@ -178,7 +172,6 @@ def test_the_background_reads_no_large_table_whole(
     store.query = recording  # type: ignore[method-assign]
     try:
         warm.warm_up(store)
-        heat_counts(store)
     finally:
         store.query = query  # type: ignore[method-assign]
     assert len(captured) > 20  # the warm-up ran its parts

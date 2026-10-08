@@ -719,6 +719,19 @@ class GraphStore:
 
         return _retry_write("a statement", run)
 
+    def execute_together(self, statements: list[tuple[Statement, Params]]) -> None:
+        """Run statements that write in one transaction: a reader sees all of them or
+        none (a table emptied and filled again). Sent again when the database was
+        unreachable."""
+
+        def run() -> None:
+            with self.pool.connection() as conn:
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
+                for statement, params in statements:
+                    conn.execute(_query(statement), params)
+
+        _retry_write("statements together", run)
+
     # ── Raw sources ────────────────────────────────────────────────────────────
 
     def insert_raw_sources(

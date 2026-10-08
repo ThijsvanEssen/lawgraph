@@ -13,7 +13,6 @@ from collections.abc import Callable
 from dataclasses import replace
 from functools import partial
 
-from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.settings import SEARCH_STATS_DIR
@@ -118,9 +117,6 @@ def warm_up(store: GraphStore) -> None:
         _run(name, part)
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
-    # after ``warm``: it reads every edge, once a day (``heat_counts``), and the first
-    # visitor of the heat finds it computed
-    _run("heat", lambda: heat_counts(store))
     _run("search terms", lambda: _warm_search_terms(store))
 
 
