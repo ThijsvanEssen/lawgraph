@@ -301,10 +301,11 @@ def _commitment_filters(
         bind["no_date"] = NO_DUE_DATE
         bind["today"] = dt.date.today().isoformat()
     if q:
-        # AQL CONTAINS finds nothing for "" (*q* of spaces alone); LOWER of a missing text
-        # is "".
+        # nothing holds "" (*q* of spaces alone); a missing text is ""; both folded as the
+        # search folds them (lg_fold: lower case, no accents)
         shared.append(
-            "%(q)s <> '' AND strpos(lower(coalesce(c.props ->> 'text', '')), %(q)s) > 0"
+            "%(q)s <> '' AND strpos(lg_fold(coalesce(c.props ->> 'text', '')),"
+            " lg_fold(%(q)s)) > 0"
         )
         bind["q"] = q.strip().lower()
     if dossier:

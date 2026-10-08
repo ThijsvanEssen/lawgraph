@@ -182,7 +182,10 @@ def list_members(
     active: Annotated[
         bool | None, Query(description="Only members currently seated.")
     ] = None,
-    q: Annotated[str | None, Query(description="Name substring.")] = None,
+    q: Annotated[
+        str | None,
+        Query(description="A part of the name, in any case, with or without accents."),
+    ] = None,
     include_all: Annotated[bool, Query()] = False,
     capacity: Annotated[
         Literal["bewindspersoon"] | None,
@@ -349,7 +352,13 @@ def list_factions(
     active: Annotated[
         bool | None, Query(description="Only (in)active parties.")
     ] = None,
-    q: Annotated[str | None, Query(description="Name or abbreviation.")] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            description="A part of the name or abbreviation, in any case, with or "
+            "without accents."
+        ),
+    ] = None,
     chamber: Annotated[
         Literal["TK", "EK"],
         Query(

@@ -429,6 +429,7 @@ def test_each_facet_counts_without_its_own_filter(government: GraphStore) -> Non
         ({"overdue": True}, ["k1", "k4"]),
         ({"q": "BOX"}, ["k1"]),
         ({"q": "école"}, ["k3"]),
+        ({"q": "ECOLE"}, ["k3"]),  # without its accent, in capitals
         # spaces alone find nothing
         ({"q": "   "}, []),
         # soonest due first; without a date (or the placeholder of none) last
