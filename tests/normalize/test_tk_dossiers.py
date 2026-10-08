@@ -126,6 +126,8 @@ def _raw(payload: dict[str, Any]) -> dict[str, Any]:
         (RELATION_LED_BY, COLLECTION_ACTIVITIES, {COLLECTION_COMMITTEES}),
         (RELATION_MADE_IN, COLLECTION_COMMITMENTS, {COLLECTION_ACTIVITIES}),
         (RELATION_MADE_IN, COLLECTION_DOCUMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_MADE_IN, COLLECTION_DECISIONS, {COLLECTION_ACTIVITIES}),
+        (RELATION_AUTHORED, COLLECTION_MEMBERS, {COLLECTION_COMMITMENTS}),
         (RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, {COLLECTION_DOCUMENTS}),
         (
             RELATION_MEMBER_OF,
@@ -865,3 +867,16 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
     }
     # one lookup per collection, whatever the number of documents
     assert store.existence_calls == 2
+
+
+def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
+    store = _Store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
+    decisions = [
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b1", activity_id="ACT-1"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b2", activity_id="gone"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b3"),
+    ]
+    tk_cases.link_decisions_to_activities(store, decisions, source=SOURCE)
+    assert set(store.edge_meta) == {
+        ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
+    }

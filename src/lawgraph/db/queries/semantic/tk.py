@@ -13,6 +13,7 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
+    COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -637,3 +638,16 @@ def touched_ids(
             {"ids": ids, "since": since_iso},
         )
     )
+
+
+def activity_numbers(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, number, replaced_by}`` of every activity with a number: what an activity that
+    was moved names (``Activiteit.VervangenDoor``) is the number of the one that replaced it."""
+    sql = f"""
+        SELECT a.id, lg_str(a.props -> 'number') AS number,
+               a.props -> 'replaced_by' AS replaced_by
+        FROM {COLLECTION_ACTIVITIES} a
+        WHERE coalesce(lg_str(a.props -> 'number'), '') <> ''
+        ORDER BY a.key
+        """
+    return store.query(sql)

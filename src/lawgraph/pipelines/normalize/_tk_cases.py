@@ -114,6 +114,22 @@ def link_subjects(
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
 
 
+def link_decisions_to_activities(
+    store: Store, decision_nodes: Iterable[Node], *, source: str
+) -> None:
+    """MADE_IN from a decision to the activity of its agenda item (``activity_id``), the
+    meeting it was taken in, when that activity is stored."""
+    pairs = [
+        (node_id, COLLECTION_ACTIVITIES, make_node_key(str(activity)))
+        for node in decision_nodes
+        if (node_id := node.node_id) and (activity := node.props.get("activity_id"))
+    ]
+    writer = EdgeWriter(store, what="decision to activity edges")
+    _queue_existing(store, pairs, RELATION_MADE_IN, writer, source=source)
+    writer.flush()
+    logger.info("Linked %d decisions to the activity they were taken in.", writer.added)
+
+
 def link_cases_to_dossiers(
     store: Store,
     *,
@@ -321,6 +337,7 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
+    "activity_id",
     "activity_ids",
     "attachment_ids",
     "attached_to_ids",

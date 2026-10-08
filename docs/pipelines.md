@@ -184,8 +184,12 @@ Miljoenennota itself, so each record links to the dossier node with that key.
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`), `LED_BY` (Activity to
-Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
-(dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
+Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity;
+Decision to the activity of its agenda item, `activity_id`; Document to the activity it records),
+`MEMBER_OF` (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`. A run
+over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every stored seat of that
+person, so the member's timeline is made of all their seats, and takes the member and the faction
+from the database when the window holds neither.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -338,9 +342,15 @@ motions) are `RELATED_TO` it. The Kamer relates none of the cases of `37035`; `3
 `RELATED_TO` from the dossiers whose letters answer the motions of the Algemene Politieke
 Beschouwingen, which are filed under it (16 on 24 Sep 2026).
 
-It reads every dossier and every related case on every run, since a dossier loaded today can be
-the other end of a relation stated earlier. It only adds and updates edges: an edge whose
-evidence is gone stays until the database is built again.
+The same step ties the two cases of each Kamer relation themselves: `RELATED_TO` case → case
+(`meta.case_kinds`), also within one dossier or without one, when both cases are stored. And a moved
+activity (`Verplaatst`) is `CONTINUES`d by the activity that replaced it: `replaced_by`
+(`Activiteit.VervangenDoor`) names that one's number, the edge runs from it to the moved one
+(`meta.reason` `verplaatst`).
+
+It reads every dossier, every related case and every activity on every run, since a node loaded
+today can be the other end of a relation stated earlier. It only adds and updates edges: an edge
+whose evidence is gone stays until the database is built again.
 
 ## Rechtspraak
 
