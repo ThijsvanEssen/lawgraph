@@ -132,6 +132,14 @@ class NeighborBucketDTO(BaseModel):
     type: str
     total: int
     next_offset: int | None
+    lid_counts: dict[str, int] | None = Field(
+        None,
+        description=(
+            "Of an article: per lid the edges of the whole bucket cite, how many do "
+            '("" for those that cite none; an edge that cites two counts for each); '
+            "null when none of them cites a lid."
+        ),
+    )
     items: list[NeighborDTO]
 
 

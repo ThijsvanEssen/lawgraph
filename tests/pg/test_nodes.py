@@ -275,3 +275,71 @@ def test_a_citing_judgment_as_a_neighbour_is_light(store: GraphStore) -> None:
 
     own = node_queries.get_node_with_neighbors(store, "judgments", "ecli_nl_hr_2020_1")
     assert own.node["props"]["summary"] == summary
+
+
+def test_the_buckets_of_an_article_count_the_lids_their_edges_cite(
+    store: GraphStore,
+) -> None:
+    """``lid_counts``: per lid the edges of the whole bucket cite, how many do (a page of
+    one shows the counts of all); a judgment cites lids in its mentions, a paper in its
+    ``leden``; "" for an edge that cites none; null for a bucket that cites no lid."""
+    from collections import Counter
+
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    def node(collection: str, key: str) -> None:
+        store.bulk_insert_or_update_nodes(
+            collection,
+            [{"_key": key, "type": collection[:-1], "labels": [], "props": {}}],
+        )
+
+    node("articles", "w_1")
+    node("instruments", "w")
+    cited = {
+        "judgments/j1": {"mentions": [{"leden": ["1"]}, {"leden": ["2", "1"]}]},
+        "judgments/j2": {"mentions": [{"leden": ["2"]}]},
+        "judgments/j3": {"mentions": [{"leden": []}]},
+        "documents/d1": {"leden": ["1"], "qualifier": "eerste lid"},
+        "documents/d2": {},
+    }
+    edges = []
+    for n, (source, meta) in enumerate(cited.items()):
+        collection, key = source.split("/")
+        node(collection, key)
+        edges.append(
+            {**_edge(f"r{n}", source, "articles/w_1", "REFERS_TO"), "meta": meta}
+        )
+    edges.append(_edge("p1", "articles/w_1", "instruments/w", "PART_OF"))
+    store.bulk_insert_or_update_edges(edges)
+
+    def counted(collection: str) -> dict[str, int]:
+        """Every edge of the bucket read, its lids counted."""
+        lids: Counter[str] = Counter()
+        for source, meta in cited.items():
+            if source.startswith(collection):
+                cites = set(meta.get("leden", [])) | {
+                    lid for m in meta.get("mentions", []) for lid in m["leden"]
+                }
+                lids.update(cites or {""})
+        return dict(lids)
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = (
+            TestClient(app).get("/api/nodes/articles/w_1", params={"limit": 1}).json()
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    buckets = {
+        (b["relation"], b["direction"], b["collection"]): b
+        for b in body["neighbors"]["buckets"]
+    }
+    judgments = buckets[("REFERS_TO", "inbound", "judgments")]
+    assert len(judgments["items"]) == 1 and judgments["total"] == 3
+    assert judgments["lid_counts"] == counted("judgments") == {"1": 1, "2": 2, "": 1}
+    documents = buckets[("REFERS_TO", "inbound", "documents")]
+    assert documents["lid_counts"] == counted("documents") == {"1": 1, "": 1}
+    assert buckets[("PART_OF", "outbound", "instruments")]["lid_counts"] is None
