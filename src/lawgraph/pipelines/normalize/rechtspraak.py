@@ -106,7 +106,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 if field in judgment_meta:
                     props[field] = judgment_meta[field]
             props["replaced_by"] = replacing_ecli(judgment_meta.get("replaced_by"))
-            for field in ("related_eclis", "conclusion_eclis"):
+            for field in ("related_eclis", "later_eclis", "conclusion_eclis"):
                 if judgment_meta.get(field):
                     props[field] = judgment_meta[field]
             if keys := case_number_keys(judgment_meta.get("case_number")):

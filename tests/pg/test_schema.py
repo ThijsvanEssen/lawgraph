@@ -166,6 +166,23 @@ def test_a_column_the_schema_lacks_stops_the_start(conn: psycopg.Connection) -> 
         ensure_schema(conn)
 
 
+def test_an_index_the_schema_dropped_does_not_stop_the_start(
+    conn: psycopg.Connection,
+) -> None:
+    """An index the schema no longer makes stays until it is dropped by hand (``DROP INDEX
+    CONCURRENTLY`` on a large database): the start goes on, and it is not made again."""
+    conn.execute("CREATE INDEX edges_to ON edges (to_id, relation, from_collection)")
+    ensure_schema(conn)
+    assert conn.execute(
+        "SELECT count(*) FROM pg_indexes WHERE indexname = 'edges_to'"
+    ).fetchone() == (1,)
+    conn.execute("DROP INDEX edges_to")
+    ensure_schema(conn)
+    assert conn.execute(
+        "SELECT count(*) FROM pg_indexes WHERE indexname = 'edges_to'"
+    ).fetchone() == (0,)
+
+
 @pytest.mark.parametrize(
     ("value", "truthy"),
     [

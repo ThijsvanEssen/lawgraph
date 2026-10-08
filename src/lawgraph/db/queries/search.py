@@ -21,6 +21,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
@@ -40,7 +41,7 @@ from lawgraph.db.store import (
     reset_read_deadline,
     set_read_deadline,
 )
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import cached, stale_wait
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -540,7 +541,8 @@ def _search_dossiers(
                 'kind', doc.props -> 'kind',
                 'current_phase', doc.props -> 'current_phase',
                 'closed', doc.props -> 'closed',
-                'outcome', doc.props -> 'outcome'
+                'outcome', doc.props -> 'outcome',
+                'title', doc.props -> 'title'
             )
         )
     """
@@ -555,7 +557,12 @@ def _search_dossiers(
         params={"kind_filter": [k.lower() for k in kinds or []]},
         live=live,
     )
-    return list(store.query(*query, indexes_only=True))
+    hits = list(store.query(*query, indexes_only=True))
+    for hit in hits:
+        # the name the dossier goes by, as /api/dossiers gives it ("Wet betaalbare huur")
+        extra = hit["extra"]
+        extra["short_title"] = short_title(extra.pop("title", None))
+    return hits
 
 
 def _search_committees(
@@ -1043,6 +1050,23 @@ def search_live(
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
+    with stale_wait(LIVE_STALE_WAIT):
+        return _search_live(store, q, tokens, types, kinds, limit)
+
+
+# What a search while typing waits for a kept answer of a new data version (the parser of
+# citations reads every instrument: seconds after a poll) before it takes the one before.
+LIVE_STALE_WAIT = 0.05
+
+
+def _search_live(
+    store: GraphStore,
+    q: str,
+    tokens: list[str],
+    types: list[str],
+    kinds: list[str] | None,
+    limit: int,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     searches = _live_searches(
         store, q, tokens, _notation(store, q, types), kinds, limit
     )

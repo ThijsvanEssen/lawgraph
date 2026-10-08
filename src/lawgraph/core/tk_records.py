@@ -703,6 +703,10 @@ def commitment(payload: Payload) -> Record | None:
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
         "display_name": shorten(text, 80),
+        # the letters that fulfil it (``KamerbriefNakoming``): ANSWERS
+        "letter_ids": _distinct(
+            [str(d.get("Id") or "") for d in _dicts(payload.get("KamerbriefNakoming"))]
+        ),
     }
 
 
@@ -771,6 +775,47 @@ def document_actors(payload: Payload) -> list[dict[str, Any]]:
             }
         )
     return actors
+
+
+# The ZaakActor relations of the people who submitted a Zaak, and of its lead committee.
+CASE_SUBMITTER_RELATIONS = ("Indiener", "Medeindiener")
+CASE_LEAD_RELATION = "Voortouwcommissie"
+
+
+def case_actors(payload: Payload) -> dict[str, Any]:
+    """Who submitted a Zaak and which committee leads it, from its ``ZaakActor``:
+    ``submitters`` (``person_id``, ``role`` as the source writes it, ``function`` and the
+    ``capacity`` that makes it, as ``document_actors``) and ``committee_ids`` (the
+    voortouwcommissie; none when the plenary leads, as for an activity). Read from a record
+    of ``retrieve tk-case-actors``."""
+    actors = list(_dicts(payload.get("ZaakActor")))
+    submitters = []
+    for actor in actors:
+        person_id = str(actor.get("Persoon_Id") or "")
+        if actor.get("Relatie") not in CASE_SUBMITTER_RELATIONS or not person_id:
+            continue
+        function = (actor.get("Functie") or "").strip() or None
+        submitters.append(
+            {
+                "person_id": person_id,
+                "role": actor["Relatie"],
+                "function": function,
+                "capacity": signing_capacity(
+                    function, str(actor.get("Fractie_Id") or "") or None
+                ),
+            }
+        )
+    return {
+        "submitters": submitters,
+        "committee_ids": _distinct(
+            [
+                str(actor.get("Commissie_Id") or "")
+                for actor in actors
+                if actor.get("Relatie") == CASE_LEAD_RELATION
+                and actor.get("ActorAfkorting") != PLENARY_VOORTOUW
+            ]
+        ),
+    }
 
 
 def submitters(
@@ -1032,6 +1077,8 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
+        # the activity of its agenda item: the meeting it was taken in (MADE_IN)
+        "activity_id": str(activity.get("Id") or "") or None,
         # The day of the vote; a row's GewijzigdOp is when it was last edited.
         "date": iso_date(activity.get("Datum"))
         or (iso_date(votes[0].changed_at) if votes else None),

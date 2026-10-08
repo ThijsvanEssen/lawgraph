@@ -65,3 +65,11 @@ def test_a_pending_bill_and_a_budget_chapter() -> None:
 
 def test_a_page_without_a_bill_has_nothing() -> None:
     assert eb.bill("<html></html>") == eb.Bill(label=None, submitted_on=None)
+
+
+def test_a_rijkswet_is_numbered_with_its_r_number() -> None:
+    # the title of a Rijkswet names its R-number in parentheses inside its number's
+    page = (
+        "<html><title>Rijkswet Caribisch orgaan (36.455 (R2188)) - Eerste Kamer</title>"
+    )
+    assert eb.bill(page).label == "36455-(R2188)"

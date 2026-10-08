@@ -317,6 +317,33 @@ def test_resolve_a_faction_or_member_before_a_law_of_that_name(
     assert answer["match"]["id"] == "instruments/bwbr0021000"
 
 
+def test_a_dossier_hit_carries_the_name_it_goes_by(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node(
+                "36496",
+                "dossier",
+                number="36496",
+                label="36496",
+                title="Wijziging van de Uitvoeringswet huurprijzen woonruimte en enige"
+                " andere wetten in verband met de regulering van huurprijzen in het"
+                " middensegment (Wet betaalbare huur)",
+            ),
+            _node("36500", "dossier", number="36500", label="36500", title="Huur"),
+        ],
+    )
+    full = search_queries.search_all(store, q="middensegment", types=["dossiers"])
+    live, _ = search_queries.search_live(store, q="middensegment", types=["dossiers"])
+    for hits in (full["dossiers"], live["dossiers"]):
+        (hit,) = hits
+        assert hit["extra"]["short_title"] == "Wet betaalbare huur"
+        assert "title" not in hit["extra"]
+    hits = search_queries.search_all(store, q="huur", types=["dossiers"])["dossiers"]
+    titles = {hit["key"]: hit["extra"]["short_title"] for hit in hits}
+    assert titles == {"36496": "Wet betaalbare huur", "36500": None}
+
+
 def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
     store: GraphStore,
 ) -> None:

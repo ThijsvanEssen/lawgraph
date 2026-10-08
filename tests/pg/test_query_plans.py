@@ -99,6 +99,14 @@ URLS = [
     "/api/annexes/a1",
     "/api/dossiers/36000",
     "/api/dossiers/36000/changed-articles",
+    # a member: their votes (by roll-call and through their faction), dossiers, node, and
+    # a path from their faction through its members
+    "/api/members/m1/votes",
+    "/api/members/m1/dossiers",
+    "/api/members/m1/touched-instruments",
+    "/api/factions/f1/dossiers",
+    "/api/nodes/members/m1",
+    f"/api/paths?ids=factions/f1,instruments/{BWB.lower()}&expand=members",
 ]
 
 # Statements that read a table whole on purpose, each kept for a minute: the statistics
@@ -252,7 +260,35 @@ def _seed(store: GraphStore) -> None:
             )
         ],
     )
+    membership = {
+        "faction_id": "factions/f1",
+        "faction_key": "f1",
+        "abbreviation": "F",
+        "from_date": "2010-01-01",
+        "to_date": None,
+    }
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [_node("m1", "member", name="A. Lid", faction_memberships=[membership])],
+    )
+    store.bulk_insert_or_update_nodes("factions", [_node("f1", "faction", name="F")])
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
+    )
     article = f"articles/{BWB.lower()}_1"
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
+            _edge("ma", "members/m1", "documents/d1", "AUTHORED"),
+            _edge(
+                "fv", "factions/f1", "decisions/b1", "VOTED", meta={"choice": "Voor"}
+            ),
+            _edge(
+                "mv", "members/m1", "decisions/b2", "VOTED", meta={"choice": "Tegen"}
+            ),
+        ]
+    )
     store.bulk_insert_or_update_edges(
         [
             _edge("p1", article, "instruments/bwbr0001", "PART_OF"),
@@ -307,7 +343,10 @@ def _fill(store: GraphStore) -> None:
     statements.append(
         "INSERT INTO edges (key, from_id, to_id, doc)"
         " SELECT 'filler_' || n, 'judgments/filler_' || n % 9973,"
-        " 'articles/filler_' || n % 9967, json_build_object('relation', 'FILLER')"
+        " 'articles/filler_' || n % 9967, json_build_object('relation', 'FILLER',"
+        # a moment of its own, as nearly every edge has: an index that starts with it is
+        # no way to the edges of a node
+        " 'created_at', '2020-01-01T00:00:00.' || lpad(n::text, 6, '0'))"
         f" FROM generate_series(1, {FILLER * 5}) n"
     )
     for statement in statements:
@@ -355,6 +394,23 @@ def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
     return bool(condition) and not _flags_only(condition)
 
 
+def _skipped(
+    node: dict[str, Any], leading: dict[str, str], partial: frozenset[str]
+) -> bool:
+    """Whether the scan's condition leaves out the first column of its index: a skip scan
+    over every value of it (``to_id`` through ``(created_at, to_id)`` reads the whole index
+    on the full database). A partial index holds only the rows of its condition."""
+    if node.get("Index Name") in partial:
+        return False
+    column = leading.get(node.get("Index Name") or "")
+    condition = node.get("Index Cond") or ""
+    return (
+        bool(column and condition)
+        and not _flags_only(condition)
+        and not re.search(rf"\b{column}\b", condition)
+    )
+
+
 # Nodes that read all of their input before they give a row: below them a limit above
 # stops nothing early.
 _READS_ALL = ("Sort", "Incremental Sort", "Hash", "Materialize", "Aggregate", "Unique")
@@ -365,6 +421,7 @@ def _faults(
     partial: frozenset[str] = frozenset(),
     limited: bool = False,
     grouped: bool = False,
+    leading: dict[str, str] | None = None,
 ) -> list[str]:
     """The whole reads in the plan *node*: a sequential scan, and a scan that nothing
     narrows, unless it only tests flags and is either cut short by a limit (a page read
@@ -377,6 +434,11 @@ def _faults(
     found = []
     if kind == "Seq Scan":
         found.append(f"Seq Scan on {node.get('Relation Name')}")
+    elif kind in _SCANS and _skipped(node, leading or {}, partial):
+        found.append(
+            f"{kind} on {node.get('Relation Name')} skips the first column of"
+            f" {node.get('Index Name')}"
+        )
     elif kind in _SCANS and not _narrowed(node, partial):
         filtered = node.get("Filter", "")
         if not (_flags_only(filtered) and (limited or grouped)):
@@ -385,7 +447,9 @@ def _faults(
                 + (f", filtered by {filtered}" if filtered else "")
             )
     for child in node.get("Plans", []):
-        found += _faults(child, partial, limited, grouped or kind == "Aggregate")
+        found += _faults(
+            child, partial, limited, grouped or kind == "Aggregate", leading
+        )
     return found
 
 
@@ -419,6 +483,15 @@ def test_the_routes_read_through_indexes(
                 "SELECT indexrelid::regclass::text FROM pg_index WHERE indpred IS NOT NULL"
             )
         )
+        # the first column of every index on a column (not on an expression)
+        leading = dict(
+            conn.execute(
+                "SELECT i.indexrelid::regclass::text, a.attname FROM pg_index i"
+                " JOIN pg_attribute a"
+                "   ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]"
+                " WHERE i.indkey[0] <> 0"
+            ).fetchall()
+        )
         for url, statement, params in statements:
             text = _text(statement)
             if any(pattern.search(text) for pattern in _WHOLE_BY_DESIGN):
@@ -428,7 +501,7 @@ def test_the_routes_read_through_indexes(
                 (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
             except psycopg.Error as exc:
                 pytest.fail(f"{url}: {exc}\n{text}")
-            found = _faults(plan[0]["Plan"], partial)
+            found = _faults(plan[0]["Plan"], partial, leading=leading)
             if found:
                 outline = "\n      ".join(_outline(plan[0]["Plan"]))
                 faults.append(
