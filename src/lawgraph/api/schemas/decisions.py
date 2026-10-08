@@ -279,3 +279,8 @@ class DecisionListResponse(BaseModel):
     total: int = Field(..., description="Matching decisions, independent of ``limit``.")
     items: list[DecisionSummaryDTO]
     facets: DecisionFacets = Field(default_factory=DecisionFacets)
+    partial: bool = Field(
+        False,
+        description="``party_votes`` was asked for but is still being counted (every vote "
+        "on every decision: seconds, once per change of the data): ``[]`` now; ask again.",
+    )

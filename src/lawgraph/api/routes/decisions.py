@@ -130,6 +130,7 @@ def list_decisions(
         total=int(raw.get("total") or 0),
         items=[DecisionSummaryDTO(**row) for row in raw.get("items") or []],
         facets=DecisionFacets(**(raw.get("facets") or {})),
+        partial=bool(raw.get("partial")),
     )
 
 

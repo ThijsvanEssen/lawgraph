@@ -4,6 +4,7 @@ decision with its votes, and the document a decision was about."""
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 import psycopg
@@ -588,3 +589,103 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     )
     (vvd,) = recent["facets"]["party_votes"]
     assert (vvd["voor"], vvd["tegen"], vvd["none"]) == (1, 1, 0)
+
+
+def test_party_votes_past_their_budget_follow_on_the_next_request(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past ``PARTY_VOTES_BUDGET`` the page comes without them, ``partial``; they are
+    counted on, kept per data version, and a later request has them."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import decisions as decision_queries
+    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+
+    version_cache.clear()
+    read = decision_queries._read_party_votes
+
+    def slow(store: GraphStore, filters: DecisionFilters) -> Any:
+        time.sleep(1)
+        return read(store, filters)
+
+    monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
+    monkeypatch.setattr(decision_queries, "PARTY_VOTES_BUDGET", 0.3)
+    asked = DecisionFilters(party_votes=("all",))
+    token = set_read_deadline(10)  # a request
+    try:
+        started = time.monotonic()
+        first = get_decisions(votes, asked)
+        assert time.monotonic() - started < 0.9
+        assert first["partial"] is True and first["facets"]["party_votes"] == []
+        assert first["total"] == 5  # the page itself
+        time.sleep(1.2)
+        again = get_decisions(votes, asked)
+        assert "partial" not in again
+        assert [p["party"] for p in again["facets"]["party_votes"]] == ["a", "vvd", "x"]
+    finally:
+        reset_read_deadline(token)
+
+
+def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> None:
+    """The votes of factions on the decisions: the VOTED edges of each decision from
+    ``edges_to_cover`` (of one faction also its own from ``edges_from_cover``, of every
+    decision without a filter also by ``edges_relation``), never a scan of the edges."""
+    from lawgraph.db.queries import decisions as decision_queries
+
+    store.execute(
+        "INSERT INTO decisions (id, type, props)"
+        " SELECT 'decisions/f' || n, 'decision', json_build_object('kind', 'Motie',"
+        " 'passed', n % 2 = 0, 'date', to_char(date '2020-01-01' + n % 1500, 'YYYY-MM-DD'))"
+        " FROM generate_series(1, 2000) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'v' || n, 'factions/p' || n % 15, 'decisions/f' || n % 2000,"
+        " json_build_object('relation', 'VOTED', 'meta', json_build_object('choice', 'Voor'))"
+        " FROM generate_series(1, 30000) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'o' || n, 'documents/x' || n, 'cases/y' || n,"
+        " json_build_object('relation', 'PART_OF')"
+        " FROM generate_series(1, 60000) n"
+    )
+    store.vacuum_analyze()
+    every = DecisionFilters(party_votes=("all",))
+    for filters, allowed in (
+        # a few decisions (a window): of each its edges, by the covering index
+        (replace(every, date_from="2024-02-01"), {"edges_to_cover"}),
+        # one faction: its own votes (``edges_from_cover``), or those of each decision
+        (DecisionFilters(party_votes=("p1",)), {"edges_to_cover", "edges_from_cover"}),
+        # every decision of every faction: every vote, by the index on the relation or
+        # by the covering one, never a scan of all edges
+        (every, {"edges_to_cover", "edges_relation"}),
+    ):
+        asked = filters.party_votes
+        bind: dict[str, Any] = {}
+        statement = (
+            f"{decision_queries._matching(filters, bind)}\n"
+            f"SELECT {decision_queries._party_votes(filters, bind)} AS votes"
+        )
+        with store.pool.connection() as conn:
+            (plan,) = conn.execute(
+                f"EXPLAIN (FORMAT JSON) {statement}", bind
+            ).fetchone()  # type: ignore[misc]
+        nodes = list(_plan_nodes(plan[0]["Plan"]))
+        edges = [n for n in nodes if n.get("Relation Name") == "edges"]
+        assert edges, asked
+        assert all(n["Node Type"] != "Seq Scan" for n in edges), asked
+        # by the index or a bitmap of it: of each decision its edges, never another index
+        indexes = {
+            n["Index Name"]
+            for n in nodes
+            if str(n.get("Index Name", "")).startswith("edges")
+        }
+        assert indexes and indexes <= allowed, (filters, indexes)
+
+
+def _plan_nodes(node: dict[str, Any]) -> Any:
+    yield node
+    for child in node.get("Plans", []):
+        yield from _plan_nodes(child)

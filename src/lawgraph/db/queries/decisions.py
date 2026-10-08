@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     RELATION_ABOUT,
     RELATION_PART_OF,
@@ -22,6 +23,14 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import _words
 from lawgraph.db.schema import search_words
+from lawgraph.db.store import (
+    ReadTimedOut,
+    RequestCancelled,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
+from lawgraph.db.version_cache import cached
 
 
 @dataclass(frozen=True)
@@ -337,17 +346,10 @@ def get_decisions(
         "offset": offset,
         "chambers": [CHAMBER_TK, CHAMBER_EK],
     }
-    common = _common_filters(filters, bind)
     kind = _kind_filter(filters, bind)
     passed = _passed_filter(filters, bind)
     statement = f"""
-    WITH filtered AS MATERIALIZED (
-        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date
-        FROM decisions d {_where(common)}
-    ),
-    matching AS MATERIALIZED (
-        SELECT * FROM filtered r {_where(kind + passed)}
-    )
+    {_matching(filters, bind)}
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
         'items', (
@@ -389,12 +391,78 @@ def get_decisions(
                     GROUP BY 1
                 ) year
             ),
-            'party_votes', {_party_votes(filters, bind)}
+            'party_votes', '[]'::json
         )
     )
     """
     rows = list(store.query(statement, bind))
-    return rows[0] if rows else {"total": 0, "items": [], "facets": EMPTY_FACETS}
+    page = rows[0] if rows else {"total": 0, "items": [], "facets": dict(EMPTY_FACETS)}
+    if filters.party_votes:
+        _add_party_votes(store, filters, page)
+    return page
+
+
+def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
+    """SQL: ``WITH`` the decisions under every filter but kind and outcome (``filtered``:
+    id, key, kind, passed, date) and under all of them (``matching``)."""
+    common = _common_filters(filters, bind)
+    rest = _kind_filter(filters, bind) + _passed_filter(filters, bind)
+    return f"""WITH filtered AS MATERIALIZED (
+        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date
+        FROM decisions d {_where(common)}
+    ),
+    matching AS MATERIALIZED (
+        SELECT * FROM filtered r {_where(rest)}
+    )"""
+
+
+# The seconds a request waits for ``party_votes`` (every vote of a faction on 69,000
+# decisions without a filter): past them the page comes without it, ``partial``, and it is
+# counted on for the next request (``party_votes``).
+PARTY_VOTES_BUDGET = 3.0
+
+
+def _add_party_votes(
+    store: GraphStore, filters: DecisionFilters, page: dict[str, Any]
+) -> None:
+    """``facets.party_votes`` of *page*, or ``partial`` when they take longer than
+    ``PARTY_VOTES_BUDGET``."""
+    left = read_time_left()
+    token = set_read_deadline(
+        PARTY_VOTES_BUDGET if left is None else min(PARTY_VOTES_BUDGET, left)
+    )
+    try:
+        page["facets"]["party_votes"] = party_votes(store, filters)
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        page["partial"] = True
+    finally:
+        reset_read_deadline(token)
+
+
+def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
+    """``_PARTY_VOTES`` under *filters*, kept while the decisions, the edges and the
+    factions stand still: the same for every visitor of those filters, so after one
+    computation free. Without other filters and for every faction it is computed in the
+    warm-up (``api/warm.py``)."""
+    return cached(
+        store,
+        ("decisions party votes", filters),
+        lambda: _read_party_votes(store, filters),
+        tables=(COLLECTION_DECISIONS, COLLECTION_EDGES, COLLECTION_FACTIONS),
+    )
+
+
+def _read_party_votes(
+    store: GraphStore, filters: DecisionFilters
+) -> list[dict[str, Any]]:
+    bind: dict[str, Any] = {}
+    statement = (
+        f"{_matching(filters, bind)}\nSELECT {_party_votes(filters, bind)} AS votes"
+    )
+    rows = list(store.query(statement, bind))
+    return list(rows[0]) if rows else []
 
 
 def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
