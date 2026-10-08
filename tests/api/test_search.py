@@ -16,6 +16,7 @@ from lawgraph.db.queries.search import (
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
+    Period,
     rank_hits,
     score_hit,
     tokenize_search_query,
@@ -150,6 +151,26 @@ def _cleanup():
     version_cache.clear()
 
 
+def test_the_search_route_passes_its_period(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``from`` and ``to`` are the period, both days in it; ``from`` after ``to`` is 422."""
+    asked: dict[str, Any] = {}
+
+    def search_live(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        asked.update(kwargs)
+        return {}, set()
+
+    monkeypatch.setattr("lawgraph.api.routes.search.search_live", search_live)
+    client = TestClient(app)
+    params = {"q": "klimaat", "mode": "live", "from": "2019-01-01", "to": "2019-12-31"}
+    assert client.get("/api/search", params=params).status_code == 200
+    assert asked["period"] == Period("2019-01-01", "2019-12-31")
+    params = {"q": "klimaat", "from": "2020-01-01", "to": "2019-12-31"}
+    assert client.get("/api/search", params=params).status_code == 422
+    assert (
+        client.get("/api/search", params={"q": "x", "from": "2019"}).status_code == 422
+    )
+
+
 def test_the_search_route_passes_its_parameters_and_keeps_the_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -175,6 +196,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         "types": ["articles"],
         "kinds": ["Motie", "Brief"],
         "limit": 5,
+        "period": Period(),
     }
     articles = response.json()["results"]["articles"]
     assert [(a["key"], a["score"]) for a in articles] == [

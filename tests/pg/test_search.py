@@ -939,3 +939,103 @@ def test_an_article_without_a_name_is_named_by_its_number_and_law(
     assert names[f"{CODE_FAMILIES['BW']['6'].lower()}_162"] == (
         "Artikel 162 Burgerlijk Wetboek Boek 6"
     )
+
+
+def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> None:
+    """``from``/``to``: a judgment by the day of its decision, a paper by its date, a
+    dossier by the day it was opened, a vote by its date, a commitment by the day it was
+    made, full and live; a type without a date of its own finds nothing within a period."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(
+                f"klimaat_{y}",
+                "judgment",
+                display_name=f"Klimaatzaak {y}",
+                summary="Klimaat.",
+                date_eff=f"{y}-06-01",
+                ecli=f"ECLI:NL:HR:{y}:1",
+            )
+            for y in (2018, 2019, 2020)
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(f"d{y}", "document", title="Klimaatbrief", date=f"{y}-12-31T10:00:00")
+            for y in (2018, 2019)
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node(
+                f"{y}",
+                "dossier",
+                number=f"{y}",
+                label=f"{y}",
+                title="Klimaatwet",
+                opened_on=f"{y}-03-01",
+            )
+            for y in (2018, 2019)
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(f"v{y}", "decision", subject="Motie over klimaat", date=f"{y}-05-05")
+            for y in (2018, 2019)
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "commitments",
+        [
+            _node(
+                f"c{y}",
+                "commitment",
+                display_name="Klimaatbrief",
+                text="klimaat",
+                made_on=f"{y}-02-02",
+            )
+            for y in (2018, 2019)
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("bwbr9", "instrument", title="Klimaatwet", citation_title="Klimaatwet")],
+    )
+    period = search_queries.Period("2019-01-01", "2019-12-31")
+    types = [
+        "judgments",
+        "documents",
+        "dossiers",
+        "decisions",
+        "commitments",
+        "instruments",
+    ]
+
+    def keys(found: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
+        return {t: sorted(h["key"] for h in hits) for t, hits in found.items()}
+
+    full = keys(
+        search_queries.search_all(store, q="klimaat", types=types, period=period)
+    )
+    live = keys(
+        search_queries.search_live(store, q="klimaat", types=types, period=period)[0]
+    )
+    expected = {
+        "judgments": ["klimaat_2019"],
+        # the last day of the period holds a time of that day
+        "documents": ["d2019"],
+        "dossiers": ["2019"],
+        "decisions": ["v2019"],
+        "commitments": ["c2019"],
+        # a law has no date of its own here yet: with a period it finds nothing
+        "instruments": [],
+    }
+    assert full == expected
+    assert live == expected
+    # without a period every one
+    every = keys(search_queries.search_all(store, q="klimaat", types=types))
+    assert len(every["judgments"]) == 3 and every["instruments"] == ["bwbr9"]
