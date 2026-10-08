@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.logging import get_logger
+from lawgraph.core.word_forms import word_forms
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 from lawgraph.db.store import ReadTimedOut, reset_read_deadline, set_read_deadline
 from lawgraph.db.version_cache import cached, lasting
@@ -293,7 +294,8 @@ def _terms(
     boosts: dict[str, float],
 ) -> tuple[list[_Term], dict[str, Any]]:
     params: dict[str, Any] = dict(words)
-    stems = {word: _stems_of(store, value) for word, value in words.items()}
+    # the stems of a word and of its forms that stem apart, as the search matches it
+    stems = {word: _stems_of(store, word_forms(value)) for word, value in words.items()}
     terms = []
     for word in words:
         for field in fields:

@@ -23,6 +23,7 @@ from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
+from lawgraph.core.word_forms import word_forms
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
@@ -72,7 +73,9 @@ def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
     analyzers = SEARCH_FIELDS[table][field]
     parts = []
     if "text" in analyzers:
-        parts.append(f"{row}.{search_column(field, 'text')} && lg_tokens(%({word})s)")
+        # its forms that stem apart too ("huurprijs" and "huurprijzen": ``word_forms``)
+        forms = word.replace("_tok_", "_forms_")
+        parts.append(f"{row}.{search_column(field, 'text')} && lg_tokens(%({forms})s)")
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
     if "identity" in analyzers:
         # from three characters, as a part of a value: the start of a value of two (``hu``,
@@ -101,7 +104,8 @@ def build_search_clause(
     Returns ``(condition, params)``; the parameters are ``_tok_0``, ``_tok_1``, … so they
     do not collide with those of the caller. A token is taken as typed (lower case, from
     ``tokenize_search_query``): its stems for the words of a field, as is for a prefix of
-    its value or a part of it, folded for a whole folded value.
+    its value or a part of it, folded for a whole folded value. ``_forms_0``, … hold the
+    forms of each that stem apart (``word_forms``).
     """
     if not tokens:
         return "true", {}
@@ -110,6 +114,7 @@ def build_search_clause(
     for i, token in enumerate(tokens):
         word = f"_tok_{i}"
         params[word] = token
+        params[f"_forms_{i}"] = word_forms(token)
         per_field = [c for f in fields for c in _field_condition(table, f, word, row)]
         parts.append("(" + " OR ".join(per_field) + ")")
     return " AND ".join(parts), params
@@ -253,8 +258,9 @@ def _text_query(
     if live:
         return _live_query(table, hit, tokens, fields, limit, joins, where, params)
     clause, clause_params = build_search_clause(table, tokens, fields)
+    words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     rank, lateral, rank_params = bm25_sql(
-        store, table, clause_params, fields, _BOOSTS.get(table, {})
+        store, table, words, fields, _BOOSTS.get(table, {})
     )
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).

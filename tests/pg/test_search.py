@@ -122,6 +122,39 @@ def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> Non
     assert search(graph, q="strafbaar vordering", types=["articles"])["articles"] == []
 
 
+def test_a_singular_finds_its_plural_and_back(store: GraphStore) -> None:
+    """A word whose last consonant changes in its plural stems apart from it (huurprijs,
+    huurprijz): the search looks for both forms."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                "bw7_246",
+                "article",
+                article_number="246",
+                display_name="Artikel 7:246 Burgerlijk Wetboek",
+                text="Partijen kunnen de prijs overeenkomen.",
+                breadcrumb=[{"title": "Huurprijzen"}],
+            ),
+            _node(
+                "bw7_247",
+                "article",
+                article_number="247",
+                display_name="Artikel 7:247 Burgerlijk Wetboek",
+                text="Een voorstel tot verhoging van de huurprijs.",
+            ),
+        ],
+    )
+
+    def found(q: str) -> list[str]:
+        return _ids(
+            search_queries.search_all(store, q=q, types=["articles"])["articles"]
+        )
+
+    assert sorted(found("huurprijs")) == ["articles/bw7_246", "articles/bw7_247"]
+    assert sorted(found("huurprijzen")) == ["articles/bw7_246", "articles/bw7_247"]
+
+
 def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
     hits = search_queries.search_all(graph, q="strafbaar", types=["articles"])[
         "articles"
