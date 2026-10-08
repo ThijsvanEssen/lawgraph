@@ -326,17 +326,32 @@ _SEATED = f"""EXISTS (
 
 # The member's party, or an abbreviation, name or alias in their faction timeline (AQL
 # ``LOWER(null)`` is ``""``).
+# A faction period of the member's timeline names the party: its abbreviation, name or an
+# alias.
+_PERIOD_OF_PARTY = f"""(
+            lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
+            OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
+            OR EXISTS (
+                SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
+                WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
+            )
+        )"""
+_TIMELINE = _array("m.props -> 'faction_memberships'")
+_PERIODS = f"json_array_elements({_TIMELINE}) AS f(period)"
+
+# The member is or was of the party: its current party, or any period of its timeline.
 _PARTY = f"""
     lower(coalesce(m.props ->> 'party', '')) = %(party)s
-    OR EXISTS (
-        SELECT 1
-        FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
-        WHERE lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
-           OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
-           OR EXISTS (
-               SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
-               WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
-           )
+    OR EXISTS (SELECT 1 FROM {_PERIODS} WHERE {_PERIOD_OF_PARTY})
+"""
+
+# The member sits for the party now: a period of it without an end (what ``seated`` reads).
+# A member who left the party for another is seated, but not for it.
+_SEATED_FOR_PARTY = f"""
+    EXISTS (
+        SELECT 1 FROM {_PERIODS}
+        WHERE coalesce(json_typeof(f.period -> 'to_date'), 'null') = 'null'
+          AND {_PERIOD_OF_PARTY}
     )
 """
 
@@ -396,7 +411,8 @@ def get_members(
     ministers and other people the TK Persoon endpoint exposes. *government* keeps
     those who held a post in a cabinet, *cabinet* those who held one in that cabinet
     (both whether they sat in parliament or not). *party* matches the current party or
-    any abbreviation, name or alias in the member's faction timeline.
+    any abbreviation, name or alias in the member's faction timeline; with *active* only a
+    period without an end, so a member who left the party for another is not counted.
     """
     # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
     # with them a page of the list is read from an index in name order
@@ -414,7 +430,8 @@ def get_members(
     elif not (include_all or government or cabinet):
         filters.append("m.in_parliament")
     if party:
-        filters.append(_PARTY)
+        # seated (*active*) and of a party: seated for it, not for another one since
+        filters.append(_SEATED_FOR_PARTY if active else _PARTY)
         bind["party"] = party.strip().lower()
     if q:
         filters.append(_contains("n.name"))
