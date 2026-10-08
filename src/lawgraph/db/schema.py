@@ -1324,6 +1324,24 @@ END $$""",
     return statements
 
 
+# The terms of an article: the stems that recur in the summaries of the judgments that cite
+# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
+# the number of light summaries each stem is in, which the terms are weighed against.
+# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
+# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
+ARTICLE_TERMS = """
+CREATE TABLE IF NOT EXISTS lg_article_terms (
+    article_id text PRIMARY KEY,
+    terms text[] NOT NULL
+);
+CREATE INDEX IF NOT EXISTS lg_article_terms_terms ON lg_article_terms USING gin (terms);
+CREATE TABLE IF NOT EXISTS lg_summary_stems (
+    stem text PRIMARY KEY,
+    judgments integer NOT NULL
+)
+"""
+
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1383,6 +1401,7 @@ def statements() -> list[str]:
         HEAT,
         *judgment_light(),
         *document_light(),
+        ARTICLE_TERMS,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)

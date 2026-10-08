@@ -385,12 +385,21 @@ def retrieve_tk(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--limit", type=int, default=0, help="At most this many cases (0: every one)."
     )
+    parser.add_argument(
+        "--replacing",
+        action="store_true",
+        help="Only the cases that replace another (an amended amendment or motion, "
+        "Zaak.VervangenVanuit); with --mode full every one of them, once after the "
+        "retrieve began to read that relation.",
+    )
     add_since_argument(parser, default="1d")
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
     since = _TK_EPOCH if args.mode == "full" else args.since
-    return TKRetrievePipeline(GraphStore()).run(since=since, limit=args.limit)
+    return TKRetrievePipeline(GraphStore()).run(
+        since=since, limit=args.limit, replacing=args.replacing
+    )
 
 
 def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:

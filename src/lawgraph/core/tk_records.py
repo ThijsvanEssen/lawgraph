@@ -249,6 +249,8 @@ def case(payload: Payload) -> Record | None:
         "started_on": iso_date(payload.get("GestartOp")),
         # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
         "related_cases": related_cases(payload),
+        # The cases this one replaces, and their papers its papers (REVISES).
+        "replaces_cases": replaced_cases(payload),
     }
     if title:
         props["title"] = title
@@ -272,6 +274,16 @@ def related_cases(payload: Payload) -> list[dict[str, Any]]:
             "dossier_numbers": dossier_numbers([other]),
         }
         for other in _dicts(payload.get("GerelateerdNaar"))
+        if other.get("Id") and not other.get("Verwijderd")
+    ]
+
+
+def replaced_cases(payload: Payload) -> list[str]:
+    """The ids of the cases a Zaak replaces (``VervangenVanuit``): an amended amendment or
+    motion, "ter vervanging van nr. 21", replaces the case of nr. 21."""
+    return [
+        str(other["Id"])
+        for other in _dicts(payload.get("VervangenVanuit"))
         if other.get("Id") and not other.get("Verwijderd")
     ]
 

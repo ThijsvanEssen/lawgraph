@@ -85,7 +85,12 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tooi,
     retrieve_verdragenbank,
 )
-from lawgraph.pipelines.semantic import graph_heat, graph_light, graph_list_stats
+from lawgraph.pipelines.semantic import (
+    graph_article_terms,
+    graph_heat,
+    graph_light,
+    graph_list_stats,
+)
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
@@ -812,6 +817,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         graph_light.main,
         "Keeps every judgment as a neighbour without its text, for those written before.",
+    ),
+    _pipeline(
+        graph_article_terms.main,
+        "Keeps per article the terms the judgments that cite it call it by.",
     ),
     _pipeline(
         graph_heat.main,
