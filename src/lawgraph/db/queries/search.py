@@ -40,7 +40,7 @@ from lawgraph.db.store import (
     reset_read_deadline,
     set_read_deadline,
 )
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import cached, stale_wait
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -1044,6 +1044,23 @@ def search_live(
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
+    with stale_wait(LIVE_STALE_WAIT):
+        return _search_live(store, q, tokens, types, kinds, limit)
+
+
+# What a search while typing waits for a kept answer of a new data version (the parser of
+# citations reads every instrument: seconds after a poll) before it takes the one before.
+LIVE_STALE_WAIT = 0.05
+
+
+def _search_live(
+    store: GraphStore,
+    q: str,
+    tokens: list[str],
+    types: list[str],
+    kinds: list[str] | None,
+    limit: int,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     searches = _live_searches(
         store, q, tokens, _notation(store, q, types), kinds, limit
     )
