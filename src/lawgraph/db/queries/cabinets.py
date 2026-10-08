@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
 KIND_BILL = "Wetgeving"
@@ -127,15 +127,27 @@ WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
 """
 
 
+# How long the page of a cabinet is kept (seconds), whatever the data does: its counts read
+# every paper its members signed (a minute for the newest cabinets together, from disk), and a
+# poll of other sources (an hour of judgments) changes none of them; a newly signed paper
+# counts within the hour.
+CABINET_MAX_AGE = 3600.0
+
+
 def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One cabinet with every member and their posts in it, and per member the counts
     ``dossiers`` (signed first or with others as a bewindspersoon within the cabinet's
     period, directly or through a case), ``bills`` (of those, government bills) and
-    ``open_commitments`` (made under it and still open); None when unknown. Kept per data
-    version and day: the counts read every paper a member ever signed, for a long-serving
-    minister thousands, a minute from disk."""
+    ``open_commitments`` (made under it and still open); None when unknown. Kept
+    ``CABINET_MAX_AGE`` and a day, whatever the data does: the counts read every paper a
+    member ever signed, for a long-serving minister thousands, a minute from disk."""
     today = dt.date.today().isoformat()
-    return cached(store, ("cabinet", key, today), lambda: _cabinet(store, key, today))
+    return lasting(
+        store,
+        ("cabinet", key, today),
+        lambda: _cabinet(store, key, today),
+        CABINET_MAX_AGE,
+    )
 
 
 def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
