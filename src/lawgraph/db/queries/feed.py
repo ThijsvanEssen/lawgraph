@@ -66,6 +66,8 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _words
+from lawgraph.db.schema import INSTRUMENT_DOSSIER_NUMBERS, feed_title, search_words
 from lawgraph.db.store import (
     ReadTimedOut,
     RequestCancelled,
@@ -217,7 +219,9 @@ class _Source:
         ``faction_id``; None when nobody signs this kind; ``{label}`` is its first dossier
         label), its title (JSON), its own ministry (text; None: that of its first dossier) and
         its chamber (text). A row looks its signatures up only when a filter or a facet needs
-        them."""
+        them. *found* is SQL on ``n`` that an index serves and that holds for every row whose
+        title holds ``q``, and *dossier_found* for every row whose first dossier is one of
+        ``{titled}`` (the labels of the dossiers whose title holds it); None: no index."""
 
     kind: str
     collection: str
@@ -229,6 +233,8 @@ class _Source:
     ministry: str | None = None
     chamber: str = _lit(CHAMBER_TK)
     parts: tuple[str, ...] = ()
+    found: str | None = None
+    dossier_found: str | None = None
 
     @property
     def condition(self) -> str:
@@ -324,6 +330,8 @@ def _document_source(kind: str) -> _Source:
         dossiers=_PAPER_DOSSIER_NUMBERS,
         persons=_BILL_PERSONS if kind == EVENT_BILL else _ACTORS,
         title=_or("n.pj_subject", "n.pj_title"),
+        found=f"{feed_title('n')} LIKE {_words.FOLDED_LIKE}",
+        dossier_found="n.dossier_numbers && ARRAY({titled})",
     )
 
 
@@ -348,6 +356,14 @@ _SOURCES: dict[str, _Source] = {
             persons=_COMMITMENT_PERSONS,
             title="n.props -> 'text'",
             ministry="n.ministry",
+            found=f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_words.LOWER_LIKE}",
+            dossier_found=(
+                f"n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e"
+                f" JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id"
+                f" WHERE e.relation = {_lit(RELATION_ABOUT)}"
+                f" AND e.to_collection = {_lit(COLLECTION_DOSSIERS)}"
+                " AND d.label IN ({titled}))"
+            ),
         ),
         *(_document_source(kind) for kind in DOCUMENT_EVENTS),
         _Source(
@@ -367,6 +383,8 @@ _SOURCES: dict[str, _Source] = {
             persons=_DECIDED_PERSONS,
             title="n.props -> 'subject'",
             chamber=_VOTE_CHAMBER,
+            found=f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.LOWER_LIKE}",
+            dossier_found="n.dossier_numbers && ARRAY({titled})",
         ),
         _Source(
             kind=EVENT_PUBLICATION,
@@ -377,6 +395,11 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.props -> 'citation_title'",
             chamber="NULL",
+            found=f"n.s_citation_title_g LIKE {_words.FOLDED_LIKE}",
+            dossier_found=(
+                f"{INSTRUMENT_DOSSIER_NUMBERS.replace('props', 'n.props')}"
+                " && ARRAY({titled})"
+            ),
         ),
         _Source(
             kind=EVENT_JUDGMENT,
@@ -389,6 +412,7 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.pj_display_name",
             chamber="NULL",
+            found=f"n.s_display_name_g LIKE {_words.FOLDED_LIKE}",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -401,6 +425,17 @@ _SOURCES: dict[str, _Source] = {
             title=(
                 f"(SELECT {_CITATION_TITLE} FROM {COLLECTION_INSTRUMENTS} i"
                 f" WHERE i.key = lower({_BWB_ID}))"
+            ),
+            # the versions of the instruments whose title holds the words: by the index
+            # on the citation title, or without one (its title then) every such instrument
+            # but the publications (``instruments_list_title``)
+            found=(
+                "n.bwb_id = ANY(ARRAY("
+                "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"
+                f" FROM {COLLECTION_INSTRUMENTS} i"
+                f" WHERE i.s_citation_title_g LIKE {_words.FOLDED_LIKE}"
+                " OR (coalesce(i.citation_title, '') = ''"
+                f" AND i.kind IS DISTINCT FROM {_lit(INSTRUMENT_KIND_PUBLICATION)})))"
             ),
         ),
     )
@@ -537,8 +572,8 @@ _WORDS = "{words}"
 
 
 def _contains(text: str) -> str:
-    """SQL: AQL ``CONTAINS(LOWER(text), @q)`` of a JSON *text*."""
-    return f"strpos(lower({_text(text)}), %(q)s) > 0"
+    """SQL: the JSON *text* holds the words of ``q`` (``_words``)."""
+    return _words.holds(_text(text))
 
 
 def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
@@ -552,7 +587,8 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
         bind["member"] = filters.member
     if filters.q:
         clauses.append(_WORDS)
-        bind["q"] = filters.q.strip().lower()
+        bind["q"] = _words.words(filters.q)
+        bind["q_word"] = _words.word_pattern(bind["q"])
     return clauses
 
 
@@ -714,6 +750,24 @@ class _Kind:
             found += f" OR {_contains('fd.title')}"
         return f"%(q)s <> '' AND ({found})"
 
+    def candidates(self) -> str | None:
+        """The rows that may hold the words, found by index (``_Source.found``); None when
+        the kind has no index for them or the words are too short for one."""
+        q = (self.plan.filters.q or "").strip()
+        if self.source.found is None or len(q) < _words.TRIGRAM:
+            return None
+        found = self.source.found
+        if self.first_dossier:
+            if self.source.dossier_found is None:
+                return None
+            titled = (
+                f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
+                f" WHERE d.s_title_g LIKE {_words.FOLDED_LIKE}"
+                f" AND {_contains('d.pj_title')}"
+            )
+            found += " OR " + self.source.dossier_found.replace("{titled}", titled)
+        return f"({found})"
+
     def select(self) -> str:
         """The columns of the light row (``_ROW_COLUMNS``)."""
         vote = self.source.kind == EVENT_VOTE
@@ -755,6 +809,9 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
         head.insert(1, f"{date} <= %(until)s")
     if plan.filters.chamber and source.kind == EVENT_VOTE and not plan.facets:
         head.append(f"{_VOTE_CHAMBER} = %(chamber)s")
+    candidates = kind.candidates()
+    if candidates:
+        head.append(candidates)
     tail = [clause.replace(_WORDS, kind.words()) for clause in plan.shared]
     table, order = f"{source.collection} n", ""
     if not plan.facets:
