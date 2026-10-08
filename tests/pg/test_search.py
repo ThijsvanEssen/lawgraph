@@ -513,3 +513,37 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     # a common word: of the first rows found, those first in order
     monkeypatch.setattr(search_queries, "LIVE_CANDIDATES", 1)
     assert len(live("stik", "articles")) == 1
+
+
+def test_a_full_search_past_its_budget_answers_its_live_hits(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A type whose ranking takes longer than ``FULL_BUDGET`` answers what its live
+    search finds, and is named in ``partial``, instead of the request answering 503."""
+    import time
+
+    version_cache.clear()
+    _live_judgments(store)
+    hits, partial = search_queries.search_full(
+        store, q="rechtbank amsterdam", types=["judgments", "articles"]
+    )
+    assert partial == set()
+    assert hits == search_queries.search_all(
+        store, q="rechtbank amsterdam", types=["judgments", "articles"]
+    )
+
+    def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        return list(store.query("SELECT pg_sleep(5)"))
+
+    monkeypatch.setattr(search_queries, "_search_judgments", slow)
+    monkeypatch.setattr(search_queries, "FULL_BUDGET", 0.5)
+    started = time.monotonic()
+    hits, partial = search_queries.search_full(
+        store, q="rechtbank amsterdam", types=["judgments", "articles"]
+    )
+    assert time.monotonic() - started < 2
+    assert partial == {"judgments"}
+    assert [h["key"] for h in hits["judgments"]] == [
+        "ecli_nl_rbams_2021_2",
+        "ecli_nl_rbams_2021_1",
+    ]
