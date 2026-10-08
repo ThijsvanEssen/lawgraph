@@ -118,6 +118,8 @@ _WHOLE_BY_DESIGN = (
     re.compile(
         r"FROM instruments i\s+WHERE i.stub IS DISTINCT FROM TRUE\s+ORDER BY i.key"
     ),
+    # the names of the dossiers, once per data version of them (``load_dossier_names``)
+    re.compile(r"SELECT DISTINCT ON \(label\) label, lg_str\(pj_title\) AS title"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).

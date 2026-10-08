@@ -17,6 +17,7 @@ from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -30,7 +31,7 @@ from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
-from lawgraph.db.queries.dossiers import load_law_names
+from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
@@ -102,6 +103,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
+    "dossier names": (COLLECTION_DOSSIERS,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -128,6 +130,7 @@ def warm_up(store: GraphStore) -> None:
         "search codes": lambda: load_code_aliases(store),
         # the laws a dossier title names (``get_laws_named``)
         "dossier law names": lambda: load_law_names(store),
+        "dossier names": lambda: load_dossier_names(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS

@@ -42,7 +42,11 @@ from lawgraph.core.documents import (
     numbered_in,
     paper_number,
 )
-from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
+from lawgraph.core.dossier_numbers import (
+    parse_dossier_query,
+    short_title,
+    suffix_sort_key,
+)
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
@@ -1363,3 +1367,36 @@ def get_next_activity(
         },
     )
     return next(iter(rows), None)
+
+
+# The title of every dossier by its number (label), of the first dossier by key that has it:
+# columns only, one read of the 8,000 dossiers per data version (``load_dossier_names``).
+_DOSSIER_NAMES_SQL = f"""
+    SELECT DISTINCT ON (label) label, lg_str(pj_title) AS title
+    FROM {COLLECTION_DOSSIERS}
+    WHERE label IS NOT NULL
+    ORDER BY label ASC NULLS LAST, key ASC NULLS LAST
+"""
+
+
+def _read_dossier_names(store: GraphStore) -> dict[str, dict[str, Any]]:
+    return {
+        row["label"]: {
+            "number": row["label"],
+            "short_title": short_title(row["title"]),
+            "title": row["title"],
+        }
+        for row in store.query(_DOSSIER_NAMES_SQL)
+    }
+
+
+def load_dossier_names(store: GraphStore) -> dict[str, dict[str, Any]]:
+    """``{number, short_title, title}`` of every dossier by its number (``short_title`` as
+    ``/api/dossiers`` gives it), kept while the dossiers stand still: computed on first use,
+    and in the warm-up (``api/warm.py``)."""
+    return cached(
+        store,
+        ("dossier-names",),
+        lambda: _read_dossier_names(store),
+        tables=(COLLECTION_DOSSIERS,),
+    )

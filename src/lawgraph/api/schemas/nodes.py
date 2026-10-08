@@ -81,6 +81,10 @@ class BaseNodeDTO(BaseModel):
         return cls(**payload)
 
 
+# The neighbours that carry the short title of their first dossier (``NeighborDTO``).
+_NAMED_BY_DOSSIER = ("documents", "activities", "decisions")
+
+
 class NeighborDTO(BaseModel):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
@@ -107,8 +111,26 @@ class NeighborDTO(BaseModel):
         edge: dict[str, Any],
         direction: Literal["outbound", "inbound"],
         confidence: float | None,
+        names: dict[str, dict[str, Any]] | None = None,
     ) -> NeighborDTO:
+        """From the neighbour and its edge; a paper, an activity or a decision has in its
+        props ``dossier_short_title``, the name its first dossier goes by (by *names*,
+        ``load_dossier_names``; null without one)."""
         payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
+        props = payload.get("props")
+        if names is not None and isinstance(props, dict):
+            if payload["collection"] in _NAMED_BY_DOSSIER:
+                # a copy: the neighbour may be one kept for every request
+                props = payload["props"] = dict(props)
+                numbers = props.get("dossier_numbers") or [props.get("dossier_number")]
+                first = (
+                    str(numbers[0] or "")
+                    if isinstance(numbers, list) and numbers
+                    else ""
+                )
+                props["dossier_short_title"] = (names.get(first) or {}).get(
+                    "short_title"
+                )
         meta = edge.get("meta")
         return cls(
             **payload,
