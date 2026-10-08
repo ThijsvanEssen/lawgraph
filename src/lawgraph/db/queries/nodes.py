@@ -16,6 +16,7 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
+from lawgraph.db.version_cache import cached
 
 
 class NodeNotFoundError(ValueError):
@@ -169,7 +170,7 @@ def get_node_with_neighbors(
     facets = _count_facets(store, node["_id"], filters)
     pages = _read_pages(store, node["_id"], filters, facets, limit, offset, canvas)
     lids = (
-        _count_lids(store, node["_id"], filters, _leden(node))
+        _kept_lids(store, node["_id"], filters, _leden(node))
         if collection == "articles"
         else {}
     )
@@ -260,6 +261,23 @@ def _leden(article: dict[str, Any]) -> list[str] | None:
         for part in parts
         if isinstance(part, dict) and part.get("kind") == "lid" and part.get("number")
     ]
+
+
+def _kept_lids(
+    store: GraphStore,
+    node_id: str,
+    filters: NeighborFilter,
+    leden: list[str] | None,
+) -> dict[tuple[str | None, str, str], dict[str, int]]:
+    """``_count_lids``, kept while the edges stand still: it reads the ``meta`` of every edge
+    of the article (of 6:162 BW, 9,000: half a second warm, seconds cold), for every page."""
+    leden_key = None if leden is None else tuple(leden)
+    return cached(
+        store,
+        ("lid-counts", node_id, filters, leden_key),
+        lambda: _count_lids(store, node_id, filters, leden),
+        tables=("edges",),
+    )
 
 
 def _count_lids(

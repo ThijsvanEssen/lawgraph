@@ -582,24 +582,31 @@ _MEMBER_VOTES = f"""
             {_array("member.props -> 'faction_memberships'")}
         ) WITH ORDINALITY AS f(period, n)
     ),
-    -- per period the newest votes of the faction, by the dates of their decisions alone
+    -- per period the newest votes of the faction: the decisions of the period newest first
+    -- (their index of the dates), each with the faction's vote on it; a faction votes on
+    -- nearly every decision while it is seated, so few are read past the page (from the
+    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
+    -- member of seven periods)
     candidates AS (
         SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key
         FROM periods p
         CROSS JOIN LATERAL (
-            -- the votes of the faction found first (OFFSET 0), then ordered: the index of
-            -- the dates would be walked for a faction that voted on few of them
-            SELECT v.* FROM (
-                SELECT e.key AS edge_key, d.id AS decision_id, d.date, d.key
-                FROM {COLLECTION_EDGES} e
-                JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
-                CROSS JOIN LATERAL (SELECT p.period) AS f(period)
-                WHERE e.from_id = p.period ->> 'faction_id' AND e.relation = %(voted)s
-                  AND d.date IS NOT NULL
-                  AND {_IN_MEMBERSHIP}
+            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key
+            FROM {COLLECTION_DECISIONS} d
+            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+            -- per decision (never joined whole: that reads every vote of the faction)
+            CROSS JOIN LATERAL (
+                SELECT v.key FROM {COLLECTION_EDGES} v
+                WHERE v.to_id = d.id AND v.relation = %(voted)s
+                  AND v.from_collection = '{COLLECTION_FACTIONS}'
+                  AND v.from_id = p.period ->> 'faction_id'
                 OFFSET 0
             ) v
-            ORDER BY v.date DESC NULLS LAST, v.key ASC
+            WHERE d.date IS NOT NULL
+              AND {_IN_MEMBERSHIP}
+            -- NULLS FIRST as the index of the dates walked backward gives it (no date is
+            -- null here): the walk stops after the candidates instead of a sort of them all
+            ORDER BY d.date DESC NULLS FIRST, d.key ASC
             LIMIT %(candidates)s
         ) c
     ),

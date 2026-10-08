@@ -539,3 +539,52 @@ def test_a_bucket_without_a_relation_has_its_page(store: GraphStore) -> None:
         for b in data.buckets
     }
     assert pages == {("PART_OF", "documents"): ["a"], (None, "documents"): ["b"]}
+
+
+def test_the_lids_of_an_article_are_counted_once_while_its_edges_stand_still(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``lid_counts`` reads the meta of every edge of the article: kept while the edges
+    stand still, counted again when one is written."""
+    from lawgraph.db import version_cache
+
+    version_cache.clear()
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
+    store.bulk_insert_or_update_nodes(
+        "articles", [{"_key": "w_1", "type": "article", "labels": [], "props": {}}]
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                **_edge("r1", "judgments/j1", "articles/w_1", "REFERS_TO"),
+                "meta": {"mentions": [{"leden": ["1"]}]},
+            }
+        ]
+    )
+    counted: list[str] = []
+    count = node_queries._count_lids
+
+    def counting(*args: Any) -> Any:
+        counted.append("x")
+        return count(*args)
+
+    monkeypatch.setattr(node_queries, "_count_lids", counting)
+
+    def lids() -> dict[str, int] | None:
+        (bucket,) = node_queries.get_node_with_neighbors(
+            store, "articles", "w_1"
+        ).buckets
+        return bucket.lid_counts
+
+    assert lids() == {"1": 1} and lids() == {"1": 1}
+    assert len(counted) == 1
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                **_edge("r2", "judgments/j2", "articles/w_1", "REFERS_TO"),
+                "meta": {"mentions": [{"leden": ["2"]}]},
+            }
+        ]
+    )
+    assert lids() == {"1": 1, "2": 1}
+    assert len(counted) == 2
