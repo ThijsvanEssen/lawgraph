@@ -452,6 +452,8 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         "kind": "Memorie van toelichting",
         "actors": [{"role": "minister", "name": "A", "faction": None}],
         "date": "2024-01-01",
+        # the name of its first dossier: it has none in its props
+        "dossier_short_title": None,
     }
     assert items["d1"]["meta"] == {"snippet": "s", "lid": "1"}
     assert items["m1"]["props"] == {"name": "A. Lid", "party": "VVD"}

@@ -25,7 +25,7 @@ route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
-or a `dossier` filter as it is. List parameters `limit` and `offset` have the bounds shown in
+or a `dossier` filter as it is. Next to bare numbers stand their names as `/api/dossiers` gives them: `dossiers` (`{number, short_title, title}` per number, once each, in their order; null names for a number no dossier has) on a decision (list and detail), a paper of `/api/documents` (of `dossier_numbers`, else of `dossier_number`), a vote of an Eerste Kamer faction and an activity of a committee; `dossier_short_title` in the props of a paper, an activity or a decision among the neighbours of a node (of its first dossier); `short_title` on the dossier of a commitment and of a publication. List parameters `limit` and `offset` have the bounds shown in
 `/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
 that orders ties by key), so walking its pages gives each row once.
 

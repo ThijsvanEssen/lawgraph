@@ -80,7 +80,7 @@ def test_every_route_gives_the_sender_of_a_letter(store: GraphStore) -> None:
     def dumped(sender: Any) -> dict[str, Any] | None:
         return sender.model_dump(mode="json") if sender else None
 
-    assert dumped(DocumentListItemDTO.from_row(listed).sender) == _SENDER
+    assert dumped(DocumentListItemDTO.from_row(listed, {}).sender) == _SENDER
     assert dumped(DossierDocumentDTO.from_row(row).sender) == _SENDER
     body = timeline_entry(entry).model_dump(mode="json")["body"]
     assert body["sender"] == _SENDER and "actors" not in body
