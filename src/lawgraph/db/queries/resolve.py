@@ -145,9 +145,11 @@ def _articles(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
 
 
 def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    """The articles a citation that leaves the book open may mean (``art. 3 BW``), in the
-    order of the books, then those of that number in any other law; one alone is the
-    citation, several are a choice (each at most ``CONFIDENCE_AMBIGUOUS``)."""
+    """The articles a citation that leaves the book open may mean: of a code it names
+    (``art. 3 BW``) in the order of its books; without a law (``art. 8:69``) the article of
+    that book of the code with books and those of that number in any law together, the
+    most cited first (the Awb's 8:69 before Boek 8 BW). One alone is the citation, several
+    are a choice (each at most ``CONFIDENCE_AMBIGUOUS``)."""
     named = [a for a in notation.articles if a.law_id]
     keys = [make_node_key(a.law_id or "", a.number) for a in named]
     found = [
@@ -158,7 +160,20 @@ def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     if loose:
         seen = {t["id"] for t in found}
         found += [t for t in _articles_without_law(store, loose) if t["id"] not in seen]
+        found = _most_cited_first(store, found)
     return _capped(found)
+
+
+def _most_cited_first(
+    store: GraphStore, targets: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """*targets* (articles) the most cited first; of as many citations, in their order."""
+    rows = store.query(
+        "SELECT id, inbound_citation_count AS n FROM articles WHERE id = ANY(%(ids)s)",
+        {"ids": [t["id"] for t in targets]},
+    )
+    cited = {row["id"]: row["n"] or 0 for row in rows}
+    return sorted(targets, key=lambda t: -cited.get(t["id"], 0))
 
 
 def _articles_without_law(

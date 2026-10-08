@@ -305,6 +305,31 @@ def test_resolve_a_code_without_its_book_lists_its_books(store: GraphStore) -> N
         )
 
 
+def test_resolve_a_number_without_law_lists_the_most_cited_first(
+    store: GraphStore,
+) -> None:
+    """``art. 8:69``: Boek 8 BW article 69 and the Awb's own 8:69, the most cited first,
+    whatever law it is; a choice, as neither is named."""
+    from lawgraph.core.code_families import CODE_FAMILIES
+
+    version_cache.clear()
+    awb = _node(
+        "bwbr0005537_8_69",
+        "article",
+        bwb_id="BWBR0005537",
+        article_number="8:69",
+        display_name="Artikel 8:69 Algemene wet bestuursrecht",
+        inbound_citation_count=900,
+    )
+    store.bulk_insert_or_update_nodes("articles", [{**_bw_article("8", "69")}, awb])
+    answer = resolve_queries.resolve(store, "art. 8:69")
+    assert answer["match"] is None
+    assert [a["key"] for a in answer["alternatives"]] == [
+        "bwbr0005537_8_69",
+        f"{CODE_FAMILIES['BW']['8'].lower()}_69",
+    ]
+
+
 def _live_judgments(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
