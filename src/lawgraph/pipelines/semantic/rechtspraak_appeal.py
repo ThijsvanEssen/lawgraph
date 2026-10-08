@@ -160,26 +160,32 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
             {t.date for targets in named.values() for t in targets if t.case_number}
         )
         on_date: dict[str, list[dict[str, Any]]] = {}
-        for candidate in semantic_rechtspraak.decisions_on_dates(self.store, dates):
+        for candidate in semantic_rechtspraak.judgments_on_dates(self.store, dates):
             on_date.setdefault(candidate["date"], []).append(candidate)
         by_key = {row["key"]: row for row in texts}
+        matched = {
+            (key, target): [
+                c["ecli"]
+                for c in on_date.get(target.date, [])
+                if target.is_decision(c)
+                and c["ecli"].upper() != str(by_key[key]["ecli"]).upper()
+            ]
+            for key, targets in named.items()
+            for target in targets
+        }
+        # a decision, not the conclusion of an advocate-general on that day
+        conclusions = semantic_rechtspraak.conclusions_among(
+            self.store, sorted({e for eclis in matched.values() for e in eclis})
+        )
         unresolved: dict[str, list[AppealTarget]] = {}
-        for key, targets in named.items():
-            row = by_key[key]
-            for target in targets:
-                found = sorted(
-                    {
-                        c["ecli"].upper()
-                        for c in on_date.get(target.date, [])
-                        if target.is_decision(c) and c["ecli"].upper() != row["ecli"]
-                    }
-                )
-                links += [
-                    (row["j_id"], RELATION_APPEAL_OF, ecli, BASIS_TEXT, "")
-                    for ecli in found
-                ]
-                if not found:
-                    unresolved.setdefault(key, []).append(target)
+        for (key, target), eclis in matched.items():
+            found = sorted({e.upper() for e in eclis} - conclusions)
+            links += [
+                (by_key[key]["j_id"], RELATION_APPEAL_OF, ecli, BASIS_TEXT, "")
+                for ecli in found
+            ]
+            if not found:
+                unresolved.setdefault(key, []).append(target)
         return unresolved
 
     def _write_edges(
