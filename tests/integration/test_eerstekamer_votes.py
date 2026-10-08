@@ -130,6 +130,13 @@ def test_the_eerste_kamer_decides_the_bill(store: GraphStore, cli: Any) -> None:
     done = cli("semantic", "tk-dossier-outcomes")
     assert "0 changed" in done.stderr + done.stdout
 
+    # the votes of the BBB are edges; a second normalize keeps them as they are
+    voted = "SELECT count(*) FROM edges WHERE relation = 'VOTED'"
+    before = next(store.query(voted))
+    assert before >= 1
+    cli("normalize", "eerstekamer-votes")
+    assert next(store.query(voted)) == before
+
 
 def test_the_api_shows_the_eerste_kamer(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
@@ -157,6 +164,10 @@ def test_the_api_shows_the_eerste_kamer(store: GraphStore) -> None:
         assert (rent["result"], rent["bill_decision"]) == ("Aangenomen", True)
         detail = client.get(f"/api/decisions/{rent['key']}").json()
         assert detail["factions_against"] == ["BBB", "FVD"]
+        # the factions the graph holds vote as edges; FVD has no faction node here
+        assert [(v["voter_key"], v["choice"], v["seats"]) for v in detail["votes"]] == [
+            ("ek_boerburgerbeweging", "Tegen", 0)
+        ]
         feed = client.get(
             "/api/feed", params={"chamber": "EK", "since": "2026-09-01"}
         ).json()

@@ -11,6 +11,7 @@ import pytest
 from lawgraph.config.constants import RAW_KIND_EK_REJECTED, RAW_KIND_EK_VOTES_DAY
 from lawgraph.core import eerstekamer_votes as ev
 from lawgraph.core.dossier_stages import derive_outcome, ek_outcome
+from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of, observed_on
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
@@ -185,3 +186,20 @@ def test_the_eerste_kamer_closes_a_dossier() -> None:
     # the Staatsblad dates an adopted law
     published = derive_outcome([{"date_published": "2026-10-15"}], [], adopted)
     assert (published.outcome, published.closed_on) == ("aangenomen", "2026-10-15")
+
+
+def test_a_name_on_the_list_of_votes_is_the_faction_observed_that_day() -> None:
+    def faction(id_: str, since: str | None, until: str | None) -> dict:
+        return {"id": id_, "observed_from": since, "observed_until": until, "seats": 3}
+
+    old = faction("factions/ek_a_old", "2019-06-11", "2023-06-13")
+    new = faction("factions/ek_a_new", "2023-06-13", None)
+    factions = {"A": [old, new]}
+    assert faction_of(factions, "A", "2020-01-01") is old
+    assert faction_of(factions, "A", "2026-10-06") is new
+    # before either was observed: none of two, the only one of one
+    assert faction_of(factions, "A", "2016-01-01") is None
+    assert faction_of({"A": [new]}, "A", "2016-01-01") is new
+    assert faction_of(factions, "B", "2026-10-06") is None
+    # its seats count only in the period it was observed
+    assert observed_on(new, "2026-10-06") and not observed_on(new, "2016-01-01")

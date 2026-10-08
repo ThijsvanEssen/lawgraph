@@ -1043,7 +1043,11 @@ image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to t
 `Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
 (`aantekening gevraagd`), `subject` (the bill's name), `dossier_numbers` (the number as the
 Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-(R2188)`),
-`bill_url`, `source_url` (the part of the report) and `retrieved_on`; `ABOUT` the dossier. The
+`bill_url`, `source_url` (the part of the report) and `retrieved_on`; `ABOUT` the dossier, and
+`VOTED` from each faction it names (the faction `ek_<slug>` whose `abbreviation` is the name; of
+several, the one the composition observed that day, else the last before it), `choice` `Voor`,
+`Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
+was observed, else 0; derived in full per decision, a name no faction has makes none. The
 list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: the bill adopted,
 a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
@@ -1202,8 +1206,8 @@ writes it; one not in the graph yet becomes a publication with what its id says,
 loaded is left as it is); `LEGISLATED_IN` to the dossier of its approval when that dossier is
 in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`);
 `PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
-the article count and the citation count of that treaty leave out. Derived in full on every
-run.
+the article count and the citation count of that treaty leave out; `SAME_AS` into it from the BWB
+text of the treaty (`BWBV…`) whose `treaty_number` it has. Derived in full on every run.
 
 **Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
 (`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes

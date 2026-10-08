@@ -1051,6 +1051,23 @@ def node_table(collection: str) -> list[str]:
     )
 
 
+# The dossier numbers of an instrument (a publication's), as text: the expression of the
+# index ``instruments_dossier_numbers``.
+INSTRUMENT_DOSSIER_NUMBERS = "public.lg_text_array(props -> 'dossier_numbers')"
+
+
+def feed_title(alias: str = "") -> str:
+    """The title the feed shows of a paper (``queries/feed.py``), its subject or else its
+    title, folded as the search folds (``lg_fold``): the expression of the trigram index
+    ``documents_feed_title_g``, which serves the words (``q``) of the feed. The index and
+    the feed write it alike, or the planner does not take the index."""
+    p = f"{alias}." if alias else ""
+    return (
+        f"public.lg_fold(coalesce((CASE WHEN public.lg_truthy({p}pj_subject)"
+        f" THEN {p}pj_subject ELSE {p}pj_title END) #>> '{{}}', ''))"
+    )
+
+
 # The instruments list holds every instrument but the publications: an index per sort of
 # it over those alone, so that a page does not pass every publication on the way.
 _LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
@@ -1065,11 +1082,18 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         " ON instruments USING gin (public.lg_legal_area_keys(props))",
         "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
         " ON instruments USING gin (public.lg_policy_domain_keys(props))",
+        # the publications of a dossier, for the words (``q``) of the feed in its title
+        "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
+        f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",
     ),
     # /api/documents, newest first: a page without a kind or dossier reads only itself.
     COLLECTION_DOCUMENTS: (
         "CREATE INDEX IF NOT EXISTS documents_list_date"
         " ON documents (date DESC NULLS LAST, key)",
+        # the words of the feed (``q``) in the title it shows; on a large database built
+        # beforehand with CREATE INDEX CONCURRENTLY
+        "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
+        f" ON documents USING gin (({feed_title()}) gin_trgm_ops)",
     ),
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
     COLLECTION_JUDGMENTS: (

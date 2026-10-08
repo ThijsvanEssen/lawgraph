@@ -1658,3 +1658,163 @@ def test_a_feed_searched_past_its_budget_says_so(
     raw = _feed(client, q="grens", facets="false")
     assert raw["partial"] is True and raw["items"] == []
     assert raw["searched_from"] == _ago(-1)
+
+
+# ── words: whole words and their candidates by index ─────────────────────────
+
+
+def _words(store: GraphStore) -> None:
+    """Papers whose subject holds ``ai`` or ``stikstof`` as a word, or as a part of one; a
+    vote and a commitment with a word in their title; a motion whose dossier has it in
+    its."""
+    subjects = {
+        "w1": "Motie over de AI-verordening",
+        "w2": "Regels voor AI",
+        "w3": "Universitaire opleidingen",
+        "w4": "Airport Schiphol",
+        "w5": "Stikstofbank en natuurstikstof",
+    }
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: [
+                _raw(key, ["TK"], kind="Motie", date=f"2026-05-0{n + 1}", subject=subject,
+                     dossier_numbers=["36001"])
+                for n, (key, subject) in enumerate(subjects.items())
+            ]
+            + [_raw("w6", ["TK"], kind="Motie", date="2026-05-07", subject="Motie Bakker",
+                    dossier_numbers=["36002"]),
+               _raw("w7", ["TK"], kind="Motie", date="2026-05-08", subject="Natuurstikstof",
+                    dossier_numbers=["36001"])],
+            COLLECTION_DOSSIERS: [
+                _raw("36001", label="36001", title="Onderwijs"),
+                _raw("36002", label="36002", title="Wet op de AI-toezichthouder"),
+            ],
+            COLLECTION_DECISIONS: [
+                _raw("v1", date="2026-05-02", passed=True, kind="Motie",
+                     subject="Stemming over AI in de zorg"),
+                _raw("v2", date="2026-05-02", passed=False, kind="Motie",
+                     subject="Stemming over dairy"),
+            ],
+            COLLECTION_COMMITMENTS: [
+                _raw("c1", made_on="2026-05-03", text="De minister stuurt een brief over AI"),
+            ],
+        },
+    )  # fmt: skip
+
+
+WORDS_WINDOW = {"since": "2026-05-01", "until": "2026-05-12"}
+
+
+def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
+    client: TestClient, store: GraphStore
+) -> None:
+    """``ai`` (at most four letters) is a whole word: the AI-verordening, AI in the title of
+    the dossier, not universitaire, Airport or dairy; alike in the page, its total, the
+    summary and the Atom feed."""
+    _words(store)
+    expected = {
+        "documents/w1",
+        "documents/w2",
+        "documents/w6",
+        "decisions/v1",
+        "commitments/c1",
+    }
+    page = _feed(client, q="AI", **WORDS_WINDOW)
+    assert set(_ids(page)) == expected
+    assert page["total"] == len(expected)
+    response = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "q": "AI"}
+    )
+    assert response.status_code == 200, response.text
+    assert sum(day["total"] for day in response.json()["days"]) == len(expected)
+    atom = client.get("/api/feed.atom", params={"q": "ai", **WORDS_WINDOW})
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    ids = {
+        (entry.find("a:id", ns).text or "").split(":", 2)[2]  # type: ignore[union-attr]
+        for entry in ElementTree.fromstring(atom.content).findall("a:entry", ns)
+    }
+    assert ids == expected
+    # a word of five letters or more from the start of a word: Stikstofbank, not
+    # Natuurstikstof
+    assert set(_ids(_feed(client, q="stikstof", **WORDS_WINDOW))) == {"documents/w5"}
+
+
+WORDS = ["AI", "ai-ver", "stikstof", "natuurstikstof", "grens", "wet voorbeeld",
+         "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b"]  # fmt: skip
+
+
+@pytest.mark.parametrize("q", WORDS)
+@pytest.mark.parametrize("facets", [False, True])
+def test_the_candidates_by_index_keep_every_event_the_words_keep(
+    client: TestClient,
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    q: str,
+    facets: bool,
+) -> None:
+    """Read from the rows the indexes find, or from every row: the same events and the same
+    counts, of every kind."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import feed as feed_queries
+
+    _words(store)
+    filters = FeedFilters(q=q, since="1900-01-01")
+    by_index = get_feed(store, filters, facets=facets)
+    version_cache.clear()
+    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    every = get_feed(store, filters, facets=facets)
+    assert _ids(by_index) == _ids(every)
+    assert by_index.get("total") == every.get("total")
+    assert by_index.get("facets") == every.get("facets")
+
+
+def test_words_are_found_by_index_not_by_reading_every_day(store: GraphStore) -> None:
+    """Many papers, votes and judgments over the years and a word few of them hold: each
+    kind reads the rows its trigram index finds (and the dossiers whose title holds the
+    word), not every row in date order; no large table is read whole."""
+    _busy(store)
+    _crowd(store)
+    _words(store)
+    store.vacuum_analyze()
+    sql, bind = feed_query(
+        FeedFilters(q="toezichthouder", kinds=("Motie", "stemming", "uitspraak")),
+        limit=50,
+        facets=False,
+    )
+    plan = _plan(store, sql, bind)
+    assert _seq_scans(plan) == []
+    for table in ("documents", "decisions", "judgments"):
+        assert not _limit_over_index(plan, table), table
+    used = {node.get("Index Name") for node in _plan_nodes(plan)}
+    assert {
+        "documents_feed_title_g",
+        "documents_dossier_numbers",
+        "decisions_search_words",
+        "judgments_s_display_name_g",
+    } <= used, used
+
+
+def test_words_are_found_before_the_index_is_built(store: GraphStore) -> None:
+    """A deploy before ``documents_feed_title_g`` (and ``instruments_dossier_numbers``) is
+    built answers the same events, by reading the rows of the papers instead."""
+    from lawgraph.db import schema, version_cache
+
+    _words(store)
+    filters = FeedFilters(q="toezichthouder", since="1900-01-01")
+    with_index = get_feed(store, filters)
+    built = [
+        statement
+        for collection in ("documents", "instruments")
+        for statement in schema._LIST_INDEXES[collection]
+        if "feed_title_g" in statement or "instruments_dossier_numbers" in statement
+    ]
+    assert len(built) == 2
+    store.execute("DROP INDEX documents_feed_title_g, instruments_dossier_numbers")
+    try:
+        version_cache.clear()  # the counts too, not those kept
+        assert get_feed(store, filters) == with_index
+        assert _ids(with_index) == ["documents/w6"]
+    finally:
+        for statement in built:
+            store.execute(statement)
