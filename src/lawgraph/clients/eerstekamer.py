@@ -10,7 +10,8 @@ Each paper provides:
   - its own title (``documenttitel``, e.g. "Verslag") and the title of the dossier
   - the kind (``subrubriek``), the number within the dossier (``ondernummer``: A, B, C)
   - the date, the session year and the dossier number (the same number the Tweede Kamer
-    uses, sometimes with an addition: ``35925 VII``)
+    uses, sometimes with an addition: ``35925 VII``); a paper on more than one dossier names
+    each (``dossier_numbers``, the first also as ``dossier_number``)
 """
 
 from __future__ import annotations
@@ -91,6 +92,20 @@ def _parse_papers(root: ET.Element) -> list[dict[str, Any]]:
         identifier = record_identifier(record)
         if identifier:
             papers.append(
-                {"identifier": identifier, **parse_record_fields(record, _FIELDS)}
+                {
+                    "identifier": identifier,
+                    **parse_record_fields(record, _FIELDS),
+                    "dossier_numbers": _all_texts(record, "dossiernummer"),
+                }
             )
     return papers
+
+
+def _all_texts(record: ET.Element, name: str) -> list[str]:
+    """The stripped text of every element *name* of *record*, each once, in order."""
+    texts: list[str] = []
+    for element in record.iter():
+        text = (element.text or "").strip()
+        if local_name(element.tag) == name and text and text not in texts:
+            texts.append(text)
+    return texts

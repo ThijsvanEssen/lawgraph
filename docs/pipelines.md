@@ -1001,7 +1001,8 @@ that of a post still held on every run. After `retrieve rijksoverheid`, on the K
 `dt.type==Kamerstuk`, so attachments `blg-*` are left out). The Eerste Kamer has no API of its
 own. Per paper: identifier (`kst-<dossier>-<letter>`, some `kst-<number>`), own title
 (`documenttitel`), dossier title, kind (`subrubriek`), number in the dossier (`ondernummer`),
-date, session year, dossier number and the page on zoek.officielebekendmakingen.nl. Papers
+date, session year, dossier number (every `dossiernummer` of a paper on more than one bill, as
+`dossier_numbers`) and the page on zoek.officielebekendmakingen.nl. Papers
 before about 2007 have no kind and no own title in the source. The votes come from
 eerstekamer.nl (`eerstekamer-votes`, below); the plenary reports and PDFs are not fetched.
 
@@ -1011,11 +1012,14 @@ eerstekamer.nl (`eerstekamer-votes`, below); the plenary reports and PDFs are no
 **Normalize.** Document `ek_<identifier>`, labels `EersteKamer` and `EK` (the API `chamber`
 filter), `kind`, `number`, `title`, `subject` (dossier title), `session_year`, `date`, `url`,
 `dossier_number` and `dossier_suffix` (the Tweede Kamer stores the two parts of `35925 VII`
-separately). A Roman numeral instead of a number (the own dossiers of the Eerste Kamer, 525
-papers) sets neither. No edges here.
+separately), `dossier_numbers` (the label of every dossier the paper names, the first first:
+`36600-VII`; a value without a leading number, `CXIX`, is left out; a record stored before the
+client kept them all gives only its one number). A Roman numeral instead of a number (the own
+dossiers of the Eerste Kamer, 525 papers) sets neither. No edges here.
 
 **Semantic `eerstekamer`.** `PART_OF` from the paper to the Tweede Kamer dossier with the same
-number and addition, 0.95, `meta.chamber = EK`.
+number and addition, and to each other dossier of `dossier_numbers` by its `label`, 0.95,
+`meta.chamber = EK`.
 
 **Retrieve `eerstekamer-votes`.** The Eerste Kamer publishes its votes only on its website
 (no open data; its terms allow reuse, also commercial, with the source and the day it was taken
