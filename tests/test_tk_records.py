@@ -345,6 +345,22 @@ def test_a_moved_activity_names_the_activities_that_replaced_it() -> None:
     assert props["replaced_by"] == []
 
 
+def test_a_case_names_the_cases_it_replaces() -> None:
+    """An amended amendment ("ter vervanging van nr. 21") replaces the case of nr. 21
+    (``Zaak.VervangenVanuit``); a deleted one is none."""
+    record = {
+        "Id": "z-71",
+        "Nummer": "2024Z07443",
+        "Soort": "Amendement",
+        "VervangenVanuit": [
+            {"Id": "z-21", "Verwijderd": False},
+            {"Id": "z-gone", "Verwijderd": True},
+        ],
+    }
+    assert tk_records.replaced_cases(record) == ["z-21"]
+    assert tk_records.replaced_cases({"Id": "z-1"}) == []
+
+
 def test_a_plenary_activity_has_no_lead_committee() -> None:
     _, props = tk_records.activity({"Id": "a-1", "Soort": "Plenaire vergadering"})
     assert props["committee_id"] is None

@@ -226,6 +226,28 @@ def test_the_cases_the_kamer_relates_are_tied_once_also_in_one_dossier() -> None
     ]
 
 
+def test_the_papers_of_a_case_revise_those_of_the_case_it_replaces() -> None:
+    from lawgraph.core.dossier_relations import replaced_cases, replaced_papers
+
+    cases = replaced_cases(
+        [
+            {"id": "cases/z_71", "replaces": ["Z-21"]},
+            {"id": "cases/z_80", "replaces": ["z-not-loaded"]},
+            {"id": "cases/z_90", "replaces": []},
+        ]
+    )
+    assert cases == [("cases/z_71", "cases/z_21"), ("cases/z_80", "cases/z_not_loaded")]
+    papers = {
+        "cases/z_71": ["documents/nr71"],
+        "cases/z_21": ["documents/nr21"],
+        "cases/z_80": ["documents/nr80"],
+    }
+    # a case whose papers are not in the graph revises none
+    assert list(replaced_papers(cases, papers)) == [
+        ("documents/nr71", "documents/nr21")
+    ]
+
+
 def test_a_moved_activity_is_continued_by_the_one_that_replaced_it() -> None:
     from lawgraph.core.dossier_relations import moved_activities
 

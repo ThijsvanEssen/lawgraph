@@ -90,6 +90,17 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 
     assert isinstance(result, list)
     assert result[0]["Id"] == 1
+    # the case it replaces comes with each case
+    assert "VervangenVanuit($select=Id,Verwijderd)" in session.last_params["$expand"]
+    assert "VervangenVanuit/any()" not in flt
+
+
+def test_tkclient_reads_only_the_replacing_cases_when_asked() -> None:
+    """The backfill of ``Zaak.VervangenVanuit``: only the cases that replace another."""
+    session = DummySession(DummyResponse(json_data={"value": []}))
+    client = TKClient(session=session)
+    list(client.zaken_modified_since(dt.datetime(1995, 1, 1), top=None, replacing=True))
+    assert session.last_params["$filter"].endswith(" and VervangenVanuit/any()")
 
 
 # --------------------------------------------------------------------

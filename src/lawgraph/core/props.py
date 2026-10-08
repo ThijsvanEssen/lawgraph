@@ -792,6 +792,8 @@ class CaseProps(_CommonProps):
     started_on: str | None = None  # Zaak.GestartOp
     # Zaak.GerelateerdNaar: the cases the Kamer relates this one to
     related_cases: list[RelatedCase] | None = None
+    # Zaak.VervangenVanuit: the ids of the cases this one replaces
+    replaces_cases: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
