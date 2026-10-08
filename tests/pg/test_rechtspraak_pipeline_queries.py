@@ -338,7 +338,7 @@ def test_appeals_to_read(store: GraphStore) -> None:
     ]
 
 
-def test_decisions_on_dates_leave_out_conclusions(store: GraphStore) -> None:
+def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) -> None:
     _seed(
         store,
         _rs(HR2, date_eff="2020-05-01", case_number="1", court_code="HR"),
@@ -351,12 +351,20 @@ def test_decisions_on_dates_leave_out_conclusions(store: GraphStore) -> None:
         _rs(RB2, date_eff="2018-01-01"),
         {"_key": "no-ecli", "type": "judgment", "props": {"date_eff": "2020-05-01"}},
     )
-    rows = list(queries.decisions_on_dates(store, ["2020-05-01", "2019-01-01"]))
-    assert rows == [
-        {"ecli": HR1, "date": "2020-05-01", "case_number": None},
-        {"ecli": HR2, "date": "2020-05-01", "case_number": "1"},
-        {"ecli": RB, "date": "2019-01-01", "case_number": None},
-    ]
+    rows = list(queries.judgments_on_dates(store, ["2020-05-01", "2019-01-01"]))
+    # every judgment of the dates, from the columns and the light table
+    assert {row["ecli"] for row in rows} == {HR1, HR2, PHR, GH, RB}
+    assert {"ecli": HR2, "date": "2020-05-01", "case_number": "1"} in rows
+    # the conclusions among them: by court and by document type
+    assert queries.conclusions_among(store, [HR1, HR2, PHR, GH, RB]) == {
+        PHR.upper(),
+        GH.upper(),
+    }
+    # a judgment not kept light yet reads its case number from its props
+    store.execute("DELETE FROM lg_judgment_light")
+    assert {"ecli": HR2, "date": "2020-05-01", "case_number": "1"} in list(
+        queries.judgments_on_dates(store, ["2020-05-01"])
+    )
 
 
 # ── conclusions ──────────────────────────────────────────────────────────────
