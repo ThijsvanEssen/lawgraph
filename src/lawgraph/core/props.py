@@ -381,6 +381,8 @@ class JudgmentProps(_CommonProps):
     # ECHR-specific fields
     external_id: str | None = None
     appno: str | None = None
+    # ECHR: the language of the HUDOC record (``ENG``, ``FRE``): ``semantic echr-versions``
+    language: str | None = None
     title: str | None = None
     date: str | None = None
     respondent: str | None = None
