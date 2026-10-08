@@ -619,7 +619,15 @@ _MEMBER_VOTES = f"""
                   AND v.from_id = p.period ->> 'faction_id'
                 OFFSET 0
             ) v
-            WHERE d.date IS NOT NULL
+            -- the period's bounds as conditions of the index, so that the walk over the
+            -- dates starts at the end of the period and stops at its start, not at the
+            -- newest and the oldest decision (an old period passed 30,000 newer ones); the
+            -- start as a row, as two plain bounds of one column are taken for a narrow
+            -- range whose sort costs nothing, and the dates would be read whole and sorted;
+            -- the test of the period itself stays
+            WHERE ROW(d.date, d.key)
+                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
+              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
               AND {_IN_MEMBERSHIP}
             -- NULLS FIRST as the index of the dates walked backward gives it (no date is
             -- null here): the walk stops after the candidates instead of a sort of them all
