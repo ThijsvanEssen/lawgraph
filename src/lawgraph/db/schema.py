@@ -1233,6 +1233,62 @@ END $$""",
     return statements
 
 
+# What ``normalize tk-dossiers`` reads of each paper of a dossier to derive its title, kind
+# and phases (``queries/normalize/tk.dossier_signals``), kept apart from its props, which
+# hold its whole text: the signals of a dossier read these, not the text of its papers.
+# Kept by triggers on every write of a document; ``semantic graph-light`` fills it once. Not
+# a table of the graph: writing it raises no data version.
+DOCUMENT_LIGHT_PROPS = (
+    "kind",
+    "date",
+    "dossier_title",
+    "title",
+    "display_name",
+    "dossier_numbers",
+    "case_kinds",
+    "dossier_number",
+    "dossier_suffix",
+    "sequence",
+)
+
+
+def document_light() -> list[str]:
+    keys = ", ".join(f"'{key}'" for key in DOCUMENT_LIGHT_PROPS)
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_document_light (
+    id text PRIMARY KEY,
+    props json NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_document_light_props(p json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT json_object_agg(e.key, e.value ORDER BY e.n)
+    FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
+        WITH ORDINALITY AS e(key, value, n)
+    WHERE e.key IN ({keys})
+$$""",
+        """CREATE OR REPLACE FUNCTION lg_keep_document_light() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_document_light l USING changed c WHERE l.id = c.id;
+    ELSE
+        INSERT INTO public.lg_document_light (id, props)
+        SELECT c.id, coalesce(public.lg_document_light_props(c.props), '{}'::json)
+        FROM changed c
+        ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER documents_light_{event.lower()}"
+            f" AFTER {event} ON documents REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_document_light()"
+        )
+    return statements
+
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1285,7 +1341,15 @@ def statements() -> list[str]:
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)
-    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, HEAT, *judgment_light(), nodes_view()]
+    found += [
+        EDGES,
+        RAW_SOURCES,
+        PIPELINE_STATE,
+        HEAT,
+        *judgment_light(),
+        *document_light(),
+        nodes_view(),
+    ]
     found += data_version_triggers(COLLECTION_EDGES)
     return found
 
