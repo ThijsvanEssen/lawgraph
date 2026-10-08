@@ -489,6 +489,11 @@ def test_members_by_party_name_and_seat(store: GraphStore) -> None:
     # seated: a membership without an end
     assert _keys(get_members(store, active=True)) == ["m1", "m2", "Zz", "m6"]
     assert _keys(get_members(store, active=False)) == ["m3"]
+    # seated and of a party: seated for it now. m1 left the VVD for D66: still of the
+    # VVD's history (above), but no VVD member now; the VVD counts m2 and Zz
+    assert _keys(get_members(store, party="VVD", active=True)) == ["m2", "Zz"]
+    assert _keys(get_members(store, party="d66", active=True)) == ["m1", "m6"]
+    assert _keys(get_members(store, party="volkspartij", active=False)) == ["m3"]
     # a name part, in any case, also beyond ASCII; nothing contains ""
     assert _keys(get_members(store, q="ann")) == ["m1", "m2", "Zz"]
     assert _keys(get_members(store, q="émile", include_all=True)) == ["m6", "m9"]
