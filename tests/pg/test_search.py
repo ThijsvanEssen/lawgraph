@@ -305,6 +305,36 @@ def test_resolve_a_code_without_its_book_lists_its_books(store: GraphStore) -> N
         )
 
 
+def test_resolve_a_code_without_its_book_lists_the_most_cited_first(
+    store: GraphStore,
+) -> None:
+    """``artikel 162 BW``: of the books with an article 162, the one cited most first
+    (Boek 6, onrechtmatige daad), not the first book."""
+    from lawgraph.core.code_families import CODE_FAMILIES
+
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _bw_article("1", "162"),
+            {
+                **_bw_article("6", "162"),
+                "props": {
+                    **_bw_article("6", "162")["props"],
+                    "inbound_citation_count": 5000,
+                },
+            },
+        ],
+    )
+    books = CODE_FAMILIES["BW"]
+    answer = resolve_queries.resolve(store, "artikel 162 bw")
+    assert answer["match"] is None
+    assert [a["key"] for a in answer["alternatives"]] == [
+        f"{books['6'].lower()}_162",
+        f"{books['1'].lower()}_162",
+    ]
+
+
 def test_resolve_a_number_without_law_lists_the_most_cited_first(
     store: GraphStore,
 ) -> None:
@@ -572,3 +602,71 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
         "ecli_nl_rbams_2021_2",
         "ecli_nl_rbams_2021_1",
     ]
+
+
+def test_the_name_of_a_judgment_is_looked_up_through_its_index(
+    store: GraphStore,
+) -> None:
+    """Whether the query is the name of a judgment: the judgments of that name are found
+    through the index of the names, then ordered. The planner expects a share of the rows
+    to hold any name, and walked the index of the dates for them instead: on the full
+    graph every row, for a name none has (2.6 s)."""
+    import json
+
+    from lawgraph.db.store import _query
+
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(
+                f"ecli_nl_rbams_2020_{n}",
+                "judgment",
+                ecli=f"ECLI:NL:RBAMS:2020:{n}",
+                display_name=f"Rechtbank Amsterdam 2020 / {n}",
+                summary="Huur.",
+                date_eff=f"2020-{1 + n % 12:02d}-{1 + n % 28:02d}",
+            )
+            for n in range(30_000)
+        ],
+    )
+    store.vacuum_analyze()
+    lookups: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if "ARRAY[lg_fold(%(name)s)]" in str(statement):
+            lookups.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        # one hit asked: the shape of the full graph (a LIMIT far below the rows the
+        # planner expects) on a small table
+        search_queries.search_all(store, q="huur", types=["judgments"], limit=1)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    ((statement, params),) = lookups
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    assert "judgments_s_names_n" in plan, plan
+    assert "date_eff" not in plan.split('"Sort Key"')[0], plan
+
+
+def test_a_full_search_past_its_budget_falls_back_on_the_words(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When no judgment is named by the query, the fallback gives the judgments that hold
+    its words (in their summary), the newest first, not nothing."""
+    version_cache.clear()
+    _live_judgments(store)
+
+    def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        return list(store.query("SELECT pg_sleep(5)"))
+
+    monkeypatch.setattr(search_queries, "_search_judgments", slow)
+    monkeypatch.setattr(search_queries, "FULL_BUDGET", 0.5)
+    hits, partial = search_queries.search_full(store, q="huur", types=["judgments"])
+    assert partial == {"judgments"}
+    assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
