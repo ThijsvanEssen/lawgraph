@@ -141,8 +141,9 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
 
 def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
     """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
-    related_eclis}`` of every judgment that names an earlier one."""
+    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one."""
     related = "j.props -> 'related_eclis'"
+    later = "j.props -> 'later_eclis'"
     sql = f"""
         SELECT j.id AS j_id,
                j.props -> 'ecli' AS ecli,
@@ -150,9 +151,10 @@ def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
                j.props -> 'case_number' AS case_number,
                {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure_type,
-               {related} AS related_eclis
+               {_or_empty(related)} AS related_eclis,
+               {_or_empty(later)} AS later_eclis
         FROM judgments j
-        WHERE {_length(related)} > 0
+        WHERE {_length(related)} > 0 OR {_length(later)} > 0
         ORDER BY j.key
         """
     return store.query(sql)

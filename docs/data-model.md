@@ -308,7 +308,7 @@ A Rechtspraak judgment carries:
 
 - its header: `court`, `date`, `case_number`, and `judgment_metadata` with `type`, the
   procedure, `document_type` (`Uitspraak` or `Conclusie`), `related_eclis` (earlier
-  instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
+  instances), `later_eclis` (later instances: `psi:aanleg` latereAanleg), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
   `subjects`;
 - derived from it: `court_code`, `tier` (the `Type` of its court in the Instanties list),
   `court_kind` (the kind of court within it), `date_eff` and `case_number_keys` (the case
