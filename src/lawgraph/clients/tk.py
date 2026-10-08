@@ -13,6 +13,12 @@ from lawgraph.core.time import odata_datetime
 
 logger = get_logger(__name__)
 
+# The links of a Document (``tk_records.document_links``): the activity it is the record of
+# (a stenogram: its debate), its attachments, and the letters it is an attachment of.
+_DOCUMENT_LINKS = (
+    "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
+)
+
 
 def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
     """Build an OData OR expression: (contains(tolower(F),'kw') or ...)."""
@@ -282,7 +288,8 @@ class TKClient(BaseClient):
                 "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "Zaak($select=Id,Soort,Titel,Onderwerp,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
-                "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
+                "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id),"
+                f"{_DOCUMENT_LINKS}"
             ),
         }
         filters: list[str] = []
@@ -311,6 +318,24 @@ class TKClient(BaseClient):
             logger.info("Fetching Document modified since %s", filters[0])
         else:
             logger.info("Fetching all Document records")
+        return self._skip_paged_get("Document", params=params, page_size=top)
+
+    def fetch_document_links(
+        self, since: dt.datetime | None = None, top: int = 250
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the links of every Document (modified since *since*), and nothing else:
+        its id, whether it was deleted, and the ids of its activities, attachments and the
+        letters it is an attachment of. A record is a few hundred bytes, against kilobytes
+        for a whole Document, so every paper's links can be fetched again at little cost."""
+        params: dict[str, Any] = {
+            "$select": "Id,Verwijderd",
+            "$expand": _DOCUMENT_LINKS,
+        }
+        if since is not None:
+            params["$filter"] = f"ApiGewijzigdOp ge {odata_datetime(since)}"
+            logger.info("Fetching Document links modified since %s", since.isoformat())
+        else:
+            logger.info("Fetching the links of every Document")
         return self._skip_paged_get("Document", params=params, page_size=top)
 
     def fetch_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:

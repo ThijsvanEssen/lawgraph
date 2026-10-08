@@ -874,6 +874,25 @@ def document(payload: Payload) -> Record | None:
         "document_number": payload.get("DocumentNummer") or None,
         "display_name": document_display_name(own_label, sequence, kind, title),
         "actors": document_actors(payload),
+        **document_links(payload),
+    }
+
+
+def document_links(payload: Payload) -> dict[str, list[str]]:
+    """The links of a Document, as TK ids: ``activity_ids`` (``Activiteit``: the debate a
+    stenogram is the record of), ``attachment_ids`` (``BijlageDocument``: the attachments
+    of a letter) and ``attached_to_ids`` (``BronDocument``: the letters it is an attachment
+    of). Read from a Document record and from one of ``retrieve tk-document-links``."""
+
+    def ids(field: str) -> list[str]:
+        return _distinct(
+            [str(item.get("Id") or "") for item in _dicts(payload.get(field))]
+        )
+
+    return {
+        "activity_ids": ids("Activiteit"),
+        "attachment_ids": ids("BijlageDocument"),
+        "attached_to_ids": ids("BronDocument"),
     }
 
 

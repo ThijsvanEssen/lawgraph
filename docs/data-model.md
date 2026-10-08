@@ -93,13 +93,13 @@ they are out of date. Do not edit inside the markers.
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
-| `MADE_IN` | Commitment | Activity | The activity in which a commitment (toezegging) was made. |
+| `MADE_IN` | Commitment / Document | Activity | The activity in which a commitment (toezegging) was made, or of which a document is the record (a stenogram of its debate: `Document.Activiteit`). |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
 | `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
 | `AUTHORED` | Member | Document / Case | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). |
 | `RELATED_TO` | Dossier / Judgment | Dossier / Judgment | Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
 | `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
-| `ACCOMPANIES` | Dossier | Dossier | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names. |
+| `ACCOMPANIES` | Dossier / Document | Dossier / Document | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an attachment is sent with its letter (Document → Document: `BijlageDocument`). |
 | `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
 | `VOTED` | Member / Faction | Decision | A vote on a decision: per member for roll-call votes, per faction otherwise (`choice`, `seats`). |
 
@@ -499,6 +499,7 @@ Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that 
 | `dossier_numbers` | the dossiers of its cases and its own, as labels |
 | `case_ids`, `case_kinds` | its cases and their `Zaak.Soort` |
 | `actors` | every signature (below) |
+| `activity_ids`, `attachment_ids`, `attached_to_ids` | `Document.Activiteit`, `BijlageDocument`, `BronDocument`: the activities it is the record of (a stenogram: its debate), its attachments, the letters it is an attachment of (TK ids); the edges MADE_IN and ACCOMPANIES follow them |
 | `text` and its structure | `normalize tk-content` (below) |
 | `raw` | the record of the Tweede Kamer as it came |
 | `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
