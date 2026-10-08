@@ -35,8 +35,8 @@ Link = tuple[str, str, str]  # (ruling ECLI, referring ECLI, basis)
 def by_case_number(
     ruling: str, referral: Referral, candidates: list[dict[str, Any]]
 ) -> list[str]:
-    """The referring decisions among *candidates* (rows of ``decisions_on_dates``): of the
-    date the text gives, with one of the case numbers it names."""
+    """The referring decisions among *candidates* (rows of ``judgments_on_dates``): of the
+    date the text gives, with one of the case numbers it names; upper case."""
     return sorted(
         {
             row["ecli"].upper()
@@ -73,12 +73,21 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                     by_text.append((ruling, referral))
 
         dates = sorted({referral.date for _, referral in by_text if referral.date})
-        candidates = list(semantic_rechtspraak.decisions_on_dates(self.store, dates))
-        for ruling, referral in by_text:
-            links += [
-                (ruling, referring, BASIS_TEXT)
-                for referring in by_case_number(ruling, referral, candidates)
-            ]
+        candidates = list(semantic_rechtspraak.judgments_on_dates(self.store, dates))
+        found = [
+            (ruling, by_case_number(ruling, referral, candidates))
+            for ruling, referral in by_text
+        ]
+        # a decision, not the conclusion of an advocate-general on that day
+        conclusions = semantic_rechtspraak.conclusions_among(
+            self.store, sorted({e for _, eclis in found for e in eclis})
+        )
+        links += [
+            (ruling, referring, BASIS_TEXT)
+            for ruling, eclis in found
+            for referring in eclis
+            if referring not in conclusions
+        ]
         logger.info("Preliminary rulings: %d referring decisions found.", len(links))
 
         ids = self._resolve_eclis({e for link in links for e in link[:2]})

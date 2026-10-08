@@ -278,18 +278,36 @@ def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, 
     return store.query(sql, {"keys": keys, **_conclusion_params()})
 
 
-def decisions_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
-    """``{ecli, date, case_number}`` of the decisions (not conclusions) of these *dates*."""
-    sql = f"""
-        SELECT j.props -> 'ecli' AS ecli,
-               j.props -> 'date_eff' AS date,
-               j.props -> 'case_number' AS case_number
+def judgments_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, date, case_number}`` of the judgments of these *dates*, conclusions among
+    them (``conclusions_among`` tells them apart). From the columns and ``lg_judgment_light``:
+    the dates an appeal or a referral names cover nearly every court day, and the props of
+    every judgment of them would be its text."""
+    sql = """
+        SELECT j.ecli, j.date_eff AS date,
+               CASE WHEN l.id IS NULL THEN j.props -> 'case_number'
+                    ELSE l.props -> 'case_number' END AS case_number
         FROM judgments j
-        WHERE j.date_eff = ANY(%(dates)s::text[]) AND {_present("j.props -> 'ecli'")}
-          AND NOT {_IS_CONCLUSION}
+        -- a judgment not kept light yet (before `semantic graph-light`) reads its props
+        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        WHERE j.date_eff = ANY(%(dates)s::text[]) AND j.ecli IS NOT NULL
         ORDER BY j.key
         """
-    return store.query(sql, {"dates": dates, **_conclusion_params()})
+    return store.query(sql, {"dates": dates})
+
+
+def conclusions_among(store: Store, eclis: list[str]) -> set[str]:
+    """The conclusions (of an advocate-general) among the judgments of *eclis*, upper case:
+    by their ``document_type`` or their court. Read for the few that matched."""
+    sql = f"""
+        SELECT upper(j.ecli) AS ecli FROM judgments j
+        WHERE j.ecli = ANY(%(eclis)s::text[]) AND {_IS_CONCLUSION}
+        """
+    return {
+        str(ecli)
+        for ecli in store.query(sql, {"eclis": eclis, **_conclusion_params()})
+        if ecli
+    }
 
 
 def court_decisions_between(
