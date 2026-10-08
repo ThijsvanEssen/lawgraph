@@ -38,11 +38,18 @@ _FOLLOWED = f"""
           AND NOT (e.to_collection = '{COLLECTION_INSTRUMENTS}' AND e.to_id <> ALL(%(ends)s)))
 """
 
+# ``law``: the law a ``PART_OF`` edge reaches (null for any other edge), which a pair may
+# not pass through unless it is one of its ends (``_through_law``).
+_LAW = f"""CASE WHEN e.relation = '{RELATION_PART_OF}' THEN
+    CASE WHEN e.from_collection = '{COLLECTION_INSTRUMENTS}' THEN e.from_id
+         WHEN e.to_collection = '{COLLECTION_INSTRUMENTS}' THEN e.to_id END
+END"""
+
 _NEIGHBOURS_SQL = f"""
-SELECT e.from_id AS node, e.to_id AS neighbour, e.key
+SELECT e.from_id AS node, e.to_id AS neighbour, e.key, {_LAW} AS law
 FROM edges e WHERE e.from_id = ANY(%(frontier)s) {_FOLLOWED}
 UNION ALL
-SELECT e.to_id, e.from_id, e.key
+SELECT e.to_id, e.from_id, e.key, {_LAW}
 FROM edges e WHERE e.to_id = ANY(%(frontier)s) {_FOLLOWED}
 ORDER BY 2, 3
 LIMIT %(limit)s
@@ -107,20 +114,44 @@ class Path:
     edges: tuple[str, ...]
 
 
-def _expand(
-    store: GraphStore, side: _Side, followed: Followed, ends: list[str]
-) -> bool:
-    """Read the next level of *side*; whether it was cut at ``LEVEL_CAP``."""
-    rows = store.query(
-        _NEIGHBOURS_SQL,
-        {
-            "frontier": side.frontier,
-            "limit": _ROWS_PER_LEVEL,
-            "relations": followed.relations,
-            "through_laws": followed.through_laws,
-            "ends": ends,
-        },
-    )
+class _Levels:
+    """The edges at a frontier, read once for every pair of a request: an id is an end of
+    several pairs, and its side reads the same levels in each. Read with every id of the
+    request as an end; a law a pair may not pass through is left out per pair
+    (``_expand``)."""
+
+    def __init__(self, store: GraphStore, followed: Followed, ids: list[str]) -> None:
+        self.store = store
+        self.followed = followed
+        self.ids = ids
+        self.read: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+
+    def at(self, frontier: list[str]) -> list[dict[str, Any]]:
+        key = tuple(frontier)
+        if key not in self.read:
+            self.read[key] = list(
+                self.store.query(
+                    _NEIGHBOURS_SQL,
+                    {
+                        "frontier": frontier,
+                        "limit": _ROWS_PER_LEVEL,
+                        "relations": self.followed.relations,
+                        "through_laws": self.followed.through_laws,
+                        "ends": self.ids,
+                    },
+                )
+            )
+        return self.read[key]
+
+
+def _expand(levels: _Levels, side: _Side, ends: list[str]) -> bool:
+    """Read the next level of *side* (a path between *ends*); whether it was cut at
+    ``LEVEL_CAP``."""
+    rows = [
+        row
+        for row in levels.at(side.frontier)
+        if levels.followed.through_laws or row["law"] is None or row["law"] in ends
+    ]
     side.depth += 1
     level: list[str] = []
     capped = False
@@ -138,7 +169,7 @@ def _expand(
 
 
 def _shortest(
-    store: GraphStore, source: str, target: str, max_depth: int, followed: Followed
+    levels: _Levels, source: str, target: str, max_depth: int
 ) -> tuple[Path | None, bool]:
     """The shortest path from *source* to *target* within *max_depth* edges, or None; and
     whether a level was cut on the way."""
@@ -148,7 +179,7 @@ def _shortest(
         side, other = sorted(ends, key=lambda s: (len(s.frontier), s is ends[1]))
         if not side.frontier:
             break
-        capped |= _expand(store, side, followed, [source, target])
+        capped |= _expand(levels, side, [source, target])
         met = [n for n in side.frontier if n in other.reached]
         if met:
             # the nearest to the other end, then the lowest id
@@ -173,8 +204,10 @@ def get_paths(
     A path through a node that is not there (an edge to a missing node) is left out."""
     found: list[Path] = []
     capped = False
-    for source, target in combinations(dict.fromkeys(ids), 2):
-        path, cut = _shortest(store, source, target, max_depth, followed)
+    chosen = list(dict.fromkeys(ids))
+    levels = _Levels(store, followed, chosen)
+    for source, target in combinations(chosen, 2):
+        path, cut = _shortest(levels, source, target, max_depth)
         capped |= cut
         if path is not None:
             found.append(path)
