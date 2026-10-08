@@ -145,6 +145,15 @@ def is_earlier_instance(element: ET.Element) -> bool:
     ).endswith("/latereAanleg")
 
 
+def is_later_instance(element: ET.Element) -> bool:
+    """Is the judgment a relation names a later instance of this one (``psi:aanleg``
+    .../latereAanleg): the court that ruled on appeal of it, in cassation or after it?"""
+    attributes = {local_name(name): value for name, value in element.attrib.items()}
+    return not attributes.get("type", "").endswith("/conclusie") and attributes.get(
+        "aanleg", ""
+    ).endswith("/latereAanleg")
+
+
 # dc:/psi: element -> judgment_metadata field; the first non-empty one wins.
 _METADATA_FIELDS = {
     "creator": "court",
@@ -180,6 +189,7 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     meta: dict[str, Any] = {}
     subjects: list[str] = []
     related_eclis: list[str] = []
+    later_eclis: list[str] = []
     conclusion_eclis: list[str] = []
 
     for el in root.iter():
@@ -188,6 +198,8 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
             ecli = relation_ecli(el)
             if ecli and is_conclusion_relation(el):
                 conclusion_eclis.append(ecli)
+            elif ecli and is_later_instance(el):
+                later_eclis.append(ecli)
             elif ecli and is_earlier_instance(el):
                 related_eclis.append(ecli)
             continue
@@ -203,6 +215,8 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
 
     if related_eclis:
         meta["related_eclis"] = related_eclis
+    if later_eclis:
+        meta["later_eclis"] = later_eclis
     if conclusion_eclis:
         meta["conclusion_eclis"] = conclusion_eclis
     return meta, subjects

@@ -53,6 +53,7 @@ from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePip
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+from lawgraph.pipelines.normalize.tk_case_actors import TKCaseActorsNormalizePipeline
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from lawgraph.pipelines.normalize.tk_document_links import (
     TKDocumentLinksNormalizePipeline,
@@ -77,6 +78,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_staatscourant,
     retrieve_staatscourant_posts,
     retrieve_tk,
+    retrieve_tk_case_actors,
     retrieve_tk_content,
     retrieve_tk_document_links,
     retrieve_tk_dossiers,
@@ -98,6 +100,7 @@ from lawgraph.pipelines.semantic.bwb_relation_types import (
     BWBRelationTypesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
+from lawgraph.pipelines.semantic.echr_versions import ECHRVersionsSemanticPipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
@@ -384,6 +387,15 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_TWEEDE_KAMER,
     ),
     _pipeline(
+        retrieve_tk_case_actors,
+        (
+            "The actors of Tweede Kamer cases alone: who submitted a case and which"
+            " committee leads it."
+        ),
+        argv_for_all=_windowed_argv,
+        lane=LANE_TWEEDE_KAMER,
+    ),
+    _pipeline(
         retrieve_tk_content,
         (
             "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
@@ -560,6 +572,14 @@ NORMALIZE: list[Pipeline] = [
         after=("tk-dossiers",),  # the documents and activities it links
     ),
     _pipeline(
+        TKCaseActorsNormalizePipeline,
+        (
+            "AUTHORED from a member to the case they submitted, and LED_BY from a case to "
+            "its lead committee, from the stored actors of the cases."
+        ),
+        after=("tk", "tk-dossiers"),  # the cases, members and committees it links
+    ),
+    _pipeline(
         TKContentNormalizePipeline,
         (
             "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
@@ -686,6 +706,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         ECHRSemanticPipeline,
         "REFERS_TO: links ECHR judgments to Convention articles.",
+    ),
+    _pipeline(
+        ECHRVersionsSemanticPipeline,
+        (
+            "SAME_AS between the language versions of an ECHR decision without an ECLI "
+            "(same appno and date); the lists show it once."
+        ),
     ),
     _pipeline(
         RechtspraakAppealSemanticPipeline,

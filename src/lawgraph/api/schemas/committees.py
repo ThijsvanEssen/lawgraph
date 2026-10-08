@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import END_OF_OFFICE
+from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 from lawgraph.config.settings import EK_ATTRIBUTION
 
@@ -280,6 +280,11 @@ class EkFactionVoteDTO(BaseModel):
     date: str | None = None
     subject: str | None = None
     dossier_numbers: list[str] = []
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers``, in their order: ``number``, "
+        "``short_title``, ``title`` as ``/api/dossiers`` gives them.",
+    )
     result: str | None = Field(None, description="``Aangenomen``, ``Verworpen``.")
     method: str | None = None
     bill_decision: bool | None = Field(
@@ -695,6 +700,11 @@ class CommitteeActivityDTO(BaseModel):
     )
     dossier_numbers: list[str] = Field(
         default_factory=list, description="Dossiers on the agenda of the activity."
+    )
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers``, in their order: ``number``, "
+        "``short_title``, ``title`` as ``/api/dossiers`` gives them.",
     )
 
 

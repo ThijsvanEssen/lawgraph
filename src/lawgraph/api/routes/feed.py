@@ -156,6 +156,7 @@ def _page(
         total=raw.get("total"),
         facets=FeedFacetsDTO(**raw["facets"]) if raw.get("facets") else None,
         partial=bool(raw.get("partial")),
+        searched_from=raw.get("searched_from"),
         data_as_of=_data_as_of(store),
     )
 

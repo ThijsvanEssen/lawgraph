@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
-from lawgraph.config.constants import COLLECTION_COMMITTEES, COLLECTION_DECISIONS
+from lawgraph.config.constants import (
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_FACTIONS,
+)
 from lawgraph.db.counting import Store
 
 
@@ -37,3 +42,21 @@ def ek_committee_keys(store: Store) -> dict[str, str]:
             """
         )
     }
+
+
+def ek_factions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, abbreviation, seats, observed_from, observed_until}`` of every faction of the
+    Eerste Kamer, by key: what the list of votes names a faction by, and when it was seen
+    with how many seats."""
+    return store.query(
+        f"""
+        SELECT f.id, lg_str(f.props -> 'abbreviation') AS abbreviation,
+               lg_num(f.props -> 'seats')::int AS seats,
+               lg_str(f.props -> 'observed_from') AS observed_from,
+               lg_str(f.props -> 'observed_until') AS observed_until
+        FROM {COLLECTION_FACTIONS} f
+        WHERE lg_str(f.props -> 'chamber') = 'EK'
+          AND lg_str(f.props -> 'abbreviation') IS NOT NULL
+        ORDER BY f.key ASC NULLS FIRST
+        """
+    )

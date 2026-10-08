@@ -44,6 +44,10 @@ def _earlier(ecli: str) -> str:
     return _relation(ecli, "uitspraak", "eerdereAanleg")
 
 
+def _later(ecli: str) -> str:
+    return _relation(ecli, "uitspraak", "latereAanleg")
+
+
 def _conclusion(ecli: str, instance: str = "eerdereAanleg") -> str:
     return _relation(ecli, "conclusie", instance)
 
@@ -145,6 +149,59 @@ APPEALS = {
     "ECLI:NL:RBDHA:2025:78": _xml(
         "ECLI:NL:RBDHA:2025:78", "Rechtbank Den Haag", "2025-03-03", "SGR 24/1235"
     ),
+    # a rechtbank names the hof that ruled on appeal of it (latereAanleg), which names
+    # nothing back (ECLI:NL:RBAMS:2025:3600)
+    "ECLI:NL:RBAMS:2025:3600": _xml(
+        "ECLI:NL:RBAMS:2025:3600",
+        "Rechtbank Amsterdam",
+        "2025-04-10",
+        "C/13/751234",
+        procedure="Eerste aanleg - meervoudig",
+        relations=_later("ECLI:NL:GHAMS:2026:100"),
+    ),
+    "ECLI:NL:GHAMS:2026:100": _xml(
+        "ECLI:NL:GHAMS:2026:100",
+        "Gerechtshof Amsterdam",
+        "2026-02-03",
+        "200.351.111/01",
+        procedure="Hoger beroep",
+    ),
+    # the final judgment of a rechtbank continues its interim one, in first instance
+    # (ECLI:NL:RBROT:2022:12313 and 10632)
+    "ECLI:NL:RBROT:2022:12313": _xml(
+        "ECLI:NL:RBROT:2022:12313",
+        "Rechtbank Rotterdam",
+        "2022-12-21",
+        "C/10/612345 / HA ZA 21-100",
+        procedure="Eerste aanleg - meervoudig",
+        relations=_earlier("ECLI:NL:RBROT:2022:10632"),
+    ),
+    "ECLI:NL:RBROT:2022:10632": _xml(
+        "ECLI:NL:RBROT:2022:10632",
+        "Rechtbank Rotterdam",
+        "2022-11-02",
+        "C/10/612345 / HA ZA 21-100",
+        procedure="Eerste aanleg - meervoudig",
+        relations=_later("ECLI:NL:RBROT:2022:12313"),
+    ),
+    # the Hoge Raad decides briefly (art. 81 RO): a cassation all the same
+    "ECLI:NL:HR:2026:1357": _xml(
+        "ECLI:NL:HR:2026:1357",
+        "Hoge Raad",
+        "2026-09-25",
+        "25/01234",
+        procedure="Artikel 81 RO-zaken",
+        relations=_earlier("ECLI:NL:GHARL:2025:4000"),
+    ),
+    # a revision (herziening) is no appeal of the judgment it names
+    "ECLI:NL:HR:2026:1530": _xml(
+        "ECLI:NL:HR:2026:1530",
+        "Hoge Raad",
+        "2026-10-02",
+        "25/04321",
+        procedure="Herziening",
+        relations=_earlier("ECLI:NL:GHAMS:2001:9"),
+    ),
 }
 
 
@@ -233,6 +290,26 @@ def test_an_earlier_judgment_is_appealed_continued_or_the_referral(
             "formal_relation",
         ),
         ("APPEAL_OF", "ECLI:NL:RVS:2026:9", "ECLI:NL:RBDHA:2025:77", "appeal_text"),
+        # named only by the lower court: the edge goes from the hof that is loaded
+        (
+            "APPEAL_OF",
+            "ECLI:NL:GHAMS:2026:100",
+            "ECLI:NL:RBAMS:2025:3600",
+            "later_instance",
+        ),
+        # named from both sides: once, with the basis of the final judgment's own relation
+        (
+            "CONTINUES",
+            "ECLI:NL:RBROT:2022:12313",
+            "ECLI:NL:RBROT:2022:10632",
+            "formal_relation",
+        ),
+        (
+            "APPEAL_OF",
+            "ECLI:NL:HR:2026:1357",
+            "ECLI:NL:GHARL:2025:4000",
+            "formal_relation",
+        ),
     }
     targets = {
         row["ecli"]: row["targets"]

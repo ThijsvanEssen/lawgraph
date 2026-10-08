@@ -23,3 +23,19 @@ def treaty_registers(store: Store) -> Iterator[dict[str, Any]]:
     """``{key, tractatenblad, kamerstukken, parent_treaties}`` of every Verdragenbank treaty
     (``verdrag_<id>``), by key; the lists are null before its item XML was read."""
     return store.query(_TREATY_REGISTERS_SQL)
+
+
+_SAME_TREATIES_SQL = f"""
+SELECT t.id AS text_id, r.id AS register_id
+FROM {COLLECTION_INSTRUMENTS} t
+JOIN {COLLECTION_INSTRUMENTS} r
+  ON r.treaty_number = t.treaty_number AND r.key LIKE 'verdrag\\_%%'
+WHERE t.kind = 'verdrag' AND t.key NOT LIKE 'verdrag\\_%%' AND t.stub IS NOT TRUE
+ORDER BY t.key, r.key
+"""
+
+
+def same_treaties(store: Store) -> Iterator[dict[str, Any]]:
+    """``{text_id, register_id}``: a BWB treaty (its text) and the Verdragenbank treaty of
+    its treaty number (``wetgeving@verdragnummer``). Columns only."""
+    return store.query(_SAME_TREATIES_SQL)

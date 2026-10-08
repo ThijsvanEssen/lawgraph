@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import parse_choices
+from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
     DecisionFacets,
@@ -31,6 +32,7 @@ from lawgraph.db.queries.decisions import (
     get_decisions,
 )
 from lawgraph.db.queries.documents import get_document_links
+from lawgraph.db.queries.dossiers import load_dossier_names
 
 router = APIRouter()
 
@@ -109,9 +111,16 @@ def list_decisions(
         q=(q or "").strip() or None,
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset)
+    names = load_dossier_names(store)
     return DecisionListResponse(
         total=int(raw.get("total") or 0),
-        items=[DecisionSummaryDTO(**row) for row in raw.get("items") or []],
+        items=[
+            DecisionSummaryDTO(
+                **row,
+                dossiers=dossier_names_of(row.get("dossier_numbers") or [], names),
+            )
+            for row in raw.get("items") or []
+        ],
         facets=DecisionFacets(**(raw.get("facets") or {})),
     )
 
@@ -133,7 +142,7 @@ def get_decision(
     doc = get_decision_detail(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
-    return DecisionDTO.from_document(doc)
+    return DecisionDTO.from_document(doc, load_dossier_names(store))
 
 
 @router.get(

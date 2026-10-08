@@ -146,10 +146,25 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
     "factions": ("name", "abbreviation"),
     "committees": ("name", "abbreviation"),
     "cabinets": ("name", "abbreviation"),
-    "activities": ("kind", "agenda_title", "title", "text", "actors"),
+    "activities": (
+        "kind",
+        "agenda_title",
+        "title",
+        "text",
+        "actors",
+        "dossier_numbers",
+    ),
     "commitments": ("kind", "agenda_title", "title", "text", "actors"),
     "cases": ("kind", "agenda_title", "title", "text", "actors"),
-    "decisions": ("subject", "title", "passed", "chamber", "kind", "decision_kind"),
+    "decisions": (
+        "subject",
+        "title",
+        "passed",
+        "chamber",
+        "kind",
+        "decision_kind",
+        "dossier_numbers",
+    ),
 }
 # Of each of the ``actors`` of a paper, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")

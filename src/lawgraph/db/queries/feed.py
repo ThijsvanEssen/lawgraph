@@ -18,6 +18,8 @@ array as a FOR over ``[]``.
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from dataclasses import dataclass, replace
 from typing import Any, cast
 
@@ -64,8 +66,11 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _words
+from lawgraph.db.schema import INSTRUMENT_DOSSIER_NUMBERS, feed_title, search_words
 from lawgraph.db.store import (
     ReadTimedOut,
+    RequestCancelled,
     read_time_left,
     reset_read_deadline,
     set_read_deadline,
@@ -214,7 +219,9 @@ class _Source:
         ``faction_id``; None when nobody signs this kind; ``{label}`` is its first dossier
         label), its title (JSON), its own ministry (text; None: that of its first dossier) and
         its chamber (text). A row looks its signatures up only when a filter or a facet needs
-        them."""
+        them. *found* is SQL on ``n`` that an index serves and that holds for every row whose
+        title holds ``q``, and *dossier_found* for every row whose first dossier is one of
+        ``{titled}`` (the labels of the dossiers whose title holds it); None: no index."""
 
     kind: str
     collection: str
@@ -226,6 +233,8 @@ class _Source:
     ministry: str | None = None
     chamber: str = _lit(CHAMBER_TK)
     parts: tuple[str, ...] = ()
+    found: str | None = None
+    dossier_found: str | None = None
 
     @property
     def condition(self) -> str:
@@ -321,6 +330,8 @@ def _document_source(kind: str) -> _Source:
         dossiers=_PAPER_DOSSIER_NUMBERS,
         persons=_BILL_PERSONS if kind == EVENT_BILL else _ACTORS,
         title=_or("n.pj_subject", "n.pj_title"),
+        found=f"{feed_title('n')} LIKE {_words.FOLDED_LIKE}",
+        dossier_found="n.dossier_numbers && ARRAY({titled})",
     )
 
 
@@ -345,6 +356,14 @@ _SOURCES: dict[str, _Source] = {
             persons=_COMMITMENT_PERSONS,
             title="n.props -> 'text'",
             ministry="n.ministry",
+            found=f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_words.LOWER_LIKE}",
+            dossier_found=(
+                f"n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e"
+                f" JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id"
+                f" WHERE e.relation = {_lit(RELATION_ABOUT)}"
+                f" AND e.to_collection = {_lit(COLLECTION_DOSSIERS)}"
+                " AND d.label IN ({titled}))"
+            ),
         ),
         *(_document_source(kind) for kind in DOCUMENT_EVENTS),
         _Source(
@@ -364,6 +383,8 @@ _SOURCES: dict[str, _Source] = {
             persons=_DECIDED_PERSONS,
             title="n.props -> 'subject'",
             chamber=_VOTE_CHAMBER,
+            found=f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.LOWER_LIKE}",
+            dossier_found="n.dossier_numbers && ARRAY({titled})",
         ),
         _Source(
             kind=EVENT_PUBLICATION,
@@ -374,6 +395,11 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.props -> 'citation_title'",
             chamber="NULL",
+            found=f"n.s_citation_title_g LIKE {_words.FOLDED_LIKE}",
+            dossier_found=(
+                f"{INSTRUMENT_DOSSIER_NUMBERS.replace('props', 'n.props')}"
+                " && ARRAY({titled})"
+            ),
         ),
         _Source(
             kind=EVENT_JUDGMENT,
@@ -386,6 +412,7 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.pj_display_name",
             chamber="NULL",
+            found=f"n.s_display_name_g LIKE {_words.FOLDED_LIKE}",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -398,6 +425,17 @@ _SOURCES: dict[str, _Source] = {
             title=(
                 f"(SELECT {_CITATION_TITLE} FROM {COLLECTION_INSTRUMENTS} i"
                 f" WHERE i.key = lower({_BWB_ID}))"
+            ),
+            # the versions of the instruments whose title holds the words: by the index
+            # on the citation title, or without one (its title then) every such instrument
+            # but the publications (``instruments_list_title``)
+            found=(
+                "n.bwb_id = ANY(ARRAY("
+                "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"
+                f" FROM {COLLECTION_INSTRUMENTS} i"
+                f" WHERE i.s_citation_title_g LIKE {_words.FOLDED_LIKE}"
+                " OR (coalesce(i.citation_title, '') = ''"
+                f" AND i.kind IS DISTINCT FROM {_lit(INSTRUMENT_KIND_PUBLICATION)})))"
             ),
         ),
     )
@@ -534,8 +572,8 @@ _WORDS = "{words}"
 
 
 def _contains(text: str) -> str:
-    """SQL: AQL ``CONTAINS(LOWER(text), @q)`` of a JSON *text*."""
-    return f"strpos(lower({_text(text)}), %(q)s) > 0"
+    """SQL: the JSON *text* holds the words of ``q`` (``_words``)."""
+    return _words.holds(_text(text))
 
 
 def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
@@ -549,7 +587,8 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
         bind["member"] = filters.member
     if filters.q:
         clauses.append(_WORDS)
-        bind["q"] = filters.q.strip().lower()
+        bind["q"] = _words.words(filters.q)
+        bind["q_word"] = _words.word_pattern(bind["q"])
     return clauses
 
 
@@ -711,6 +750,24 @@ class _Kind:
             found += f" OR {_contains('fd.title')}"
         return f"%(q)s <> '' AND ({found})"
 
+    def candidates(self) -> str | None:
+        """The rows that may hold the words, found by index (``_Source.found``); None when
+        the kind has no index for them or the words are too short for one."""
+        q = (self.plan.filters.q or "").strip()
+        if self.source.found is None or len(q) < _words.TRIGRAM:
+            return None
+        found = self.source.found
+        if self.first_dossier:
+            if self.source.dossier_found is None:
+                return None
+            titled = (
+                f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
+                f" WHERE d.s_title_g LIKE {_words.FOLDED_LIKE}"
+                f" AND {_contains('d.pj_title')}"
+            )
+            found += " OR " + self.source.dossier_found.replace("{titled}", titled)
+        return f"({found})"
+
     def select(self) -> str:
         """The columns of the light row (``_ROW_COLUMNS``)."""
         vote = self.source.kind == EVENT_VOTE
@@ -752,6 +809,9 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
         head.insert(1, f"{date} <= %(until)s")
     if plan.filters.chamber and source.kind == EVENT_VOTE and not plan.facets:
         head.append(f"{_VOTE_CHAMBER} = %(chamber)s")
+    candidates = kind.candidates()
+    if candidates:
+        head.append(candidates)
     tail = [clause.replace(_WORDS, kind.words()) for clause in plan.shared]
     table, order = f"{source.collection} n", ""
     if not plan.facets:
@@ -1270,29 +1330,86 @@ def get_feed(
 ) -> dict[str, Any]:
     """One page of the feed: ``items`` (up to ``limit + 1``: one more than the page when
     there is a next page), and with *facets* ``total`` and ``facets`` (null without), or,
-    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``.
+    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``. Words
+    without a first day are searched back in windows (``_page_items``): when the budget
+    ends that search, ``partial`` and ``searched_from``.
 
     The page is read without the facets: each kind reads its rows in date order and stops
     after one page. The total and the facets read every row under the filters (20 s on the
     full graph), whatever the cursor: they are kept per data version under the filters
     (``version_cache``)."""
-    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
-    rows = list(store.query(sql, bind))
-    page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
-    items = page.get("items") or []
+    items, searched_from = _page_items(store, filters, cursor, limit)
+    shown: dict[str, Any] = {"items": items}
+    if searched_from:
+        shown.update(partial=True, searched_from=searched_from)
     if not facets:
-        return {"items": items, "total": None, "facets": None}
+        return {**shown, "total": None, "facets": None}
     left = read_time_left()
     token = set_read_deadline(
         COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
     )
     try:
-        return {"items": items, **feed_counts(store, filters)}
+        return {**shown, **feed_counts(store, filters)}
     except ReadTimedOut:
         # counted on for the next request (``lasting``); this one shows the page now
-        return {"items": items, "total": None, "facets": None, "partial": True}
+        return {**shown, "total": None, "facets": None, "partial": True}
     finally:
         reset_read_deadline(token)
+
+
+# Words without a first day (``q`` and no ``since``): a word that few events hold has every
+# event of every kind tested for it, the whole history. The page is read back in windows,
+# newest first, each of these many days further back from where it starts, then the rest,
+# until it is full or ``WORDS_BUDGET`` seconds are spent: then what was found is answered,
+# ``partial``, with the first day searched (``searched_from``), and a request with ``until``
+# the day before goes on from there.
+WORDS_WINDOWS = (90, 365, 3 * 365)
+WORDS_BUDGET = 8.0
+
+
+def _page_items(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
+    before the first event, the first day it searched."""
+    if not filters.q or filters.since:
+        return _rows(store, filters, cursor, limit), None
+    start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
+    end = dt.date.fromisoformat(start)
+    left = read_time_left()
+    deadline = time.monotonic() + (
+        WORDS_BUDGET if left is None else min(WORDS_BUDGET, left)
+    )
+    items: list[dict[str, Any]] = []
+    until = filters.until
+    searched_from = (end + dt.timedelta(days=1)).isoformat()  # nothing searched yet
+    for days in (*WORDS_WINDOWS, None):
+        since = (end - dt.timedelta(days=days)).isoformat() if days else None
+        window = replace(filters, since=since, until=until)
+        token = set_read_deadline(max(deadline - time.monotonic(), 0.0))
+        try:
+            items += _rows(store, window, cursor, limit - len(items))
+        except RequestCancelled:
+            raise
+        except ReadTimedOut:
+            return items, searched_from
+        finally:
+            reset_read_deadline(token)
+        if len(items) > limit or since is None:
+            return items[: limit + 1], None
+        searched_from = since
+        until = (dt.date.fromisoformat(since) - dt.timedelta(days=1)).isoformat()
+    return items, None
+
+
+def _rows(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> list[dict[str, Any]]:
+    """Up to ``limit + 1`` rows of the feed under *filters*, from *cursor* on."""
+    sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
+    rows = list(store.query(sql, bind))
+    page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
+    return page.get("items") or []
 
 
 # How long the total and the facets of the feed under a filter are kept (seconds), whatever

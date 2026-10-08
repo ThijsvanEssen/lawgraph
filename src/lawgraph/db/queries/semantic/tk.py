@@ -13,6 +13,7 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
+    COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -229,6 +230,30 @@ CROSS JOIN LATERAL (
 WHERE {present_sql("c.p -> 'dossier_number'")}
 ORDER BY c.key
 """
+
+
+# The other dossiers an Eerste Kamer paper names (``dossier_numbers`` past its first), by the
+# label of the dossier: a paper on more than one bill.
+_EK_PAPERS_OTHER_SQL = f"""
+SELECT json_build_object(
+    'document_key', d.key,
+    'dossier_key', ds.key,
+    'dossier_number', ds.number,
+    'dossier_suffix', ds.props -> 'suffix'
+)
+FROM {COLLECTION_DOCUMENTS} d
+CROSS JOIN LATERAL unnest(d.dossier_numbers[2:]) AS l(label)
+JOIN {COLLECTION_DOSSIERS} ds ON ds.label = l.label
+WHERE d.source = %(source)s AND cardinality(d.dossier_numbers) > 1
+ORDER BY d.key, ds.key
+"""
+
+
+def ek_papers_in_other_dossiers(store: Store) -> Iterator[dict[str, Any]]:
+    """``{document_key, dossier_key, dossier_number, dossier_suffix}`` of the other dossiers
+    an Eerste Kamer paper names, past the first that ``ek_papers_in_tk_dossiers`` matches,
+    that are in the graph."""
+    return store.query(_EK_PAPERS_OTHER_SQL, {"source": SOURCE_EERSTEKAMER})
 
 
 def ek_papers_in_tk_dossiers(store: Store) -> Iterator[dict[str, Any]]:
@@ -637,3 +662,16 @@ def touched_ids(
             {"ids": ids, "since": since_iso},
         )
     )
+
+
+def activity_numbers(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, number, replaced_by}`` of every activity with a number: what an activity that
+    was moved names (``Activiteit.VervangenDoor``) is the number of the one that replaced it."""
+    sql = f"""
+        SELECT a.id, lg_str(a.props -> 'number') AS number,
+               a.props -> 'replaced_by' AS replaced_by
+        FROM {COLLECTION_ACTIVITIES} a
+        WHERE coalesce(lg_str(a.props -> 'number'), '') <> ''
+        ORDER BY a.key
+        """
+    return store.query(sql)

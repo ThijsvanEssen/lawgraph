@@ -10,7 +10,8 @@ names, unless the text names another: "De minister van Asiel en Migratie zegt to
 role ``Minister van Justitie en Veiligheid`` is a commitment of Asiel en Migratie, which that
 minister held ad interim; without either, the ministry of the post the member held that day
 (``normalize rijksoverheid``). ``post`` is read from the role. ``cabinet`` is the cabinet in
-office on the day.
+office on the day. A member found is also an ``AUTHORED`` edge to the commitment (``meta.role``
+``toezegger``, ``meta.function`` the role as written), removed where the match is gone.
 
 A dossier is brought in by whoever signed its earliest signed document first: a
 bewindspersoon gives it the ``ministry`` their function names, else that of the post they
@@ -30,7 +31,12 @@ import re
 import time
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_COMMITMENTS, COLLECTION_DOSSIERS
+from lawgraph.config.constants import (
+    COLLECTION_COMMITMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_MEMBERS,
+    RELATION_AUTHORED,
+)
 from lawgraph.core.cabinets import cabinet_on
 from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
@@ -38,12 +44,19 @@ from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.store import edge_key
 
 from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
+
+SEMANTIC_SOURCE = "tk-government"
+# The role of the member who made a commitment, on their AUTHORED edge.
+ROLE_COMMITTED = "toezegger"
 
 
 # "De minister van Asiel en Migratie zegt toe ...": the function a commitment is made in.
@@ -179,6 +192,9 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
 
         commitments = []
         matched = total = 0
+        makers = EdgeWriter(self.store, what=None)
+        kept: dict[str, set[str]] = {}
+        read: list[str] = []
         for row in self._track(
             list(government_queries.commitment_makers(self.store, some_commitments)),
             "commitments",
@@ -188,6 +204,18 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             matched += props["member_key"] is not None
             if props != row.get("props"):
                 commitments.append(self._update(row["key"], NodeType.COMMITMENT, props))
+            commitment = f"{COLLECTION_COMMITMENTS}/{row['key']}"
+            read.append(commitment)
+            if props["member_key"]:
+                member = f"{COLLECTION_MEMBERS}/{props['member_key']}"
+                makers.add(
+                    member,
+                    commitment,
+                    RELATION_AUTHORED,
+                    source=SEMANTIC_SOURCE,
+                    meta={"role": ROLE_COMMITTED, "function": row.get("role")},
+                )
+                kept[commitment] = {edge_key(member, RELATION_AUTHORED, commitment)}
         dossiers = []
         brought = 0
         for row in self._track(
@@ -207,6 +235,12 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         ):
             if updates:
                 self.store.bulk_insert_or_update_nodes(collection, updates)
+        # who made each commitment, as an edge too: written after the member keys, removed
+        # where the match is gone
+        makers.flush_into(result)
+        semantic_edges.remove_edges_to(
+            self.store, [RELATION_AUTHORED], SEMANTIC_SOURCE, read, kept
+        )
         result.updated = len(commitments) + len(dossiers)
         logger.info(
             "%d of %d commitments matched to a member; %d dossiers brought in by a "

@@ -45,6 +45,7 @@ from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_case_actors import TKCaseActorsRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
@@ -430,6 +431,19 @@ def retrieve_tk_document_links(argv: list[str] | None = None) -> PipelineResult:
     return TKDocumentLinksRetrievePipeline(GraphStore()).run(since=since)
 
 
+def retrieve_tk_case_actors(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the actors of Tweede Kamer cases: who submitted a case and "
+        "which committee leads it."
+    )
+    add_since_argument(parser, default="1d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    since = None if args.mode == "full" else args.since
+    return TKCaseActorsRetrievePipeline(GraphStore()).run(since=since)
+
+
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     parser = command_parser(
         description="Retrieve Tweede Kamer dossiers, decisions, votes, committees and members."
@@ -442,6 +456,11 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         parser,
         "--documents-since",
         help="Documents only: overrides --since (a full fetch is over 400K records).",
+    )
+    add_since_argument(
+        parser,
+        "--commitments-since",
+        help="Commitments (Toezegging) only: overrides --since.",
     )
     parser.add_argument(
         "--skip-members",
@@ -478,6 +497,7 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         since=args.since,
         decisions_since=args.decisions_since,
         documents_since=args.documents_since,
+        commitments_since=args.commitments_since,
         skip_members=args.skip_members,
         skip_decisions=args.skip_decisions,
         skip_documents=args.skip_documents,

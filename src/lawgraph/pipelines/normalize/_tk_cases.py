@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -112,6 +113,47 @@ def link_subjects(
     _queue_existing(store, pairs, relation, writer, source=source)
     writer.flush()
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
+
+
+def link_letters_to_commitments(
+    store: Store, commitment_nodes: Iterable[Node], *, source: str
+) -> None:
+    """ANSWERS from each letter that fulfils a commitment (``letter_ids``,
+    ``KamerbriefNakoming``) to it, when the letter is stored."""
+    pairs = [
+        (make_node_key(str(letter)), node.node_id)
+        for node in commitment_nodes
+        if node.node_id
+        for letter in node.props.get("letter_ids") or []
+    ]
+    stored = store.existing_keys(COLLECTION_DOCUMENTS, {letter for letter, _ in pairs})
+    writer = EdgeWriter(store, what="letter to commitment edges")
+    for letter, commitment in pairs:
+        if letter in stored:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{letter}",
+                commitment,
+                RELATION_ANSWERS,
+                source=source,
+            )
+    writer.flush()
+    logger.info("Linked %d letters to the commitments they fulfil.", writer.added)
+
+
+def link_decisions_to_activities(
+    store: Store, decision_nodes: Iterable[Node], *, source: str
+) -> None:
+    """MADE_IN from a decision to the activity of its agenda item (``activity_id``), the
+    meeting it was taken in, when that activity is stored."""
+    pairs = [
+        (node_id, COLLECTION_ACTIVITIES, make_node_key(str(activity)))
+        for node in decision_nodes
+        if (node_id := node.node_id) and (activity := node.props.get("activity_id"))
+    ]
+    writer = EdgeWriter(store, what="decision to activity edges")
+    _queue_existing(store, pairs, RELATION_MADE_IN, writer, source=source)
+    writer.flush()
+    logger.info("Linked %d decisions to the activity they were taken in.", writer.added)
 
 
 def link_cases_to_dossiers(
@@ -321,9 +363,11 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
+    "activity_id",
     "activity_ids",
     "attachment_ids",
     "attached_to_ids",
+    "letter_ids",
     "case_kinds_by_dossier",
     "vote_kind",
 )

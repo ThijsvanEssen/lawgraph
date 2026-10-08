@@ -14,6 +14,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.normalize.eerstekamer import (
     EerstekamerNormalizePipeline,
+    dossier_labels,
     split_dossier_number,
 )
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -64,6 +65,24 @@ def test_the_papers_of_a_real_page_are_parsed() -> None:
     assert verslag["date"] == "2026-06-30"
     assert verslag["dossier_title"].startswith("Wijziging van de Wet openbare lichamen")
     assert verslag["url"] == "https://zoek.officielebekendmakingen.nl/kst-36867-C.html"
+
+
+def test_a_paper_on_more_than_one_dossier_names_each() -> None:
+    # kst-34550-IV-D-n1 on the SRU names 34550-IV and CXIX (2026-10-09); here as on 36867-C
+    one = "<overheidwetgeving:dossiernummer>36867</overheidwetgeving:dossiernummer>"
+    page = PAGE.replace(
+        one,
+        one
+        + "<overheidwetgeving:dossiernummer>36600 VII</overheidwetgeving:dossiernummer>"
+        + "<overheidwetgeving:dossiernummer>CXIX</overheidwetgeving:dossiernummer>",
+    )
+    papers = _client([page], []).search_kamerstukken()
+    assert papers[3]["dossier_number"] == "36867"
+    assert papers[3]["dossier_numbers"] == ["36867", "36600 VII", "CXIX"]
+    assert dossier_labels(papers[3]) == ["36867", "36600-VII"]  # CXIX is no dossier
+    # a record retrieved before the client kept them all
+    assert dossier_labels({"dossier_number": "35925 VII"}) == ["35925-VII"]
+    assert dossier_labels({}) == []
 
 
 def test_a_paper_numbered_by_its_own_id_has_no_dossier_in_the_identifier() -> None:
@@ -219,10 +238,15 @@ def test_a_record_without_an_identifier_is_skipped() -> None:
 
 
 def _papers_in_tk_dossiers(
-    monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]]
+    monkeypatch: pytest.MonkeyPatch,
+    rows: list[dict[str, Any]],
+    others: list[dict[str, Any]] | None = None,
 ) -> None:
     monkeypatch.setattr(
         semantic_tk, "ek_papers_in_tk_dossiers", lambda store: iter(rows)
+    )
+    monkeypatch.setattr(
+        semantic_tk, "ek_papers_in_other_dossiers", lambda store: iter(others or [])
     )
 
 
@@ -246,6 +270,24 @@ def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) ->
     assert edge["_to"] == "dossiers/36867"
     assert edge["confidence"] == 0.95
     assert edge["meta"]["chamber"] == "EK"
+
+
+def test_a_paper_is_part_of_each_dossier_it_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = {"document_key": "ek_kst_33081_e", "dossier_key": "33081"}
+    other = {"document_key": "ek_kst_33081_e", "dossier_key": "33082"}
+    _papers_in_tk_dossiers(
+        monkeypatch,
+        [{**first, "dossier_number": "33081", "dossier_suffix": None}],
+        [{**other, "dossier_number": "33082", "dossier_suffix": None}],
+    )
+    store = _BaseFakeStore()
+    assert EerstekamerSemanticPipeline(store=store).run().created == 2
+    assert {edge["_to"] for edge in store.edges.values()} == {
+        "dossiers/33081",
+        "dossiers/33082",
+    }
 
 
 def test_no_match_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
