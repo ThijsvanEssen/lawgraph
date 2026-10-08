@@ -187,7 +187,7 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
         return EuLinksData([], 0, [row], 7, [], 0, [mention], 3)
 
     def international(
-        store: Any, instrument_id: str, scope: Any, *, limit: int
+        store: Any, instrument_id: str, scope: Any, *, limit: int, cited: int | None
     ) -> InternationalLinksData:
         seen["international"] = (instrument_id, scope, limit)
         treaty = {
