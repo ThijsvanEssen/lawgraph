@@ -252,3 +252,54 @@ def test_the_laws_are_read_once_per_data_version(
     graph.bulk_insert_or_update_nodes("instruments", [_node("x", "instrument")])
     assert search_queries.load_notation_parser(graph) is not first
     assert reads == [1, 1]
+
+
+def _bw_article(book: str, number: str) -> dict[str, Any]:
+    from lawgraph.core.code_families import CODE_FAMILIES
+
+    law = CODE_FAMILIES["BW"][book]
+    return _node(
+        f"{law.lower()}_{number}",
+        "article",
+        bwb_id=law,
+        article_number=number,
+        display_name=f"Artikel {number} Burgerlijk Wetboek Boek {book}",
+    )
+
+
+def test_resolve_a_code_without_its_book_lists_its_books(store: GraphStore) -> None:
+    """``artikel 3 BW``: no match, the article 3 of each book that has one, in the order of
+    the books, and how many there are; one book with that article is the match."""
+    from lawgraph.core.code_families import CODE_FAMILIES
+
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _bw_article("6", "3"),
+            _bw_article("1", "3"),
+            _bw_article("3", "3"),
+            _bw_article("6", "162"),
+        ],
+    )
+    books = CODE_FAMILIES["BW"]
+    answer = resolve_queries.resolve(store, "artikel 3 lid 2 BW")
+    assert answer["match"] is None
+    assert answer["kind"] == "article"
+    assert answer["confidence"] <= resolve_queries.CONFIDENCE_AMBIGUOUS
+    assert [a["key"] for a in answer["alternatives"]] == [
+        f"{books[b].lower()}_3" for b in ("1", "3", "6")
+    ]
+    assert answer["alternatives_total"] == 3
+    assert answer["qualifier"] == "lid 2"
+
+    one = resolve_queries.resolve(store, "artikel 162 BW")
+    assert one["match"]["key"] == f"{books['6'].lower()}_162"
+    assert one["confidence"] == resolve_queries.CONFIDENCE_CITATION
+    assert one["alternatives"] == [] and one["alternatives_total"] == 0
+
+    for q in ("art. 6:162", "boek 6 art 162"):
+        assert (
+            resolve_queries.resolve(store, q)["match"]["key"]
+            == f"{books['6'].lower()}_162"
+        )

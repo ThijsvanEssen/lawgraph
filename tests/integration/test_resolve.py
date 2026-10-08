@@ -171,6 +171,7 @@ def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
             "confidence": 0.0,
             "match": None,
             "alternatives": [],
+            "alternatives_total": 0,
             "qualifier": None,
         }
 

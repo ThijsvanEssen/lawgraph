@@ -78,6 +78,12 @@ _LAW_THEN_NUMBER_RE = re.compile(
     rf"^(?P<law>.+?)\s+(?:(?:art\.?|artikel)\s+)?(?P<number>{ARTICLE_NUMBER_PATTERN})$",
     re.IGNORECASE,
 )
+# "boek 6 art 162", "boek 6, artikel 162 BW": a book of a code, then the article in it
+_BOOK_THEN_ARTICLE_RE = re.compile(
+    rf"^boek\s+(?P<book>\d{{1,2}}[a-z]?)\s*,?\s*(?:art\.?|artikel)\s+"
+    rf"(?P<number>{ARTICLE_NUMBER_PATTERN})(?:\s+(?P<code>\D.*))?$",
+    re.IGNORECASE,
+)
 # "6:162 BW", "287 Sr": a number, then the law, as lawyers write it in running text
 _NUMBER_THEN_LAW_RE = re.compile(
     rf"^(?P<number>{ARTICLE_NUMBER_PATTERN})\s+(?P<law>\D.*)$", re.IGNORECASE
@@ -106,7 +112,8 @@ class Notation:
     * ``dossier``: *dossier* number and its *suffix* (``29684``, ``I``), or ``None``.
     * ``document``: a dossier and the *sequence* (ondernummer) of one paper in it.
     * ``article``: *articles* (several for ``artikel 36e en 36f Sr``) and their *qualifier*
-      (``derde lid``).
+      (``derde lid``); with *choice* the articles are the ones a citation may mean
+      (``art. 3 BW``: article 3 of every book of the code).
     """
 
     kind: NotationKind
@@ -116,6 +123,9 @@ class Notation:
     sequence: str | None = None
     articles: tuple[ArticleRef, ...] = ()
     qualifier: str | None = None
+    # The articles are alternatives, not cited together: a citation of a code that leaves
+    # the book open (``art. 3 BW``: article 3 of which book?).
+    choice: bool = False
 
 
 @dataclass(frozen=True)
@@ -232,6 +242,8 @@ class NotationParser:
     # ── articles ──────────────────────────────────────────────────────────────
 
     def _article(self, text: str) -> Notation | None:
+        if book := _BOOK_THEN_ARTICLE_RE.match(text):
+            return _of_book(book["book"], book["number"], book["code"])
         if ARTICLE_HEAD_RE.match(text):
             return self._cited(text)
         for pattern in (_LAW_THEN_NUMBER_RE, _NUMBER_THEN_LAW_RE):
@@ -251,11 +263,10 @@ class NotationParser:
         rest = text[head.end() :].strip(" ,.;:")
         numbers = [n.lower() for n in parse_article_numbers(head["nums"])]
         if not rest:
-            articles = tuple(ArticleRef(None, n) for n in numbers)
-        else:
-            articles = self._articles_of(text, rest, numbers)
+            return _without_law(numbers, qualifier)
+        articles = self._articles_of(text, rest, numbers)
         if not articles:
-            return None
+            return _of_code(rest, numbers, qualifier)
         return Notation(kind="article", articles=articles, qualifier=qualifier)
 
     def _articles_of(
@@ -274,6 +285,66 @@ class NotationParser:
             ArticleRef(hit.bwb_id or hit.celex, (hit.article_number or "").lower())
             for hit in cited
         )
+
+
+def _family(name: str | None) -> dict[str, str] | None:
+    """The books of the code *name* names (``BW``, ``Burgerlijk Wetboek``); None for no code
+    with books. Without a name, the one code with books there is."""
+    if name is None:
+        return next(iter(CODE_FAMILIES.values())) if len(CODE_FAMILIES) == 1 else None
+    key = LAW_CONNECTOR_RE.sub("", name, count=1).strip(" .,;:").upper()
+    for code, books in CODE_FAMILIES.items():
+        if key in (code.upper(), *_FAMILY_NAMES.get(code.upper(), ())):
+            return books
+    return None
+
+
+# The names a code with books goes by besides its abbreviation.
+_FAMILY_NAMES = {"BW": ("BURGERLIJK WETBOEK",)}
+
+
+def _of_code(rest: str, numbers: list[str], qualifier: str | None) -> Notation | None:
+    """``art. 3 BW``: a code with books that the number does not name a book of: the
+    article of that number in every book, as a choice. ``art. 6:162 BW`` names its book and
+    is read by the extractor before this."""
+    books = _family(rest)
+    if books is None:
+        return None
+    articles = tuple(
+        ArticleRef(law_id, n)
+        for n in numbers
+        if ":" not in n
+        for law_id in books.values()
+    )
+    if not articles:
+        return None
+    return Notation(kind="article", articles=articles, qualifier=qualifier, choice=True)
+
+
+def _without_law(numbers: list[str], qualifier: str | None) -> Notation:
+    """``art. 6:162``, no law: the article of that number in any law, and where the part
+    before the colon is a book of the code with books, article ``162`` of that book too."""
+    books = _family(None) or {}
+    articles: list[ArticleRef] = []
+    for n in numbers:
+        book, colon, own = n.partition(":")
+        if colon and book.upper() in books:
+            articles.append(ArticleRef(books[book.upper()], own))
+        articles.append(ArticleRef(None, n))
+    choice = len(articles) > len(numbers)
+    return Notation(
+        kind="article", articles=tuple(articles), qualifier=qualifier, choice=choice
+    )
+
+
+def _of_book(book: str, number: str, code: str | None) -> Notation | None:
+    """``boek 6 art 162``: article 162 of book 6 of the code (the one code with books when
+    the text names none)."""
+    books = _family(code)
+    law_id = (books or {}).get(book.upper())
+    if law_id is None:
+        return None
+    return Notation(kind="article", articles=(ArticleRef(law_id, number.lower()),))
 
 
 def native_article_number(bwb_id: str, number: str) -> str:

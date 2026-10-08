@@ -63,6 +63,7 @@ NO_MATCH: dict[str, Any] = {
     "confidence": 0.0,
     "match": None,
     "alternatives": [],
+    "alternatives_total": 0,
     "qualifier": None,
 }
 
@@ -134,11 +135,30 @@ def _laws_named(store: GraphStore, matches: list[LawMatch]) -> list[dict[str, An
 
 def _articles(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     named = [a for a in notation.articles if a.law_id]
+    if notation.choice:
+        return _chosen(store, notation)
     if named:
         keys = [make_node_key(a.law_id, a.number) for a in named]
         rows = _by_keys(store, COLLECTION_ARTICLES, keys)
         return [_target(row, "article", CONFIDENCE_CITATION) for row in rows]
     return _articles_without_law(store, [a.number for a in notation.articles])
+
+
+def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
+    """The articles a citation that leaves the book open may mean (``art. 3 BW``), in the
+    order of the books, then those of that number in any other law; one alone is the
+    citation, several are a choice (each at most ``CONFIDENCE_AMBIGUOUS``)."""
+    named = [a for a in notation.articles if a.law_id]
+    keys = [make_node_key(a.law_id or "", a.number) for a in named]
+    found = [
+        _target(row, "article", CONFIDENCE_CITATION)
+        for row in _by_keys(store, COLLECTION_ARTICLES, keys)
+    ]
+    loose = [a.number for a in notation.articles if not a.law_id]
+    if loose:
+        seen = {t["id"] for t in found}
+        found += [t for t in _articles_without_law(store, loose) if t["id"] not in seen]
+    return _capped(found)
 
 
 def _articles_without_law(
@@ -300,31 +320,50 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
 # ── the answer ────────────────────────────────────────────────────────────────
 
 
-def _candidates(store: GraphStore, q: str) -> tuple[list[dict[str, Any]], str | None]:
-    """What the query may mean, and the qualifier (``derde lid``) of a citation."""
+def _candidates(
+    store: GraphStore, q: str
+) -> tuple[list[dict[str, Any]], str | None, bool]:
+    """What the query may mean, the qualifier (``derde lid``) of a citation, and whether it
+    is a choice between them (``art. 3 BW``)."""
     parser = load_notation_parser(store)
     notation = parser.parse(q)
     if notation is None:
         headed = _headed_article(store, q, parser)
-        return headed or _laws_named(store, parser.law_matches(q)), None
+        return headed or _laws_named(store, parser.law_matches(q)), None, False
     if notation.kind == "article":
-        return _articles(store, notation), notation.qualifier
+        return _articles(store, notation), notation.qualifier, notation.choice
     if notation.kind == "dossier":
-        return _dossier(store, notation), None
+        return _dossier(store, notation), None, False
     if notation.kind == "document":
-        return _document(store, notation), None
+        return _document(store, notation), None, False
     if notation.kind == "commitment":
-        return _commitment(store, notation), None
-    return _identified(store, notation), None
+        return _commitment(store, notation), None, False
+    return _identified(store, notation), None, False
+
+
+# The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
+CHOICES = 10
 
 
 def resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """The best match for *q* and up to ``ALTERNATIVES`` others, best first.
 
     ``kind`` and ``confidence`` are those of the match; ``qualifier`` is the ``lid`` or
-    ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error.
+    ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error. A
+    citation that leaves open which of several articles it means (``art. 3 BW``) has no
+    match: ``alternatives`` are the ``CHOICES`` first of them, in the order of the books.
+    ``alternatives_total`` is how many alternatives were found.
     """
-    candidates, qualifier = _candidates(store, q)
+    candidates, qualifier, choice = _candidates(store, q)
+    if choice and len(candidates) > 1:
+        return {
+            "kind": "article",
+            "confidence": CONFIDENCE_AMBIGUOUS,
+            "match": None,
+            "alternatives": candidates[:CHOICES],
+            "alternatives_total": len(candidates),
+            "qualifier": qualifier,
+        }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
         return dict(NO_MATCH)
@@ -334,5 +373,6 @@ def resolve(store: GraphStore, q: str) -> dict[str, Any]:
         "confidence": best["confidence"],
         "match": best,
         "alternatives": ordered[1 : ALTERNATIVES + 1],
+        "alternatives_total": len(ordered) - 1,
         "qualifier": qualifier if best["kind"] == "article" else None,
     }

@@ -24,6 +24,8 @@ RESOLVE_MAX_LENGTH = 200
         "identifier (ECLI, BWB id, CELEX id), a Kamerstuk (`36327`, `36327-3`, "
         "`Kamerstukken II 2020/21, 36327, nr. 3`) or the name of a law, and answers with "
         "the one best match (`id`, `key`, `collection`) and up to five alternatives. "
+        "A citation that leaves the book of the Burgerlijk Wetboek open (`art. 3 BW`) "
+        "has no match: its alternatives are the article in every book, in book order. "
         "`confidence` says how sure the match is. Nothing that fits answers 200 with "
         "kind `none` and no match: the query is then words for `/api/search`."
     ),
