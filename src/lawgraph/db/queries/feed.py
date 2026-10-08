@@ -64,6 +64,12 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 from lawgraph.db.version_cache import lasting
 
 # The instruments a publication names at most.
@@ -1263,7 +1269,8 @@ def get_feed(
     facets: bool = True,
 ) -> dict[str, Any]:
     """One page of the feed: ``items`` (up to ``limit + 1``: one more than the page when
-    there is a next page), and with *facets* ``total`` and ``facets`` (null without).
+    there is a next page), and with *facets* ``total`` and ``facets`` (null without), or,
+    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``.
 
     The page is read without the facets: each kind reads its rows in date order and stops
     after one page. The total and the facets read every row under the filters (20 s on the
@@ -1272,15 +1279,29 @@ def get_feed(
     sql, bind = feed_query(filters, cursor=cursor, limit=limit, facets=False)
     rows = list(store.query(sql, bind))
     page = cast(dict[str, Any], rows[0]) if rows else {"items": []}
+    items = page.get("items") or []
     if not facets:
-        return {"items": page.get("items") or [], "total": None, "facets": None}
-    return {"items": page.get("items") or [], **feed_counts(store, filters)}
+        return {"items": items, "total": None, "facets": None}
+    left = read_time_left()
+    token = set_read_deadline(
+        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
+    )
+    try:
+        return {"items": items, **feed_counts(store, filters)}
+    except ReadTimedOut:
+        # counted on for the next request (``lasting``); this one shows the page now
+        return {"items": items, "total": None, "facets": None, "partial": True}
+    finally:
+        reset_read_deadline(token)
 
 
 # How long the total and the facets of the feed under a filter are kept (seconds), whatever
 # the data does: each reads every event of every kind (a minute on the full graph), and a
 # run of the pipelines hardly moves them. The page itself is read fresh.
 COUNTS_MAX_AGE = 3600.0
+# How long a request waits for them (seconds): under a filter not counted yet (a minute or
+# more, cold) it answers its page without them, ``partial``, and they are counted on.
+COUNTS_BUDGET = 3.0
 
 
 def feed_counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:

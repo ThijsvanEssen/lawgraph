@@ -481,11 +481,17 @@ def _search_judgments(
 
     # The query may be the name of a judgment ("Urgenda", "Lindenbaum/Cohen"): those first,
     # the latest decision first (of one case: the highest court), a translation after the
-    # judgment it translates.
+    # judgment it translates. The judgments of that name are found first, on their own
+    # (OFFSET 0): the planner expects 0.5% of the rows to hold any name, and would walk the
+    # index of the dates for them (on the full graph every row, 2.6 s, for a name none has).
     name: Query = (
         f"""
-        SELECT {_JUDGMENT_HIT} FROM judgments doc
-        WHERE doc.{search_column("names", "norm")} @> ARRAY[lg_fold(%(name)s)]
+        SELECT {_JUDGMENT_HIT}
+        FROM (
+            SELECT * FROM judgments doc
+            WHERE doc.{search_column("names", "norm")} @> ARRAY[lg_fold(%(name)s)]
+            OFFSET 0
+        ) doc
         ORDER BY doc.date_eff DESC NULLS LAST,
                  coalesce(json_typeof(doc.props -> 'translation_of'), 'null') <> 'null',
                  doc.key
@@ -936,7 +942,8 @@ def search_full(
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
-    cited first; the other types by the start of a word of a name, without a rank).
+    cited first, else the newest that hold the words; the other types by the start of a
+    word of a name, without a rank).
     Returns the hits per type and the types that fell back."""
     tokens = tokenize_search_query(q)
     if not tokens:
@@ -944,6 +951,9 @@ def search_full(
     notation = _notation(store, q, types)
     full = _full_searches(store, q, tokens, notation, kinds, limit)
     live = _live_searches(store, q, tokens, notation, kinds, limit)
+    named = live["judgments"]
+    # a judgment the query names, else the newest that hold its words
+    live["judgments"] = lambda: named() or _judgments_with_words(store, tokens, limit)
     wanted = [t for t in types if t in full]
     found = side_by_side(
         _SEARCHES,
@@ -1028,6 +1038,7 @@ _LIVE_ORDER = {
     "dossiers": "doc.last_activity DESC NULLS LAST, doc.key DESC",
     "documents": "doc.date DESC NULLS LAST, doc.key DESC",
     "committees": "doc.key",
+    "judgments": "doc.date_eff DESC NULLS LAST, doc.key DESC",
 }
 
 
@@ -1137,6 +1148,26 @@ def _within_budget(
         reset_read_deadline(token)
 
 
+def _judgments_with_words(
+    store: GraphStore, tokens: list[str], limit: int
+) -> list[dict[str, Any]]:
+    """The judgments that hold every word (in their summary, name or display name), the
+    newest first of the first ``LIVE_CANDIDATES`` found, without a rank (``_live_query``)."""
+    return list(
+        store.query(
+            *_live_query(
+                "judgments",
+                _JUDGMENT_HIT,
+                tokens,
+                _JUDGMENT_FIELDS,
+                limit,
+                where="AND doc.stub IS NOT TRUE AND doc.same_as IS NULL",
+            ),
+            indexes_only=True,
+        )
+    )
+
+
 def _search_judgments_live(
     store: GraphStore,
     tokens: list[str],
@@ -1166,17 +1197,31 @@ def _search_judgments_live(
         f"doc.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
         for n in range(len(words))
     )
+    params["candidates"] = LIVE_CANDIDATES
     found: list[dict[str, Any]] = []
     for column in (
         search_column("names", "ngram"),
         search_column("display_name", "ngram"),
     ):
+        # the first ``LIVE_CANDIDATES`` found, then ordered: the index of the citations
+        # would be walked for a part the planner thinks common, every row for a rare one
         statement = f"""
-            SELECT {_JUDGMENT_HIT} FROM judgments doc
-            WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
-              AND {holds.format(column=column)}
-            ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.key DESC
-            LIMIT %(limit)s
+            SELECT {_JUDGMENT_HIT}
+            FROM (
+                SELECT doc.id, row_number() OVER (
+                    ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.key DESC
+                ) AS n
+                FROM (
+                    SELECT * FROM judgments doc
+                    WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
+                      AND {holds.format(column=column)}
+                    LIMIT %(candidates)s
+                ) doc
+                ORDER BY n
+                LIMIT %(limit)s
+            ) top
+            JOIN judgments doc ON doc.id = top.id
+            ORDER BY top.n
             """
         seen = {hit["id"] for hit in found}
         found += [
