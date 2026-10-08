@@ -6,11 +6,19 @@ mkdir -p "$LOG_DIR"
 export LAWGRAPH_LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y-%m-%d).log"
 
 # `mkdir` either makes the directory or fails: two scheduled runs never write side by side.
+# LAWGRAPH_LOCK_WAIT seconds (default 0) a run waits for a run that holds the lock: the nightly
+# waits out a poll that hangs, a poll gives its turn up at once.
 LOCK="${TMPDIR:-/tmp}/lawgraph-scheduled.lock"
-if ! mkdir "$LOCK" 2>/dev/null; then
-  echo "$(date '+%F %T') $(basename "$0"): another scheduled run holds $LOCK; not started" >> "$LOG_DIR/runs.log"
-  exit 75
-fi
+waited=0
+until mkdir "$LOCK" 2>/dev/null; do
+  if [ "$waited" -ge "${LAWGRAPH_LOCK_WAIT:-0}" ]; then
+    echo "$(date '+%F %T') $(basename "$0"): another scheduled run holds $LOCK; not started (waited ${waited} s)" >> "$LOG_DIR/runs.log"
+    exit 75
+  fi
+  sleep 1
+  waited=$((waited + 1))
+done
+[ "$waited" -eq 0 ] || echo "$(date '+%F %T') $(basename "$0"): started after waiting ${waited} s for $LOCK" >> "$LOG_DIR/runs.log"
 trap 'rmdir "$LOCK"' EXIT
 
 # macOS: keep the machine from idle sleep while a command runs. A closed lid on battery

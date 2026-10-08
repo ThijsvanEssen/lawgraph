@@ -364,7 +364,9 @@ scheduler runs; nothing is installed for you.
 | `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
-One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so), a
+One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so, after
+waiting `LAWGRAPH_LOCK_WAIT` seconds for the lock when that is set: the nightly run sets it so a
+poll that hangs does not cost it the night, a poll does not), a
 failing command fails the run and the next command still runs, one log per run in
 `~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
 A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
@@ -409,8 +411,9 @@ disk (`pg_database_size`), the three largest tables (rows, TOAST and indexes tog
 fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on. With the alert command set, that failure
 reaches you the same morning.
 
-**Backups.** Everything in the database can be built again from the sources, but that takes a
-day or more; a backup is back in minutes to hours. `scripts/backup.sh` writes a dump of the
+**Backups.** Not in use on the production server: what is lost there is built again from the
+sources (`lawgraph bootstrap`), which takes a day or more, and no backup is kept. Where one is
+wanted, a backup is back in minutes to hours. `scripts/backup.sh` writes a dump of the
 database with `pg_dump` (directory format, four jobs, zstd) to `LAWGRAPH_BACKUP_DIR`
 (`./backups`, mounted by `docker-compose.yml` at `/backups` in the container, where the dump
 runs), with a `counts` file next to it (`scripts/_counts.sql`: the rows of every table, the
