@@ -57,6 +57,9 @@ URLS = [
     "/api/search?q=wet&mode=live&from=2019-01-01&to=2019-12-31",
     f"/api/search?q={ECLI}&from=2019-01-01",
     "/api/search?q=Hoge+Raad&types=judgments&mode=live&to=2020-12-31",
+    # an article by what its case law calls it (``lg_article_terms``), full and live
+    "/api/search?q=noodweer&types=articles",
+    "/api/search?q=noodweer&types=articles&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     "/api/judgments",
@@ -334,6 +337,10 @@ def _seed(store: GraphStore) -> None:
                 status="voorgesteld",
             ),
         ]
+    )
+    store.execute(
+        "INSERT INTO lg_article_terms (article_id, terms)"
+        f" VALUES ('articles/{BWB.lower()}_1', ARRAY['noodwer'])"
     )
     _fill(store)
     store.vacuum_analyze()
