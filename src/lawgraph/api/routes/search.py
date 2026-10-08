@@ -13,7 +13,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import search_all, search_live
+from lawgraph.db.queries.search import search_full, search_live
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -61,7 +61,8 @@ def search(
                 "nothing ranked by its words (a word, or the start of a word of a name or "
                 "title), the judgments by ECLI, name and display name (court, date, case number), "
                 "the most cited first, and only from three characters; `full` (the "
-                "default) ranks everything"
+                "default) ranks everything, a type within 3 s: past it, its `live` hits "
+                "and the type in `partial`"
             )
         ),
     ] = "full",
@@ -80,15 +81,10 @@ def search(
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
-    partial: set[str] = set()
-    if mode == "live":
-        raw, partial = search_live(
-            store, q=q, types=requested_types, kinds=kind_list, limit=limit
-        )
-    else:
-        raw = search_all(
-            store, q=q, types=requested_types, kinds=kind_list, limit=limit
-        )
+    search = search_live if mode == "live" else search_full
+    raw, partial = search(
+        store, q=q, types=requested_types, kinds=kind_list, limit=limit
+    )
 
     grouped: dict[str, list[SearchResultItem]] = {}
     total = 0
