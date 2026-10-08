@@ -98,12 +98,16 @@ class TKClient(BaseClient):
         top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
+        replacing: bool = False,
     ) -> Iterable[dict[str, Any]]:
-        """Return TK Zaak records modified since *since*."""
+        """Return TK Zaak records modified since *since*; with *replacing* only those that
+        replace another (``VervangenVanuit``: an amended amendment or motion)."""
         since_string = odata_datetime(since)
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
+        if replacing:
+            odata_filter += " and VervangenVanuit/any()"
         params: dict[str, Any] = {
             "$filter": odata_filter,
             # What `normalize tk` reads the dossier numbers of a case from, and the cases
@@ -111,7 +115,9 @@ class TKClient(BaseClient):
             "$expand": (
                 "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "GerelateerdNaar($select=Id,Soort,Verwijderd;"
-                "$expand=Kamerstukdossier($select=Nummer,Toevoeging))"
+                "$expand=Kamerstukdossier($select=Nummer,Toevoeging)),"
+                # the case an amended amendment or motion replaces ("ter vervanging van")
+                "VervangenVanuit($select=Id,Verwijderd)"
             ),
         }
         if top is not None:
