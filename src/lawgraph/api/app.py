@@ -383,7 +383,8 @@ async def health(
     before the first warm-up), ``data_version`` the version now, ``computing`` whether a
     warm-up or an answer of a newer version is being computed. ``pools``: per connection
     pool its size, the free connections and the reads waiting for one; ``busy`` what the
-    threads of the shared pools run now, and how long."""
+    threads of the shared pools and of the background (the cache, the warm-up) run now,
+    and how long."""
     try:
         store.ping()
         answer: dict[str, Any] = {
@@ -402,7 +403,14 @@ async def health(
                 "computing": version_cache.computing(store),
             }
         return HealthDTO.model_validate(
-            answer | {"pools": store.pool_usage(), "busy": busy_calls()}
+            answer
+            | {
+                "pools": store.pool_usage(),
+                "busy": sorted(
+                    busy_calls() + version_cache.busy(),
+                    key=lambda call: -call["seconds"],
+                ),
+            }
         )
     except Exception as exc:
         raise HTTPException(

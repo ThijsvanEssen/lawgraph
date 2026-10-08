@@ -171,7 +171,8 @@ def _run(name: str, part: Callable[[], object]) -> None:
     logger.info("Warm-up of %s.", name)
     began = time.monotonic()
     try:
-        part()
+        with version_cache.doing(f"warm-up: {name}"):
+            part()
     except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
         logger.warning("Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc)
     else:

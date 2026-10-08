@@ -229,3 +229,48 @@ def test_a_computation_that_asks_for_another_one_does_not_wait_for_the_pool(
         r for r in caplog.records if "A computation of the cache asked" in r.message
     ]
     assert len(nested) == 2 and nested[0].stack_info
+
+
+def test_health_names_what_the_background_computes_but_never_what_was_asked(
+    store: GraphStore,
+) -> None:
+    """A computation of the cache shows as its kind alone: the words of a search are a
+    visitor's, and ``/api/health`` is public."""
+    from lawgraph.api import warm
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def counting() -> int:
+        started.set()
+        release.wait(5)
+        return 1
+
+    key = ("bm25-df", "judgments", (("summary", "text", "geheim woord"),))
+    waiter = threading.Thread(target=lambda: version_cache.cached(store, key, counting))
+    waiter.start()
+    started.wait(5)
+    try:
+        running = version_cache.busy()
+    finally:
+        release.set()
+        waiter.join()
+    assert [c["call"] for c in running] == ["cache: bm25-df"]
+    assert running[0]["thread"].startswith("lawgraph-cache")
+    assert "geheim" not in str(running)
+    assert version_cache.busy() == []
+
+    seen: list[list[dict]] = []
+    warm._run("stats", lambda: seen.append(version_cache.busy()))
+    assert [c["call"] for c in seen[0]] == ["warm-up: stats"]
+    assert version_cache.busy() == []
+
+
+def test_an_answer_computed_inside_another_gives_the_worker_back() -> None:
+    """``doing`` within ``doing`` (an answer a computation asked for, computed in its own
+    worker): afterwards the worker shows the computation that asked again."""
+    with version_cache.doing("cache: outer"):
+        with version_cache.doing("cache: inner"):
+            assert [c["call"] for c in version_cache.busy()] == ["cache: inner"]
+        assert [c["call"] for c in version_cache.busy()] == ["cache: outer"]
+    assert version_cache.busy() == []
