@@ -488,3 +488,38 @@ def test_a_cabinet_is_read_once_per_data_version(
     assert cabinets.get_cabinet(store, "schoof") is None
     assert cabinets.get_cabinet(store, "schoof") is None
     assert read == ["schoof"]
+
+
+def test_a_cabinet_is_kept_an_hour_whatever_the_data_does(
+    government: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll of other sources raises the data version: the page of a cabinet is not
+    computed again for it within ``CABINET_MAX_AGE`` (its counts read every paper its
+    members signed); after it, it is."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import cabinets as cabinet_queries
+
+    version_cache.clear()
+    computed: list[str] = []
+    compute = cabinet_queries._cabinet
+
+    def counted(store: GraphStore, key: str, today: str) -> Any:
+        computed.append(key)
+        return compute(store, key, today)
+
+    monkeypatch.setattr(cabinet_queries, "_cabinet", counted)
+    before = get_cabinet(government, "jetten")
+    assert before is not None and before["commitments"] == 3
+    version = government.data_version()
+    government.bulk_insert_or_update_nodes(
+        "commitments",
+        [_node("k9", member_key="m1", cabinet="jetten", status="Openstaand")],
+    )
+    assert government.data_version() != version
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)  # the new version is seen
+    assert get_cabinet(government, "jetten") == before
+    assert computed == ["jetten"]
+
+    monkeypatch.setattr(cabinet_queries, "CABINET_MAX_AGE", 0.0)
+    assert get_cabinet(government, "jetten")["commitments"] == 4  # type: ignore[index]
+    assert computed == ["jetten", "jetten"]
