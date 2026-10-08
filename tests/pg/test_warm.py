@@ -48,23 +48,6 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     assert not warm.is_warm(store)
 
 
-def test_the_heat_is_counted_after_the_warm_up_is_done(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """It reads every edge: ``warm`` never waits for it, and the first visitor of the heat
-    finds it computed."""
-    warm_when_counted: list[bool] = []
-
-    def heat(store_: GraphStore) -> dict[str, int]:
-        warm_when_counted.append(warm.is_warm(store_))
-        return {}
-
-    monkeypatch.setattr(warm, "heat_counts", heat)
-    monkeypatch.setattr(warm, "_warmed", None)
-    warm.warm_up(store)
-    assert warm_when_counted == [True]
-
-
 def test_the_warm_up_counts_the_largest_areas_of_law(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:

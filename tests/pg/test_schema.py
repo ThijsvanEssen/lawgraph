@@ -29,8 +29,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
         "SELECT count(*) FROM information_schema.tables"
         " WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
     )
-    # every node collection, edges, raw_sources, pipeline_state and the data versions
-    assert tables == len(NODE_COLLECTIONS) + 4
+    # every node collection, edges, raw_sources, pipeline_state, the data versions and
+    # the kept heat (lg_heat, lg_heat_state)
+    assert tables == len(NODE_COLLECTIONS) + 6
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:

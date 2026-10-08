@@ -30,6 +30,7 @@ from psycopg import sql
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import _query, _text
 
@@ -301,6 +302,8 @@ def _fill(store: GraphStore) -> None:
 def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
     """``(url, statement, params)`` of every read the routes run."""
     _seed(store)
+    # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
+    store_heat(store, HEAT_MAX_LIMIT)
     captured: list[tuple[str, Any, Any]] = []
     current = {"url": ""}
     query = store.query
