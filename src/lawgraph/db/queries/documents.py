@@ -281,6 +281,7 @@ def list_documents(
             {_facet("d.chamber", by_kind)} AS chamber
         """,
         counted,
+        tables=(COLLECTION_DOCUMENTS,),
     )[0]
     return {
         "items": page,

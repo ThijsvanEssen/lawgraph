@@ -76,7 +76,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
     ("db/queries/government.py", 'k COLLATE "C"'): "a key",
     ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
-    ("db/store.py", 'collection COLLATE "C"'): "the primary key of lg_data_version",
     ("db/schema.py", "grp"): "a group number lg_update computes",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
     ("db/schema.py", "m"): "an ordinality",

@@ -166,7 +166,6 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
     were searched less than an hour ago."""
     searched: list[int] = []
     monkeypatch.setattr(warm, "_warm_search_terms", lambda s: searched.append(1))
-    monkeypatch.setattr(warm, "_terms_searched", None)
     warm.warm_up(store)
     assert searched == [1]  # the first warm-up of the process
 
@@ -181,3 +180,38 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
     monkeypatch.setattr(warm, "SEARCH_TERMS_EVERY", 0.0)  # an hour later
     warm.warm_up(store)
     assert searched == [1, 1]
+
+
+def test_a_part_is_left_out_while_its_tables_stand_still(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll of judgments warms what reads judgments again, and leaves the list of the
+    instruments (``PART_TABLES``)."""
+    ran: list[str] = []
+    run = warm._run
+
+    def recorded(name: str, part) -> bool:  # type: ignore[no-untyped-def]
+        ran.append(name)
+        return run(name, part)
+
+    monkeypatch.setattr(warm, "_run", recorded)
+    warm.warm_up(store)
+    assert {"coverage", "instruments"} <= set(ran)
+
+    ran.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+    )
+    warm.warm_up(store)
+    assert "coverage" in ran
+    assert "instruments" not in ran and "search instruments" not in ran
+    assert warm.is_warm(store)
+
+    ran.clear()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
+    )
+    warm.warm_up(store)
+    assert "instruments" in ran and "coverage" not in ran

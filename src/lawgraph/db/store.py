@@ -422,6 +422,16 @@ def _close_open_stores() -> None:
         store.close()
 
 
+def version_stamp(versions: dict[str, int], tables: Iterable[str] | None = None) -> str:
+    """The stamp of *versions* (``GraphStore.table_versions``), or of *tables* among them: a
+    table without a version (none of its rows was ever written) counts as 0."""
+    names = sorted(set(versions) if tables is None else set(tables), key=str.encode)
+    digest = hashlib.sha1(usedforsecurity=False)
+    for name in names:
+        digest.update(f"{name}:{versions.get(name, 0)};".encode())
+    return digest.hexdigest()[:16]
+
+
 class GraphStore:
     """The PostgreSQL database of the graph: connections, reads, upserts."""
 
@@ -548,18 +558,20 @@ class GraphStore:
         )
         return int(next(self.query(statement)))
 
-    def data_version(self) -> str:
-        """A stamp of what the API serves: it changes with every statement that changes a
-        table of the graph (``lg_data_version``), and not with a retrieve."""
-        digest = hashlib.sha1(usedforsecurity=False)
+    def table_versions(self) -> dict[str, int]:
+        """The version of every table the API serves (``lg_data_version``): one that a
+        statement which changed rows of that table raised, and not a retrieve."""
         rows = self.query(
             "SELECT collection, version FROM lg_data_version"
-            ' WHERE collection = ANY(%(served)s) ORDER BY collection COLLATE "C"',
+            " WHERE collection = ANY(%(served)s)",
             {"served": list(_SERVED)},
         )
-        for row in rows:
-            digest.update(f"{row['collection']}:{row['version']};".encode())
-        return digest.hexdigest()[:16]
+        return {row["collection"]: int(row["version"]) for row in rows}
+
+    def data_version(self, tables: Iterable[str] | None = None) -> str:
+        """A stamp of what the API serves, or of *tables* alone: it changes with every
+        statement that changes one of those tables, and not with a retrieve."""
+        return version_stamp(self.table_versions(), tables)
 
     def vacuum_analyze(self) -> None:
         """``VACUUM (ANALYZE)`` of the database: after a build, so the planner knows the

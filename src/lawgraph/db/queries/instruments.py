@@ -748,11 +748,13 @@ def get_instruments_list(
             store,
             _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
             counted,
+            tables=(COLLECTION_INSTRUMENTS,),
         ),
         lambda: cached_rows(
             store,
             _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
             counted,
+            tables=(COLLECTION_INSTRUMENTS,),
         ),
     )
     items, total = _split_page(iter(rows))
