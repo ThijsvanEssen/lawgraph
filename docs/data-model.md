@@ -322,7 +322,9 @@ A Rechtspraak judgment carries:
   `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
-`articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
+`articles`, `conclusion`, `importance`, `language` (of its HUDOC record; another language version
+without an ECLI is `SAME_AS` the one kept and names its item id in `same_as`: `semantic
+echr-versions`) and, from the DOCX of its English item (else its French
 one), `text` and `paragraphs`. Its paragraphs are read from the Word styles of the Court's
 templates (`core/echr_docx.py`): `heading` for a section heading (`JuHHead`, `OpiHHead`,
 `ECHRHeading1`), `subheading` for the levels below it (`JuHIRoman`, `JuHA`, `JuH1`,

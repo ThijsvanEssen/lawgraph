@@ -14,7 +14,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
-| ECHR | `echr` | `echr` | `echr` |
+| ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
@@ -1104,6 +1104,14 @@ has), else by item (`echr_<itemid>`); the English item's record, else the French
 another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A text record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
+
+**Semantic `echr-versions`.** HUDOC holds a decision once per language. One with an ECLI is
+one node already; one without is a node per item. Those with the same application numbers
+(`appno`, in any order) and the same date are one decision: the English version is kept (else
+the French, else the lowest key), every other is `SAME_AS` it (`meta.basis` `appno_and_date`,
+1.0) and names its HUDOC item id in `same_as`, so the lists show the decision once. The other
+documents of a case (admissibility, Chamber, Grand Chamber) have another date and stay apart.
+Derived in full each run.
 
 **Semantic `echr`.** `REFERS_TO` from a judgment to the articles of the Convention it
 applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The
