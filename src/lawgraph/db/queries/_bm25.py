@@ -33,8 +33,9 @@ SAMPLE_ROWS = 20_000
 MIN_SAMPLED = 100
 # How long the statistics of a table are kept (seconds), whatever the data does.
 STATS_MAX_AGE = 6 * 3600.0
-# How long the count of the document frequencies of one search may take (seconds; it runs
-# in the background, for the next request too, ``_counted``).
+# How long the counts of the document frequencies of one search of a table may take
+# together (seconds): every term and field in one statement, under this one deadline (it
+# runs in the background, for the next request too, ``_counted``).
 DF_TIMEOUT = 5.0
 
 # The statistics of a table and the document frequencies of terms are kept per data version
