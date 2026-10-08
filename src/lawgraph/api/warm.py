@@ -30,6 +30,7 @@ from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
+from lawgraph.db.queries.dossiers import load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
@@ -100,6 +101,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "documents": (COLLECTION_DOCUMENTS,),
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
+    "dossier law names": (COLLECTION_INSTRUMENTS,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -124,6 +126,8 @@ def warm_up(store: GraphStore) -> None:
         "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
         "search notation": lambda: load_notation_parser(store),
         "search codes": lambda: load_code_aliases(store),
+        # the laws a dossier title names (``get_laws_named``)
+        "dossier law names": lambda: load_law_names(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS

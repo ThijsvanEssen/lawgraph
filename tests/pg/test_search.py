@@ -110,6 +110,10 @@ def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> Non
     assert _ids(search(graph, q="vordering", types=["instruments"])["instruments"]) == [
         "instruments/bwbr0001903"
     ]
+    # the part folded as the title is: with an accent typed or not
+    assert _ids(search(graph, q="vördering", types=["instruments"])["instruments"]) == [
+        "instruments/bwbr0001903"
+    ]
     # an identifier in any case
     assert _ids(
         search(graph, q="bwbr0001854", types=["instruments"])["instruments"]
@@ -194,6 +198,12 @@ def test_members_and_factions_without_accents_or_in_capitals(
 
     for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
         assert found(q, "members") == ["members/m1"], q
+    # a part of the name, without its accents: more than words only (an article whose text
+    # names the minister), so the member is the best hit
+    (member,) = search_queries.search_all(store, q="yesilgoz", types=["members"])[
+        "members"
+    ]
+    assert member["score"] == search_queries.SCORE_CONTAINS
     assert found("appel", "factions") == ["factions/cda"]
     # a member by the factions of their timeline only as written, not folded
     assert found("appèl", "members") == ["members/m2"]
@@ -214,6 +224,33 @@ def test_resolve_a_law_by_its_abbreviation(graph: GraphStore) -> None:
     answer = resolve_queries.resolve(graph, "Sr")
     assert answer["match"]["id"] == "instruments/bwbr0001854"
     assert answer["match"]["display_name"] == "Wetboek van Strafrecht"
+
+
+def test_a_dossier_hit_carries_the_name_it_goes_by(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node(
+                "36496",
+                "dossier",
+                number="36496",
+                label="36496",
+                title="Wijziging van de Uitvoeringswet huurprijzen woonruimte en enige"
+                " andere wetten in verband met de regulering van huurprijzen in het"
+                " middensegment (Wet betaalbare huur)",
+            ),
+            _node("36500", "dossier", number="36500", label="36500", title="Huur"),
+        ],
+    )
+    full = search_queries.search_all(store, q="middensegment", types=["dossiers"])
+    live, _ = search_queries.search_live(store, q="middensegment", types=["dossiers"])
+    for hits in (full["dossiers"], live["dossiers"]):
+        (hit,) = hits
+        assert hit["extra"]["short_title"] == "Wet betaalbare huur"
+        assert "title" not in hit["extra"]
+    hits = search_queries.search_all(store, q="huur", types=["dossiers"])["dossiers"]
+    titles = {hit["key"]: hit["extra"]["short_title"] for hit in hits}
+    assert titles == {"36496": "Wet betaalbare huur", "36500": None}
 
 
 def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(

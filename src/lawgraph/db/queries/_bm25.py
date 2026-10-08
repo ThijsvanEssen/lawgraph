@@ -145,7 +145,7 @@ def _tf(term: _Term) -> str:
         return f"cardinality(array_positions({column}, lg_fold({p})))"
     return (
         f"(CASE WHEN char_length({p}) BETWEEN 3 AND 12 THEN"
-        f" (char_length({column}) - char_length(replace({column}, {p}, '')))"
+        f" (char_length({column}) - char_length(replace({column}, lg_fold({p}), '')))"
         f" / char_length({p}) ELSE 0 END)"
     )
 
@@ -161,8 +161,8 @@ def _df(table: str, term: _Term) -> str:
     if term.analyzer == "ngram":
         return (
             f"(SELECT count(*) FROM {table} WHERE char_length({p}) BETWEEN 3 AND 12"
-            f" AND {column} LIKE '%%' || replace(replace(replace({p}, '\\', '\\\\'),"
-            f" '%%', '\\%%'), '_', '\\_') || '%%')"
+            f" AND {column} LIKE '%%' || replace(replace(replace(lg_fold({p}),"
+            f" '\\', '\\\\'), '%%', '\\%%'), '_', '\\_') || '%%')"
         )
     # identity: the rows that have a value starting with the word, of three characters or
     # more (as the condition of the search, ``search._field_condition``)
