@@ -1,19 +1,17 @@
 """The heat of the whole graph on a real PostgreSQL: every window counted in one pass over
 the edges by ``semantic graph-heat``, the same as counting each on its own, kept in
-``lg_heat`` and read there by the API, which never counts it; and off with
-``LAWGRAPH_API_HEAT=false`` but for named nodes."""
+``lg_heat`` and read there by the API, which never counts it; the heat of named nodes
+counted per request."""
 
 from __future__ import annotations
 
 import datetime as dt
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.routes import nodes
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import overlay
 
@@ -117,11 +115,12 @@ def test_the_api_never_counts_the_heat_of_the_whole_graph(store: GraphStore) -> 
     assert read and not [s for s in read if "edges" in s]
 
 
-def test_the_heat_of_the_whole_graph_can_be_switched_off(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+def test_the_heat_of_named_nodes_is_counted_without_the_kept_heat(
+    store: GraphStore,
 ) -> None:
+    """Before ``semantic graph-heat`` ran, the heat of the whole graph is 503, and that of
+    the nodes a view names is counted (an index read each)."""
     _graph(store)
-    monkeypatch.setattr(nodes, "API_HEAT", False)
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

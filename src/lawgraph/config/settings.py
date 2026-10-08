@@ -201,9 +201,6 @@ API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "fals
 # a poll that writes every half hour does not keep the database warming. Between them the API
 # answers from what it kept of the data before.
 API_WARM_UP_MIN_INTERVAL = float(os.getenv("LAWGRAPH_WARM_UP_MIN_INTERVAL", "0"))
-# The heat of the whole graph (``/api/nodes/heat`` without ``ids``), which reads every
-# edge; ``false`` answers it 503 at once (the heat of named nodes stays).
-API_HEAT = os.getenv("LAWGRAPH_API_HEAT", "true").strip().lower() != "false"
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))

@@ -19,7 +19,6 @@ from lawgraph.api.schemas.nodes import (
     node_type_of,
 )
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
-from lawgraph.config.settings import API_HEAT
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
@@ -145,12 +144,6 @@ def bulk_heat(
             raise HTTPException(status_code=422, detail=f"At most {HEAT_MAX_IDS} ids.")
         return JSONResponse(
             get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
-        )
-    if not API_HEAT:
-        raise HTTPException(
-            status_code=503,
-            detail="The heat of the whole graph is off (LAWGRAPH_API_HEAT); ask with ids.",
-            headers={"Retry-After": "3600"},
         )
     kept = stored_heat(store, months, min_count, limit)
     if kept is None:
