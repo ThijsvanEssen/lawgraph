@@ -492,6 +492,9 @@ def test_members_by_party_name_and_seat(store: GraphStore) -> None:
     # a name part, in any case, also beyond ASCII; nothing contains ""
     assert _keys(get_members(store, q="ann")) == ["m1", "m2", "Zz"]
     assert _keys(get_members(store, q="émile", include_all=True)) == ["m6", "m9"]
+    # and without its accents, or in capitals: folded on both sides as the search folds
+    for q in ("emile", "EMILE", "ÉMILE"):
+        assert _keys(get_members(store, q=q, include_all=True)) == ["m6", "m9"], q
     assert get_members(store, q="  ") == []
 
 
@@ -503,6 +506,7 @@ def test_the_members_of_the_eerste_kamer(store: GraphStore) -> None:
     assert _keys(get_ek_members(store, active=False)) == ["m7"]
     assert _keys(get_ek_members(store, party="VVD")) == ["m8", "m6"]
     assert _keys(get_ek_members(store, q="émile e")) == ["m6"]
+    assert _keys(get_ek_members(store, q="Emile E")) == ["m6"]
     assert _keys(get_ek_members(store, q="zo")) == ["m7"]
     assert get_ek_members(store, q=" ") == []
     assert _keys(get_ek_members(store, limit=1, offset=1)) == ["m6"]
@@ -589,6 +593,7 @@ def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     assert _keys(get_factions(store, active=False)) == ["cda"]
     assert _keys(get_factions(store, q="d6")) == ["d66", "z"]
     assert _keys(get_factions(store, q="ZET")) == ["z"]
+    assert _keys(get_factions(store, q="zéta")) == ["z"]  # an accent the name lacks
     assert get_factions(store, q="  ") == []
     ek = get_factions(store, chamber="EK")
     assert _keys(ek) == ["ek_vvd"] and ek[0]["member_count"] == 1

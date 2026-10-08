@@ -65,9 +65,12 @@ def _nonempty(value: str) -> str:
 
 
 def _contains(text: str) -> str:
-    """SQL: AQL ``CONTAINS(LOWER(text), %(q)s)``: ``LOWER(null)`` is ``""``, and nothing
-    contains ``""``."""
-    return f"(%(q)s <> '' AND strpos(lower(coalesce({text}, '')), %(q)s) > 0)"
+    """SQL: *text* holds ``%(q)s``, both folded as the search folds them (``lg_fold``: lower
+    case, no accents: ``yesilgoz`` finds Yeşilgöz); null holds nothing, and nothing holds
+    ``""``."""
+    return (
+        f"(%(q)s <> '' AND strpos(lg_fold(coalesce({text}, '')), lg_fold(%(q)s)) > 0)"
+    )
 
 
 def _chamber(table: str, chamber: str) -> str:
