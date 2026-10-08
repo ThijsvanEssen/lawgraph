@@ -192,7 +192,8 @@ class FeedFilters:
 
     *dossier* is a prefix of a dossier label (``36600`` holds ``36600-VII``); *member* a
     member key, *faction* a faction key, *cabinet* a cabinet key (the events in its period),
-    *q* words of the title or of the title of the event's dossier, in any case.
+    *q* words of the title or of the title of the event's dossier, in any case; of several,
+    any of them (``_words``).
     """
 
     kinds: tuple[str, ...] | None = None
@@ -203,7 +204,7 @@ class FeedFilters:
     dossier: str | None = None
     member: str | None = None
     faction: str | None = None
-    q: str | None = None
+    q: tuple[str, ...] = ()
     chamber: str | None = None  # TK, EK
     # the tiers of the judgments; None: ``FEED_TIERS``. A tier keeps judgments alone.
     tiers: tuple[str, ...] | None = None
@@ -571,9 +572,20 @@ _MEMBER_FILTER = (
 _WORDS = "{words}"
 
 
-def _contains(text: str) -> str:
-    """SQL: the JSON *text* holds the words of ``q`` (``_words``)."""
-    return _words.holds(_text(text))
+def _contains(text: str, count: int) -> str:
+    """SQL: the JSON *text* holds any of the *count* words of ``q`` (``_words``, the binds
+    ``q_word_0`` …)."""
+    return " OR ".join(_words.holds(_text(text), f"q_word_{n}") for n in range(count))
+
+
+def _words_of(filters: FeedFilters) -> list[str]:
+    """The words of ``q`` as they are matched, each once."""
+    return [w for w in dict.fromkeys(_words.words(q) for q in filters.q) if w]
+
+
+def _each_word(sql: str, count: int) -> str:
+    """SQL: *sql*, written for the bind ``q``, for any of the *count* words."""
+    return " OR ".join(sql.replace("%(q)s", f"%(q_{n})s") for n in range(count))
 
 
 def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
@@ -585,10 +597,11 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
     if filters.member:
         clauses.append(_MEMBER_FILTER)
         bind["member"] = filters.member
-    if filters.q:
-        clauses.append(_WORDS)
-        bind["q"] = _words.words(filters.q)
-        bind["q_word"] = _words.word_pattern(bind["q"])
+    for n, word in enumerate(_words_of(filters)):
+        if n == 0:
+            clauses.append(_WORDS)
+        bind[f"q_{n}"] = word
+        bind[f"q_word_{n}"] = _words.word_pattern(word)
     return clauses
 
 
@@ -745,25 +758,29 @@ class _Kind:
 
     def words(self) -> str:
         """The filter on the words: in the title, or in the title of the first dossier."""
-        found = _contains("t.title")
+        count = len(_words_of(self.plan.filters))
+        found = _contains("t.title", count)
         if self.first_dossier:
-            found += f" OR {_contains('fd.title')}"
-        return f"%(q)s <> '' AND ({found})"
+            found += f" OR {_contains('fd.title', count)}"
+        return f"({found})"
 
     def candidates(self) -> str | None:
         """The rows that may hold the words, found by index (``_Source.found``); None when
         the kind has no index for them or the words are too short for one."""
-        q = (self.plan.filters.q or "").strip()
-        if self.source.found is None or len(q) < _words.TRIGRAM:
+        words = _words_of(self.plan.filters)
+        if self.source.found is None or not words:
             return None
-        found = self.source.found
+        if any(len(word) < _words.TRIGRAM for word in words):
+            return None
+        count = len(words)
+        found = _each_word(self.source.found, count)
         if self.first_dossier:
             if self.source.dossier_found is None:
                 return None
             titled = (
                 f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
-                f" WHERE d.s_title_g LIKE {_words.FOLDED_LIKE}"
-                f" AND {_contains('d.pj_title')}"
+                f" WHERE ({_each_word(f'd.s_title_g LIKE {_words.FOLDED_LIKE}', count)})"
+                f" AND ({_contains('d.pj_title', count)})"
             )
             found += " OR " + self.source.dossier_found.replace("{titled}", titled)
         return f"({found})"
