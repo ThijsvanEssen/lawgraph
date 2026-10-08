@@ -489,3 +489,39 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     (motion,) = get_document_decisions(store, "documents/motie")
     assert motion["votes"][0]["voter_key"] == "vvd"
     assert motion["votes"][0]["choice"] == "Voor"
+
+
+@pytest.mark.parametrize(
+    ("q", "keys"),
+    [
+        # a word of at most four letters whole, any case
+        ("AI", ["w1"]),
+        ("aiv", ["w2"]),
+        # a longer word from the start of a word: algoritmes, not rekenalgoritme
+        ("Algoritme", ["w4"]),
+        ("algoritmes in", ["w4"]),
+        ("c.v.", ["w5"]),
+    ],
+)
+def test_the_words_of_a_subject(store: GraphStore, q: str, keys: list[str]) -> None:
+    """The words of ``q`` as the feed matches them (``_words``), by the index on the words
+    of a decision or, for a word of fewer than three letters, by every subject."""
+    subjects = [
+        "Motie over AI-modellen",
+        "Advies van de AIV",
+        "Rekenalgoritme van de Belastingdienst",
+        "Algoritmes in de zorg",
+        "Motie over de c.v.-ketel",
+        "Universitaire opleidingen",
+    ]
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(f"w{n}", ["TK"], subject=subject, date=f"2024-01-0{n}", kind="Motie",
+                  passed=True)
+            for n, subject in enumerate(subjects, start=1)
+        ],
+    )  # fmt: skip
+    page = get_decisions(store, DecisionFilters(q=q))
+    assert sorted(_keys(page)) == keys
+    assert page["total"] == len(keys)

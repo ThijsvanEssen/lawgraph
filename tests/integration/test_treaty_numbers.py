@@ -127,3 +127,28 @@ def test_the_check_counts_what_the_numbers_match(store: GraphStore) -> None:
         "treaties: 1 of 3 BWB treaties have a Verdragenbank record, 1 name a number it "
         "does not have, 1 name none"
     ) in notes
+
+
+def test_the_bwb_text_of_a_treaty_is_the_same_as_its_verdragenbank_record(
+    store: GraphStore, cli: Callable[..., Any]
+) -> None:
+    def same_as() -> set[tuple[str, str]]:
+        return {
+            (row["from_id"], row["to_id"])
+            for row in store.query(
+                "SELECT from_id, to_id FROM edges WHERE relation = 'SAME_AS'"
+            )
+        }
+
+    cli("semantic", "verdragenbank")
+    # the numbered text with a record; not the one whose number has none, nor the unnumbered
+    assert same_as() == {("instruments/bwbv0001000", "instruments/verdrag_005132")}
+    cli("semantic", "verdragenbank")
+    assert len(same_as()) == 1
+
+    # a number that no longer matches: the edge goes on the next run
+    store.query(
+        "UPDATE instruments SET treaty_number = '999999' WHERE key = 'bwbv0001000'"
+    )
+    cli("semantic", "verdragenbank")
+    assert same_as() == set()
