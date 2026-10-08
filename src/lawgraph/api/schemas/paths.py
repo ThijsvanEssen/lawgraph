@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
@@ -17,6 +19,25 @@ class PathDTO(BaseModel):
     length: int = Field(description="Its edges, 1 for direct neighbours.")
     node_ids: list[str] = Field(description="Its nodes, from `source` to `target`.")
     edge_ids: list[str] = Field(description="Its edges, in that order.")
+    membership_edge_ids: list[str] = Field(
+        default_factory=list,
+        description="Of `edge_ids`, those that make a child of a group the path starts or "
+        "ends at (`expand=members`).",
+    )
+    via: dict[str, str] = Field(
+        default_factory=dict,
+        description="Per end that is a group the path goes through a child of "
+        "(`expand=members`): the child (`factions/vvd`: `members/…`).",
+    )
+
+
+class GroupExpandedDTO(BaseModel):
+    """How many children of a group a path search started from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    used: int
+    total: int
 
 
 class PathsResponse(BaseModel):
@@ -48,4 +69,15 @@ class PathsResponse(BaseModel):
     capped: bool = Field(
         description="A level of a search reached its cap (5,000 nodes): a longer way "
         "around a hub may have been missed."
+    )
+    expand: Literal["none", "members"] = "none"
+    expanded: dict[str, GroupExpandedDTO] = Field(
+        default_factory=dict,
+        description="Per group of `ids` (`expand=members`): how many of its children the "
+        "search started from (`used`, at most `expand_cap`) of how many it has (`total`).",
+    )
+    partial: bool = Field(
+        default=False,
+        description="The search ran past its time: the paths found by then; another pair "
+        "may have one.",
     )

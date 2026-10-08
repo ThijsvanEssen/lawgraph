@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -16,7 +16,7 @@ from lawgraph.api.schemas.nodes import (
 from lawgraph.api.schemas.paths import PathDTO, PathsResponse
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.paths import Followed, get_paths
+from lawgraph.db.queries.paths import Followed, Path, get_paths
 from lawgraph.db.schema import NODE_COLLECTIONS
 
 router = APIRouter()
@@ -78,6 +78,17 @@ def get_paths_route(
     through_laws: Annotated[
         bool, Query(description="Let a path pass through a law by its articles.")
     ] = False,
+    expand: Annotated[
+        Literal["none", "members"],
+        Query(
+            description="`members`: a group of `ids` (a law, a faction, a committee, a "
+            "cabinet, a dossier) is joined through its children too (articles, members, "
+            "bewindspersonen, cases and papers)."
+        ),
+    ] = "none",
+    expand_cap: Annotated[
+        int, Query(ge=1, le=1000, description="The children of a group, at most.")
+    ] = 200,
 ) -> PathsResponse:
     asked = _node_ids(ids)
     chosen = parse_choices(relations, RELATION_NAMES, "relations")
@@ -90,8 +101,13 @@ def get_paths_route(
     if missing:
         raise HTTPException(status_code=404, detail=f"not found: {', '.join(missing)}")
     data = get_paths(
-        store, asked, max_depth, Followed(relations=kept, through_laws=through_laws)
+        store,
+        asked,
+        max_depth,
+        Followed(relations=kept, through_laws=through_laws),
+        expand_cap=expand_cap if expand == "members" else 0,
     )
+    membership: set[str] = data["membership"]
     return PathsResponse(
         ids=asked,
         max_depth=max_depth,
@@ -104,6 +120,8 @@ def get_paths_route(
                 length=len(p.edges),
                 node_ids=list(p.nodes),
                 edge_ids=[f"edges/{e}" for e in p.edges],
+                membership_edge_ids=[f"edges/{e}" for e in p.edges if e in membership],
+                via=_via(p, membership),
             )
             for p in data["paths"]
         ],
@@ -127,4 +145,23 @@ def get_paths_route(
             for e in data["edges"]
         ],
         capped=data["capped"],
+        expand=expand,
+        expanded=data["expanded"],
+        partial=data["partial"],
     )
+
+
+def _via(path: Path, membership: set[str]) -> dict[str, str]:
+    """Per end of *path* that it leaves through a child: the child (the last node of the
+    steps of membership from that end)."""
+    via: dict[str, str] = {}
+    for end, nodes, edges in (
+        (path.source, path.nodes, path.edges),
+        (path.target, path.nodes[::-1], path.edges[::-1]),
+    ):
+        steps = 0
+        while steps < len(edges) and edges[steps] in membership:
+            steps += 1
+        if steps:
+            via[end] = nodes[steps]
+    return via
