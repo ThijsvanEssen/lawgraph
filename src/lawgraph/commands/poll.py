@@ -44,8 +44,10 @@ POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (
         Step("retrieve", "tk"),
         Step("retrieve", "tk-dossiers", ("--skip-members",)),
+        Step("retrieve", "tk-document-links"),
         Step("normalize", "tk"),
         Step("normalize", "tk-dossiers"),
+        Step("normalize", "tk-document-links"),
         Step("semantic", "tk-dossier-outcomes"),
         Step("semantic", "tk-government"),
     ),

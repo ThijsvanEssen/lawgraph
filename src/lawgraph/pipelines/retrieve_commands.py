@@ -49,6 +49,9 @@ from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.tk_document_links import (
+    TKDocumentLinksRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
@@ -412,6 +415,19 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
 
     pipeline = TKContentRetrievePipeline(store=GraphStore())
     return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
+
+
+def retrieve_tk_document_links(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the links of Tweede Kamer documents: the activity a document "
+        "is the record of, its attachments and the letters it is an attachment of."
+    )
+    add_since_argument(parser, default="1d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    since = None if args.mode == "full" else args.since
+    return TKDocumentLinksRetrievePipeline(GraphStore()).run(since=since)
 
 
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:

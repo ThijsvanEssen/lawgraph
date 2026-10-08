@@ -430,6 +430,11 @@ class DocumentProps(_CommonProps):
     # Document.DocumentNummer (2026D44984): what tweedekamer.nl finds it by
     document_number: str | None = None
     actors: list | None = None
+    # its links (``tk_records.document_links``): the activities it is the record of, its
+    # attachments, and the letters it is an attachment of (TK ids)
+    activity_ids: list[str] | None = None
+    attachment_ids: list[str] | None = None
+    attached_to_ids: list[str] | None = None
     # Eerste Kamer: the page of the paper on zoek.officielebekendmakingen.nl
     url: str | None = None
     # Staatsblad / Staatscourant

@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -124,6 +125,8 @@ def _raw(payload: dict[str, Any]) -> dict[str, Any]:
         (RELATION_ABOUT, COLLECTION_COMMITMENTS, {COLLECTION_DOSSIERS}),
         (RELATION_LED_BY, COLLECTION_ACTIVITIES, {COLLECTION_COMMITTEES}),
         (RELATION_MADE_IN, COLLECTION_COMMITMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_MADE_IN, COLLECTION_DOCUMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, {COLLECTION_DOCUMENTS}),
         (
             RELATION_MEMBER_OF,
             COLLECTION_MEMBERS,
@@ -818,3 +821,47 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
     # a run over everything holds every dossier already
     whole = SimpleNamespace(_incremental=False, store=None)
     assert TKDossiersNormalizePipeline._touched_dossiers(whole, normalized) == {}  # type: ignore[arg-type]
+
+
+# ── links of a document: the activity it records, attachments and letters ─────
+
+# The stenogram of the Tweede Kamer of 28 March 2023 (2023D18976): no case, no dossier,
+# only the debate it is the record of (Document.Activiteit, 2023A00493).
+STENOGRAM = "9cd4c32c-77fb-4713-821d-faf5ebd49b61"
+DEBATE = "a76eec4d-9cde-48de-aefa-6385e69dd0e1"
+
+
+def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_letter() -> (
+    None
+):
+    store = _Store(
+        existing={
+            COLLECTION_DOCUMENTS: {
+                "9cd4c32c_77fb_4713_821d_faf5ebd49b61",
+                "letter",
+                "memo",
+                "report",
+            },
+            COLLECTION_ACTIVITIES: {"a76eec4d_9cde_48de_aefa_6385e69dd0e1"},
+        }
+    )
+    links = [
+        (STENOGRAM, {"activity_ids": [DEBATE, "gone"]}),
+        # the letter names its attachments; the report names its letter (a run that
+        # read only the report makes the same edge); a paper not stored makes none
+        ("letter", {"attachment_ids": ["memo", "absent"]}),
+        ("report", {"attached_to_ids": ["letter"]}),
+        ("memo", {"attached_to_ids": ["letter"]}),  # the same edge as the letter's
+    ]
+    tk_cases.link_documents(store, links, source=SOURCE)
+    assert set(store.edge_meta) == {
+        (
+            "documents/9cd4c32c_77fb_4713_821d_faf5ebd49b61",
+            RELATION_MADE_IN,
+            "activities/a76eec4d_9cde_48de_aefa_6385e69dd0e1",
+        ),
+        ("documents/memo", RELATION_ACCOMPANIES, "documents/letter"),
+        ("documents/report", RELATION_ACCOMPANIES, "documents/letter"),
+    }
+    # one lookup per collection, whatever the number of documents
+    assert store.existence_calls == 2
