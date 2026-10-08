@@ -572,3 +572,57 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
         "ecli_nl_rbams_2021_2",
         "ecli_nl_rbams_2021_1",
     ]
+
+
+def test_a_live_word_of_several_stems_holds_them_all(store: GraphStore) -> None:
+    """``20/325`` is the words 20 and 325 (``lg_tokens``): while typing a paper holds them
+    both, not one of them (every paper with a 20); a token of no word (``--``) finds
+    nothing by it, not every paper."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(
+                "d1", "document", title="Twintig jaar: 20 besluiten", date="2024-02-01"
+            ),
+            _node("d2", "document", title="Zaak 20/325 besluit", date="2024-01-01"),
+            _node("d3", "document", title="De 325 regels", date="2024-03-01"),
+        ],
+    )
+
+    def live(q: str) -> list[str]:
+        hits, partial = search_queries.search_live(store, q=q, types=["documents"])
+        assert partial == set()
+        return [h["key"] for h in hits["documents"]]
+
+    assert live("20/325") == ["d2"]
+    assert live("--") == []
+
+
+def test_the_types_of_a_live_search_share_one_budget(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Types that find no free thread run one after another: together they keep to
+    ``LIVE_BUDGET``, a type that starts late has what is left and is cut off."""
+    import time
+
+    version_cache.clear()
+
+    def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        list(store.query("SELECT pg_sleep(0.2)"))
+        return []
+
+    monkeypatch.setattr(search_queries, "_search_articles", slow)
+    monkeypatch.setattr(search_queries, "_search_documents", slow)
+    monkeypatch.setattr(search_queries, "_search_dossiers", slow)
+    # no thread free: every type in the thread of the request
+    monkeypatch.setattr(
+        search_queries, "side_by_side", lambda pool, calls: [call() for call in calls]
+    )
+    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 0.3)
+    started = time.monotonic()
+    _, partial = search_queries.search_live(
+        store, q="wet", types=["articles", "documents", "dossiers"]
+    )
+    assert time.monotonic() - started < 0.6
+    assert partial == {"documents", "dossiers"}

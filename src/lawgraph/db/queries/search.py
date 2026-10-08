@@ -12,6 +12,7 @@ their order is held to D3.
 from __future__ import annotations
 
 import functools
+import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -986,7 +987,7 @@ def search_live(
     kinds: list[str] | None = None,
     limit: int = 10,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
-    """``search_all`` while typing: each type within ``LIVE_BUDGET``, nothing ranked by
+    """``search_all`` while typing: all types within ``LIVE_BUDGET``, nothing ranked by
     its words (``_live_query``), and the judgments without their summaries: an ECLI, the
     name of a judgment, then the judgments whose display name (its court, date and case
     number) holds every word, the most cited first. Returns the hits per type and the
@@ -998,12 +999,23 @@ def search_live(
         store, q, tokens, _notation(store, q, types), kinds, limit
     )
     wanted = [t for t in types if t in searches]
+    # one budget for them all: a type that waited for a thread (``side_by_side`` runs those
+    # for which none is free one after another) has what is left of it
+    ends = time.monotonic() + LIVE_BUDGET
     found = side_by_side(
-        _SEARCHES, [functools.partial(_within_budget, searches[t]) for t in wanted]
+        _SEARCHES,
+        [functools.partial(_within_live_budget, searches[t], ends) for t in wanted],
     )
     hits = {t: rank_hits(q, rows) for t, (rows, _) in zip(wanted, found, strict=True)}
     partial = {t for t, (_, cut) in zip(wanted, found, strict=True) if cut}
     return hits, partial
+
+
+def _within_live_budget(
+    search: Callable[[], list[dict[str, Any]]], ends: float
+) -> tuple[list[dict[str, Any]], bool]:
+    """``_within_budget`` with what is left until *ends* (``time.monotonic``)."""
+    return _within_budget(search, max(0.0, ends - time.monotonic()))
 
 
 # The rows a live search orders at most: a common word is in far more, and the first found
@@ -1086,8 +1098,11 @@ def _live_clause(
         for field in fields:
             analyzers = SEARCH_FIELDS[table][field]
             if "text" in analyzers:
+                # every word the token holds (``20/325``: 20 and 325), not any of them;
+                # a token of no word (a stop word) holds none
                 per_field.append(
-                    f"doc.{search_column(field, 'text')} && lg_tokens(%({word})s)"
+                    f"(cardinality(lg_tokens(%({word})s)) > 0"
+                    f" AND doc.{search_column(field, 'text')} @> lg_tokens(%({word})s))"
                 )
             if "norm" in analyzers:
                 per_field.append(
