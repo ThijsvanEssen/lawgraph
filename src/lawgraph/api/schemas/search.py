@@ -54,6 +54,14 @@ class SearchResponse(BaseModel):
     types: list[str]
     total: int
     results: dict[str, list[SearchResultItem]]
+    partial: dict[str, bool] = Field(
+        default_factory=dict,
+        description=(
+            "With `mode=live`: the types cut off at their budget, `true` each (their "
+            "results may be empty or short; the full search has more). A type that was not "
+            "cut off is not in it."
+        ),
+    )
     resolved: ResolveResponse | None = Field(
         default=None,
         description="With `resolve=true`: what `/api/resolve` answers for `q`, in the "

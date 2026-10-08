@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -13,7 +13,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search import search_all, search_live
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -53,6 +53,17 @@ def search(
     resolve: Annotated[
         bool, Query(description="Also resolve `q`, as `/api/resolve` does")
     ] = False,
+    mode: Annotated[
+        Literal["full", "live"],
+        Query(
+            description=(
+                "`live` while typing: each type within 250 ms, cut off types in `partial`, "
+                "the judgments by ECLI, name and display name (court, date, case number), "
+                "the most cited first, and only from three characters; `full` (the "
+                "default) ranks everything"
+            )
+        ),
+    ] = "full",
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -68,13 +79,15 @@ def search(
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
-    raw = search_all(
-        store,
-        q=q,
-        types=requested_types,
-        kinds=kind_list,
-        limit=limit,
-    )
+    partial: set[str] = set()
+    if mode == "live":
+        raw, partial = search_live(
+            store, q=q, types=requested_types, kinds=kind_list, limit=limit
+        )
+    else:
+        raw = search_all(
+            store, q=q, types=requested_types, kinds=kind_list, limit=limit
+        )
 
     grouped: dict[str, list[SearchResultItem]] = {}
     total = 0
@@ -103,6 +116,7 @@ def search(
         types=requested_types,
         total=total,
         results=grouped,
+        partial=dict.fromkeys(sorted(partial), True),
         resolved=_resolved(store, q) if resolve else None,
     )
 

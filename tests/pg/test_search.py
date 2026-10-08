@@ -303,3 +303,84 @@ def test_resolve_a_code_without_its_book_lists_its_books(store: GraphStore) -> N
             resolve_queries.resolve(store, q)["match"]["key"]
             == f"{books['6'].lower()}_162"
         )
+
+
+def _live_judgments(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(
+                "ecli_nl_hr_2019_2007",
+                "judgment",
+                ecli="ECLI:NL:HR:2019:2007",
+                display_name="Hoge Raad 2019-12-20 / 19/00135",
+                names=["Urgenda"],
+                summary="Klimaat.",
+                inbound_citation_count=50,
+            ),
+            _node(
+                "ecli_nl_rbams_2021_1",
+                "judgment",
+                ecli="ECLI:NL:RBAMS:2021:1",
+                display_name="Rechtbank Amsterdam 2021-11-25 / 20/325",
+                summary="Huurcommissie.",
+                inbound_citation_count=1,
+            ),
+            _node(
+                "ecli_nl_rbams_2021_2",
+                "judgment",
+                ecli="ECLI:NL:RBAMS:2021:2",
+                display_name="Rechtbank Amsterdam 2021-12-01 / 21/1",
+                summary="Huur.",
+                inbound_citation_count=9,
+            ),
+        ],
+    )
+
+
+def test_a_live_search_finds_judgments_by_name_display_name_or_ecli(
+    store: GraphStore,
+) -> None:
+    """While typing: no summary is ranked; a part of a name, of the display name (court,
+    date, case number) or an ECLI, the most cited first."""
+    version_cache.clear()
+    _live_judgments(store)
+    statements: list[str] = []
+    query = store.query
+
+    def recording(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        statements.append(" ".join(str(statement).split()))
+        return query(statement, *args, **kwargs)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+
+        def live(q: str) -> list[str]:
+            hits, partial = search_queries.search_live(store, q=q, types=["judgments"])
+            assert partial == set()
+            return [h["key"] for h in hits["judgments"]]
+
+        assert live("urgen") == ["ecli_nl_hr_2019_2007"]
+        assert live("rechtbank amsterdam") == [
+            "ecli_nl_rbams_2021_2",
+            "ecli_nl_rbams_2021_1",
+        ]
+        assert live("20/325") == ["ecli_nl_rbams_2021_1"]
+        assert live("ECLI:NL:HR:2019:2007") == ["ecli_nl_hr_2019_2007"]
+        assert live("hu") == []  # fewer than three characters
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    assert not any("AS rank" in s for s in statements)  # no BM25 while typing
+
+
+def test_a_live_search_cuts_a_type_off_at_its_budget(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    version_cache.clear()
+    _live_judgments(store)
+    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 0.0)
+    hits, partial = search_queries.search_live(
+        store, q="rechtbank", types=["judgments", "articles"]
+    )
+    assert partial == {"judgments", "articles"}
+    assert hits == {"judgments": [], "articles": []}
