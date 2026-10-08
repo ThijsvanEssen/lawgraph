@@ -14,7 +14,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
-| ECHR | `echr` | `echr` | `echr` |
+| ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
@@ -191,8 +191,13 @@ Miljoenennota itself, so each record links to the dossier node with that key.
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
 to Case and Dossier; Commitment to the dossiers of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`), `LED_BY` (Activity and Case to
-Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity), `MEMBER_OF`
-(dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`.
+Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity;
+Decision to the activity of its agenda item, `activity_id`; Document to the activity it records),
+`ANSWERS` (the letter that fulfils a commitment, `letter_ids`, to it),
+`MEMBER_OF` (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`. A run
+over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every stored seat of that
+person, so the member's timeline is made of all their seats, and takes the member and the faction
+from the database when the window holds neither.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -345,9 +350,15 @@ motions) are `RELATED_TO` it. The Kamer relates none of the cases of `37035`; `3
 `RELATED_TO` from the dossiers whose letters answer the motions of the Algemene Politieke
 Beschouwingen, which are filed under it (16 on 24 Sep 2026).
 
-It reads every dossier and every related case on every run, since a dossier loaded today can be
-the other end of a relation stated earlier. It only adds and updates edges: an edge whose
-evidence is gone stays until the database is built again.
+The same step ties the two cases of each Kamer relation themselves: `RELATED_TO` case → case
+(`meta.case_kinds`), also within one dossier or without one, when both cases are stored. And a moved
+activity (`Verplaatst`) is `CONTINUES`d by the activity that replaced it: `replaced_by`
+(`Activiteit.VervangenDoor`) names that one's number, the edge runs from it to the moved one
+(`meta.reason` `verplaatst`).
+
+It reads every dossier, every related case and every activity on every run, since a node loaded
+today can be the other end of a relation stated earlier. It only adds and updates edges: an edge
+whose evidence is gone stays until the database is built again.
 
 ## Rechtspraak
 
@@ -538,6 +549,15 @@ edge reaches or leaves. No `REFERS_TO` is written between two judgments that `AP
 names the arrest under cassation and the conclusion in a footnote does not cite them. It runs
 after the steps that make those edges. `semantic graph-list-stats` recounts
 `inbound_citation_count` and `outbound_citation_count` after it.
+
+A decision of the ECHR is cited by application number, not by ECLI ("EHRM 28 maart 2000, nr.
+22492/93", "EHRM (GK) 12 november 2008, nrs. 34503/97 en 34504/97"): after each "EHRM", the
+numbers named with `nr.` or `nrs.` and a date before them (`core/echr_citations.py`).
+`REFERS_TO` to the ECHR decision of that number and date (0.9), or, without a date, to the only
+decision of the number (0.8); a number of several decisions (admissibility, Chamber, Grand
+Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, `meta.cited_date`).
+The language versions of one decision count once (`echr-versions`). The log says how many were
+linked, not loaded and ambiguous.
 
 **Semantic `rechtspraak-duplicates`.** The Rechtspraak published many old arresten again under a
 new ECLI (HR:1985:BH3435, BV4163 and BV4180 are AW8335); the old publication has no text and its
@@ -935,12 +955,14 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, extracts the
-publication year and number of each regulation and fetches those not yet stored (run
-`retrieve bwb` first). `full`: every AMvB from the SRU.
+**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
+`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
+`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
+regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
-`nota-van-toelichting` or `toelichting` section, `bwb_id` = first BWB id in the XML), key
+`nota-van-toelichting` or `toelichting` section, `bwb_id` = the regulation retrieve found it
+for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
 
@@ -1110,6 +1132,14 @@ another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A tex
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
 
+**Semantic `echr-versions`.** HUDOC holds a decision once per language. One with an ECLI is
+one node already; one without is a node per item. Those with the same application numbers
+(`appno`, in any order) and the same date are one decision: the English version is kept (else
+the French, else the lowest key), every other is `SAME_AS` it (`meta.basis` `appno_and_date`,
+1.0) and names its HUDOC item id in `same_as`, so the lists show the decision once. The other
+documents of a case (admissibility, Chamber, Grand Chamber) have another date and stay apart.
+Derived in full each run.
+
 **Semantic `echr`.** `REFERS_TO` from a judgment to the articles of the Convention it
 applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The
 Convention is the BWB treaty `BWBV0001000`, whose articles are numbered as HUDOC numbers them:
@@ -1120,8 +1150,12 @@ the Protocol's own BWB treaty: the curated list `echr-protocols` gives it (P1 is
 signing the BWB gives; `meta.protocol` names the Protocol. A Dutch judgment that cites "art. 8
 EVRM" reaches the same article. While a treaty is not loaded its cited articles are stubs
 (`bwbv0001000_8`, `bwbv0001001_1`; `bwb_id` and `article_number`), as the cited articles of any
-law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The edges of a
-judgment are derived in full: one it no longer supports is removed.
+law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The text of a
+judgment (its DOCX) cites other decisions of the Court by application number ("Kılıç v. Turkey,
+no. 22492/93, § 62"; "(dec.), no. 12345/01, 3 May 2005"): `REFERS_TO` to the decision of that
+number and of the date that follows within the citation, or without one to the only decision of
+the number, as for a Dutch judgment (`rechtspraak-citations`); its own numbers are no citation.
+The edges of a judgment are derived in full: one it no longer supports is removed.
 
 **Known limits.** An article of a Protocol the list does not have (11, 14, 15, 16: they change
 the procedure of the Court) is not linked; `lawgraph check` counts them, and `semantic echr`

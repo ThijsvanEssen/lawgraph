@@ -95,6 +95,7 @@ from lawgraph.pipelines.semantic.bwb_relation_types import (
     BWBRelationTypesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
+from lawgraph.pipelines.semantic.echr_versions import ECHRVersionsSemanticPipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
@@ -700,6 +701,13 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         ECHRSemanticPipeline,
         "REFERS_TO: links ECHR judgments to Convention articles.",
+    ),
+    _pipeline(
+        ECHRVersionsSemanticPipeline,
+        (
+            "SAME_AS between the language versions of an ECHR decision without an ECLI "
+            "(same appno and date); the lists show it once."
+        ),
     ),
     _pipeline(
         RechtspraakAppealSemanticPipeline,

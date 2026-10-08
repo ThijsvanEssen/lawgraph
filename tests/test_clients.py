@@ -350,3 +350,17 @@ def test_the_actors_of_cases_are_asked_for_alone(monkeypatch: Any) -> None:
         "Fractie_Id,Commissie_Id)",
     }
     assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
+
+
+def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it(
+    monkeypatch: Any,
+) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[dict] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append(params) or iter(()),
+    )
+    list(client.fetch_toezeggingen())
+    assert asked == [{"$expand": "KamerbriefNakoming($select=Id)"}]

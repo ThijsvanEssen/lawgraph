@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     RAW_KIND_STB_AMVB,
     RAW_KIND_TK_DOCUMENT,
+    RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
     SOURCE_ECHR,
@@ -116,6 +117,27 @@ def vote_rows_of_decisions(
             "source": SOURCE_TK,
             "kind": RAW_KIND_TK_STEMMING,
             "decisions": [str(d) for d in decisions],
+        },
+    )
+    return _records(rows)
+
+
+def seat_records_of_persons(
+    store: Store, persons: list[Any]
+) -> Iterator[dict[str, Any]]:
+    """Every FractieZetelPersoon record of *persons* (TK ``Persoon_Id``): the whole seat
+    history of each, which their faction timeline is made of."""
+    rows = store.query(
+        f"""
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s
+          AND doc -> 'payload_json' ->> 'Persoon_Id' = ANY(%(persons)s)
+        {_ORDER}
+        """,
+        {
+            "source": SOURCE_TK,
+            "kind": RAW_KIND_TK_FRACTIEZETELPERSOON,
+            "persons": [str(p) for p in persons],
         },
     )
     return _records(rows)

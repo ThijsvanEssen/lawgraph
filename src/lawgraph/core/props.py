@@ -384,6 +384,8 @@ class JudgmentProps(_CommonProps):
     # ECHR-specific fields
     external_id: str | None = None
     appno: str | None = None
+    # ECHR: the language of the HUDOC record (``ENG``, ``FRE``): ``semantic echr-versions``
+    language: str | None = None
     title: str | None = None
     date: str | None = None
     respondent: str | None = None
@@ -535,6 +537,8 @@ class DecisionProps(_CommonProps):
     # TK decisions
     decision_id: str | None = None
     agenda_item_id: str | None = None
+    # the activity of its agenda item, the meeting it was taken in (MADE_IN)
+    activity_id: str | None = None
     date: str | None = None
     subject: str | None = None
     agenda_item_subject: str | None = None
@@ -595,6 +599,8 @@ class CommitmentProps(_CommonProps):
     status: str | None = None
     activity_number: str | None = None
     number: str | None = None  # "TZ202603-130", how the Kamer cites it
+    # the letters that fulfil it (``KamerbriefNakoming``, TK ids): ANSWERS from each
+    letter_ids: list[str] | None = None
     # who made it (``semantic government``): the member, the post and ministry of their
     # role, and the cabinet in office on the day
     member_key: str | None = None

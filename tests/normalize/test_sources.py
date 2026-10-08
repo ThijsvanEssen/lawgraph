@@ -40,9 +40,14 @@ class _FakeStore(RawSourcesFake):
 
 
 def _raw(
-    external_id: str, payload_text: str | None = None, payload_json: Any = None
+    external_id: str,
+    payload_text: str | None = None,
+    payload_json: Any = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict:
     rec: dict[str, Any] = {"external_id": external_id}
+    if meta is not None:
+        rec["meta"] = meta
     if payload_text is not None:
         rec["payload_text"] = payload_text
     if payload_json is not None:
@@ -80,6 +85,20 @@ def test_staatsblad_normalize_creates_publication():
     assert node.props["year"] == "2015"
     assert node.props["number"] == "134"
     assert node.props["bwb_id"] == "BWBR0001234"
+
+
+def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():
+    """The toestand of BWBR0009999 named this publication: that is the regulation it
+    explains, not BWBR0001234, the first law its text cites."""
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+
+    store = _FakeStore()
+    pipeline = StaatsbladNormalizePipeline(store=store)
+    pipeline.normalize_nodes(
+        [_raw("stb-2015-134", payload_text=_STB_XML, meta={"bwb_id": "BWBR0009999"})],
+        PipelineResult(),
+    )
+    assert store.upserted[-1].props["bwb_id"] == "BWBR0009999"
 
 
 def test_staatsblad_normalize_skips_empty_payload():

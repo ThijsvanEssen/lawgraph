@@ -14,8 +14,11 @@ is a treaty of its own, which HUDOC names by number only: the curated list ``ech
 gives its BWB treaty (P1 is BWBV0001001), and ``P1-1`` is article 1 of it. A Protocol the list
 does not have (one that only changes the procedure of the Court) is not linked.
 
-Judgments are also linked to the BWB instruments whose id their ``conclusion`` names. The edges
-of a judgment are derived in full each run: one it no longer supports is removed.
+Judgments are also linked to the BWB instruments whose id their ``conclusion`` names, and to the
+decisions of the Court their text cites by application number ("Kılıç v. Turkey, no. 22492/93"):
+the decision of that number and date, or without a date the only decision of the number
+(``_echr_citations``). The edges of a judgment are derived in full each run: one it no longer
+supports is removed.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.curated import LISTS
+from lawgraph.core.echr_citations import appnos, cited_in_english
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -38,6 +42,7 @@ from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
+from . import _echr_citations
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -113,7 +118,8 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 semantic_rechtspraak.echr_judgments(self.store), "ECHR judgments"
             )
         )
-        if not rows:
+        texts = list(semantic_rechtspraak.echr_texts(self.store))
+        if not rows and not texts:
             logger.debug("ECHR citations: no ECHR judgments found.")
             return result
 
@@ -158,11 +164,37 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                     edges.add_doc(doc)
                     kept.setdefault(row["j_id"], set()).add(doc["_key"])
         edges.flush_into(result)
+        self._link_cited_decisions(texts, read, kept, result)
         removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("ECHR citations: %d edges no judgment supports removed.", removed)
         return result
+
+    def _link_cited_decisions(
+        self,
+        texts: list[dict[str, Any]],
+        read: list[str],
+        kept: dict[str, set[str]],
+        result: PipelineResult,
+    ) -> None:
+        """``REFERS_TO`` to the decisions of the Court the text of a judgment cites by
+        application number, not its own; adds the judgments read to *read* and the edges
+        to *kept*."""
+        cited = []
+        seen = set(read)
+        for row in texts:
+            own = frozenset(appnos(row.get("appno")))
+            cited += [(row["j_id"], c) for c in cited_in_english(row["text"], own=own)]
+            if row["j_id"] not in seen:
+                read.append(row["j_id"])
+        if not cited:
+            return
+        decisions = _echr_citations.decisions_index(self.store)
+        for from_id, keys in _echr_citations.link(
+            self.store, cited, decisions, source=SEMANTIC_SOURCE, result=result
+        ).items():
+            kept.setdefault(from_id, set()).update(keys)
 
     def _targets(
         self,

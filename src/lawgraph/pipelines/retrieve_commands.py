@@ -457,6 +457,11 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         "--documents-since",
         help="Documents only: overrides --since (a full fetch is over 400K records).",
     )
+    add_since_argument(
+        parser,
+        "--commitments-since",
+        help="Commitments (Toezegging) only: overrides --since.",
+    )
     parser.add_argument(
         "--skip-members",
         action="store_true",
@@ -492,6 +497,7 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         since=args.since,
         decisions_since=args.decisions_since,
         documents_since=args.documents_since,
+        commitments_since=args.commitments_since,
         skip_members=args.skip_members,
         skip_decisions=args.skip_decisions,
         skip_documents=args.skip_documents,

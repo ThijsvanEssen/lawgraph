@@ -59,3 +59,13 @@ def test_a_meeting_has_its_kind_when_the_agenda_gives_one() -> None:
 def test_a_reference_names_its_dossiers() -> None:
     assert ea.reference_dossiers("36.889") == ["36889"]
     assert ea.reference_dossiers("36.945 XXII, A") == ["36945-XXII"]
+
+
+def test_a_rijkswet_on_the_agenda_names_its_dossier() -> None:
+    page = (
+        '<div id="b1"><div class="agendablok"><h3>13.30 - 13.35 uur Hamerstukken</h3>'
+        '<div class="zaken"><a href="/wetsvoorstel/36455_rijkswet" class="grid-x">'
+        "Rijkswet Caribisch orgaan (36.455 (R2188))</a></div></div></div></div>"
+    )
+    (item,) = ea.plenary("/plenaire_vergadering/20261006", page).items
+    assert item.dossiers == ["36455-(R2188)"]
