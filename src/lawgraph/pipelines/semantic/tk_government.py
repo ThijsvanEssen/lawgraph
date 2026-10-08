@@ -121,9 +121,16 @@ def dossier_props(
     people: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
-    document was signed first as *first* (``{date, member, capacity, function}``)."""
+    document was signed first as *first* (``{date, member, capacity, function, paper}``),
+    and that signature itself (``first_signed``): a run over a window reads the papers of a
+    dossier again only when one it touched may come before it."""
     if not first:
-        return {"ministry": None, "initiative": None, "cabinet": None}
+        return {
+            "ministry": None,
+            "initiative": None,
+            "cabinet": None,
+            "first_signed": None,
+        }
     capacity = first.get("capacity")
     ministry = None
     if capacity == CAPACITY_GOVERNMENT:
@@ -135,6 +142,7 @@ def dossier_props(
         "ministry": ministry,
         "initiative": capacity == CAPACITY_MEMBER,
         "cabinet": cabinet_on(first.get("date"), cabinets),
+        "first_signed": first,
     }
 
 
@@ -152,11 +160,19 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             some_commitments = touched.touched_commitments(
                 self.store, touched_since, seeds
             )
-            some_dossiers = touched.touched_dossiers(self.store, touched_since, seeds)
+            touched_dossiers = touched.touched_dossiers(
+                self.store, touched_since, seeds
+            )
+            # of those, the dossiers whose first signature a touched paper can change
+            some_dossiers = government_queries.dossiers_whose_first_may_change(
+                self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
+            )
             logger.info(
-                "Touched since %s: %d commitments and %d dossiers, found in %s.",
+                "Touched since %s: %d commitments and %d dossiers, of which %d may have "
+                "another first signature, found in %s.",
                 touched_since.isoformat(timespec="seconds"),
                 len(some_commitments),
+                len(touched_dossiers),
                 len(some_dossiers),
                 format_duration(time.monotonic() - began),
             )

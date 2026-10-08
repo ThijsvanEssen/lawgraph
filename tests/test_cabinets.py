@@ -137,6 +137,7 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
         "ministry": "fin",
         "initiative": False,
         "cabinet": "rutte_iv",
+        "first_signed": minister,  # what a run over a window compares a new paper to
     }
     member = {
         "date": "2025-01-01",
@@ -147,9 +148,11 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
         "ministry": None,
         "initiative": True,
         "cabinet": "schoof",
+        "first_signed": member,
     }
     assert dossier_props(None, CABINETS) == {
         "ministry": None,
         "initiative": None,
         "cabinet": None,
+        "first_signed": None,
     }

@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core.tk_records import CAPACITY_MEMBER
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries.government import ROLE_FIRST_SIGNATORY
 from lawgraph.pipelines.semantic import _touched as touched
@@ -201,3 +201,74 @@ def test_government_of_the_touched_is_that_of_a_run_over_all(
     assert some_dossiers["300"]["initiative"] is True  # the Kamerlid signed first
     assert all_dossiers["500"] != dossiers["500"]
     assert all_commitments[_key(G_OLD_PROMISE)] != commitments[_key(G_OLD_PROMISE)]
+
+
+def _signed(paper: str, at: str, capacity: str, function: str) -> dict:
+    member = "kamerlid" if capacity == CAPACITY_MEMBER else "minister"
+    return _edge(
+        f"members/{member}",
+        f"documents/{paper}",
+        "AUTHORED",
+        at,
+        role=ROLE_FIRST_SIGNATORY,
+        capacity=capacity,
+        function=function,
+    )
+
+
+def test_a_window_reads_the_papers_of_a_dossier_only_when_its_first_may_change(
+    store: GraphStore,
+) -> None:
+    """A paper signed later than the first, as almost every new one, leaves the dossier as
+    it is; one dated before it has the dossier read again. Either way the same as a run
+    over all."""
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("700", kind="Wetgeving"), _node("800", kind="Wetgeving")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "members", [_node("kamerlid", name="Kamerlid"), _node("minister", name="M")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("p700", date="2026-01-05"),
+            _node("p800", date="2026-03-01"),
+            _node("later", date="2026-02-01"),
+            _node("back", date="2026-01-01"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("documents/p700", "dossiers/700", "PART_OF", OLD),
+            _signed("p700", OLD, CAPACITY_MEMBER, "Tweede Kamerlid"),
+            _edge("documents/p800", "dossiers/800", "PART_OF", OLD),
+            _signed("p800", OLD, CAPACITY_MEMBER, "Tweede Kamerlid"),
+        ]
+    )
+    TKGovernmentSemanticPipeline(store=store).run()
+    assert _props(store, "dossiers")["700"]["first_signed"]["paper"] == "documents/p700"
+
+    # the window: a later paper of 700, and a paper of 800 dated before its first
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("documents/later", "dossiers/700", "PART_OF", NEW),
+            _signed("later", NEW, CAPACITY_GOVERNMENT, "minister van Financiën"),
+            _edge("documents/back", "dossiers/800", "PART_OF", NEW),
+            _signed("back", NEW, CAPACITY_GOVERNMENT, "minister van Financiën"),
+        ]
+    )
+    from lawgraph.db.queries import government as government_queries
+
+    assert government_queries.dossiers_whose_first_may_change(
+        store, ["dossiers/700", "dossiers/800"], [], touched.edge_moment(SINCE)
+    ) == ["dossiers/800"]
+
+    TKGovernmentSemanticPipeline(store=store).run(touched_since=SINCE)
+    some = _props(store, "dossiers")
+    assert some["700"]["initiative"] is True  # the Kamerlid still signed first
+    assert some["800"]["initiative"] is False  # the minister signed before
+    assert some["800"]["first_signed"]["paper"] == "documents/back"
+    TKGovernmentSemanticPipeline(store=store).run()
+    everything = _props(store, "dossiers")
+    for key in ("700", "800"):
+        assert some[key] == everything[key], key
