@@ -226,11 +226,27 @@ def get_node_graph(
         int,
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
+    props: Annotated[
+        Literal["full", "canvas"],
+        Query(
+            description=(
+                "`canvas`: of a neighbour only the props the canvas of the explorer "
+                "draws, per collection, and of its edge only the `meta` it reads (null "
+                "when none); `full` (the default) every prop but the text"
+            )
+        ),
+    ] = "full",
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     try:
         data = get_node_with_neighbors(
-            store, collection, key, filters=filters, limit=limit, offset=offset
+            store,
+            collection,
+            key,
+            filters=filters,
+            limit=limit,
+            offset=offset,
+            canvas=props == "canvas",
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
