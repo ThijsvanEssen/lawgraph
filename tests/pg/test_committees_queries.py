@@ -1283,27 +1283,13 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     assert get_member_committees(store, "members/none") == []
 
 
-def test_the_votes_of_a_member_read_the_decisions_newest_first(
-    store: GraphStore,
-) -> None:
-    """A faction votes on nearly every decision while it is seated: its newest votes are
-    those of the newest decisions of the period (their index of the dates, backward), not
-    every vote it ever cast, each joined to its decision (441,000 for one member)."""
-    import json
-
+def _candidates_plan(
+    store: GraphStore, member_id: str, limit: int
+) -> list[dict[str, Any]]:
+    """The nodes of the plan (EXPLAIN ANALYZE) of the candidates of the votes of a member,
+    as ``get_member_votes`` reads them first."""
     from lawgraph.db.store import _query
 
-    g = Graph(store)
-    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[D66])
-    g.node("factions", "d66", name="D66")
-    for n in range(3000):
-        key = f"s{n:04d}"
-        g.node(
-            "decisions", key, date=f"{2020 + n % 6}-{1 + n % 12:02d}-{1 + n % 28:02d}"
-        )
-        g.edge("factions/d66", RELATION_VOTED, f"decisions/{key}", choice="Voor")
-    g.write()
-    store.vacuum_analyze()
     statements: list[tuple[Any, Any]] = []
     query = store.query
 
@@ -1314,7 +1300,7 @@ def test_the_votes_of_a_member_read_the_decisions_newest_first(
 
     store.query = recording  # type: ignore[method-assign]
     try:
-        assert len(get_member_votes(store, "members/m1", limit=10)) == 10
+        assert len(get_member_votes(store, member_id, limit=limit)) == limit
     finally:
         store.query = query  # type: ignore[method-assign]
     statement, params = statements[0]
@@ -1330,9 +1316,40 @@ def test_the_votes_of_a_member_read_the_decisions_newest_first(
     (candidates,) = [
         n for n in scans(plan[0]["Plan"]) if n.get("Subplan Name") == "CTE candidates"
     ]
-    nodes = list(scans(candidates))
+    return list(scans(candidates))
+
+
+def _decisions_voted(store: GraphStore, memberships: list[dict[str, Any]]) -> None:
+    """A member of *memberships* and 3,000 decisions of 2020-2025 the factions of those
+    all voted on."""
+    g = Graph(store)
+    g.node("members", "m1", name="Anna", party="D66", faction_memberships=memberships)
+    factions = sorted({m["faction_id"] for m in memberships})
+    for faction in factions:
+        g.node("factions", faction.split("/")[1], name=faction)
+    for n in range(3000):
+        key = f"s{n:04d}"
+        g.node(
+            "decisions", key, date=f"{2020 + n % 6}-{1 + n % 12:02d}-{1 + n % 28:02d}"
+        )
+        for faction in factions:
+            g.edge(faction, RELATION_VOTED, f"decisions/{key}", choice="Voor")
+    g.write()
+    store.vacuum_analyze()
+
+
+def test_the_votes_of_a_member_read_the_decisions_newest_first(
+    store: GraphStore,
+) -> None:
+    """A faction votes on nearly every decision while it is seated: its newest votes are
+    those of the newest decisions of the period (their index of the dates, backward), not
+    every vote it ever cast, each joined to its decision (441,000 for one member)."""
+    _decisions_voted(store, [D66])
+    nodes = _candidates_plan(store, "members/m1", 10)
     dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
-    assert dates and dates[0]["Scan Direction"] == "Backward", json.dumps(plan)[:2000]
+    assert dates and dates[0].get("Scan Direction") == "Backward", [
+        (n["Node Type"], n.get("Index Name")) for n in nodes
+    ]
     # the faction's votes are read for the decisions of the candidates, not all 3,000
     read = sum(
         n["Actual Rows"] * n["Actual Loops"]
@@ -1346,3 +1363,20 @@ def test_the_votes_of_a_member_read_the_decisions_newest_first(
         n["Node Type"] == "Index Only Scan" and n.get("Index Name") == "edges_to_cover"
         for n in votes
     ), [(n["Node Type"], n.get("Index Name")) for n in votes]
+
+
+def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
+    """The walk over the dates of a period that ended long ago starts at its end, not at
+    the newest decision: its bounds are conditions of the index (an old period of a member
+    on prod passed 30,000 newer decisions, each tested and dropped)."""
+    old = {**VVD, "from_date": "2020-01-01", "to_date": "2020-12-31"}
+    new = {**D66, "from_date": "2021-01-01", "to_date": "2021-03-31"}
+    _decisions_voted(store, [old, new])
+    nodes = _candidates_plan(store, "members/m1", 10)
+    dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
+    assert dates, [(n["Node Type"], n.get("Index Name")) for n in nodes]
+    for scan in dates:
+        assert ">=" in scan["Index Cond"] and "<=" in scan["Index Cond"], scan
+        # the decisions of 2022-2025 (2,000) are never read, so none is dropped
+        dropped = scan.get("Rows Removed by Filter", 0) * scan["Actual Loops"]
+        assert dropped < 50, dropped

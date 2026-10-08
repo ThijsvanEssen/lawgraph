@@ -784,7 +784,8 @@ publications), the documents newest first, and the member lists in name order. `
 `(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, the same two
 with `key` after them and the other end and collection included (`edges_from_cover`,
 `edges_to_cover`: a level of `/api/paths` reads a node's edges from the index alone, and a
-page of a node's neighbours stops after its limit in key order), `relation`,
+page of a node's neighbours reads its keys from it in key order, stopping after its limit,
+and only those edges whole), `relation`,
 `(status, relation)`, `confidence`, `(created_at, to_id)`, a GIN index on `record_ids`, and
 `semantic_type` and `(from_id, semantic_type)` where `semantic_type` is set.
 
