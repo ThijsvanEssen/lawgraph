@@ -1516,3 +1516,39 @@ def test_the_kinds_of_the_feed_are_counted_once_for_all(
     # a filter on more than the kind is counted on its own
     assert feed._shared_kinds(FeedFilters(kinds=(FEED_KINDS[0],), q="wet")) is None
     assert feed._shared_kinds(FeedFilters(kinds=FEED_KINDS[:2])) is None
+
+
+def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under a filter not counted before (an ``until``: a minute or more on the full
+    graph, cold), the page answers within ``COUNTS_BUDGET`` without its total and facets,
+    ``partial``; they are counted on, and the next request has them."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import feed as feed_queries
+
+    version_cache.clear()
+    expected = _feed(client, until="2026-12-31")
+    assert expected["partial"] is False and expected["total"]
+    version_cache.clear()
+    counts = feed_queries._counts_per_kind
+
+    def slow(store: GraphStore, filters: Any) -> Any:
+        time.sleep(2)
+        return counts(store, filters)
+
+    monkeypatch.setattr(feed_queries, "_counts_per_kind", slow)
+    monkeypatch.setattr(feed_queries, "COUNTS_BUDGET", 0.3)
+    started = time.monotonic()
+    first = _feed(client, until="2026-12-31")
+    assert time.monotonic() - started < 1.5
+    assert first["partial"] is True
+    assert first["total"] is None and first["facets"] is None
+    assert _ids(first) == _ids(expected)
+    time.sleep(2.5)
+    again = _feed(client, until="2026-12-31")
+    assert again["partial"] is False
+    assert again["total"] == expected["total"]
+    assert again["facets"] == expected["facets"]
