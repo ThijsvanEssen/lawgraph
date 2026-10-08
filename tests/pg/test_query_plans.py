@@ -49,6 +49,8 @@ URLS = [
     "/api/search?q=stemming+abortus&types=decisions",
     "/api/resolve?q=art.+1+BWBR0001",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
+    "/api/search?q=wet&mode=live",
+    "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     "/api/judgments",
     "/api/judgments?sort=date_asc",
