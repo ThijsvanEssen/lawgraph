@@ -24,6 +24,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
     DEFAULT_BUCKET_LIMIT,
     NeighborFilter,
@@ -255,6 +256,7 @@ def get_node_graph(
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
         raise HTTPException(status_code=404, detail=str(err)) from err
 
+    names = load_dossier_names(store)
     buckets = [
         NeighborBucketDTO(
             relation=bucket.facet.relation,
@@ -270,6 +272,7 @@ def get_node_graph(
                     edge=entry.edge,
                     direction=entry.direction,
                     confidence=entry.confidence,
+                    names=names,
                 )
                 for entry in bucket.entries
             ],

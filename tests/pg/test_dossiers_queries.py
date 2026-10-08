@@ -2197,3 +2197,55 @@ def test_the_next_thing_the_kamer_has_planned_about_a_dossier(
     # the day itself counts; after the last one nothing is planned
     assert get_next_activity(store, dossier, "2026-10-20")["key"] == "vote"  # type: ignore[index]
     assert get_next_activity(store, dossier, "2026-10-21") is None
+
+
+def test_the_names_of_the_dossiers_are_read_once_per_version(
+    store: GraphStore, monkeypatch: Any
+) -> None:
+    """``load_dossier_names``: per number the title and the short title ``/api/dossiers``
+    gives (of the first dossier by key that has the number), read again only once the
+    dossiers changed."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import dossiers as dossier_queries
+
+    def dossier(key: str, label: str, title: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "type": "dossier",
+            "labels": ["TK"],
+            "props": {"label": label, "title": title},
+        }
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            dossier("36000", "36000", "Wijziging van de Wet X (Wet beter voorbeeld)"),
+            dossier(
+                "37020_xv",
+                "37020-XV",
+                "Vaststelling van de begrotingsstaten van het Ministerie van Defensie (X)"
+                " voor het jaar 2027",
+            ),
+        ],
+    )
+    version_cache.clear()
+    reads: list[int] = []
+    read = dossier_queries._read_dossier_names
+
+    def counted(store_: GraphStore) -> Any:
+        reads.append(1)
+        return read(store_)
+
+    monkeypatch.setattr(dossier_queries, "_read_dossier_names", counted)
+    names = dossier_queries.load_dossier_names(store)
+    assert names["36000"] == {
+        "number": "36000",
+        "short_title": "Wet beter voorbeeld",
+        "title": "Wijziging van de Wet X (Wet beter voorbeeld)",
+    }
+    assert names["37020-XV"]["short_title"] == "Begroting Defensie 2027"
+    assert dossier_queries.load_dossier_names(store) is names
+    assert len(reads) == 1
+    store.bulk_insert_or_update_nodes("dossiers", [dossier("36001", "36001", "Wonen")])
+    assert dossier_queries.load_dossier_names(store)["36001"]["title"] == "Wonen"
+    assert len(reads) == 2

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
+from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.core.documents import (
     chamber_of,
@@ -221,6 +222,7 @@ class DocumentTextResponse(DocumentOrigin):
         doc: dict[str, Any],
         links: dict[str, Any] | None = None,
         decisions: list[dict[str, Any]] | None = None,
+        names: dict[str, dict[str, Any]] | None = None,
     ) -> DocumentTextResponse:
         """From the stored document and what ``get_document_links`` found for it."""
         from lawgraph.config.constants import SOURCE_TK
@@ -259,7 +261,9 @@ class DocumentTextResponse(DocumentOrigin):
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
-            decisions=[DecisionDTO.from_document(d) for d in decisions or []],
+            decisions=[
+                DecisionDTO.from_document(d, names or {}) for d in decisions or []
+            ],
             **origin,
         )
 
@@ -342,6 +346,12 @@ class DocumentListItemDTO(BaseModel):
     dossier_numbers: list[str] = Field(
         default_factory=list, description="Every dossier it is part of, as labels."
     )
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers`` (or of ``dossier_number`` without "
+        "them), in their order: ``number``, ``short_title``, ``title`` as "
+        "``/api/dossiers`` gives them.",
+    )
     number: str | None = Field(
         None,
         description="Its number in the dossier: of the Tweede Kamer the nr. (``5``), of "
@@ -361,7 +371,12 @@ class DocumentListItemDTO(BaseModel):
     )
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
+    def from_row(
+        cls, row: dict[str, Any], names: dict[str, dict[str, Any]]
+    ) -> DocumentListItemDTO:
+        """From a row of ``list_documents`` and the names of the dossiers
+        (``load_dossier_names``)."""
+        numbers = row.get("dossier_numbers") or [row.get("dossier_number")]
         return cls(
             id=row["id"],
             key=row["key"],
@@ -370,6 +385,7 @@ class DocumentListItemDTO(BaseModel):
             dossier_number=row.get("dossier_number"),
             dossier_suffix=row.get("dossier_suffix"),
             dossier_numbers=row.get("dossier_numbers") or [],
+            dossiers=dossier_names_of(numbers, names),
             number=paper_number(row.get("chamber"), row),
             date=row.get("date"),
             title=row.get("title"),

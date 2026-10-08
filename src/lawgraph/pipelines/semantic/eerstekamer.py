@@ -2,11 +2,14 @@
 
 Both chambers handle the same bill. An EK Kamerstuk carries the number of the TK
 kamerstukdossier (``dossier_number``, plus ``dossier_suffix`` for a budget chapter such as
-``35925 VII``), which is enough to write the same PART_OF edge the TK documents get, just
+``35925 VII``; a paper on more than one bill names the others in ``dossier_numbers``), which
+is enough to write the same PART_OF edge the TK documents get, just
 cross-chamber.
 """
 
 from __future__ import annotations
+
+from itertools import chain
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
@@ -31,7 +34,10 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        papers = semantic_tk.ek_papers_in_tk_dossiers(self.store)
+        papers = chain(
+            semantic_tk.ek_papers_in_tk_dossiers(self.store),
+            semantic_tk.ek_papers_in_other_dossiers(self.store),
+        )
         rows = list(self._track(papers, "Eerste Kamer papers"))
         if not rows:
             logger.info("EK dossier link: no EK stuk matches a TK dossier.")

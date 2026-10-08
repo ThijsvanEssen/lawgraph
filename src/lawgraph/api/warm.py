@@ -18,6 +18,7 @@ from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
@@ -34,7 +35,7 @@ from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, party_votes
 from lawgraph.db.queries.documents import list_documents
-from lawgraph.db.queries.dossiers import load_law_names
+from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
@@ -111,6 +112,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
         COLLECTION_EDGES,
         COLLECTION_FACTIONS,
     ),
+    "dossier names": (COLLECTION_DOSSIERS,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -141,6 +143,7 @@ def warm_up(store: GraphStore) -> None:
         "decisions party votes": lambda: party_votes(
             store, DecisionFilters(party_votes=("all",))
         ),
+        "dossier names": lambda: load_dossier_names(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS

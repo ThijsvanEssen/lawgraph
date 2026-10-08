@@ -41,6 +41,7 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentDTO,
     TouchedInstrumentsResponse,
 )
+from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.cache import _MISSING, TTLCache
@@ -59,7 +60,7 @@ from lawgraph.db.queries.committees import (
     get_member_votes,
     get_members,
 )
-from lawgraph.db.queries.dossiers import enrich_dossier_docs
+from lawgraph.db.queries.dossiers import enrich_dossier_docs, load_dossier_names
 
 router = APIRouter()
 members_router = APIRouter()
@@ -154,9 +155,16 @@ def list_committee_activities(
     raw = get_committee_activities(store, slug, limit=limit, offset=offset)
     if raw is None:
         raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
+    names = load_dossier_names(store)
     return CommitteeActivitiesResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitteeActivityDTO(**item) for item in raw.get("items") or []],
+        items=[
+            CommitteeActivityDTO(
+                **item,
+                dossiers=dossier_names_of(item.get("dossier_numbers") or [], names),
+            )
+            for item in raw.get("items") or []
+        ],
     )
 
 
@@ -466,11 +474,18 @@ def list_faction_votes(
         limit=limit,
         offset=offset,
     )
+    names = load_dossier_names(store)
     return EkFactionVotesResponse(
         faction_key=key,
         total=int(raw.get("total") or 0),
         counts=raw.get("counts") or {},
-        items=[EkFactionVoteDTO(**item) for item in raw.get("items") or []],
+        items=[
+            EkFactionVoteDTO(
+                **item,
+                dossiers=dossier_names_of(item.get("dossier_numbers") or [], names),
+            )
+            for item in raw.get("items") or []
+        ],
         source=EkSourceDTO(
             url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
             retrieved_on=None,  # each vote has its own day of reading
