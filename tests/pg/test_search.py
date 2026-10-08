@@ -774,3 +774,40 @@ def test_a_live_subject_finds_the_newest_judgments_that_hold_its_words(
     assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
     hits, _ = search_queries.search_live(store, q="hu", types=["judgments"])
     assert hits["judgments"] == []
+
+
+def test_an_article_without_a_name_is_named_by_its_number_and_law(
+    store: GraphStore,
+) -> None:
+    """A stub (a citation named it; its law's text holds no such article) has no
+    ``display_name``: a choice names it by its number and the name of its law."""
+    from lawgraph.core.code_families import CODE_FAMILIES
+
+    version_cache.clear()
+    book7 = CODE_FAMILIES["BW"]["7"]
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                book7.lower(),
+                "instrument",
+                bwb_id=book7,
+                title="Burgerlijk Wetboek Boek 7",
+                citation_title="Burgerlijk Wetboek Boek 7",
+            )
+        ],
+    )
+    stub = _node(
+        f"{book7.lower()}_162",
+        "article",
+        bwb_id=book7,
+        article_number="162",
+        stub=True,
+    )
+    store.bulk_insert_or_update_nodes("articles", [_bw_article("6", "162"), stub])
+    answer = resolve_queries.resolve(store, "artikel 162 bw")
+    names = {a["key"]: a["display_name"] for a in answer["alternatives"]}
+    assert names[f"{book7.lower()}_162"] == "Artikel 162 Burgerlijk Wetboek Boek 7"
+    assert names[f"{CODE_FAMILIES['BW']['6'].lower()}_162"] == (
+        "Artikel 162 Burgerlijk Wetboek Boek 6"
+    )

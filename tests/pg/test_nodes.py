@@ -343,3 +343,50 @@ def test_the_buckets_of_an_article_count_the_lids_their_edges_cite(
     documents = buckets[("REFERS_TO", "inbound", "documents")]
     assert documents["lid_counts"] == counted("documents") == {"1": 1, "": 1}
     assert buckets[("PART_OF", "outbound", "instruments")]["lid_counts"] is None
+
+
+def test_an_article_counts_only_the_leden_it_has(store: GraphStore) -> None:
+    """A citation can give an article the lid of another article it names: of an article
+    with leden 1 and 2, a cited lid 3 or 4 is not counted (an edge that cites only those
+    counts as citing none)."""
+    from lawgraph.db.queries import nodes as node_queries
+
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "_key": "w_1",
+                "type": "article",
+                "labels": [],
+                "props": {
+                    "parts": [
+                        {"id": "lid-1", "kind": "lid", "number": "1"},
+                        {"id": "lid-2", "kind": "lid", "number": "2"},
+                    ]
+                },
+            }
+        ],
+    )
+    cited = {
+        "judgments/j1": {"mentions": [{"leden": ["1", "3"]}]},
+        "judgments/j2": {"mentions": [{"leden": ["4"]}]},
+        "judgments/j3": {"mentions": [{"leden": ["2"]}]},
+    }
+    for n, (source, meta) in enumerate(cited.items()):
+        store.bulk_insert_or_update_nodes(
+            "judgments",
+            [
+                {
+                    "_key": source.split("/")[1],
+                    "type": "judgment",
+                    "labels": [],
+                    "props": {},
+                }
+            ],
+        )
+        store.bulk_insert_or_update_edges(
+            [{**_edge(f"r{n}", source, "articles/w_1", "REFERS_TO"), "meta": meta}]
+        )
+    data = node_queries.get_node_with_neighbors(store, "articles", "w_1")
+    (bucket,) = data.buckets
+    assert bucket.lid_counts == {"1": 1, "2": 1, "": 1}
