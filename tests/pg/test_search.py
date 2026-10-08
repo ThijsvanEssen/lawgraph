@@ -724,3 +724,18 @@ def test_a_full_search_past_its_budget_falls_back_on_the_words(
     hits, partial = search_queries.search_full(store, q="huur", types=["judgments"])
     assert partial == {"judgments"}
     assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
+
+
+def test_a_live_subject_finds_the_newest_judgments_that_hold_its_words(
+    store: GraphStore,
+) -> None:
+    """While typing, a subject no name or display name holds (``huur``) still finds the
+    judgments whose summary holds it, the newest first, without a rank; a query of fewer
+    than three characters none."""
+    version_cache.clear()
+    _live_judgments(store)
+    hits, partial = search_queries.search_live(store, q="huur", types=["judgments"])
+    assert partial == set()
+    assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
+    hits, _ = search_queries.search_live(store, q="hu", types=["judgments"])
+    assert hits["judgments"] == []

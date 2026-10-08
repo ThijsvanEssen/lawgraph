@@ -156,3 +156,28 @@ def test_a_write_waits_for_the_least_time_between_two_warm_ups(
     assert until(2, 2.0)
     assert done[1][0] - done[0][0] >= 1.0
     assert done[1][1] == store.data_version()  # of the new data
+
+
+def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Their search reads pages into the memory of the database and keeps their document
+    frequencies per data version: a warm-up after a poll that wrote leaves them when they
+    were searched less than an hour ago."""
+    searched: list[int] = []
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda s: searched.append(1))
+    monkeypatch.setattr(warm, "_terms_searched", None)
+    warm.warm_up(store)
+    assert searched == [1]  # the first warm-up of the process
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+    )
+    warm.warm_up(store)  # a poll wrote: everything else is warmed again
+    assert warm.is_warm(store)
+    assert searched == [1]
+
+    monkeypatch.setattr(warm, "SEARCH_TERMS_EVERY", 0.0)  # an hour later
+    warm.warm_up(store)
+    assert searched == [1, 1]
