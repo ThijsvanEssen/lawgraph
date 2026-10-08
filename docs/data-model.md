@@ -41,7 +41,13 @@ and advocate-general), kept by triggers on every write of `judgments` and filled
 `semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
 dossier numbers, case kinds, sequence), without its text, kept and filled the same way from
-`documents`.
+`documents`. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
+them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
+("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
+in how many light summaries each stem is (the stems in 3 or more, and under `''` how many
+summaries there are), which a run after a poll weighs the terms against. The step raises the
+data version of `articles` when terms changed.
 
 ## Node types and relation catalogue
 
