@@ -69,6 +69,36 @@ def edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# What the edge of a neighbour leaves out of its ``meta``: each place a judgment cites an
+# article (a third of the node of an article of the Awb); the judgment's own route has them.
+NEIGHBOUR_EDGE_META_LEFT_OUT = ("mentions",)
+# The characters of a neighbour's ``summary`` (the preview of the explorer shows 400).
+NEIGHBOUR_SUMMARY_CHARS = 400
+
+
+def light_node_doc(row: dict[str, Any]) -> dict[str, Any]:
+    """``node_doc`` of a neighbour, a node of a neighbourhood or of a path (its props read
+    with ``light_props``): its ``summary`` cut at ``NEIGHBOUR_SUMMARY_CHARS``."""
+    doc = node_doc(row)
+    summary = doc["props"].get("summary")
+    if isinstance(summary, str) and len(summary) > NEIGHBOUR_SUMMARY_CHARS:
+        cut = summary[:NEIGHBOUR_SUMMARY_CHARS].rstrip()
+        doc["props"] = {**doc["props"], "summary": f"{cut}…"}
+    return doc
+
+
+def light_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
+    """``edge_doc`` of the edge of a neighbour, a neighbourhood or a path: its ``meta``
+    without ``NEIGHBOUR_EDGE_META_LEFT_OUT``."""
+    doc = edge_doc(row)
+    meta = doc.get("meta")
+    if isinstance(meta, dict) and any(k in meta for k in NEIGHBOUR_EDGE_META_LEFT_OUT):
+        doc["meta"] = {
+            k: v for k, v in meta.items() if k not in NEIGHBOUR_EDGE_META_LEFT_OUT
+        }
+    return doc
+
+
 def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A raw_sources row (``key``, ``doc``) as its document."""
     return {

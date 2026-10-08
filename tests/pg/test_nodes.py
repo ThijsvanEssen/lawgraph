@@ -233,3 +233,45 @@ def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> No
     data = node_queries.get_node_with_neighbors(store, "instruments", "w")
     (entry,) = [e for bucket in data.buckets for e in bucket.entries]
     assert entry.doc["props"] == {"article_number": "1", "heading": "Begrippen"}
+
+
+def test_a_citing_judgment_as_a_neighbour_is_light(store: GraphStore) -> None:
+    """A judgment that cites an article, as a neighbour of it, a node of a neighbourhood or
+    of a path: its summary cut for a preview, and its edge without the places it cites the
+    article (the judgment's own route has them); what else the edge says stays."""
+    from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
+    from lawgraph.db.queries.paths import get_paths
+
+    summary = "Huur. " * 200
+    judgment = {
+        "_key": "ecli_nl_hr_2020_1",
+        "type": "judgment",
+        "labels": [],
+        "props": {"ecli": "ECLI:NL:HR:2020:1", "summary": summary},
+    }
+    article = {"_key": "w_1", "type": "article", "labels": [], "props": {}}
+    store.bulk_insert_or_update_nodes("judgments", [judgment])
+    store.bulk_insert_or_update_nodes("articles", [article])
+    cites = _edge("r1", "judgments/ecli_nl_hr_2020_1", "articles/w_1", "REFERS_TO")
+    cites["meta"] = {
+        "snippet": "art. 1",
+        "mentions": [{"paragraph_id": "p1", "start": 0}],
+        "mention_count": 1,
+    }
+    store.bulk_insert_or_update_edges([cites])
+    cut = summary[:NEIGHBOUR_SUMMARY_CHARS].rstrip() + "…"
+
+    data = node_queries.get_node_with_neighbors(store, "articles", "w_1")
+    (entry,) = [e for bucket in data.buckets for e in bucket.entries]
+    assert entry.doc["props"]["summary"] == cut
+    assert entry.edge["meta"] == {"snippet": "art. 1", "mention_count": 1}
+
+    around = node_queries.get_node_neighborhood(store, "articles", "w_1", depth=1)
+    assert [n["props"]["summary"] for n in around["nodes"]] == [cut]
+    assert [e["meta"] for e in around["edges"]] == [entry.edge["meta"]]
+
+    path = get_paths(store, ["articles/w_1", "judgments/ecli_nl_hr_2020_1"], 1)
+    assert [e["meta"] for e in path["edges"]] == [entry.edge["meta"]]
+
+    own = node_queries.get_node_with_neighbors(store, "judgments", "ecli_nl_hr_2020_1")
+    assert own.node["props"]["summary"] == summary
