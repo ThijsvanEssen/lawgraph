@@ -46,6 +46,10 @@ _DOSSIERS = [
 ]
 
 
+_NR_21 = "c21a0000-0000-4000-8000-000000000021"
+_NR_71 = "c71a0000-0000-4000-8000-000000000071"
+
+
 def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
     records: list[tuple[str, dict[str, Any]]] = [
         (
@@ -83,11 +87,41 @@ def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
         "Soort": "Motie",
         "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "XXII"}],
     }
+    # an amendment, and the amended one that replaces it ("ter vervanging van nr. 21")
+    amendment = {
+        "Id": uid(4, 2),
+        "Nummer": "2025Z07053",
+        "Soort": "Amendement",
+        "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "XXII"}],
+    }
+    amended = {
+        **amendment,
+        "Id": uid(5, 2),
+        "Nummer": "2025Z07443",
+        "VervangenVanuit": [{"Id": uid(4, 2), "Verwijderd": False}],
+    }
     records += [
         (RAW_KIND_TK_ZAAK, change),
         (RAW_KIND_TK_ZAAK, letter),
         (RAW_KIND_TK_ZAAK, motion),
+        (RAW_KIND_TK_ZAAK, amendment),
+        (RAW_KIND_TK_ZAAK, amended),
     ]
+    for paper, number, case in ((_NR_21, 21, amendment), (_NR_71, 71, amended)):
+        records.append(
+            (
+                RAW_KIND_TK_DOCUMENT,
+                {
+                    "Id": paper,
+                    "DocumentNummer": f"2025D{number:05d}",
+                    "Soort": "Amendement",
+                    "Titel": _DOSSIERS[4][2],
+                    "Datum": f"{today.isoformat()}T00:00:00+02:00",
+                    "Volgnummer": number,
+                    "Zaak": [case],
+                },
+            )
+        )
     records.append(
         (
             RAW_KIND_TK_DOCUMENT,
@@ -179,6 +213,12 @@ def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
             "RELATED_TO",
             "cases/" + uid(2, 2).lower().replace("-", "_"),
             "cases/" + uid(3, 2).lower().replace("-", "_"),
+        ),
+        # the amended amendment replaces nr. 21: paper to paper
+        (
+            "REVISES",
+            "documents/" + _NR_71.replace("-", "_"),
+            "documents/" + _NR_21.replace("-", "_"),
         ),
         # the debate continues the one it replaced
         (

@@ -10,7 +10,9 @@ memorandum of a second reading of a change in the Grondwet, which refers to the 
 The same Kamer relation also ties the two cases themselves (``RELATED_TO`` case → case, also
 within one dossier or without one: a letter of the government and the motion it answers), and a
 moved activity is ``CONTINUES``d by the one that replaced it (``Activiteit.VervangenDoor``;
-``meta.reason`` ``verplaatst``).
+``meta.reason`` ``verplaatst``). A paper of a case that replaces another (an amended amendment
+or motion, ``Zaak.VervangenVanuit``) ``REVISES`` the papers of that case (``meta.rule``
+``vervanging``).
 
 Runs over every dossier, every related case and every activity, since a node loaded today can be
 the other end of a relation stated earlier. Writes an edge only where both ends are in the graph.
@@ -38,6 +40,8 @@ from lawgraph.core.dossier_relations import (
     moved_activities,
     related_case_pairs,
     related_dossiers,
+    replaced_cases,
+    replaced_papers,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
@@ -91,6 +95,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                     written[relation] += 1
         written["RELATED_TO between cases"] = self._relate_cases(cases, edges)
         written["moved activities"] = self._continue_moved(edges)
+        written["replaced papers"] = self._revise_replaced(edges)
         edges.flush_into(result)
         logger.info(
             "Dossier relations: %s.",
@@ -116,6 +121,25 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                     meta=meta,
                 )
                 count += 1
+        return count
+
+    def _revise_replaced(self, edges: EdgeWriter) -> int:
+        """``REVISES`` from each paper of a case to each paper of the case it replaces
+        (``Zaak.VervangenVanuit``: "Gewijzigd amendement ter vervanging van nr. 21")."""
+        cases = replaced_cases(semantic_tk.replacing_cases(self.store))
+        papers = semantic_tk.papers_of_cases(
+            self.store, sorted({case for pair in cases for case in pair})
+        )
+        count = 0
+        for paper, replaced in replaced_papers(cases, papers):
+            edges.add(
+                paper,
+                replaced,
+                RELATION_REVISES,
+                source=SEMANTIC_SOURCE,
+                meta={"rule": "vervanging"},
+            )
+            count += 1
         return count
 
     def _continue_moved(self, edges: EdgeWriter) -> int:

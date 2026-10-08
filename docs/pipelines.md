@@ -18,7 +18,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
-| The graph itself (`graph`) | none | none | `graph-light`, `graph-heat`, `graph-list-stats` |
+| The graph itself (`graph`) | none | none | `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a base URL from `config/settings.py`, a 30 s timeout,
 and retries with exponential backoff (factor 2) on HTTP 429, 502, 503, 504 and connection
@@ -76,7 +76,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 
 | Command | Fetches | Stored kinds |
 |---------|---------|--------------|
-| `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development | `tk-zaak` |
+| `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development; `--replacing` only the cases that replace another (`Zaak.VervangenVanuit`, some 11,600 in all; with `--mode full` the backfill of that relation for the cases stored before the retrieve read it) | `tk-zaak` |
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; with the Stemming window and `--skip-decisions`), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
@@ -340,6 +340,7 @@ in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number
 |------|------|-----------------------------|
 | `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
 | `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
+| `REVISES` (papers) | a paper of a case that replaces another (an amended amendment or motion, "Gewijzigd amendement … ter vervanging van nr. 21": `Zaak.VervangenVanuit`, read by `normalize tk` as `replaces_cases`) revises each paper of that case, Document → Document, `meta.rule` `vervanging` | 11,641 cases that replace another (9 Oct 2026) |
 | `ACCOMPANIES` | "(wijziging samenhangende met de Voorjaarsnota)" of year Y goes with the dossier "Voorjaarsnota Y", likewise the Najaarsnota. The Miljoenennota of Prinsjesdag in year Y presents the budgets of Y + 1, so a change of year Y "samenhangende met de Miljoenennota" goes with the dossier "Nota over de toestand van ’s Rijks Financiën" whose number holds the budgets of Y + 1. `meta.nota` names it | 912: 412 Voorjaarsnota, 404 Najaarsnota, 96 Miljoenennota; 15 changes "samenhangende met" something else (an incidental supplementary budget, the refinancing of covid loans) get none |
 | `SECOND_READING_OF` | a change in the Grondwet is made law in its second reading; the memorandum of the second reading speaks of the first reading and only refers to its papers ("Voor de toelichting verwijzen wij naar … (Kamerstukken 35 418, Kamerstukken II 2019/20, 35 419, nr. 9 …)"). Every dossier such a memorandum cites (`core/dossier_numbers.first_reading_dossiers`) is its first reading. `semantic tk-mvt` and `tk-mvt-articles` count the memoranda of the first reading with the second, so the first reading explains what the second made law | 35785 → 35418, 35419 |
 
@@ -586,7 +587,10 @@ case number, where `<court>` names a court (not an administrative body). The dec
 date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
 0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
 `case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
-derived in full: one no longer derived is removed.
+derived in full: one no longer derived is removed. With `--since` (the daily run) only the
+judgments fetched since then are read, and edges are added, not removed; the run without it
+(weekly) links what an older judgment says of a newer one and removes what is no longer
+derived.
 
 **Semantic `rechtspraak-conclusions`.** `ADVISES_ON` from the conclusion of an
 advocate-general to the judgment of its case, one way only. A judgment is a conclusion by its
@@ -1479,4 +1483,5 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
+| semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |
