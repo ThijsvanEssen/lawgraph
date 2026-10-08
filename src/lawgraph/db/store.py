@@ -283,6 +283,57 @@ def in_background() -> Iterator[None]:
         _background.reset(token)
 
 
+class Cancellation:
+    """The reads of one request, to cancel when its client went away: the connections it
+    reads on now, and whether it was cancelled (``cancel``). A request starts no read after
+    that, and the ones it runs end at once."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._connections: set[psycopg.Connection[Any]] = set()
+        self.cancelled = False
+
+    def cancel(self) -> None:
+        """Cancel every read running for the request (``cancel_safe``: it waits for the
+        server to take it, so not on the event loop)."""
+        with self._lock:
+            self.cancelled = True
+            running = list(self._connections)
+        for conn in running:
+            with contextlib.suppress(psycopg.Error):
+                conn.cancel_safe(timeout=5.0)
+
+    @contextlib.contextmanager
+    def reading(self, conn: psycopg.Connection[Any]) -> Iterator[None]:
+        with self._lock:
+            if self.cancelled:
+                raise RequestCancelled("The client went away before this read.")
+            self._connections.add(conn)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._connections.discard(conn)
+
+
+# The reads of the current request, to cancel when its client goes away (the API sets one
+# per request); None outside a request. Copied into the threads a request runs queries on,
+# not into a computation of the cache, which goes on for the next request.
+_cancellation: contextvars.ContextVar[Cancellation | None] = contextvars.ContextVar(
+    "lawgraph_cancellation", default=None
+)
+
+
+def set_cancellation(
+    cancellation: Cancellation,
+) -> contextvars.Token[Cancellation | None]:
+    return _cancellation.set(cancellation)
+
+
+def reset_cancellation(token: contextvars.Token[Cancellation | None]) -> None:
+    _cancellation.reset(token)
+
+
 @contextlib.contextmanager
 def no_read_deadline() -> Iterator[None]:
     """The reads of the block have the ceiling alone, not the deadline of the request: for
@@ -317,6 +368,10 @@ def _read_budget_ms() -> int:
 
 class ReadTimedOut(RuntimeError):
     """A statement that reads ran past ``LAWGRAPH_READ_TIMEOUT_MS`` and was cancelled."""
+
+
+class RequestCancelled(ReadTimedOut):
+    """The client of the request went away: its reads were cancelled."""
 
 
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
@@ -588,7 +643,15 @@ class GraphStore:
             # computation in the background waits its turn
             pool = self._reading_pool()
             wait = budget / 1000 if _background.get() else min(60.0, budget / 1000)
-            with pool.connection(timeout=wait) as conn:
+            cancellation = _cancellation.get()
+            with (
+                pool.connection(timeout=wait) as conn,
+                (
+                    cancellation.reading(conn)
+                    if cancellation is not None
+                    else contextlib.nullcontext()
+                ),
+            ):
                 yield from self._read(
                     conn,
                     statement,
@@ -631,6 +694,11 @@ class GraphStore:
                 cursor.execute(_query(statement), params)
                 yield from cursor
         except psycopg.errors.QueryCanceled as exc:
+            cancellation = _cancellation.get()
+            if cancellation is not None and cancellation.cancelled:
+                raise RequestCancelled(
+                    f"The client went away; its read was cancelled: {text[:300]}"
+                ) from exc
             raise ReadTimedOut(
                 f"A read ran for over {budget / 1000:.0f} s (LAWGRAPH_READ_TIMEOUT_MS, "
                 f"or what the request had left) and was cancelled: {text[:300]}"
