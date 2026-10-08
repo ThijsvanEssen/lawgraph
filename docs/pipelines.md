@@ -1198,8 +1198,8 @@ writes it; one not in the graph yet becomes a publication with what its id says,
 loaded is left as it is); `LEGISLATED_IN` to the dossier of its approval when that dossier is
 in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`);
 `PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
-the article count and the citation count of that treaty leave out. Derived in full on every
-run.
+the article count and the citation count of that treaty leave out; `SAME_AS` into it from the BWB
+text of the treaty (`BWBV…`) whose `treaty_number` it has. Derived in full on every run.
 
 **Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
 (`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes
