@@ -204,15 +204,7 @@ treaty_rows AS (
       )
       AND (treaty.kind = 'verdrag' OR treaty.jurisdiction = 'int')
 ),
-judgment_edges AS (
-    SELECT e.key, e.confidence, lg_str(j.props -> 'date') AS date
-    FROM {COLLECTION_EDGES} e
-    JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-    WHERE e.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
-      AND e.relation = %(relation)s
-      AND e.from_collection = '{COLLECTION_JUDGMENTS}'
-      AND j.source = %(echr)s
-)
+{{judgment_edges}}
 SELECT
     (SELECT count(*)::int FROM treaty_rows) AS treaties_total,
     (
@@ -261,12 +253,46 @@ SELECT
 """
 
 
+# The edges of ECHR judgments into the instrument or its articles. A law cited little: from
+# its edges, each judgment read to keep those of the ECHR. A law cited much (the Awb: a
+# million edges of Dutch judgments): from the ECHR judgments and their edges, whose number
+# does not grow with the law (``ECHR_SIDE_FROM``).
+_JUDGMENT_EDGES_BY_TARGET = f"""
+judgment_edges AS (
+    SELECT e.key, e.confidence, lg_str(j.props -> 'date') AS date
+    FROM {COLLECTION_EDGES} e
+    JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+    WHERE e.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
+      AND e.relation = %(relation)s
+      AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+      AND j.source = %(echr)s
+)"""
+_JUDGMENT_EDGES_BY_ECHR = f"""
+echr_edges AS MATERIALIZED (
+    SELECT e.key, e.confidence, e.from_id, e.to_id
+    FROM {COLLECTION_JUDGMENTS} j
+    JOIN {COLLECTION_EDGES} e ON e.from_id = j.id AND e.relation = %(relation)s
+        AND e.to_collection IN ('{COLLECTION_ARTICLES}', '{COLLECTION_INSTRUMENTS}')
+    WHERE j.source = %(echr)s
+),
+judgment_edges AS (
+    SELECT r.key, r.confidence, lg_str(j.props -> 'date') AS date
+    FROM echr_edges r
+    JOIN {COLLECTION_JUDGMENTS} j ON j.id = r.from_id
+    WHERE r.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
+)"""
+# The citations of a law (``props.inbound_citation_count``: to it and its articles) from
+# which its ECHR judgments are found from their side.
+ECHR_SIDE_FROM = 2_000
+
+
 def get_international_links(
     store: GraphStore,
     instrument_id: str,
     scope: InstrumentScope | None,
     *,
     limit: int = 500,
+    cited: int | None = None,
 ) -> InternationalLinksData:
     """Treaties the articles of an instrument refer to, ECHR judgments that refer to it.
 
@@ -275,6 +301,7 @@ def get_international_links(
     `verdrag` or jurisdiction `int`, or one of its articles). Judgment rows: `{judgment,
     own_article, edge}`, from the `REFERS_TO` edges of ECHR judgments into the instrument or
     one of its articles. Most confident first; the totals are independent of `limit`.
+    *cited*: the citations of the instrument, which choose how its ECHR judgments are found.
     """
     # The scope is the indexed column of the articles: `bwb_id` or `celex`; without one
     # the instrument has no articles.
@@ -288,7 +315,14 @@ def get_international_links(
     }
     if scope:
         bind["scope_value"] = scope.value
-    sql = _INTERNATIONAL_SQL.replace("{scope}", condition)
+    judgment_edges = (
+        _JUDGMENT_EDGES_BY_ECHR
+        if (cited or 0) >= ECHR_SIDE_FROM
+        else _JUDGMENT_EDGES_BY_TARGET
+    )
+    sql = _INTERNATIONAL_SQL.replace("{scope}", condition).replace(
+        "{judgment_edges}", judgment_edges.strip()
+    )
     rows = list(store.query(sql, bind))
     row = rows[0] if rows else {}
     return InternationalLinksData(
