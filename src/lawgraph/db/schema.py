@@ -1108,6 +1108,13 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
 );
 CREATE INDEX IF NOT EXISTS edges_from ON edges (from_id, relation, to_collection);
 CREATE INDEX IF NOT EXISTS edges_to ON edges (to_id, relation, from_collection);
+-- The edges at a node with both ends, the relation and the key without the row (``paths``:
+-- the level of a node with 20,000 edges is a few hundred pages of the index, not a page of
+-- the table per edge). On a large database built beforehand with CREATE INDEX CONCURRENTLY.
+CREATE INDEX IF NOT EXISTS edges_to_cover ON edges (to_id, relation, from_collection)
+    INCLUDE (from_id, key, to_collection);
+CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_collection)
+    INCLUDE (to_id, key, from_collection);
 CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
 CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
 CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);

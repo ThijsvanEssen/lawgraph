@@ -463,7 +463,10 @@ and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
 The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
 load; when a run holds it, the job fails before it changes anything and is run again later. Data
 migrations that a release needs (a `normalize` or `semantic` step) are not part of it: run them
-on the server after the deploy.
+on the server after the deploy. An index a release adds to a large table (`ensure_schema` creates
+what is missing at the start of the API, in one transaction that blocks the table) is built
+beforehand by hand with the same name: `CREATE INDEX CONCURRENTLY IF NOT EXISTS …` (for
+`edges_from_cover` and `edges_to_cover` as in `schema.py`); the start then finds it.
 
 The server it expects:
 

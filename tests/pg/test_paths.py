@@ -233,3 +233,48 @@ def test_the_route_takes_relations_and_through_laws(client: TestClient) -> None:
     assert body["paths"][0]["length"] == 4
     wrong = client.get("/api/paths", params={"ids": ids, "relations": "NOPE"})
     assert wrong.status_code == 422
+
+
+def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
+    store: GraphStore,
+) -> None:
+    """A level of a hub (an article 20,000 judgments cite) reads both ends, the relation and
+    the key of its edges from a covering index, not a page of the table per edge (cold
+    seconds on the full graph)."""
+    import json
+
+    from lawgraph.db.store import _query
+
+    hub = "articles/hub"
+    store.bulk_insert_or_update_nodes(
+        "articles", [{"_key": "hub", "type": "article", "labels": [], "props": {}}]
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge(f"r{n}", f"judgments/j{n}", hub, "REFERS_TO") for n in range(3000)]
+    )
+    # the edges of the rest of the graph, of which those of the hub are a small part
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"o{n}", f"judgments/k{n}", f"articles/a{n % 3000}", "REFERS_TO")
+            for n in range(30_000)
+        ]
+    )
+    store.vacuum_analyze()
+    levels: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and "frontier" in params:
+            levels.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        get_paths(store, [hub, "articles/elsewhere"], max_depth=2)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    statement, params = next((s, p) for s, p in levels if p["frontier"] == [hub])
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    assert "Index Only Scan" in plan and "edges_to_cover" in plan, plan
