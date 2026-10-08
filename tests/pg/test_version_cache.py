@@ -274,3 +274,56 @@ def test_an_answer_computed_inside_another_gives_the_worker_back() -> None:
             assert [c["call"] for c in version_cache.busy()] == ["cache: inner"]
         assert [c["call"] for c in version_cache.busy()] == ["cache: outer"]
     assert version_cache.busy() == []
+
+
+def _judgment(key: str) -> dict[str, object]:
+    return {"_key": key, "type": "judgment", "labels": [], "props": {"title": key}}
+
+
+def test_an_answer_kept_per_table_outlives_a_write_to_another(
+    store: GraphStore,
+) -> None:
+    """A poll of judgments leaves what counts the instruments as it is; a write to the
+    instruments has it counted again."""
+    computed: list[int] = []
+
+    def count() -> int:
+        computed.append(1)
+        return int(next(store.query("SELECT count(*)::int FROM instruments")))
+
+    def kept() -> int:
+        return version_cache.cached(store, ("n",), count, tables=("instruments",))
+
+    assert kept() == 0
+    store.bulk_insert_or_update_nodes("judgments", [_judgment("j")])
+    assert kept() == 0
+    assert computed == [1]
+
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    assert kept() == 1
+    assert computed == [1, 1]
+
+
+def test_an_answer_kept_per_table_is_computed_again_after_its_age(
+    store: GraphStore, monkeypatch
+) -> None:
+    """The safety net for a table its declaration lacks: ``MAX_AGE`` at most."""
+    computed: list[int] = []
+
+    def count() -> int:
+        computed.append(1)
+        return len(computed)
+
+    assert version_cache.cached(store, ("age",), count, tables=("instruments",)) == 1
+    monkeypatch.setattr(version_cache, "MAX_AGE", 0.0)
+    time.sleep(0.01)
+    assert version_cache.cached(store, ("age",), count, tables=("instruments",)) == 2
+
+
+def test_a_stamp_of_tables_moves_with_them_alone(store: GraphStore) -> None:
+    whole, instruments = store.data_version(), store.data_version(["instruments"])
+    store.bulk_insert_or_update_nodes("judgments", [_judgment("j")])
+    assert store.data_version() != whole
+    assert store.data_version(["instruments"]) == instruments
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    assert store.data_version(["instruments"]) != instruments
