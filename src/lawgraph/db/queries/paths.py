@@ -3,7 +3,7 @@ at most ``max_depth`` edges, followed in either direction.
 
 A breadth-first search from both ends of a pair, one level at a time, the smaller side
 first: each level is one read of the edges at the nodes of the side, by ``from_id`` and by
-``to_id`` (``edges_from``, ``edges_to``). The neighbours of a level are taken in id order and
+``to_id`` (``edges_from_cover``, ``edges_to_cover``). The neighbours of a level are taken in id order and
 kept until ``LEVEL_CAP``, as the neighbourhood keeps a level (D9); a level cut there makes the
 answer ``capped``. Of the paths of the same length the one through the lowest ids is
 kept, so an answer does not change from one call to the next. No edge is derived: a path is
@@ -174,6 +174,8 @@ class _Levels:
                         "through_laws": self.followed.through_laws,
                         "ends": self.ids,
                     },
+                    # each node's share in index order, never a hub read whole and sorted
+                    index_order=True,
                 )
             )
         return self.read[key]

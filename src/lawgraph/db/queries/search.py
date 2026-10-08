@@ -21,6 +21,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
@@ -540,7 +541,8 @@ def _search_dossiers(
                 'kind', doc.props -> 'kind',
                 'current_phase', doc.props -> 'current_phase',
                 'closed', doc.props -> 'closed',
-                'outcome', doc.props -> 'outcome'
+                'outcome', doc.props -> 'outcome',
+                'title', doc.props -> 'title'
             )
         )
     """
@@ -555,7 +557,12 @@ def _search_dossiers(
         params={"kind_filter": [k.lower() for k in kinds or []]},
         live=live,
     )
-    return list(store.query(*query, indexes_only=True))
+    hits = list(store.query(*query, indexes_only=True))
+    for hit in hits:
+        # the name the dossier goes by, as /api/dossiers gives it ("Wet betaalbare huur")
+        extra = hit["extra"]
+        extra["short_title"] = short_title(extra.pop("title", None))
+    return hits
 
 
 def _search_committees(

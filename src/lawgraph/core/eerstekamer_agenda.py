@@ -21,7 +21,7 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_bills import label
+from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, label
 from lawgraph.core.eerstekamer_composition import text
 
 PLENARY_PATH = "/menukeuze_plenair"  # forwards to the next plenary sitting
@@ -36,7 +36,7 @@ _BLOCK = re.compile(
     re.S,
 )
 _TIME = re.compile(r"^(\d{1,2}\.\d{2}\s*-\s*\d{1,2}\.\d{2})\s*uur\s*(.*)$")
-_NUMBERED = re.compile(r"\(([0-9.]+(?:\s+[A-Za-z0-9-]+)?)\)\s*$")
+_NUMBERED = re.compile(rf"\(([0-9.]+{NUMBER_SUFFIX})\)\s*$")
 _LINKED_PAPER = re.compile(r'<a href="(/[^"]+)" class="grid-x">(.*?)</a>', re.S)
 _MEETING = re.compile(
     r'<li class="d-flex grid-y nowr">(.*?)</li>\s*(?=<li class="d-flex|</ul>)', re.S

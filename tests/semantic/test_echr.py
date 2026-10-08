@@ -41,6 +41,7 @@ def test_the_articles_and_their_paragraphs(
 
 def test_without_judgments_nothing_is_written(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_rechtspraak, "echr_judgments", lambda store: iter([]))
+    monkeypatch.setattr(semantic_rechtspraak, "echr_texts", lambda store: iter([]))
 
     assert ECHRSemanticPipeline(store=object()).run().created == 0
 
