@@ -302,10 +302,12 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "REVISES",
-        (_DOSSIER,),
-        (_DOSSIER,),
+        (_DOSSIER, _DOC),
+        (_DOSSIER, _DOC),
         "A supplementary budget or a slotwet revises the budget of its chapter and year "
-        "(`meta.rule`: `begrotingswijziging` or `slotwet`).",
+        "(`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended "
+        'amendment or motion replaces the one it names, "ter vervanging van nr. 21" '
+        "(`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document).",
     ),
     RelationSpec(
         "ACCOMPANIES",
