@@ -71,6 +71,22 @@ def test_a_conclusion_names_its_judgment() -> None:
     assert meta["conclusion_eclis"] == ["ECLI:NL:HR:2019:1278"]
 
 
+def test_a_judgment_names_its_later_instances_apart_from_its_earlier_ones() -> None:
+    # a rechtbank whose judgment the hof ruled on (latereAanleg), after its own interim one
+    meta = _metadata(
+        '<dcterms:relation ecli:resourceIdentifier="ECLI:NL:GHAMS:2026:100" '
+        'psi:type="http://psi.rechtspraak.nl/hogerBeroep" '
+        'psi:aanleg="http://psi.rechtspraak.nl/latereAanleg">Uitspraak hoger beroep: '
+        "ECLI:NL:GHAMS:2026:100</dcterms:relation>"
+        '<dcterms:relation ecli:resourceIdentifier="ECLI:NL:RBAMS:2024:9" '
+        'psi:type="http://psi.rechtspraak.nl/tussenuitspraak" '
+        'psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg">Tussenuitspraak: '
+        "ECLI:NL:RBAMS:2024:9</dcterms:relation>"
+    )
+    assert meta["later_eclis"] == ["ECLI:NL:GHAMS:2026:100"]
+    assert meta["related_eclis"] == ["ECLI:NL:RBAMS:2024:9"]
+
+
 def test_case_numbers_are_compared_without_spaces_or_case() -> None:
     assert case_number_keys("C/19/117301 / HA ZA 16-256") == ["c/19/117301/haza16-256"]
     assert case_number_keys("18/04298 en 18/04299") == ["18/04298", "18/04299"]
