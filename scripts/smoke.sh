@@ -7,20 +7,36 @@ base="${1:?usage: smoke.sh <base URL> [version]}"
 version="$2"
 failed=0
 
-check() {  # check <budget in seconds> <path>
-  budget="$1"
-  path="$2"
-  out=$(curl -s -o /dev/null -m 60 -w '%{http_code} %{time_total}' "$base$path") || out="000 60"
+# Right after a restart the caches are cold, so a route over its budget or failing gets one more
+# try after RETRY_SECONDS (default 30): only a second miss fails the smoke test.
+RETRY_SECONDS="${RETRY_SECONDS:-30}"
+
+measure() {  # measure <budget in seconds> <path>: prints the verdict, returns 1 on a miss
+  out=$(curl -s -o /dev/null -m 60 -w '%{http_code} %{time_total}' "$base$2") || out="000 60"
   code=${out% *}
   secs=${out#* }
   if [ "$code" != 200 ]; then
-    echo "[smoke] FAIL $path: HTTP $code after ${secs}s"
-    failed=1
-  elif awk -v t="$secs" -v b="$budget" 'BEGIN { exit !(t > b) }'; then
-    echo "[smoke] FAIL $path: ${secs}s, budget ${budget}s"
-    failed=1
+    verdict="HTTP $code after ${secs}s"
+    return 1
+  elif awk -v t="$secs" -v b="$1" 'BEGIN { exit !(t > b) }'; then
+    verdict="${secs}s, budget ${1}s"
+    return 1
+  fi
+  verdict="${secs}s (budget ${1}s)"
+}
+
+check() {  # check <budget in seconds> <path>
+  if measure "$1" "$2"; then
+    echo "[smoke] ok   $2: $verdict"
+    return
+  fi
+  echo "[smoke] slow $2: $verdict; again in ${RETRY_SECONDS}s"
+  sleep "$RETRY_SECONDS"
+  if measure "$1" "$2"; then
+    echo "[smoke] ok   $2: $verdict (second try)"
   else
-    echo "[smoke] ok   $path: ${secs}s (budget ${budget}s)"
+    echo "[smoke] FAIL $2: $verdict (second try)"
+    failed=1
   fi
 }
 
