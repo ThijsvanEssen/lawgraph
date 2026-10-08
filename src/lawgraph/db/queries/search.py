@@ -235,13 +235,16 @@ def _text_query(
     joins: str = "",
     where: str = "",
     params: dict[str, Any] | None = None,
+    live: bool = False,
 ) -> Query:
     """The hits of *table* that hold every token in *fields*, the best ranked first (the
-    key settles ties).
+    key settles ties); *live* as ``_live_query``.
 
     Run it with ``store.query(..., indexes_only=True)``: its conditions and its rank read
     the large search columns, whose detoasting the planner does not count, so for a
     common word it would scan the whole table instead of using the indexes."""
+    if live:
+        return _live_query(table, hit, tokens, fields, limit, joins, where, params)
     clause, clause_params = build_search_clause(table, tokens, fields)
     rank, lateral, rank_params = bm25_sql(
         store, table, clause_params, fields, _BOOSTS.get(table, {})
@@ -326,6 +329,7 @@ def _search_articles(
     tokens: list[str],
     notation: Notation | None,
     limit: int,
+    live: bool = False,
 ) -> list[dict[str, Any]]:
     text = _text_query(
         store,
@@ -335,6 +339,7 @@ def _search_articles(
         _ARTICLE_FIELDS,
         limit,
         joins=_ARTICLE_INSTRUMENT,
+        live=live,
     )
     if notation is None or notation.kind != "article":
         return list(store.query(*text, indexes_only=True))[:limit]
@@ -398,7 +403,7 @@ _INSTRUMENT_HIT = f"""
 
 
 def _search_instruments(
-    store: GraphStore, q: str, tokens: list[str], limit: int
+    store: GraphStore, q: str, tokens: list[str], limit: int, live: bool = False
 ) -> list[dict[str, Any]]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
@@ -413,7 +418,13 @@ def _search_instruments(
         {"name": _folded(q), "limit": limit},
     )
     text = _text_query(
-        store, "instruments", _INSTRUMENT_HIT, tokens, _INSTRUMENT_FIELDS, limit
+        store,
+        "instruments",
+        _INSTRUMENT_HIT,
+        tokens,
+        _INSTRUMENT_FIELDS,
+        limit,
+        live=live,
     )
     return _two_phase_search(store, precise, text, limit, precise_score=None)
 
@@ -497,6 +508,7 @@ def _search_dossiers(
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
+    live: bool = False,
 ) -> list[dict[str, Any]]:
     hit = f"""
         json_build_object(
@@ -522,12 +534,13 @@ def _search_dossiers(
         limit,
         where=_KIND if kinds else "",
         params={"kind_filter": [k.lower() for k in kinds or []]},
+        live=live,
     )
     return list(store.query(*query, indexes_only=True))
 
 
 def _search_committees(
-    store: GraphStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int, live: bool = False
 ) -> list[dict[str, Any]]:
     hit = """
         json_build_object(
@@ -541,7 +554,7 @@ def _search_committees(
         )
     """
     query = _text_query(
-        store, "committees", hit, tokens, ["name", "abbreviation"], limit
+        store, "committees", hit, tokens, ["name", "abbreviation"], limit, live=live
     )
     return list(store.query(*query, indexes_only=True))
 
@@ -551,6 +564,7 @@ def _search_documents(
     tokens: list[str],
     kinds: list[str] | None,
     limit: int,
+    live: bool = False,
 ) -> list[dict[str, Any]]:
     # Hydrated PDF text isn't indexed (~500 KB rows are too bulky for sub-200-ms search);
     # identifier and title fields cover the UI use cases.
@@ -584,6 +598,7 @@ def _search_documents(
         limit,
         where=_KIND if kinds else "",
         params={"kind_filter": [k.lower() for k in kinds or []]},
+        live=live,
     )
     return list(store.query(*query, indexes_only=True))
 
@@ -883,10 +898,11 @@ def search_live(
     kinds: list[str] | None = None,
     limit: int = 10,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
-    """``search_all`` while typing: each type within ``LIVE_BUDGET``, and the judgments
-    without ranking their summaries: an ECLI, the name of a judgment, then the judgments
-    whose display name (its court, date and case number) holds every word, the most cited
-    first. Returns the hits per type and the types cut off at their budget."""
+    """``search_all`` while typing: each type within ``LIVE_BUDGET``, nothing ranked by
+    its words (``_live_query``), and the judgments without their summaries: an ECLI, the
+    name of a judgment, then the judgments whose display name (its court, date and case
+    number) holds every word, the most cited first. Returns the hits per type and the
+    types cut off at their budget."""
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
@@ -895,14 +911,14 @@ def search_live(
     )
     notation = parser.parse(q) if parser else None
     searches: dict[str, Callable[[], list[dict[str, Any]]]] = {
-        "articles": lambda: _search_articles(store, tokens, notation, limit),
-        "instruments": lambda: _search_instruments(store, q, tokens, limit),
+        "articles": lambda: _search_articles(store, tokens, notation, limit, True),
+        "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
         "judgments": lambda: _search_judgments_live(store, tokens, notation, limit, q),
-        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit),
-        "committees": lambda: _search_committees(store, tokens, limit),
+        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True),
+        "committees": lambda: _search_committees(store, tokens, limit, True),
         "members": lambda: _search_members(store, tokens, limit),
         "factions": lambda: _search_factions(store, tokens, limit),
-        "documents": lambda: _search_documents(store, tokens, kinds, limit),
+        "documents": lambda: _search_documents(store, tokens, kinds, limit, True),
         "cabinets": lambda: _search_cabinets(store, tokens, limit),
         "commitments": lambda: _search_commitments(store, tokens, limit),
         "decisions": lambda: _search_decisions(store, tokens, limit),
@@ -914,6 +930,105 @@ def search_live(
     hits = {t: rank_hits(q, rows) for t, (rows, _) in zip(wanted, found, strict=True)}
     partial = {t for t, (_, cut) in zip(wanted, found, strict=True) if cut}
     return hits, partial
+
+
+# The rows a live search orders at most: a common word is in far more, and the first found
+# stand for them (the full search after Enter ranks them all).
+LIVE_CANDIDATES = 2_000
+# The order of a live search per table, without a rank: what stands out first.
+_LIVE_ORDER = {
+    "articles": "doc.inbound_citation_count DESC NULLS LAST, doc.key",
+    "instruments": "doc.article_count DESC NULLS LAST, doc.key",
+    "dossiers": "doc.last_activity DESC NULLS LAST, doc.key DESC",
+    "documents": "doc.date DESC NULLS LAST, doc.key DESC",
+    "committees": "doc.key",
+}
+
+
+# The query typed so far as the start of a folded value (``_live_query``).
+_LIVE_START = "lg_like(lg_fold(%(_live_q)s)) || '%%'"
+
+
+def _live_query(
+    table: str,
+    hit: str,
+    tokens: list[str],
+    fields: list[str],
+    limit: int,
+    joins: str = "",
+    where: str = "",
+    params: dict[str, Any] | None = None,
+) -> Query:
+    """``_text_query`` while typing: no word counted (the df of BM25) and none ranked.
+    Every token is a word of *fields*, a whole value of one, or, from three characters,
+    the start of a word of a name or title (``stik``: Stikstofwet); of the first
+    ``LIVE_CANDIDATES`` found, those whose name or title starts with the query first (as
+    ``score_hit``), then those first in ``_LIVE_ORDER``."""
+    clause, clause_params = _live_clause(table, tokens, fields)
+    starts = " OR ".join(
+        f"doc.{column} LIKE {_LIVE_START} OR doc.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
+        for column in (
+            search_column(f, "ngram")
+            for f in fields
+            if "ngram" in SEARCH_FIELDS[table][f]
+        )
+    )
+    order = f"({starts or 'false'}) DESC, {_LIVE_ORDER[table]}"
+    # ordered on their ids and columns alone; only the hits kept are read for their props
+    statement = f"""
+        SELECT {hit}
+        FROM (
+            SELECT doc.id, row_number() OVER (ORDER BY {order}) AS n
+            FROM (
+                SELECT * FROM {table} doc WHERE {clause} {where}
+                LIMIT %(candidates)s
+            ) doc
+            ORDER BY n
+            LIMIT %(limit)s
+        ) top
+        JOIN {table} doc ON doc.id = top.id {joins}
+        ORDER BY top.n
+        """
+    return statement, {
+        **clause_params,
+        **(params or {}),
+        "_live_q": " ".join(tokens),
+        "candidates": LIVE_CANDIDATES,
+        "limit": limit,
+    }
+
+
+def _live_clause(
+    table: str, tokens: list[str], fields: list[str]
+) -> tuple[str, dict[str, Any]]:
+    """The condition of ``_live_query``: each an index lookup, none a part of a value
+    within a word (``tikst``), which a short part finds in a large share of the rows."""
+    params: dict[str, Any] = {}
+    parts: list[str] = []
+    for i, token in enumerate(tokens):
+        word = f"_tok_{i}"
+        params[word] = token
+        per_field = []
+        for field in fields:
+            analyzers = SEARCH_FIELDS[table][field]
+            if "text" in analyzers:
+                per_field.append(
+                    f"doc.{search_column(field, 'text')} && lg_tokens(%({word})s)"
+                )
+            if "norm" in analyzers:
+                per_field.append(
+                    f"doc.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
+                )
+            if "ngram" in analyzers and len(token) >= 3:
+                column = f"doc.{search_column(field, 'ngram')}"
+                start = f"lg_like(lg_fold(%({word})s)) || '%%'"
+                per_field += [
+                    f"{column} LIKE {start}",
+                    f"{column} LIKE '%% ' || {start}",
+                    f"{column} LIKE '%%' || chr(31) || {start}",
+                ]
+        parts.append("(" + " OR ".join(per_field or ["false"]) + ")")
+    return " AND ".join(parts) or "true", params
 
 
 def _within_budget(
