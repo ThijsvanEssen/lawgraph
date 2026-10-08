@@ -560,6 +560,13 @@ class FeedResponse(BaseModel):
         None, description="Events under the filters, all pages; null without facets."
     )
     facets: FeedFacetsDTO | None = Field(None, description="Null without facets.")
+    partial: bool = Field(
+        False,
+        description=(
+            "``total`` and ``facets`` were asked for but are still being counted (under a "
+            "filter not counted before, that takes a minute or more): null now; ask again."
+        ),
+    )
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source: how current the graph is, as in `GET /api/stats`.",
