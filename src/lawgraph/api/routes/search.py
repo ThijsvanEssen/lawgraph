@@ -57,7 +57,7 @@ def search(
         Literal["full", "live"],
         Query(
             description=(
-                "`live` while typing: each type within 250 ms, cut off types in `partial`, "
+                "`live` while typing: all types within 250 ms, cut off types in `partial`, "
                 "nothing ranked by its words (a word, or the start of a word of a name or "
                 "title), the judgments by ECLI, name and display name (court, date, case number), "
                 "the most cited first, and only from three characters; `full` (the "
