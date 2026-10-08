@@ -11,6 +11,7 @@ their order is held to D3.
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -23,6 +24,12 @@ from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, search_words
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 from lawgraph.db.version_cache import cached
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
@@ -852,3 +859,119 @@ def search_all(
 
 
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
+
+
+# ── Live search: while typing ──────────────────────────────────────────────────
+
+# How long one type of a live search may read (seconds): what it has not found by then, it
+# answers empty and ``partial`` (the full search after Enter has it).
+LIVE_BUDGET = 0.25
+# The judgments a live search looks for need this many characters: a part of a name or
+# number of fewer is in too many.
+LIVE_MIN_JUDGMENT = 3
+
+
+def search_live(
+    store: GraphStore,
+    *,
+    q: str,
+    types: list[str],
+    kinds: list[str] | None = None,
+    limit: int = 10,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
+    """``search_all`` while typing: each type within ``LIVE_BUDGET``, and the judgments
+    without ranking their summaries: an ECLI, the name of a judgment, then the judgments
+    whose display name (its court, date and case number) holds every word, the most cited
+    first. Returns the hits per type and the types cut off at their budget."""
+    tokens = tokenize_search_query(q)
+    if not tokens:
+        return {t: [] for t in types}, set()
+    parser = (
+        load_notation_parser(store) if {"articles", "judgments"} & set(types) else None
+    )
+    notation = parser.parse(q) if parser else None
+    searches: dict[str, Callable[[], list[dict[str, Any]]]] = {
+        "articles": lambda: _search_articles(store, tokens, notation, limit),
+        "instruments": lambda: _search_instruments(store, q, tokens, limit),
+        "judgments": lambda: _search_judgments_live(store, tokens, notation, limit, q),
+        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit),
+        "committees": lambda: _search_committees(store, tokens, limit),
+        "members": lambda: _search_members(store, tokens, limit),
+        "factions": lambda: _search_factions(store, tokens, limit),
+        "documents": lambda: _search_documents(store, tokens, kinds, limit),
+        "cabinets": lambda: _search_cabinets(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit),
+        "decisions": lambda: _search_decisions(store, tokens, limit),
+    }
+    wanted = [t for t in types if t in searches]
+    found = side_by_side(
+        _SEARCHES, [functools.partial(_within_budget, searches[t]) for t in wanted]
+    )
+    hits = {t: rank_hits(q, rows) for t, (rows, _) in zip(wanted, found, strict=True)}
+    partial = {t for t, (_, cut) in zip(wanted, found, strict=True) if cut}
+    return hits, partial
+
+
+def _within_budget(
+    search: Callable[[], list[dict[str, Any]]],
+) -> tuple[list[dict[str, Any]], bool]:
+    """The hits of *search* within ``LIVE_BUDGET`` (or what the request has left); none and
+    cut off when it takes longer. A computation of the cache it waited for goes on."""
+    left = read_time_left()
+    token = set_read_deadline(LIVE_BUDGET if left is None else min(LIVE_BUDGET, left))
+    try:
+        return search(), False
+    except ReadTimedOut:
+        return [], True
+    finally:
+        reset_read_deadline(token)
+
+
+def _search_judgments_live(
+    store: GraphStore,
+    tokens: list[str],
+    notation: Notation | None,
+    limit: int,
+    q: str,
+) -> list[dict[str, Any]]:
+    """The judgments a typed query names, without ranking a summary: an ECLI; a judgment
+    whose name holds the query (``Urgenda``, ``Lindenbaum``); then those whose display name
+    holds every word of three characters or more, the most cited first."""
+    if len(q.strip()) < LIVE_MIN_JUDGMENT:
+        return []
+    if notation is not None and notation.kind == "ecli":
+        return list(
+            store.query(
+                f"SELECT {_ECLI_HIT} FROM judgments doc WHERE doc.ecli = %(ecli)s"
+                " ORDER BY doc.key LIMIT %(limit)s",
+                {"ecli": notation.identifier, "limit": limit},
+            )
+        )
+    words = [t for t in tokens if len(t) >= LIVE_MIN_JUDGMENT]
+    if not words:
+        return []
+    params: dict[str, Any] = {f"_w{n}": w for n, w in enumerate(words)}
+    params["limit"] = limit
+    holds = " AND ".join(
+        f"doc.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
+        for n in range(len(words))
+    )
+    found: list[dict[str, Any]] = []
+    for column in (
+        search_column("names", "ngram"),
+        search_column("display_name", "ngram"),
+    ):
+        statement = f"""
+            SELECT {_JUDGMENT_HIT} FROM judgments doc
+            WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
+              AND {holds.format(column=column)}
+            ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.key DESC
+            LIMIT %(limit)s
+            """
+        seen = {hit["id"] for hit in found}
+        found += [
+            hit for hit in store.query(statement, params) if hit["id"] not in seen
+        ]
+        if len(found) >= limit:
+            break
+    return found[:limit]

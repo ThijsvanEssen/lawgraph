@@ -517,6 +517,10 @@ no code.
   connection pools (`pools`) and what the threads shared by every request and those of the
   background (the cache, the warm-up) run now (`busy`);
   `GET /api/stats` gives counts per collection and relation.
+- A request whose client goes away (a browser that aborts a search at the next keystroke)
+  stops reading: its running reads are cancelled at once and it starts no other; the log
+  says `the client went away` (info, not a warning). A computation of the cache it started
+  goes on, for the next request.
 - A request that hangs: `systemctl kill -s USR1 lawgraph-api` writes the stack of every
   thread of the API to its stderr, the journal (`journalctl -u lawgraph-api`). Nothing is
   written without the signal.
