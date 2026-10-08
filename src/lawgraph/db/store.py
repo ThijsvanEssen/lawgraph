@@ -612,6 +612,7 @@ class GraphStore:
         batch_size: int = 1000,
         indexes_only: bool = False,
         hash_joins: bool = False,
+        index_order: bool = False,
     ) -> Iterator[Any]:
         """Run a statement; one that only reads streams its result.
 
@@ -636,18 +637,26 @@ class GraphStore:
         that joins sets the planner cannot count (a CTE over a condition on props, which
         it takes for a row or twenty where there are thousands), and that a nested loop
         over them makes run for hours. A loop over ``generate_series`` stays one.
+
+        ``index_order`` keeps the planner from a bitmap scan (``SET LOCAL
+        enable_bitmapscan = off``, for this statement alone): for a statement that reads a
+        page of the edges of each node in the order of an index (a level of paths, a page of
+        a node's neighbours). The planner takes the edges of a node for ten, and then finds
+        a bitmap scan of them all, sorted, as cheap as the first ten in order; of a hub it
+        reads every edge and its row (689,000 for the articles of Sr).
         """
         if _WRITES.search(_text(statement)):
             return iter(self.execute(statement, params))
-        return self._stream(statement, params, batch_size, indexes_only, hash_joins)
+        return self._stream(
+            statement, params, batch_size, (indexes_only, hash_joins, index_order)
+        )
 
     def _stream(
         self,
         statement: Statement,
         params: Params,
         batch_size: int,
-        indexes_only: bool = False,
-        hash_joins: bool = False,
+        brakes: tuple[bool, bool, bool] = (False, False, False),
     ) -> Iterator[Any]:
         budget = _read_budget_ms()
         try:
@@ -670,8 +679,7 @@ class GraphStore:
                     params,
                     batch_size,
                     budget,
-                    indexes_only,
-                    hash_joins,
+                    brakes,
                 )
         except PoolTimeout as exc:
             raise ReadTimedOut(
@@ -685,18 +693,21 @@ class GraphStore:
         params: Params,
         batch_size: int,
         budget: int,
-        indexes_only: bool,
-        hash_joins: bool,
+        brakes: tuple[bool, bool, bool],
     ) -> Iterator[Any]:
         # a ceiling for each statement (the DECLARE, every FETCH), not for the stream; in
         # a request of the API no more than the request has left
         conn.execute(f"SET LOCAL statement_timeout = {budget}")
+        indexes_only, hash_joins, index_order = brakes
         if indexes_only:
             # The planner prices detoasting at nothing (see ``query``).
             conn.execute("SET LOCAL enable_seqscan = off")
         if hash_joins:
             # The planner cannot count the rows of the sets it joins (see ``query``).
             conn.execute("SET LOCAL enable_nestloop = off")
+        if index_order:
+            # A page of each node's edges in index order, not all of them sorted (``query``).
+            conn.execute("SET LOCAL enable_bitmapscan = off")
         name = f"lg_{uuid.uuid4().hex}"
         text = re.sub(r"\s+", " ", _text(statement)).strip()
         _open_cursors[name] = text[:300]

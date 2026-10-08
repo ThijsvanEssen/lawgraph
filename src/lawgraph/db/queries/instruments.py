@@ -413,7 +413,7 @@ def get_instrument_amended_by(
     """Amending instruments of a regulation, newest first (2 queries at most).
 
     One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an article of the regulation (the ``edges_to`` index is used with
+    ``_to`` is an article of the regulation (the ``edges_to_cover`` index is used with
     the article ids), grouped per amending instrument; a second bulk
     query resolves the titles of every dossier the page mentions.
     """
