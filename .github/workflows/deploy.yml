@@ -1,8 +1,12 @@
 name: deploy
 
-# A push to `release` puts that commit on the server: the unit suite first, then over SSH a
-# checkout of exactly that commit, the dependencies, and a restart of the API that has to answer
-# /api/health. The server is laid out as docs/operations.md, "Deploy", describes.
+# Puts one commit on the server: over SSH a checkout of exactly that commit, the dependencies,
+# and a restart of the API that has to answer /api/health; then it waits for the warm-up and
+# runs scripts/smoke.sh against the public address. A failed deploy or smoke test puts the
+# previous commit back. The server is laid out as docs/operations.md, "Deploy", describes.
+#
+# Started two ways: a push to `release` (the unit suite first), or by release.yml, which has
+# already checked CI on the commit and passes the commit and its version.
 #
 # Secrets of the repository (Settings → Secrets and variables → Actions):
 #   DEPLOY_SSH_KEY  the private key whose public half is in ~/.ssh/authorized_keys on the server
@@ -11,21 +15,37 @@ name: deploy
 #                   (`ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key`, prefixed with the address);
 #                   a deploy talks to no other host, so a changed key stops it
 #   DEPLOY_USER     the user that owns DEPLOY_DIR and may run `sudo systemctl restart lawgraph-api`
+# Variable (optional): PUBLIC_URL, the address the smoke test uses (default https://concordans.nl).
 
 on:
   push:
     branches: [release]
+  workflow_call:
+    inputs:
+      sha:
+        description: The commit to deploy
+        required: true
+        type: string
+      version:
+        description: The version /api/health should report afterwards
+        required: false
+        type: string
 
-# one deploy at a time; a second push waits for the first instead of cancelling it halfway
+# one deploy at a time; a second one waits for the first instead of cancelling it halfway
 concurrency:
   group: deploy
   cancel-in-progress: false
 
 env:
   DEPLOY_DIR: /srv/lawgraph
+  SHA: ${{ inputs.sha || github.sha }}
+  PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://concordans.nl' }}
+  # how long the API may take to warm up after the restart
+  WARM_UP_SECONDS: 1200
 
 jobs:
   test:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +65,16 @@ jobs:
 
   deploy:
     needs: test
+    # after the suite on a push; without it when release.yml calls (CI was checked there)
+    if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+          sparse-checkout: scripts/smoke.sh
+          sparse-checkout-cone-mode: false
+
       - name: SSH key and host key
         run: |
           mkdir -p ~/.ssh
@@ -59,19 +87,25 @@ jobs:
 
       # Under the lock of the scheduled runs (scripts/_run.sh, with TMPDIR=$DEPLOY_DIR/tmp as the
       # timers set it): a deploy never swaps the code under a running load. When a run holds the
-      # lock the deploy fails; run the job again once the run is over.
+      # lock the deploy fails before it changes anything; run the job again once the run is over.
+      # Before the checkout it writes "<previous> <new> <run id>" to deploy/previous: only this
+      # run's rollback uses it.
       - name: Deploy
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
-            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$GITHUB_SHA sh -s" << 'EOF'
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID WARM=$WARM_UP_SECONDS sh -s" << 'EOF'
           set -e
           LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
           mkdir "$LOCK" || { echo "[deploy] a scheduled run holds $LOCK; run this job again later"; exit 1; }
           trap 'rmdir "$LOCK"' EXIT
           cd "$DEPLOY_DIR/app"
-          git fetch --quiet origin
+          # the tags too: the version of the install comes from them
+          git fetch --quiet --tags origin
+          mkdir -p "$DEPLOY_DIR/deploy"
+          echo "$(git rev-parse HEAD) $SHA $RUN" > "$DEPLOY_DIR/deploy/previous"
           git checkout --quiet --detach "$SHA"
           "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          since=$(date '+%Y-%m-%d %H:%M:%S')
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
@@ -80,6 +114,79 @@ jobs:
           curl -fsS http://127.0.0.1:8000/api/health
           echo
           echo "[deploy] running $(git log --oneline -1)"
+          # Warm when /api/health has answers of some data version (warm_version) and computes
+          # nothing more (computing false): under constant writes "warm" itself can stay false
+          # while every request is answered from the last version. "warm": null is warm-up off;
+          # an API without these fields is followed by "warm": true or its journal line.
+          for _ in $(seq "$((WARM / 5))"); do
+            health=$(curl -fsS http://127.0.0.1:8000/api/health 2>/dev/null || true)
+            case "$health" in
+              *'"warm":null'*) line="warm-up off: $health" ;;
+              *'"computing":false'*)
+                case "$health" in
+                  *'"warm_version":null'*) line="" ;;
+                  *) line="warm: $health" ;;
+                esac ;;
+              *'"computing":'*) line="" ;;
+              *'"warm":true'*) line="warm: $health" ;;
+              *'"warm":'*) line="" ;;
+              *) line=$(journalctl -u lawgraph-api --since "$since" -o cat 2>/dev/null \
+                   | grep -m1 -E 'Warm-up done|No warm-up at the start' || true) ;;
+            esac
+            [ -n "$line" ] && break
+            sleep 5
+          done
+          echo "[deploy] ${line:-not warm within $WARM s; the smoke test decides}"
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+
+      - name: Smoke test
+        run: scripts/smoke.sh "$PUBLIC_URL" "${{ inputs.version }}"
+
+      # Only when this run changed the code (deploy/previous names this run and the server is on
+      # its commit): back to the previous commit, its dependencies, a restart and /api/health,
+      # then an alert through LAWGRAPH_ALERT_COMMAND of scheduler.env (or bin/alert.sh). The job
+      # stays red either way.
+      - name: Roll back
+        if: failure()
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID sh -s" << 'EOF'
+          set -e
+          [ -r "$DEPLOY_DIR/scheduler.env" ] && . "$DEPLOY_DIR/scheduler.env"
+          alert() {
+            if [ -n "$LAWGRAPH_ALERT_COMMAND" ]; then
+              LAWGRAPH_ALERT_MESSAGE="$1" sh -c "$LAWGRAPH_ALERT_COMMAND" || true
+            elif [ -x "$DEPLOY_DIR/bin/alert.sh" ]; then
+              "$DEPLOY_DIR/bin/alert.sh" "$1" || true
+            fi
+          }
+          read -r prev new run < "$DEPLOY_DIR/deploy/previous" || true
+          cd "$DEPLOY_DIR/app"
+          if [ "$run" != "$RUN" ] || [ "$(git rev-parse HEAD)" != "$SHA" ]; then
+            echo "[rollback] this run changed nothing on the server; nothing to roll back"
+            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} failed before it changed the server"
+            exit 0
+          fi
+          LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
+          mkdir "$LOCK" || { alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback could not take the lock: roll back by hand"; exit 1; }
+          trap 'rmdir "$LOCK"' EXIT
+          git checkout --quiet --detach "$prev"
+          "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          sudo -n systemctl restart lawgraph-api < /dev/null
+          for _ in $(seq 30); do
+            curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
+            sleep 1
+          done
+          if curl -fsS http://127.0.0.1:8000/api/health > /dev/null; then
+            echo "[rollback] back on $(git log --oneline -1)"
+            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED; rolled back to ${prev%"${prev#???????}"}"
+          else
+            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback to ${prev%"${prev#???????}"} does not answer /api/health"
+            exit 1
+          fi
           EOF
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
