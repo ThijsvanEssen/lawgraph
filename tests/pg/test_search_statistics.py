@@ -266,6 +266,38 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     assert len(counts) <= 1  # kept: the second search counts nothing
 
 
+def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every term and field of a search is counted in one statement under one deadline,
+    ``DF_TIMEOUT``: a search of two words counts many terms, and when each count takes
+    2 s the whole still ends within the budget, every term taken as every row."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries.search import search_all
+
+    _judgments_with_words(store, 300)
+    version_cache.clear()
+    monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
+    df = _bm25._df
+    terms: list[str] = []
+
+    def slow(table: str, term: _bm25._Term) -> str:
+        terms.append(term.param)
+        return f"(SELECT {df(table, term)} FROM pg_sleep(2))"
+
+    monkeypatch.setattr(_bm25, "_df", slow)
+    started = time.monotonic()
+    hits = search_all(store, q="asiel beroep", types=["judgments"], limit=10)
+    took = time.monotonic() - started
+    assert (
+        len(terms) >= 6
+    )  # many terms: one after the other they would take 12 s or more
+    assert took < _bm25.DF_TIMEOUT + 1.5, took
+    assert hits["judgments"]  # what holds them is still found
+
+
 def test_the_start_of_a_value_is_matched_in_any_case_and_without_accents(
     store: GraphStore,
 ) -> None:
