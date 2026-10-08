@@ -7,6 +7,7 @@ judgments of the largest areas of law. Off with
 
 from __future__ import annotations
 
+import datetime as dt
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -14,16 +15,25 @@ from functools import partial
 
 from lawgraph.api.routes.nodes import heat_counts
 from lawgraph.api.routes.stats import coverage_data, stats_data
+from lawgraph.api.schemas.search import SEARCH_TYPES
+from lawgraph.config.settings import SEARCH_STATS_DIR
+from lawgraph.core import search_stats
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.feed import FeedFilters, get_feed
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
-from lawgraph.db.queries.search import load_code_aliases, load_notation_parser
+from lawgraph.db.queries.search import (
+    load_code_aliases,
+    load_notation_parser,
+    search_all,
+    tokenize_search_query,
+)
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)
@@ -111,6 +121,48 @@ def warm_up(store: GraphStore) -> None:
     # after ``warm``: it reads every edge, once a day (``heat_counts``), and the first
     # visitor of the heat finds it computed
     _run("heat", lambda: heat_counts(store))
+    _run("search terms", lambda: _warm_search_terms(store))
+
+
+# The terms searched most in the last ``search_stats.KEEP_DAYS`` days whose search the warm-up
+# runs, after everything else: their statistics, the pages of their index and of their
+# hits read before the first visitor asks. Only a term asked ``search_stats.MIN_COUNT``
+# times or more, as the counts keep them (one asked now and then may name a person).
+WARM_SEARCH_TERMS = 5
+
+
+def _warm_search_terms(store: GraphStore) -> None:
+    counts = search_stats.totals(
+        SEARCH_STATS_DIR, dt.date.today(), search_stats.KEEP_DAYS
+    )
+    terms = [term for term, n in counts.most_common() if n >= search_stats.MIN_COUNT]
+    for term in terms[:WARM_SEARCH_TERMS]:
+        if _common_word(store, term):
+            continue
+        search_all(store, q=term, types=sorted(SEARCH_TYPES), limit=20)
+
+
+# A term whose judgments are more than this share of them is not searched by the warm-up:
+# BM25 ranks every judgment that holds it (``_common_word``).
+COMMON_SHARE = 0.10
+
+
+def _common_word(store: GraphStore, term: str) -> bool:
+    """Whether more than ``COMMON_SHARE`` of the judgments hold every word of *term*, by the
+    planner's statistics of their summaries (``_bm25._common_elements``): its search would
+    rank them all."""
+    common = _bm25._common_elements(store, "judgments", "s_summary_t")
+    rows = _bm25._estimated_rows(store, "judgments")
+    words = tokenize_search_query(term)
+    if not words or rows <= 0:
+        return False
+    # the judgments that hold every word: at most those of its least common word, a word
+    # as common as its most common stem
+    holding = min(
+        max((common.get(stem, 0.0) for stem in _bm25._stems_of(store, w)), default=0.0)
+        for w in words
+    )
+    return holding > COMMON_SHARE * rows
 
 
 def _run(name: str, part: Callable[[], object]) -> None:

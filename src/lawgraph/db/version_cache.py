@@ -205,11 +205,16 @@ def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
         if entry_key in _values:
             _values.move_to_end(entry_key)
             return _values[entry_key]  # type: ignore[no-any-return]
+        nested = _in_cache_worker()
         future = _running.get(entry_key)
-        if future is None:
+        if future is None and not nested:
             future = _pool.submit(_compute, entry_key, compute)
             _running[entry_key] = future
         last = _latest.get((version[0], key), _NONE)
+    if nested:
+        _nested(key)
+        return _compute(entry_key, compute)
+    assert future is not None
     return _answer(future, last, key)
 
 
@@ -225,11 +230,33 @@ def lasting(store: Any, key: Hashable, compute: Callable[[], T], max_age: float)
         kept = _lasting.get(entry_key)
         if kept is not None and time.monotonic() - kept[1] < max_age:
             return kept[0]  # type: ignore[no-any-return]
+        nested = _in_cache_worker()
         future = _running.get(entry_key)
-        if future is None:
+        if future is None and not nested:
             future = _pool.submit(_compute_lasting, entry_key, compute)
             _running[entry_key] = future
+    if nested:
+        _nested(key)
+        return _compute_lasting(entry_key, compute)
+    assert future is not None
     return _answer(future, _NONE if kept is None else kept[0], key)
+
+
+def _in_cache_worker() -> bool:
+    """Whether the current thread is a worker of ``_pool``, computing an answer."""
+    return threading.current_thread().name.startswith("lawgraph-cache")
+
+
+def _nested(key: Hashable) -> None:
+    """A computation of the cache asked for another answer of it: computed here, in its own
+    worker. Waiting for it on the pool could wait for ever, when every worker of the pool
+    waits so (on 2026-10-08 a search stood still that way); the stack names the caller."""
+    logger.warning(
+        "A computation of the cache asked for %r: computed in its own worker, as one "
+        "that waited for the pool could wait for ever.",
+        key,
+        stack_info=True,
+    )
 
 
 def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) -> Any:
