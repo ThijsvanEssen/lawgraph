@@ -150,12 +150,14 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
 ) -> None:
     asked: dict[str, Any] = {}
 
-    def search_all(store: Any, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
+    def search_full(
+        store: Any, **kwargs: Any
+    ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
         asked.update(kwargs)
         weaker = {**_SR_ART_287, "id": "articles/x", "key": "x", "score": SCORE_WORDS}
-        return {"articles": [_SR_ART_287, weaker]}
+        return {"articles": [_SR_ART_287, weaker]}, set()
 
-    monkeypatch.setattr("lawgraph.api.routes.search.search_all", search_all)
+    monkeypatch.setattr("lawgraph.api.routes.search.search_full", search_full)
 
     response = TestClient(app).get(
         "/api/search",
@@ -202,7 +204,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
         return resolved
 
     monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_all", lambda store, **kwargs: {}
+        "lawgraph.api.routes.search.search_full", lambda store, **kwargs: ({}, set())
     )
     monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
     client = TestClient(app)
@@ -221,7 +223,7 @@ def test_an_unknown_type_is_refused_before_the_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_all",
+        "lawgraph.api.routes.search.search_full",
         lambda store, **kwargs: pytest.fail("searched"),
     )
     response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
@@ -329,8 +331,9 @@ def test_a_resolve_answer_says_how_many_alternatives_it_found() -> None:
     )
 
 
-def test_a_live_search_says_which_types_it_cut_off(monkeypatch) -> None:
-    """``mode=live``: ``partial`` names the types cut off; the full search has none."""
+def test_a_search_says_which_types_it_cut_off(monkeypatch) -> None:
+    """``partial`` names the types cut off: of a live search at its budget, of the full
+    search those that answered their live hits."""
     from fastapi.testclient import TestClient
 
     from lawgraph.api.app import app
@@ -341,7 +344,11 @@ def test_a_live_search_says_which_types_it_cut_off(monkeypatch) -> None:
         "search_live",
         lambda store, **k: ({"judgments": [], "articles": []}, {"judgments"}),
     )
-    monkeypatch.setattr(route, "search_all", lambda store, **k: {"articles": []})
+    monkeypatch.setattr(
+        route,
+        "search_full",
+        lambda store, **k: ({"judgments": [], "articles": []}, {"judgments"}),
+    )
     client = TestClient(app)
     live = client.get(
         "/api/search",
@@ -349,7 +356,7 @@ def test_a_live_search_says_which_types_it_cut_off(monkeypatch) -> None:
     )
     assert live.status_code == 200 and live.json()["partial"] == {"judgments": True}
     full = client.get("/api/search", params={"q": "huur", "types": ["articles"]})
-    assert full.status_code == 200 and full.json()["partial"] == {}
+    assert full.status_code == 200 and full.json()["partial"] == {"judgments": True}
     assert (
         client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
     )
