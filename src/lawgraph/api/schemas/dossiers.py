@@ -631,6 +631,109 @@ def merge_instruments(rows: list[dict[str, Any]]) -> list[DossierInstrumentDTO]:
     return items
 
 
+# What a link of the dossier hub says of a change: proposed by a bill, or enacted.
+_CHANGE_BASIS = {"voorgesteld": "voorstel", "canoniek": "staatsblad"}
+_CHANGES = ("amends", "introduces", "repeals")
+
+
+class LegalEffectItemDTO(BaseModel):
+    """An instrument the dossier changes or implements."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str | None = Field(
+        None,
+        description="The citation title, else the title: `Wet op het financieel toezicht`.",
+    )
+    short: str | None = Field(
+        None,
+        description="The short title the source gives (the WTI afkorting: `Wft`); null "
+        "where it gives none.",
+    )
+    bwb_id: str | None = None
+    celex: str | None = None
+    basis: list[str] = Field(
+        default_factory=list,
+        description="Where it shows: `voorstel` (a bill of the dossier proposes the change), "
+        "`staatsblad` (an amending publication of the dossier enacted it), `wet` (the act of "
+        "the dossier implements it).",
+    )
+
+
+class LegalEffectDTO(BaseModel):
+    """What the dossier's law changes and implements, in the order its title names them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    amends: list[LegalEffectItemDTO] = Field(
+        default_factory=list,
+        description="The laws it amends, adds to or repeals from (never its own new act).",
+    )
+    implements: list[LegalEffectItemDTO] = Field(
+        default_factory=list, description="The EU acts it implements."
+    )
+
+
+def legal_effect(
+    hub_rows: list[dict[str, Any]],
+    implements: list[dict[str, Any]],
+    names: dict[str, dict[str, Any]],
+    title: str | None,
+) -> LegalEffectDTO:
+    """The legal effect of a dossier from its hub rows (``get_dossier_hub``: a change a bill
+    proposes or a publication enacted, to the parent instrument), the acts it implements
+    (``get_dossier_implements``) and the names of those instruments; each in the order the
+    title names it, then by name."""
+    own = {row["id"] for row in hub_rows if row.get("relation") == "legislated_in"}
+    amends: dict[str, list[str]] = {}
+    for row in hub_rows:
+        basis = _CHANGE_BASIS.get(row.get("status") or "")
+        if (
+            row.get("relation") in _CHANGES
+            and row["id"] not in own
+            and not row.get("celex")
+        ):
+            _add(amends, row["id"], basis)
+    implemented: dict[str, list[str]] = {}
+    for row in implements:
+        _add(implemented, row["id"], row.get("basis"))
+    return LegalEffectDTO(
+        amends=_items(amends, names, title),
+        implements=_items(implemented, names, title),
+    )
+
+
+def _add(found: dict[str, list[str]], instrument_id: str, basis: str | None) -> None:
+    bases = found.setdefault(instrument_id, [])
+    if basis and basis not in bases:
+        bases.append(basis)
+
+
+def _items(
+    found: dict[str, list[str]], names: dict[str, dict[str, Any]], title: str | None
+) -> list[LegalEffectItemDTO]:
+    lowered = (title or "").lower()
+
+    def place(instrument_id: str) -> tuple[int, str]:
+        named = names.get(instrument_id) or {}
+        positions = [
+            lowered.find(str(text).lower())
+            for text in (named.get("name"), named.get("short"))
+            if text and str(text).lower() in lowered
+        ]
+        return (
+            min(positions) if positions else len(lowered) + 1,
+            named.get("name") or "",
+        )
+
+    return [
+        LegalEffectItemDTO(**names[instrument_id], basis=found[instrument_id])
+        for instrument_id in sorted(found, key=place)
+        if instrument_id in names
+    ]
+
+
 class DossierLawNamedDTO(BaseModel):
     """A law the title of a dossier names, and whether the graph holds it."""
 
@@ -814,6 +917,11 @@ class DossierDetailResponse(DossierSummaryDTO):
             "dossier, one item per instrument with every link."
         ),
     )
+    legal_effect: LegalEffectDTO = Field(
+        default_factory=LegalEffectDTO,
+        description="What the dossier's law changes and implements: from its bills (proposed) "
+        "and its publications and act (enacted), the order its title names them.",
+    )
     laws_named: list[DossierLawNamedDTO] = Field(
         default_factory=list,
         description=(
@@ -861,6 +969,7 @@ class DossierDetailResponse(DossierSummaryDTO):
         relations: list[dict[str, Any]] | None = None,
         laws_named: list[dict[str, Any]] | None = None,
         next_activity: dict[str, Any] | None = None,
+        legal_effect: LegalEffectDTO | None = None,
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
@@ -872,6 +981,7 @@ class DossierDetailResponse(DossierSummaryDTO):
             commitment_count=counts.get("commitments", 0),
             instruments=merge_instruments(hub.get("instruments") or []),
             laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
+            legal_effect=legal_effect or LegalEffectDTO(),
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=_senate(

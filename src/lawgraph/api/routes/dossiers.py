@@ -36,6 +36,7 @@ from lawgraph.api.schemas.dossiers import (
     DossierOutcome,
     DossierSummaryDTO,
     DossierTimelineResponse,
+    legal_effect,
     timeline_entry,
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
@@ -52,10 +53,12 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_by_number,
     get_dossier_documents,
     get_dossier_hub,
+    get_dossier_implements,
     get_dossier_mutations,
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
+    get_instrument_names,
     get_laws_named,
     get_next_activity,
 )
@@ -248,10 +251,19 @@ def get_dossier(
     enrich_dossier_docs(store, [dossier])
     relations = get_dossier_relations(store, dossier["_id"])
     enrich_dossier_docs(store, [row["dossier"] for row in relations])
+    hub = get_dossier_hub(store, dossier["_id"])
+    hub_rows = list(hub.get("instruments") or [])
+    implements = get_dossier_implements(store, dossier["_id"])
+    names = get_instrument_names(
+        store, sorted({row["id"] for row in [*hub_rows, *implements]})
+    )
     return DossierDetailResponse.from_document(
         dossier,
         counts=count_dossier_members(store, dossier["_id"]),
-        hub=get_dossier_hub(store, dossier["_id"]),
+        hub=hub,
+        legal_effect=legal_effect(
+            hub_rows, implements, names, (dossier.get("props") or {}).get("title")
+        ),
         relations=relations,
         laws_named=get_laws_named(
             store, laws_in_title((dossier.get("props") or {}).get("title"))
