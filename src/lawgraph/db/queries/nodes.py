@@ -371,26 +371,40 @@ def _read_pages(
     parts = []
     for direction, buckets in wanted.items():
         own, other, other_collection = _EDGE_SIDES[direction]
-        params[f"{direction}_relations"] = [b.relation for b in buckets]
-        params[f"{direction}_collections"] = [b.collection for b in buckets]
-        parts.append(
-            f"""
-            SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
-                   e.key AS edge_key, e.from_id, e.to_id, e.doc,
-                   n.id, n.key, n.type, n.labels, {props} AS props
-            FROM unnest(%({direction}_relations)s::text[], %({direction}_collections)s::text[])
-                WITH ORDINALITY AS b(relation, collection, ord)
-            CROSS JOIN LATERAL (
-                SELECT * FROM edges e
-                WHERE e.{own} = %(node_id)s
-                  AND e.relation IS NOT DISTINCT FROM b.relation
-                  AND e.{other_collection} = b.collection {status}
-                ORDER BY e.key
-                LIMIT %(limit)s OFFSET %(offset)s
-            ) e
-            JOIN nodes n ON n.id = e.{other}
-            """
-        )
+        # a relation is matched as equal, so that the index gives the edges of a bucket in
+        # key order and a page stops after its limit; the rare bucket without a relation
+        # apart
+        for name, matched in (
+            ("named", [b for b in buckets if b.relation is not None]),
+            ("unnamed", [b for b in buckets if b.relation is None]),
+        ):
+            if not matched:
+                continue
+            group = f"{direction}_{name}"
+            params[f"{group}_relations"] = [b.relation for b in matched]
+            params[f"{group}_collections"] = [b.collection for b in matched]
+            relation = (
+                "e.relation = b.relation" if name == "named" else "e.relation IS NULL"
+            )
+            parts.append(
+                f"""
+                SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
+                       e.key AS edge_key, e.from_id, e.to_id, e.doc,
+                       n.id, n.key, n.type, n.labels, {props} AS props
+                FROM unnest(%({group}_relations)s::text[],
+                            %({group}_collections)s::text[])
+                    WITH ORDINALITY AS b(relation, collection, ord)
+                CROSS JOIN LATERAL (
+                    SELECT * FROM edges e
+                    WHERE e.{own} = %(node_id)s
+                      AND {relation}
+                      AND e.{other_collection} = b.collection {status}
+                    ORDER BY e.key
+                    LIMIT %(limit)s OFFSET %(offset)s
+                ) e
+                JOIN nodes n ON n.id = e.{other}
+                """
+            )
     statement = " UNION ALL ".join(parts) + " ORDER BY direction, ord, edge_key"
     pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
     for row in store.query(statement, params):

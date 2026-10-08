@@ -1335,3 +1335,9 @@ def test_the_votes_of_a_member_read_the_decisions_newest_first(
         if n.get("Relation Name") == "edges"
     )
     assert read < 200, read
+    # the faction's vote on a decision from the index alone (``edges_to_cover``)
+    votes = [n for n in nodes if n.get("Relation Name") == "edges"]
+    assert votes and all(
+        n["Node Type"] == "Index Only Scan" and n.get("Index Name") == "edges_to_cover"
+        for n in votes
+    ), [(n["Node Type"], n.get("Index Name")) for n in votes]
