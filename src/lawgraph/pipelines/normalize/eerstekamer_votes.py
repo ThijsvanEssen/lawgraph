@@ -5,9 +5,12 @@ Every vote of the list (``ek-votes-day-html``) becomes a decision of the Eerste 
 (``result``: ``Aangenomen``, ``Verworpen``), how it was decided (``method``, as the report
 names it: ``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``), the factions that
 voted for, against or asked to have their vote recorded, and the links to the bill and the
-report. The list also holds the votes on the motions on a bill, under the bill's name and
-number, which nothing on it tells apart; which vote decided the bill is for ``semantic
-tk-dossier-outcomes``.
+report, and a ``VOTED`` edge from each faction it names (``ek_<slug>``, by the name the list
+writes, its ``abbreviation``) with the ``choice`` (``Voor``, ``Tegen``, ``Aantekening
+gevraagd``) and the faction's ``seats`` when the vote falls in the period the composition
+observed it (0 before). The list also holds the votes on the motions on a bill, under the
+bill's name and number, which nothing on it tells apart; which vote decided the bill is for
+``semantic tk-dossier-outcomes``.
 
 The list of rejected bills (``ek-rejected-html``) gives the dossier of each bill it names
 ``ek_rejected``: the day the Eerste Kamer rejected it (also before June 2015), with the
@@ -26,6 +29,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_REJECTED,
     RAW_KIND_EK_VOTES_DAY,
     RELATION_ABOUT,
+    RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.config.settings import EERSTEKAMER_SITE
@@ -40,7 +44,11 @@ from lawgraph.core.eerstekamer_votes import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import NodeWriter
+from lawgraph.db import NodeWriter, make_edge_doc
+from lawgraph.db.counting import Store
+from lawgraph.db.edges import EdgeWriter
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -48,6 +56,17 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "eerstekamer-votes"
+
+
+# The choice of a faction in each list of a vote, as the VOTED edge carries it.
+CHOICES = {
+    LABEL_FOR: "Voor",
+    LABEL_AGAINST: "Tegen",
+    LABEL_NOTED: "Aantekening gevraagd",
+}
+
+# Decisions whose other VOTED edges are removed in one query.
+_DECISION_CHUNK = 500
 
 
 def _url(path: str | None) -> str | None:
@@ -170,3 +189,88 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
         tk_cases.link_subjects(
             self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
         )
+        link_faction_votes(self.store, normalized, source=EDGE_SOURCE)
+
+
+def observed_on(faction: dict[str, Any], date: str | None) -> bool:
+    """Whether the composition observed *faction* on *date* (its seats are of that time)."""
+    day = date or ""
+    until = faction["observed_until"]
+    return (faction["observed_from"] or "") <= day and (not until or day < until)
+
+
+def faction_of(
+    factions: dict[str, list[dict[str, Any]]], name: str, date: str | None
+) -> dict[str, Any] | None:
+    """The faction the list of votes names *name* on *date*: of the factions with that
+    abbreviation, the one observed that day, else the last observed before it, else the
+    only one."""
+    candidates = factions.get(name) or []
+    seen = [f for f in candidates if observed_on(f, date)]
+    if seen:
+        return seen[0]
+    before = [f for f in candidates if (f["observed_from"] or "") <= (date or "")]
+    if before:
+        return max(before, key=lambda f: f["observed_from"] or "")
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> None:
+    """VOTED from each faction a vote names to its decision; derived in full per decision,
+    so a faction the list no longer names loses its edge. A name no faction of the Eerste
+    Kamer has (one gone before the composition was first read) makes none and is counted."""
+    factions: dict[str, list[dict[str, Any]]] = {}
+    for row in normalize_ek.ek_factions(store):
+        factions.setdefault(row["abbreviation"], []).append(row)
+    writer = EdgeWriter(store, what="EK faction votes")
+    written: dict[str, list[str]] = {}
+    unknown: dict[str, int] = {}
+    for node in decisions:
+        if not node.node_id:
+            continue
+        keys = written.setdefault(node.node_id, [])
+        date = node.props.get("date")
+        for label, choice in CHOICES.items():
+            for name in node.props.get(f"factions_{_FIELD[label]}") or []:
+                faction = faction_of(factions, name, date)
+                if faction is None:
+                    unknown[name] = unknown.get(name, 0) + 1
+                    continue
+                edge = make_edge_doc(
+                    faction["id"],
+                    node.node_id,
+                    RELATION_VOTED,
+                    source=source,
+                    meta={
+                        "choice": choice,
+                        "seats": (faction["seats"] or 0)
+                        if observed_on(faction, date)
+                        else 0,
+                    },
+                )
+                keys.append(edge["_key"])
+                writer.add_doc(edge)
+    writer.flush()
+    removed = sum(
+        normalize_edges.remove_edges_into_except(
+            store,
+            RELATION_VOTED,
+            chunk,
+            [key for decision in chunk for key in written[decision]],
+        )
+        for chunk in _chunks(sorted(written))
+    )
+    logger.info(
+        "Wrote %d VOTED edges of EK factions; removed %d; %d names of no faction: %s.",
+        writer.added,
+        removed,
+        sum(unknown.values()),
+        ", ".join(sorted(unknown)[:20]),
+    )
+
+
+_FIELD = {LABEL_FOR: "for", LABEL_AGAINST: "against", LABEL_NOTED: "noted"}
+
+
+def _chunks(ids: list[str]) -> list[list[str]]:
+    return [ids[i : i + _DECISION_CHUNK] for i in range(0, len(ids), _DECISION_CHUNK)]
