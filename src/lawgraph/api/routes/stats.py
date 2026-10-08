@@ -14,6 +14,7 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.stats import (
@@ -27,13 +28,24 @@ router = APIRouter()
 
 
 def stats_data(store: GraphStore) -> dict:
-    """The counts of ``/api/stats``: the same for every visitor until the data changes."""
-    return cached(store, ("stats",), lambda: get_db_stats(store))
+    """The counts of ``/api/stats``: the same for every visitor; the counts of each table
+    kept until that table changes, so a poll of judgments counts the judgments again."""
+    return get_db_stats(
+        store,
+        lambda table, compute: cached(
+            store, ("stats", table), compute, tables=(table,)
+        ),
+    )
 
 
 def coverage_data(store: GraphStore) -> dict:
-    """The counts of ``/api/stats/coverage``, kept as ``stats_data``."""
-    return cached(store, ("coverage",), lambda: get_judgment_coverage(store))
+    """The counts of ``/api/stats/coverage``: kept until the judgments change."""
+    return cached(
+        store,
+        ("coverage",),
+        lambda: get_judgment_coverage(store),
+        tables=(COLLECTION_JUDGMENTS,),
+    )
 
 
 @router.get(

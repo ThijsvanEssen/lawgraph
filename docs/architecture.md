@@ -131,7 +131,9 @@ scheduled runs (`docs/operations.md`, "Deploy").
 **The API** (`api/`) reads only. A route calls functions of `db/queries/` and answers with the
 DTOs of `api/schemas/`. Every write to a table of the graph bumps its row in
 `lg_data_version`, and the API's `ETag` follows that version, so a migration shows without a
-restart (`docs/api.md`).
+restart (`docs/api.md`). An answer kept per table is kept while its tables stand still
+(`db/version_cache.py`; `tests/pg/test_cached_tables.py` checks the tables each one names
+against the plans of its statements).
 
 ## Layering
 

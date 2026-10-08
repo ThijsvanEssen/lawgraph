@@ -27,7 +27,13 @@ from typing import Any, TypeVar
 
 from lawgraph.config.settings import API_WARM_UP_MIN_INTERVAL
 from lawgraph.core.logging import get_logger
-from lawgraph.db.store import ReadTimedOut, _text, in_background, read_time_left
+from lawgraph.db.store import (
+    ReadTimedOut,
+    _text,
+    in_background,
+    read_time_left,
+    version_stamp,
+)
 
 logger = get_logger(__name__)
 
@@ -45,7 +51,12 @@ STALE_WAIT = 2.0
 WORKERS = 3
 
 _lock = threading.Lock()
-_versions: dict[str, tuple[str | None, float]] = {}  # database -> (version, read at)
+# database -> (data version, the version of each table or None, read at)
+_versions: dict[str, tuple[str | None, dict[str, int] | None, float]] = {}
+# An answer kept for the tables it reads (``cached(tables=...)``) is computed again after this
+# many seconds, whatever their versions say: a safety net for a table its declaration lacks.
+MAX_AGE = 3600.0
+_computed_at: dict[Hashable, float] = {}  # entry key -> when its answer was computed
 _values: OrderedDict[Hashable, Any] = OrderedDict()
 _running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]] = {}
 # The last answer per (database, key), of whatever version: what a request takes while the
@@ -169,41 +180,69 @@ def _quietly(function: Callable[[Any], None], store: Any) -> None:
         )
 
 
-def _version(store: Any) -> tuple[str, str] | None:
-    """``(database, data version)`` of *store*, read at most every ``VERSION_TTL``; None
-    when it has none or the database cannot be read. A version this process did not know
-    starts the warm-up."""
+def _version(
+    store: Any, tables: tuple[str, ...] | None = None
+) -> tuple[str, str] | None:
+    """``(database, data version)`` of *store*, or of *tables* of it, read at most every
+    ``VERSION_TTL``; None when it has none or the database cannot be read. A data version
+    this process did not know starts the warm-up. A store without versions per table (a
+    fake) gives its data version for any *tables*."""
     read = getattr(store, "data_version", None)
     if read is None:
         return None
     name = str(getattr(store, "name", ""))
     now = time.monotonic()
     with _lock:
-        known, read_at = _versions.get(name, (None, float("-inf")))
+        known, per_table, read_at = _versions.get(name, (None, None, float("-inf")))
     if now - read_at >= VERSION_TTL:
         before = known
-        try:
-            known = read()
-        except Exception:  # noqa: BLE001 — without a version nothing is kept
-            known = None
+        known, per_table = _read_versions(store)
         with _lock:
-            _versions[name] = (known, now)
+            _versions[name] = (known, per_table, now)
         if known and known != before and before is not None:
             warm(store)
-    return (name, known) if known else None
+    if not known:
+        return None
+    if tables is None or per_table is None:
+        return (name, known)
+    return (name, f"{','.join(tables)}@{version_stamp(per_table, tables)}")
 
 
-def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
+def _read_versions(store: Any) -> tuple[str | None, dict[str, int] | None]:
+    """The data version of *store* and the version of each of its tables (None for a
+    store that has no ``table_versions``)."""
+    try:
+        per_table = getattr(store, "table_versions", None)
+        if per_table is None:
+            return store.data_version(), None
+        versions = per_table()
+        return version_stamp(versions), versions
+    except Exception:  # noqa: BLE001 — without a version nothing is kept
+        return None, None
+
+
+def cached(
+    store: Any,
+    key: Hashable,
+    compute: Callable[[], T],
+    *,
+    tables: tuple[str, ...] | None = None,
+) -> T:
     """The answer for *key* of the current data version of *store*: kept, or computed once
     in the background while this request waits for it no longer than its deadline
     (``ReadTimedOut`` then, and the computation goes on). A request that has the answer of
-    an earlier version waits ``STALE_WAIT`` at most, then takes that one."""
-    version = _version(store)
+    an earlier version waits ``STALE_WAIT`` at most, then takes that one.
+
+    With *tables*, the tables the computation reads, the answer is kept while those tables
+    stand still, whatever is written to others, and ``MAX_AGE`` at most;
+    ``tests/pg/test_cached_tables.py`` checks every such declaration against the tables
+    the plans of its statements read."""
+    version = _version(store, tables)
     if version is None:
         return compute()
     entry_key = (version, key)
     with _lock:
-        if entry_key in _values:
+        if entry_key in _values and not _too_old(entry_key, tables):
             _values.move_to_end(entry_key)
             return _values[entry_key]  # type: ignore[no-any-return]
         nested = _in_cache_worker()
@@ -217,6 +256,14 @@ def cached(store: Any, key: Hashable, compute: Callable[[], T]) -> T:
         return _compute(entry_key, compute)
     assert future is not None
     return _answer(future, last, key)
+
+
+def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
+    """Whether a kept answer for *tables* is past ``MAX_AGE`` (one for the whole data
+    version never is); the caller holds the lock."""
+    if tables is None:
+        return False
+    return time.monotonic() - _computed_at.get(entry_key, 0.0) > MAX_AGE
 
 
 def lasting(store: Any, key: Hashable, compute: Callable[[], T], max_age: float) -> T:
@@ -355,8 +402,10 @@ def _compute(
     (database, _), key = entry_key
     with _lock:
         _values[entry_key] = value
+        _computed_at[entry_key] = time.monotonic()
         while len(_values) > MAX_ENTRIES:
-            _values.popitem(last=False)
+            dropped, _ = _values.popitem(last=False)
+            _computed_at.pop(dropped, None)
         _latest[(database, key)] = value
         _latest.move_to_end((database, key))
         while len(_latest) > MAX_ENTRIES:
@@ -366,17 +415,27 @@ def _compute(
 
 
 def cached_rows(
-    store: Any, statement: Any, params: dict[str, Any] | None = None, **options: Any
+    store: Any,
+    statement: Any,
+    params: dict[str, Any] | None = None,
+    *,
+    tables: tuple[str, ...] | None = None,
+    **options: Any,
 ) -> list[Any]:
-    """The rows of *statement* with *params*, kept per data version: for a count or a
-    facet that every visitor asks the same."""
+    """The rows of *statement* with *params*, kept per data version (of *tables* when
+    given, see ``cached``): for a count or a facet that every visitor asks the same."""
     key = (
         "rows",
         _text(statement),
         _frozen(params or {}),
         tuple(sorted(options.items())),
     )
-    return cached(store, key, lambda: list(store.query(statement, params, **options)))
+    return cached(
+        store,
+        key,
+        lambda: list(store.query(statement, params, **options)),
+        tables=tables,
+    )
 
 
 def lasting_rows(
@@ -406,6 +465,7 @@ def clear() -> None:
     with _lock:
         _versions.clear()
         _values.clear()
+        _computed_at.clear()
         _latest.clear()
         _lasting.clear()
         _running.clear()

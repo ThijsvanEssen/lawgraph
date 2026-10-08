@@ -218,7 +218,7 @@ def _frequencies(
             found.update(_counted(store, table, terms, params, counted, rows))
         return [found[n] for n in range(len(terms))]
 
-    return cached(store, key, count)
+    return cached(store, key, count, tables=(table,))
 
 
 def _counted(

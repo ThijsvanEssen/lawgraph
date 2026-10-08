@@ -23,12 +23,15 @@ os.environ["LAWGRAPH_API_WARM_UP"] = "false"
 def _fresh_version_cache(monkeypatch) -> Iterator[None]:
     """Every test reads the data version at every call and starts with nothing kept: a test
     writes and reads again within the seconds the API keeps an answer."""
+    from lawgraph.api import warm
     from lawgraph.db import version_cache
 
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
     version_cache.clear()
+    warm.forget()
     yield
     version_cache.clear()
+    warm.forget()
 
 
 @pytest.fixture(autouse=True)

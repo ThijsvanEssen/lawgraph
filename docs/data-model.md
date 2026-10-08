@@ -756,7 +756,9 @@ lookup by id.
 `lg_data_version` holds a counter per table of the graph. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. The API's `ETag` is made from these counters
-(`GraphStore.data_version`).
+(`GraphStore.data_version`). An answer the API keeps names the tables it reads
+(`version_cache.cached(tables=...)`) and is kept while their counters stand still, an hour at
+most; one that names none is kept until any counter moves.
 
 ### Derived columns
 

@@ -20,7 +20,7 @@ _STATS_DATA = {
 def test_get_stats_returns_200(monkeypatch) -> None:
     monkeypatch.setattr(
         "lawgraph.api.routes.stats.get_db_stats",
-        lambda store: _STATS_DATA,
+        lambda store, keep: _STATS_DATA,
     )
     monkeypatch.setattr(
         "lawgraph.api.routes.stats.cached_data_as_of",

@@ -15,6 +15,12 @@ from functools import partial
 
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+)
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
 from lawgraph.core.logging import get_logger
@@ -83,9 +89,28 @@ def _warm_subject_areas(store: GraphStore) -> None:
             )
 
 
+# The tables a part of the warm-up reads, for the parts whose answers are kept per table
+# (``version_cache.cached(tables=...)``): such a part is left out while its tables stand
+# still, as a poll of judgments leaves the instruments. ``tests/pg/test_cached_tables.py``
+# checks every one against the tables the plans of its statements read. A part not named
+# here runs on every warm-up; one made of parts kept per table (``stats``) finds them kept.
+PART_TABLES: dict[str, tuple[str, ...]] = {
+    "coverage": (COLLECTION_JUDGMENTS,),
+    "instruments": (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS),
+    "documents": (COLLECTION_DOCUMENTS,),
+    "search notation": (COLLECTION_INSTRUMENTS,),
+    "search codes": (COLLECTION_INSTRUMENTS,),
+    **{f"search {table}": (table,) for table in SEARCH_FIELDS},
+}
+# The version of its tables each of those parts was last warmed for, per database, in this
+# process.
+_warmed_parts: dict[tuple[str, str], str] = {}
+
+
 def warm_up(store: GraphStore) -> None:
     """Compute what every visitor asks: each part on its own, so one that fails leaves the
-    others; then the version it was done for is kept (``is_warm``)."""
+    others, and one whose tables did not change since it was warmed left out; then the
+    version it was done for is kept (``is_warm``)."""
     global _warmed
     version = store.data_version()
     parts: dict[str, Callable[[], object]] = {
@@ -114,10 +139,20 @@ def warm_up(store: GraphStore) -> None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", name)
             return
-        _run(name, part)
+        tables = PART_TABLES.get(name)
+        if tables is None:
+            _run(name, part)
+            continue
+        stamp = store.data_version(tables)
+        if _warmed_parts.get((store.name, name)) == stamp:
+            logger.info(
+                "Warm-up of %s left: %s did not change.", name, ", ".join(tables)
+            )
+        elif _run(name, part):
+            _warmed_parts[(store.name, name)] = stamp
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
-    if _search_terms_due():
+    if _search_terms_due(store.name):
         _run("search terms", lambda: _warm_search_terms(store))
 
 
@@ -127,21 +162,29 @@ def warm_up(store: GraphStore) -> None:
 # visitor after a poll gets those of the version before while the new ones compute. So it
 # runs at most once per this many seconds per process.
 SEARCH_TERMS_EVERY = 3600.0
-_terms_searched: float | None = None  # when the warm-up last searched them (monotonic)
+# per database: when the warm-up last searched its terms (monotonic)
+_terms_searched: dict[str, float] = {}
 
 
-def _search_terms_due() -> bool:
-    """Whether the warm-up searches the terms searched most now; it notes when it did."""
-    global _terms_searched
+def _search_terms_due(database: str) -> bool:
+    """Whether the warm-up of *database* searches the terms searched most now; it notes
+    when it did."""
     now = time.monotonic()
-    if _terms_searched is not None and now - _terms_searched < SEARCH_TERMS_EVERY:
+    last = _terms_searched.get(database)
+    if last is not None and now - last < SEARCH_TERMS_EVERY:
         logger.info(
             "Warm-up of search terms left: searched %s ago.",
-            format_duration(now - _terms_searched),
+            format_duration(now - last),
         )
         return False
-    _terms_searched = now
+    _terms_searched[database] = now
     return True
+
+
+def forget() -> None:
+    """Forget which parts were warmed and when the terms were searched (the tests)."""
+    _warmed_parts.clear()
+    _terms_searched.clear()
 
 
 # The terms searched most in the last ``search_stats.KEEP_DAYS`` days whose search the warm-up
@@ -185,9 +228,9 @@ def _common_word(store: GraphStore, term: str) -> bool:
     return holding > COMMON_SHARE * rows
 
 
-def _run(name: str, part: Callable[[], object]) -> None:
+def _run(name: str, part: Callable[[], object]) -> bool:
     """One part of the warm-up, logged with how long it took; one that fails leaves the
-    others."""
+    others. Whether it was done."""
     logger.info("Warm-up of %s.", name)
     began = time.monotonic()
     try:
@@ -195,7 +238,8 @@ def _run(name: str, part: Callable[[], object]) -> None:
             part()
     except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
         logger.warning("Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc)
-    else:
-        logger.info(
-            "Warm-up of %s took %s.", name, format_duration(time.monotonic() - began)
-        )
+        return False
+    logger.info(
+        "Warm-up of %s took %s.", name, format_duration(time.monotonic() - began)
+    )
+    return True
