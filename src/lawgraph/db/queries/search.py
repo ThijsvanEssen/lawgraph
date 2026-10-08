@@ -916,7 +916,11 @@ def _live_searches(
     return {
         "articles": lambda: _search_articles(store, tokens, notation, limit, True),
         "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
-        "judgments": lambda: _search_judgments_live(store, tokens, notation, limit, q),
+        # a judgment the query names, else the newest that hold its words
+        "judgments": lambda: (
+            _search_judgments_live(store, tokens, notation, limit, q)
+            or _judgments_with_words(store, tokens, limit, q)
+        ),
         "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True),
         "committees": lambda: _search_committees(store, tokens, limit, True),
         "members": lambda: _search_members(store, tokens, limit),
@@ -954,9 +958,6 @@ def search_full(
     notation = _notation(store, q, types)
     full = _full_searches(store, q, tokens, notation, kinds, limit)
     live = _live_searches(store, q, tokens, notation, kinds, limit)
-    named = live["judgments"]
-    # a judgment the query names, else the newest that hold its words
-    live["judgments"] = lambda: named() or _judgments_with_words(store, tokens, limit)
     wanted = [t for t in types if t in full]
     found = side_by_side(
         _SEARCHES,
@@ -1003,8 +1004,9 @@ def search_live(
     """``search_all`` while typing: all types within ``LIVE_BUDGET``, nothing ranked by
     its words (``_live_query``), and the judgments without their summaries: an ECLI, the
     name of a judgment, then the judgments whose display name (its court, date and case
-    number) holds every word, the most cited first. Returns the hits per type and the
-    types cut off at their budget."""
+    number) holds every word, the most cited first; when none does (a subject:
+    ``onrechtmatige daad``), the newest that hold the words. Returns the hits per type and
+    the types cut off at their budget."""
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
@@ -1152,10 +1154,13 @@ def _within_budget(
 
 
 def _judgments_with_words(
-    store: GraphStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int, q: str
 ) -> list[dict[str, Any]]:
     """The judgments that hold every word (in their summary, name or display name), the
-    newest first of the first ``LIVE_CANDIDATES`` found, without a rank (``_live_query``)."""
+    newest first of the first ``LIVE_CANDIDATES`` found, without a rank (``_live_query``);
+    none for a query shorter than ``LIVE_MIN_JUDGMENT``, as by name."""
+    if len(q.strip()) < LIVE_MIN_JUDGMENT:
+        return []
     return list(
         store.query(
             *_live_query(

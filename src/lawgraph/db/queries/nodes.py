@@ -123,6 +123,9 @@ class NeighborBucket:
     facet: NeighborFacet
     next_offset: int | None
     entries: list[NeighborEntry]
+    # of an article: per lid its edges cite, how many of the whole bucket do ("" no lid);
+    # None where no edge of the bucket names a lid
+    lid_counts: dict[str, int] | None = None
 
 
 @dataclass
@@ -157,12 +160,14 @@ def get_node_with_neighbors(
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
     pages = _read_pages(store, node["_id"], filters, facets, limit, offset)
+    lids = _count_lids(store, node["_id"], filters) if collection == "articles" else {}
     end = offset + limit
     buckets = [
         NeighborBucket(
             facet=facet,
             next_offset=end if end < facet.count else None,
             entries=pages.get((facet.relation, facet.direction, facet.collection), []),
+            lid_counts=lids.get((facet.relation, facet.direction, facet.collection)),
         )
         for facet in facets
     ]
@@ -212,6 +217,69 @@ def _count_facets(
         )
         for row in store.query(statement, params)
     ]
+
+
+# The lids an edge cites, from its ``meta``: ``lid``, ``leden``, and the ``leden`` of each
+# of its ``mentions`` (a judgment cites an article in several places).
+_LIDS = """ARRAY(
+    SELECT DISTINCT lid FROM (
+        SELECT e.doc -> 'meta' ->> 'lid'
+        UNION ALL
+        SELECT unnest(lg_text_array(e.doc -> 'meta' -> 'leden'))
+        UNION ALL
+        SELECT unnest(lg_text_array(m.mention -> 'leden'))
+        FROM json_array_elements(
+            CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
+                 THEN e.doc -> 'meta' -> 'mentions' END
+        ) AS m(mention)
+    ) AS l(lid)
+    WHERE lid IS NOT NULL AND lid <> ''
+)"""
+
+
+def _count_lids(
+    store: GraphStore, node_id: str, filters: NeighborFilter
+) -> dict[tuple[str | None, str, str], dict[str, int]]:
+    """Per bucket of an article, how many of its edges cite each lid ("" those that cite
+    none; an edge that cites two counts for each): of the whole bucket, not its page.
+    Reads the ``meta`` of every edge of the article (hundreds; not of a faction's million);
+    a bucket of which no edge cites a lid is left out."""
+    parts = []
+    for direction in filters.directions:
+        own, _, other_collection = _EDGE_SIDES[direction]
+        collections = (
+            f"AND e.{other_collection} = ANY(%(collections)s)"
+            if filters.collections is not None
+            else ""
+        )
+        parts.append(
+            f"""
+            SELECT e.relation, '{direction}' AS direction,
+                   e.{other_collection} AS collection, {_LIDS} AS lids
+            FROM edges e
+            WHERE e.{own} = %(node_id)s {filters.edge_sql("e")} {collections}
+            """
+        )
+    statement = f"""
+        SELECT c.relation, c.direction, c.collection, lid, count(*)::int AS count
+        FROM ({" UNION ALL ".join(parts)}) c
+        CROSS JOIN LATERAL unnest(
+            CASE WHEN cardinality(c.lids) > 0 THEN c.lids ELSE ARRAY[''] END
+        ) AS lid
+        GROUP BY c.relation, c.direction, c.collection, lid
+        ORDER BY c.relation NULLS FIRST, c.direction NULLS FIRST,
+                 c.collection NULLS FIRST, lid NULLS FIRST
+        """
+    params = {
+        "node_id": node_id,
+        "collections": filters.collections,
+        **filters.edge_params(),
+    }
+    found: dict[tuple[str | None, str, str], dict[str, int]] = {}
+    for row in store.query(statement, params):
+        bucket = (row["relation"], row["direction"], row["collection"])
+        found.setdefault(bucket, {})[row["lid"]] = row["count"]
+    return {bucket: lids for bucket, lids in found.items() if set(lids) != {""}}
 
 
 def _read_pages(

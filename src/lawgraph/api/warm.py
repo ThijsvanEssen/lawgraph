@@ -151,7 +151,31 @@ def warm_up(store: GraphStore) -> None:
             _warmed_parts[name] = stamp
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
-    _run("search terms", lambda: _warm_search_terms(store))
+    if _search_terms_due():
+        _run("search terms", lambda: _warm_search_terms(store))
+
+
+# The search of the terms searched most reads the pages of their index and hits into the
+# memory of the database, where a warm-up of an hour ago left them also when a poll has
+# written since, and keeps their document frequencies per data version (``_bm25``): a
+# visitor after a poll gets those of the version before while the new ones compute. So it
+# runs at most once per this many seconds per process.
+SEARCH_TERMS_EVERY = 3600.0
+_terms_searched: float | None = None  # when the warm-up last searched them (monotonic)
+
+
+def _search_terms_due() -> bool:
+    """Whether the warm-up searches the terms searched most now; it notes when it did."""
+    global _terms_searched
+    now = time.monotonic()
+    if _terms_searched is not None and now - _terms_searched < SEARCH_TERMS_EVERY:
+        logger.info(
+            "Warm-up of search terms left: searched %s ago.",
+            format_duration(now - _terms_searched),
+        )
+        return False
+    _terms_searched = now
+    return True
 
 
 # The terms searched most in the last ``search_stats.KEEP_DAYS`` days whose search the warm-up
