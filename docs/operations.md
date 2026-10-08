@@ -158,7 +158,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-dossier-outcomes` | `--touched-since` (a poll; `semantic all` never passes it): only the dossiers touched since then; without it every dossier |
 | `tk-government` | `--touched-since` (as above): only the commitments and dossiers touched since then; without it all of them |
 | `tk-dossier-relations` | none (every dossier and every related case on every run) |
-| `graph-light` | `--all` (every judgment again, after the props it keeps changed); keeps every judgment written before its triggers as a neighbour without its text (`lg_judgment_light`); the triggers on `judgments` keep it with every write, so after the first run it adds nothing |
+| `graph-light` | `--all` (every row again, after the props it keeps changed); keeps every judgment as a neighbour (`lg_judgment_light`) and every paper as the signals of its dossier read it (`lg_document_light`), without their text, for those written before the triggers; the triggers on `judgments` and `documents` keep them with every write, so after the first run it adds nothing |
 | `graph-heat` | none; counts the heat of the whole graph per window in one pass over the edges and keeps it (`lg_heat`), in place of what it held, in one transaction, so the API reads no edges for it |
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
