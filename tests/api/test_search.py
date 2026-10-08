@@ -83,6 +83,11 @@ def hit(**fields: Any) -> dict[str, Any]:
             ),
             SCORE_CONTAINS,
         ),
+        # Letters with and without accents are one, as ``lg_fold`` folds them.
+        ("yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_CONTAINS),
+        ("Yeşilgöz", hit(display_name="dilan yesilgoz-zegerius"), SCORE_CONTAINS),
+        ("dilan yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_PREFIX),
+        ("cooperatie", hit(extra={"heading": "Coöperatie"}), SCORE_TITLE),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
     ],
 )

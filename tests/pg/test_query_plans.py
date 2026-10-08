@@ -96,16 +96,20 @@ URLS = [
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
+    "/api/dossiers/36000",
     "/api/dossiers/36000/changed-articles",
 ]
 
 # Statements that read a table whole on purpose, each kept for a minute: the statistics
-# BM25 weighs a search with, and the names and abbreviations of every law that a search or
-# a citation is resolved against.
+# BM25 weighs a search with, and the names and abbreviations of every law that a search, a
+# citation or the title of a dossier is resolved against.
 _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT count\(\*\)::float AS n, avg\("),
     re.compile(r"FROM instruments\s+WHERE coalesce\(bwb_id, celex\) IS NOT NULL"),
     re.compile(r"FROM instruments\s+WHERE bwb_id IS NOT NULL OR celex IS NOT NULL"),
+    re.compile(
+        r"FROM instruments i\s+WHERE i.stub IS DISTINCT FROM TRUE\s+ORDER BY i.key"
+    ),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).
@@ -227,7 +231,17 @@ def _seed(store: GraphStore) -> None:
         "annexes", [_node("a1", "annex", bwb_id=BWB, title="Bijlage")]
     )
     store.bulk_insert_or_update_nodes(
-        "dossiers", [_node("36000", "dossier", number="36000", label="36000")]
+        "dossiers",
+        [
+            _node(
+                "36000",
+                "dossier",
+                number="36000",
+                label="36000",
+                # a law the title names: the dossier looks it up (``get_laws_named``)
+                title="Wijziging van de Wet op de proef",
+            )
+        ],
     )
     store.bulk_insert_or_update_nodes(
         "instruments",

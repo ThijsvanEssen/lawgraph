@@ -110,6 +110,10 @@ def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> Non
     assert _ids(search(graph, q="vordering", types=["instruments"])["instruments"]) == [
         "instruments/bwbr0001903"
     ]
+    # the part folded as the title is: with an accent typed or not
+    assert _ids(search(graph, q="vördering", types=["instruments"])["instruments"]) == [
+        "instruments/bwbr0001903"
+    ]
     # an identifier in any case
     assert _ids(
         search(graph, q="bwbr0001854", types=["instruments"])["instruments"]
@@ -194,6 +198,12 @@ def test_members_and_factions_without_accents_or_in_capitals(
 
     for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
         assert found(q, "members") == ["members/m1"], q
+    # a part of the name, without its accents: more than words only (an article whose text
+    # names the minister), so the member is the best hit
+    (member,) = search_queries.search_all(store, q="yesilgoz", types=["members"])[
+        "members"
+    ]
+    assert member["score"] == search_queries.SCORE_CONTAINS
     assert found("appel", "factions") == ["factions/cda"]
     # a member by the factions of their timeline only as written, not folded
     assert found("appèl", "members") == ["members/m2"]

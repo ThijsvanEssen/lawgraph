@@ -12,7 +12,9 @@ their order is held to D3.
 from __future__ import annotations
 
 import functools
+import re
 import time
+import unicodedata
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -85,7 +87,8 @@ def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
     if "ngram" in analyzers:
         parts.append(
             f"(char_length(%({word})s) BETWEEN 3 AND 12"
-            f" AND {row}.{search_column(field, 'ngram')} LIKE '%%' || lg_like(%({word})s) || '%%')"
+            f" AND {row}.{search_column(field, 'ngram')}"
+            f" LIKE '%%' || lg_like(lg_fold(%({word})s)) || '%%')"
         )
     return parts
 
@@ -800,8 +803,18 @@ _NAME_LIST_FIELDS = ("aliases",)
 _CONTEXT_LIST_FIELDS = ("division_titles",)
 
 
+# The marks ``lg_fold`` takes off a letter after NFD (U+0300-U+036F).
+_ACCENTS = re.compile("[\u0300-\u036f]")
+
+
 def _folded(value: Any) -> str:
-    return " ".join(str(value).lower().split()) if value else ""
+    """*value* as ``lg_fold`` folds it (lower case, without accents: "yesilgoz" is part of
+    "Yeşilgöz-Zegerius"), its spaces one each."""
+    if not value:
+        return ""
+    plain = unicodedata.normalize("NFD", str(value).lower())
+    plain = unicodedata.normalize("NFC", _ACCENTS.sub("", plain))
+    return " ".join(plain.split())
 
 
 def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:
