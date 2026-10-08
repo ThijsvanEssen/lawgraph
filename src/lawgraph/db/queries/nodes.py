@@ -359,7 +359,7 @@ def _read_pages(
             wanted.setdefault(facet.direction, []).append(facet)
     if not wanted:
         return {}
-    status = "AND e.status = %(status)s" if filters.status is not None else ""
+    status = "AND k.status = %(status)s" if filters.status is not None else ""
     params: dict[str, Any] = {
         "node_id": node_id,
         "offset": offset,
@@ -373,7 +373,10 @@ def _read_pages(
         own, other, other_collection = _EDGE_SIDES[direction]
         # a relation is matched as equal, so that the index gives the edges of a bucket in
         # key order and a page stops after its limit; the rare bucket without a relation
-        # apart
+        # apart. The page's keys come from the index alone (``edges_to_cover``,
+        # ``edges_from_cover``), its edges by their key after: read whole, a hub's every
+        # edge was read and sorted for a page of them (the planner takes a bucket for one
+        # edge)
         for name, matched in (
             ("named", [b for b in buckets if b.relation is not None]),
             ("unnamed", [b for b in buckets if b.relation is None]),
@@ -384,7 +387,7 @@ def _read_pages(
             params[f"{group}_relations"] = [b.relation for b in matched]
             params[f"{group}_collections"] = [b.collection for b in matched]
             relation = (
-                "e.relation = b.relation" if name == "named" else "e.relation IS NULL"
+                "k.relation = b.relation" if name == "named" else "k.relation IS NULL"
             )
             parts.append(
                 f"""
@@ -395,12 +398,15 @@ def _read_pages(
                             %({group}_collections)s::text[])
                     WITH ORDINALITY AS b(relation, collection, ord)
                 CROSS JOIN LATERAL (
-                    SELECT * FROM edges e
-                    WHERE e.{own} = %(node_id)s
-                      AND {relation}
-                      AND e.{other_collection} = b.collection {status}
-                    ORDER BY e.key
-                    LIMIT %(limit)s OFFSET %(offset)s
+                    SELECT e.* FROM (
+                        SELECT k.key FROM edges k
+                        WHERE k.{own} = %(node_id)s
+                          AND {relation}
+                          AND k.{other_collection} = b.collection {status}
+                        ORDER BY k.key
+                        LIMIT %(limit)s OFFSET %(offset)s
+                    ) page
+                    JOIN edges e ON e.key = page.key
                 ) e
                 JOIN nodes n ON n.id = e.{other}
                 """

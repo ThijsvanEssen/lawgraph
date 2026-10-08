@@ -474,10 +474,17 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
 def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None:
     """A page of the neighbours of a hub (6:162 BW: 2,000 citing judgments a bucket) reads
     its limit of edges in key order from the index, not the whole bucket to sort it (cold
-    seconds on the full graph)."""
+    seconds on the full graph: 1,809 edges of 7:658 BW read from disk for 45 a bucket)."""
     hub = "articles/hub"
     store.bulk_insert_or_update_nodes(
         "articles", [{"_key": "hub", "type": "article", "labels": [], "props": {}}]
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            {"_key": f"j{n}", "type": "judgment", "labels": [], "props": {}}
+            for n in range(3000)
+        ],
     )
     store.bulk_insert_or_update_edges(
         [_edge(f"r{n:05d}", f"judgments/j{n}", hub, "REFERS_TO") for n in range(3000)]
@@ -519,6 +526,17 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None
                 "Actual Loops"
             ]
     assert read <= 40, read
+    # the page's keys from the index alone, in key order, and only its edges by their key
+    # (a bucket read whole and sorted does not depend on how the planner estimates it)
+    edges = [
+        (n["Node Type"], n.get("Index Name"), n["Actual Rows"] * n["Actual Loops"])
+        for n in scans(plan[0]["Plan"])
+        if n.get("Relation Name") == "edges"
+    ]
+    assert edges == [
+        ("Index Only Scan", "edges_to_cover", 20),
+        ("Index Scan", "edges_pkey", 20),
+    ], edges
 
 
 def test_a_bucket_without_a_relation_has_its_page(store: GraphStore) -> None:
