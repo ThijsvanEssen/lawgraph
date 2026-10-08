@@ -1032,7 +1032,11 @@ image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to t
 `Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
 (`aantekening gevraagd`), `subject` (the bill's name), `dossier_numbers` (the number as the
 Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-(R2188)`),
-`bill_url`, `source_url` (the part of the report) and `retrieved_on`; `ABOUT` the dossier. The
+`bill_url`, `source_url` (the part of the report) and `retrieved_on`; `ABOUT` the dossier, and
+`VOTED` from each faction it names (the faction `ek_<slug>` whose `abbreviation` is the name; of
+several, the one the composition observed that day, else the last before it), `choice` `Voor`,
+`Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
+was observed, else 0; derived in full per decision, a name no faction has makes none. The
 list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: the bill adopted,
 a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
