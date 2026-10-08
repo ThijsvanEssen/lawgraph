@@ -928,12 +928,14 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, extracts the
-publication year and number of each regulation and fetches those not yet stored (run
-`retrieve bwb` first). `full`: every AMvB from the SRU.
+**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
+`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
+`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
+regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
-`nota-van-toelichting` or `toelichting` section, `bwb_id` = first BWB id in the XML), key
+`nota-van-toelichting` or `toelichting` section, `bwb_id` = the regulation retrieve found it
+for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
 

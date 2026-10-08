@@ -57,7 +57,11 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
                 result.skipped += 1
                 continue
 
-            node = self._parse_publication(identifier, payload_text)
+            # the regulation whose toestand named this publication, as retrieve found it
+            # (``--mode from-graph``): its own, not the first law the text cites
+            node = self._parse_publication(
+                identifier, payload_text, self._meta(record).get("bwb_id")
+            )
             if node is None:
                 result.skipped += 1
                 continue
@@ -70,8 +74,11 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
         logger.info("Staatsblad normalize: %d publications processed.", count)
         return count
 
-    def _parse_publication(self, identifier: str, xml_text: str) -> Node | None:
-        """Parse a Staatsblad XML document into a Publication Node."""
+    def _parse_publication(
+        self, identifier: str, xml_text: str, bwb_id: str | None = None
+    ) -> Node | None:
+        """Parse a Staatsblad XML document into a Publication Node; *bwb_id* the regulation
+        retrieve found it for, else the first BWB id its text names."""
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as exc:
@@ -99,8 +106,7 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
         if not nvt_text:
             nvt_text = extract_section_text(root, "toelichting")
 
-        # Try to extract BWB ID from grondslagen or other references
-        bwb_id = find_bwb_id(xml_text)
+        bwb_id = bwb_id or find_bwb_id(xml_text)
 
         props: dict[str, Any] = {
             "source": SOURCE_STAATSBLAD,

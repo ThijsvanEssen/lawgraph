@@ -424,6 +424,17 @@ def test_extract_staatsblad_ref_from_bwb_xml() -> None:
     assert fn("<r>tekst stb-2001-56</r>") == ("2001", "56")
     assert fn("<r/>") is None
     assert fn("<bad") is None
+    # BWB writes publicatienr; of its publications, the one that made the regulation
+    bwb = (
+        '<toestand><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb">'
+        "<publicatiejaar>2019</publicatiejaar><publicatienr>7</publicatienr></publicatie>"
+        '<publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">'
+        "<publicatiejaar>1931</publicatiejaar><publicatienr>248</publicatienr></publicatie>"
+        '<publicatie soort="Stcrt"><publicatiejaar>1931</publicatiejaar>'
+        "<publicatienr>99</publicatienr></publicatie>"
+        "</oorspronkelijk></brondata></toestand>"
+    )
+    assert fn(bwb) == ("1931", "248")
 
 
 # ── retrieve id cleaning ─────────────────────────────────────────────────────
