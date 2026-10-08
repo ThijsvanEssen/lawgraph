@@ -106,6 +106,113 @@ def light_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     return doc
 
 
+# What the canvas of the explorer reads of a neighbour (``props=canvas``): the props of every
+# collection, those of each, and the keys of the ``meta`` of its edge.
+CANVAS_PROPS_EVERY = ("stub", "date", "source", "jurisdiction")
+CANVAS_PROPS: dict[str, tuple[str, ...]] = {
+    "articles": (
+        "bwb_id",
+        "celex",
+        "article_number",
+        "label",
+        "stam_id",
+        "instrument_citation_title",
+        "instrument_abbreviation",
+    ),
+    "instruments": ("bwb_id", "celex", "title", "citation_title", "short_title"),
+    "judgments": (
+        "ecli",
+        "court",
+        "court_code",
+        "names",
+        "advocate_general",
+        "advocate_general_role",
+        "summary",
+    ),
+    "documents": (
+        "kind",
+        "is_explanatory",
+        "number",
+        "sequence",
+        "title",
+        "subject",
+        "dossier_number",
+        "dossier_numbers",
+        "chamber",
+        "actors",
+    ),
+    "dossiers": ("label", "title", "name", "number", "subject"),
+    "members": ("name", "party"),
+    "factions": ("name", "abbreviation"),
+    "committees": ("name", "abbreviation"),
+    "cabinets": ("name", "abbreviation"),
+    "activities": ("kind", "agenda_title", "title", "text", "actors"),
+    "commitments": ("kind", "agenda_title", "title", "text", "actors"),
+    "cases": ("kind", "agenda_title", "title", "text", "actors"),
+    "decisions": ("subject", "title", "passed", "chamber", "kind", "decision_kind"),
+}
+# Of each of the ``actors`` of a paper, an activity, a commitment or a case.
+CANVAS_ACTOR_KEYS = ("role", "name", "faction")
+CANVAS_EDGE_META = (
+    "posts",
+    "from_date",
+    "to_date",
+    "function",
+    "capacity",
+    "leden",
+    "lid",
+    "paragraph_number",
+    "paragraph_id",
+    "snippet",
+    "raw_match",
+    "reason",
+    "edge_id",
+)
+
+
+def _text_array(values: tuple[str, ...]) -> str:
+    return "ARRAY[" + ", ".join(f"'{v}'" for v in values) + "]::text[]"
+
+
+def canvas_props(alias: str) -> str:
+    """SQL: of the row *alias* of the view ``nodes``, the props of ``light_props`` the canvas
+    reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction."""
+    cases = " ".join(
+        f"WHEN '{collection}' THEN {_text_array(CANVAS_PROPS_EVERY + keys)}"
+        for collection, keys in CANVAS_PROPS.items()
+    )
+    keys = (
+        f"(CASE {alias}.collection {cases} ELSE {_text_array(CANVAS_PROPS_EVERY)} END)"
+    )
+    actor = ", ".join(f"'{k}', a.actor -> '{k}'" for k in CANVAS_ACTOR_KEYS)
+    actors = f"""(SELECT coalesce(json_agg(json_build_object({actor}) ORDER BY a.n), '[]')
+        FROM json_array_elements(p.value) WITH ORDINALITY AS a(actor, n))"""
+    return f"""(SELECT coalesce(json_object_agg(p.key,
+            CASE WHEN p.key = 'actors' AND json_typeof(p.value) = 'array' THEN {actors}
+                 ELSE p.value END
+            ORDER BY p.n), '{{}}'::json)
+        FROM (SELECT {light_props(alias)} AS v) AS light
+        CROSS JOIN LATERAL json_each(
+            CASE WHEN json_typeof(light.v) = 'object' THEN light.v END
+        ) WITH ORDINALITY AS p(key, value, n)
+        WHERE p.key = ANY({keys}))"""
+
+
+def canvas_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
+    """``light_edge_doc`` with only the keys of its ``meta`` the canvas reads
+    (``CANVAS_EDGE_META``): none is null, never ``{}`` (the explorer keeps a richer meta it
+    had for null, and an empty one would take its place)."""
+    doc = light_edge_doc(row)
+    meta = doc.get("meta")
+    kept = (
+        {k: v for k, v in meta.items() if k in CANVAS_EDGE_META}
+        if isinstance(meta, dict)
+        else {}
+    )
+    doc["meta"] = kept or None
+    return doc
+
+
 def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A raw_sources row (``key``, ``doc``) as its document."""
     return {

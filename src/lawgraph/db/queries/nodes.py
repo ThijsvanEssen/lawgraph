@@ -8,7 +8,13 @@ from typing import Any, Literal
 
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
+from lawgraph.db._rows import (
+    canvas_edge_doc,
+    canvas_props,
+    light_edge_doc,
+    light_node_doc,
+    light_props,
+)
 from lawgraph.db.queries._helpers import _extract_confidence
 
 
@@ -151,15 +157,17 @@ def get_node_with_neighbors(
     filters: NeighborFilter = NO_FILTER,
     limit: int = DEFAULT_BUCKET_LIMIT,
     offset: int = 0,
+    canvas: bool = False,
 ) -> NodeGraphData:
     """A node with its neighbours, in buckets of one relation, direction and collection.
 
     ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
-    and where its next page starts.
+    and where its next page starts. With *canvas* a neighbour has only the props and the
+    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``).
     """
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
-    pages = _read_pages(store, node["_id"], filters, facets, limit, offset)
+    pages = _read_pages(store, node["_id"], filters, facets, limit, offset, canvas)
     lids = (
         _count_lids(store, node["_id"], filters, _leden(node))
         if collection == "articles"
@@ -318,8 +326,10 @@ def _read_pages(
     facets: Iterable[NeighborFacet],
     limit: int,
     offset: int,
+    canvas: bool = False,
 ) -> dict[tuple[str | None, str, str], list[NeighborEntry]]:
-    """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far.
+    """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far;
+    with *canvas* only what the canvas of the explorer reads of them.
 
     One query per request: each facet reads its own page of edges in key order, so that a
     page is the same on every request. ``limit`` and ``offset`` count edges, so an edge
@@ -338,6 +348,8 @@ def _read_pages(
         "limit": limit,
         **filters.edge_params(),
     }
+    props = canvas_props("n") if canvas else light_props("n")
+    edge_doc = canvas_edge_doc if canvas else light_edge_doc
     parts = []
     for direction, buckets in wanted.items():
         own, other, other_collection = _EDGE_SIDES[direction]
@@ -347,7 +359,7 @@ def _read_pages(
             f"""
             SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
                    e.key AS edge_key, e.from_id, e.to_id, e.doc,
-                   n.id, n.key, n.type, n.labels, {light_props("n")} AS props
+                   n.id, n.key, n.type, n.labels, {props} AS props
             FROM unnest(%({direction}_relations)s::text[], %({direction}_collections)s::text[])
                 WITH ORDINALITY AS b(relation, collection, ord)
             CROSS JOIN LATERAL (
@@ -366,7 +378,7 @@ def _read_pages(
     for row in store.query(statement, params):
         entry = NeighborEntry(
             doc=light_node_doc(row),
-            edge=light_edge_doc({**row, "key": row["edge_key"]}),
+            edge=edge_doc({**row, "key": row["edge_key"]}),
             direction=row["direction"],
         )
         pages.setdefault(

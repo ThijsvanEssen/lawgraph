@@ -104,6 +104,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         ),
         "limit": 10,
         "offset": 20,
+        "canvas": False,
     }
     node = payload["node"]
     assert node["id"].startswith("instruments")
@@ -138,7 +139,12 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
 
     monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", fake)
     assert client.get("/api/nodes/instruments/x").status_code == 200
-    assert seen == {"filters": NeighborFilter(), "limit": 30, "offset": 0}
+    assert seen == {
+        "filters": NeighborFilter(),
+        "limit": 30,
+        "offset": 0,
+        "canvas": False,
+    }
 
 
 @pytest.mark.parametrize("path", ["", "/neighborhood"])
