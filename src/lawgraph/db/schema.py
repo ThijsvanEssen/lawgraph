@@ -1106,13 +1106,13 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
         (lg_text_array(doc -> 'meta' -> 'record_ids')) STORED,
     created_at text GENERATED ALWAYS AS (lg_str(doc -> 'created_at')) STORED
 );
-CREATE INDEX IF NOT EXISTS edges_from ON edges (from_id, relation, to_collection);
-CREATE INDEX IF NOT EXISTS edges_to ON edges (to_id, relation, from_collection);
 -- The edges at a node by relation and the other collection, in key order, with both ends
 -- without the row: a level of ``paths`` reads a node with 20,000 edges from a few hundred
 -- pages of the index, not a page of the table per edge; a page of a node's neighbours stops
--- after its limit in key order instead of reading and sorting the whole bucket. On a large
--- database built beforehand with CREATE INDEX CONCURRENTLY.
+-- after its limit in key order instead of reading and sorting the whole bucket. The only
+-- indexes by end: one on the ends alone, smaller, was taken for a bucket the planner
+-- thought held one edge, and read the table for every edge of a hub. On a large database
+-- built beforehand with CREATE INDEX CONCURRENTLY.
 CREATE INDEX IF NOT EXISTS edges_to_cover ON edges (to_id, relation, from_collection, key)
     INCLUDE (from_id, to_collection);
 CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_collection, key)
@@ -1120,7 +1120,6 @@ CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_coll
 CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
 CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
 CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);
-CREATE INDEX IF NOT EXISTS edges_confidence ON edges (confidence);
 CREATE INDEX IF NOT EXISTS edges_record_ids ON edges USING gin (record_ids);
 CREATE INDEX IF NOT EXISTS edges_semantic_type ON edges (semantic_type)
     WHERE semantic_type IS NOT NULL;
