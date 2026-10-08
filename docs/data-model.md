@@ -88,7 +88,7 @@ they are out of date. Do not edit inside the markers.
 | `CONTINUES` | Judgment / Activity | Judgment / Activity | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. An activity → the moved activity it replaced (`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). |
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
-| `ANSWERS` | Judgment | Judgment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). |
+| `ANSWERS` | Judgment / Document | Judgment / Commitment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). |
 | `SAME_AS` | Judgment | Judgment | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
@@ -546,6 +546,7 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | `minister_name`, `minister_role`, `ministry_name` | as the Kamer writes them (`Toezegging.Ministerie`) |
 | `expected_resolution` | `0001-01-01` when the Kamer names none |
 | `status` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen` |
+| `letter_ids` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it |
 | `member_key`, `post`, `ministry`, `cabinet` | `semantic tk-government`: who made it (also an `AUTHORED` edge from the member, `role` `toezegger`), in which post and ministry, and the cabinet in office that day |
 
 ### Member (`members`)

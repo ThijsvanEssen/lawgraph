@@ -186,6 +186,7 @@ Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activ
 to Case and Dossier; Commitment to the dossiers of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`), `LED_BY` (Activity to
 Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity;
 Decision to the activity of its agenda item, `activity_id`; Document to the activity it records),
+`ANSWERS` (the letter that fulfils a commitment, `letter_ids`, to it),
 `MEMBER_OF` (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`. A run
 over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every stored seat of that
 person, so the member's timeline is made of all their seats, and takes the member and the faction

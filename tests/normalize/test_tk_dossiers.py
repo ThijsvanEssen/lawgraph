@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -126,6 +127,7 @@ def _raw(payload: dict[str, Any]) -> dict[str, Any]:
         (RELATION_LED_BY, COLLECTION_ACTIVITIES, {COLLECTION_COMMITTEES}),
         (RELATION_MADE_IN, COLLECTION_COMMITMENTS, {COLLECTION_ACTIVITIES}),
         (RELATION_MADE_IN, COLLECTION_DOCUMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_ANSWERS, COLLECTION_DOCUMENTS, {COLLECTION_COMMITMENTS}),
         (RELATION_MADE_IN, COLLECTION_DECISIONS, {COLLECTION_ACTIVITIES}),
         (RELATION_AUTHORED, COLLECTION_MEMBERS, {COLLECTION_COMMITMENTS}),
         (RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, {COLLECTION_DOCUMENTS}),
@@ -867,6 +869,20 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
     }
     # one lookup per collection, whatever the number of documents
     assert store.existence_calls == 2
+
+
+def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
+    store = _Store(existing={COLLECTION_DOCUMENTS: {"letter"}})
+    commitment = _node(
+        COLLECTION_COMMITMENTS,
+        NodeType.COMMITMENT,
+        "tz1",
+        letter_ids=["LETTER", "absent"],
+    )
+    tk_cases.link_letters_to_commitments(store, [commitment], source=SOURCE)
+    assert set(store.edge_meta) == {
+        ("documents/letter", RELATION_ANSWERS, "commitments/tz1")
+    }
 
 
 def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:

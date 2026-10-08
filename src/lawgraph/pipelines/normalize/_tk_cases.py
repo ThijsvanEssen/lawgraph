@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -112,6 +113,31 @@ def link_subjects(
     _queue_existing(store, pairs, relation, writer, source=source)
     writer.flush()
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
+
+
+def link_letters_to_commitments(
+    store: Store, commitment_nodes: Iterable[Node], *, source: str
+) -> None:
+    """ANSWERS from each letter that fulfils a commitment (``letter_ids``,
+    ``KamerbriefNakoming``) to it, when the letter is stored."""
+    pairs = [
+        (make_node_key(str(letter)), node.node_id)
+        for node in commitment_nodes
+        if node.node_id
+        for letter in node.props.get("letter_ids") or []
+    ]
+    stored = store.existing_keys(COLLECTION_DOCUMENTS, {letter for letter, _ in pairs})
+    writer = EdgeWriter(store, what="letter to commitment edges")
+    for letter, commitment in pairs:
+        if letter in stored:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{letter}",
+                commitment,
+                RELATION_ANSWERS,
+                source=source,
+            )
+    writer.flush()
+    logger.info("Linked %d letters to the commitments they fulfil.", writer.added)
 
 
 def link_decisions_to_activities(
@@ -341,6 +367,7 @@ LINK_PROPS = (
     "activity_ids",
     "attachment_ids",
     "attached_to_ids",
+    "letter_ids",
     "case_kinds_by_dossier",
     "vote_kind",
 )

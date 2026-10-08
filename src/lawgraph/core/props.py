@@ -599,6 +599,8 @@ class CommitmentProps(_CommonProps):
     status: str | None = None
     activity_number: str | None = None
     number: str | None = None  # "TZ202603-130", how the Kamer cites it
+    # the letters that fulfil it (``KamerbriefNakoming``, TK ids): ANSWERS from each
+    letter_ids: list[str] | None = None
     # who made it (``semantic government``): the member, the post and ministry of their
     # role, and the cabinet in office on the day
     member_key: str | None = None

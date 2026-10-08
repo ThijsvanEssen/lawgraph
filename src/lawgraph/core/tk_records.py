@@ -703,6 +703,10 @@ def commitment(payload: Payload) -> Record | None:
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
         "display_name": shorten(text, 80),
+        # the letters that fulfil it (``KamerbriefNakoming``): ANSWERS
+        "letter_ids": _distinct(
+            [str(d.get("Id") or "") for d in _dicts(payload.get("KamerbriefNakoming"))]
+        ),
     }
 
 
