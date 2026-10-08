@@ -308,7 +308,7 @@ A Rechtspraak judgment carries:
 
 - its header: `court`, `date`, `case_number`, and `judgment_metadata` with `type`, the
   procedure, `document_type` (`Uitspraak` or `Conclusie`), `related_eclis` (earlier
-  instances), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
+  instances), `later_eclis` (later instances: `psi:aanleg` latereAanleg), `conclusion_eclis` (its conclusion, or the judgment of a conclusion) and
   `subjects`;
 - derived from it: `court_code`, `tier` (the `Type` of its court in the Instanties list),
   `court_kind` (the kind of court within it), `date_eff` and `case_number_keys` (the case
@@ -322,7 +322,9 @@ A Rechtspraak judgment carries:
   `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
-`articles`, `conclusion`, `importance` and, from the DOCX of its English item (else its French
+`articles`, `conclusion`, `importance`, `language` (of its HUDOC record; another language version
+without an ECLI is `SAME_AS` the one kept and names its item id in `same_as`: `semantic
+echr-versions`) and, from the DOCX of its English item (else its French
 one), `text` and `paragraphs`. Its paragraphs are read from the Word styles of the Court's
 templates (`core/echr_docx.py`): `heading` for a section heading (`JuHHead`, `OpiHHead`,
 `ECHRHeading1`), `subheading` for the levels below it (`JuHIRoman`, `JuHA`, `JuH1`,
@@ -783,12 +785,13 @@ the kind of court, the source, the date, `stub` and `same_as`, so its facets cou
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
 publications), the documents newest first, and the member lists in name order. `edges`:
-`(from_id, relation, to_collection)`, `(to_id, relation, from_collection)`, the same two
-with `key` after them and the other end and collection included (`edges_from_cover`,
-`edges_to_cover`: a level of `/api/paths` reads a node's edges from the index alone, and a
-page of a node's neighbours reads its keys from it in key order, stopping after its limit,
-and only those edges whole), `relation`,
-`(status, relation)`, `confidence`, `(created_at, to_id)`, a GIN index on `record_ids`, and
+`(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
+with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
+`/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours
+reads its keys from it in key order, stopping after its limit, and only those edges whole;
+the only indexes by end, so that the planner cannot take a smaller one without `key` and
+read the table for every edge of a hub), `relation`,
+`(status, relation)`, `(created_at, to_id)` (the edges written since a poll), a GIN index on `record_ids`, and
 `semantic_type` and `(from_id, semantic_type)` where `semantic_type` is set.
 
 ### Search

@@ -79,7 +79,9 @@ class JudgmentDTO(BaseNodeDTO):
         default=None,
         description="For a publication of a decision that another publication replaces "
         "(the Rechtspraak published many old arresten again under a new ECLI), the ECLI "
-        "of the one kept; the lists show the decision by that one. Null otherwise.",
+        "of the one kept; for a language version of an ECHR decision without an ECLI, the "
+        "HUDOC item id of the version kept. The lists show the decision by that one. Null "
+        "otherwise.",
     )
     replaced_by: str | None = Field(
         default=None,

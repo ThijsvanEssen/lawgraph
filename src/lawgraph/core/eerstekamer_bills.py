@@ -33,7 +33,10 @@ _LISTED = re.compile(
     re.S,
 )
 _NEXT = re.compile(r'<li class="plus volgende">\s*<a href="([^"]+)"')
-_TITLE_NUMBER = re.compile(r"<title>[^<]*\(([0-9.]+(?:\s+[A-Za-z0-9-]+)?)\)")
+# The number in a bill's title, with the addition it may have: a chapter (``36.600 VII``) or,
+# of a Rijkswet, its R-number in parentheses (``36.455 (R2188)``).
+NUMBER_SUFFIX = r"(?:\s+(?:\([A-Za-z0-9-]+\)|[A-Za-z0-9-]+))?"
+_TITLE_NUMBER = re.compile(rf"<title>[^<]*\(([0-9.]+{NUMBER_SUFFIX})\)")
 _SUBMITTED = re.compile(r"<h3[^>]*>\s*ingediend\s*</h3>\s*([^<]+)")
 _BLOCK = re.compile(
     r'<div class="voortgangBlok\d+">(.*?)(?=<div class="voortgangBlok\d+">|$)', re.S

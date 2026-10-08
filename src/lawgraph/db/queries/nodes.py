@@ -413,7 +413,8 @@ def _read_pages(
             )
     statement = " UNION ALL ".join(parts) + " ORDER BY direction, ord, edge_key"
     pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
-    for row in store.query(statement, params):
+    # a page of each bucket in key order, never a hub's bucket read whole and sorted
+    for row in store.query(statement, params, index_order=True):
         entry = NeighborEntry(
             doc=light_node_doc(row),
             edge=edge_doc({**row, "key": row["edge_key"]}),

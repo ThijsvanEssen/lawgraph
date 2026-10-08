@@ -14,7 +14,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
-| ECHR | `echr` | `echr` | `echr` |
+| ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
@@ -550,13 +550,17 @@ court. A publication whose replacing one is loaded (followed to the last that is
 counts its citations with the one kept. One whose replacing publication is not loaded stands
 alone. Derived in full each run.
 
-**Semantic `rechtspraak-appeal`.** Judgments whose `judgment_metadata.type` contains `hoger
-beroep`, `cassatie` or `verwijzing` (`core/appeals.py`). To each of their `related_eclis`
+**Semantic `rechtspraak-appeal`.** From a judgment to each of its `related_eclis`
 (`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`): `CONTINUES` when it is of the
-same court with a case number the two share (an interim judgment, then the final one);
+same court with a case number the two share (an interim judgment, then the final one), whatever
+the procedure; and from a judgment whose `judgment_metadata.type` contains `hoger beroep`,
+`cassatie`, `verwijzing`, `artikel 80a RO` or `artikel 81 RO` (`core/appeals.py`):
 `REFERRED_BY` when it is a ruling of the Hoge Raad and the judgment is of another court (the
 decision after referral), no edge when that ruling is a preliminary ruling the court asked for;
-no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. An appeal without
+no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. A judgment's
+`later_eclis` (`psi:aanleg` latereAanleg) make the same edge from each later judgment that is
+loaded, by the same rules (`later_instance`, 0.95): a lower court names its appeal, which need
+not name it back. An appeal without
 `related_eclis` is read for the decision it appeals, in its first 12 paragraphs: `tegen
 de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
 followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
@@ -933,12 +937,14 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, extracts the
-publication year and number of each regulation and fetches those not yet stored (run
-`retrieve bwb` first). `full`: every AMvB from the SRU.
+**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
+`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
+`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
+regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
-`nota-van-toelichting` or `toelichting` section, `bwb_id` = first BWB id in the XML), key
+`nota-van-toelichting` or `toelichting` section, `bwb_id` = the regulation retrieve found it
+for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
 
@@ -1107,6 +1113,14 @@ has), else by item (`echr_<itemid>`); the English item's record, else the French
 another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A text record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
+
+**Semantic `echr-versions`.** HUDOC holds a decision once per language. One with an ECLI is
+one node already; one without is a node per item. Those with the same application numbers
+(`appno`, in any order) and the same date are one decision: the English version is kept (else
+the French, else the lowest key), every other is `SAME_AS` it (`meta.basis` `appno_and_date`,
+1.0) and names its HUDOC item id in `same_as`, so the lists show the decision once. The other
+documents of a case (admissibility, Chamber, Grand Chamber) have another date and stay apart.
+Derived in full each run.
 
 **Semantic `echr`.** `REFERS_TO` from a judgment to the articles of the Convention it
 applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The

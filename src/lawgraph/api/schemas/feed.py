@@ -563,8 +563,19 @@ class FeedResponse(BaseModel):
     partial: bool = Field(
         False,
         description=(
-            "``total`` and ``facets`` were asked for but are still being counted (under a "
-            "filter not counted before, that takes a minute or more): null now; ask again."
+            "Part of the answer is still to come: ``total`` and ``facets`` were asked for "
+            "but are still being counted (under a filter not counted before, that takes a "
+            "minute or more): null now, ask again; or, with ``searched_from``, the search "
+            "for ``q`` did not reach the first event."
+        ),
+    )
+    searched_from: str | None = Field(
+        None,
+        description=(
+            "With ``q`` and no ``since``: the first day searched when the search stopped "
+            "before the first event (YYYY-MM-DD). The events found are those from that day "
+            "on; ask with ``until`` the day before (and no ``cursor``) for older ones. Null "
+            "when every day was searched."
         ),
     )
     data_as_of: dict[str, DataAsOfDTO] = Field(

@@ -501,6 +501,8 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None
 
     def recording(statement: Any, params: Any = None, **options: Any) -> Any:
         if params and "limit" in params and "offset" in params:
+            # read in index order, never a node's edges whole and sorted
+            assert options.get("index_order"), options
             pages.append((statement, params))
         return query(statement, params, **options)
 
@@ -511,6 +513,7 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None
         store.query = query  # type: ignore[method-assign]
     ((statement, params),) = pages
     with store.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
         explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
         plan = conn.execute(explain, params).fetchone()[0]
 

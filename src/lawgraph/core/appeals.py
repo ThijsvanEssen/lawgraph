@@ -32,9 +32,10 @@ from lawgraph.core.xml import collapse_ws
 # The court that refers a case to another after setting aside its decision.
 CASSATION_COURT = "HR"
 # The procedures of a judgment on appeal, in cassation or after referral
-# (``judgment_metadata.type``: "Hoger beroep", "Cassatie", "Verwijzing na Hoge Raad").
+# (``judgment_metadata.type``: "Hoger beroep", "Cassatie", "Verwijzing na Hoge Raad", and the
+# cassation the Hoge Raad decides briefly, "Artikel 80a RO-zaken", "Artikel 81 RO-zaken").
 APPEAL_PROCEDURE = re.compile(
-    r"\b(?:hoger beroep|cassatie|verwijzing)\b", re.IGNORECASE
+    r"\b(?:hoger beroep|cassatie|verwijzing|artikel 8(?:0a|1) ro)\b", re.IGNORECASE
 )
 
 

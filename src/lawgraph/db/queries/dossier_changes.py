@@ -32,9 +32,10 @@ STAGE_PROPOSED = "proposed"
 CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
 # One row per change: the article, the relation, the stage, and what makes it (the
-# publication or the paper). Both halves start from the dossier on ``edges_to`` and follow
-# their sources on ``edges_from``. The judgments that cite an article are counted once per
-# article, on ``edges_to`` alone (one REFERS_TO edge per judgment and article).
+# publication or the paper). Both halves start from the dossier on ``edges_to_cover`` and
+# follow their sources on ``edges_from_cover``. The judgments that cite an article are
+# counted once per article, on ``edges_to_cover`` alone (one REFERS_TO edge per judgment
+# and article).
 _CHANGES_SQL = f"""
 WITH changes AS (
     SELECT DISTINCT '{STAGE_ENACTED}' AS stage, e.relation, e.to_id AS article_id,
