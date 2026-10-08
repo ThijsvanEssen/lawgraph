@@ -483,3 +483,74 @@ def test_two_groups_read_a_level_of_their_children_from_the_index(
         plan = json.dumps(conn.execute(explain, params).fetchone()[0])
     assert plan.count("Index Only Scan") == 2, plan
     assert "edges_from_cover" in plan and "edges_to_cover" in plan
+
+
+def test_a_level_reads_a_share_of_each_node_not_a_hub_whole(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A level of the children of a law of which one is a hub (an article 20,000 papers
+    cite) reads a share of the level per child in index order, not every edge of the hub
+    to keep the lowest ids (Sr: 689,000 citations read for a level of 100,000); every child
+    reaches the level."""
+    from lawgraph.db.store import _query
+
+    monkeypatch.setattr(paths_queries, "_ROWS_PER_LEVEL", 3000)
+    store.bulk_insert_or_update_nodes("instruments", [_node("law", "instrument")])
+    store.bulk_insert_or_update_nodes("factions", [_node("big", "faction")])
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"p{n}", f"articles/a{n}", "instruments/law", "PART_OF")
+            for n in range(300)
+        ]
+        + [
+            _edge(f"h{n}", f"documents/h{n}", "articles/a0", "REFERS_TO")
+            for n in range(20_000)
+        ]
+        + [
+            _edge(f"c{n}", f"documents/c{n}", f"articles/a{n % 300}", "REFERS_TO")
+            for n in range(1, 600)
+        ]
+        + [
+            _edge(f"m{n}", f"members/p{n}", "factions/big", "MEMBER_OF")
+            for n in range(400)
+        ]
+    )
+    store.vacuum_analyze()
+    levels: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and len(params.get("frontier") or []) > 100:
+            levels.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        # a faction of more members on the other side: the law's side reads the level
+        get_paths(store, ["instruments/law", "factions/big"], 2, expand_cap=500)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    statement, params = levels[0]
+    assert len(params["frontier"]) == 301  # the law and its 300 articles
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = conn.execute(explain, params).fetchone()[0]
+
+    def scans(node: dict[str, Any]) -> Any:
+        yield node
+        for child in node.get("Plans", []):
+            yield from scans(child)
+
+    edges = [n for n in scans(plan[0]["Plan"]) if n.get("Relation Name") == "edges"]
+    read = sum(
+        (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n["Actual Loops"]
+        for n in edges
+    )
+    # a share each way per child: at most twice the level, not the hub's 20,000
+    assert read <= 2 * 3000, read
+    assert all(n["Node Type"] == "Index Only Scan" for n in edges), [
+        (n["Node Type"], n.get("Index Name")) for n in edges
+    ]
+    assert params["share"] == 10
+    rows = list(store.query(statement, params))
+    assert {r["node"] for r in rows} >= {f"articles/a{n}" for n in range(300)}
