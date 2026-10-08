@@ -72,8 +72,6 @@ URLS = [
     "/api/instruments?from=2015-01-01&to=2020-12-31",
     "/api/instruments?published_from=2015-01-01",
     "/api/commitments?from=2024-01-01&to=2024-12-31",
-    "/api/search?q=wet&from=2015-01-01&to=2020-12-31",
-    "/api/search?q=wet&mode=live&from=2015-01-01",
     f"/api/instruments/{BWB}",
     f"/api/instruments/{BWB}/articles",
     f"/api/instruments/{BWB}/articles/at/2020-01-01",

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime as dt
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -68,21 +67,6 @@ def search(
             )
         ),
     ] = "full",
-    date_from: Annotated[
-        dt.date | None,
-        Query(
-            alias="from",
-            description="Only hits of this day or later, YYYY-MM-DD: by their own date "
-            "(a judgment the day it was decided, a paper its date, a dossier the day it "
-            "opened, a law the day it came into force and an article that of its law, a "
-            "vote and a commitment their day); a faction, committee, cabinet or member "
-            "whose period (seats and posts) overlaps.",
-        ),
-    ] = None,
-    date_to: Annotated[
-        dt.date | None,
-        Query(alias="to", description="Only hits of this day or earlier, as `from`."),
-    ] = None,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -100,13 +84,7 @@ def search(
 
     search = search_live if mode == "live" else search_full
     raw, partial = search(
-        store,
-        q=q,
-        types=requested_types,
-        kinds=kind_list,
-        limit=limit,
-        since=date_from.isoformat() if date_from else None,
-        until=date_to.isoformat() if date_to else None,
+        store, q=q, types=requested_types, kinds=kind_list, limit=limit
     )
 
     grouped: dict[str, list[SearchResultItem]] = {}
