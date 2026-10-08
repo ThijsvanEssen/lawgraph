@@ -75,6 +75,9 @@ _pool = concurrent.futures.ThreadPoolExecutor(
 # (``superseded``) and asks for the next. The worker runs apart from the pool above: it waits
 # for its computations, and would hold every worker of it if it ran there.
 WARM_UP_SETTLE = 90.0
+# How often the warm-up worker, while it waits for nothing, reads the data version of the
+# databases it warmed (seconds): a poll is noticed also when no request reads a kept answer.
+VERSION_POLL = 30.0
 # Seconds from the start of one warm-up of a database to the start of the next at the least
 # (``LAWGRAPH_WARM_UP_MIN_INTERVAL``, in minutes; 0: none). A warm-up that falls due sooner
 # waits, still for the newest data; the first one never does.
@@ -87,6 +90,9 @@ _wanted: dict[
 _warm_wake = threading.Condition(_lock)
 _warm_worker: threading.Thread | None = None
 _warming: set[str] = set()  # the databases a warm-up runs for now
+_polled: dict[
+    str, Any
+] = {}  # database -> the store its version is read with while idle
 
 
 def on_new_version(warm: Callable[[Any], None]) -> None:
@@ -108,6 +114,7 @@ def warm(store: Any, *, settle: float | None = None) -> None:
     except Exception:  # noqa: BLE001 — the worker reads it again when it is due
         known = None
     with _lock:
+        _polled[name] = store
         _wanted[name] = (store, time.monotonic() + wait, known)
         if _warm_worker is None or not _warm_worker.is_alive():
             _warm_worker = threading.Thread(
@@ -129,8 +136,19 @@ def superseded(store: Any, version: str | None) -> bool:
 def _warm_forever() -> None:
     while True:
         with _lock:
-            while not _wanted:
-                _warm_wake.wait()
+            idle = not _wanted
+            if idle:
+                _warm_wake.wait(timeout=VERSION_POLL)
+                idle = not _wanted
+                polled = list(_polled.values())
+        if idle:
+            # nothing wanted: a version this process did not know asks for a warm-up
+            for known in polled:
+                _version(known)
+            continue
+        with _lock:
+            if not _wanted:
+                continue
             name, (store, due, version) = min(_wanted.items(), key=lambda kv: kv[1][1])
             started = _warm_started.get(name)
             if started is not None:
@@ -471,6 +489,7 @@ def clear() -> None:
         _running.clear()
         _wanted.clear()
         _warm_started.clear()
+        _polled.clear()
 
 
 def _frozen(value: Any) -> Hashable:

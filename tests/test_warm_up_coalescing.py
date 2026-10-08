@@ -118,3 +118,19 @@ def test_without_a_least_time_a_warm_up_follows_when_the_data_stands_still(
     version_cache.warm(data)
     assert _until(lambda: len(starts) == 2, 0.5)
     assert starts[1] - starts[0] < 0.4
+
+
+def test_a_poll_is_noticed_without_a_request(
+    warmed: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll that writes while nobody asks the API anything kept: the warm-up worker,
+    waiting for nothing, reads the data version itself (``VERSION_POLL``) and warms up
+    once it stands still."""
+    monkeypatch.setattr(version_cache, "VERSION_POLL", 0.05)
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
+    data = _Data()
+    version_cache.warm(data, settle=0)  # the start of the API
+    assert _until(lambda: warmed == ["0"], 1.0)
+    time.sleep(0.2)  # the worker has read the version it warmed
+    data.version = 1  # a poll wrote; no request comes
+    assert _until(lambda: warmed == ["0", "1"], 2.0)
