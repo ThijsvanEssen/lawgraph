@@ -1276,3 +1276,62 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     assert MemberCommitteeDTO.from_row(rows[0]).chamber == "EK"
     assert MemberCommitteeDTO.from_row(rows[2]).to_date == "2019-01-01"
     assert get_member_committees(store, "members/none") == []
+
+
+def test_the_votes_of_a_member_read_the_decisions_newest_first(
+    store: GraphStore,
+) -> None:
+    """A faction votes on nearly every decision while it is seated: its newest votes are
+    those of the newest decisions of the period (their index of the dates, backward), not
+    every vote it ever cast, each joined to its decision (441,000 for one member)."""
+    import json
+
+    from lawgraph.db.store import _query
+
+    g = Graph(store)
+    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[D66])
+    g.node("factions", "d66", name="D66")
+    for n in range(3000):
+        key = f"s{n:04d}"
+        g.node(
+            "decisions", key, date=f"{2020 + n % 6}-{1 + n % 12:02d}-{1 + n % 28:02d}"
+        )
+        g.edge("factions/d66", RELATION_VOTED, f"decisions/{key}", choice="Voor")
+    g.write()
+    store.vacuum_analyze()
+    statements: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and "candidates" in params:
+            statements.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        assert len(get_member_votes(store, "members/m1", limit=10)) == 10
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    statement, params = statements[0]
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = conn.execute(explain, params).fetchone()[0]
+
+    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        yield node
+        for child in node.get("Plans", []):
+            yield from scans(child)
+
+    (candidates,) = [
+        n for n in scans(plan[0]["Plan"]) if n.get("Subplan Name") == "CTE candidates"
+    ]
+    nodes = list(scans(candidates))
+    dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
+    assert dates and dates[0]["Scan Direction"] == "Backward", json.dumps(plan)[:2000]
+    # the faction's votes are read for the decisions of the candidates, not all 3,000
+    read = sum(
+        n["Actual Rows"] * n["Actual Loops"]
+        for n in nodes
+        if n.get("Relation Name") == "edges"
+    )
+    assert read < 200, read
