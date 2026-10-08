@@ -8,6 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
 )
 from lawgraph.db.counting import Store
@@ -60,3 +61,42 @@ def ek_factions(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY f.key ASC NULLS FIRST
         """
     )
+
+
+def ek_vote_keys_on(store: Store, days: list[str]) -> list[str]:
+    """The keys of the decisions ``normalize eerstekamer-votes`` made of the votes of
+    *days* (YYYY-MM-DD): the votes of the Eerste Kamer, keyed ``ek_<day>_…``."""
+    return list(
+        store.query(
+            f"""
+            SELECT d.key FROM {COLLECTION_DECISIONS} d
+            WHERE d.date = ANY(%(days)s::text[])
+              AND lg_str(d.props -> 'chamber') = 'EK'
+              AND starts_with(d.key, 'ek_')
+            ORDER BY d.key
+            """,
+            {"days": days},
+        )
+    )
+
+
+def ek_papers_by_letter(store: Store, numbers: list[str]) -> dict[tuple[str, str], str]:
+    """``(dossier label, letter) -> id`` of the Kamerstukken of the Eerste Kamer of the
+    dossiers *numbers* (their number without a suffix: ``37020``), as ``normalize
+    eerstekamer`` keeps them (``Kamerstuk I 37020, M``): a motion is one of them."""
+    found: dict[tuple[str, str], str] = {}
+    for row in store.query(
+        f"""
+        SELECT d.id, lg_str(d.props -> 'number') AS letter,
+               lg_text_array(d.props -> 'dossier_numbers') AS labels
+        FROM {COLLECTION_DOCUMENTS} d
+        WHERE d.dossier_number = ANY(%(numbers)s::text[])
+          AND d.labels @> ARRAY['EK']
+        ORDER BY d.id
+        """,
+        {"numbers": numbers},
+    ):
+        for label in row["labels"] or []:
+            if row["letter"]:
+                found.setdefault((label, row["letter"]), row["id"])
+    return found

@@ -1030,18 +1030,23 @@ number and addition, and to each other dossier of `dossier_numbers` by its `labe
 over; `robots.txt` allows these pages). `clients/eerstekamer_site.py` reads, a page every two
 seconds with the `Concordans` User-Agent:
 
-- `/stemmingen_per_vergaderdag?filter=wetsvoorstellen`: every vote on a bill since June 2015
-  (2,650 on 2026-09-30), newest first, 25 to a page, grouped by the day of the meeting; a day
+- `/stemmingen_per_vergaderdag?filter=alles`: every vote since June 2015, on a bill and on a
+  motion, newest first, 25 to a page, grouped by the day of the meeting; a day
   that runs over a page starts the next one again (`(vervolg)`). One record per day
   (`ek-votes-day-html`, external id the date), from one page or two. `--since` stops at the
   first page that ends before it; `--mode full`, or a run without `--since`, reads the whole
-  list (106 pages).
+  list. (`filter=wetsvoorstellen`, the bills alone, shows a vote on a motion as one on its
+  bill, under the bill's name and number; the site has no list of motions alone.)
 - `/verworpen_in_de_eerste_kamer`: every rejected bill since 1996 (two pages), stored whole on
   every run (`ek-rejected-html`).
 
 **Normalize `eerstekamer-votes`.** `core/eerstekamer_votes.py` reads the structure of the pages,
-never a sentence. Each vote becomes a decision `ek_<date>_<label>_<n>` (the n-th on that bill
-that day), labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
+never a sentence. A vote on a bill (`/wetsvoorstel/`) becomes a decision `ek_<date>_<label>_<n>`
+(the n-th on that bill that day), a vote on a motion (`/motiedossier/`, `37.020, M`) a decision
+`ek_<date>_<label>_<letter>` with `kind` `Motie`, `letter` and `motion_url`, `subject` the
+motion's name (`Motie-Beukering (Fractie-Beukering) c.s. over …`) and also `ABOUT` the motion,
+the Kamerstuk of the Eerste Kamer with that letter in its dossier (`Kamerstuk I 37020, M`, one
+not in the graph is counted); both labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
 image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to the report:
 `Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`, `Hoofdelijke stemming, verworpen`,
 `Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
@@ -1051,9 +1056,11 @@ Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-
 `VOTED` from each faction it names (the faction `ek_<slug>` whose `abbreviation` is the name; of
 several, the one the composition observed that day, else the last before it), `choice` `Voor`,
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
-was observed, else 0; derived in full per decision, a name no faction has makes none. The
-list names a vote on a motion on a bill by the bill (33.348, 15 December 2015: the bill adopted,
-a motion rejected), which nothing on it tells apart. A rejected bill gives its dossier
+was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
+of a day are derived in full every time the day is read: a decision of that day the list no
+longer gives goes, with its edges (logged per day); a day not read is left as it is. A vote
+on a motion decides no bill (`semantic tk-dossier-outcomes` reads the votes on the bill). A
+rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
 of that day rejects is logged.
 

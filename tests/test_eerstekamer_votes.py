@@ -21,6 +21,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 PAGE_1 = (FIXTURES / "ek_votes_page_1.html").read_text()
 PAGE_2 = (FIXTURES / "ek_votes_page_2.html").read_text()
 REJECTED = (FIXTURES / "ek_rejected_page_1.html").read_text()
+# the list of every vote, on bills and on motions, as served on 2026-10-09
+ALL = (FIXTURES / "ek_votes_alles_page_1.html").read_text()
 
 
 @pytest.mark.parametrize(
@@ -74,6 +76,33 @@ def test_a_vote_is_read_as_the_kamer_writes_it() -> None:
     # a hamerstuk, with and without factions that ask to have their vote recorded
     assert votes["36880"].method == "Hamerstuk" and votes["36880"].factions == {}
     assert votes["36745"].factions == {"aantekening gevraagd": ["SGP", "FVD", "JA21"]}
+
+
+def test_a_vote_on_a_motion_is_read_by_its_letter() -> None:
+    """The list of every vote names a motion by the number of its dossier and its letter
+    (``37.020, M``), a bill by its number; the list of bills alone shows a vote on a motion
+    as one on its bill."""
+    assert ev.VOTES_PATH.endswith("filter=alles")
+    day, _, fragment = ev.days(ALL)[0]
+    assert day == "2026-10-06"
+    found = ev.votes(day, fragment)
+    motions = [v for v in found if v.letter]
+    bills = [v for v in found if not v.letter]
+    assert (len(bills), len(motions)) == (5, 9)
+    beukering = next(v for v in motions if v.letter == "M")
+    assert (beukering.number, beukering.label, beukering.result) == (
+        "37.020",
+        "37020",
+        "Verworpen",
+    )
+    assert beukering.title.startswith("Motie-Beukering (Fractie-Beukering) c.s. over ")
+    assert beukering.motion_path == "/motiedossier/37020_m_motie_beukering_fractie"
+    assert beukering.bill_path is None
+    assert beukering.method == "Stemming bij zitten en opstaan, verworpen"
+    assert (
+        beukering.factions["voor"][0] == "BBB" and "VVD" in beukering.factions["tegen"]
+    )
+    assert all(v.bill_path and v.motion_path is None for v in bills)
 
 
 def test_the_rejected_bills_are_read_with_their_day_and_number() -> None:
