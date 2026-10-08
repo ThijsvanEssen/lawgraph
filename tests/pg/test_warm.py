@@ -166,7 +166,6 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
     were searched less than an hour ago."""
     searched: list[int] = []
     monkeypatch.setattr(warm, "_warm_search_terms", lambda s: searched.append(1))
-    monkeypatch.setattr(warm, "_terms_searched", None)
     warm.warm_up(store)
     assert searched == [1]  # the first warm-up of the process
 
@@ -196,7 +195,6 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
         return run(name, part)
 
     monkeypatch.setattr(warm, "_run", recorded)
-    monkeypatch.setattr(warm, "_warmed_parts", {})
     warm.warm_up(store)
     assert {"coverage", "instruments"} <= set(ran)
 

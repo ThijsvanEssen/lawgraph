@@ -149,10 +149,8 @@ def _caller() -> str:
 
 def _exercise(store: GraphStore) -> None:
     """Everything that keeps an answer per table: the warm-up, and the search counts."""
-    monkeypatch_free = dict(warm._warmed_parts)
-    warm._warmed_parts.clear()
+    warm.forget()
     warm.warm_up(store)
-    warm._warmed_parts.update(monkeypatch_free)
     for table, fields in SEARCH_FIELDS.items():
         _bm25.bm25_sql(store, table, {"w": "beroep"}, list(fields), {})
 
@@ -184,7 +182,6 @@ def test_every_part_left_out_by_its_tables_reads_only_them(
         return done
 
     monkeypatch.setattr(warm, "_run", recorded)
-    monkeypatch.setattr(warm, "_warmed_parts", {})
     warm.warm_up(store)
     assert set(warm.PART_TABLES) <= set(read), "a part named in PART_TABLES never ran"
     for name, tables in warm.PART_TABLES.items():
