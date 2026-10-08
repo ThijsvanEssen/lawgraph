@@ -92,7 +92,7 @@ they are out of date. Do not edit inside the markers.
 | `SAME_AS` | Judgment | Judgment | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
-| `LED_BY` | Activity | Committee | The lead committee (`voortouwcommissie`) of an activity; absent for plenary. |
+| `LED_BY` | Activity / Case | Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
 | `MADE_IN` | Commitment / Document / Decision | Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`). |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
 | `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
