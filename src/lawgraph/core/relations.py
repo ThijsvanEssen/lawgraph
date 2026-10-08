@@ -253,9 +253,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "MADE_IN",
-        (_COMMIT,),
+        (_COMMIT, _DOC),
         (_ACT,),
-        "The activity in which a commitment (toezegging) was made.",
+        "The activity in which a commitment (toezegging) was made, or of which a document "
+        "is the record (a stenogram of its debate: `Document.Activiteit`).",
     ),
     RelationSpec(
         "MEMBER_OF",
@@ -300,10 +301,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "ACCOMPANIES",
-        (_DOSSIER,),
-        (_DOSSIER,),
+        (_DOSSIER, _DOC),
+        (_DOSSIER, _DOC),
         "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
-        "Miljoenennota (`meta.nota`) that its title names.",
+        "Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an "
+        "attachment is sent with its letter (Document → Document: `BijlageDocument`).",
     ),
     RelationSpec(
         "SECOND_READING_OF",

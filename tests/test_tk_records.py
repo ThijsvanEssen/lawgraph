@@ -919,3 +919,40 @@ def test_a_paper_numbered_in_no_dossier_is_no_kamerstuk() -> None:
     assert props["dossier_numbers"] == ["37020-XV"]
     assert (props["dossier_number"], props["sequence"]) == (None, None)
     assert not props["display_name"].startswith("Kamerstuk")
+
+
+def test_the_links_of_a_document_are_its_activities_attachments_and_letters() -> None:
+    # 2023D18976, a stenogram as the Gegevensmagazijn gives it with these expansions
+    stenogram = {
+        "Id": "9cd4c32c-77fb-4713-821d-faf5ebd49b61",
+        "Soort": "Stenogram",
+        "Onderwerp": "Kunstmatige intelligentie",
+        "Datum": "2023-03-28T18:35:00+02:00",
+        "DocumentNummer": "2023D18976",
+        "Vergaderjaar": "2022-2023",
+        "Volgnummer": -1,
+        "Zaak": [],
+        "Kamerstukdossier": [],
+        "DocumentActor": [],
+        "Activiteit": [{"Id": "a76eec4d-9cde-48de-aefa-6385e69dd0e1"}],
+        "BijlageDocument": [],
+        "BronDocument": [],
+    }
+    _key, props = tk_records.document(stenogram)  # type: ignore[misc]
+    assert props["case_ids"] == [] and props["dossier_numbers"] == []
+    assert props["activity_ids"] == ["a76eec4d-9cde-48de-aefa-6385e69dd0e1"]
+    assert props["attachment_ids"] == [] and props["attached_to_ids"] == []
+
+    letter = {"BijlageDocument": [{"Id": "b1"}, {"Id": "b2"}, {"Id": "b1"}, {}]}
+    assert tk_records.document_links(letter) == {
+        "activity_ids": [],
+        "attachment_ids": [
+            "b1",
+            "b2",
+        ],  # once each, in order; one without an id is none
+        "attached_to_ids": [],
+    }
+    # a record of retrieve tk-document-links: the same fields, nothing else
+    assert tk_records.document_links({"Id": "b1", "BronDocument": [{"Id": "x"}]})[
+        "attached_to_ids"
+    ] == ["x"]

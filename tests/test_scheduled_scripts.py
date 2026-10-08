@@ -125,6 +125,31 @@ def test_a_poll_leaves_the_database_to_a_run_that_holds_it(checkout: Path) -> No
     assert not (checkout / "calls").exists()
 
 
+def test_a_run_may_wait_for_the_lock_and_starts_once_it_is_free(checkout: Path) -> None:
+    """The nightly with ``LAWGRAPH_LOCK_WAIT`` waits out a poll that still runs, instead of
+    giving the night up."""
+    import threading
+    import time
+
+    lock = checkout / "lawgraph-scheduled.lock"
+    lock.mkdir()  # a poll is still going
+    threading.Timer(1.5, lock.rmdir).start()
+    began = time.monotonic()
+    done = _run(checkout, "daily.sh", LAWGRAPH_LOCK_WAIT="10")
+    assert done.returncode == 0, done.stderr
+    assert time.monotonic() - began >= 1.5
+    assert _calls(checkout)[0] == "retrieve all --since last"
+    assert "started after waiting" in (checkout / "logs" / "runs.log").read_text()
+
+
+def test_a_run_that_waited_long_enough_gives_its_turn_up(checkout: Path) -> None:
+    (checkout / "lawgraph-scheduled.lock").mkdir()
+    done = _run(checkout, "daily.sh", LAWGRAPH_LOCK_WAIT="2")
+    assert done.returncode == 75
+    assert not (checkout / "calls").exists()
+    assert "not started (waited 2 s)" in (checkout / "logs" / "runs.log").read_text()
+
+
 def test_the_lock_is_given_back_also_after_a_failure(checkout: Path) -> None:
     _run(checkout, "daily.sh", fail_on="retrieve all")
     assert not (checkout / "lawgraph-scheduled.lock").exists()

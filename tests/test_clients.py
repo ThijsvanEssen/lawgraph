@@ -299,3 +299,32 @@ def test_a_dossier_is_asked_for_by_its_number() -> None:
     assert session.last_url == "https://example.org/OData/v4/2.0/Kamerstukdossier"
     assert session.last_params is not None
     assert session.last_params["$filter"] == "Nummer eq 35786"
+
+
+def test_the_links_of_documents_are_asked_for_alone_and_with_every_document(
+    monkeypatch: Any,
+) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append((entity, params)) or iter(()),
+    )
+    links = (
+        "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
+    )
+
+    list(client.fetch_document_links())
+    list(
+        client.fetch_document_links(
+            since=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+        )
+    )
+    list(client.fetch_documents())
+    (_, every), (_, since), (_, documents) = asked
+    assert every == {"$select": "Id,Verwijderd", "$expand": links}
+    assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
+    # every Document of tk-dossiers carries its links too
+    assert documents["$expand"].endswith(links)
+    assert all(entity == "Document" for entity, _ in asked)

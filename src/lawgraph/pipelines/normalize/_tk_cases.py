@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -258,6 +259,59 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
     logger.info("Wrote %d AUTHORED edges.", writer.added)
 
 
+def link_documents(
+    store: Store,
+    links: Iterable[tuple[str, dict[str, Any]]],
+    *,
+    source: str,
+) -> None:
+    """MADE_IN from a document to the activities it is the record of (a stenogram: its
+    debate), and ACCOMPANIES from an attachment to its letter, between nodes that exist.
+
+    *links* are ``(TK id of the document, tk_records.document_links)``. An attachment is
+    named by its letter (``attachment_ids``) and names its letter (``attached_to_ids``):
+    either one makes the edge, so a run that holds only one of the two papers makes it too.
+    """
+    links = list(links)
+    made_in: list[tuple[str, str]] = []
+    accompanies: list[tuple[str, str]] = []
+    for document_id, of in links:
+        document = make_node_key(document_id)
+        made_in += [(document, make_node_key(a)) for a in of.get("activity_ids") or []]
+        accompanies += [
+            (make_node_key(attachment), document)
+            for attachment in of.get("attachment_ids") or []
+        ] + [
+            (document, make_node_key(letter))
+            for letter in of.get("attached_to_ids") or []
+        ]
+    documents = store.existing_keys(
+        COLLECTION_DOCUMENTS,
+        {key for pair in accompanies for key in pair} | {d for d, _ in made_in},
+    )
+    activities = store.existing_keys(COLLECTION_ACTIVITIES, {a for _, a in made_in})
+
+    writer = EdgeWriter(store, what="document links")
+    for document, activity in made_in:
+        if document in documents and activity in activities:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{document}",
+                f"{COLLECTION_ACTIVITIES}/{activity}",
+                RELATION_MADE_IN,
+                source=source,
+            )
+    for attachment, letter in accompanies:
+        if attachment != letter and attachment in documents and letter in documents:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{attachment}",
+                f"{COLLECTION_DOCUMENTS}/{letter}",
+                RELATION_ACCOMPANIES,
+                source=source,
+            )
+    writer.flush()
+    logger.info("Wrote %d document links (MADE_IN, ACCOMPANIES).", writer.added)
+
+
 # What the edge builders read from a node; the rest of its props (the whole API payload
 # among them) is only needed for the write.
 LINK_PROPS = (
@@ -267,6 +321,9 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
+    "activity_ids",
+    "attachment_ids",
+    "attached_to_ids",
     "case_kinds_by_dossier",
     "vote_kind",
 )
