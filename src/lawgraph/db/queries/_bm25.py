@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.logging import get_logger
-from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 from lawgraph.db.store import ReadTimedOut, reset_read_deadline, set_read_deadline
 from lawgraph.db.version_cache import cached, lasting
 
@@ -138,7 +138,7 @@ def _tf(term: _Term) -> str:
         # from three characters, as the condition of the search matches a start of a value
         return (
             f"(CASE WHEN char_length({p}) >= 3 THEN (SELECT count(*) FROM unnest({column})"
-            f" AS v WHERE starts_with(v, {p})) ELSE 0 END)"
+            f" AS v WHERE starts_with(lg_fold(v), lg_fold({p}))) ELSE 0 END)"
         )
     if term.analyzer == "norm":
         return f"cardinality(array_positions({column}, lg_fold({p})))"
@@ -165,10 +165,8 @@ def _df(table: str, term: _Term) -> str:
         )
     # identity: the rows that have a value starting with the word, of three characters or
     # more (as the condition of the search, ``search._field_condition``)
-    return (
-        f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND"
-        f" {search_column(term.field, 'prefix')} LIKE '%%' || chr(31) || lg_like({p}) || '%%')"
-    )
+    start = start_of_value_sql(table, term.field, p, row="")
+    return f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND {start})"
 
 
 def _stems_of(store: Any, word: str) -> list[str]:

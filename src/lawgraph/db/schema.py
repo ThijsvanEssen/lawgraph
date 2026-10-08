@@ -849,6 +849,26 @@ def search_column(field: str, analyzer: str) -> str:
     return f"s_{field.replace('.', '_')}_{suffix}"
 
 
+def start_of_value_sql(table: str, field: str, word: str, row: str = "doc") -> str:
+    """SQL: a value of *field* (of the row *row*; no row: the table read) starts with the
+    word in the SQL *word*, in any case. A field searched for a part of its value as well
+    (``ngram``) is folded there, accents and all (``lg_fold``): its start is matched there,
+    at the start of the column or after the separator of its values. Another field (an
+    abbreviation, an identifier) is matched in any case on its values as they are."""
+    on = f"{row}." if row else ""
+    if "ngram" in SEARCH_FIELDS[table][field]:
+        column = f"{on}{search_column(field, 'ngram')}"
+        folded = f"lg_like(lg_fold({word}))"
+        return (
+            f"({column} LIKE {folded} || '%%'"
+            f" OR {column} LIKE '%%' || chr(31) || {folded} || '%%')"
+        )
+    return (
+        f"{on}{search_column(field, 'prefix')}"
+        f" ILIKE '%%' || chr(31) || lg_like({word}) || '%%'"
+    )
+
+
 def _values_sql(field: str) -> str:
     if "." in field:
         parent, child = field.split(".", 1)
