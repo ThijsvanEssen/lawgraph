@@ -42,8 +42,10 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     assert [address for address, _ in ran] == [
         "retrieve tk",
         "retrieve tk-dossiers",
+        "retrieve tk-document-links",
         "normalize tk",
         "normalize tk-dossiers",
+        "normalize tk-document-links",
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
     ]
@@ -121,6 +123,7 @@ def test_each_retrieve_of_a_poll_takes_its_options_and_reads_a_window(
     for cls in (
         "TKRetrievePipeline",
         "TKDossiersRetrievePipeline",
+        "TKDocumentLinksRetrievePipeline",
         "RechtspraakRetrievePipeline",
         "ECHRRetrievePipeline",
         "EerstekamerVotesRetrievePipeline",

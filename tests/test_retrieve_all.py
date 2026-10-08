@@ -294,7 +294,7 @@ def test_jobs_must_be_positive() -> None:
 
 def test_sources_on_one_server_share_a_lane() -> None:
     lanes = {p.name: p.lane_id for p in registry.PIPELINES["retrieve"]}
-    assert lanes["tk"] == lanes["tk-dossiers"]
+    assert lanes["tk"] == lanes["tk-dossiers"] == lanes["tk-document-links"]
     assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
     assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
     assert lanes["eurlex"] == lanes["eurlex-nim"]
@@ -314,7 +314,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["eerstekamer-agenda"]
     )
     assert len(set(lanes.values())) == (
-        len(lanes) - 1 - 1 - 1 - 1 - 3 - (len(koop) - 1)
+        len(lanes) - 2 - 1 - 1 - 1 - 3 - (len(koop) - 1)
     )
 
 
@@ -333,6 +333,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
     assert plan == [
         ("tk", tk, ()),
         ("tk-dossiers", tk, ()),
+        ("tk-document-links", tk, ()),  # after tk-dossiers in its lane
         ("tk-content", koop, ("tk-dossiers",)),
         ("rechtspraak", "rechtspraak", ()),
         ("rechtspraak-instanties", "rechtspraak", ()),  # after rechtspraak in its lane

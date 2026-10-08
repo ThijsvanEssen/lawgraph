@@ -54,6 +54,9 @@ from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
+from lawgraph.pipelines.normalize.tk_document_links import (
+    TKDocumentLinksNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve_commands import (
@@ -75,6 +78,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_staatscourant_posts,
     retrieve_tk,
     retrieve_tk_content,
+    retrieve_tk_document_links,
     retrieve_tk_dossiers,
     retrieve_tooi,
     retrieve_verdragenbank,
@@ -366,6 +370,15 @@ RETRIEVE: list[Pipeline] = [
         fills_gaps=True,
     ),
     _pipeline(
+        retrieve_tk_document_links,
+        (
+            "The links of Tweede Kamer documents alone: the activity a document is the record"
+            " of (a stenogram: its debate), its attachments, the letters it is attached to."
+        ),
+        argv_for_all=_windowed_argv,
+        lane=LANE_TWEEDE_KAMER,
+    ),
+    _pipeline(
         retrieve_tk_content,
         (
             "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
@@ -532,6 +545,14 @@ NORMALIZE: list[Pipeline] = [
             "documents as nodes, with their edges."
         ),
         after=("tk",),  # the case-to-dossier links read the cases
+    ),
+    _pipeline(
+        TKDocumentLinksNormalizePipeline,
+        (
+            "MADE_IN from a document to the activity it is the record of, and ACCOMPANIES "
+            "from an attachment to its letter, from the stored links of the documents."
+        ),
+        after=("tk-dossiers",),  # the documents and activities it links
     ),
     _pipeline(
         TKContentNormalizePipeline,
