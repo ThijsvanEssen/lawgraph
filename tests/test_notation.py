@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.notation import (
     ArticleRef,
     LawMatch,
@@ -108,7 +109,6 @@ def article(law: str | None, number: str, qualifier: str | None = None) -> Notat
         ("artikel 5 AVG", article(GDPR, "5")),
         # No law named: the number only.
         ("artikel 6", article(None, "6")),
-        ("art. 6:162", article(None, "6:162")),
         ("art 36e", article(None, "36e")),
     ],
 )
@@ -130,6 +130,49 @@ def test_an_enumeration_over_books_is_several_regulations() -> None:
     assert parsed.articles == (ArticleRef(BW3, "40"), ArticleRef(BW6, "162"))
 
 
+BW_BOOKS = list(CODE_FAMILIES["BW"].values())
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "art. 3 BW",
+        "artikel 3 bw",
+        "art 3 bw",
+        "3 BW",
+        "artikel 3 van het Burgerlijk Wetboek",
+    ],
+)
+def test_a_code_without_its_book_is_a_choice_of_every_book(query: str) -> None:
+    """``art. 3 BW`` leaves the book open: article 3 of every book, as alternatives."""
+    assert parse(query) == Notation(
+        kind="article",
+        articles=tuple(ArticleRef(law, "3") for law in BW_BOOKS),
+        choice=True,
+    )
+
+
+def test_a_choice_keeps_its_qualifier() -> None:
+    parsed = parse("artikel 3 lid 2 BW")
+    assert parsed is not None and parsed.choice and parsed.qualifier == "lid 2"
+
+
+def test_a_book_and_a_number_without_a_law_is_the_code_or_any_law() -> None:
+    """``art. 6:162``: article 162 of book 6, or a law whose own number is ``6:162``."""
+    assert parse("art. 6:162") == Notation(
+        kind="article",
+        articles=(ArticleRef(BW6, "162"), ArticleRef(None, "6:162")),
+        choice=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "query", ["boek 6 art 162", "Boek 6, artikel 162", "boek 6 artikel 162 BW"]
+)
+def test_a_book_then_an_article_is_that_article(query: str) -> None:
+    assert parse(query) == article(BW6, "162")
+
+
 def test_the_book_is_not_an_article_of_its_own() -> None:
     parsed = parse("art. 6:162 BW")
     assert parsed is not None
@@ -141,12 +184,11 @@ def test_the_book_is_not_an_article_of_its_own() -> None:
     "query",
     [
         "art. 999 Onbekende wet",  # a law nobody knows
-        "art. 162 BW",  # BW is a family: without the book it names no regulation
         "art. 9:1 BW",  # there is no such book
         "artikel 287 Sr moord",  # the law is not what ends the text
         "Wetboek 287",  # too generic to be a law
         "2024 Onbekende wet",  # a number before words that name no law
-        "162 BW",  # a family without the book
+        "boek 9 art 1",  # there is no such book
         "moord",
         "Wetboek van Strafrecht",
         "",

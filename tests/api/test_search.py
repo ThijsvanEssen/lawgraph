@@ -192,6 +192,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "confidence": 0.9,
         },
         "alternatives": [],
+        "alternatives_total": 0,
         "qualifier": None,
     }
     asked: list[str] = []
@@ -241,6 +242,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "confidence",
         "match",
         "alternatives",
+        "alternatives_total",
         "qualifier",
     }
     assert set(schemas["ResolveMatch"]["properties"]) == {
@@ -272,6 +274,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
             "confidence": 0.95,
             "match": match,
             "alternatives": [],
+            "alternatives_total": 0,
             "qualifier": None,
         },
         "zzzz onbekend": dict(NO_MATCH),
@@ -298,9 +301,32 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         "confidence": 0.0,
         "match": None,
         "alternatives": [],
+        "alternatives_total": 0,
         "qualifier": None,
     }
     assert client.get("/api/resolve", params={"q": ""}).status_code == 422
+
+
+def test_a_resolve_answer_says_how_many_alternatives_it_found() -> None:
+    """``alternatives_total`` in every answer; a choice has no ``match``."""
+    from lawgraph.api.schemas.resolve import ResolveResponse
+
+    choice = ResolveResponse(
+        q="art. 3 BW",
+        kind="article",
+        confidence=0.5,
+        match=None,
+        alternatives=[],
+        alternatives_total=9,
+        qualifier=None,
+    )
+    assert choice.model_dump()["alternatives_total"] == 9
+    assert (
+        ResolveResponse(
+            q="x", kind="none", confidence=0, match=None, alternatives=[]
+        ).alternatives_total
+        == 0
+    )
 
 
 def test_a_live_search_says_which_types_it_cut_off(monkeypatch) -> None:
