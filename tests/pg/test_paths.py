@@ -278,3 +278,208 @@ def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
         explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
         plan = json.dumps(conn.execute(explain, params).fetchone()[0])
     assert "Index Only Scan" in plan and "edges_to_cover" in plan, plan
+
+
+# ── groups joined through their children (expand=members) ────────────────────
+
+VVD = "factions/vvd"
+SR = "instruments/sr"
+MINISTER = "members/dy"
+
+
+def _groups(store: GraphStore) -> None:
+    """A faction whose own edges are its votes (more than a level keeps), a minister who
+    is one of its members and signed a bill that changes an article of a law, and that
+    law with its articles."""
+    nodes: dict[str, list[dict[str, Any]]] = {
+        "factions": [_node("vvd", "faction", name="VVD")],
+        "members": [
+            _node("dy", "member", name="D. Y."),
+            _node("old", "member", name="O."),
+        ],
+        "instruments": [_node("sr", "instrument", title="Wetboek van Strafrecht")],
+        "articles": [
+            _node(f"sr_{n}", "article", inbound_citation_count=n) for n in range(1, 6)
+        ],
+        "documents": [_node("bill", "document", title="Wetsvoorstel")],
+        "decisions": [_node(f"v{n:03d}", "decision") for n in range(30)],
+    }
+    for collection, docs in nodes.items():
+        store.bulk_insert_or_update_nodes(collection, docs)
+    seated = {**_edge("m1", MINISTER, VVD, "MEMBER_OF"), "meta": {"from_date": "2015"}}
+    gone = {
+        **_edge("m2", "members/old", VVD, "MEMBER_OF"),
+        "meta": {"from_date": "2000", "to_date": "2010-01-01"},
+    }
+    store.bulk_insert_or_update_edges(
+        [
+            seated,
+            gone,
+            *(_edge(f"p{n}", f"articles/sr_{n}", SR, "PART_OF") for n in range(1, 6)),
+            _edge("a1", MINISTER, "documents/bill", "AUTHORED"),
+            _edge("x1", "documents/bill", "articles/sr_2", "AMENDS"),
+            *(
+                _edge(f"vote{n:03d}", VVD, f"decisions/v{n:03d}", "VOTED")
+                for n in range(30)
+            ),
+        ]
+    )
+
+
+def test_groups_are_joined_through_their_children(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """VVD, Sr and a minister of the VVD: without ``expand`` the faction meets the law
+    nowhere (its own edges are its votes, cut at a level); with it the faction is its
+    members and the law its articles: VVD ∋ minister → bill → art. ∈ Sr."""
+    _groups(store)
+    monkeypatch.setattr(paths_queries, "LEVEL_CAP", 10)
+    ids = [VVD, SR, MINISTER]
+    plain = get_paths(store, ids, max_depth=2)
+    assert (VVD, SR) not in {(p.source, p.target) for p in plain["paths"]}
+
+    found = get_paths(store, ids, max_depth=2, expand_cap=200)
+    paths = {(p.source, p.target): p for p in found["paths"]}
+    across = paths[(VVD, SR)]
+    assert across.nodes == (
+        VVD,
+        MINISTER,
+        "documents/bill",
+        "articles/sr_2",
+        SR,
+    )
+    assert set(across.edges) & found["membership"] == {"m1", "p2"}
+    # a member of the group is joined to it by its membership alone
+    assert paths[(VVD, MINISTER)].edges == ("m1",)
+    assert found["expanded"] == {
+        VVD: {"used": 2, "total": 2},
+        SR: {"used": 5, "total": 5},
+    }
+    assert found["partial"] is False
+
+
+def test_a_group_starts_from_its_most_telling_children(store: GraphStore) -> None:
+    """Of a faction those seated first, of a law its most cited articles; of a dossier its
+    own papers before those of its cases, and a paper of a case only with its case."""
+    from lawgraph.db.queries.path_groups import children_of
+
+    _groups(store)
+    assert [c.id for c in children_of(store, VVD, 1).kept] == [MINISTER]
+    assert [c.id for c in children_of(store, SR, 2).kept] == [
+        "articles/sr_5",
+        "articles/sr_4",
+    ]
+
+    store.bulk_insert_or_update_nodes("dossiers", [_node("36547", "dossier")])
+    store.bulk_insert_or_update_nodes("cases", [_node("c1", "case")])
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("own_old", "document", date="2020-01-01"),
+            _node("own_new", "document", date="2024-01-01"),
+            _node("of_case", "document", date="2025-01-01"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("d1", "documents/own_old", "dossiers/36547", "PART_OF"),
+            _edge("d2", "documents/own_new", "dossiers/36547", "PART_OF"),
+            _edge("d3", "cases/c1", "dossiers/36547", "PART_OF"),
+            _edge("d4", "documents/of_case", "cases/c1", "PART_OF"),
+        ]
+    )
+    dossier = children_of(store, "dossiers/36547", 10)
+    assert [c.id for c in dossier.kept] == [
+        "documents/own_new",
+        "documents/own_old",
+        "cases/c1",
+        "documents/of_case",
+    ]
+    assert dossier.kept[-1].parent == "cases/c1" and dossier.total == 4
+    assert [c.id for c in children_of(store, "dossiers/36547", 2).kept] == [
+        "documents/own_new",
+        "documents/own_old",
+    ]
+
+
+def test_a_search_past_its_time_answers_what_it_found(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The search of groups may read much: past ``PATHS_BUDGET`` the paths found by then,
+    ``partial``, never a 503."""
+    _groups(store)
+    monkeypatch.setattr(paths_queries, "PATHS_BUDGET", 0.0)
+    found = get_paths(store, [VVD, SR, MINISTER], max_depth=4, expand_cap=200)
+    assert found["partial"] is True
+
+
+def test_the_route_joins_groups_through_their_children(store: GraphStore) -> None:
+    _groups(store)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = (
+            TestClient(app)
+            .get(
+                "/api/paths",
+                params={"ids": f"{VVD},{SR}", "max_depth": 2, "expand": "members"},
+            )
+            .json()
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    (path,) = body["paths"]
+    assert path["via"] == {VVD: MINISTER, SR: "articles/sr_2"}
+    assert path["membership_edge_ids"] == ["edges/m1", "edges/p2"]
+    assert body["expanded"] == {
+        VVD: {"used": 2, "total": 2},
+        SR: {"used": 5, "total": 5},
+    }
+    assert body["expand"] == "members" and body["partial"] is False
+
+
+def test_two_groups_read_a_level_of_their_children_from_the_index(
+    store: GraphStore,
+) -> None:
+    """Two groups facing each other: a level of hundreds of children is read from the
+    covering indexes alone, not a page of the table per edge."""
+    import json
+
+    from lawgraph.db.store import _query
+
+    store.bulk_insert_or_update_nodes("factions", [_node("big", "faction")])
+    store.bulk_insert_or_update_nodes("instruments", [_node("law", "instrument")])
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"m{n}", f"members/p{n}", "factions/big", "MEMBER_OF")
+            for n in range(300)
+        ]
+        + [
+            _edge(f"p{n}", f"articles/a{n}", "instruments/law", "PART_OF")
+            for n in range(300)
+        ]
+        + [
+            _edge(f"o{n}", f"documents/d{n}", f"articles/x{n % 3000}", "REFERS_TO")
+            for n in range(30_000)
+        ]
+    )
+    store.vacuum_analyze()
+    levels: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and len(params.get("frontier") or []) > 100:
+            levels.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        get_paths(store, ["factions/big", "instruments/law"], 2, expand_cap=500)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    assert levels
+    statement, params = levels[0]
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    assert plan.count("Index Only Scan") == 2, plan
+    assert "edges_from_cover" in plan and "edges_to_cover" in plan
