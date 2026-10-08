@@ -1,12 +1,16 @@
 """Semantic pipeline: what the earlier judgments of a case are to a later one.
 
-Rechtspraak XML carries ``dcterms:relation`` (the earlier instances) and ``psi:procedure``
-(e.g. "Hoger beroep", "Cassatie", "Verwijzing na Hoge Raad") in its RDF header; normalize
-stores them as ``props.related_eclis`` and ``props.judgment_metadata.type``. From a judgment
-on appeal, in cassation or after referral to each earlier instance its metadata names
-(``core.appeals.earlier_instance_relation``): ``CONTINUES`` to an earlier judgment of the
-same court in the same case, ``REFERRED_BY`` to the ruling of the Hoge Raad that sent the case
-back, ``APPEAL_OF`` to any other (``meta.basis`` ``formal_relation``).
+Rechtspraak XML carries ``dcterms:relation`` (the earlier instances, and with ``psi:aanleg``
+latereAanleg the later ones) and ``psi:procedure`` (e.g. "Hoger beroep", "Cassatie",
+"Verwijzing na Hoge Raad") in its RDF header; normalize stores them as
+``props.related_eclis``, ``props.later_eclis`` and ``props.judgment_metadata.type``. From a
+judgment to each earlier instance its metadata names (``core.appeals.earlier_instance_relation``):
+``CONTINUES`` to an earlier judgment of the same court in the same case, whatever its
+procedure; and from a judgment on appeal, in cassation or after referral ``REFERRED_BY`` to the
+ruling of the Hoge Raad that sent the case back, ``APPEAL_OF`` to any other (``meta.basis``
+``formal_relation``). A later instance a judgment names makes the same edge from that later
+judgment, when it is loaded (``later_instance``): the lower court names its appeal, which
+need not name it back.
 
 An appeal whose metadata names none is read for the decision its text says it appeals
 (``core.appeals.read_appeal_targets``): ``APPEAL_OF`` to the decision of that date with that
@@ -17,6 +21,7 @@ no longer derived goes.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -46,12 +51,26 @@ logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-appeal-linker"
 BASIS_FORMAL = "formal_relation"
+BASIS_LATER = "later_instance"
 BASIS_TEXT = "appeal_text"
-CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_TEXT: 0.9}
+CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER: 0.95, BASIS_TEXT: 0.9}
 RELATIONS = (RELATION_APPEAL_OF, RELATION_CONTINUES, RELATION_REFERRED_BY)
 
 # (from id, relation, to ECLI, basis, procedure type)
 Link = tuple[str, str, str, str, str]
+
+
+def _link(from_id: str, later: Instance, earlier: Instance, basis: str) -> list[Link]:
+    """The edge from *later* (node *from_id*) to *earlier*, if any: ``CONTINUES`` whatever
+    the procedure of *later*, the others only from a judgment on appeal, in cassation or
+    after referral (``APPEAL_PROCEDURE``)."""
+    relation = earlier_instance_relation(later, earlier)
+    procedure = later.procedure or ""
+    if relation is None or not (
+        relation == RELATION_CONTINUES or APPEAL_PROCEDURE.search(procedure)
+    ):
+        return []
+    return [(from_id, relation, earlier.ecli, basis, procedure)]
 
 
 class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
@@ -60,16 +79,16 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        rows = [
-            row
-            for row in self._track(
+        rows = list(
+            self._track(
                 semantic_rechtspraak.judgments_with_related_eclis(self.store),
                 "judgments",
             )
-            if APPEAL_PROCEDURE.search(row.get("procedure_type") or "")
-        ]
+        )
         links = self._formal_links(rows)
-        read = [row["j_id"] for row in rows]
+        # the judgments whose edges are derived here in full: those read, and the later
+        # instances that their earlier ones name
+        read = sorted({row["j_id"] for row in rows} | {link[0] for link in links})
 
         texts = list(
             self._track(
@@ -101,31 +120,31 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _formal_links(self, rows: list[dict[str, Any]]) -> list[Link]:
-        """The edge to each earlier instance the metadata of *rows* names."""
-        named = sorted({e.upper() for row in rows for e in row["related_eclis"]})
-        known = {
-            instance.ecli: instance
-            for instance in map(
-                Instance.of, semantic_rechtspraak.judgment_instances(self.store, named)
-            )
-        }
+        """The edge to each earlier instance the metadata of *rows* names, and from each
+        loaded later instance it names; the latter first, so that where a pair names each
+        other the edge keeps the basis of the later judgment's own relation."""
+        named = sorted(
+            {
+                e.upper()
+                for row in rows
+                for e in [*row["related_eclis"], *row["later_eclis"]]
+            }
+        )
+        found = list(semantic_rechtspraak.judgment_instances(self.store, named))
+        known = {instance.ecli: instance for instance in map(Instance.of, found)}
+        ids = {str(row["ecli"]).upper(): row["id"] for row in found}
+        later_links: list[Link] = []
         links: list[Link] = []
         for row in rows:
-            later = Instance.of(row)
+            this = replace(Instance.of(row), procedure=row.get("procedure_type"))
+            for ecli in row["later_eclis"]:
+                later = known.get(ecli.upper())
+                if later is not None and later.ecli in ids:
+                    later_links += _link(ids[later.ecli], later, this, BASIS_LATER)
             for ecli in row["related_eclis"]:
                 earlier = known.get(ecli.upper()) or Instance(ecli=ecli.upper())
-                relation = earlier_instance_relation(later, earlier)
-                if relation:
-                    links.append(
-                        (
-                            row["j_id"],
-                            relation,
-                            earlier.ecli,
-                            BASIS_FORMAL,
-                            row.get("procedure_type") or "",
-                        )
-                    )
-        return links
+                links += _link(row["j_id"], this, earlier, BASIS_FORMAL)
+        return later_links + links
 
     def _text_links(
         self, texts: list[dict[str, Any]], links: list[Link]
