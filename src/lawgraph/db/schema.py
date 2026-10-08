@@ -1086,10 +1086,14 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         " ON instruments USING gin (public.lg_legal_area_keys(props))",
         "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
         " ON instruments USING gin (public.lg_policy_domain_keys(props))",
-        # the instruments of the list by the day they came into force (``from``/``to``);
-        # on a large database built beforehand with CREATE INDEX CONCURRENTLY
+        # the instruments of the list (no publications: a few thousand) by the day they
+        # came into force (``from``/``to``)
         "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
         f" ON instruments (({INSTRUMENT_DATE_IN_FORCE})) WHERE {_LISTED}",
+        # and by the day they were published (``published_from``/``published_to``):
+        # ``(kind, date_published)`` holds every publication too
+        "CREATE INDEX IF NOT EXISTS instruments_list_date_published"
+        f" ON instruments (date_published) WHERE {_LISTED}",
         # the publications of a dossier, for the words (``q``) of the feed in its title
         "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
         f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",

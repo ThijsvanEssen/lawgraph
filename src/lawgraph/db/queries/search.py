@@ -11,6 +11,7 @@ their order is held to D3.
 
 from __future__ import annotations
 
+import contextvars
 import functools
 import re
 import time
@@ -30,6 +31,7 @@ from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
+    INSTRUMENT_DATE_IN_FORCE,
     SEARCH_FIELDS,
     search_column,
     search_words,
@@ -237,6 +239,104 @@ _BOOSTS: dict[str, dict[str, float]] = {
 }
 
 
+# The period a search keeps (``search_full``, ``search_live``: its first and last day,
+# inclusive; None on a side: open), read by the query of each type in its own thread.
+_period: contextvars.ContextVar[tuple[str | None, str | None] | None] = (
+    contextvars.ContextVar("lawgraph_search_period", default=None)
+)
+
+# The day of a hit that the period is read on: its own date, a column with an index (of an
+# instrument the day it came into force, ``instruments_date_in_force``).
+_PERIOD_DAY: dict[str, str] = {
+    "documents": "doc.date",
+    "judgments": "doc.date_eff",
+    "dossiers": "doc.opened_on",
+    "decisions": "doc.date",
+    "commitments": "doc.made_on",
+    "instruments": INSTRUMENT_DATE_IN_FORCE.replace("props", "doc.props"),
+}
+# Of a hit with a period of its own, its start and end (JSON; none: from the first day, or
+# still going on): one that overlaps the period asked is kept.
+_PERIOD_SPAN: dict[str, tuple[str, str]] = {
+    "factions": ("doc.props -> 'active_from'", "doc.props -> 'active_until'"),
+    "committees": ("doc.props -> 'started_on'", "doc.props -> 'ended_on'"),
+    "cabinets": ("doc.props -> 'from_date'", "doc.props -> 'to_date'"),
+}
+
+
+def _day_in_period(day: str, since: str | None, until: str | None) -> list[str]:
+    return [
+        clause
+        for value, clause in (
+            (since, f"{day} >= %(period_since)s"),
+            (until, f"{day} <= %(period_until)s"),
+        )
+        if value
+    ]
+
+
+def _span_in_period(
+    start: str, end: str, since: str | None, until: str | None
+) -> list[str]:
+    clauses = []
+    if until:
+        clauses.append(f"coalesce(lg_str({start}), '') <= %(period_until)s")
+    if since:
+        clauses.append(
+            f"(coalesce(json_typeof({end}), 'null') = 'null'"
+            f" OR lg_str({end}) >= %(period_since)s)"
+        )
+    return clauses
+
+
+def _member_in_period(since: str | None, until: str | None) -> list[str]:
+    """A seat or a post in a cabinet of the member ``doc`` overlaps the period."""
+    spans = " OR ".join(
+        f"EXISTS (SELECT 1 FROM json_array_elements(CASE WHEN json_typeof({periods})"
+        f" = 'array' THEN {periods} ELSE '[]'::json END) AS p(v) WHERE"
+        f" {' AND '.join(_span_in_period(_FROM, _TO, since, until))})"
+        for periods in (
+            "doc.pj_faction_memberships",
+            "doc.props -> 'government_functions'",
+        )
+    )
+    return [f"({spans})"]
+
+
+_FROM = "p.v -> 'from_date'"
+_TO = "p.v -> 'to_date'"
+
+
+def _in_period(table: str) -> tuple[str, dict[str, Any]]:
+    """``AND`` the hit ``doc`` of *table* belongs to the period of the search, and its
+    parameters; nothing without one. An article by the day its law came into force."""
+    period = _period.get()
+    if period is None or not any(period):
+        return "", {}
+    since, until = period
+    if table in _PERIOD_DAY:
+        clauses = _day_in_period(_PERIOD_DAY[table], since, until)
+    elif table in _PERIOD_SPAN:
+        clauses = _span_in_period(*_PERIOD_SPAN[table], since, until)
+    elif table == "members":
+        clauses = _member_in_period(since, until)
+    elif table == "articles":
+        law = " AND ".join(
+            _day_in_period(
+                _PERIOD_DAY["instruments"].replace("doc.", "i."), since, until
+            )
+        )
+        clauses = [
+            f"EXISTS (SELECT 1 FROM instruments i WHERE i.bwb_id = doc.bwb_id AND {law})"
+        ]
+    else:
+        raise ValueError(f"No period for a hit of {table}.")
+    return " AND " + " AND ".join(clauses), {
+        "period_since": since,
+        "period_until": until,
+    }
+
+
 def _text_query(
     store: GraphStore,
     table: str,
@@ -258,6 +358,8 @@ def _text_query(
     common word it would scan the whole table instead of using the indexes."""
     if live:
         return _live_query(table, hit, tokens, fields, limit, joins, where, params)
+    period, period_params = _in_period(table)
+    where, params = f"{where}{period}", {**(params or {}), **period_params}
     clause, clause_params = build_search_clause(table, tokens, fields)
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     rank, lateral, rank_params = bm25_sql(
@@ -360,25 +462,30 @@ def _search_articles(
 
     # The law is named: the article is one key. It is not: every law with that number.
     keys = [make_node_key(a.law_id, a.number) for a in notation.articles if a.law_id]
+    period, period_params = _in_period("articles")
     if keys:
         precise: Query = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles doc {_ARTICLE_INSTRUMENT}
-            WHERE doc.key = ANY(%(keys)s)
+            WHERE doc.key = ANY(%(keys)s){period}
             ORDER BY array_position(%(keys)s::text[], doc.key)
             LIMIT %(limit)s
             """,
-            {"keys": keys, "limit": limit},
+            {"keys": keys, "limit": limit, **period_params},
         )
     else:
         precise = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles doc {_ARTICLE_INSTRUMENT}
-            WHERE doc.article_number = ANY(%(numbers)s)
+            WHERE doc.article_number = ANY(%(numbers)s){period}
             ORDER BY doc.bwb_id NULLS FIRST, doc.key
             LIMIT %(limit)s
             """,
-            {"numbers": [a.number for a in notation.articles], "limit": limit},
+            {
+                "numbers": [a.number for a in notation.articles],
+                "limit": limit,
+                **period_params,
+            },
         )
     return _two_phase_search(store, precise, text, limit)
 
@@ -421,15 +528,17 @@ def _search_instruments(
 ) -> list[dict[str, Any]]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
+    period, period_params = _in_period("instruments")
     precise: Query = (
         f"""
         SELECT {_INSTRUMENT_HIT} FROM instruments doc
-        WHERE doc.{search_column("aliases", "norm")} @> ARRAY[lg_fold(%(name)s)]
-           OR doc.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)]
+        WHERE (doc.{search_column("aliases", "norm")} @> ARRAY[lg_fold(%(name)s)]
+           OR doc.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)])
+           {period}
         ORDER BY doc.citation_title NULLS FIRST, doc.key
         LIMIT %(limit)s
         """,
-        {"name": _folded(q), "limit": limit},
+        {"name": _folded(q), "limit": limit, **period_params},
     )
     text = _text_query(
         store,
@@ -480,15 +589,16 @@ def _search_judgments(
     text = _text_query(
         store, "judgments", _JUDGMENT_HIT, tokens, _JUDGMENT_FIELDS, limit
     )
+    period, period_params = _in_period("judgments")
     if notation is not None and notation.kind == "ecli":
         ecli: Query = (
             f"""
             SELECT {_ECLI_HIT} FROM judgments doc
-            WHERE doc.ecli = %(ecli)s
+            WHERE doc.ecli = %(ecli)s{period}
             ORDER BY doc.key
             LIMIT %(limit)s
             """,
-            {"ecli": notation.identifier, "limit": limit},
+            {"ecli": notation.identifier, "limit": limit, **period_params},
         )
         return _two_phase_search(store, ecli, text, limit)
 
@@ -502,7 +612,7 @@ def _search_judgments(
         SELECT {_JUDGMENT_HIT}
         FROM (
             SELECT * FROM judgments doc
-            WHERE doc.{search_column("names", "norm")} @> ARRAY[lg_fold(%(name)s)]
+            WHERE doc.{search_column("names", "norm")} @> ARRAY[lg_fold(%(name)s)]{period}
             OFFSET 0
         ) doc
         ORDER BY doc.date_eff DESC NULLS LAST,
@@ -510,7 +620,7 @@ def _search_judgments(
                  doc.key
         LIMIT %(limit)s
         """,
-        {"name": q.strip(), "limit": limit},
+        {"name": q.strip(), "limit": limit, **period_params},
     )
     return _two_phase_search(store, name, text, limit)
 
@@ -662,6 +772,7 @@ def _search_members(
 ) -> list[dict[str, Any]]:
     # a member's own name folded: the factions of a timeline are found as they are written
     condition, params = _all_words_folded(tokens, "lg_fold(doc.name)")
+    period, period_params = _in_period("members")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -673,17 +784,18 @@ def _search_members(
             )
         )
         FROM members doc
-        WHERE {condition}
+        WHERE {condition}{period}
         ORDER BY doc.active DESC NULLS LAST, doc.name NULLS FIRST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period_params, "limit": limit}))
 
 
 def _search_factions(
     store: GraphStore, tokens: list[str], limit: int
 ) -> list[dict[str, Any]]:
     condition, params = _all_words_folded(tokens, "lg_fold(doc.search_names)")
+    period, period_params = _in_period("factions")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -697,12 +809,12 @@ def _search_factions(
             )
         )
         FROM factions doc
-        WHERE {condition}
+        WHERE {condition}{period}
         ORDER BY doc.active DESC NULLS LAST, coalesce(doc.seats, 0) DESC,
                  doc.name NULLS FIRST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period_params, "limit": limit}))
 
 
 def _search_cabinets(
@@ -710,6 +822,7 @@ def _search_cabinets(
 ) -> list[dict[str, Any]]:
     """Every word in the name of the cabinet (``kabinet-Schoof``), newest first."""
     condition, params = _all_words(tokens, search_words("cabinets", "doc"))
+    period, period_params = _in_period("cabinets")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -722,11 +835,11 @@ def _search_cabinets(
             )
         )
         FROM cabinets doc
-        WHERE {condition}
+        WHERE {condition}{period}
         ORDER BY lg_str(doc.props -> 'from_date') DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period_params, "limit": limit}))
 
 
 def _search_commitments(
@@ -735,6 +848,7 @@ def _search_commitments(
     """Every word in the text or the number of the commitment (``TZ202609-011``), newest
     first."""
     condition, params = _all_words(tokens, search_words("commitments", "doc"))
+    period, period_params = _in_period("commitments")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -751,11 +865,11 @@ def _search_commitments(
             )
         )
         FROM commitments doc
-        WHERE {condition}
+        WHERE {condition}{period}
         ORDER BY doc.made_on DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period_params, "limit": limit}))
 
 
 # Words that name the type of a vote rather than what it was on: "stemming abortus" asks
@@ -772,6 +886,7 @@ def _search_decisions(
     if not words:
         return []
     condition, params = _all_words(words, search_words("decisions", "doc"))
+    period, period_params = _in_period("decisions")
     statement = f"""
         SELECT json_build_object(
             'id', doc.id, 'key', doc.key,
@@ -787,11 +902,11 @@ def _search_decisions(
             )
         )
         FROM decisions doc
-        WHERE {condition}
+        WHERE {condition}{period}
         ORDER BY doc.date DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period_params, "limit": limit}))
 
 
 # ── Ranking ───────────────────────────────────────────────────────────────────
@@ -986,6 +1101,25 @@ def search_full(
     types: list[str],
     kinds: list[str] | None = None,
     limit: int = 20,
+    since: str | None = None,
+    until: str | None = None,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
+    """``_search_full_in_period`` of the hits whose own date (or period) falls in *since* to *until*
+    (inclusive; ``_in_period``)."""
+    token = _period.set((since, until) if since or until else None)
+    try:
+        return _search_full_in_period(store, q=q, types=types, kinds=kinds, limit=limit)
+    finally:
+        _period.reset(token)
+
+
+def _search_full_in_period(
+    store: GraphStore,
+    *,
+    q: str,
+    types: list[str],
+    kinds: list[str] | None = None,
+    limit: int = 20,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
@@ -1034,6 +1168,25 @@ LIVE_MIN_JUDGMENT = 3
 
 
 def search_live(
+    store: GraphStore,
+    *,
+    q: str,
+    types: list[str],
+    kinds: list[str] | None = None,
+    limit: int = 10,
+    since: str | None = None,
+    until: str | None = None,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
+    """``_search_live_in_period`` of the hits whose own date (or period) falls in *since* to *until*
+    (inclusive; ``_in_period``)."""
+    token = _period.set((since, until) if since or until else None)
+    try:
+        return _search_live_in_period(store, q=q, types=types, kinds=kinds, limit=limit)
+    finally:
+        _period.reset(token)
+
+
+def _search_live_in_period(
     store: GraphStore,
     *,
     q: str,
@@ -1122,7 +1275,10 @@ def _live_query(
     Every token is a word of *fields*, a whole value of one, or, from three characters,
     the start of a word of a name or title (``stik``: Stikstofwet); of the first
     ``LIVE_CANDIDATES`` found, those whose name or title starts with the query first (as
-    ``score_hit``), then those first in ``_LIVE_ORDER``."""
+    ``score_hit``), then those first in ``_LIVE_ORDER``. A period of the search is kept
+    in the lookup, before its ``LIMIT`` (``_in_period``)."""
+    period, period_params = _in_period(table)
+    where, params = f"{where}{period}", {**(params or {}), **period_params}
     clause, clause_params = _live_clause(table, tokens, fields)
     starts = " OR ".join(
         f"doc.{column} LIKE {_LIVE_START} OR doc.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
@@ -1245,19 +1401,20 @@ def _search_judgments_live(
     holds every word of three characters or more, the most cited first."""
     if len(q.strip()) < LIVE_MIN_JUDGMENT:
         return []
+    period, period_params = _in_period("judgments")
     if notation is not None and notation.kind == "ecli":
         return list(
             store.query(
                 f"SELECT {_ECLI_HIT} FROM judgments doc WHERE doc.ecli = %(ecli)s"
-                " ORDER BY doc.key LIMIT %(limit)s",
-                {"ecli": notation.identifier, "limit": limit},
+                f"{period} ORDER BY doc.key LIMIT %(limit)s",
+                {"ecli": notation.identifier, "limit": limit, **period_params},
             )
         )
     words = [t for t in tokens if len(t) >= LIVE_MIN_JUDGMENT]
     if not words:
         return []
     params: dict[str, Any] = {f"_w{n}": w for n, w in enumerate(words)}
-    params["limit"] = limit
+    params |= {"limit": limit, **period_params}
     holds = " AND ".join(
         f"doc.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
         for n in range(len(words))
@@ -1279,7 +1436,7 @@ def _search_judgments_live(
                 FROM (
                     SELECT * FROM judgments doc
                     WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
-                      AND {holds.format(column=column)}
+                      AND {holds.format(column=column)}{period}
                     LIMIT %(candidates)s
                 ) doc
                 ORDER BY n

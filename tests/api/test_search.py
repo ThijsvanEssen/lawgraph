@@ -166,7 +166,13 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
 
     response = TestClient(app).get(
         "/api/search",
-        params={"q": "Sr 287", "types": "articles", "kind": "Motie, Brief", "limit": 5},
+        params={
+            "q": "Sr 287",
+            "types": "articles",
+            "kind": "Motie, Brief",
+            "limit": 5,
+            "from": "2020-01-01",
+        },
     )
 
     assert response.status_code == 200
@@ -175,6 +181,8 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         "types": ["articles"],
         "kinds": ["Motie", "Brief"],
         "limit": 5,
+        "since": "2020-01-01",
+        "until": None,
     }
     articles = response.json()["results"]["articles"]
     assert [(a["key"], a["score"]) for a in articles] == [

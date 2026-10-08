@@ -469,7 +469,7 @@ migrations that a release needs (a `normalize` or `semantic` step) are not part 
 on the server after the deploy. An index a release adds to a large table (`ensure_schema` creates
 what is missing at the start of the API, in one transaction that blocks the table) is built
 beforehand by hand with the same name: `CREATE INDEX CONCURRENTLY IF NOT EXISTS …` (for
-`edges_from_cover`, `edges_to_cover`, `documents_feed_title_g` and `instruments_dossier_numbers` as in `schema.py`); the start then finds it.
+`edges_from_cover`, `edges_to_cover`, `documents_feed_title_g`, `instruments_dossier_numbers`, `instruments_date_in_force` and `instruments_list_date_published` as in `schema.py`); the start then finds it.
 
 The server it expects:
 
