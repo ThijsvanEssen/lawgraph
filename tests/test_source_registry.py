@@ -148,8 +148,8 @@ def test_semantic_order_puts_what_is_read_first() -> None:
     # tk-amendment-articles starts from the AMENDS edges of tk-amends
     assert order.index("tk-amends") < order.index("tk-amendment-articles")
     # the counts of graph-heat and graph-list-stats are those of every edge written
-    # before them
-    assert order[-2:] == ["graph-heat", "graph-list-stats"]
+    # before them; graph-light keeps the judgments written before it
+    assert order[-3:] == ["graph-light", "graph-heat", "graph-list-stats"]
 
 
 def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs() -> (
