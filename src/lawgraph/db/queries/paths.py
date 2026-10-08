@@ -24,7 +24,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import edge_doc, light_props, node_doc
+from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
 
 LEVEL_CAP = 5000  # the nodes a side keeps of one level
 _ROWS_PER_LEVEL = LEVEL_CAP * 20  # the edges read for one level, at most
@@ -180,14 +180,17 @@ def get_paths(
             found.append(path)
     node_ids = sorted({n for p in found for n in p.nodes})
     nodes = (
-        {row["id"]: node_doc(row) for row in store.query(_NODES_SQL, {"ids": node_ids})}
+        {
+            row["id"]: light_node_doc(row)
+            for row in store.query(_NODES_SQL, {"ids": node_ids})
+        }
         if node_ids
         else {}
     )
     found = [p for p in found if all(n in nodes for n in p.nodes)]
     edge_keys = sorted({e for p in found for e in p.edges})
     edges = (
-        [edge_doc(row) for row in store.query(_EDGES_SQL, {"keys": edge_keys})]
+        [light_edge_doc(row) for row in store.query(_EDGES_SQL, {"keys": edge_keys})]
         if edge_keys
         else []
     )
