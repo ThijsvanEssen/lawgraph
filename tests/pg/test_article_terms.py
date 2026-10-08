@@ -155,7 +155,9 @@ def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     assert [h["id"] for h in hits["articles"]] == [NOODWEER]
 
 
-def test_a_poll_keeps_the_terms_of_the_articles_cited_since(store: GraphStore) -> None:
+def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
+    store: GraphStore,
+) -> None:
     _graph(store)
     article_terms.run(store)
     # three judgments about diefstal cite art. 41 Sr later (an error of the source, say)
@@ -172,9 +174,17 @@ def test_a_poll_keeps_the_terms_of_the_articles_cited_since(store: GraphStore) -
     )
 
     since = dt.datetime(2026, 5, 1, tzinfo=dt.timezone.utc)
-    assert article_terms.run(store, touched_since=since) == 1
+    assert article_terms.run(store, since=since) == 1
     terms = _terms(store)
     # weighed against the counts of the last whole run: noodweerexces was in none then
     assert terms[NOODWEER][0] == "noodwer" and "noodweerexces" in terms[NOODWEER]
     # an article not cited since stays as it was
     assert "diefstal" in terms[DIEFSTAL]
+
+
+def test_semantic_all_passes_its_since_on() -> None:
+    """``daily.sh`` (``semantic all --since last``) keeps the terms of the articles cited
+    since; ``weekly.sh`` (``semantic all``) counts the stems again."""
+    from lawgraph.pipelines.command import accepts_since
+
+    assert accepts_since(article_terms.main)
