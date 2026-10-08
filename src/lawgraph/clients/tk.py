@@ -19,6 +19,13 @@ _DOCUMENT_LINKS = (
     "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
 )
 
+# The actors of a Zaak (``tk_records.case_actors``): who submitted it (``Indiener``,
+# ``Medeindiener``) and its lead committee (``Voortouwcommissie``), among the others.
+_CASE_ACTORS = (
+    "ZaakActor($select=Relatie,Functie,ActorAfkorting,Persoon_Id,Fractie_Id,"
+    "Commissie_Id)"
+)
+
 
 def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
     """Build an OData OR expression: (contains(tolower(F),'kw') or ...)."""
@@ -338,6 +345,21 @@ class TKClient(BaseClient):
         else:
             logger.info("Fetching the links of every Document")
         return self._skip_paged_get("Document", params=params, page_size=top)
+
+    def fetch_case_actors(
+        self, since: dt.datetime | None = None, top: int = 250
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the actors of every Zaak (modified since *since*), and nothing else: its
+        id, whether it was deleted, and per actor its relation, function, abbreviation and
+        the ids of its person, faction or committee. A change of an actor moves the
+        ``ApiGewijzigdOp`` of its Zaak, so a window finds it."""
+        params: dict[str, Any] = {"$select": "Id,Verwijderd", "$expand": _CASE_ACTORS}
+        if since is not None:
+            params["$filter"] = f"ApiGewijzigdOp ge {odata_datetime(since)}"
+            logger.info("Fetching Zaak actors modified since %s", since.isoformat())
+        else:
+            logger.info("Fetching the actors of every Zaak")
+        return self._skip_paged_get("Zaak", params=params, page_size=top)
 
     def fetch_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch Persoon (parliamentary member) records.
