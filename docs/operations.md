@@ -450,7 +450,8 @@ within 30 seconds, with the `version` of the release. It then waits, up to 20 mi
 last version; `"warm": null` is warm-up off; an older API is followed by `"warm": true` or its journal line
 `Warm-up done`) and runs `scripts/smoke.sh` against the public
 address (the variable `PUBLIC_URL`, default `https://concordans.nl`): health, a page of
-judgments without facets, a search, the feed and an article (Sr art. 287), each within its time budget, and
+judgments without facets, a search, the feed and an article (Sr art. 287), each within its time budget (a route that misses it gets one more try 30 s later, as the caches
+are cold right after the restart), and
 the version that `/api/health` reports. When the deploy or the smoke test fails, the job puts the
 previous commit back (`/srv/lawgraph/deploy/previous` holds it for that run), installs, restarts
 and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
