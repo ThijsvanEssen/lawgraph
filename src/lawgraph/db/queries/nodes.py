@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import edge_doc, light_props, node_doc
+from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
 from lawgraph.db.queries._helpers import _extract_confidence
 
 
@@ -268,8 +268,8 @@ def _read_pages(
     pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
     for row in store.query(statement, params):
         entry = NeighborEntry(
-            doc=node_doc(row),
-            edge=edge_doc({**row, "key": row["edge_key"]}),
+            doc=light_node_doc(row),
+            edge=light_edge_doc({**row, "key": row["edge_key"]}),
             direction=row["direction"],
         )
         pages.setdefault(
@@ -358,6 +358,6 @@ def get_node_neighborhood(
     edges = [dict(zip(_EDGE_FIELDS, row, strict=True)) for row in found["edges"]]
     return {
         "focal": focal,
-        "nodes": [node_doc(row) for row in nodes],
-        "edges": [edge_doc(row) for row in edges],
+        "nodes": [light_node_doc(row) for row in nodes],
+        "edges": [light_edge_doc(row) for row in edges],
     }

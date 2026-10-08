@@ -133,6 +133,41 @@ def test_a_path_does_not_pass_through_a_law_by_its_articles(graph: GraphStore) -
     assert own.edges == ("w2",)
 
 
+def test_a_law_an_end_of_another_pair_is_not_passed_through(graph: GraphStore) -> None:
+    """The levels are read once for every pair, with every id as an end; a pair still does
+    not pass through a law that is an end of another pair only."""
+    _law_and_explanation(graph)
+    blocked = Followed(relations=["AUTHORED", "REFERS_TO", "PART_OF"])
+    found = get_paths(graph, [MEMBER, ARTICLE, "instruments/awb"], 4, blocked)
+    assert [(p.source, p.target, p.edges) for p in found["paths"]] == [
+        (MEMBER, "instruments/awb", ("e1", "w1")),
+        (ARTICLE, "instruments/awb", ("w2",)),
+    ]
+
+
+def test_every_level_is_read_once_for_every_pair(graph: GraphStore) -> None:
+    """Four ids are six pairs; the edges at a frontier are read once, whichever pairs
+    reach it."""
+    _law_and_explanation(graph)
+    frontiers: list[tuple[str, ...]] = []
+    query = graph.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and "frontier" in params:
+            frontiers.append(tuple(params["frontier"]))
+        return query(statement, params, **options)
+
+    graph.query = recording  # type: ignore[method-assign]
+    try:
+        found = get_paths(
+            graph, [MEMBER, ARTICLE, "dossiers/33328", "instruments/awb"], max_depth=4
+        )
+    finally:
+        graph.query = query  # type: ignore[method-assign]
+    assert len(found["paths"]) == 6
+    assert len(frontiers) == len(set(frontiers))
+
+
 def test_the_relations_a_path_keeps_to(graph: GraphStore) -> None:
     _law_and_explanation(graph)
     bill = Followed(
