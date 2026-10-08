@@ -1146,6 +1146,72 @@ CREATE TABLE IF NOT EXISTS lg_heat_state (
 )
 """
 
+# What a judgment is as a neighbour, a node of a neighbourhood or of a path (the props the
+# explorer reads of it there, in their stored order; its summary as long as a preview needs),
+# kept apart from its props, which hold its whole text: a neighbour reads these, not the text.
+# Kept by triggers on every write of a judgment; ``semantic graph-light`` fills it once. Not
+# a table of the graph: writing it raises no data version.
+JUDGMENT_LIGHT_PROPS = (
+    "ecli",
+    "display_name",
+    "names",
+    "summary",
+    "date",
+    "court",
+    "court_code",
+    "case_number",
+    "source",
+    "jurisdiction",
+    "stub",
+    "translation_of",
+    "advocate_general",
+    "advocate_general_role",
+)
+# The characters of a summary kept: one more than a neighbour shows, so it knows to cut.
+JUDGMENT_LIGHT_SUMMARY = 401
+
+
+def judgment_light() -> list[str]:
+    keys = ", ".join(f"'{key}'" for key in JUDGMENT_LIGHT_PROPS)
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_judgment_light (
+    id text PRIMARY KEY,
+    props json NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_judgment_light_props(p json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(
+        e.key,
+        CASE WHEN e.key = 'summary' AND json_typeof(e.value) = 'string'
+             THEN to_json(left(e.value #>> '{{}}', {JUDGMENT_LIGHT_SUMMARY}))
+             ELSE e.value END
+        ORDER BY e.n), '{{}}'::json)
+    FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
+        WITH ORDINALITY AS e(key, value, n)
+    WHERE e.key IN ({keys})
+$$""",
+        """CREATE OR REPLACE FUNCTION lg_keep_judgment_light() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_judgment_light l USING changed c WHERE l.id = c.id;
+    ELSE
+        INSERT INTO public.lg_judgment_light (id, props)
+        SELECT c.id, public.lg_judgment_light_props(c.props) FROM changed c
+        ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER judgments_light_{event.lower()}"
+            f" AFTER {event} ON judgments REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_judgment_light()"
+        )
+    return statements
+
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1198,7 +1264,7 @@ def statements() -> list[str]:
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)
-    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, HEAT, nodes_view()]
+    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, HEAT, *judgment_light(), nodes_view()]
     found += data_version_triggers(COLLECTION_EDGES)
     return found
 

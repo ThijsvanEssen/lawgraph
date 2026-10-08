@@ -79,7 +79,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_tooi,
     retrieve_verdragenbank,
 )
-from lawgraph.pipelines.semantic import graph_heat, graph_list_stats
+from lawgraph.pipelines.semantic import graph_heat, graph_light, graph_list_stats
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
@@ -760,6 +760,10 @@ SEMANTIC: list[Pipeline] = [
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
         ),
+    ),
+    _pipeline(
+        graph_light.main,
+        "Keeps every judgment as a neighbour without its text, for those written before.",
     ),
     _pipeline(
         graph_heat.main,

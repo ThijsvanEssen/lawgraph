@@ -17,6 +17,9 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import committees as committee_routes
 from lawgraph.config.constants import (
+    COLLECTION_DECISIONS,
+    COLLECTION_EDGES,
+    COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_AUTHORED,
@@ -30,7 +33,11 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, make_edge_doc
+from lawgraph.db.queries import committees as committee_queries
 from lawgraph.db.queries.committees import (
+    _IN_MEMBERSHIP,
+    _array,
+    _is_null,
     get_actor_dossiers,
     get_actor_touched_instruments,
     get_committee_activities,
@@ -675,6 +682,130 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
     assert votes[2]["external_id"] == "b1" and type(votes[2]["seats"]) is int
     assert len(get_member_votes(store, "members/m1", limit=2)) == 2
     assert get_member_votes(store, "members/nobody") == []
+
+
+# The statement of ``get_member_votes`` before it read the newest votes of a period first:
+# what it answers must not change.
+_OLD_MEMBER_VOTES = f"""
+        WITH member AS (
+            SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+        ),
+        voted AS (
+            SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+                   member.props -> 'party' AS party,
+                   NULL::json AS faction_key, NULL::text AS faction_order,
+                   'member'::text AS vote_source
+            FROM member
+            JOIN {COLLECTION_EDGES} e
+              ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+            UNION ALL
+            SELECT e.to_id, e.doc -> 'meta',
+                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
+                        THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
+                   f.period -> 'faction_key', f.period ->> 'faction_key',
+                   'faction'::text
+            FROM member
+            CROSS JOIN LATERAL json_array_elements(
+                {_array("member.props -> 'faction_memberships'")}
+            ) AS f(period)
+            JOIN {COLLECTION_EDGES} e
+              ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
+            JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
+            WHERE d.date IS NOT NULL
+              AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+              AND {_IN_MEMBERSHIP}
+        ),
+        page AS (
+            SELECT v.*, d.key, d.date
+            FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
+            ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
+            LIMIT %(limit)s
+        )
+        SELECT json_build_object(
+            'decision_id', d.id,
+            'decision_key', d.key,
+            'external_id', d.props -> 'decision_id',
+            'date', d.props -> 'date',
+            'subject', d.props -> 'subject',
+            'passed', d.props -> 'passed',
+            'choice', page.meta -> 'choice',
+            'seats', page.meta -> 'seats',
+            'party', page.party,
+            'faction_key', page.faction_key,
+            'vote_source', page.vote_source
+        )
+        FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
+        ORDER BY page.date DESC NULLS LAST, page.key ASC,
+                 page.faction_order ASC NULLS FIRST
+        """
+
+
+def _old_member_votes(store: GraphStore, member_id: str, limit: int) -> list[Any]:
+    return list(
+        store.query(
+            _OLD_MEMBER_VOTES,
+            {
+                "member_id": member_id,
+                "limit": limit,
+                "voted": RELATION_VOTED,
+                "roll_call": VOTE_KIND_MEMBER,
+            },
+        )
+    )
+
+
+def _roll_call(n: int) -> bool:
+    return n % 5 == 0 or n % 12 == 11  # the year 2023: the newest votes all roll-calls
+
+
+def _many_votes(store: GraphStore) -> None:
+    """Two factions of a member, 300 decisions over twelve years, one in five a roll-call
+    (the member's own vote) and every one of the last year (the member absent: no vote of
+    their own), some on one day."""
+    g = Graph(store)
+    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
+    g.node("factions", "vvd", name="VVD")
+    g.node("factions", "d66", name="D66")
+    for n in range(300):
+        date = f"{2012 + n % 12}-{1 + n % 12:02d}-{1 + (n // 12) % 28:02d}"
+        roll_call = _roll_call(n)
+        key = f"s{n:03d}"
+        g.node(
+            "decisions",
+            key,
+            date=date,
+            **({"vote_kind": VOTE_KIND_MEMBER} if roll_call else {}),
+        )
+        for faction in ("factions/vvd", "factions/d66"):
+            g.edge(faction, RELATION_VOTED, f"decisions/{key}", choice="Voor", seats=9)
+        if roll_call and n % 12 != 11:
+            g.edge("members/m1", RELATION_VOTED, f"decisions/{key}", choice="Tegen")
+    g.write()
+
+
+@pytest.mark.parametrize("candidates", [committee_queries.VOTE_CANDIDATES, 1])
+def test_the_newest_votes_are_those_of_every_vote(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, candidates: int
+) -> None:
+    """The votes of a faction read newest first, before the roll-calls among them are
+    known, answer what reading every vote answered; with too few read (a page of
+    roll-calls) the statement reads more."""
+    _many_votes(store)
+    monkeypatch.setattr(committee_queries, "VOTE_CANDIDATES", candidates)
+    for limit in (1, 7, 50, 100):
+        new = get_member_votes(store, "members/m1", limit=limit)
+        assert new == _old_member_votes(store, "members/m1", limit), limit
+        assert len(new) == limit
+    # the roll-calls are the member's own, never the faction's
+    votes = get_member_votes(store, "members/m1", limit=300)
+    assert not [
+        v
+        for v in votes
+        if v["vote_source"] == "faction" and _roll_call(int(v["decision_key"][1:]))
+    ]
+    assert len([v for v in votes if v["vote_source"] == "member"]) == len(
+        [n for n in range(300) if _roll_call(n) and n % 12 != 11]
+    )
 
 
 def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(

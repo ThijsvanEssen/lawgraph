@@ -527,6 +527,11 @@ _IN_MEMBERSHIP = f"""
 """
 
 
+# The faction votes of a period read first, the newest by date, before which of them were
+# roll-calls is known (``_member_votes_page``): a multiple of the page, as roll-calls are few.
+VOTE_CANDIDATES = 2
+
+
 def get_member_votes(
     store: GraphStore, member_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
@@ -537,68 +542,118 @@ def get_member_votes(
     and counts for the member only while they belonged to it — which is what
     ``faction_memberships`` dates. ``party`` is the party they sat for at the
     time, so historic votes keep their colour after a switch.
+
+    Whether a vote of the faction was a roll-call is in the props of its decision: of each
+    period only the newest ``VOTE_CANDIDATES`` times the page are read for it (a large
+    party votes tens of thousands of times), and more when the roll-calls among those
+    leave less than a page.
     """
-    rows = store.query(
-        f"""
-        WITH member AS (
-            SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
-        ),
-        voted AS (
-            SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
-                   member.props -> 'party' AS party,
-                   NULL::json AS faction_key, NULL::text AS faction_order,
-                   'member'::text AS vote_source
-            FROM member
-            JOIN {COLLECTION_EDGES} e
-              ON e.from_id = %(member_id)s AND e.relation = %(voted)s
-            UNION ALL
-            SELECT e.to_id, e.doc -> 'meta',
-                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
-                        THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
-                   f.period -> 'faction_key', f.period ->> 'faction_key',
-                   'faction'::text
-            FROM member
-            CROSS JOIN LATERAL json_array_elements(
-                {_array("member.props -> 'faction_memberships'")}
-            ) AS f(period)
-            JOIN {COLLECTION_EDGES} e
-              ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
-            JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
-            WHERE d.date IS NOT NULL
-              AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
-              AND {_IN_MEMBERSHIP}
-        ),
-        page AS (
-            SELECT v.*, d.key, d.date
-            FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
-            ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
-            LIMIT %(limit)s
+    candidates = max(limit, 1) * VOTE_CANDIDATES
+    while True:
+        (row,) = store.query(
+            _MEMBER_VOTES, _member_votes_params(member_id, limit, candidates)
         )
-        SELECT json_build_object(
-            'decision_id', d.id,
-            'decision_key', d.key,
-            'external_id', d.props -> 'decision_id',
-            'date', d.props -> 'date',
-            'subject', d.props -> 'subject',
-            'passed', d.props -> 'passed',
-            'choice', page.meta -> 'choice',
-            'seats', page.meta -> 'seats',
-            'party', page.party,
-            'faction_key', page.faction_key,
-            'vote_source', page.vote_source
-        )
-        FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
-        ORDER BY page.date DESC NULLS LAST, page.key ASC,
-                 page.faction_order ASC NULLS FIRST
-        """,
-        {
-            "member_id": member_id,
-            "limit": limit,
-            "voted": RELATION_VOTED,
-            "roll_call": VOTE_KIND_MEMBER,
-        },
+        if row["complete"]:
+            return list(row["votes"])
+        candidates *= 4
+
+
+def _member_votes_params(member_id: str, limit: int, candidates: int) -> dict[str, Any]:
+    return {
+        "member_id": member_id,
+        "limit": limit,
+        "candidates": candidates,
+        "voted": RELATION_VOTED,
+        "roll_call": VOTE_KIND_MEMBER,
+    }
+
+
+_MEMBER_VOTES = f"""
+    WITH member AS (
+        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+    ),
+    periods AS (
+        SELECT f.period, f.n
+        FROM member
+        CROSS JOIN LATERAL json_array_elements(
+            {_array("member.props -> 'faction_memberships'")}
+        ) WITH ORDINALITY AS f(period, n)
+    ),
+    -- per period the newest votes of the faction, by the dates of their decisions alone
+    candidates AS (
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key
+        FROM periods p
+        CROSS JOIN LATERAL (
+            -- the votes of the faction found first (OFFSET 0), then ordered: the index of
+            -- the dates would be walked for a faction that voted on few of them
+            SELECT v.* FROM (
+                SELECT e.key AS edge_key, d.id AS decision_id, d.date, d.key
+                FROM {COLLECTION_EDGES} e
+                JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
+                CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+                WHERE e.from_id = p.period ->> 'faction_id' AND e.relation = %(voted)s
+                  AND d.date IS NOT NULL
+                  AND {_IN_MEMBERSHIP}
+                OFFSET 0
+            ) v
+            ORDER BY v.date DESC NULLS LAST, v.key ASC
+            LIMIT %(candidates)s
+        ) c
+    ),
+    -- of those, the votes no roll-call made
+    kept AS (
+        SELECT c.* FROM candidates c
+        JOIN {COLLECTION_DECISIONS} d ON d.id = c.decision_id
+        WHERE lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+    ),
+    voted AS (
+        SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+               member.props -> 'party' AS party,
+               NULL::json AS faction_key, NULL::text AS faction_order,
+               'member'::text AS vote_source
+        FROM member
+        JOIN {COLLECTION_EDGES} e
+          ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+        UNION ALL
+        SELECT k.decision_id, e.doc -> 'meta',
+               CASE WHEN {_is_null("k.period -> 'abbreviation'")}
+                    THEN k.period -> 'name' ELSE k.period -> 'abbreviation' END,
+               k.period -> 'faction_key', k.period ->> 'faction_key',
+               'faction'::text
+        FROM kept k JOIN {COLLECTION_EDGES} e ON e.key = k.edge_key
+    ),
+    page AS (
+        SELECT v.*, d.key, d.date
+        FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
+        ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
+        LIMIT %(limit)s
     )
-    return list(rows)
+    SELECT
+        -- a period cut at its candidates whose roll-calls left less than a page may lack
+        -- votes of the page: read again with more
+        NOT EXISTS (
+            SELECT 1 FROM periods p
+            WHERE (SELECT count(*) FROM candidates c WHERE c.n = p.n) = %(candidates)s
+              AND (SELECT count(*) FROM kept k WHERE k.n = p.n) < %(limit)s
+        ) AS complete,
+        coalesce((
+            SELECT json_agg(json_build_object(
+                'decision_id', d.id,
+                'decision_key', d.key,
+                'external_id', d.props -> 'decision_id',
+                'date', d.props -> 'date',
+                'subject', d.props -> 'subject',
+                'passed', d.props -> 'passed',
+                'choice', page.meta -> 'choice',
+                'seats', page.meta -> 'seats',
+                'party', page.party,
+                'faction_key', page.faction_key,
+                'vote_source', page.vote_source
+            ) ORDER BY page.date DESC NULLS LAST, page.key ASC,
+                       page.faction_order ASC NULLS FIRST)
+            FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
+        ), '[]'::json) AS votes
+"""
 
 
 def get_actor_touched_instruments(
