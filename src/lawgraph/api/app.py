@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import collections
 import faulthandler
 import ipaddress
@@ -12,6 +13,7 @@ from collections.abc import Callable
 from typing import Annotated, Any
 
 import anyio
+import anyio.to_thread
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -55,8 +57,12 @@ from lawgraph.core.logging import setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.store import (
+    Cancellation,
     ReadTimedOut,
+    RequestCancelled,
+    reset_cancellation,
     reset_read_deadline,
+    set_cancellation,
     set_read_deadline,
 )
 
@@ -178,6 +184,42 @@ class _ReadDeadlineMiddleware:
             await self._app(scope, receive, send)
         finally:
             reset_read_deadline(token)
+
+
+class _CancelOnDisconnectMiddleware:
+    """A request whose client went away (a browser that aborts a search at the next
+    keystroke) stops reading the database: the reads it runs are cancelled at once, and it
+    starts no other (``store.Cancellation``). Without this it read on until its deadline,
+    and the search the client did want waited behind it. A computation of the cache it
+    started goes on, for the next request."""
+
+    def __init__(self, app) -> None:
+        self._app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        cancellation = Cancellation()
+        token = set_cancellation(cancellation)
+        # every message of the client passes here on its way to the app, so that a
+        # disconnect is seen while the app does not read
+        messages: asyncio.Queue = asyncio.Queue()
+
+        async def listen() -> None:
+            while True:
+                message = await receive()
+                await messages.put(message)
+                if message["type"] == "http.disconnect":
+                    await anyio.to_thread.run_sync(cancellation.cancel)
+                    return
+
+        listening = asyncio.create_task(listen())
+        try:
+            await self._app(scope, messages.get, send)
+        finally:
+            listening.cancel()
+            reset_cancellation(token)
 
 
 class _RateLimitMiddleware:
@@ -347,6 +389,7 @@ async def _log_requests(request: Request, call_next):
 
 
 app.add_middleware(_ReadDeadlineMiddleware)
+app.add_middleware(_CancelOnDisconnectMiddleware)
 app.add_middleware(_RateLimitMiddleware)
 app.add_middleware(
     _CacheControlMiddleware,
@@ -454,8 +497,13 @@ READ_TIMEOUT_RETRY_AFTER = 30
 @app.exception_handler(ReadTimedOut)
 async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
     """A query that ran past ``LAWGRAPH_READ_TIMEOUT_MS``: the server is busy, not broken
-    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client."""
-    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client.
+    A request whose client went away (``RequestCancelled``) is no trouble of the server: it
+    is logged as information, and its answer reaches no one."""
+    if isinstance(exc, RequestCancelled):
+        _logger.info("%s %s: the client went away", request.method, request.url.path)
+    else:
+        _logger.warning("%s %s: %s", request.method, request.url.path, exc)
     return JSONResponse(
         status_code=503,
         content={"detail": "The query took too long. Try again later, or narrow it."},
