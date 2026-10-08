@@ -1664,8 +1664,9 @@ def test_a_feed_searched_past_its_budget_says_so(
 
 
 def _words(store: GraphStore) -> None:
-    """Papers whose subject holds ``ai`` as a word, or as a part of one; a vote, a judgment
-    and a commitment with a word in their title; a motion whose dossier has it in its."""
+    """Papers whose subject holds ``ai`` or ``stikstof`` as a word, or as a part of one; a
+    vote and a commitment with a word in their title; a motion whose dossier has it in
+    its."""
     subjects = {
         "w1": "Motie over de AI-verordening",
         "w2": "Regels voor AI",
@@ -1682,7 +1683,9 @@ def _words(store: GraphStore) -> None:
                 for n, (key, subject) in enumerate(subjects.items())
             ]
             + [_raw("w6", ["TK"], kind="Motie", date="2026-05-07", subject="Motie Bakker",
-                    dossier_numbers=["36002"])],
+                    dossier_numbers=["36002"]),
+               _raw("w7", ["TK"], kind="Motie", date="2026-05-08", subject="Natuurstikstof",
+                    dossier_numbers=["36001"])],
             COLLECTION_DOSSIERS: [
                 _raw("36001", label="36001", title="Onderwijs"),
                 _raw("36002", label="36002", title="Wet op de AI-toezichthouder"),
@@ -1706,9 +1709,9 @@ WORDS_WINDOW = {"since": "2026-05-01", "until": "2026-05-12"}
 def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
     client: TestClient, store: GraphStore
 ) -> None:
-    """``ai`` (at most four letters) is a word: the AI-verordening, AI in the title of the
-    dossier, not universitaire, Airport or dairy; alike in the page, its total, the summary
-    and the Atom feed."""
+    """``ai`` (at most four letters) is a whole word: the AI-verordening, AI in the title of
+    the dossier, not universitaire, Airport or dairy; alike in the page, its total, the
+    summary and the Atom feed."""
     _words(store)
     expected = {
         "documents/w1",
@@ -1732,12 +1735,13 @@ def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
         for entry in ElementTree.fromstring(atom.content).findall("a:entry", ns)
     }
     assert ids == expected
-    # a word of five letters or more is a part of a word too
+    # a word of five letters or more from the start of a word: Stikstofbank, not
+    # Natuurstikstof
     assert set(_ids(_feed(client, q="stikstof", **WORDS_WINDOW))) == {"documents/w5"}
 
 
-WORDS = ["AI", "ai-ver", "stikstof", "grens", "wet voorbeeld", "binnenlandse", "onderwijs",
-         "toezicht", "x", "%", "a_b"]  # fmt: skip
+WORDS = ["AI", "ai-ver", "stikstof", "natuurstikstof", "grens", "wet voorbeeld",
+         "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b"]  # fmt: skip
 
 
 @pytest.mark.parametrize("q", WORDS)

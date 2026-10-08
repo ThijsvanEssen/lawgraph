@@ -66,6 +66,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _words
 from lawgraph.db.schema import INSTRUMENT_DOSSIER_NUMBERS, feed_title, search_words
 from lawgraph.db.store import (
     ReadTimedOut,
@@ -319,13 +320,6 @@ _TEGEN = "n.props -> 'tally' -> 'Tegen'"
 _MARGIN = f"abs(({_number(_VOOR)}) - ({_number(_TEGEN)}))"
 
 
-# The candidates of a kind for ``q``, by the trigram index on its title (folded as the
-# index is, or in lower case) and by the dossiers whose title holds it: every event the
-# words filter keeps is one of them, and the filter tests them alone.
-_FOLDED_LIKE = "'%%' || lg_like(lg_fold(%(q)s)) || '%%'"
-_LOWER_LIKE = "'%%' || lg_like(%(q)s) || '%%'"
-
-
 def _document_source(kind: str) -> _Source:
     return _Source(
         kind=kind,
@@ -336,7 +330,7 @@ def _document_source(kind: str) -> _Source:
         dossiers=_PAPER_DOSSIER_NUMBERS,
         persons=_BILL_PERSONS if kind == EVENT_BILL else _ACTORS,
         title=_or("n.pj_subject", "n.pj_title"),
-        found=f"{feed_title('n')} LIKE {_FOLDED_LIKE}",
+        found=f"{feed_title('n')} LIKE {_words.FOLDED_LIKE}",
         dossier_found="n.dossier_numbers && ARRAY({titled})",
     )
 
@@ -362,7 +356,7 @@ _SOURCES: dict[str, _Source] = {
             persons=_COMMITMENT_PERSONS,
             title="n.props -> 'text'",
             ministry="n.ministry",
-            found=f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_LOWER_LIKE}",
+            found=f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_words.LOWER_LIKE}",
             dossier_found=(
                 f"n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e"
                 f" JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id"
@@ -389,7 +383,7 @@ _SOURCES: dict[str, _Source] = {
             persons=_DECIDED_PERSONS,
             title="n.props -> 'subject'",
             chamber=_VOTE_CHAMBER,
-            found=f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_LOWER_LIKE}",
+            found=f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.LOWER_LIKE}",
             dossier_found="n.dossier_numbers && ARRAY({titled})",
         ),
         _Source(
@@ -401,7 +395,7 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.props -> 'citation_title'",
             chamber="NULL",
-            found=f"n.s_citation_title_g LIKE {_FOLDED_LIKE}",
+            found=f"n.s_citation_title_g LIKE {_words.FOLDED_LIKE}",
             dossier_found=(
                 f"{INSTRUMENT_DOSSIER_NUMBERS.replace('props', 'n.props')}"
                 " && ARRAY({titled})"
@@ -418,7 +412,7 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.pj_display_name",
             chamber="NULL",
-            found=f"n.s_display_name_g LIKE {_FOLDED_LIKE}",
+            found=f"n.s_display_name_g LIKE {_words.FOLDED_LIKE}",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -439,7 +433,7 @@ _SOURCES: dict[str, _Source] = {
                 "n.bwb_id = ANY(ARRAY("
                 "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"
                 f" FROM {COLLECTION_INSTRUMENTS} i"
-                f" WHERE i.s_citation_title_g LIKE {_FOLDED_LIKE}"
+                f" WHERE i.s_citation_title_g LIKE {_words.FOLDED_LIKE}"
                 " OR (coalesce(i.citation_title, '') = ''"
                 f" AND i.kind IS DISTINCT FROM {_lit(INSTRUMENT_KIND_PUBLICATION)})))"
             ),
@@ -577,34 +571,9 @@ _MEMBER_FILTER = (
 _WORDS = "{words}"
 
 
-# Words of at most this many characters are matched as a whole word (``ai``: the
-# AI-verordening, not universitaire or Airport), longer ones as a part of a word too
-# (``algoritme``: algoritmes).
-WHOLE_WORD_MAX = 4
-# Words of fewer characters have no trigram: no index finds the events that hold them.
-_TRIGRAM = 3
-
-
-def _whole(filters: FeedFilters) -> bool:
-    return len((filters.q or "").strip()) <= WHOLE_WORD_MAX
-
-
-def _contains(text: str, *, whole: bool) -> str:
-    """SQL: the JSON *text*, in lower case, holds ``q``: as a whole word when *whole*, or
-    anywhere."""
-    if whole:
-        return f"lower({_text(text)}) ~ %(q_word)s"
-    return f"strpos(lower({_text(text)}), %(q)s) > 0"
-
-
-def _word_pattern(q: str) -> str:
-    """The regular expression of *q* as a whole word: a character that is no letter, digit
-    or space escaped; a word boundary where *q* starts or ends with a letter or digit
-    (``c.v.``: no boundary after its last dot)."""
-    escaped = "".join(c if c.isalnum() or c == " " else f"\\{c}" for c in q)
-    start = r"\m" if q[:1].isalnum() else ""
-    end = r"\M" if q[-1:].isalnum() else ""
-    return f"{start}{escaped}{end}"
+def _contains(text: str) -> str:
+    """SQL: the JSON *text* holds the words of ``q`` (``_words``)."""
+    return _words.holds(_text(text))
 
 
 def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
@@ -618,9 +587,8 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
         bind["member"] = filters.member
     if filters.q:
         clauses.append(_WORDS)
-        bind["q"] = filters.q.strip().lower()
-        if _whole(filters):
-            bind["q_word"] = _word_pattern(bind["q"])
+        bind["q"] = _words.words(filters.q)
+        bind["q_word"] = _words.word_pattern(bind["q"])
     return clauses
 
 
@@ -777,17 +745,16 @@ class _Kind:
 
     def words(self) -> str:
         """The filter on the words: in the title, or in the title of the first dossier."""
-        whole = _whole(self.plan.filters)
-        found = _contains("t.title", whole=whole)
+        found = _contains("t.title")
         if self.first_dossier:
-            found += f" OR {_contains('fd.title', whole=whole)}"
+            found += f" OR {_contains('fd.title')}"
         return f"%(q)s <> '' AND ({found})"
 
     def candidates(self) -> str | None:
         """The rows that may hold the words, found by index (``_Source.found``); None when
         the kind has no index for them or the words are too short for one."""
         q = (self.plan.filters.q or "").strip()
-        if self.source.found is None or len(q) < _TRIGRAM:
+        if self.source.found is None or len(q) < _words.TRIGRAM:
             return None
         found = self.source.found
         if self.first_dossier:
@@ -795,8 +762,8 @@ class _Kind:
                 return None
             titled = (
                 f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
-                f" WHERE d.s_title_g LIKE {_FOLDED_LIKE}"
-                f" AND {_contains('d.pj_title', whole=_whole(self.plan.filters))}"
+                f" WHERE d.s_title_g LIKE {_words.FOLDED_LIKE}"
+                f" AND {_contains('d.pj_title')}"
             )
             found += " OR " + self.source.dossier_found.replace("{titled}", titled)
         return f"({found})"
