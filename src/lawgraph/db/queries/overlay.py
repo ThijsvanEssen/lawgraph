@@ -117,22 +117,10 @@ HEAT_WINDOWS = (3, 6, 12, 24)
 HEAT_MAX_LIMIT = 50_000
 
 
-def get_heat_tops(store: GraphStore, top: int) -> dict[int, list[tuple[str, int]]]:
-    """Per window of ``HEAT_WINDOWS`` the *top* nodes with the highest heat (as
-    ``get_heat_counts``), highest first, the id settling ties: one pass over the edges for
-    every window, from which each ``months``, ``min_count`` and ``limit`` up to *top* is
-    read without another (``heat_top``)."""
-    statement, params = _heat_tops_sql(top)
-    found: dict[int, list[tuple[str, int]]] = {months: [] for months in HEAT_WINDOWS}
-    for row in store.query(statement, params):
-        found[row["months"]].append((row["id"], row["count"]))
-    for listed in found.values():
-        listed.sort(key=lambda item: (-item[1], item[0]))
-    return found
-
-
 def _heat_tops_sql(top: int) -> tuple[str, dict[str, object]]:
-    """The SQL of ``get_heat_tops`` (``months``, ``id``, ``count``) and its parameters."""
+    """Per window of ``HEAT_WINDOWS`` the *top* nodes with the highest heat (as
+    ``get_heat_counts``), the id settling ties, in one pass over the edges: the SQL
+    (``months``, ``id``, ``count``) and its parameters."""
     now = dt.datetime.now(dt.timezone.utc)
     params: dict[str, object] = {"relations": _ARTICLE_CITATION_RELATIONS, "top": top}
     for months in HEAT_WINDOWS:
@@ -163,7 +151,7 @@ def _heat_tops_sql(top: int) -> tuple[str, dict[str, object]]:
 
 
 def store_heat(store: GraphStore, top: int) -> int:
-    """Count the heat of every window (``get_heat_tops``) and keep it in ``lg_heat``, in
+    """Count the heat of every window (``_heat_tops_sql``) and keep it in ``lg_heat``, in
     place of what it held, in one transaction: a reader sees the old heat or the new. The
     rows it keeps."""
     statement, params = _heat_tops_sql(top)
@@ -187,8 +175,10 @@ def store_heat(store: GraphStore, top: int) -> int:
 def stored_heat(
     store: GraphStore, months: int, min_count: int, limit: int
 ) -> dict[str, int] | None:
-    """The kept heat of window *months* (``store_heat``): the *limit* highest with at least
-    *min_count*, by node id, as ``heat_top`` gives them; None while none was kept."""
+    """The kept heat (``store_heat``) of the window of ``HEAT_WINDOWS`` that holds *months*
+    (5 counts as 6): the *limit* highest with at least *min_count*, by node id; None while
+    none was kept."""
+    months = next((w for w in HEAT_WINDOWS if w >= months), max(HEAT_WINDOWS))
     if next(store.query("SELECT count(*)::int FROM lg_heat_state")) == 0:
         return None
     rows = store.query(
@@ -201,11 +191,3 @@ def stored_heat(
         {"months": months, "min_count": max(min_count, 1), "limit": limit},
     )
     return dict(sorted((row["id"], row["count"]) for row in rows))
-
-
-def heat_top(
-    tops: dict[int, list[tuple[str, int]]], months: int, min_count: int, limit: int
-) -> dict[str, int]:
-    """The *limit* highest of window *months* with at least *min_count*, by node id."""
-    kept = [item for item in tops[months] if item[1] >= max(min_count, 1)][:limit]
-    return dict(sorted(kept))
