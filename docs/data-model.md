@@ -104,7 +104,7 @@ they are out of date. Do not edit inside the markers.
 | `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
 | `AUTHORED` | Member | Document / Case / Commitment | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A bewindspersoon made a commitment (`role` `toezegger`). |
 | `RELATED_TO` | Dossier / Judgment / Case | Dossier / Judgment / Case | Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
-| `REVISES` | Dossier | Dossier | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`). |
+| `REVISES` | Dossier / Document | Dossier / Document | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended amendment or motion replaces the one it names, "ter vervanging van nr. 21" (`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document). |
 | `ACCOMPANIES` | Dossier / Document | Dossier / Document | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an attachment is sent with its letter (Document → Document: `BijlageDocument`). |
 | `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
 | `VOTED` | Member / Faction | Decision | A vote on a decision: per member for roll-call votes, per faction otherwise (`choice`, `seats`). |
@@ -488,6 +488,7 @@ Every Zaak of the Tweede Kamer, whatever its kind.
 | `kind` | `Zaak.Soort` (`Wetgeving`, `Motie`, `Brief regering`, …) |
 | `dossier_numbers`, `started_on` | its dossiers; `Zaak.GestartOp` |
 | `related_cases` | `Zaak.GerelateerdNaar`: `id`, `kind` and `dossier_numbers` of each case the Kamer relates it to (read by `semantic tk-dossier-relations`) |
+| `replaces_cases` | `Zaak.VervangenVanuit`: the TK ids of the cases this one replaces (an amended amendment or motion, "ter vervanging van nr. 21"; read by `semantic tk-dossier-relations`) |
 
 ### Document (`documents`)
 

@@ -24,7 +24,9 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.config.constants import COLLECTION_CASES
 from lawgraph.core.dossier_numbers import first_reading_dossiers
+from lawgraph.core.models import make_node_key
 
 # "Wijziging van de begrotingsstaten van het Ministerie van … (XXII) voor het jaar 2026 …":
 # a supplementary budget, whether it comes with the Voorjaarsnota, the Najaarsnota, the
@@ -294,3 +296,27 @@ def moved_activities(
             replacing = by_number.get(str(number))
             if replacing and replacing != row["id"]:
                 yield replacing, str(row["id"])
+
+
+def replaced_cases(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str]]:
+    """``(id of the case, id of the case it replaces)`` from rows of ``{id, replaces}``
+    (``Zaak.VervangenVanuit``, the TK ids of the cases replaced), in order."""
+    return [
+        (str(row["id"]), f"{COLLECTION_CASES}/{make_node_key(str(old))}")
+        for row in rows
+        for old in row.get("replaces") or []
+        if old
+    ]
+
+
+def replaced_papers(
+    cases: Iterable[tuple[str, str]], papers: Mapping[str, list[str]]
+) -> Iterator[tuple[str, str]]:
+    """``(paper, paper it replaces)``: each paper of a case that replaces another revises
+    each paper of that case ("Gewijzigd amendement ter vervanging van nr. 21"); a case
+    without papers in the graph none."""
+    for case, replaced in cases:
+        for paper in papers.get(case, []):
+            for old in papers.get(replaced, []):
+                if old != paper:
+                    yield paper, old

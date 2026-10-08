@@ -594,6 +594,36 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_RELATED_CASES_SQL)
 
 
+def replacing_cases(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, replaces}`` of every case that replaces another (``Zaak.VervangenVanuit``):
+    its node id and the TK ids of the cases it replaces."""
+    return store.query(
+        f"""
+        SELECT id, props -> 'replaces_cases' AS replaces
+        FROM {COLLECTION_CASES}
+        WHERE {nonempty_sql("props -> 'replaces_cases'")}
+        ORDER BY key
+        """
+    )
+
+
+def papers_of_cases(store: Store, cases: list[str]) -> dict[str, list[str]]:
+    """Per case of *cases* (node ids) the papers that are ``PART_OF`` it, in id order."""
+    found: dict[str, list[str]] = {}
+    for row in store.query(
+        f"""
+        SELECT e.to_id AS case_id, e.from_id AS paper
+        FROM {COLLECTION_EDGES} e
+        WHERE e.to_id = ANY(%(cases)s::text[]) AND e.relation = '{RELATION_PART_OF}'
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+        ORDER BY e.to_id, e.from_id
+        """,
+        {"cases": cases},
+    ):
+        found.setdefault(row["case_id"], []).append(row["paper"])
+    return found
+
+
 # What a poll touched: the nodes *ids* (made of the raw records it fetched), the dossiers of
 # the Kamerstukdossier records *guids* (a dossier's key is its number), and both ends of
 # every edge written since *since*; and the dossiers they belong to: a touched dossier, the
