@@ -38,6 +38,20 @@ def split_dossier_number(value: str | None) -> tuple[str | None, str | None]:
     return match["number"], match["suffix"]
 
 
+def dossier_labels(payload: dict[str, Any]) -> list[str]:
+    """The labels of every dossier a paper names (``36600-VII``), the first first; a value
+    that is no dossier number (``CXIX``, a chapter of a budget written alone) is left out.
+    A record retrieved before the client kept them all names only ``dossier_number``."""
+    values = payload.get("dossier_numbers") or [payload.get("dossier_number")]
+    labels: list[str] = []
+    for value in values:
+        number, suffix = split_dossier_number(value)
+        label = dossier_label(number, suffix) if number else None
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
 class EerstekamerNormalizePipeline(NormalizePipelineBase):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
@@ -103,12 +117,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             ("date", iso_date(payload.get("date"))),
             ("dossier_number", dossier_number),
             ("dossier_suffix", dossier_suffix),
-            (
-                "dossier_numbers",
-                [dossier_label(dossier_number, dossier_suffix)]
-                if dossier_number
-                else None,
-            ),
+            ("dossier_numbers", dossier_labels(payload)),
             ("url", payload.get("url")),
         ):
             if value:
