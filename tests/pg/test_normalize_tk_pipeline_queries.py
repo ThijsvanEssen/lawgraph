@@ -102,6 +102,13 @@ def test_case_dossier_numbers_of_some_cases_and_of_those_naming_dossiers(
     assert list(queries.case_dossier_numbers_naming(store, ["99999"])) == []
 
 
+def test_dossiers_by_key_in_one_read(store: GraphStore) -> None:
+    _seed(store, "dossiers", _node("36000", title="A"), _node("37020_xv", title="B"))
+    rows = list(queries.dossiers_by_key(store, ["37020_xv", "99999", "36000"]))
+    assert [row["key"] for row in rows] == ["36000", "37020_xv"]
+    assert rows[0]["id"] == "dossiers/36000" and rows[0]["props"]["title"] == "A"
+
+
 def test_case_dossier_numbers_of_no_cases(store: GraphStore) -> None:
     assert list(queries.case_dossier_numbers(store)) == []
 
