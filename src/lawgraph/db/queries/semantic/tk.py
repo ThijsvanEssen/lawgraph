@@ -141,8 +141,9 @@ def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]
 def tk_document_titles(
     store: Store, since_date: str | None
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with their kind, their title and, of a paper named by its own
-    subject, the title of its dossier; those of *since_date* or later when it is given."""
+    """The Tweede Kamer documents with their kind, their title, their dossiers and, of a paper
+    named by its own subject, the title of its dossier; those of *since_date* or later when it
+    is given."""
     # ``doc.props.date >= @since``: a string by the collation; an array or an object sorts
     # above every string in ArangoDB, so it passes too
     since_filter = ""
@@ -152,12 +153,35 @@ def tk_document_titles(
             " AND json_typeof(d.props -> 'date') IN ('array', 'object')))"
         )
     sql = f"""
-        SELECT {slim_sql("d", "kind", "title", "dossier_title", "display_name")}
+        SELECT {
+        slim_sql(
+            "d", "kind", "title", "dossier_title", "display_name", "dossier_numbers"
+        )
+    }
         FROM {COLLECTION_DOCUMENTS} d
         WHERE '{CHAMBER_TK}' = ANY(d.labels) {since_filter}
         ORDER BY d.key
         """
     return store.query(sql, {"since": since_date})
+
+
+def acts_of_dossiers(store: Store) -> dict[str, set[str]]:
+    """Dossier label -> the ids of the instruments ``LEGISLATED_IN`` it: the acts a dossier
+    made (the BWB names its dossier in the brondata of the act)."""
+    rows = store.query(
+        f"""
+        SELECT ds.label, l.from_id
+        FROM {COLLECTION_EDGES} l
+        JOIN {COLLECTION_DOSSIERS} ds ON ds.id = l.to_id
+        WHERE l.relation = %(legislated_in)s AND ds.label IS NOT NULL
+        ORDER BY ds.label ASC NULLS FIRST, l.from_id ASC NULLS FIRST
+        """,
+        {"legislated_in": RELATION_LEGISLATED_IN},
+    )
+    acts: dict[str, set[str]] = {}
+    for row in rows:
+        acts.setdefault(row["label"], set()).add(row["from_id"])
+    return acts
 
 
 _TO_SCAN_FOR_AMENDMENTS_SQL = f"""
