@@ -45,7 +45,9 @@ class DecisionFilters:
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
-    ``wissel``, or ``carried`` or ``decisive`` the vote.
+    ``wissel``, or ``carried`` or ``decisive`` the vote. Without *unvoted* only the
+    decisions with an outcome (``passed`` set); with it also those that never came to a
+    vote (``Stemmen - ingetrokken``, ``- uitstellen``, ``- aangehouden``, ``- vervallen``).
     """
 
     kinds: tuple[str, ...] | None = None
@@ -59,6 +61,7 @@ class DecisionFilters:
     q: tuple[str, ...] = ()
     party_votes: tuple[str, ...] = ()
     coalition: str | None = None
+    unvoted: bool = False
 
 
 EMPTY_FACETS: dict[str, list[Any]] = {
@@ -80,7 +83,7 @@ COALITION_VALUES = COALITION_PATTERNS + COALITION_FLAGS
 
 def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     """The conditions on the decision ``d`` but for kind and outcome."""
-    clauses: list[str] = []
+    clauses: list[str] = [] if filters.unvoted else ["d.passed IS NOT NULL"]
     if filters.chamber is not None:
         # TK decisions carry the label "TK", EK ones "EK".
         clauses.append("%(chamber)s = ANY(d.labels)")

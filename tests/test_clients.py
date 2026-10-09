@@ -103,6 +103,19 @@ def test_tkclient_reads_only_the_replacing_cases_when_asked() -> None:
     assert session.last_params["$filter"].endswith(" and VervangenVanuit/any()")
 
 
+def test_the_decisions_without_a_vote_are_asked_for_alone() -> None:
+    """A withdrawn, postponed or lapsed amendment or motion has a Besluit ``Stemmen - …``
+    that no Stemming carries: asked for on its own, by the kinds of its case."""
+    session = DummySession(DummyResponse(json_data={"value": []}))
+    client = TKClient(session=session)
+    list(client.fetch_bill_decisions(("Amendement", "Motie"), without_votes=True))
+    asked = session.last_params["$filter"]
+    assert "not Stemming/any()" in asked
+    assert "z/Soort eq 'Amendement' or z/Soort eq 'Motie'" in asked
+    list(client.fetch_bill_decisions(("Wetgeving",)))
+    assert "Stemming/any()" not in session.last_params["$filter"]
+
+
 # --------------------------------------------------------------------
 # RechtspraakClient tests
 # --------------------------------------------------------------------
