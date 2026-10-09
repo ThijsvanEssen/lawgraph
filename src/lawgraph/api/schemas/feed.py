@@ -791,3 +791,44 @@ def atom_feed(
     for item in page.items:
         _atom_entry(feed, item, site_url)
     return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
+
+
+class FeedPeriodDTO(BaseModel):
+    """The events of one month or day."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str = Field(..., description="Its first day: ``2026-09-01`` for September.")
+    total: int
+    counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per kind of event (as ``kind`` of ``GET /api/feed``), those it has.",
+    )
+
+
+class FeedPeriodsResponse(BaseModel):
+    """The events of the feed per month or day."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    per: Literal["month", "day"]
+    since: str | None = None
+    until: str | None = None
+    periods: list[FeedPeriodDTO] = Field(
+        default_factory=list,
+        description="Oldest first; a period without events is left out.",
+    )
+    partial: bool = Field(
+        False,
+        description="The counts took past the budget of the request, or the events were "
+        "never written: ``periods`` is then empty.",
+    )
+    written_at: str | None = Field(
+        None,
+        description="When the events were last written (``lawgraph feed-events``): the "
+        "counts lag the feed by at most the time since.",
+    )
+    data_as_of: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="Per source: how current the graph is, as in `GET /api/stats`.",
+    )
