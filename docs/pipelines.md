@@ -553,7 +553,9 @@ longer makes goes. `--since` takes the judgments retrieved from then on.
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
 `raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
-of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations,
+of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.paragraphs` (the
+numbers of the paragraphs that name it, as the judgment prints them, from
+`core/judgments.extract_sections`; none when no numbered paragraph does), no self citations,
 missing judgments become stubs. The ECLIs are read by `core/ecli.cited_eclis`: one is valid when
 its country issues ECLIs, its court code has the shape of one (letters for a Dutch court; whether
 the court exists is not checked), its year lies between 1900 and the current year and its number

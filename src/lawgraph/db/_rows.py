@@ -96,14 +96,32 @@ def light_node_doc(row: dict[str, Any]) -> dict[str, Any]:
 
 def light_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     """``edge_doc`` of the edge of a neighbour, a neighbourhood or a path: its ``meta``
-    without ``NEIGHBOUR_EDGE_META_LEFT_OUT``."""
+    without ``NEIGHBOUR_EDGE_META_LEFT_OUT``. The paragraphs of a judgment that cites an
+    article stay as ``paragraphs`` (``mentioned_paragraphs``), as an edge to a judgment it
+    cites keeps them itself."""
     doc = edge_doc(row)
     meta = doc.get("meta")
     if isinstance(meta, dict) and any(k in meta for k in NEIGHBOUR_EDGE_META_LEFT_OUT):
+        paragraphs = meta.get("paragraphs") or mentioned_paragraphs(
+            meta.get("mentions")
+        )
         doc["meta"] = {
             k: v for k, v in meta.items() if k not in NEIGHBOUR_EDGE_META_LEFT_OUT
         }
+        if paragraphs:
+            doc["meta"]["paragraphs"] = paragraphs
     return doc
+
+
+def mentioned_paragraphs(mentions: Any) -> list[str]:
+    """The numbers of the paragraphs the ``mentions`` of an edge stand in (``core.mentions``:
+    the printed number of each, "4.3"), in their order, each once; none without a number."""
+    numbers: list[str] = []
+    for mention in mentions if isinstance(mentions, list) else []:
+        number = mention.get("paragraph_number") if isinstance(mention, dict) else None
+        if number and str(number) not in numbers:
+            numbers.append(str(number))
+    return numbers
 
 
 # What the canvas of the explorer reads of a neighbour (``props=canvas``): the props of every
@@ -169,6 +187,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
 # Of each of the ``actors`` of a paper, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")
 CANVAS_EDGE_META = (
+    "paragraphs",
     "posts",
     "from_date",
     "to_date",
