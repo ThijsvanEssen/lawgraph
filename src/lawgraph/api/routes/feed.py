@@ -53,6 +53,22 @@ _EVENTS = (
 )
 
 
+# The words a feed takes in ``q``: how many, and how long each.
+MAX_WORDS = 10
+MAX_WORD_LENGTH = 200
+
+
+def _words(q: list[str] | None) -> tuple[str, ...]:
+    """The words of ``q``, trimmed, the empty ones left out; 422 for too many or too long."""
+    words = tuple(word.strip() for word in q or () if word.strip())
+    if len(words) > MAX_WORDS or any(len(word) > MAX_WORD_LENGTH for word in words):
+        raise HTTPException(
+            status_code=422,
+            detail=f"`q`: at most {MAX_WORDS} words of {MAX_WORD_LENGTH} characters.",
+        )
+    return words
+
+
 def scope_filters(
     kind: Annotated[
         str | None,
@@ -80,11 +96,12 @@ def scope_filters(
         Query(description="Faction key: what its Kamerleden signed for it."),
     ] = None,
     q: Annotated[
-        str | None,
+        list[str] | None,
         Query(
             description="Words of the title, or of the title of the event's dossier, "
-            "in any case.",
-            max_length=200,
+            "in any case: each from the start of a word, one of at most four characters "
+            f"as a whole word. Repeat it (at most {MAX_WORDS} times, each "
+            f"{MAX_WORD_LENGTH} characters at most) for events that hold any of them.",
         ),
     ] = None,
     chamber: Annotated[
@@ -112,7 +129,7 @@ def scope_filters(
         dossier=dossier or None,
         member=member or None,
         faction=faction or None,
-        q=(q or "").strip() or None,
+        q=_words(q),
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
     )
@@ -319,7 +336,7 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
     if filters.faction:
         parts.append(_faction_name(page, filters.faction))
     if filters.q:
-        parts.append(f"‘{filters.q}’")
+        parts.append(" of ".join(f"‘{word}’" for word in filters.q))
     if filters.since:
         parts.append(f"vanaf {filters.since}")
     if filters.until:
