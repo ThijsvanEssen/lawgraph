@@ -107,6 +107,7 @@ def _app_page(path: str) -> Page | None:
         description=str(route.get("description") or ""),
         path=path,
         whole_title=True,
+        index=shell.indexed(route),
     )
 
 

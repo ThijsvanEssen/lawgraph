@@ -48,6 +48,8 @@ ROUTES = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
     {"path": "/actueel", "title": "Actueel, Concordans", "description": "Het nieuws."},
     {"path": "/explore", "title": "Verkenner, Concordans", "description": "De graaf."},
+    # a reader's own maps, kept in the browser: nothing of its own to find
+    {"path": "/gemarkeerd", "title": "Gemarkeerd, Concordans", "index": False},
 ]
 
 
@@ -894,3 +896,12 @@ def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
 
     walk(plan)
     assert all(loops == 0 for _, loops in ran), ran
+
+
+def test_a_page_of_the_app_may_keep_out_of_the_index(client: TestClient) -> None:
+    """``"index": false`` in ``spa-routes.json``: the page with its title, ``noindex``."""
+    own = _head(_get(client, "/gemarkeerd").text)
+    assert own["title"] == "Gemarkeerd, Concordans"
+    assert own["robots"] == "noindex"
+    # the others as ever
+    assert _head(_get(client, "/actueel").text)["robots"] is None
