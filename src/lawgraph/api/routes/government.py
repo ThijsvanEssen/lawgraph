@@ -222,13 +222,10 @@ def list_commitments(
         made_from=date_from.isoformat() if date_from else None,
         made_to=date_to.isoformat() if date_to else None,
     )
+    slugs = load_member_slugs(store)
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
-        items=[
-            CommitmentDTO.from_row(row, slugs)
-            for slugs in [load_member_slugs(store)]
-            for row in raw.get("items") or []
-        ],
+        items=[CommitmentDTO.from_row(row, slugs) for row in raw.get("items") or []],
         facets=CommitmentFacetsDTO(**(raw.get("facets") or {})),
     )
 
