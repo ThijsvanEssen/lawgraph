@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_dossiers import (
+    PAPER_DECISION_KINDS,
+    TKDossiersRetrievePipeline,
+)
 from tests.fakes import RawSourcesFake
 
 
@@ -72,3 +75,38 @@ def test_the_gaps_are_fetched_and_an_unknown_number_is_remembered() -> None:
         ("tk-document", "doc-1"),
         ("tk-document", "doc-2"),
     ]
+
+
+class _Decisions:
+    """A client that answers every fetch with nothing and records the Besluit fetches."""
+
+    def __init__(self) -> None:
+        self.decisions: list[tuple[tuple[str, ...], bool]] = []
+
+    def fetch_bill_decisions(
+        self,
+        case_kinds: tuple[str, ...],
+        since: Any = None,
+        without_votes: bool = False,
+    ) -> Any:
+        self.decisions.append((tuple(case_kinds), without_votes))
+        return iter([{"Id": f"besluit-{len(self.decisions)}"}])
+
+    def __getattr__(self, name: str) -> Any:
+        return lambda *args, **kwargs: iter([])
+
+
+def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
+    store, client = _Store(), _Decisions()
+    TKDossiersRetrievePipeline(store=store, client=client).run(skip_members=True)  # type: ignore[arg-type]
+    assert ((*PAPER_DECISION_KINDS,), True) in client.decisions
+    assert PAPER_DECISION_KINDS == ("Amendement", "Motie")
+
+
+def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> None:
+    """``retrieve tk-dossiers --mode unvoted``: about 25,000 Besluiten, not a whole window."""
+    store, client = _Store(), _Decisions()
+    result = TKDossiersRetrievePipeline(store=store, client=client).run_unvoted()  # type: ignore[arg-type]
+    assert result.errors == []
+    assert client.decisions == [(("Amendement", "Motie"), True)]
+    assert store.stored == [("tk-besluit", "besluit-1")]

@@ -803,6 +803,8 @@ class CaseProps(_CommonProps):
     related_cases: list[RelatedCase] | None = None
     # Zaak.VervangenVanuit: the ids of the cases this one replaces
     replaces_cases: list[str] | None = None
+    # Zaak.Afgedaan: whether the Kamer is done with it
+    done: bool | None = None
 
 
 # ---------------------------------------------------------------------------

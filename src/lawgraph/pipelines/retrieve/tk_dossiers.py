@@ -48,6 +48,10 @@ from lawgraph.pipelines.retrieve.base import (
 
 logger = get_logger(__name__)
 
+# The cases of a paper whose Besluit can come without a Stemming (withdrawn, postponed, held,
+# lapsed): fetched apart, those alone (``fetch_bill_decisions(without_votes=True)``).
+PAPER_DECISION_KINDS = ("Amendement", "Motie")
+
 
 class TKDossiersRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for all parliamentary dossier entity types."""
@@ -148,6 +152,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                     LEGISLATIVE_KINDS, since=vote_since
                 ),
             )
+            self._fetch_unvoted(result, vote_since)
         self._fetch_and_store(
             result,
             RAW_KIND_TK_TOEZEGGING,
@@ -202,6 +207,23 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             len(result.errors),
         )
         return result
+
+    def run_unvoted(self, since: dt.datetime | None = None) -> PipelineResult:
+        """Fetch only the Besluiten without a vote on an amendment or a motion, since
+        *since* or all (about 25,000): the backfill of ``--mode unvoted``."""
+        result = PipelineResult()
+        self._fetch_unvoted(result, since)
+        return result
+
+    def _fetch_unvoted(self, result: PipelineResult, since: dt.datetime | None) -> None:
+        self._fetch_and_store(
+            result,
+            RAW_KIND_TK_BESLUIT,
+            "Id",
+            lambda: self.client.fetch_bill_decisions(
+                PAPER_DECISION_KINDS, since=since, without_votes=True
+            ),
+        )
 
     def run_gaps(self, numbers: list[str]) -> PipelineResult:
         """Fetch the dossiers with these *numbers* (every suffix of each) and all their

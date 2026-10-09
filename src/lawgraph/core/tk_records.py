@@ -252,6 +252,11 @@ def case(payload: Payload) -> Record | None:
         "related_cases": related_cases(payload),
         # The cases this one replaces, and their papers its papers (REVISES).
         "replaces_cases": replaced_cases(payload),
+        # Zaak.Afgedaan: whether the Kamer is done with it (an amendment done with and
+        # without a decision was replaced or withdrawn; one not done with is still open)
+        "done": afgedaan
+        if isinstance(afgedaan := payload.get("Afgedaan"), bool)
+        else None,
     }
     if title:
         props["title"] = title
