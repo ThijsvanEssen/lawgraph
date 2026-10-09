@@ -650,11 +650,19 @@ def papers_of_cases(store: Store, cases: list[str]) -> dict[str, list[str]]:
     return found
 
 
+# The edges written since *since* that a step reads: of the relations *written*, and not
+# to a collection that *skipped* names for its relation (``AUTHORED>cases``).
+_WRITTEN = """
+    e.created_at >= %(since)s AND e.relation = ANY(%(written)s::text[])
+    AND NOT (e.relation || '>' || e.to_collection) = ANY(%(skipped)s::text[])
+"""
+
 # What a poll touched: the nodes *ids* (made of the raw records it fetched), the dossiers of
 # the Kamerstukdossier records *guids* (a dossier's key is its number), and both ends of
-# every edge written since *since*; and the dossiers they belong to: a touched dossier, the
-# dossier a touched paper, case, decision or instrument is PART_OF, ABOUT or LEGISLATED_IN,
-# directly or through its case. ``created_at`` is set when an edge is inserted, never after.
+# every edge written since *since* that the step reads (``_WRITTEN``); and the dossiers
+# they belong to: a touched dossier, the dossier a touched paper, case, decision or
+# instrument is PART_OF, ABOUT or LEGISLATED_IN, directly or through its case.
+# ``created_at`` is set when an edge is inserted, never after.
 _TOUCHED_DOSSIERS_SQL = f"""
 WITH seeds AS (
     SELECT unnest(%(ids)s::text[]) AS id
@@ -662,9 +670,9 @@ WITH seeds AS (
     SELECT d.id FROM {COLLECTION_DOSSIERS} d
     WHERE lg_str(d.props -> 'external_id') = ANY(%(guids)s::text[])
     UNION
-    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
     UNION
-    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
 ),
 parts AS (
     SELECT id FROM seeds
@@ -685,14 +693,20 @@ ORDER BY ds.key
 
 
 def touched_dossier_ids(
-    store: Store, ids: list[str], guids: list[str], since_iso: str
+    store: Store,
+    ids: list[str],
+    guids: list[str],
+    since_iso: str,
+    written: dict[str, tuple[str, ...]],
 ) -> list[str]:
     """The ``_id`` of the dossiers the nodes *ids*, the dossier records *guids*, or an
-    edge written at or after *since_iso* belong to (see ``_TOUCHED_DOSSIERS_SQL``)."""
+    edge written at or after *since_iso* belong to (see ``_TOUCHED_DOSSIERS_SQL``): an edge
+    of a relation in *written*, not to a collection it names for that relation."""
     params = {
         "ids": ids,
         "guids": guids,
         "since": since_iso,
+        **_written_params(written),
         "part_of": RELATION_PART_OF,
         "relations": [RELATION_PART_OF, RELATION_ABOUT, RELATION_LEGISLATED_IN],
     }
@@ -700,24 +714,35 @@ def touched_dossier_ids(
 
 
 def touched_ids(
-    store: Store, collection: str, ids: list[str], since_iso: str
+    store: Store,
+    collection: str,
+    ids: list[str],
+    since_iso: str,
+    written: dict[str, tuple[str, ...]],
 ) -> list[str]:
     """The ``_id`` of the nodes of *collection* among *ids* or at an end of an edge
-    written at or after *since_iso*."""
+    written at or after *since_iso* (of *written*, as ``touched_dossier_ids``)."""
     return list(
         store.query(
             f"""
             SELECT n.id FROM {collection} n
             WHERE n.id = ANY(%(ids)s::text[])
-               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e
-                           WHERE e.created_at >= %(since)s)
-               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e
-                           WHERE e.created_at >= %(since)s)
+               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN})
+               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN})
             ORDER BY n.key
             """,
-            {"ids": ids, "since": since_iso},
+            {"ids": ids, "since": since_iso, **_written_params(written)},
         )
     )
+
+
+def _written_params(written: dict[str, tuple[str, ...]]) -> dict[str, list[str]]:
+    return {
+        "written": sorted(written),
+        "skipped": sorted(
+            f"{r}>{c}" for r, targets in written.items() for c in targets
+        ),
+    }
 
 
 def activity_numbers(store: Store) -> Iterator[dict[str, Any]]:
