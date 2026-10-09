@@ -4,9 +4,10 @@ The config of the production server as it is live, so it changes through a pull 
 
 - `systemd/`: the API (`lawgraph-api.service`) and the scheduled runs: the nightly (`daily.sh`), the weekly
   (`weekly.sh`) and the polls (`poll.sh`), each a service and a timer, in `/etc/systemd/system/`.
-- `caddy/concordans.caddy`: the site block of `concordans.nl`. The server's `/etc/caddy/Caddyfile` serves other
-  sites too, which are not ours to keep here; it holds this block, inline for now, later as
-  `import /etc/caddy/concordans.caddy`.
+- `caddy/concordans.caddy`: the site blocks of `concordans.nl` (files of the build as they are, every other path
+  the page from the API's `/render`, the static shell when the API is slow or down) and `www.concordans.nl` (a 301
+  to the apex). The server's `/etc/caddy/Caddyfile` serves other sites too, which are not ours to keep here; it
+  reads this file with `import /etc/caddy/concordans.caddy`.
 - `bin/alert.sh`: `LAWGRAPH_ALERT_COMMAND`, a push through ntfy; the topic is in `/srv/lawgraph/ntfy-topic`, not
   here.
 - `scheduler.env.example`: the names in `/srv/lawgraph/scheduler.env`.
@@ -25,6 +26,5 @@ changes then. After the checks it installs the changed units and runs `daemon-re
 and enables a new one. It installs `alert.sh`. It installs the Caddy block and reloads Caddy, keeping a backup of
 the block before. A file on the server that is not here, such as a drop-in made by hand, is named and left alone.
 
-The Caddy block is applied only once the live Caddyfile imports `/etc/caddy/concordans.caddy`. That split is done
-once by hand: replace the inline block with the import, check that `caddy adapt` gives the same JSON, and reload.
-Until then `config-apply` refuses a change to the block.
+`config-apply` changes the Caddy block only while the live Caddyfile imports `/etc/caddy/concordans.caddy` (it
+does since 9 Oct 2026); it refuses otherwise.

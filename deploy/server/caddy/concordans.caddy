@@ -16,10 +16,43 @@ concordans.nl {
 		file_server
 	}
 
-	handle {
+	# a file of the build (the shell, og images, robots.txt) as it is
+	@file file {
+		root /srv/lawgraph/concordans/current
+		try_files {path}
+	}
+	handle @file {
 		root * /srv/lawgraph/concordans/current
-		try_files {path} /index.html
 		file_server
+	}
+
+	# every other path: the page from the API (HTML, 301 or 404), #394
+	handle {
+		rewrite * /render{uri}
+		reverse_proxy 127.0.0.1:8000 {
+			transport http {
+				dial_timeout 1s
+				response_header_timeout 2s
+			}
+			# the API slow or down: the static shell, so the site stays up
+			@down status 502 503 504
+			handle_response @down {
+				root * /srv/lawgraph/concordans/current
+				rewrite * /index.html
+				file_server
+			}
+		}
+	}
+
+	# the API unreachable (dial or timeout): the static shell; other errors as they are, so
+	# a missing /_app file stays a plain 404
+	handle_errors {
+		@down expression `{err.status_code} in [502, 503, 504]`
+		handle @down {
+			root * /srv/lawgraph/concordans/current
+			rewrite * /index.html
+			file_server
+		}
 	}
 
 	@immutable path /_app/immutable/*
@@ -30,4 +63,8 @@ concordans.nl {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 	}
+}
+
+www.concordans.nl {
+	redir https://concordans.nl{uri} 301
 }
