@@ -7,6 +7,11 @@ from __future__ import annotations
 from lawgraph.api.schemas.common import DossierRefDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.decisions import VoteDTO
 from lawgraph.api.schemas.documents import SubmitterDTO
+from lawgraph.api.schemas.dossiers import (
+    DossierCommitteeDTO,
+    NextActivityDTO,
+    TimelineCommitteeDTO,
+)
 from lawgraph.api.schemas.feed import FeedFactionDTO, FeedJudgmentDTO
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.search import SearchResultItem
@@ -88,3 +93,18 @@ def test_a_path_given_back_is_left_out() -> None:
     ref = DossierRefDTO.from_number("36600")
     again = DossierRefDTO(**ref.model_dump())
     assert again.path == "/dossiers/36600"
+
+
+def test_a_committee_of_a_dossier_and_of_an_activity_has_its_address() -> None:
+    """The lead committee of an activity on a timeline and of the one planned next, and
+    the committees of a dossier: ``/commissies/<slug>``, none without a slug."""
+    lead = TimelineCommitteeDTO(key="c1", slug="financien", name="Financiën")
+    assert lead.path == "/commissies/financien"
+    assert lead.id == "committees/c1"  # its node, as on the committees of a dossier
+    of_dossier = DossierCommitteeDTO(id="committees/c1", key="c1", slug="financien")
+    assert of_dossier.path == "/commissies/financien"
+    assert TimelineCommitteeDTO(key="c2").path is None
+    # and of the activity planned next, from the dict its query gives
+    planned = NextActivityDTO(key="a1", committee={"key": "c1", "slug": "financien"})
+    assert planned.model_dump()["committee"]["path"] == "/commissies/financien"
+    assert planned.model_dump()["committee"]["id"] == "committees/c1"
