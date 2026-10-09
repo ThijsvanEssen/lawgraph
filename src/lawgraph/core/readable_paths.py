@@ -33,7 +33,7 @@ BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # The number of a toezegging: ``TZ202609-124``.
-TOEZEGGING = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
+COMMITMENT_NUMBER = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
 # The number of a stuk: a figure in the Tweede Kamer, letters in the Eerste (A, AB).
 STUK = re.compile(r"^(\d+|[A-Z]{1,3})$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
@@ -99,7 +99,7 @@ def parse_path(pathname: str) -> Pad | None:
         return Pad("fractie", a)
     if first == "commissies" and n == 2 and SLEUTEL.match(a):
         return Pad("commissie", a)
-    if first == "toezeggingen" and n == 2 and TOEZEGGING.match(a):
+    if first == "toezeggingen" and n == 2 and COMMITMENT_NUMBER.match(a):
         return Pad("toezegging", a.upper())
     if (
         first in REEKSEN
@@ -220,7 +220,7 @@ def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
         )
     if collection == "commitments":
         number = _text(props.get("number"))
-        if not number or not TOEZEGGING.match(number):
+        if not number or not COMMITMENT_NUMBER.match(number):
             return None
         return pad_href(Pad("toezegging", number.upper()))
     if collection == "documents":

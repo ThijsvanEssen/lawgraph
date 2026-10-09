@@ -38,6 +38,7 @@ from lawgraph.api.routes import (
     parliament,
     paths,
     relationships,
+    render,
     resolve,
     search,
     stats,
@@ -123,6 +124,10 @@ class _CacheControlMiddleware:
 
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http" or scope.get("method") not in ("GET", "HEAD"):
+            await self._app(scope, receive, send)
+            return
+        if scope.get("path", "").startswith("/render/"):
+            # a page sets its own: its ETag holds the shell of the front end too
             await self._app(scope, receive, send)
             return
 
@@ -346,6 +351,8 @@ for _name, _router in (
 ):
     app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
+# the HTML of every page of Concordans that is no file (Caddy rewrites it to /render)
+app.include_router(render.router)
 
 
 def truncated_ip(host: str) -> str:
