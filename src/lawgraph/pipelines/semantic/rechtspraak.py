@@ -46,6 +46,15 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
     keeps it in ``props.unresolved_citations``, written only when it changed.
     """
 
+    def __init__(
+        self, *, store: Any, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that judgment key, so
+        many judgments; the log names the last one read."""
+        super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         since_iso = iso_timestamp(since)
@@ -72,7 +81,9 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         read: list[str] = []
         kept: dict[str, set[str]] = {}
         with NodeWriter(self.store) as nodes:
-            for judgment, paragraphs in self._judgment_paragraphs(since_iso):
+            for judgment, paragraphs in self._judgment_paragraphs(
+                since_iso, after=self.after, limit=self.limit
+            ):
                 read.append(str(judgment.node_id))
                 unresolved: list[dict[str, Any]] = []
                 for cited in find_mentions(paragraphs, detect).values():
@@ -100,6 +111,9 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
         logger.info("Removed %d article citations the text no longer makes.", removed)
+        if self.after or self.limit is not None:
+            last = self.last_judgment_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
         return result
 
     @staticmethod

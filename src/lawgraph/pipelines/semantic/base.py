@@ -15,6 +15,7 @@ from lawgraph.core.aliases import (
     code_aliases,
     curated_abbreviations,
     curated_context_abbreviations,
+    instrument_names,
     normalize_instrument_id,
 )
 from lawgraph.core.citations import number_shape
@@ -76,7 +77,8 @@ class SemanticPipelineBase(PipelineBase):
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
-        # the key of the last judgment a run read (``_judgment_texts``): where a slice ends
+        # the key of the last judgment a run read (``_judgment_paragraphs``, ``_judgment_texts``):
+        # where a slice ends
         self.last_judgment_read: str | None = None
         # law id -> what its loaded articles say (``_law``), read once per law and run.
         self._laws: dict[str, _LawArticles | None] = {}
@@ -217,23 +219,40 @@ class SemanticPipelineBase(PipelineBase):
             yield node, str(row["payload_text"])
 
     def _judgment_paragraphs(
-        self, since_iso: str | None = None
+        self,
+        since_iso: str | None = None,
+        *,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[tuple[Node, list[dict[str, Any]]]]:
         """``(judgment node, paragraphs)`` of every judgment ``normalize rechtspraak`` made.
 
         The paragraphs are the ones the API serves (``{id, number, kind, text}``), so what a
         pipeline records about a paragraph is found again by its id. With *since_iso* only
-        the judgments retrieved from that moment on.
+        the judgments retrieved from that moment on; a slice: past the judgment key *after*,
+        *limit* of them.
         """
         eclis = self._recent_eclis(since_iso) if since_iso else None
         total = None
-        if not since_iso:  # from the index; with a date every judgment would be read
+        if not since_iso and not after and limit is None:  # from the index
             total = semantic_rechtspraak.count_rechtspraak_judgments(self.store)
-        rows = semantic_rechtspraak.judgment_paragraphs(
-            self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
-        )
+        if after or limit is not None:
+            rows = semantic_rechtspraak.judgment_paragraphs(
+                self.store,
+                eclis=eclis,
+                batch_size=JUDGMENT_BATCH_SIZE,
+                after=after,
+                limit=limit,
+            )
+        else:
+            rows = semantic_rechtspraak.judgment_paragraphs(
+                self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
+            )
+        self.last_judgment_read = None
         for row in self._track(rows, "judgments", total=total):
             node = Node.from_document(COLLECTION_JUDGMENTS, row)
+            # with or without paragraphs: where a slice ends
+            self.last_judgment_read = node.key
             paragraphs = node.props.get("paragraphs")
             if paragraphs:
                 yield node, paragraphs
@@ -357,37 +376,11 @@ class SemanticPipelineBase(PipelineBase):
         }
 
     def _load_instrument_aliases(self) -> InstrumentAliasMap:
-        """Query the instruments collection to build a name → (bwb_id, celex) map.
-
-        Only includes instruments that have a bwb_id or celex prop. The
-        ``title`` and ``citation_title`` props are indexed as keys (not
-        ``short_title``, which is used by ``_load_code_aliases`` instead).
-        A name that two instruments share is left out: it would link to whichever came
-        first. A failing query fails the step.
-        """
-        index: InstrumentAliasMap = {}
-        ambiguous: set[str] = set()
-        rows = list(semantic_bwb.instrument_alias_rows(self.store))
-
-        for row in rows:
-            bwb_id = row.get("bwb_id")
-            celex = row.get("celex")
-            bwb_norm = normalize_instrument_id(bwb_id)
-            celex_norm = normalize_instrument_id(celex)
-            pair: tuple[str | None, str | None] = (bwb_norm, celex_norm)
-
-            for name_field in ("title", "citation_title"):
-                name = row.get(name_field)
-                if not name:
-                    continue
-                label = str(name).strip()
-                if not label or label in ambiguous:
-                    continue
-                if index.setdefault(label, pair) != pair:
-                    del index[label]
-                    ambiguous.add(label)
-
-        return index
+        """Law name -> ``(bwb_id, celex)`` of the instruments with a BWB id or a CELEX
+        number: their ``title`` and ``citation_title`` (not ``short_title``, which
+        ``_load_code_aliases`` reads), and such a name without its year
+        (``core.aliases.instrument_names``). A failing query fails the step."""
+        return instrument_names(semantic_bwb.instrument_alias_rows(self.store))
 
     # ------------------------------------------------------------------ edges
 

@@ -5,7 +5,12 @@ from __future__ import annotations
 import re
 import time
 
-from lawgraph.core.aliases import AliasMatcher, code_aliases, curated_abbreviations
+from lawgraph.core.aliases import (
+    AliasMatcher,
+    code_aliases,
+    curated_abbreviations,
+    instrument_names,
+)
 
 LABELS = [
     "Wegenwet",
@@ -118,3 +123,44 @@ def test_an_abbreviation_of_the_source_wins_over_a_curated_one() -> None:
 
 def test_the_curated_abbreviations_are_read_by_law_id() -> None:
     assert "AVG" in curated_abbreviations()["32016R0679"]
+
+
+RV = "Wetboek van Burgerlijke Rechtsvordering"
+
+
+def test_a_variant_of_a_law_leaves_it_its_abbreviation() -> None:
+    """Rv: the BWB gives the abbreviation to the code and to its version for procedures
+    on paper, whose title is the code's with "(geldt …)" after it. The code keeps it; two
+    laws that are no version of one another still share it with neither."""
+    rows = [
+        {"bwb_id": "BWBR0001827", "aliases": ["Rv"], "citation_title": RV},
+        {
+            "bwb_id": "BWBR0039872",
+            "aliases": ["Rv"],
+            "citation_title": f"{RV} (geldt in geval van niet-digitaal procederen)",
+        },
+        {"bwb_id": "BWBR0000001", "aliases": ["X"], "citation_title": "Wet een"},
+        {"bwb_id": "BWBR0000002", "aliases": ["X"], "citation_title": "Wet twee"},
+    ]
+    assert code_aliases(rows) == {"Rv": "BWBR0001827"}
+
+
+def test_a_title_with_its_year_is_also_cited_without_it() -> None:
+    """ "Vreemdelingenwet" is the Vreemdelingenwet 2000 when no other law is called so or
+    has that name with another year."""
+    rows = [
+        {"bwb_id": "BWBR0011823", "citation_title": "Vreemdelingenwet 2000"},
+        {"bwb_id": "BWBR0006622", "citation_title": "Wegenverkeerswet 1994"},
+        # two years of one name: neither is the name alone
+        {"bwb_id": "BWBR0000003", "citation_title": "Wet voorbeeld 1990"},
+        {"bwb_id": "BWBR0000004", "citation_title": "Wet voorbeeld 2005"},
+        # a law that is called so itself keeps the name
+        {"bwb_id": "BWBR0000005", "citation_title": "Mediawet 2008"},
+        {"bwb_id": "BWBR0000006", "citation_title": "Mediawet"},
+    ]
+    names = instrument_names(rows)
+    assert names["Vreemdelingenwet"] == ("BWBR0011823", None)
+    assert names["Vreemdelingenwet 2000"] == ("BWBR0011823", None)
+    assert names["Wegenverkeerswet"] == ("BWBR0006622", None)
+    assert "Wet voorbeeld" not in names
+    assert names["Mediawet"] == ("BWBR0000006", None)
