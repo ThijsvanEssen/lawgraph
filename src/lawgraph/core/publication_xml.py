@@ -5,18 +5,47 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lawgraph.core.identifiers import STB_ID_PATTERN
-from lawgraph.core.xml import find_text, local_name
+from lawgraph.core.xml import find_text, iter_named, local_name, text_of
 
 # Both spellings occur in the published XML for the official title.
 OFFICIAL_TITLE_TAGS = ("officiele-titel", "officieletitel")
 
 
+# The names of the series, which the first ``<titel>`` of a publication holds as its
+# masthead ("Staatsblad van het Koninkrijk der Nederlanden"): no title of its own.
+SERIES_NAMES = frozenset({"staatsblad", "staatscourant", "tractatenblad"})
+
+
+def is_series_name(title: str | None) -> bool:
+    """Whether *title* is only the name of a series (``Staatsblad``)."""
+    return (title or "").strip().lower() in SERIES_NAMES
+
+
+def _meta_title(root: ET.Element) -> str | None:
+    """The ``DC.title`` of the metadata: the title of the publication itself."""
+    for meta in iter_named(root, "meta"):
+        if meta.get("name") == "DC.title" and (meta.get("content") or "").strip():
+            return " ".join((meta.get("content") or "").split())
+    return None
+
+
+def _first_title(root: ET.Element) -> str | None:
+    """The first ``<titel>`` that is not the masthead of the series."""
+    for node in iter_named(root, "titel"):
+        text = " ".join(text_of(node).split())
+        if text and not is_series_name(text):
+            return text
+    return None
+
+
 def publication_title(root: ET.Element, fallback: str) -> str:
-    """Best title of a publication: citation title, official title, title, *fallback*."""
+    """Best title of a publication: citation title, official title, the ``DC.title`` of its
+    metadata, its first title that is not the name of the series, *fallback*."""
     return (
         find_text(root, "citeertitel")
         or find_text(root, *OFFICIAL_TITLE_TAGS)
-        or find_text(root, "titel")
+        or _meta_title(root)
+        or _first_title(root)
         or fallback
     )
 

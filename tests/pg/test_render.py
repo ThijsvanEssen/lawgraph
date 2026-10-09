@@ -732,6 +732,10 @@ def _seed_publications(store: GraphStore) -> None:
             _node("stb_stb_2024_7", "document", identifier="stb-2024-7",
                   kind="Nota van toelichting", year="2024", number="7",
                   title="Staatsblad 2024/7", text="…"),
+            # normalized before the ``DC.title`` was read: the masthead as its title
+            _node("stb_stb_2026_94", "document", identifier="stb-2026-94",
+                  kind="Nota van toelichting", year="2026", number="94",
+                  title="Staatsblad", text="…"),
             _node("kst_36496_80", "document", kind="Brief regering",
                   dossier_number="36496", sequence=80, date="2026-10-01",
                   subject="Nakoming van de toezegging over AI-toezicht"),
@@ -784,6 +788,15 @@ def test_a_publication_without_a_title_or_a_change_is_not_indexed(
     page = _head(_get(client, "/stb/2024/7").text)
     assert page["title"] == "Stb. 2024, 7, Concordans"
     assert page["canonical"] == "https://concordans.nl/stb/2024/7"
+    assert page["robots"] == "noindex"
+
+
+def test_the_name_of_the_series_is_no_title_of_its_own(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_publications(store)
+    page = _head(_get(client, "/stb/2026/94").text)
+    assert page["title"] == "Stb. 2026, 94, Concordans"
     assert page["robots"] == "noindex"
 
 
