@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
     DossierRefDTO,
     FacetCountDTO,
     JudgmentSummaryDTO,
+    WithPath,
     address_of,
 )
 from lawgraph.config.constants import (
@@ -65,7 +66,7 @@ def breadcrumb_on(props: dict[str, Any], day: str) -> Any:
     return crumbs
 
 
-class InstrumentArticleNodeDTO(BaseModel):
+class InstrumentArticleNodeDTO(WithPath):
     """Lightweight article shape for the graph-loader.
 
     No full ``text`` field — that would balloon the payload when loading
@@ -75,6 +76,7 @@ class InstrumentArticleNodeDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "articles"
 
     id: str
     key: str
@@ -168,10 +170,11 @@ class CitedArticleRef(BaseModel):
     display_name: str | None = None
 
 
-class InstrumentJudgmentItem(BaseModel):
+class InstrumentJudgmentItem(WithPath):
     """One judgment that cites this instrument."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "judgments"
 
     id: str = Field(
         ...,
@@ -252,10 +255,11 @@ class InstrumentJudgmentsResponse(BaseModel):
 # ── /api/instruments/{bwb_id}/dossiers ────────────────────────────────────
 
 
-class InstrumentDossierItem(BaseModel):
+class InstrumentDossierItem(WithPath):
     """One parliamentary dossier touching this instrument."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     id: str
     key: str
@@ -422,10 +426,11 @@ class InstrumentRelatedResponse(BaseModel):
     items: list[InstrumentRelatedItem]
 
 
-class InstrumentListItemDTO(BaseModel):
+class InstrumentListItemDTO(WithPath):
     """Row in the paginated /api/instruments list."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
 
     id: str
     key: str
@@ -790,10 +795,11 @@ class TreatyRegisterDTO(BaseModel):
         )
 
 
-class InstrumentDetailDTO(BaseModel):
+class InstrumentDetailDTO(WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
 
     id: str
     key: str
@@ -929,10 +935,11 @@ class InstrumentDetailDTO(BaseModel):
         )
 
 
-class LinkedInstrumentDTO(BaseModel):
+class LinkedInstrumentDTO(WithPath):
     """The instrument at the other end of a link."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
 
     id: str
     key: str

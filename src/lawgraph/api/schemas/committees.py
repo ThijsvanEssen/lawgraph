@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO
+from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 from lawgraph.config.settings import EK_ATTRIBUTION
 
@@ -165,10 +165,11 @@ def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class CommitteeDTO(BaseModel):
+class CommitteeDTO(WithPath):
     """A parliamentary committee."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "committees"
 
     id: str
     key: str
@@ -214,10 +215,11 @@ class FactionBoardSeatDTO(BaseModel):
     since: str | None = Field(None, description="The day the page gives: ``sinds``.")
 
 
-class FactionDTO(BaseModel):
+class FactionDTO(WithPath):
     """A parliamentary party."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "factions"
 
     id: str
     key: str
@@ -435,7 +437,7 @@ class EkMembershipDTO(BaseModel):
     source: EkSourceDTO
 
 
-class MemberDTO(BaseModel):
+class MemberDTO(WithPath):
     """A member of parliament or a minister.
 
     ``active`` means they hold an open faction membership — currently seated.
@@ -446,6 +448,7 @@ class MemberDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
 
     id: str
     key: str

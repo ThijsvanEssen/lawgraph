@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
+from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.core.documents import (
     chamber_of,
@@ -332,10 +332,11 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
     ]
 
 
-class DocumentListItemDTO(BaseModel):
+class DocumentListItemDTO(WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "documents"
 
     id: str
     key: str

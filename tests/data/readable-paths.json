@@ -1,36 +1,224 @@
 {
   "about": "The readable addresses of Concordans: lawgraph core/readable_paths.py and lawgraph-explorer src/lib/bron/leesbaar.ts are both tested against this file. A change goes into both repositories at once.",
   "paths": [
-    {"focus": "judgments/ecli_nl_hr_2019_2006", "props": {"ecli": "ECLI:NL:HR:2019:2006"}, "path": "/uitspraken/ECLI:NL:HR:2019:2006"},
-    {"focus": "judgments/ecli_nl_rbdha_2015_7145", "props": {}, "path": "/uitspraken/ECLI:NL:RBDHA:2015:7145"},
-    {"focus": "instruments/bwbr0005289", "props": {}, "path": "/wetten/BWBR0005289"},
-    {"focus": "articles/bwbr0005289_162", "props": {"bwb_id": "BWBR0005289", "article_number": "162"}, "path": "/wetten/BWBR0005289/artikel/6:162"},
-    {"focus": "articles/bwbr0001854_41", "props": {"bwb_id": "BWBR0001854", "article_number": "41"}, "path": "/wetten/BWBR0001854/artikel/41"},
-    {"focus": "articles/bwbr0005290_7_658", "props": {"bwb_id": "BWBR0005290", "article_number": "7:658"}, "path": "/wetten/BWBR0005290/artikel/7:658"},
-    {"focus": "dossiers/36600-VIII", "props": {}, "path": "/dossiers/36600-VIII"},
-    {"focus": "dossiers/36455-(R2188)", "props": {}, "path": "/dossiers/36455-(R2188)"},
-    {"focus": "documents/kst_36799_31", "props": {"dossier_number": "36799", "sequence": 31}, "path": "/kamerstukken/36799/31"},
-    {"focus": "documents/kst_36600_viii_ab", "props": {"dossier_number": "36600", "dossier_suffix": "VIII", "number": "AB"}, "path": "/kamerstukken/36600-VIII/AB"},
-    {"focus": "instruments/stb_2026_94", "props": {"official_id": "stb-2026-94"}, "path": "/stb/2026/94"},
-    {"focus": "members/m1", "props": {"slug": "rob-jetten"}, "path": "/leden/rob-jetten"},
-    {"focus": "cabinets/rutte_iv", "props": {}, "path": "/kabinetten/rutte_iv"},
-    {"focus": "factions/ek_democraten_1966", "props": {}, "path": "/fracties/ek_democraten_1966"},
-    {"focus": "committees/0b1c2d3e", "props": {"slug": "szw"}, "path": "/commissies/szw"},
-    {"focus": "commitments/c1", "props": {"number": "TZ202609-124"}, "path": "/toezeggingen/TZ202609-124"}
+    {
+      "focus": "judgments/ecli_nl_hr_2019_2006",
+      "props": {
+        "ecli": "ECLI:NL:HR:2019:2006"
+      },
+      "path": "/uitspraken/ECLI:NL:HR:2019:2006"
+    },
+    {
+      "focus": "judgments/ecli_nl_rbdha_2015_7145",
+      "props": {},
+      "path": "/uitspraken/ECLI:NL:RBDHA:2015:7145"
+    },
+    {
+      "focus": "instruments/bwbr0005289",
+      "props": {},
+      "path": "/wetten/BWBR0005289"
+    },
+    {
+      "focus": "articles/bwbr0005289_162",
+      "props": {
+        "bwb_id": "BWBR0005289",
+        "article_number": "162"
+      },
+      "path": "/wetten/BWBR0005289/artikel/6:162"
+    },
+    {
+      "focus": "articles/bwbr0001854_41",
+      "props": {
+        "bwb_id": "BWBR0001854",
+        "article_number": "41"
+      },
+      "path": "/wetten/BWBR0001854/artikel/41"
+    },
+    {
+      "focus": "articles/bwbr0005290_7_658",
+      "props": {
+        "bwb_id": "BWBR0005290",
+        "article_number": "7:658"
+      },
+      "path": "/wetten/BWBR0005290/artikel/7:658"
+    },
+    {
+      "focus": "dossiers/36496",
+      "props": {},
+      "path": "/dossiers/36496"
+    },
+    {
+      "focus": "dossiers/36600_viii",
+      "props": {
+        "label": "36600-VIII"
+      },
+      "path": "/dossiers/36600-VIII"
+    },
+    {
+      "focus": "dossiers/36455_r2188",
+      "props": {
+        "label": "36455-(R2188)"
+      },
+      "path": "/dossiers/36455-(R2188)"
+    },
+    {
+      "focus": "dossiers/36600_viii",
+      "props": {
+        "number": "36600",
+        "suffix": "VIII"
+      },
+      "path": "/dossiers/36600-VIII"
+    },
+    {
+      "focus": "documents/kst_36799_31",
+      "props": {
+        "dossier_number": "36799",
+        "sequence": 31
+      },
+      "path": "/kamerstukken/36799/31"
+    },
+    {
+      "focus": "documents/kst_36600_viii_ab",
+      "props": {
+        "dossier_number": "36600",
+        "dossier_suffix": "VIII",
+        "number": "AB"
+      },
+      "path": "/kamerstukken/36600-VIII/AB"
+    },
+    {
+      "focus": "instruments/stb_2026_94",
+      "props": {
+        "official_id": "stb-2026-94"
+      },
+      "path": "/stb/2026/94"
+    },
+    {
+      "focus": "members/m1",
+      "props": {
+        "slug": "rob-jetten"
+      },
+      "path": "/leden/rob-jetten"
+    },
+    {
+      "focus": "cabinets/rutte_iv",
+      "props": {},
+      "path": "/kabinetten/rutte_iv"
+    },
+    {
+      "focus": "factions/ek_democraten_1966",
+      "props": {},
+      "path": "/fracties/ek_democraten_1966"
+    },
+    {
+      "focus": "committees/0b1c2d3e",
+      "props": {
+        "slug": "szw"
+      },
+      "path": "/commissies/szw"
+    },
+    {
+      "focus": "commitments/c1",
+      "props": {
+        "number": "TZ202609-124"
+      },
+      "path": "/toezeggingen/TZ202609-124"
+    },
+    {
+      "focus": "decisions/decision_154df5db_64e5_414a_9cd1_3967aab7de58",
+      "props": {},
+      "path": "/stemmingen/decision_154df5db_64e5_414a_9cd1_3967aab7de58"
+    },
+    {
+      "focus": "decisions/ek_2026_07_07_36915_iib_1",
+      "props": {},
+      "path": "/stemmingen/ek_2026_07_07_36915_iib_1"
+    }
   ],
   "none": [
-    {"focus": "decisions/d1", "props": {}},
-    {"focus": "articles/bwbr0001_bijlage_2_artikel_6", "props": {"bwb_id": "BWBR0001", "article_number": "bijlage 2 artikel 6"}},
-    {"focus": "members/m2", "props": {}},
-    {"focus": "documents/x", "props": {"dossier_number": "36799"}}
+    {
+      "focus": "articles/bwbr0001_bijlage_2_artikel_6",
+      "props": {
+        "bwb_id": "BWBR0001",
+        "article_number": "bijlage 2 artikel 6"
+      }
+    },
+    {
+      "focus": "members/m2",
+      "props": {}
+    },
+    {
+      "focus": "documents/x",
+      "props": {
+        "dossier_number": "36799"
+      }
+    },
+    {
+      "focus": "activities/a1",
+      "props": {}
+    },
+    {
+      "focus": "annexes/x1",
+      "props": {}
+    },
+    {
+      "focus": "dossiers/36600_viii",
+      "props": {}
+    }
   ],
   "parse": [
-    {"path": "/uitspraken/ecli:nl:hr:2019:2006", "pad": {"soort": "uitspraak", "a": "ECLI:NL:HR:2019:2006"}, "canonical": "/uitspraken/ECLI:NL:HR:2019:2006"},
-    {"path": "/wetten/bwbr0005289", "pad": {"soort": "wet", "a": "BWBR0005289"}, "canonical": "/wetten/BWBR0005289"},
-    {"path": "/wetten/BWBR0005289/artikel/6%3A162", "pad": {"soort": "artikel", "a": "BWBR0005289", "b": "6:162"}, "canonical": "/wetten/BWBR0005289/artikel/6:162"},
-    {"path": "/kamerstukken/36600-viii/ab", "pad": {"soort": "kamerstuk", "a": "36600-VIII", "b": "AB"}, "canonical": "/kamerstukken/36600-VIII/AB"},
-    {"path": "/stb/2026/94", "pad": {"soort": "publicatie", "a": "stb", "b": "2026", "c": "94"}, "canonical": "/stb/2026/94"},
-    {"path": "/toezeggingen/tz202609-124", "pad": {"soort": "toezegging", "a": "TZ202609-124"}, "canonical": "/toezeggingen/TZ202609-124"}
+    {
+      "path": "/uitspraken/ecli:nl:hr:2019:2006",
+      "pad": {
+        "soort": "uitspraak",
+        "a": "ECLI:NL:HR:2019:2006"
+      },
+      "canonical": "/uitspraken/ECLI:NL:HR:2019:2006"
+    },
+    {
+      "path": "/wetten/bwbr0005289",
+      "pad": {
+        "soort": "wet",
+        "a": "BWBR0005289"
+      },
+      "canonical": "/wetten/BWBR0005289"
+    },
+    {
+      "path": "/wetten/BWBR0005289/artikel/6%3A162",
+      "pad": {
+        "soort": "artikel",
+        "a": "BWBR0005289",
+        "b": "6:162"
+      },
+      "canonical": "/wetten/BWBR0005289/artikel/6:162"
+    },
+    {
+      "path": "/kamerstukken/36600-viii/ab",
+      "pad": {
+        "soort": "kamerstuk",
+        "a": "36600-VIII",
+        "b": "AB"
+      },
+      "canonical": "/kamerstukken/36600-VIII/AB"
+    },
+    {
+      "path": "/stb/2026/94",
+      "pad": {
+        "soort": "publicatie",
+        "a": "stb",
+        "b": "2026",
+        "c": "94"
+      },
+      "canonical": "/stb/2026/94"
+    },
+    {
+      "path": "/toezeggingen/tz202609-124",
+      "pad": {
+        "soort": "toezegging",
+        "a": "TZ202609-124"
+      },
+      "canonical": "/toezeggingen/TZ202609-124"
+    }
   ],
   "invalid": [
     "/",
@@ -45,6 +233,8 @@
     "/leden/Rob_Jetten",
     "/toezeggingen/TZ-1",
     "/stb/26/94",
-    "/uitspraken/%E0%A4%A"
+    "/uitspraken/%E0%A4%A",
+    "/stemmingen/Decision_X",
+    "/stemmingen/a/b"
   ]
 }

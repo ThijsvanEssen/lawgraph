@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
+from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.core.documents import chamber_of
 
 _KIND = (
@@ -56,7 +56,7 @@ _DICTUM = (
 )
 
 
-class DecisionDTO(BaseModel):
+class DecisionDTO(WithPath):
     """One decision with every vote cast on it.
 
     ``vote_kind`` says who the votes come from: ``member`` for a roll-call
@@ -66,6 +66,7 @@ class DecisionDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "decisions"
 
     id: str
     key: str
@@ -154,7 +155,7 @@ class DecisionDTO(BaseModel):
         )
 
 
-class DecisionSummaryDTO(BaseModel):
+class DecisionSummaryDTO(WithPath):
     """One row in the decision browser.
 
     ``tally`` sums the seats behind each choice — the number to show for a
@@ -165,6 +166,7 @@ class DecisionSummaryDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "decisions"
 
     id: str
     key: str

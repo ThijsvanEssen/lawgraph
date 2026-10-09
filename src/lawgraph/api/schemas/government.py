@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
-from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO
+from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO, WithPath
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
@@ -156,10 +156,11 @@ class CabinetSeatsResponse(BaseModel):
     )
 
 
-class CabinetSummaryDTO(BaseModel):
+class CabinetSummaryDTO(WithPath):
     """A cabinet in the list, with its counts."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "cabinets"
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
@@ -435,8 +436,9 @@ class CabinetDetailDTO(CabinetSummaryDTO):
         return cls(**summary.model_dump(), ministries=ministries)
 
 
-class CommitmentDossierDTO(BaseModel):
+class CommitmentDossierDTO(WithPath):
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     key: str
     number: str | None = None
@@ -460,10 +462,11 @@ class CommitmentMemberDTO(PersonRefDTO):
     function: str | None = None
 
 
-class CommitmentDTO(BaseModel):
+class CommitmentDTO(WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "commitments"
 
     key: str
     number: str | None = Field(

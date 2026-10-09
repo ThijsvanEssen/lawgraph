@@ -157,6 +157,7 @@ def test_history_returns_versions_with_documents_and_dossier_titles(
             "key": "35786",
             "title": "Wijziging Burgerlijk Wetboek",
             "short_title": None,
+            "path": "/dossiers/35786",
         }
     ]
     assert first["commencement"]["id"] == "stb-2019-100"
@@ -198,7 +199,13 @@ def test_history_unknown_dossier_title_is_null(monkeypatch: pytest.MonkeyPatch) 
     body = client.get(f"/api/articles/{BWB}/287/history").json()
 
     assert body["versions"][0]["amended_by"]["dossiers"] == [
-        {"number": "12345", "key": "12345", "title": None, "short_title": None}
+        {
+            "number": "12345",
+            "key": "12345",
+            "title": None,
+            "short_title": None,
+            "path": "/dossiers/12345",
+        }
     ]
 
 
@@ -265,7 +272,13 @@ def test_amended_by_maps_rows_and_dossier_titles(
     assert item["date_signed"] == "2019-01-01"
     assert item["date_published"] == "2019-01-02"
     assert item["dossiers"] == [
-        {"number": "35786", "key": "35786", "title": "Klimaatwet", "short_title": None}
+        {
+            "number": "35786",
+            "key": "35786",
+            "title": "Klimaatwet",
+            "short_title": None,
+            "path": "/dossiers/35786",
+        }
     ]
     assert (item["amends"], item["introduces"], item["repeals"]) == (2, 1, 0)
     assert item["articles_affected"] == 3
