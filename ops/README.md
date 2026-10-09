@@ -30,4 +30,10 @@ and gives `counts <block> <before|after> <file.sql>` (a read-only query from her
 `/srv/lawgraph/ops/out/<script>/`. A run sends the whole of `ops/`, so a script can run its siblings
 (`chain-rest.sh` runs `tk-dictum.sh`, `post-0.79.29.sh` and `post-0.79.30.sh`, each with its own lock). A chain that should run at night waits for its window itself (`revises-backfill.sh`: `NOT_BEFORE`, `NOT_AFTER`).
 
+A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europe/Amsterdam (`NOT_BEFORE`,
+`NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
+sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `tk-members.sh` (#410)
+and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
+`out/bwb-definitions.after`).
+
 A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.

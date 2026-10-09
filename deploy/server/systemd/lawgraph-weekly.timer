@@ -1,0 +1,6 @@
+[Timer]
+OnCalendar=Sun *-*-* 09:00 Europe/Amsterdam
+Persistent=true
+
+[Install]
+WantedBy=timers.target

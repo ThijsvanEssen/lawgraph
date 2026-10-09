@@ -2,24 +2,27 @@ name: ops
 
 # Operations on the server without a personal SSH key, with the deploy key of deploy.yml. Started by
 # hand (Actions → ops → Run workflow, or `gh workflow run ops -f action=status`); every run is in
-# the Actions log. Four actions:
+# the Actions log. Six actions:
 #   status  read only: health, timers, the last runs, running statements, disk, the ops jobs;
 #   log     read only: the tail of one ops job's log (`name`), or of runs.log without a name;
 #   sql     read only: an `ops/<name>.sql` of this ref, in a read-only session with a timeout;
 #   run     an `ops/<name>.sh` of this ref (with the rest of ops/ beside it), started in the background on the server
-#           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it.
+#           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it;
+#   config-check  read only: deploy/server/ of this ref against the live units, Caddy block and alert.sh
+#                 (deploy/server/apply.sh check: diff, systemd-analyze verify, caddy validate and adapt);
+#   config-apply  the same checks, and only when they pass: the changed files installed and reloaded.
 # It runs only on develop or main (a first step fails on any other ref), and only files under
-# `ops/` of that ref can be sent, so what runs on the server has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
+# `ops/` and `deploy/server/` of that ref can be sent, so what runs on the server has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
 # when it writes (see ops/README.md).
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: status, log, sql or run
+        description: status, log, sql, run, config-check or config-apply
         required: true
         type: choice
-        options: [status, log, sql, run]
+        options: [status, log, sql, run, config-check, config-apply]
         default: status
       name:
         description: For log, sql and run, the file name under ops/ without extension
@@ -53,7 +56,9 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: ops
+          sparse-checkout: |
+            ops
+            deploy/server
           sparse-checkout-cone-mode: false
 
       - name: Check the input
@@ -143,3 +148,16 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           NAME: ${{ inputs.name }}
+
+      # deploy/server/ goes over to a fresh directory and apply.sh runs from there: check reads only; apply
+      # installs and reloads only what changed, and nothing when a check fails
+      - name: Server config
+        if: inputs.action == 'config-check' || inputs.action == 'config-apply'
+        run: |
+          mode=check; [ "$ACTION" = config-apply ] && mode=apply
+          tar -C deploy -cf - server | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "d=\$(mktemp -d /tmp/server-config.XXXXXX) && tar -C \$d -xf - && sh \$d/server/apply.sh $mode; rc=\$?; rm -r \$d; exit \$rc"
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          ACTION: ${{ inputs.action }}

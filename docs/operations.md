@@ -513,6 +513,11 @@ last runs, long statements, disk), `log` (an ops job or `runs.log`), `sql` (a re
 (a script from `ops/`, in the background). Only files merged under `ops/` can be sent; `ops/README.md` has the
 commands and the lock a writing script takes.
 
+The server's own config is kept in `deploy/server/`: the systemd units and timers, the `concordans.nl` block of
+Caddy, and `alert.sh`. The ops actions `config-check` (read only: the diff against the live files,
+`systemd-analyze verify`, `caddy validate`) and `config-apply` (the same, then only what changed, installed and
+reloaded) keep the server and the repo the same; `deploy/server/README.md` has the details.
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a

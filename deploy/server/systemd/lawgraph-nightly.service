@@ -1,0 +1,16 @@
+[Unit]
+Description=LawGraph: the daily run
+After=docker.service
+RequiresMountsFor=/srv/lawgraph
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/srv/lawgraph/app
+EnvironmentFile=/srv/lawgraph/scheduler.env
+# wait up to an hour for a running poll instead of skipping (from the release with LAWGRAPH_LOCK_WAIT)
+Environment=LAWGRAPH_LOCK_WAIT=3600
+# 75: another scheduled run holds the lock; this one is skipped, not failed
+SuccessExitStatus=75
+TimeoutStartSec=infinity
+ExecStart=/srv/lawgraph/app/scripts/daily.sh
