@@ -122,3 +122,63 @@ def seat_timeline(
             ).isoformat()
         segments.append(segment)
     return segments
+
+
+# The choices that count as a vote cast (``VOTED`` ``meta.choice``); any other is none.
+VOTE_FOR, VOTE_AGAINST = "Voor", "Tegen"
+# The pattern of the coalition on a vote: all its votes on one side, on both sides, or on
+# both sides while the side that won holds coalition and opposition seats.
+PATTERN_TOGETHER, PATTERN_SPLIT, PATTERN_WISSEL = "together", "split", "wissel"
+
+
+def vote_pattern(
+    votes: Iterable[tuple[str, str, int]], coalition: set[str]
+) -> dict[str, Any] | None:
+    """What the coalition did on a vote. *votes* are ``(faction key, choice, seats)``: a
+    faction vote with its seats that day, or one member of a roll call as one seat of the
+    faction they sat in; *coalition* the faction keys of the coalition that day. None when
+    no seat of the coalition voted (no cabinet, or it did not take part).
+
+    ``passed``: more seats for than against (a tie is rejected, as the Kamer counts it).
+    ``together``: every coalition seat on one side; ``split``: on both. ``wissel``: split,
+    and the winning side holds coalition and opposition seats. ``carried``: passed with the
+    coalition's seats for alone more than half of those cast. ``decisive``: had the whole
+    coalition voted the other way, the outcome would have turned."""
+    seats = {
+        (True, VOTE_FOR): 0,
+        (True, VOTE_AGAINST): 0,
+        (False, VOTE_FOR): 0,
+        (False, VOTE_AGAINST): 0,
+    }
+    for faction, choice, n in votes:
+        if choice in (VOTE_FOR, VOTE_AGAINST):
+            seats[(faction in coalition, choice)] += max(int(n or 0), 0)
+    c_for, c_against = seats[(True, VOTE_FOR)], seats[(True, VOTE_AGAINST)]
+    o_for, o_against = seats[(False, VOTE_FOR)], seats[(False, VOTE_AGAINST)]
+    if c_for + c_against == 0:
+        return None
+    passed = c_for + o_for > c_against + o_against
+    split = c_for > 0 and c_against > 0
+    winners = (c_for, o_for) if passed else (c_against, o_against)
+    wissel = split and winners[0] > 0 and winners[1] > 0
+    cast = c_for + c_against + o_for + o_against
+    whole = c_for + c_against
+    # the whole coalition against the outcome: would it have turned?
+    if passed:
+        decisive = not o_for > o_against + whole
+    else:
+        decisive = o_for + whole > o_against
+    return {
+        "coalition_for": c_for,
+        "coalition_against": c_against,
+        "opposition_for": o_for,
+        "opposition_against": o_against,
+        "passed": passed,
+        "pattern": PATTERN_WISSEL
+        if wissel
+        else PATTERN_SPLIT
+        if split
+        else PATTERN_TOGETHER,
+        "carried": passed and 2 * c_for > cast,
+        "decisive": decisive,
+    }

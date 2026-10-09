@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,6 +54,33 @@ _DICTUM = (
     "``en gaat over tot de orde van de dag``; null for any other vote and for a motion "
     "without text."
 )
+
+
+class CoalitionVoteDTO(BaseModel):
+    """What the coalition of the cabinet in office did on a vote of the Tweede Kamer
+    (``semantic tk-coalition-votes``): the seats ``Voor`` and ``Tegen`` of the coalition and
+    of the opposition (a faction with its seats that day, a member of a roll call as one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cabinet: str = Field(..., description="The key of the cabinet in office that day.")
+    coalition_for: int
+    coalition_against: int
+    opposition_for: int
+    opposition_against: int
+    pattern: Literal["together", "split", "wissel"] = Field(
+        ...,
+        description="`together`: every coalition seat on one side; `split`: on both; "
+        "`wissel`: split, and the side that won holds coalition and opposition seats.",
+    )
+    carried: bool = Field(
+        ..., description="Passed with the coalition's seats alone more than half cast."
+    )
+    decisive: bool = Field(
+        ...,
+        description="Had the whole coalition voted against the outcome, it would have "
+        "turned.",
+    )
 
 
 class DecisionDTO(BaseModel):
@@ -114,6 +141,11 @@ class DecisionDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     votes: list[VoteDTO] = Field(default_factory=list)
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="What the coalition did on the vote; null without a cabinet, without "
+        "a coalition vote, and in the Eerste Kamer.",
+    )
     dictum: str | None = Field(None, description=_DICTUM)
 
     @classmethod
@@ -149,6 +181,7 @@ class DecisionDTO(BaseModel):
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
             votes=[VoteDTO(**v) for v in doc.get("votes") or []],
+            coalition=doc.get("coalition"),
             # of the motion it decided on, which the route reads (``motion_dictums``)
             dictum=None,
         )
@@ -198,6 +231,9 @@ class DecisionSummaryDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     dictum: str | None = Field(None, description=_DICTUM)
+    coalition: CoalitionVoteDTO | None = Field(
+        None, description="What the coalition did on the vote, as on the detail."
+    )
 
 
 class DecisionKindCount(BaseModel):
@@ -271,6 +307,15 @@ class PartyVotes(PartyVoteCount):
     years: list[PartyVoteYearCount] = Field(default_factory=list)
 
 
+class DecisionCoalitionCount(BaseModel):
+    """How many of the decisions saw the coalition do this (``coalition`` filter values)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    count: int
+
+
 class DecisionFacets(BaseModel):
     """The decisions under the filters, counted.
 
@@ -296,6 +341,12 @@ class DecisionFacets(BaseModel):
     party_votes: list[PartyVotes] = Field(
         default_factory=list,
         description="With ``party_votes``: per faction asked, by key, how it voted.",
+    )
+    coalition: list[DecisionCoalitionCount] = Field(
+        default_factory=list,
+        description="Under every filter but `coalition`: how many votes the coalition voted "
+        "`together`, `split` (no wisselmeerderheid) or as a `wissel`, and how many it "
+        "`carried` or was `decisive` on; those with none left out.",
     )
 
 

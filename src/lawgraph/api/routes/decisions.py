@@ -109,6 +109,14 @@ def list_decisions(
             "kind and per year). Keeps no decision out, unlike ``party``."
         ),
     ] = None,
+    coalition: Annotated[
+        Literal["together", "split", "wissel", "carried", "decisive"] | None,
+        Query(
+            description="Only the votes of the Tweede Kamer on which the coalition voted "
+            "`together`, `split` (no wisselmeerderheid) or as a `wissel`, or which it "
+            "`carried` or was `decisive` on."
+        ),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DecisionListResponse:
@@ -127,6 +135,7 @@ def list_decisions(
         party_votes=tuple(
             party.strip() for party in (party_votes or "").split(",") if party.strip()
         ),
+        coalition=coalition,
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset)
     names = load_dossier_names(store)

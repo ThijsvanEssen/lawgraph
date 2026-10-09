@@ -7,6 +7,7 @@ from lawgraph.core.coalition import (
     coalition_on,
     seat_timeline,
     seats_on,
+    vote_pattern,
 )
 
 
@@ -73,3 +74,58 @@ def test_the_seats_of_the_coalition_change_with_a_split_and_a_departure() -> Non
         ("sp", False),
     ]
     assert TK_MAJORITY == 76
+
+
+COALITION = {"pvv", "vvd", "nsc", "bbb"}
+
+
+def test_a_vote_the_coalition_carries_together() -> None:
+    votes = [("pvv", "Voor", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
+    votes += [("bbb", "Voor", 7), ("gl", "Tegen", 25), ("d66", "Tegen", 9)]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
+    assert (result["coalition_for"], result["opposition_against"]) == (88, 34)
+    assert result["pattern"] == "together"
+    assert result["passed"] and result["carried"]
+    # the coalition alone against: 0 for, 122 against — it decided
+    assert result["decisive"]
+
+
+def test_a_wisselmeerderheid_passes_with_the_opposition_against_part_of_the_coalition() -> (
+    None
+):
+    votes = [("pvv", "Tegen", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
+    votes += [
+        ("bbb", "Tegen", 7),
+        ("gl", "Voor", 25),
+        ("d66", "Voor", 9),
+        ("sp", "Tegen", 5),
+    ]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
+    assert result["pattern"] == "wissel" and result["passed"]
+    assert not result["carried"]
+
+
+def test_a_split_coalition_on_the_losing_side_is_no_wissel() -> None:
+    # passed by the coalition's own majority for; one coalition party against with nobody
+    votes = [("pvv", "Voor", 37), ("vvd", "Voor", 24), ("nsc", "Tegen", 20)]
+    votes += [("bbb", "Voor", 7), ("gl", "Tegen", 25)]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
+    # the winning side (for) holds coalition seats only: split, no wissel
+    assert result["pattern"] == "split" and result["passed"] and result["carried"]
+
+
+def test_without_a_coalition_vote_there_is_no_pattern() -> None:
+    assert vote_pattern([("gl", "Voor", 25)], COALITION) is None
+    assert vote_pattern([("pvv", "Niet deelgenomen", 37)], COALITION) is None
+
+
+def test_a_tie_is_rejected_and_the_opposition_decides_without_the_coalition() -> None:
+    votes = [("pvv", "Voor", 10), ("gl", "Tegen", 10)]
+    result = vote_pattern(votes, {"pvv"})
+    assert result is not None and not result["passed"]
+    # a large opposition majority: the coalition could not have turned it
+    big = vote_pattern([("pvv", "Voor", 10), ("gl", "Tegen", 100)], {"pvv"})
+    assert big is not None and not big["decisive"]
