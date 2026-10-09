@@ -25,6 +25,7 @@ from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
+from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE
 from lawgraph.db.version_cache import cached_rows
 
 # Edges from an amending instrument to the articles it changes.
@@ -651,6 +652,11 @@ def _legal_area_tree(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return tree
 
 
+# The day an instrument came into force, as text: the expression of the index
+# ``instruments_date_in_force`` (``db/schema.py``).
+IN_FORCE = INSTRUMENT_DATE_IN_FORCE
+
+
 def get_instruments_list(
     store: GraphStore,
     *,
@@ -663,6 +669,10 @@ def get_instruments_list(
     sort: str = "title",
     limit: int = 50,
     offset: int = 0,
+    in_force_from: str | None = None,
+    in_force_to: str | None = None,
+    published_from: str | None = None,
+    published_to: str | None = None,
 ) -> dict[str, Any]:
     """Paginated, filterable list of instruments with cheap aggregate stats.
 
@@ -679,6 +689,9 @@ def get_instruments_list(
         instruments under the filters per legal area (a tree of main and specific areas,
         without the ``legal_area`` filter) and per government theme (without the
         ``policy_domain`` filter); an unknown value finds nothing.
+      * *in_force_from* and *in_force_to* bound the day it came into force
+        (``date_in_force``, by ``instruments_date_in_force``), *published_from* and
+        *published_to* the day it was published (``date_published``), each inclusive.
     """
     # When q tokenises to nothing (single-char query, only punctuation), the
     # query degrades to "no filter".
@@ -702,6 +715,14 @@ def get_instruments_list(
         conditions.append("jurisdiction = %(jurisdiction)s")
     if article_count_min is not None:
         conditions.append("article_count >= %(article_count_min)s")
+    for value, clause in (
+        (in_force_from, f"{IN_FORCE} >= %(in_force_from)s"),
+        (in_force_to, f"{IN_FORCE} <= %(in_force_to)s"),
+        (published_from, "date_published >= %(published_from)s"),
+        (published_to, "date_published <= %(published_to)s"),
+    ):
+        if value:
+            conditions.append(clause)
     if tokens:
         conditions.append(f"({search})")
     own = {
@@ -737,6 +758,10 @@ def get_instruments_list(
         "article_count_min": article_count_min,
         "legal_area": legal_area.strip().lower() if legal_area else None,
         "policy_domain": policy_domain.strip().lower() if policy_domain else None,
+        "in_force_from": in_force_from,
+        "in_force_to": in_force_to,
+        "published_from": published_from,
+        "published_to": published_to,
         **words,
     }
     # The facets are the same on every page and for every visitor: kept per data version

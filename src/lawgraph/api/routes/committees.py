@@ -73,6 +73,25 @@ _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] =
 )
 
 
+# A period of the lists (inclusive; one side alone is open on the other): those active in it.
+ActiveFrom = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or after this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+ActiveTo = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or before this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+
+
+def _day(day: dt.date | None) -> str | None:
+    return day.isoformat() if day else None
+
+
 @router.get(
     "",
     response_model=list[CommitteeDTO],
@@ -89,10 +108,17 @@ def list_committees(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[CommitteeDTO]:
     return [
         CommitteeDTO.from_document(doc)
-        for doc in get_committees(store, chamber=chamber)
+        for doc in get_committees(
+            store,
+            chamber=chamber,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
+        )
     ]
 
 
@@ -226,6 +252,8 @@ def list_members(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[MemberDTO]:
     if chamber == "EK":
         ek = get_ek_members(
@@ -236,6 +264,8 @@ def list_members(
             sort=sort,
             limit=limit,
             offset=offset,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
         )
         return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
@@ -250,6 +280,8 @@ def list_members(
         sort=sort,
         limit=limit,
         offset=offset,
+        active_from=_day(active_from),
+        active_to=_day(active_to),
     )
     return [MemberDTO.from_document(d) for d in docs]
 
@@ -374,10 +406,19 @@ def list_factions(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[FactionDTO]:
     return [
         FactionDTO.from_document(doc, member_count=int(doc.get("member_count") or 0))
-        for doc in get_factions(store, active=active, q=q, chamber=chamber)
+        for doc in get_factions(
+            store,
+            active=active,
+            q=q,
+            chamber=chamber,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
+        )
     ]
 
 
