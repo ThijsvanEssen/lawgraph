@@ -208,3 +208,20 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     pipeline = RechtspraakCitationsSemanticPipeline(store=_FakeStore(judgment_docs=[]))
     pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
     assert reads == ["2025-01-01T00:00:00Z"]
+
+
+def test_the_paragraphs_that_name_a_cited_judgment() -> None:
+    from lawgraph.pipelines.semantic.rechtspraak_citations import paragraphs_citing
+
+    found = paragraphs_citing(
+        [
+            {"number": "1.1", "text": "Zie ECLI:NL:HR:2015:1."},
+            {"number": None, "text": "Ook ECLI:NL:HR:2015:1, zonder nummer."},
+            {"number": "4.3", "text": "Zie ECLI:NL:HR:2015:1 en ECLI:NL:HR:2016:2."},
+            {"number": "4.3", "text": "Nogmaals ECLI:NL:HR:2015:1."},
+        ]
+    )
+    assert found == {
+        "ECLI:NL:HR:2015:1": ["1.1", "4.3"],
+        "ECLI:NL:HR:2016:2": ["4.3"],
+    }
