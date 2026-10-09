@@ -212,6 +212,64 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
     ]
 
 
+def test_publications_and_commitments(store: GraphStore) -> None:
+    def publication(official: str, published: str) -> dict[str, Any]:
+        series, year, number = official.split("-")
+        return _node(official.replace("-", "_"), "instrument", kind="publicatie",
+                     official_id=official, date_published=published,
+                     publication_year=int(year), publication_number=int(number))  # fmt: skip
+
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            publication("stb-2025-263", "2025-09-02"),  # a title of its own
+            publication("stb-2025-300", "2025-10-01"),  # changes a regulation
+            publication("trb-2024-12", "2024-03-05"),  # changes a regulation
+            publication("stb-2025-301", "2025-10-02"),  # neither: no page to find
+            publication("stb-2017-5", "2017-01-10"),  # before 2018
+            publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
+            _node("bwbr0005289", "instrument", bwb_id="BWBR0005289", kind="wet"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("stb_stb_2025_263", "document", identifier="stb-2025-263",
+                  title="Besluit tot wijziging van het Mediabesluit 2008"),
+            _node("stb_stb_2025_301", "document", identifier="stb-2025-301",
+                  title="Staatsblad 2025/301"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("c1", "instruments/stb_2025_300", "instruments/bwbr0005289", "AMENDS"),
+            _edge("c2", "instruments/trb_2024_12", "instruments/bwbr0005289",
+                  "INTRODUCES"),
+            _edge("c3", "instruments/stcrt_2025_9", "instruments/bwbr0005289",
+                  "AMENDS"),
+        ]
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "commitments",
+        [
+            _node("tz_1", "commitment", number="TZ202609-124", text="Een brief.",
+                  made_on="2026-09-10"),
+            _node("tz_2", "commitment", number="TZ201701-1", text="Oud.",
+                  made_on="2017-01-05"),
+            _node("tz_3", "commitment", number="TZ202609-125", made_on="2026-09-11"),
+        ],
+    )  # fmt: skip
+    kinds = command.kinds(store)
+    assert _paths(kinds, "publicaties") == [
+        ("/stb/2025/263", "2025-09-02"),
+        ("/stb/2025/300", "2025-10-01"),
+        ("/trb/2024/12", "2024-03-05"),
+    ]
+    assert _paths(kinds, "toezeggingen") == [
+        ("/toezeggingen/TZ202609-124", "2026-09-10")
+    ]
+
+
 def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None:
     _seed(store)
     listed = [row["id"] for row in queries.articles(store, top=1)]
