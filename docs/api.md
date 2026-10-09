@@ -336,6 +336,7 @@ relations and status.
 
 - Every DTO forbids unknown fields (`extra="forbid"`).
 - Node references use `id` (`collection/key`) and `key`; edges use `from` and `to`.
+- A source (a node, a reference to one, a row of a list, a search hit, an item of the feed) has its readable address in `path` (`/wetten/BWBR0005289/artikel/6:162`, `/uitspraken/ECLI:NL:HR:2019:2006`, `/dossiers/36600-VIII`, `/kamerstukken/36600-VIII/5`, `/stemmingen/<key>`, `/stb/2026/94`, `/leden/<slug>`, `/kabinetten/<key>`, `/fracties/<key>`, `/commissies/<slug>`, `/toezeggingen/TZ…`): the address of its page on Concordans, where the server gives its HTML (`/render`). It is computed from the fields of the answer by one function (`core/readable_paths.py`; `tests/data/readable-paths.json` holds the cases the front end is tested against too); null for a source without one (an activity, an annex) and where the answer lacks what makes it, rather than a wrong one (a paper whose dossier suffix it does not give, a member without a slug).
 - List responses carry `items` and `total`, the absolute number of matches independent of
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
   `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
