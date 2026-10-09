@@ -901,9 +901,10 @@ class NextActivityDTO(BaseModel):
         "``Stemmingen``, …",
     )
     agenda_title: str | None = None
-    committee: dict[str, Any] | None = Field(
+    committee: TimelineCommitteeDTO | None = Field(
         default=None,
-        description="Its lead committee (``key``, ``slug``, ``name``); null in plenary.",
+        description="Its lead committee (``key``, ``slug``, ``name``, ``path``); null in "
+        "plenary.",
     )
 
 
