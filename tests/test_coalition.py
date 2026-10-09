@@ -164,3 +164,52 @@ def test_a_vacant_seat_counts_for_its_faction() -> None:
     assert timeline[0]["factions"] == [
         {"key": "d66", "seats": 150, "vacant": 11, "coalition": True}
     ]
+
+
+def test_schoof_keeps_its_88_seats_on_its_first_day() -> None:
+    """Kabinet-Schoof, 2 July 2024, as the source records it: 14 members became
+    bewindspersonen, their seats vacant (FractieZetelVacature) until their successors took
+    them on 4 July (PVV 4, VVD 4, NSC 4, BBB 2). Seated that day: PVV 33, VVD 20, NSC 16,
+    BBB 5 (74); with the vacant seats the coalition holds its 88."""
+    posts = [_post(f, "2024-07-02") for f in ("pvv", "vvd", "nsc", "bbb")]
+    held = {"pvv": 33, "vvd": 20, "nsc": 16, "bbb": 5}
+    vacant = {"pvv": 4, "vvd": 4, "nsc": 4, "bbb": 2}
+    seats = [
+        _seat(f"{f}{n}", f, "2023-12-06")
+        for f, count in held.items()
+        for n in range(count)
+    ]
+    seats += [
+        _seat(f"{f}_new{n}", f, "2024-07-04")
+        for f, count in vacant.items()
+        for n in range(count)
+    ]
+    seats += [_seat(f"opp{n}", "opp", "2023-12-06") for n in range(62)]
+    vacancies = [
+        # TotEnMet 4 July, the day the successor takes the seat: vacant until the 3rd
+        {"faction_key": f, "from_date": "2024-07-02", "to_date": "2024-07-03"}
+        for f, count in vacant.items()
+        for _ in range(count)
+    ]
+    timeline = seat_timeline(posts, seats, "2024-07-02", "2024-07-10", vacancies)
+    first = timeline[0]
+    assert (
+        first["from_date"],
+        first["coalition"],
+        first["opposition"],
+        first["vacant"],
+    ) == (
+        "2024-07-02",
+        88,
+        62,
+        0,
+    )
+    assert {f["key"]: (f["seats"], f["vacant"]) for f in first["factions"]} == {
+        "pvv": (37, 4),
+        "vvd": (24, 4),
+        "nsc": (20, 4),
+        "bbb": (7, 2),
+        "opp": (62, 0),
+    }
+    # without the vacancies the coalition looks 14 seats short, as Front-end #1 saw
+    assert seat_timeline(posts, seats, "2024-07-02", "2024-07-10")[0]["coalition"] == 74
