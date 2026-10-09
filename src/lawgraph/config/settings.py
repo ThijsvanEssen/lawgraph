@@ -208,3 +208,8 @@ API_CACHE_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
 API_CACHE_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
 # The front end (Concordans) the Atom feed links its pages to, without a trailing slash.
 SITE_URL = os.getenv("LAWGRAPH_SITE_URL", "http://localhost:5173").rstrip("/")
+# The built shell of the front end (``index.html`` of its build) the server HTML of a page
+# is made from (``api/routes/render.py``); ``spa-routes.json`` next to it lists its pages.
+SPA_INDEX = os.getenv(
+    "LAWGRAPH_SPA_INDEX", "/srv/lawgraph/concordans/current/index.html"
+)
