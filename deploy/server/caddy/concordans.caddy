@@ -16,6 +16,12 @@ concordans.nl {
 		file_server
 	}
 
+	# the sitemaps `lawgraph sitemaps` writes (daily.sh): sitemap.xml and its gzipped parts, #425
+	handle /sitemap* {
+		root * /srv/lawgraph/concordans/sitemaps
+		file_server
+	}
+
 	# a file of the build (the shell, og images, robots.txt) as it is
 	@file file {
 		root /srv/lawgraph/concordans/current
