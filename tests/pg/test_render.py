@@ -482,3 +482,230 @@ def test_a_dossier_with_a_suffix_by_its_label(
     assert focus.headers["location"] == "/dossiers/36600-VIII"
     node = client.get("/api/nodes/dossiers/36600_viii").json()
     assert node["path"] == "/dossiers/36600-VIII"
+
+
+def _seed_people(store: GraphStore) -> None:
+    """A minister-president, a former member, someone the Kamer never seated, a faction
+    of each chamber, a cabinet and a committee of each chamber."""
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [
+            _node("m_jetten", "member", name="Rob Jetten", family_name="Jetten",
+                  slug="rob-jetten", party="D66",
+                  government_functions=[
+                      {"function": "Minister voor Klimaat en Energie",
+                       "cabinet": "kabinet-Rutte IV", "cabinet_key": "rutte_iv",
+                       "from_date": "2022-01-10", "to_date": "2024-07-02"},
+                      {"function": "Minister-president", "cabinet": "kabinet-Jetten",
+                       "cabinet_key": "jetten", "from_date": "2026-02-23"},
+                  ],
+                  faction_memberships=[
+                      {"faction_key": "d66", "name": "Democraten 66",
+                       "abbreviation": "D66", "from_date": "2017-03-23",
+                       "to_date": "2026-02-22"},
+                  ]),
+            _node("m_paternotte", "member", name="Jan Paternotte",
+                  family_name="Paternotte", slug="jan-paternotte",
+                  faction_memberships=[
+                      {"faction_key": "d66", "name": "Democraten 66",
+                       "abbreviation": "D66", "from_date": "2017-03-23"},
+                  ]),
+            _node("m_oud", "member", name="Alexander Pechtold", family_name="Pechtold",
+                  slug="alexander-pechtold",
+                  faction_memberships=[
+                      {"faction_key": "d66", "name": "Democraten 66",
+                       "abbreviation": "D66", "from_date": "2003-01-30",
+                       "to_date": "2018-10-09"},
+                  ]),
+            _node("m_onbekend", "member", name="J. de Vries", slug="j-de-vries"),
+            _node("m_ek", "member", name="Paul van Meenen", family_name="Meenen",
+                  slug="paul-van-meenen",
+                  ek={"faction": "ek_d66", "abbreviation": "D66",
+                      "observed_from": "2023-06-13", "observed_until": None}),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            _node("d66", "faction", name="Democraten 66", abbreviation="D66",
+                  seats=26, active_from="2006-11-30"),
+            _node("ek_d66", "faction", name="D66-fractie", abbreviation="D66",
+                  chamber="EK", seats=5,
+                  url="https://www.eerstekamer.nl/fractie/d66",
+                  board=[{"function": "Fractievoorzitter", "name": "P. van Meenen"}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "cabinets",
+        [
+            _node("jetten", "cabinet", name="kabinet-Jetten", from_date="2026-02-23",
+                  previous="schoof", prime_minister="m_jetten",
+                  parties=[{"short": "D66", "faction": "d66"}], factions=["d66"],
+                  phases=[{"kind": "in_functie", "label": "in functie",
+                           "from_date": "2026-02-23"}]),
+            _node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02",
+                  to_date="2026-02-23"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "committees",
+        [
+            _node("szw", "committee",
+                  name="Vaste commissie voor Sociale Zaken en Werkgelegenheid",
+                  abbreviation="SZW", slug="szw", kind="Vaste commissie",
+                  started_on="2010-06-17"),
+            _node("ek_jenv", "committee", name="Justitie en Veiligheid",
+                  title="Vaste commissie voor Justitie en Veiligheid",
+                  abbreviation="J&V", slug="ek-jenv", chamber="EK",
+                  url="https://www.eerstekamer.nl/commissies/jenv"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("f1", "members/m_paternotte", "factions/d66", "MEMBER_OF",
+                  from_date="2017-03-23", role="Fractievoorzitter"),
+            _edge("f2", "members/m_oud", "factions/d66", "MEMBER_OF",
+                  from_date="2003-01-30", to_date="2018-10-09"),
+            _edge("f3", "members/m_ek", "factions/ek_d66", "MEMBER_OF",
+                  chamber="EK", observed_from="2023-06-13", observed_until=None),
+            _edge("c1", "members/m_paternotte", "committees/szw", "MEMBER_OF",
+                  from_date="2021-04-01", role="Voorzitter"),
+            _edge("c2", "members/m_oud", "committees/szw", "MEMBER_OF",
+                  from_date="2010-06-17", to_date="2018-10-09"),
+            _edge("c3", "members/m_ek", "committees/ek_jenv", "MEMBER_OF",
+                  chamber="EK", observed_from="2023-06-13", observed_until=None,
+                  role="lid"),
+            _edge("s1", "members/m_jetten", "cabinets/jetten", "SERVED_IN",
+                  posts=[{"function": "Minister-president"},
+                         {"function": "Minister van Algemene Zaken"}]),
+            _edge("w1", "members/m_jetten", "documents/kst_36496_71", "AUTHORED",
+                  role="Eerste ondertekenaar"),
+        ]
+    )  # fmt: skip
+
+
+def test_a_member_has_their_post_and_their_papers(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    response = _get(client, "/leden/rob-jetten")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == "Rob Jetten, Minister-president, Concordans"
+    assert page["description"] == (
+        "Rob Jetten (D66), Minister-president in kabinet-Jetten (2026–), Minister voor "
+        "Klimaat en Energie in kabinet-Rutte IV (2022–2024)"
+    )
+    assert page["canonical"] == "https://concordans.nl/leden/rob-jetten"
+    assert page["robots"] is None
+    assert page["data"]["@graph"][0]["@type"] == "Person"
+    assert page["data"]["@graph"][0]["jobTitle"] == "Minister-president"
+    assert 'href="/kabinetten/jetten"' in page["main"]
+    assert 'href="/kabinetten/rutte_iv"' in page["main"]
+    assert 'href="/fracties/d66"' in page["main"]
+    assert 'href="/kamerstukken/36496/71"' in page["main"]
+
+
+@pytest.mark.parametrize(
+    ("slug", "title"),
+    [
+        ("jan-paternotte", "Jan Paternotte, Tweede Kamerlid (D66)"),
+        ("alexander-pechtold", "Alexander Pechtold, oud-Kamerlid"),
+        ("paul-van-meenen", "Paul van Meenen, Eerste Kamerlid (D66)"),
+        # no seat and no post: the name alone, nothing guessed
+        ("j-de-vries", "J. de Vries"),
+    ],
+)
+def test_what_a_member_is_comes_from_the_source(
+    client: TestClient, store: GraphStore, slug: str, title: str
+) -> None:
+    _seed_people(store)
+    assert _head(_get(client, f"/leden/{slug}").text)["title"] == f"{title}, Concordans"
+
+
+def test_a_faction_lists_its_members_now(client: TestClient, store: GraphStore) -> None:
+    _seed_people(store)
+    page = _head(_get(client, "/fracties/d66").text)
+    assert page["title"] == "D66, fractie in de Tweede Kamer, Concordans"
+    # its name and its years: no seats, nothing that changes with a day of the data
+    assert page["description"] == (
+        "Democraten 66 (D66), fractie in de Tweede Kamer, actief sinds 30-11-2006"
+    )
+    assert 'href="/leden/jan-paternotte"' in page["main"]
+    assert "Fractievoorzitter" in page["main"]
+    assert "/leden/alexander-pechtold" not in page["main"]  # left in 2018
+    assert page["data"]["@graph"][0]["parentOrganization"]["name"] == (
+        "Tweede Kamer der Staten-Generaal"
+    )
+    ek = _head(_get(client, "/fracties/ek_d66").text)
+    assert ek["title"] == "D66-fractie in de Eerste Kamer, Concordans"
+    assert 'href="/leden/paul-van-meenen"' in ek["main"]
+    assert "P. van Meenen" in ek["main"]  # its board
+    assert 'href="https://www.eerstekamer.nl/fractie/d66"' in ek["main"]
+
+
+def test_a_cabinet_has_its_bewindspersonen_and_parties(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    page = _head(_get(client, "/kabinetten/jetten").text)
+    assert page["title"] == "Kabinet-Jetten (2026–), Concordans"
+    assert page["description"] == (
+        "Kabinet-Jetten, sinds 23-02-2026, D66, minister-president Rob Jetten"
+    )
+    assert 'href="/leden/rob-jetten"' in page["main"]
+    assert "Minister-president; Minister van Algemene Zaken" in page["main"]
+    assert 'href="/fracties/d66"' in page["main"]
+    assert 'href="/kabinetten/schoof"' in page["main"]
+    assert page["data"]["@graph"][0]["foundingDate"] == "2026-02-23"
+    before = _head(_get(client, "/kabinetten/schoof").text)
+    assert before["title"] == "Kabinet-Schoof (2024–2026), Concordans"
+
+
+def test_a_committee_lists_its_members_with_their_role(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    page = _head(_get(client, "/commissies/szw").text)
+    assert page["title"] == (
+        "Vaste commissie voor Sociale Zaken en Werkgelegenheid (SZW), Concordans"
+    )
+    assert "Tweede Kamer" in page["description"]
+    assert "actief sinds 17-06-2010" in page["description"]
+    assert 'href="/leden/jan-paternotte"' in page["main"]
+    assert "Voorzitter" in page["main"]
+    assert "/leden/alexander-pechtold" not in page["main"]
+    ek = _head(_get(client, "/commissies/ek-jenv").text)
+    assert ek["title"].startswith(
+        "Vaste commissie voor Justitie en Veiligheid (J&amp;V)"
+    )
+    assert 'href="/leden/paul-van-meenen"' in ek["main"]
+    assert ek["data"]["@graph"][0]["parentOrganization"]["name"] == (
+        "Eerste Kamer der Staten-Generaal"
+    )
+
+
+@pytest.mark.parametrize(
+    "path", ["/leden/niemand", "/fracties/geen", "/kabinetten/geen", "/commissies/geen"]
+)
+def test_a_person_or_body_that_is_not_there_is_not_found(
+    client: TestClient, store: GraphStore, path: str
+) -> None:
+    _seed_people(store)
+    assert _get(client, path).status_code == 404
+
+
+def test_the_app_titles_a_person_or_body_as_its_page(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    for node, title in (
+        ("members/m_jetten", "Rob Jetten, Minister-president"),
+        ("factions/d66", "D66, fractie in de Tweede Kamer"),
+        ("cabinets/jetten", "Kabinet-Jetten (2026–)"),
+        (
+            "committees/szw",
+            "Vaste commissie voor Sociale Zaken en Werkgelegenheid (SZW)",
+        ),
+    ):
+        assert client.get(f"/api/nodes/{node}").json()["title"] == title, node

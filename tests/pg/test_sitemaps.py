@@ -150,6 +150,68 @@ def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
     ]
 
 
+def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [
+            _node("m_1", "member", slug="rob-jetten",
+                  government_functions=[{"function": "Minister-president"}]),
+            _node("m_2", "member", slug="jan-paternotte",
+                  faction_memberships=[{"faction_key": "d66"}]),
+            _node("m_3", "member", slug="paul-van-meenen", ek={"faction": "ek_d66"}),
+            # never seated, no post: no page worth a search engine
+            _node("m_4", "member", slug="j-de-vries", faction_memberships=[]),
+            _node("m_5", "member", name="Zonder slug",
+                  faction_memberships=[{"faction_key": "d66"}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            _node("d66", "faction", seats_changed_on="2026-03-01T10:00:00"),
+            _node("ek_d66", "faction", chamber="EK"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "cabinets",
+        [
+            _node("jetten", "cabinet", from_date="2026-02-23",
+                  phases=[{"from_date": "2026-01-05"}, {"from_date": "2026-02-23"}]),
+            _node("schoof", "cabinet", from_date="2024-07-02", to_date="2026-02-23",
+                  phases=[{"from_date": "2025-06-03"}]),
+            _node("drees", "cabinet", from_date="1948-08-07"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "committees",
+        [
+            _node("szw", "committee", slug="szw"),
+            _node("ek_jenv", "committee", slug="ek-jenv", chamber="EK"),
+            _node("geen", "committee", name="Zonder slug"),
+        ],
+    )
+    kinds = command.kinds(store)
+    assert _paths(kinds, "leden") == [
+        ("/leden/rob-jetten", None),
+        ("/leden/jan-paternotte", None),
+        ("/leden/paul-van-meenen", None),
+    ]
+    assert _paths(kinds, "fracties") == [
+        ("/fracties/d66", "2026-03-01"),
+        ("/fracties/ek_d66", None),
+    ]
+    # its end, else the start of its last phase, else its beëdiging
+    assert _paths(kinds, "kabinetten") == [
+        ("/kabinetten/drees", "1948-08-07"),
+        ("/kabinetten/jetten", "2026-02-23"),
+        ("/kabinetten/schoof", "2026-02-23"),
+    ]
+    assert _paths(kinds, "commissies") == [
+        ("/commissies/ek-jenv", None),
+        ("/commissies/szw", None),
+    ]
+
+
 def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None:
     _seed(store)
     listed = [row["id"] for row in queries.articles(store, top=1)]

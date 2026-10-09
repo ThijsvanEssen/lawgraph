@@ -10,12 +10,16 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
+    COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_PART_OF,
 )
@@ -119,6 +123,74 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
         SELECT id, json_build_object('label', label, 'number', number) AS props,
                last_activity AS lastmod
         FROM {COLLECTION_DOSSIERS}
+        ORDER BY id
+        """
+    )
+
+
+# A field of the props that is a list with something in it.
+_LISTS = (
+    "CASE json_typeof(props -> '{field}')"
+    " WHEN 'array' THEN json_array_length(props -> '{field}') ELSE 0 END > 0"
+)
+
+
+def members(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """The members with a slug who sat in a chamber or held a post in a cabinet; no day
+    of change (none is kept)."""
+    yield from store.query(
+        f"""
+        SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
+               NULL AS lastmod
+        FROM {COLLECTION_MEMBERS}
+        WHERE lg_str(props -> 'slug') IS NOT NULL
+          AND ({_LISTS.format(field="faction_memberships")}
+               OR {_LISTS.format(field="government_functions")}
+               OR coalesce(json_typeof(props -> 'ek'), 'null') = 'object')
+        ORDER BY id
+        """
+    )
+
+
+def factions(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every faction, of both chambers, with the day one of its seats last changed."""
+    yield from store.query(
+        f"""
+        SELECT id, '{{}}'::json AS props, lg_str(props -> 'seats_changed_on') AS lastmod
+        FROM {COLLECTION_FACTIONS}
+        ORDER BY id
+        """
+    )
+
+
+def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every cabinet, with the day it last changed: its end, else the start of its last
+    phase, else its beëdiging."""
+    yield from store.query(
+        f"""
+        SELECT id, '{{}}'::json AS props,
+               coalesce(
+                   lg_str(props -> 'to_date'),
+                   (SELECT max(lg_str(p -> 'from_date'))
+                    FROM json_array_elements(
+                        CASE json_typeof(props -> 'phases')
+                            WHEN 'array' THEN props -> 'phases' ELSE '[]'::json END) p),
+                   lg_str(props -> 'from_date')
+               ) AS lastmod
+        FROM {COLLECTION_CABINETS}
+        ORDER BY id
+        """
+    )
+
+
+def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every committee with a slug, of both chambers; no day of change (none is kept)."""
+    yield from store.query(
+        f"""
+        SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
+               NULL AS lastmod
+        FROM {COLLECTION_COMMITTEES}
+        WHERE lg_str(props -> 'slug') IS NOT NULL
         ORDER BY id
         """
     )

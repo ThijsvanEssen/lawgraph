@@ -503,6 +503,484 @@ def dossier_page(row: dict[str, Any]) -> Page:
     )
 
 
+# ── members, factions, cabinets and committees ────────────────────────────────
+
+TK = "Tweede Kamer der Staten-Generaal"
+EK = "Eerste Kamer der Staten-Generaal"
+
+
+def _period(start: Any, end: Any) -> str:
+    """``sinds 02-07-2024``, or ``02-07-2024 tot 05-07-2024``: as the source dates it."""
+    first, last = _day(start), _day(end)
+    if first and last:
+        return f"{first} tot {last}"
+    return f"sinds {first}" if first else (f"tot {last}" if last else "")
+
+
+def _years(start: Any, end: Any) -> str:
+    """``2022–2024``, or ``2024–`` while it lasts."""
+    first, last = _text(start)[:4], _text(end)[:4]
+    if not first:
+        return ""
+    return f"{first}–{last}" if last != first else first
+
+
+def _member_link(row: dict[str, Any]) -> str:
+    name = _text(row.get("name"))
+    return _link(path_of(row["id"], {"slug": row.get("slug")}), name) if name else ""
+
+
+def member_name(props: dict[str, Any]) -> str:
+    return (
+        _text(props.get("name"))
+        or _text(props.get("full_name"))
+        or _text(props.get("display_name"))
+    )
+
+
+def member_role(props: dict[str, Any]) -> str:
+    """What a member is now, in the words of the source: the post they hold in a cabinet
+    as the source names it, else a seat in a chamber; ``oud-Kamerlid`` only for one whose
+    seats in the Tweede Kamer all ended; nothing for anyone else."""
+    posts = [f for f in props.get("government_functions") or [] if isinstance(f, dict)]
+    held = [f for f in posts if not f.get("to_date") and _text(f.get("function"))]
+    if held:
+        return _text(held[-1].get("function"))
+    seats = [m for m in props.get("faction_memberships") or [] if isinstance(m, dict)]
+    now = [m for m in seats if not m.get("to_date")]
+    if now:
+        party = _text(now[-1].get("abbreviation")) or _text(now[-1].get("name"))
+        return f"Tweede Kamerlid ({party})" if party else "Tweede Kamerlid"
+    ek = props.get("ek") if isinstance(props.get("ek"), dict) else {}
+    if ek and not ek.get("observed_until"):
+        party = _text(ek.get("abbreviation"))
+        return f"Eerste Kamerlid ({party})" if party else "Eerste Kamerlid"
+    if seats and all(m.get("to_date") for m in seats):
+        return "oud-Kamerlid"
+    return ""
+
+
+def member_title(props: dict[str, Any]) -> str:
+    """``Rob Jetten, Minister-president``: the name, and what they are now when known."""
+    name, role = member_name(props), member_role(props)
+    return f"{name}, {role}" if name and role else name
+
+
+def _posts(props: dict[str, Any]) -> list[dict[str, Any]]:
+    """The posts of a member in a cabinet, newest first."""
+    posts = [f for f in props.get("government_functions") or [] if isinstance(f, dict)]
+    return sorted(posts, key=lambda f: _text(f.get("from_date")), reverse=True)
+
+
+def member_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    name = member_name(props)
+    title = member_title(props)
+    path = path_of(row["id"], props) or ""
+    posts = _posts(props)
+    party = _text(props.get("party"))
+    description = ", ".join(
+        part
+        for part in (
+            name + (f" ({party})" if party and party not in name else ""),
+            *(
+                " ".join(
+                    p
+                    for p in (
+                        _text(f.get("function")),
+                        f"in {_text(f.get('cabinet'))}" if f.get("cabinet") else "",
+                        f"({_years(f.get('from_date'), f.get('to_date'))})"
+                        if f.get("from_date")
+                        else "",
+                    )
+                    if p
+                )
+                for f in posts[:3]
+            ),
+        )
+        if part
+    )
+    post_items = [
+        ", ".join(
+            p
+            for p in (
+                escape(_text(f.get("function"))),
+                _link(
+                    path_of(f"cabinets/{f['cabinet_key']}")
+                    if isinstance(f.get("cabinet_key"), str)
+                    else None,
+                    _text(f.get("cabinet")),
+                )
+                if f.get("cabinet")
+                else "",
+                escape(_period(f.get("from_date"), f.get("to_date"))),
+            )
+            if p
+        )
+        for f in posts
+    ]
+    seats = [m for m in props.get("faction_memberships") or [] if isinstance(m, dict)]
+    seat_items = [
+        ", ".join(
+            p
+            for p in (
+                _link(
+                    path_of(f"factions/{m['faction_key']}")
+                    if isinstance(m.get("faction_key"), str)
+                    else None,
+                    _text(m.get("name")) or _text(m.get("abbreviation")),
+                ),
+                escape(_text(m.get("role"))),
+                escape(_period(m.get("from_date"), m.get("to_date"))),
+            )
+            if p
+        )
+        for m in reversed(seats)
+    ]
+    ek = props.get("ek") if isinstance(props.get("ek"), dict) else {}
+    if ek:
+        faction_key = _text(ek.get("faction"))
+        seat_items.insert(
+            0,
+            ", ".join(
+                p
+                for p in (
+                    "Eerste Kamer",
+                    _link(
+                        path_of(f"factions/{faction_key}") if faction_key else None,
+                        _text(ek.get("abbreviation")),
+                    )
+                    if ek.get("abbreviation")
+                    else "",
+                    escape(_period(ek.get("observed_from"), ek.get("observed_until"))),
+                )
+                if p
+            ),
+        )
+    papers = _list(
+        [
+            _link(
+                path_of(p["id"], p.get("light") or {}),
+                paper_title(p, p.get("light") or {}, []),
+            )
+            for p in row.get("papers") or []
+        ]
+    )
+    role = member_role(props)
+    body = (
+        f"<h1>{escape(name)}</h1>"
+        + (f"<p>{escape(role)}</p>" if role else "")
+        + _section("Functies in een kabinet", _list(post_items))
+        + _section("Fracties", _list(seat_items))
+        + _section("Stukken", papers)
+    )
+    organisations = [_text(m.get("name")) for m in seats if _text(m.get("name"))] + [
+        _text(f.get("cabinet")) for f in posts if _text(f.get("cabinet"))
+    ]
+    return Page(
+        title=title,
+        description=cut(description or title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(name, path)],
+        data={
+            "@type": "Person",
+            "name": name,
+            **({"jobTitle": role} if role else {}),
+            **(
+                {
+                    "memberOf": [
+                        {"@type": "Organization", "name": o}
+                        for o in dict.fromkeys(organisations)
+                    ]
+                }
+                if organisations
+                else {}
+            ),
+        },
+        body=body,
+        index=bool(name and path),
+    )
+
+
+def _chamber(props: dict[str, Any], key: str) -> str:
+    """``EK`` for a faction or committee of the Eerste Kamer, else ``TK``."""
+    return "EK" if props.get("chamber") == "EK" or key.startswith("ek_") else "TK"
+
+
+def faction_title(props: dict[str, Any], key: str) -> str:
+    """``D66, fractie in de Tweede Kamer``; ``D66-fractie in de Eerste Kamer`` (its name as
+    its page writes it)."""
+    if _chamber(props, key) == "EK":
+        name = _text(props.get("name")) or _text(props.get("abbreviation")) or key
+        return f"{name} in de Eerste Kamer"
+    name = _text(props.get("abbreviation")) or _text(props.get("name")) or key
+    return f"{name}, fractie in de Tweede Kamer"
+
+
+def _role(meta: Any) -> str:
+    meta = meta if isinstance(meta, dict) else {}
+    role = _text(meta.get("role"))
+    if meta.get("substitute"):
+        return f"plaatsvervangend lid{', ' + role if role else ''}"
+    return role
+
+
+def _members(rows: list[dict[str, Any]]) -> str:
+    return _list(
+        [
+            _member_link(r)
+            + (f", {escape(_role(r.get('meta')))}" if _role(r.get("meta")) else "")
+            for r in rows
+            if _text(r.get("name"))
+        ]
+    )
+
+
+def faction_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    key = row["key"]
+    title = faction_title(props, key)
+    path = path_of(row["id"], props) or ""
+    name = _text(props.get("name"))
+    abbreviation = _text(props.get("abbreviation"))
+    ek = _chamber(props, key) == "EK"
+    active = _period(props.get("active_from"), props.get("active_until"))
+    description = ", ".join(
+        part
+        for part in (
+            name
+            + (f" ({abbreviation})" if abbreviation and abbreviation != name else ""),
+            "fractie in de Eerste Kamer" if ek else "fractie in de Tweede Kamer",
+            f"actief {active}" if active else "",
+        )
+        if part
+    )
+    seats = props.get("seats")
+    board = [b for b in props.get("board") or [] if isinstance(b, dict)]
+    board_items = [
+        ", ".join(
+            p
+            for p in (
+                escape(_text(b.get("function"))),
+                escape(_text(b.get("name"))),
+            )
+            if p
+        )
+        for b in board
+    ]
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>{escape(name)}</p>" if name and name not in title else "")
+        + (f"<p>Actief {escape(active)}</p>" if active else "")
+        + (
+            f"<p>Zetels: {seats}</p>"
+            if isinstance(seats, int) and not isinstance(seats, bool) and seats
+            else ""
+        )
+        + _section("Fractiebestuur", _list(board_items))
+        + _section("Leden", _members(row.get("members") or []))
+        + (
+            f'<p><a href="{escape(_text(props.get("url")))}">De fractie op '
+            "eerstekamer.nl</a></p>"
+            if ek and _text(props.get("url")).startswith("https://")
+            else ""
+        )
+    )
+    return Page(
+        title=title,
+        description=cut(description or title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        data={
+            "@type": "Organization",
+            "name": name or title,
+            **({"alternateName": abbreviation} if abbreviation else {}),
+            "parentOrganization": {
+                "@type": "GovernmentOrganization",
+                "name": EK if ek else TK,
+            },
+        },
+        body=body,
+        index=bool(name or abbreviation),
+    )
+
+
+def cabinet_name(props: dict[str, Any], key: str) -> str:
+    """``Kabinet-Rutte IV``: the name as Rijksoverheid writes it, with a capital."""
+    name = _text(props.get("name")) or key.replace("_", " ")
+    return name[:1].upper() + name[1:]
+
+
+def cabinet_title(props: dict[str, Any], key: str) -> str:
+    """``Kabinet-Rutte IV (2022–2024)``."""
+    name = cabinet_name(props, key)
+    years = _years(props.get("from_date"), props.get("to_date"))
+    return f"{name} ({years})" if years else name
+
+
+def cabinet_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    key = row["key"]
+    name = cabinet_name(props, key)
+    title = cabinet_title(props, key)
+    path = path_of(row["id"], props) or ""
+    period = _period(props.get("from_date"), props.get("to_date"))
+    factions = row.get("factions") or []
+    parties = [
+        _text(p.get("short")) for p in props.get("parties") or [] if isinstance(p, dict)
+    ]
+    parties = [p for p in parties if p] or [n for _, n in factions]
+    pm = row.get("prime_minister") or {}
+    description = ", ".join(
+        part
+        for part in (
+            name,
+            period,
+            ", ".join(parties),
+            f"minister-president {_text(pm.get('name'))}" if pm.get("name") else "",
+        )
+        if part
+    )
+    phases = _list(
+        [
+            escape(
+                ", ".join(
+                    p
+                    for p in (
+                        _text(ph.get("label")) or _text(ph.get("kind")),
+                        _period(ph.get("from_date"), ph.get("to_date")),
+                    )
+                    if p
+                )
+            )
+            for ph in props.get("phases") or []
+            if isinstance(ph, dict)
+        ]
+    )
+    served = _list(
+        [
+            _member_link(m)
+            + (
+                ": "
+                + escape(
+                    "; ".join(
+                        dict.fromkeys(
+                            _text(p.get("function"))
+                            for p in m["posts"]
+                            if isinstance(p, dict) and _text(p.get("function"))
+                        )
+                    )
+                )
+                if isinstance(m.get("posts"), list) and m["posts"]
+                else ""
+            )
+            for m in row.get("served") or []
+            if _text(m.get("name"))
+        ]
+    )
+    previous = row.get("previous")
+    before = (
+        _link(
+            path_of(f"cabinets/{previous[0]}"),
+            cabinet_name({"name": previous[1]}, previous[0]),
+        )
+        if previous
+        else ""
+    )
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>{escape(period[:1].upper() + period[1:])}</p>" if period else "")
+        + (f"<p>Minister-president: {_member_link(pm)}</p>" if pm.get("name") else "")
+        + (f"<p>Vorig kabinet: {before}</p>" if before else "")
+        + _section(
+            "Partijen",
+            _list([_link(path_of(f"factions/{k}"), n) for k, n in factions]),
+        )
+        + _section("Fasen", phases)
+        + _section("Bewindspersonen", served)
+    )
+    return Page(
+        title=title,
+        description=cut(description or title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        data={
+            "@type": "GovernmentOrganization",
+            "name": name,
+            **({"foundingDate": props["from_date"]} if props.get("from_date") else {}),
+            **({"dissolutionDate": props["to_date"]} if props.get("to_date") else {}),
+        },
+        body=body,
+    )
+
+
+def committee_title(props: dict[str, Any], key: str) -> str:
+    """``Vaste commissie voor Sociale Zaken en Werkgelegenheid (SZW)``, with ``, Eerste
+    Kamer`` for one of the Eerste Kamer."""
+    name = _text(props.get("title")) or _text(props.get("name")) or key
+    abbreviation = _text(props.get("abbreviation"))
+    title = (
+        f"{name} ({abbreviation})"
+        if abbreviation and abbreviation not in name
+        else name
+    )
+    return f"{title}, Eerste Kamer" if _chamber(props, key) == "EK" else title
+
+
+def committee_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    key = row["key"]
+    title = committee_title(props, key)
+    path = path_of(row["id"], props) or ""
+    ek = _chamber(props, key) == "EK"
+    name = _text(props.get("title")) or _text(props.get("name")) or key
+    kind = _text(props.get("kind"))
+    active = _period(props.get("started_on"), props.get("ended_on"))
+    description = ", ".join(
+        part
+        for part in (
+            name,
+            kind if kind and kind.lower() not in name.lower() else "",
+            "Eerste Kamer" if ek else "Tweede Kamer",
+            f"actief {active}" if active else "",
+        )
+        if part
+    )
+    url = _text(props.get("url"))
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>{escape(kind)}</p>" if kind else "")
+        + (f"<p>Actief {escape(active)}</p>" if active else "")
+        + _section("Leden", _members(row.get("members") or []))
+        + (
+            f'<p><a href="{escape(url)}">De commissie op eerstekamer.nl</a></p>'
+            if ek and url.startswith("https://")
+            else ""
+        )
+    )
+    return Page(
+        title=title,
+        description=cut(description or title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        data={
+            "@type": "Organization",
+            "name": name,
+            **(
+                {"alternateName": props["abbreviation"]}
+                if props.get("abbreviation")
+                else {}
+            ),
+            "parentOrganization": {
+                "@type": "GovernmentOrganization",
+                "name": EK if ek else TK,
+            },
+        },
+        body=body,
+        index=bool(_text(props.get("name")) or _text(props.get("title"))),
+    )
+
+
 # The page of each kind of address that has one; the others get the shell.
 PAGES = {
     "wet": law_page,
@@ -510,6 +988,10 @@ PAGES = {
     "uitspraak": judgment_page,
     "kamerstuk": paper_page,
     "dossier": dossier_page,
+    "lid": member_page,
+    "fractie": faction_page,
+    "kabinet": cabinet_page,
+    "commissie": committee_page,
 }
 
 
@@ -543,5 +1025,17 @@ def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
     if collection == "dossiers":
         title = dossier_title(props, key)
         return title, cut(_text(props.get("title")) or title, DESCRIPTION_MAX)
+    if collection == "members":
+        title = member_title(props) or _text(props.get("display_name")) or key
+        return title, cut(title, DESCRIPTION_MAX)
+    if collection == "factions":
+        title = faction_title(props, key)
+        return title, cut(title, DESCRIPTION_MAX)
+    if collection == "cabinets":
+        title = cabinet_title(props, key)
+        return title, cut(title, DESCRIPTION_MAX)
+    if collection == "committees":
+        title = committee_title(props, key)
+        return title, cut(title, DESCRIPTION_MAX)
     name = _text(props.get("display_name")) or _text(props.get("name")) or key
     return name, cut(name, DESCRIPTION_MAX)
