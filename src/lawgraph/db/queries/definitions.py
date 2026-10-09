@@ -12,8 +12,10 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     SOURCE_BWB,
 )
+from lawgraph.core.bwb_definitions import TermMatcher, definition_ref
 from lawgraph.core.models import make_node_key
 from lawgraph.db.counting import Store
+from lawgraph.db.version_cache import cached
 
 
 def toestanden(
@@ -87,3 +89,57 @@ def definitions_of(store: Store, instrument_id: str) -> list[dict[str, Any]]:
     )
     found = next(iter(rows), None)
     return list(found) if isinstance(found, list) else []
+
+
+def term_matcher(store: Any, instrument_id: str) -> TermMatcher:
+    """The compiled matcher of the defined terms of *instrument_id*, kept per data version
+    (``cached``): an article of the Wft does not compile its hundreds of terms again."""
+    return cached(
+        store,
+        ("term_matcher", instrument_id),
+        lambda: TermMatcher(definitions_of(store, instrument_id)),
+    )
+
+
+def article_terms(
+    store: Any,
+    instrument_id: str,
+    article_props: dict[str, Any],
+    citations: list[tuple[int, int, str | None]],
+) -> tuple[list[dict[str, Any]], dict[int, str], list[dict[str, Any]]]:
+    """The defined terms of an article: ``(term spans, definition_ref per citation index,
+    the definitions they name)``.
+
+    *citations* are the ``(start, end, cited BWB id)`` of its citation spans. A term inside
+    a citation is no span of its own ("de Algemene wet bestuursrecht" holds "wet"); when its
+    definition is the regulation cited ("artikel 11 van de wet", the Zorgverzekeringswet),
+    the citation names that definition."""
+    text = str(article_props.get("text") or "")
+    path = str(article_props.get("path") or "")
+    spans: list[dict[str, Any]] = []
+    refs: dict[int, str] = {}
+    used: dict[str, dict[str, Any]] = {}
+    for start, end, definition in term_matcher(store, instrument_id).find(text, path):
+        inside = next(
+            (i for i, (s, e, _) in enumerate(citations) if s < end and start < e),
+            None,
+        )
+        ref = definition_ref(definition)
+        if inside is None:
+            spans.append(
+                {
+                    "start": start,
+                    "end": end,
+                    "term": definition["term"],
+                    "definition_ref": ref,
+                }
+            )
+        elif (
+            definition.get("refers_to")
+            and definition["refers_to"] == citations[inside][2]
+        ):
+            refs.setdefault(inside, ref)
+        else:
+            continue
+        used.setdefault(ref, definition)
+    return spans, refs, list(used.values())

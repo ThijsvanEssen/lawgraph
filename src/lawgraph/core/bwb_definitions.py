@@ -225,3 +225,51 @@ def applies(definition: dict[str, Any], article_path: str) -> bool:
     """Whether *definition* holds in the article at *article_path*."""
     path = (definition.get("scope") or {}).get("path") or ""
     return not path or article_path == path or article_path.startswith(path + "/")
+
+
+def definition_ref(definition: dict[str, Any]) -> str:
+    """How a span names its definition: the article and the letter of the onderdeel
+    (``bwbr0018492_1:a``), else the article and the term."""
+    return (
+        f"{definition['article_key']}:{definition.get('place') or definition['term']}"
+    )
+
+
+class TermMatcher:
+    """The defined terms of one regulation, found in a text in one pass: one alternation of
+    every term, the longest first, as a whole word, whatever its case."""
+
+    def __init__(self, found: list[dict[str, Any]]) -> None:
+        self._by_term: dict[str, list[dict[str, Any]]] = {}
+        for definition in found:
+            self._by_term.setdefault(definition["term"].lower(), []).append(definition)
+        terms = sorted(self._by_term, key=len, reverse=True)
+        self._pattern = (
+            re.compile(
+                r"(?<!\w)(?:" + "|".join(re.escape(t) for t in terms) + r")(?!\w)",
+                re.IGNORECASE,
+            )
+            if terms
+            else None
+        )
+
+    def find(
+        self, text: str, article_path: str
+    ) -> list[tuple[int, int, dict[str, Any]]]:
+        """``(start, end, definition)`` of every term of *text* whose definition holds in
+        the article at *article_path*: of two of the same term, the narrower scope."""
+        if self._pattern is None:
+            return []
+        found = []
+        for match in self._pattern.finditer(text):
+            holding = [
+                d
+                for d in self._by_term.get(match.group(0).lower(), [])
+                if applies(d, article_path)
+            ]
+            if holding:
+                narrowest = max(
+                    holding, key=lambda d: len(d["scope"].get("path") or "")
+                )
+                found.append((match.start(), match.end(), narrowest))
+        return found

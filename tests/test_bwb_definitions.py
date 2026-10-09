@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lawgraph.core.bwb_definitions import applies, definitions
+from lawgraph.core.bwb_definitions import (
+    TermMatcher,
+    applies,
+    definition_ref,
+    definitions,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -83,3 +88,37 @@ def test_a_term_without_a_colon_is_left_out_and_a_regulation_without_any_gives_n
     assert [(d["term"], d["text"]) for d in definitions("BWBR0000001", plain)] == [
         ("werkgever", "de natuurlijke persoon.")
     ]
+
+
+def test_the_terms_of_a_text_each_with_the_definition_that_holds_there() -> None:
+    def defined(term: str, path: str = "", place: str = "a") -> dict:
+        return {
+            "article_key": "bwbr0000001_1",
+            "term": term,
+            "place": place,
+            "scope": {"kind": "wet", "path": path},
+        }
+
+    matcher = TermMatcher(
+        [
+            defined("wet"),
+            defined("eigen bijdrage", place="b"),
+            defined("bijdrage", place="c"),
+            defined("bijdrage", path="/Hoofdstuk2", place="d"),
+        ]
+    )
+    text = "De Wet en de eigen bijdrage; een bijdrage, wetgeving, bijdragen."
+    found = [
+        (text[s:e], definition_ref(d))
+        for s, e, d in matcher.find(text, "/Hoofdstuk1/Artikel3")
+    ]
+    # whatever its case; the longest term first; whole words only
+    assert found == [
+        ("Wet", "bwbr0000001_1:a"),
+        ("eigen bijdrage", "bwbr0000001_1:b"),
+        ("bijdrage", "bwbr0000001_1:c"),
+    ]
+    # in chapter 2 its own definition of the same term, the narrower one
+    in_chapter = matcher.find("een bijdrage", "/Hoofdstuk2/Artikel9")
+    assert [definition_ref(d) for _, _, d in in_chapter] == ["bwbr0000001_1:d"]
+    assert TermMatcher([]).find("de wet", "") == []
