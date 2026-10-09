@@ -445,6 +445,7 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
         "years": [],
         "party_votes": [],
         "coalition": [],
+        "coalition_cabinets": [],
     }
 
 
@@ -535,6 +536,18 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
         "coalition": [
             {"value": "together", "count": 3},
             {"value": "wissel", "count": 1},
+        ],
+        "coalition_cabinets": [
+            {
+                "cabinet": "schoof",
+                "name": "kabinet-Schoof",
+                "votes": 4,
+                "together": 3,
+                "split": 0,
+                "wissel": 1,
+                "carried": 3,
+                "decisive": 4,
+            }
         ],
     }
     monkeypatch.setattr(
