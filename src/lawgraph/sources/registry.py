@@ -95,6 +95,7 @@ from lawgraph.pipelines.semantic import (
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_relation_types import (
@@ -360,6 +361,23 @@ BWB_SEMANTIC = PipelineCommand(
     "REFERS_TO between BWB articles, from the references of their toestand.",
     add_args=_bwb_articles_add_args,
     make_extra_kwargs=_bwb_articles_extra_kwargs,
+)
+
+
+def _bwb_definitions_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--after", help="Start past this BWB id: the next slice of a full run."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many regulations (a slice)."
+    )
+
+
+BWB_DEFINITIONS = PipelineCommand(
+    BWBDefinitionsSemanticPipeline,
+    "The definitions each regulation gives itself, read from its stored toestand.",
+    add_args=_bwb_definitions_add_args,
+    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
 )
 
 # ── the pipelines, in the order each phase runs them ─────────────────────────
@@ -679,6 +697,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWB_SEMANTIC,
         "REFERS_TO between articles, read from the XML.",
+    ),
+    _pipeline(
+        BWB_DEFINITIONS,
+        "The definitions each regulation gives itself (its begripsbepalingen).",
     ),
     _pipeline(
         BWBGrondslagenSemanticPipeline,
