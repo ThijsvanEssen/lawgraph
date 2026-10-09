@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.official_urls import instrument_url, publication_url
+from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, key_ecli, path_of
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
 
@@ -1012,9 +1013,11 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
 
 def _note_title(note: dict[str, Any]) -> str:
     """The title of a publication as its own text gives it; none when its text gave none
-    (the normalizer's ``Staatsblad <year>/<number>``)."""
+    (the normalizer's ``Staatsblad <year>/<number>``) or only the name of its series (the
+    masthead ``Staatsblad`` a note normalized before its ``DC.title`` was read holds)."""
     title = _text(note.get("title"))
-    return "" if re.fullmatch(r"Staatsblad \d{4}/\d+", title) else title
+    generic = re.fullmatch(r"Staatsblad \d{4}/\d+", title) or is_series_name(title)
+    return "" if generic else title
 
 
 def publication_title(props: dict[str, Any], note: dict[str, Any], key: str) -> str:
