@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.config import settings
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
 
 SHELL = """<!doctype html>
@@ -252,6 +253,42 @@ def test_an_article_whose_judgments_take_too_long_is_its_text(
     assert "Hij die jegens een ander" in page["main"]
     assert 'href="/wetten/BWBR0005289"' in page["main"]
     assert "/uitspraken/" not in page["main"]
+
+
+def test_an_article_page_reads_its_judgments_once_per_version(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The judgments citing an article are sorted once per version of the edges and the
+    judgments (about half a second for 6:162 on prod), in the background, and a later
+    page reads them kept: a page that cannot wait for them is the article, the next one
+    has them."""
+    version_cache.clear()
+    sorted_ = []
+    compute = seo._cited
+
+    def slow(store: GraphStore, node_id: str) -> Any:
+        sorted_.append(node_id)
+        time.sleep(0.3)
+        return compute(store, node_id)
+
+    monkeypatch.setattr(seo, "_cited", slow)
+    monkeypatch.setattr(seo, "CITED_BUDGET", 0.1)
+    first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+    assert "/uitspraken/" not in first["main"]  # not kept yet: the article alone
+    for _ in range(50):  # computed on in the background
+        if _kept():
+            break
+        time.sleep(0.05)
+    for _ in range(3):
+        started = time.monotonic()
+        page = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+        assert time.monotonic() - started < 0.1  # read kept, not sorted again
+        assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in page["main"]
+    assert sorted_ == ["articles/bwbr0005289_162"]
+
+
+def _kept() -> bool:
+    return any("seo article cited" in str(key) for key in version_cache._values)
 
 
 @pytest.mark.parametrize(

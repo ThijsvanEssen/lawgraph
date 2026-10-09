@@ -21,7 +21,7 @@ from lawgraph.db import GraphStore, version_cache
 
 # imported before ``kept`` patches the modules that hold ``cached``: run alone, this file
 # would otherwise import the nodes queries only after, unpatched
-from lawgraph.db.queries import _bm25, nodes
+from lawgraph.db.queries import _bm25, nodes, seo
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import _text
 
@@ -151,14 +151,15 @@ def _caller() -> str:
 
 
 def _exercise(store: GraphStore) -> None:
-    """Everything that keeps an answer per table: the warm-up, the search counts and the
-    lids an article's edges cite."""
+    """Everything that keeps an answer per table: the warm-up, the search counts, the
+    lids an article's edges cite and the judgments that cite it on its page."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
         _bm25.bm25_sql(store, table, {"w": "beroep"}, list(fields), {})
     store.bulk_insert_or_update_nodes("articles", [_node("a1", article_number="1")])
     nodes.get_node_with_neighbors(store, "articles", "a1")
+    seo.cited(store, "articles/a1")
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(
