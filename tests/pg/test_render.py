@@ -39,6 +39,11 @@ SHELL = """<!doctype html>
 	</body>
 </html>
 """
+# As on the server, read before a test patches it: a cold article page is as fast as the
+# static shell (~0.1 s) and waits no longer than this for its judgments.
+CITED_BUDGET = seo.CITED_BUDGET
+SORT = 1.0  # a sort of the judgments that takes longer than any page may wait
+
 ROUTES = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
     {"path": "/actueel", "title": "Actueel, Concordans", "description": "Het nieuws."},
@@ -158,6 +163,10 @@ def client(
     (tmp_path / "spa-routes.json").write_text(json.dumps(ROUTES))
     monkeypatch.setattr(settings, "SPA_INDEX", str(index))
     monkeypatch.setattr(settings, "SITE_URL", "https://concordans.nl")
+    # a page waits for what it links to, however slow the runner: what a page holds is
+    # tested here, how long it waits in test_an_article_page_reads_its_judgments_once_…
+    monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
+    version_cache.clear()
     shell.forget()
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
@@ -205,7 +214,8 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     page = _head(response.text)
     assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
-    assert page["description"].endswith("Met 1 uitspraken en Kamerstukken.")
+    # the text alone, the same before and after its judgments are kept (no count)
+    assert "uitspraken" not in page["description"]
     assert page["canonical"] == "https://concordans.nl/wetten/BWBR0005289/artikel/6:162"
     assert page["og_image"] == "https://concordans.nl/og/artikel.png"
     assert page["descriptions"] == 1  # the one of the shell replaced
@@ -268,24 +278,26 @@ def test_an_article_page_reads_its_judgments_once_per_version(
 
     def slow(store: GraphStore, node_id: str) -> Any:
         sorted_.append(node_id)
-        time.sleep(0.3)
+        time.sleep(SORT)
         return compute(store, node_id)
 
     monkeypatch.setattr(seo, "_cited", slow)
+    assert CITED_BUDGET <= 0.05
+    monkeypatch.setattr(seo, "CITED_BUDGET", CITED_BUDGET)
     started = time.monotonic()
     first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
-    # not kept yet: the article alone, as fast as the static shell
-    assert time.monotonic() - started < 0.1
+    # not kept yet: the article alone, without waiting for the sort
+    assert time.monotonic() - started < SORT / 2
     assert "/uitspraken/" not in first["main"]
     assert "Hij die jegens een ander" in first["main"]
-    for _ in range(50):  # computed on in the background
+    for _ in range(100):  # computed on in the background
         if _kept():
             break
         time.sleep(0.05)
     for _ in range(3):
         started = time.monotonic()
         page = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
-        assert time.monotonic() - started < 0.1  # read kept, not sorted again
+        assert time.monotonic() - started < SORT / 2  # read kept, not sorted again
         assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in page["main"]
     assert sorted_ == ["articles/bwbr0005289_162"]
 

@@ -189,11 +189,8 @@ def article_page(row: dict[str, Any]) -> Page:
     title = article_title(props, law)
     path = path_of(row["id"], props) or ""
     text = _text(props.get("text"))
-    counts = row.get("counts") or {}
-    cited = int(counts.get("judgments") or 0) + int(counts.get("papers") or 0)
-    description = cut(text, DESCRIPTION_MAX - 40) if text else title
-    if cited:
-        description = f"{description} Met {cited} uitspraken en Kamerstukken."
+    # its text alone: the same whether the judgments citing it are kept yet or not
+    description = text or title
     law_path = (
         path_of(f"instruments/{_text(law.get('bwb_id')).lower()}", law) if law else None
     )
