@@ -36,7 +36,11 @@ from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
-from lawgraph.db.queries.instruments import get_instruments_list
+from lawgraph.db.queries.instruments import (
+    get_citing_judgments,
+    get_instruments_list,
+    most_cited_laws,
+)
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.search import (
     load_code_aliases,
@@ -94,6 +98,18 @@ def _warm_subject_areas(store: GraphStore) -> None:
             )
 
 
+# The laws with the most citations whose citing judgments are warmed: the first page as
+# the front end asks it (its ``JUDGMENTS_SHOWN``, the newest first) with the years. The Awb
+# and Sr are hundreds of thousands of judgments each.
+WARM_LAWS = 15
+LAW_JUDGMENTS_SHOWN = 100
+
+
+def _warm_law_judgments(store: GraphStore) -> None:
+    for bwb_id in most_cited_laws(store, WARM_LAWS):
+        get_citing_judgments(store, bwb_id, limit=LAW_JUDGMENTS_SHOWN)
+
+
 # The tables a part of the warm-up reads, for the parts whose answers are kept per table
 # (``version_cache.cached(tables=...)``): such a part is left out while its tables stand
 # still, as a poll of judgments leaves the instruments. ``tests/pg/test_cached_tables.py``
@@ -149,6 +165,7 @@ def warm_up(store: GraphStore) -> None:
         # (``feed_counts``), then the largest areas of law
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
         "judgments by area of law": lambda: _warm_subject_areas(store),
+        "judgments citing a law": lambda: _warm_law_judgments(store),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):
