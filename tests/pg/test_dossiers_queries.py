@@ -406,9 +406,11 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
 
     committee = entries["act_committee"].model_dump()
     assert committee["committee"] == {
+        "id": "committees/c1",
         "key": "c1",
         "slug": "ienw",
         "name": "Vaste commissie voor Infrastructuur",
+        "path": "/commissies/ienw",
     }
     assert committee["body"] == {
         "kind": "Commissiedebat",
