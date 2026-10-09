@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, cast, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
@@ -99,14 +99,24 @@ class TkDecisionDTO(BaseModel):
 
 
 class TimelineCommitteeDTO(WithPath):
-    """The committee that leads an activity, with its address (``/commissies/<slug>``)."""
+    """The committee that leads an activity, with its node (``id``) and its address
+    (``/commissies/<slug>``)."""
 
     model_config = ConfigDict(extra="forbid")
     path_collection = "committees"
 
+    id: str = Field(default="", description="Its node: ``committees/<key>``.")
     key: str
     slug: str | None = None
     name: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _id_of_key(cls, data: Any) -> Any:
+        """``committees/<key>`` where the row names the committee by its key alone."""
+        if isinstance(data, dict) and not data.get("id") and data.get("key"):
+            return {**data, "id": f"committees/{data['key']}"}
+        return data
 
 
 class TimelineSignatoryDTO(WithPath):
@@ -756,7 +766,6 @@ class DossierLawNamedDTO(BaseModel):
 class DossierCommitteeDTO(TimelineCommitteeDTO):
     """A committee that leads an activity about a dossier."""
 
-    id: str
     abbreviation: str | None = None
     role: Literal["lead"] = "lead"
 

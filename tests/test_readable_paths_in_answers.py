@@ -100,9 +100,11 @@ def test_a_committee_of_a_dossier_and_of_an_activity_has_its_address() -> None:
     the committees of a dossier: ``/commissies/<slug>``, none without a slug."""
     lead = TimelineCommitteeDTO(key="c1", slug="financien", name="Financiën")
     assert lead.path == "/commissies/financien"
+    assert lead.id == "committees/c1"  # its node, as on the committees of a dossier
     of_dossier = DossierCommitteeDTO(id="committees/c1", key="c1", slug="financien")
     assert of_dossier.path == "/commissies/financien"
     assert TimelineCommitteeDTO(key="c2").path is None
     # and of the activity planned next, from the dict its query gives
     planned = NextActivityDTO(key="a1", committee={"key": "c1", "slug": "financien"})
     assert planned.model_dump()["committee"]["path"] == "/commissies/financien"
+    assert planned.model_dump()["committee"]["id"] == "committees/c1"
