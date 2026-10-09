@@ -17,7 +17,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -70,20 +69,15 @@ def database(monkeypatch: pytest.MonkeyPatch, payload_store: str) -> Iterator[st
     in this process uses both."""
     from lawgraph.core.cache import TTLCache
     from lawgraph.db import store as store_module
-    from lawgraph.db.schema import create_database_sql
+    from tests.databases import fresh_database
 
-    name = f"lawgraph_it_{uuid.uuid4().hex[:10]}"
-    monkeypatch.setattr(store_module, "DB_URL", TEST_SERVER)
-    monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(store_module, "PAYLOAD_STORE", payload_store)
     # What the caches of the API and the search hold was read from another test's database.
     TTLCache.clear_all()
-    with psycopg.connect(TEST_URL, autocommit=True) as admin:
-        admin.execute(create_database_sql(name).encode())
-        try:
-            yield name
-        finally:
-            admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)'.encode())
+    with fresh_database(TEST_URL) as name:
+        monkeypatch.setattr(store_module, "DB_URL", TEST_SERVER)
+        monkeypatch.setattr(store_module, "DB_NAME", name)
+        monkeypatch.setattr(store_module, "PAYLOAD_STORE", payload_store)
+        yield name
 
 
 @pytest.fixture()

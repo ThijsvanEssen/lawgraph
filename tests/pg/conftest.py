@@ -10,7 +10,6 @@ databases named ``lawgraph_it_...`` there; never the database of ``.env``.
 from __future__ import annotations
 
 import os
-import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -19,7 +18,8 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
-from lawgraph.db.schema import create_database_sql, ensure_schema
+from lawgraph.db.schema import ensure_schema
+from tests.databases import fresh_database
 
 TEST_URL = os.environ.get(
     "LAWGRAPH_TEST_DB_URL",
@@ -55,13 +55,8 @@ def pytest_collection_modifyitems(
 @pytest.fixture()
 def database_url() -> Iterator[str]:
     """The URL of a fresh, empty database on the test server, dropped afterwards."""
-    name = f"lawgraph_it_{uuid.uuid4().hex[:10]}"
-    with psycopg.connect(TEST_URL, autocommit=True) as admin:
-        admin.execute(create_database_sql(name).encode())
-        try:
-            yield f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
-        finally:
-            admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)'.encode())
+    with fresh_database(TEST_URL) as name:
+        yield f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
 
 
 @pytest.fixture()

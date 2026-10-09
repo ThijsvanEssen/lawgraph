@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import sys
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,14 @@ os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 os.environ["LAWGRAPH_RATE_LIMIT_CALLS"] = "1000000"
 # The API warms its answers up in the background at its start; the tests ask themselves.
 os.environ["LAWGRAPH_API_WARM_UP"] = "false"
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Close the stores still open while the output of the run is: a pool closed at exit
+    finds it closed, and logs every connection it could not make there."""
+    store = sys.modules.get("lawgraph.db.store")
+    if store is not None:
+        store.close_stores()
 
 
 @pytest.fixture(autouse=True)
