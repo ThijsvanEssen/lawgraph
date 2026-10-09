@@ -32,6 +32,7 @@ from lawgraph.core.parties import (
     party_color,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.coalition import Coalition, coalition_of_day
 from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
 router = APIRouter()
@@ -89,6 +90,8 @@ def get_seats(
         seats = get_seats_on(store, date.isoformat())
         factions = [doc for doc in get_factions(store) if doc["_key"] in seats]
 
+    as_of = (date or dt.date.today()).isoformat()
+    coalition = coalition_of_day(store, as_of)
     items: list[FactionSeatsDTO] = []
     unplaced = len(SEATING)
     for doc in factions:
@@ -110,14 +113,16 @@ def get_seats(
                 seats=seats[key],
                 **_colors("TK", props.get("abbreviation"), props.get("name")),
                 order=order,
+                coalition=_of_coalition(coalition, key, props.get("abbreviation")),
             )
         )
 
     items.sort(key=lambda item: item.order)
     return ParliamentSeatsResponse(
+        cabinet=coalition.cabinet,
         total_seats=TOTAL_PARLIAMENT_SEATS,
         assigned_seats=sum(item.seats for item in items),
-        as_of=(date or dt.date.today()).isoformat(),
+        as_of=as_of,
         factions=items,
         seating_plan=SeatingPlanDTO(
             **{k: SEATING_SOURCE[k] for k in ("title", "dated", "url", "page")}
@@ -135,6 +140,13 @@ def _colors(chamber: str, *names: str | None) -> dict[str, Any]:
     }
 
 
+def _of_coalition(
+    coalition: Coalition, key: str, abbreviation: str | None
+) -> bool | None:
+    """Whether the faction is of the coalition; None when no cabinet was in office."""
+    return coalition.has(key, abbreviation) if coalition.cabinet else None
+
+
 def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
     factions = [
         doc
@@ -147,6 +159,10 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             doc["props"].get("abbreviation") or "",
         )
     )
+    read_on = max(
+        (doc["props"].get("retrieved_on") or "" for doc in factions), default=""
+    )
+    coalition = coalition_of_day(store, (read_on or dt.date.today().isoformat())[:10])
     items = [
         FactionSeatsDTO(
             id=doc["_id"],
@@ -156,14 +172,15 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             seats=int(doc["props"]["seats"]),
             **_colors("EK", doc["props"].get("abbreviation"), doc["props"].get("name")),
             order=order,
+            coalition=_of_coalition(
+                coalition, doc["_key"], doc["props"].get("abbreviation")
+            ),
         )
         for order, doc in enumerate(factions)
     ]
-    read_on = max(
-        (doc["props"].get("retrieved_on") or "" for doc in factions), default=""
-    )
     return ParliamentSeatsResponse(
         chamber="EK",
+        cabinet=coalition.cabinet,
         total_seats=TOTAL_SENATE_SEATS,
         assigned_seats=sum(item.seats for item in items),
         as_of=read_on or dt.date.today().isoformat(),
