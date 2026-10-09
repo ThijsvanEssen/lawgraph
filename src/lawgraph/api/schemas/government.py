@@ -115,7 +115,12 @@ class CoalitionFactionSeatsDTO(BaseModel):
 
     key: str
     abbreviation: str | None = None
-    seats: int
+    seats: int = Field(..., description="Its seats, a vacant one among them.")
+    vacant: int = Field(
+        0,
+        description="Of its seats, those no member held that day (FractieZetelVacature): "
+        "between a member who left and the successor's installation.",
+    )
     coalition: bool = Field(
         ...,
         description="Its party held a post in the cabinet that day; a faction split off a "
@@ -134,9 +139,10 @@ class SeatStretchDTO(BaseModel):
     opposition: int
     vacant: int = Field(
         0,
-        description="Seats no member held: between a member who left (most often to become "
-        "a bewindspersoon) and the successor's installation; the source records them as "
-        "FractieZetelVacature. `coalition`, `opposition` and `vacant` add up to the Kamer.",
+        description="Seats that neither a member nor a vacancy of a faction accounts for; a "
+        "vacant seat of a faction (FractieZetelVacature) counts among its seats, and for "
+        "the coalition or the opposition. `coalition`, `opposition` and `vacant` add up to "
+        "the Kamer.",
     )
     factions: list[CoalitionFactionSeatsDTO] = Field(
         default_factory=list, description="The coalition first, then by seats."

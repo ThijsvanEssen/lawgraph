@@ -33,6 +33,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
+    RAW_KIND_TK_FRACTIEZETELVACATURE,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
@@ -284,6 +285,21 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
         tk_members.link_members_to_factions(
             store, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
+        )
+        # every vacancy and every faction, also on a run over a window: they are few
+        tk_members.keep_faction_vacancies(
+            store,
+            RawRecords(
+                self,
+                source=SOURCE_TK,
+                kinds=[RAW_KIND_TK_FRACTIEZETELVACATURE],
+                since=None,
+                batch_size=1000,
+            ),
+            {
+                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION, ["vacancies"]),
+                **normalized["factions"],
+            },
         )
         tk_votes.link_votes(
             store,

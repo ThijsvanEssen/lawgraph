@@ -81,11 +81,24 @@ def seats_on(memberships: Sequence[Mapping[str, Any]], day: str) -> dict[str, in
     return {faction: len(keys) for faction, keys in members.items()}
 
 
+def vacant_on(vacancies: Iterable[Mapping[str, Any]], day: str) -> dict[str, int]:
+    """Faction key -> its seats held by no member on *day* (``vacancies`` of a faction:
+    ``{faction_key, from_date, to_date}``, both inclusive)."""
+    found: dict[str, int] = {}
+    for row in vacancies:
+        period = _period(row, "from_date", "to_date")
+        faction = row.get("faction_key")
+        if faction and period and period.covers(day):
+            found[str(faction)] = found.get(str(faction), 0) + 1
+    return found
+
+
 def seat_timeline(
     posts: Sequence[Mapping[str, Any]],
     memberships: Sequence[Mapping[str, Any]],
     start: str,
     end: str,
+    vacancies: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     """The seats of the coalition and the opposition from *start* to *end*, one segment per
     stretch in which neither the coalition nor any faction's seats changed:
@@ -94,7 +107,7 @@ def seat_timeline(
     changes starts a segment."""
     periods = [
         p
-        for row in [*posts, *memberships]
+        for row in [*posts, *memberships, *vacancies]
         if (p := _period(row, "from_date", "to_date")) is not None
     ]
     days = change_days(periods, start, end)
@@ -102,18 +115,24 @@ def seat_timeline(
     for day in days:
         coalition = coalition_on(posts, day)
         seats = seats_on(memberships, day)
+        vacant = vacant_on(vacancies, day)
+        for key, n in vacant.items():  # a vacant seat is still its faction's
+            seats[key] = seats.get(key, 0) + n
         ranked = sorted(
             ((key, n, key in coalition) for key, n in seats.items() if n > 0),
             key=lambda f: (not f[2], -f[1], f[0]),
         )
-        factions = [{"key": k, "seats": n, "coalition": c} for k, n, c in ranked]
+        factions = [
+            {"key": k, "seats": n, "vacant": vacant.get(k, 0), "coalition": c}
+            for k, n, c in ranked
+        ]
         segment = {
             "from_date": day,
             "to_date": end,
             "coalition": sum(n for _, n, c in ranked if c),
             "opposition": sum(n for _, n, c in ranked if not c),
-            # a seat between two members (a member who became a bewindspersoon, before the
-            # successor is installed: FractieZetelVacature), so the stretch adds up
+            # a seat no member and no vacancy of a faction accounts for, so the stretch
+            # adds up; a vacancy of a faction counts among its seats
             "vacant": max(TK_SEATS - sum(n for _, n, _c in ranked), 0),
             "factions": factions,
         }

@@ -10,6 +10,7 @@ against a single recorded payload.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import sys
 from collections.abc import Iterable, Iterator
@@ -527,6 +528,29 @@ def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
             "role": payload.get("Functie") or None,
         },
     )
+
+
+def seat_vacancy(payload: Payload) -> tuple[str, dict[str, Any]] | None:
+    """``(Fractie_Id, period)`` for a FractieZetelVacature record: a seat of the faction no
+    member held, ``from_date`` to ``to_date`` inclusive (None: still vacant). The record's
+    ``TotEnMet`` is the day the successor takes the seat (whose own seat begins that day),
+    so the last vacant day is the one before. None when deleted, without a faction, or
+    when it ends before it begins (the source holds such records)."""
+    if is_deleted(payload):
+        return None
+    seat = next(_dicts(payload.get("FractieZetel")), {})
+    faction_id = str(seat.get("Fractie_Id") or "")
+    start, until = iso_date(payload.get("Van")), iso_date(payload.get("TotEnMet"))
+    if not faction_id or not start:
+        return None
+    end = (
+        (dt.date.fromisoformat(until) - dt.timedelta(days=1)).isoformat()
+        if until
+        else None
+    )
+    if end is not None and end < start:
+        return None
+    return faction_id, {"from_date": start, "to_date": end}
 
 
 def seat_changed_on(payload: Payload) -> str | None:

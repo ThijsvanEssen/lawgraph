@@ -63,7 +63,13 @@ def cabinet_seats(
     posts = cabinet_posts(store, cabinet["_key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
-        tk = seat_timeline(posts, memberships_between(store, start, end), start, end)
+        tk = seat_timeline(
+            posts,
+            memberships_between(store, start, end),
+            start,
+            end,
+            vacancies_between(store, start, end),
+        )
         abbreviations = faction_abbreviations(
             store, {f["key"] for segment in tk for f in segment["factions"]}
         )
@@ -239,3 +245,25 @@ def remove_decision_coalition_except(store: Store, keep: list[str]) -> int:
             {"keep": keep},
         )
     )
+
+
+def vacancies_between(store: Store, start: str, end: str) -> list[dict[str, Any]]:
+    """``{faction_key, from_date, to_date}`` of every vacant seat of a faction of the
+    Tweede Kamer (``vacancies``, FractieZetelVacature) that overlaps *start*..*end*."""
+    rows = store.query(
+        """
+        SELECT f.key AS faction_key, lg_str(v.period -> 'from_date') AS from_date,
+               lg_str(v.period -> 'to_date') AS to_date
+        FROM factions f
+        CROSS JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(f.props -> 'vacancies') = 'array'
+                 THEN f.props -> 'vacancies' ELSE '[]'::json END
+        ) AS v(period)
+        WHERE lg_str(v.period -> 'from_date') <= %(end)s
+          AND (lg_str(v.period -> 'to_date') IS NULL
+               OR lg_str(v.period -> 'to_date') >= %(start)s)
+        ORDER BY 1 ASC NULLS FIRST, 2 ASC NULLS FIRST
+        """,
+        {"start": start, "end": end},
+    )
+    return list(rows)

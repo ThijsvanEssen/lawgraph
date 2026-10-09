@@ -334,6 +334,33 @@ def _write_timelines(
         store.bulk_insert_or_update_nodes(COLLECTION_MEMBERS, updated)
 
 
+def keep_faction_vacancies(
+    store: Store, vacancy_raws: Iterable[dict[str, Any]], faction_nodes: dict[str, Node]
+) -> None:
+    """``vacancies`` on each faction: the periods a seat of it was held by no member
+    (``tk_records.seat_vacancy``), sorted; written when they changed, also to none."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    for raw in vacancy_raws:
+        parsed = tk_records.seat_vacancy(payload_json(raw))
+        node = faction_nodes.get(parsed[0]) if parsed else None
+        if parsed and node is not None and node.key:
+            found.setdefault(node.key, []).append(parsed[1])
+    updated = []
+    for node in {n.key: n for n in faction_nodes.values() if n.key}.values():
+        periods = sorted(
+            found.get(node.key or "", []),
+            key=lambda p: (p["from_date"], p["to_date"] or "9999-12-31"),
+        )
+        if (node.props.get("vacancies") or []) != periods:
+            node.props["vacancies"] = periods or None
+            updated.append(node.to_document())
+    if updated:
+        store.bulk_insert_or_update_nodes(COLLECTION_FACTIONS, updated)
+    logger.info(
+        "Kept the vacant seats of %d factions; %d changed.", len(found), len(updated)
+    )
+
+
 def _write_seat_changes(
     store: Store, faction_nodes: dict[str, Node], changed: dict[str, str]
 ) -> None:

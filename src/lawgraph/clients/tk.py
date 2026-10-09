@@ -383,6 +383,15 @@ class TKClient(BaseClient):
         logger.info("Fetching Fractie records")
         return self._skip_paged_get("Fractie", params={}, page_size=top)
 
+    def fetch_fractie_zetel_vacatures(self, top: int = 250) -> Iterable[dict[str, Any]]:
+        """Fetch FractieZetelVacature: a seat of a faction no member held, from ``Van`` until
+        the successor took it (``TotEnMet``), with the faction of the seat."""
+        params: dict[str, Any] = {"$expand": "FractieZetel($select=Id,Fractie_Id)"}
+        logger.info("Fetching FractieZetelVacature records")
+        return self._skip_paged_get(
+            "FractieZetelVacature", params=params, page_size=top
+        )
+
     def fetch_fractie_zetel_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch FractieZetelPersoon (date-bounded seat holdings).
 

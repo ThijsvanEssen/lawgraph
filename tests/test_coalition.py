@@ -144,3 +144,23 @@ def test_a_seat_between_two_members_is_vacant_so_the_kamer_adds_up() -> None:
         ("2026-02-25", 150, 0),
     ]
     assert all(s["coalition"] + s["opposition"] + s["vacant"] == 150 for s in timeline)
+
+
+def test_a_vacant_seat_counts_for_its_faction() -> None:
+    """The same changeover with the source's vacancies: the seats stay the faction's, so
+    the coalition keeps its 150 and nothing is left unaccounted."""
+    posts = [_post("d66", "2026-02-23")]
+    seats = [_seat(f"m{n}", "d66", "2025-11-12") for n in range(139)]
+    seats += [_seat(f"new{n}", "d66", "2026-02-25") for n in range(11)]
+    vacancies = [
+        {"faction_key": "d66", "from_date": "2026-02-23", "to_date": "2026-02-24"}
+        for _ in range(11)
+    ]
+    timeline = seat_timeline(posts, seats, "2026-02-23", "2026-03-01", vacancies)
+    assert [(s["from_date"], s["coalition"], s["vacant"]) for s in timeline] == [
+        ("2026-02-23", 150, 0),
+        ("2026-02-25", 150, 0),
+    ]
+    assert timeline[0]["factions"] == [
+        {"key": "d66", "seats": 150, "vacant": 11, "coalition": True}
+    ]

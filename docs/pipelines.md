@@ -77,15 +77,15 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | Command | Fetches | Stored kinds |
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development; `--replacing` only the cases that replace another (`Zaak.VervangenVanuit`, some 11,600 in all; with `--mode full` the backfill of that relation for the cases stored before the retrieve read it) | `tk-zaak` |
-| `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; with the Stemming window and `--skip-decisions`), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
+| `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; with the Stemming window and `--skip-decisions`), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, FractieZetelVacature, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-fractie-zetel-vacature`, `tk-document` |
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
 | `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
-other options are in `docs/operations.md`. Commissie, Persoon, Fractie and FractieZetelPersoon
-are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
+other options are in `docs/operations.md`. Commissie, Persoon, Fractie, FractieZetelPersoon and
+FractieZetelVacature are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
 an interrupted run keeps what it fetched. A gaps run takes at most 50,000 dossiers (and
 `retrieve tk-content` at most 50,000 papers, `retrieve rechtspraak --mode gaps` 50,000
 judgments; `MAX_GAPS_PER_RUN`); the table of `retrieve all` says how many are left, and the next
@@ -197,7 +197,9 @@ Decision to the activity of its agenda item, `activity_id`; Document to the acti
 `MEMBER_OF` (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`. A run
 over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every stored seat of that
 person, so the member's timeline is made of all their seats, and takes the member and the faction
-from the database when the window holds neither.
+from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
+them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
+successor takes the seat; a record that ends before it begins is left out.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
