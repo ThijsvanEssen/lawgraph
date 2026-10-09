@@ -117,7 +117,8 @@ def _json_ld(page: Page, base: str) -> str:
 def _head(page: Page, base: str) -> str:
     url = base + page.path
     tags = [
-        f"<title data-seo>{escape(full_title(page.title))}</title>",
+        f"<title data-seo>{escape(page.title if page.whole_title else full_title(page.title))}"
+        "</title>",
         f'<meta name="description" content="{escape(page.description)}" data-seo />',
     ]
     if page.path:

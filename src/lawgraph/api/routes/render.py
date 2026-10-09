@@ -101,11 +101,11 @@ def _app_page(path: str) -> Page | None:
     route = shell.route_of(path)
     if route is None:
         return None
-    title = str(route.get("title") or "")
     return Page(
-        title=title.removesuffix(", Concordans"),
+        title=str(route.get("title") or "Concordans"),
         description=str(route.get("description") or ""),
         path=path,
+        whole_title=True,
     )
 
 

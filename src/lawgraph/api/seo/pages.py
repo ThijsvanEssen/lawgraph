@@ -40,6 +40,9 @@ class Page:
     lang: str = "nl"
     # the image of the page when it is shared (``og:image``): one per kind
     image: str = "/og/concordans.png"
+    # whether ``title`` is the whole ``<title>`` already (a page of the app), without the
+    # name of the site to add
+    whole_title: bool = False
 
 
 def _text(value: Any) -> str:
