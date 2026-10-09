@@ -141,7 +141,10 @@ def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     return lookup.answer(store, node_id).get("props") or {}
 
 
-@router.get("/render/{path:path}", include_in_schema=False)
+# HEAD as GET (Caddy, crawlers and uptime checks ask it): the server leaves out the body.
+@router.api_route(
+    "/render/{path:path}", methods=["GET", "HEAD"], include_in_schema=False
+)
 def render_page(
     path: str,
     request: Request,

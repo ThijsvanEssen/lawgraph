@@ -196,16 +196,22 @@ def dossier_first_signatures(
 
 # Of the dossiers *ids*, those whose first signature a window can have changed: the papers
 # it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
-# written since *since*), walked up to their dossiers (directly or through a case), and of
-# those the dossiers that keep no first signature yet, or whose touched paper is dated on or
-# before the one kept, or is the one kept. A paper that comes later than the first, as almost
-# every new one, changes nothing.
+# written since *since*; a case is no paper, ``_FIRST_SIGNATURES_SQL``), walked up to their
+# dossiers (directly or through a case), and of those the dossiers that keep no first
+# signature yet, or whose touched paper is dated on or before the one kept, or is the one
+# kept. A paper that comes later than the first, as almost every new one, changes nothing.
+# The dossiers a touched paper may change are found once (``changed``), not again for each
+# dossier: a window of tens of thousands of dossiers stays one pass.
 _FIRST_MAY_CHANGE_SQL = f"""
-WITH touched AS (
+WITH ids AS (
+    SELECT DISTINCT unnest(%(ids)s::text[]) AS id
+),
+touched AS (
     SELECT unnest(%(seeds)s::text[]) AS paper_id
     UNION
     SELECT a.to_id FROM edges a
     WHERE a.relation = %(authored)s AND a.created_at >= %(since)s
+      AND a.to_collection <> '{COLLECTION_CASES}'
 ),
 up AS (
     SELECT e.to_id AS dossier_id, t.paper_id
@@ -227,20 +233,20 @@ dated AS (
                 ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = up.paper_id)
            END AS date
     FROM up
-    WHERE up.dossier_id = ANY(%(ids)s::text[])
+    JOIN ids ON ids.id = up.dossier_id
+),
+changed AS (
+    SELECT DISTINCT t.dossier_id
+    FROM dated t
+    JOIN {COLLECTION_DOSSIERS} ds ON ds.id = t.dossier_id
+    WHERE t.paper_id = lg_str(ds.props -> 'first_signed' -> 'paper')
+       OR t.date <= lg_str(ds.props -> 'first_signed' -> 'date')
 )
 SELECT ds.id
 FROM {COLLECTION_DOSSIERS} ds
-WHERE ds.id = ANY(%(ids)s::text[])
-  AND (
-      NOT lg_truthy(ds.props -> 'first_signed')
-      OR EXISTS (
-          SELECT 1 FROM dated t
-          WHERE t.dossier_id = ds.id
-            AND (t.paper_id = lg_str(ds.props -> 'first_signed' -> 'paper')
-                 OR t.date <= lg_str(ds.props -> 'first_signed' -> 'date'))
-      )
-  )
+JOIN ids ON ids.id = ds.id
+LEFT JOIN changed ON changed.dossier_id = ds.id
+WHERE NOT lg_truthy(ds.props -> 'first_signed') OR changed.dossier_id IS NOT NULL
 ORDER BY ds.key COLLATE "C"
 """
 
@@ -253,13 +259,19 @@ def dossiers_whose_first_may_change(
     --touched-since`` reads the papers of; the others keep what they have."""
     return list(
         store.query(
-            _FIRST_MAY_CHANGE_SQL,
-            {
-                "ids": ids,
-                "seeds": seeds,
-                "since": since_iso,
-                "authored": RELATION_AUTHORED,
-                "part_of": RELATION_PART_OF,
-            },
+            _FIRST_MAY_CHANGE_SQL, first_may_change_params(ids, seeds, since_iso)
         )
     )
+
+
+def first_may_change_params(
+    ids: list[str], seeds: list[str], since_iso: str
+) -> dict[str, Any]:
+    """The parameters of ``_FIRST_MAY_CHANGE_SQL``."""
+    return {
+        "ids": ids,
+        "seeds": seeds,
+        "since": since_iso,
+        "authored": RELATION_AUTHORED,
+        "part_of": RELATION_PART_OF,
+    }

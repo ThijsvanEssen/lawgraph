@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+   <metadata>
+      <meta name="DCTERMS.publisher" scheme="OVERHEID.Ministerie"
+            content="Ministerie van Justitie en Veiligheid"/>
+      <meta name="DC.creator" scheme="OVERHEID.Ministerie"
+            content="Ministerie van Onderwijs, Cultuur en Wetenschap"/>
+      <meta name="DCTERMS.isReplacedBy" scheme="OVERHEIDop.StbID" content=""/>
+      <meta name="OVERHEIDop.configuratie" scheme=""
+            content="https://repository.officiele-overheidspublicaties.nl/MasterConfiguraties/MC-OEP-StbAMvB-Web/1.17/xml/MC-OEP-StbAMvB-Web.xml"/>
+      <meta name="OVERHEIDop.steltVast" scheme="" content=""/>
+      <meta name="DCTERMS.hasPart" scheme="" content=""/>
+      <meta name="DCTERMS.isRequiredBy" scheme="OVERHEIDop.StbID" content=""/>
+      <meta name="OVERHEIDop.ketenID" scheme="" content=""/>
+      <meta name="DC.type" scheme="OVERHEIDop.Staatsblad" content="AMvB"/>
+      <meta name="OVERHEIDop.materieelUitgewerkt" scheme="DCTERMS.W3CDTF" content=""/>
+      <meta name="OVERHEIDop.versieInformatie" scheme="" content=""/>
+      <meta name="DCTERMS.language" scheme="DCTERMS.RFC4646" content="nl"/>
+      <meta name="OVERHEIDop.doctype" scheme="" content="Officiële Publicaties, versie 1.1"/>
+      <meta name="DC.type" scheme="OVERHEID.Informatietype" content="officiële publicatie"/>
+      <meta name="OVERHEIDop.publicationName" scheme="" content="Staatsblad"/>
+      <meta name="OVERHEID.organisationType" scheme="OVERHEID.Organisatietype"
+            content="ministerie"/>
+      <meta name="DC.source" scheme=""
+            content="artikel 3.29g, zevende lid, en artikel 3.29i, derde lid, van de Mediawet 2008"/>
+      <meta name="OVERHEID.category" scheme="OVERHEID.TaxonomieBeleidsagenda"
+            content="Cultuur en recreatie | Media"/>
+      <meta name="DCTERMS.relation" scheme="" content=""/>
+      <meta name="DC.title"
+            content="Besluit van 29 september 2025 tot wijziging van het Mediabesluit 2008 in verband met het stellen van nadere regels omtrent een investeringsverplichting voor Nederlands cultureel audiovisueel product"/>
+      <meta name="OVERHEIDop.jaargang" scheme="DCTERMS.W3CDTF" content="2025"/>
+      <meta name="DC.identifier" scheme="OVERHEIDop.StbID" content="stb-2025-263"/>
+      <meta name="OVERHEIDop.publicationIssue" content="263"/>
+      <meta content="" name="DCTERMS.alternative"/>
+      <meta name="OVERHEIDop.datumOndertekening" scheme="DCTERMS.W3CDTF"
+            content="2025-09-29"/>
+      <meta name="DCTERMS.available" scheme="DCTERMS.W3CDTF" content="2025-10-09"/>
+      <meta name="DCTERMS.issued" scheme="DCTERMS.W3CDTF" content="2025-10-09"/>
+      <meta content="" name="OVERHEIDop.bekendmakingBetreffendePlan"
+            scheme="OVERHEIDop.Ruimtelijkplan"/>
+      <meta name="OVERHEIDop.behandeldDossier" content="36176;3"/>
+      <meta name="OVERHEIDop.behandeldDossier" content="36176;30"/>
+      <meta name="OVERHEIDop.behandeldDossier" content="36176;4"/>
+      <meta name="OVERHEIDop.adviesRvS" content="W05.25.00178/I" scheme=""/>
+   </metadata>
+   <kop>
+      <titel>Staatsblad</titel>
+      <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+   </kop>
+   <staatsblad>
+      <intitule>Besluit van 29 september 2025 tot wijziging van het Mediabesluit 2008 in verband met het stellen van nadere regels omtrent een investeringsverplichting voor Nederlands cultureel audiovisueel product</intitule>
+      <wet-besluit>
+         <aanhef>
+            <wij>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wij>
+            <considerans>
+               <considerans.al bevat="voordracht">Op de voordracht van Onze Minister van Onderwijs, Cultuur en Wetenschap van 9 juli 2025, nr. WJZ/53205627 (ID26452);</considerans.al>
+               <considerans.al bevat="grondslag">Gelet op artikel 3.29g, zevende lid, en artikel 3.29i, derde lid, van de Mediawet 2008;</considerans.al>
+               <considerans.al bevat="gehoord">De Afdeling advisering van de Raad van State gehoord (advies van 23 juli 2025, nr. W05.25.00178/I);</considerans.al>
+               <considerans.al bevat="gezien">Gezien het nader rapport van Onze Minister van Onderwijs, Cultuur en Wetenschap van 25 september 2025, nr. WJZ/53882185 (ID26452);</considerans.al>
+            </considerans>
+            <afkondiging>
+               <al>Hebben goedgevonden en verstaan:</al>
+            </afkondiging>
+         </aanhef>
+         <wettekst>
+            <wijzig-artikel status="goed">
+               <kop>
+                  <label>ARTIKEL</label>
+                  <nr status="officieel">I.</nr>
+                  <titel>WIJZIGING MEDIABESLUIT 2008</titel>
+               </kop>
+               <wat type="wijziging">Het Mediabesluit 2008 wordt als volgt gewijzigd:</wat>
+               <wijzig-lid>
+                  <lidnr status="officieel">A</lidnr>
+                  <wat>Het opschrift van hoofdstuk 3 komt te luiden: «Commerciële mediadiensten»</wat>
+               </wijzig-lid>
+               <wijzig-lid>
+                  <lidnr status="officieel">B</lidnr>
+                  <wat>Na artikel 17 worden twee artikelen ingevoegd, die luiden:</wat>
+                  <wijziging>
+                     <artikel status="goed">
+                        <kop>
+                           <label>Artikel</label>
+                           <nr status="officieel">17a</nr>
+                        </kop>
+                        <lid>
+                           <lidnr status="officieel">1.</lidnr>
+                           <al>Wanneer een reeds uitgevoerde investering als bedoeld in artikel 3.29g, zesde lid, van de wet geen doorgang vindt, dient het geïnvesteerde of te investeren bedrag opnieuw te worden geïnvesteerd in Nederlands cultureel audiovisueel product als bedoeld in artikel 3.29f, voor zover dit bedrag terugvalt aan de betreffende media-instelling.</al>
+                        </lid>
+                        <lid>
+                           <lidnr status="officieel">2.</lidnr>
+                           <al>Het opnieuw te investeren bedrag wordt opgeteld bij de investeringsverplichting over het boekjaar dat loopt of aanvangt op het moment dat vaststaat dat het bedrag terugvalt aan de media-instelling.</al>
+                        </lid>
+                        <lid>
+                           <lidnr status="officieel">3.</lidnr>
+                           <al>Een media-instelling informeert het Commissariaat onverwijld over situaties als bedoeld in het eerste lid.</al>
+                        </lid>
+                     </artikel>
+                     <artikel status="goed">
+                        <kop>
+                           <label>Artikel</label>
+                           <nr status="officieel">17b</nr>
+                        </kop>
+                        <al>Uit de volgende indicatoren kan worden opgemaakt of een commerciële mediadienst op aanvraag zich geheel of gedeeltelijk richt op publiek in Nederland:</al>
+                        <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                           <li>
+                              <li.nr>a.</li.nr>
+                              <al>De dienst wordt aangeboden in de Nederlandse of Friese taal;</al>
+                           </li>
+                           <li>
+                              <li.nr>b.</li.nr>
+                              <al>Het media-aanbod van de aanbieder omvat Nederlands- of Friestalig aanbod;</al>
+                           </li>
+                           <li>
+                              <li.nr>c.</li.nr>
+                              <al>Het media-aanbod van de aanbieder bevat productplaatsing of sponsoring gericht op publiek in Nederland;</al>
+                           </li>
+                           <li>
+                              <li.nr>d.</li.nr>
+                              <al>Reclameboodschappen of andere promotieactiviteiten van de aanbieder zijn gericht op publiek in Nederland.</al>
+                           </li>
+                        </lijst>
+                     </artikel>
+                  </wijziging>
+               </wijzig-lid>
+            </wijzig-artikel>
+            <artikel status="goed">
+               <kop>
+                  <label>ARTIKEL</label>
+                  <nr status="officieel">II.</nr>
+                  <titel>INWERKINGTREDING</titel>
+               </kop>
+               <al>Dit besluit treedt in werking met ingang van 1 januari 2026.</al>
+            </artikel>
+         </wettekst>
+         <wetsluiting status="goed">
+            <slotformulering>
+               <al>Lasten en bevelen dat dit besluit met de daarbij behorende nota van toelichting in het Staatsblad zal worden geplaatst.</al>
+            </slotformulering>
+            <gegeven>
+               <dagtekening>
+                  <plaats>’s-Gravenhage,</plaats>
+                  <datum isodatum="2025-09-29">29 september 2025</datum>
+               </dagtekening>
+               <koning>Willem-Alexander</koning>
+            </gegeven>
+            <ondertekening>
+               <functie>De Minister van Onderwijs, Cultuur en Wetenschap,</functie>
+               <naam>
+                  <voornaam>G.</voornaam>
+                  <achternaam>Moes</achternaam>
+               </naam>
+            </ondertekening>
+            <uitgifte>
+               <datum isodatum="2025-10-09">Uitgegeven de <nadruk type="cur">negende</nadruk> oktober 2025</datum>
+               <ondertekening>
+                  <functie>De Minister van Justitie en Veiligheid,</functie>
+		                <naam>
+                     <voornaam>F. van</voornaam>
+                     <achternaam>Oosten</achternaam>
+                  </naam>
+		             </ondertekening>
+            </uitgifte>
+         </wetsluiting>
+         <nota-toelichting>
+            <kop>
+               <titel>NOTA VAN TOELICHTING</titel>
+            </kop>
+            <divisie opmaak="default">
+               <kop>
+                  <nr status="officieel">1.</nr>
+                  <titel>Inhoud</titel>
+               </kop>
+               <divisie opmaak="default">
+                  <kop>
+                     <nr status="officieel">1.1</nr>
+                     <titel>Aanleiding</titel>
+                  </kop>
+                  <al>Met dit besluit wordt het Mediabesluit 2008 op onderdelen gewijzigd. De inhoud van dit besluit houdt verband met de investeringsverplichting ten behoeve van Nederlands cultureel audiovisueel product voor aanbieders van commerciële mediadiensten op aanvraag, die per 1 januari 2024 is opgenomen in de Mediawet 2008 (de wet).<noot id="n1" type="voet">
+                        <noot.nr>1</noot.nr>
+                        <noot.al>
+                           <extref doc="stb-2023-382" soort="document" status="actief">Staatsblad 2023, nr. 382</extref>. Zie artikelen 3.29 a e.v. van de Mediawet 2008.</noot.al>
+                     </noot> Met dit besluit wordt invulling gegeven aan de artikelen 3.29g, zevende lid, en artikel 3.29i, derde lid, van de wet. Deze artikelleden bevatten een delegatiegrondslag om bij besluit nadere regels te stellen.</al>
+               </divisie>
+               <divisie opmaak="default">
+                  <kop>
+                     <nr status="officieel">1.2</nr>
+                     <titel>Opnieuw investeren</titel>
+                  </kop>
+                  <al>Artikel 3.29g, zevende lid, van de wet biedt de mogelijkheid om bij besluit nadere regels te stellen over de gevolgen van de ontbinding of niet nakoming van een overeenkomst waarmee een media-instelling uitvoering geeft aan de investeringsverplichting. Nadere regels kunnen ook worden gesteld over de gevolgen van het niet langer op aantoonbare wijze aanwenden van het te investeren bedrag. Met voorgesteld artikel 17a wordt invulling gegeven aan deze delegatiegrondslag. Hiermee wordt tevens voldaan aan de toezegging die de toenmalig bewindspersoon hierover heeft gedaan tijdens de parlementaire behandeling van het wetsvoorstel investeringsverplichting.<noot id="n2" type="voet">
+                        <noot.nr>2</noot.nr>
+                        <noot.al>Kamerstukken I 2023/24, <extref doc="kst-36176-4" soort="document" status="actief">36 176, nr. 4</extref>.</noot.al>
+                     </noot>
+                  </al>
+                  <al>Het kan voorkomen dat een reeds uitgevoerde investering toch geen doorgang vindt. Gelet op de systematiek van de investeringsverplichting zal dit vaak de vorm aannemen van niet-nakoming of ontbinding van een overeenkomst. Dit kan ontstaan wanneer een productie toch geen doorgang vindt, bijvoorbeeld doordat de producent de financiering niet rond krijgt. De niet-nakoming of ontbinding kan plaatsvinden vóór of na het moment van (volledige) betaling van het afgesproken bedrag. Als hierdoor een bedrag terugvalt aan de betrokken media-instelling, moet zij een nieuwe investering ter hoogte van dit bedrag doen. De verplichting om opnieuw te investeren ontstaat zodra juridisch vaststaat dat een bepaald bedrag terugvalt aan de betreffende media-instelling. Dit moment valt niet noodzakelijkerwijs samen met het daadwerkelijk ontvangen van dit teruggevallen bedrag. Het opnieuw te investeren bedrag wordt opgeteld bij de verplichte investering over het boekjaar dat loopt (of aanvangt) op het moment dat vaststaat dat het bedrag terugvalt aan de media-instelling. Dat betekent dat de betreffende media-instelling na afloop van dat boekjaar nog twee boekjaren heeft om het bedrag opnieuw te investeren, conform artikel 3.29g, eerste lid, van de wet. Voor deze systematiek is gekozen om zo objectief mogelijk te kunnen beoordelen of en wanneer opnieuw geïnvesteerd dient te worden, en om zoveel mogelijk mee te gaan met de reguliere investeringsverplichting en de daarvoor geldende termijnen.</al>
+                  <al>De wet biedt voldoende flexibiliteit voor de media-instelling om het opnieuw te investeren bedrag in een nieuwe of andere productie te investeren. Artikel 3.29g, eerste lid, van de wet bepaalt dat de verplichte investering in Nederlandse culturele audiovisuele producties moet worden uitgevoerd voordat er twee boekjaren zijn verstreken sinds het einde van het boekjaar waarin de relevante omzet is gegenereerd. Ook kan de media-instelling ervoor kiezen om het opnieuw te investeren bedrag aan te wenden voor de verkrijging van een exploitatielicentie ten aanzien van een productie die niet ouder is dan vier jaar.<noot id="n3" type="voet">
+                        <noot.nr>3</noot.nr>
+                        <noot.al>Artikel 3.29g, derde lid, van de Mediawet 2008.</noot.al>
+                     </noot>
+                  </al>
+                  <al>Om te zorgen dat het Commissariaat voldoende zicht heeft op situaties zoals hierboven omschreven, is voor de betreffende aanbieder tevens een informatieplicht richting het Commissariaat opgenomen. De betreffende aanbieder dient het Commissariaat zo snel als redelijkerwijs mogelijk te informeren over de ontstane situatie op het moment dat een investering geen doorgang vindt en een aanspraak ontstaat op (een deel van) het geïnvesteerde bedrag. Relevante bewijsstukken hieromtrent en het verdere verloop van de nieuwe investering kunnen worden meegenomen bij de jaarlijkse rapportage over de uitvoering van de investeringsverplichting op grond van artikel 3.29h van de wet.</al>
+               </divisie>
+               <divisie opmaak="default">
+                  <kop>
+                     <nr status="officieel">1.3</nr>
+                     <titel>Richten op publiek in Nederland</titel>
+                  </kop>
+                  <al>Artikel 3.29i, derde lid, van de wet biedt de mogelijkheid om bij besluit indicatoren vast te stellen waaruit kan worden opgemaakt dat een bepaalde commerciële mediadienst op aanvraag is gericht op publiek in Nederland. Met artikel 17b wordt invulling gegeven aan deze delegatiegrondslag. Hiermee wordt tevens voldaan aan de toezegging die de toenmalig bewindspersoon hierover heeft gedaan tijdens de parlementaire behandeling van het wetsvoorstel investeringsverplichting.<noot id="n4" type="voet">
+                        <noot.nr>4</noot.nr>
+                        <noot.al>
+                           <nadruk type="cur">Kamerstukken II</nadruk> 2023/24, <extref doc="kst-36176-3" soort="document" status="actief">36 176, nrs. 3</extref> en <extref doc="kst-36176-30" soort="document" status="actief">30</extref>.</noot.al>
+                     </noot>
+                  </al>
+                  <al>In voorgesteld artikel 17b zijn indicatoren opgenomen die bepalend zijn voor de vraag of een bepaalde commerciële mediadienst op aanvraag geheel of gedeeltelijk gericht is op publiek in Nederland. Deze indicatoren zijn ontleend aan de richtlijn audiovisuele mediadiensten<noot id="n5" type="voet">
+                        <noot.nr>5</noot.nr>
+                        <noot.al>Richtlijn (EU) 2018/1808, overweging 38.</noot.al>
+                     </noot>, en zijn zodanig opgesteld dat aanbieders van commerciële mediadiensten op aanvraag deze beoordeling in eerste instantie zelf kunnen uitvoeren. Het Commissariaat kan als toezichthouder in individuele gevallen beoordelen of een commerciële mediadienst op aanvraag – geheel of gedeeltelijk – gericht is op publiek in Nederland. Is dat het geval, en heeft de betreffende mediadienst geen «klein publiek»<noot id="n6" type="voet">
+                        <noot.nr>6</noot.nr>
+                        <noot.al>MEDEDELING VAN DE COMMISSIE Richtsnoeren op grond van artikel 13, lid 7, van de richtlijn audiovisuele mediadiensten voor het berekenen van het aandeel Europese producties in catalogi op aanvraag en het definiëren van de begrippen «klein publiek» en «lage omzet» (2020/C 223/03).</noot.al>
+                     </noot>, dan geldt de investeringsverplichting op dezelfde wijze voor deze mediadienst als voor mediadiensten van in Nederland gevestigde media-instellingen.</al>
+               </divisie>
+            </divisie>
+            <divisie opmaak="default">
+               <kop>
+                  <nr status="officieel">2.</nr>
+                  <titel>Consultatie</titel>
+               </kop>
+               <al>Over het besluit is een internetconsultatie gehouden. Hierop is een tweetal reacties ingediend. Beide reacties zijn afkomstig van aanbieders van commerciële mediadiensten op aanvraag.</al>
+               <al>Uit de consultatiereacties komt naar voren dat partijen het als een administratieve last ervaren om het Commissariaat tussentijds te moeten informeren op het moment dat een investering geen doorgang vindt en een bedrag aan hen terugvalt. Hoewel dit inderdaad een aanvullende informatieplicht inhoudt, valt niet te verwachten dat een dergelijke situatie vaak voorkomt. Bovendien kan het tussentijds informeren van het Commissariaat simpelweg bestaan uit het melden van de ontstane situatie. Relevante bewijsstukken kunnen ook op een later moment worden aangeleverd, bijvoorbeeld bij de jaarlijkse rapportage over de uitvoering van de investeringsverplichting. De omvang van de aanvullende verplichting is dan ook beperkt. Daarnaast acht de regering het van belang dat het Commissariaat onverwijld, dat wil zeggen zo snel mogelijk, op de hoogte wordt gebracht van een dergelijke situatie, omdat deze gevolgen heeft voor zowel de gerealiseerde als de nog te realiseren investeringen in de betrokken boekjaren. In paragraaf 1.2 is verduidelijkt dat aanbieders uitsluitend verplicht zijn om het Commissariaat in algemene zin – en daarmee in beginsel eenmalig – te informeren over de ontstane situatie. Relevante bewijsstukken en verder verloop van de nieuwe investering kunnen worden meegenomen bij de jaarlijkse rapportage over de uitvoering van de investeringsverplichting.</al>
+               <al>Uit één van de reacties blijkt dat de indruk is ontstaan dat het teruggevallen bedrag opnieuw moet worden geïnvesteerd in het boekjaar waarin de aanspraak op dat bedrag ontstaat. Dat is echter niet het geval. Het teruggevallen bedrag wordt toegevoegd aan het te investeren bedrag <nadruk type="cur">over</nadruk> het boekjaar waarin de aanspraak daarop ontstaat. Dat betekent dat de betreffende aanbieder na afloop van dat boekjaar nog twee boekjaren heeft om de herinvestering uit te voeren, net zoals bij een reguliere investering het geval is. Dit is verduidelijkt in paragraaf 1.2 hierboven.</al>
+               <al>Een aanbieder zou graag zien dat een teruggevallen bedrag kan worden gecompenseerd met eventuele overbesteding in een eerder boekjaar. Hierover merkt de regering op dat dit mogelijk is op dezelfde manier als bij een reguliere investering. Dat houdt in dat overbesteding uit het boekjaar direct voorafgaand aan het boekjaar waarin een aanspraak ontstaat op reeds geïnvesteerde middelen, kan worden ingezet. Dit volgt uit artikel 3.29g, tweede lid, van de wet.</al>
+            </divisie>
+            <divisie opmaak="default">
+               <kop>
+                  <nr status="officieel">3.</nr>
+                  <titel>Regeldruk</titel>
+               </kop>
+               <al>Het besluit bevat een informatieplicht voor aanbieders van commerciële mediadiensten op aanvraag aan het Commissariaat. Deze informatieplicht is uitsluitend van toepassing op het moment dat bij deze partijen een aanspraak ontstaat op reeds geïnvesteerde middelen, en ziet uitsluitend op het melden van de ontstane situatie. Relevante bewijsstukken hierover mogen ook worden meegenomen bij de jaarlijkse rapportage over de uitvoering van de investeringsverplichting die reeds verplicht is op grond van artikel 3.29h van de wet. De informatieplicht blijft daarmee beperkt tot wat nodig is om het Commissariaat tijdig van voldoende inzicht te voorzien in de reeds uitgevoerde en nog uit te voeren investeringen over de betrokken boekjaren.</al>
+               <al>Het besluit is voorgelegd aan het Adviescollege toetsing regeldruk. Het Adviescollege heeft het dossier niet geselecteerd voor een formeel advies, omdat het geen gevolgen voor de regeldruk heeft.</al>
+            </divisie>
+            <divisie opmaak="default">
+               <kop>
+                  <nr status="officieel">4.</nr>
+                  <titel>Uitvoerbaarheid en handhaafbaarheid</titel>
+               </kop>
+               <al>Het Commissariaat voor de Media (Commissariaat) is betrokken bij de totstandkoming van dit besluit en heeft het besluit getoetst op handhaafbaarheid en uitvoerbaarheid. Het Commissariaat heeft laten weten het besluit als handhaafbaar en uitvoerbaar te beoordelen.</al>
+            </divisie>
+            <divisie opmaak="default">
+               <kop>
+                  <nr status="officieel">5.</nr>
+                  <titel>Financiële gevolgen</titel>
+               </kop>
+               <al>Het besluit heeft geen gevolgen voor de Rijksbegroting.</al>
+            </divisie>
+            <ondertekening>
+               <functie>De Minister van Onderwijs, Cultuur en Wetenschap,</functie>
+               <naam>
+                  <voornaam>G.</voornaam>
+                  <achternaam>Moes</achternaam>
+               </naam>
+            </ondertekening>
+         </nota-toelichting>
+      </wet-besluit>
+   </staatsblad>
+</officiele-publicatie>

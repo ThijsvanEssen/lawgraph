@@ -636,6 +636,43 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
     }
 
 
+def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
+    """A faction vote in which members voted apart: the faction votes with its seats
+    without them, each of them from their member node with one seat."""
+    store = _Store(existing={COLLECTION_MEMBERS: {"p_3", "p_4"}})
+    raws = [
+        _vote_raw(Id="v-1", Soort="Tegen", FractieGrootte=7),
+        _vote_raw(Id="v-3", Soort="Voor", FractieGrootte=7, Persoon_Id="p-3"),
+        _vote_raw(Id="v-4", Soort="Voor", FractieGrootte=7, Persoon_Id="p-4"),
+    ]
+    votes = tk_votes.read_votes(raws)
+    decisions = tk_votes.normalize_decisions(store, votes)
+    factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
+
+    tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
+
+    decision = decisions["b-1"]
+    assert decision.props["vote_kind"] == "faction"
+    target = f"{COLLECTION_DECISIONS}/{decision.key}"
+    assert store.edge_meta == {
+        (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, target): {
+            "choice": "Tegen",
+            "seats": 5,
+            "record_ids": ["v-1"],
+        },
+        (f"{COLLECTION_MEMBERS}/p_3", RELATION_VOTED, target): {
+            "choice": "Voor",
+            "seats": 1,
+            "record_ids": ["v-3"],
+        },
+        (f"{COLLECTION_MEMBERS}/p_4", RELATION_VOTED, target): {
+            "choice": "Voor",
+            "seats": 1,
+            "record_ids": ["v-4"],
+        },
+    }
+
+
 def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> None:
     raws = [
         _vote_raw(Id="v-1"),

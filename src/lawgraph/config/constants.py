@@ -199,6 +199,9 @@ RAW_KIND_TK_DOCUMENT_LINKS = "tk-document-links"
 RAW_KIND_TK_CASE_ACTORS = "tk-case-actors"
 RAW_KIND_TK_FRACTIE = "tk-fractie"
 RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
+# A seat of a faction no member held (FractieZetelVacature): between a member who left and
+# the successor's installation.
+RAW_KIND_TK_FRACTIEZETELVACATURE = "tk-fractie-zetel-vacature"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 RAW_KIND_RS_CONTENT = "rs-content"
@@ -264,6 +267,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_CASE_ACTORS,
         RAW_KIND_TK_FRACTIE,
         RAW_KIND_TK_FRACTIEZETELPERSOON,
+        RAW_KIND_TK_FRACTIEZETELVACATURE,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),

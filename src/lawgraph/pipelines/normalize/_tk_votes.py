@@ -161,11 +161,12 @@ def link_votes(
     *,
     source: str,
 ) -> None:
-    """VOTED edges into each decision, carrying the choice and its weight.
+    """VOTED edges into each decision, carrying the choice and its weight
+    (``tk_records.seats_of``).
 
-    A roll-call names every member, so its edges start at members and the
-    faction rows are left out — the party of the day follows from the
-    member's faction membership.
+    A member's row starts at the member: every row of a roll call, and the row of a
+    member who voted apart from their faction, beside the faction's own with its seats
+    without them. The party of the day follows from the member's faction membership.
     """
     known_members = store.existing_keys(
         COLLECTION_MEMBERS,
@@ -184,15 +185,14 @@ def link_votes(
         decision_node = decision_nodes.get(decision_id)
         if decision_node is None or not decision_node.node_id:
             continue
-        roll_call = decision_node.props.get("vote_kind") == tk_records.VOTE_KIND_MEMBER
         keys = written.setdefault(decision_node.node_id, [])
-        for cast in votes:
-            voter = _voter_id(cast, faction_nodes, known_members, roll_call=roll_call)
+        for cast, seats in zip(votes, tk_records.seats_of(votes), strict=True):
+            voter = _voter_id(cast, faction_nodes, known_members)
             if voter is None:
-                if not roll_call and cast.seats:
+                if not cast.person_id and seats:
                     lost.setdefault(decision_id, []).append(cast.faction_label)
                 continue
-            edge = _vote_edge(cast, voter, decision_node.node_id, source=source)
+            edge = _vote_edge(cast, voter, decision_node.node_id, seats, source=source)
             keys.append(edge["_key"])
             writer.add_doc(edge)
     writer.flush()
@@ -204,7 +204,7 @@ def link_votes(
 
 
 def _vote_edge(
-    cast: VoteCast, voter: str, decision_id: str, *, source: str
+    cast: VoteCast, voter: str, decision_id: str, seats: int, *, source: str
 ) -> dict[str, Any]:
     """The VOTED edge of *cast*, carrying the choice, its weight and the Stemming it is
     made of."""
@@ -215,7 +215,7 @@ def _vote_edge(
         source=source,
         meta={
             "choice": cast.choice,
-            "seats": cast.seats,
+            "seats": seats,
             "record_ids": [cast.record_id] if cast.record_id else [],
         },
     )
@@ -258,12 +258,8 @@ def _voter_id(
     cast: VoteCast,
     faction_nodes: dict[str, Node],
     known_members: set[str],
-    *,
-    roll_call: bool,
 ) -> str | None:
-    if roll_call:
-        if not cast.person_id:
-            return None
+    if cast.person_id:
         key = make_node_key(cast.person_id)
         return f"{COLLECTION_MEMBERS}/{key}" if key in known_members else None
     faction = faction_nodes.get(cast.faction_id or "")

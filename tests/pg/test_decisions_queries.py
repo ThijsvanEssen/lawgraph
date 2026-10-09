@@ -97,6 +97,7 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "years": [],
         "party_votes": [],
         "coalition": [],
+        "coalition_cabinets": [],
     }
     together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
@@ -196,10 +197,14 @@ def votes(store: GraphStore) -> GraphStore:
     return store
 
 
+# Every decision, also those that never came to a vote (s3: no outcome).
+EVERY = DecisionFilters(unvoted=True)
+
+
 def test_the_list_newest_first_the_key_settling_a_day_undated_last(
     votes: GraphStore,
 ) -> None:
-    page = get_decisions(votes)
+    page = get_decisions(votes, EVERY)
     assert list(page) == ["total", "items", "facets"]
     assert page["total"] == 5
     assert _keys(page) == ["s0", "s1", "s2", "s4", "s3"]
@@ -238,7 +243,7 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
 
 
 def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
-    facets = get_decisions(votes)["facets"]
+    facets = get_decisions(votes, EVERY)["facets"]
     assert list(facets) == [
         "kind",
         "passed",
@@ -246,6 +251,7 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         "years",
         "party_votes",
         "coalition",
+        "coalition_cabinets",
     ]
     # by count, most first, then by value (null first); per kind how many carried, not
     assert facets["kind"] == [
@@ -290,6 +296,15 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
     ]
 
 
+def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -> None:
+    """A withdrawn, postponed, held or lapsed motion or amendment never came to a vote:
+    the list and its facets leave it out unless asked (``unvoted``)."""
+    page = get_decisions(votes)
+    assert _keys(page) == ["s0", "s1", "s2", "s4"] and page["total"] == 4
+    assert [p["value"] for p in page["facets"]["passed"]] == [False, True]
+    assert all(k["value"] is not None for k in page["facets"]["kind"])
+
+
 @pytest.mark.parametrize(
     ("filters", "keys"),
     [
@@ -319,11 +334,11 @@ def test_the_filters(
 
 
 def test_the_pages(votes: GraphStore) -> None:
-    assert _keys(get_decisions(votes, limit=2)) == ["s0", "s1"]
-    second = get_decisions(votes, limit=2, offset=2)
+    assert _keys(get_decisions(votes, EVERY, limit=2)) == ["s0", "s1"]
+    second = get_decisions(votes, EVERY, limit=2, offset=2)
     assert _keys(second) == ["s2", "s4"] and second["total"] == 5
-    assert _keys(get_decisions(votes, limit=2, offset=4)) == ["s3"]
-    beyond = get_decisions(votes, limit=2, offset=10)
+    assert _keys(get_decisions(votes, EVERY, limit=2, offset=4)) == ["s3"]
+    beyond = get_decisions(votes, EVERY, limit=2, offset=10)
     assert beyond["items"] == [] and beyond["total"] == 5
     assert beyond["facets"]["kind"][0] == {
         "value": "Motie",
@@ -576,7 +591,9 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     """``party_votes``: per faction asked how it voted on every decision under the
     filters, in all, per kind and per year; none kept out (unlike ``party``). A vote of a
     member is not one of its faction (``none``); an unknown faction is not listed."""
-    page = get_decisions(votes, DecisionFilters(party_votes=("VVD", "nobody")))
+    page = get_decisions(
+        votes, DecisionFilters(party_votes=("VVD", "nobody"), unvoted=True)
+    )
     assert page["total"] == 5
     assert page["facets"]["party_votes"] == [
         {
@@ -597,7 +614,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
             ],
         }
     ]
-    every = get_decisions(votes, DecisionFilters(party_votes=("all",)))
+    every = get_decisions(votes, DecisionFilters(party_votes=("all",), unvoted=True))
     assert [(p["party"], p["name"], p["voor"], p["tegen"], p["none"])
             for p in every["facets"]["party_votes"]] == [
         ("a", "B-partij", 0, 1, 4),
@@ -632,7 +649,7 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
 
     monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
     monkeypatch.setattr(decision_queries, "PARTY_VOTES_BUDGET", 0.3)
-    asked = DecisionFilters(party_votes=("all",))
+    asked = DecisionFilters(party_votes=("all",), unvoted=True)
     token = set_read_deadline(10)  # a request
     try:
         started = time.monotonic()

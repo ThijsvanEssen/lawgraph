@@ -61,6 +61,8 @@ _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
 
 
 GAPS = "gaps"  # fetch what the graph refers to and only holds a stub of (``_gaps.py``)
+# only the Besluiten without a vote on an amendment or a motion (``retrieve tk-dossiers``)
+UNVOTED = "unvoted"
 
 
 def _add_mode_argument(
@@ -489,11 +491,13 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
     )
     parser.add_argument(
         "--mode",
-        choices=["window", GAPS],
+        choices=["window", GAPS, UNVOTED],
         default="window",
         help="gaps: the dossiers the graph names and lacks (those of the publications that "
         "changed an article, and the first reading of a change in the Grondwet), with "
-        "their documents; the other options are then not used.",
+        "their documents; unvoted: only the Besluiten without a vote on an amendment or a "
+        "motion (withdrawn, postponed, held, lapsed), since --decisions-since or --since, "
+        "else all; the other options are then not used.",
     )
     args = parser.parse_args(argv)
 
@@ -502,6 +506,10 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         numbers = _gaps.tk_dossier_gaps(store)
         result = TKDossiersRetrievePipeline(store=store).run_gaps(numbers)
         return _gaps.noted(result, numbers)
+    if args.mode == UNVOTED:
+        return TKDossiersRetrievePipeline(store=store).run_unvoted(
+            args.decisions_since or args.since
+        )
     return TKDossiersRetrievePipeline(store=store).run(
         since=args.since,
         decisions_since=args.decisions_since,

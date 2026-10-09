@@ -87,13 +87,23 @@ def test_a_vote_the_coalition_carries_together() -> None:
     assert (result["coalition_for"], result["opposition_against"]) == (88, 34)
     assert result["pattern"] == "together"
     assert result["passed"] and result["carried"]
-    # the coalition alone against: 0 for, 122 against — it decided
+    # the opposition alone: 7 for, 34 against — the coalition decided
     assert result["decisive"]
 
 
-def test_a_wisselmeerderheid_passes_with_the_opposition_against_part_of_the_coalition() -> (
-    None
-):
+def test_a_vote_the_opposition_alone_would_have_passed_too_is_not_decisive() -> None:
+    """Decisive: the opposition alone would have decided otherwise. A coalition with a
+    majority could always turn a vote, so that says nothing."""
+    votes = [("pvv", "Voor", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
+    votes += [("bbb", "Voor", 7), ("gl", "Voor", 25), ("d66", "Tegen", 9)]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None and result["passed"] and result["carried"]
+    assert not result["decisive"]
+
+
+def test_the_coalition_majority_winning_with_the_opposition_is_a_split() -> None:
+    """VVD and NSC (44) for, PVV (37) against: the side with the most coalition seats wins,
+    with part of the opposition. The coalition is split; no wisselmeerderheid."""
     votes = [("pvv", "Tegen", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
     votes += [
         ("bbb", "Tegen", 7),
@@ -103,8 +113,26 @@ def test_a_wisselmeerderheid_passes_with_the_opposition_against_part_of_the_coal
     ]
     result = vote_pattern(votes, COALITION)
     assert result is not None
+    assert result["pattern"] == "split" and result["passed"]
+    assert not result["carried"]
+
+
+def test_a_wisselmeerderheid_beats_the_coalition_majority() -> None:
+    """PVV and VVD (61) against, NSC (20) for with the opposition: the side with the most
+    coalition seats loses. A wisselmeerderheid."""
+    votes = [("pvv", "Tegen", 37), ("vvd", "Tegen", 24), ("nsc", "Voor", 20)]
+    votes += [
+        ("bbb", "Voor", 7),
+        ("gl", "Voor", 25),
+        ("d66", "Voor", 9),
+        ("sp", "Voor", 5),
+    ]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
     assert result["pattern"] == "wissel" and result["passed"]
     assert not result["carried"]
+    # the opposition alone passed it too: the coalition did not decide
+    assert not result["decisive"]
 
 
 def test_a_split_coalition_on_the_losing_side_is_no_wissel() -> None:
@@ -129,3 +157,87 @@ def test_a_tie_is_rejected_and_the_opposition_decides_without_the_coalition() ->
     # a large opposition majority: the coalition could not have turned it
     big = vote_pattern([("pvv", "Voor", 10), ("gl", "Tegen", 100)], {"pvv"})
     assert big is not None and not big["decisive"]
+
+
+def test_a_seat_between_two_members_is_vacant_so_the_kamer_adds_up() -> None:
+    """Kabinet-Jetten, 23 February 2026: members who became bewindspersonen left on the
+    22nd, their successors came on the 25th; the source records the seats as vacant."""
+    posts = [_post("d66", "2026-02-23")]
+    seats = [_seat(f"m{n}", "d66", "2025-11-12") for n in range(139)]
+    seats += [_seat(f"left{n}", "d66", "2025-11-12", "2026-02-22") for n in range(11)]
+    seats += [_seat(f"new{n}", "d66", "2026-02-25") for n in range(11)]
+    timeline = seat_timeline(posts, seats, "2026-02-23", "2026-03-01")
+    assert [(s["from_date"], s["coalition"], s["vacant"]) for s in timeline] == [
+        ("2026-02-23", 139, 11),
+        ("2026-02-25", 150, 0),
+    ]
+    assert all(s["coalition"] + s["opposition"] + s["vacant"] == 150 for s in timeline)
+
+
+def test_a_vacant_seat_counts_for_its_faction() -> None:
+    """The same changeover with the source's vacancies: the seats stay the faction's, so
+    the coalition keeps its 150 and nothing is left unaccounted."""
+    posts = [_post("d66", "2026-02-23")]
+    seats = [_seat(f"m{n}", "d66", "2025-11-12") for n in range(139)]
+    seats += [_seat(f"new{n}", "d66", "2026-02-25") for n in range(11)]
+    vacancies = [
+        {"faction_key": "d66", "from_date": "2026-02-23", "to_date": "2026-02-24"}
+        for _ in range(11)
+    ]
+    timeline = seat_timeline(posts, seats, "2026-02-23", "2026-03-01", vacancies)
+    assert [(s["from_date"], s["coalition"], s["vacant"]) for s in timeline] == [
+        ("2026-02-23", 150, 0),
+        ("2026-02-25", 150, 0),
+    ]
+    assert timeline[0]["factions"] == [
+        {"key": "d66", "seats": 150, "vacant": 11, "coalition": True}
+    ]
+
+
+def test_schoof_keeps_its_88_seats_on_its_first_day() -> None:
+    """Kabinet-Schoof, 2 July 2024, as the source records it: 14 members became
+    bewindspersonen, their seats vacant (FractieZetelVacature) until their successors took
+    them on 4 July (PVV 4, VVD 4, NSC 4, BBB 2). Seated that day: PVV 33, VVD 20, NSC 16,
+    BBB 5 (74); with the vacant seats the coalition holds its 88."""
+    posts = [_post(f, "2024-07-02") for f in ("pvv", "vvd", "nsc", "bbb")]
+    held = {"pvv": 33, "vvd": 20, "nsc": 16, "bbb": 5}
+    vacant = {"pvv": 4, "vvd": 4, "nsc": 4, "bbb": 2}
+    seats = [
+        _seat(f"{f}{n}", f, "2023-12-06")
+        for f, count in held.items()
+        for n in range(count)
+    ]
+    seats += [
+        _seat(f"{f}_new{n}", f, "2024-07-04")
+        for f, count in vacant.items()
+        for n in range(count)
+    ]
+    seats += [_seat(f"opp{n}", "opp", "2023-12-06") for n in range(62)]
+    vacancies = [
+        # TotEnMet 4 July, the day the successor takes the seat: vacant until the 3rd
+        {"faction_key": f, "from_date": "2024-07-02", "to_date": "2024-07-03"}
+        for f, count in vacant.items()
+        for _ in range(count)
+    ]
+    timeline = seat_timeline(posts, seats, "2024-07-02", "2024-07-10", vacancies)
+    first = timeline[0]
+    assert (
+        first["from_date"],
+        first["coalition"],
+        first["opposition"],
+        first["vacant"],
+    ) == (
+        "2024-07-02",
+        88,
+        62,
+        0,
+    )
+    assert {f["key"]: (f["seats"], f["vacant"]) for f in first["factions"]} == {
+        "pvv": (37, 4),
+        "vvd": (24, 4),
+        "nsc": (20, 4),
+        "bbb": (7, 2),
+        "opp": (62, 0),
+    }
+    # without the vacancies the coalition looks 14 seats short, as Front-end #1 saw
+    assert seat_timeline(posts, seats, "2024-07-02", "2024-07-10")[0]["coalition"] == 74

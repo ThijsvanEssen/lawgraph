@@ -150,6 +150,7 @@ passed to the pipelines that accept it and the others run in full.
 |---------|---------|
 | `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then |
 | `bwb` | `--since` (as above), `--store-citations` |
+| `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
 | `staatscourant` | `--since`: publications dated since then |
@@ -167,7 +168,8 @@ passed to the pipelines that accept it and the others run in full.
 | `graph-heat` | none; counts the heat of the whole graph per window in one pass over the edges and keeps it (`lg_heat`), in place of what it held, in one transaction, so the API reads no edges for it |
 | `graph-list-stats` | `--dry-run`, `--instruments-only`, `--judgments-only`, `--committees-only`, `--articles-only`; backfills the sort and filter fields of the list endpoints |
 
-The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amendments`,
+The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-grondslagen`,
+`bwb-amendments`,
 `bwb-annexes`, `staatsblad`, `staatscourant`, `eerstekamer`, `echr`, `rechtspraak-appeal`,
 `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`,
 `rechtspraak-citations`, `rechtspraak-series`,
@@ -205,7 +207,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements` and `normalize rijksoverheid` read them) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_DOSSIER_RELATIONS`, `TK_DICTUM`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_DOSSIER_RELATIONS`, `TK_DICTUM`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -307,7 +309,7 @@ graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` r
 | `retrieve tk-dossiers` full | about 400K documents, fetched 250 at a time |
 | `retrieve bwb --mode full`, `retrieve bwb-history` | `bwb`: the SRU listing, then one XML download and one short WTI request (about 1 KB read) per regulation whose current toestand is not the stored one (an unchanged regulation costs nothing; its WTI file is read again after 30 days). `bwb-history`: the SRU listing (or one query per regulation for fewer than 150) and one download per toestand not stored yet; the first run downloads all of them (148,287 toestanden in the SRU on 2026-09-20), side by side at the pace of the repository (0.1 s): at least 4 hours |
 | `normalize bwb-history` | streams every stored toestand XML (large documents) in batches of 20 |
-| `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill) |
+| `normalize tk-dossiers` | the largest normalize step (documents, decisions, edges, dossier backfill). `--mixed-votes [--limit N]`: only the decisions taken for a roll call that were a faction vote with members voting apart (fewer than 100 votes, `vote_kind` `member`), normalized again from their stored votes; a slice of N, the next run takes the next |
 | `semantic bwb` | scans every article text |
 
 Every retrieve and normalize step is idempotent and safe to interrupt and re-run.
@@ -359,8 +361,11 @@ later downloads what the source lists as new or changed: a Staatscourant or Staa
 publication stored after its `modified` date, a BWB toestand that is still the stored one and
 a judgment not updated since are left alone; a document that answered HTTP 404, or a
 redirect that leads nowhere, is asked for again after 30 days (3 when the source listed it
-itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
-re-run (upserts, so only time is repeated).
+itself, as the SRU does a BWB toestand; a Staatsblad publication after 30 to 59 days, the same
+for the same publication, so the thousands without XML found in one run come due on many days). The Tweede Kamer pages are read again from the start on a
+re-run (upserts, so only time is repeated). A Staatsblad publication the source could not serve (an HTTP 500) is stored
+as nothing and asked for again next run; the step still succeeds, unless more than 25 of
+them failed (a source that is down stops it after 25 failures in a row).
 
 **Scheduled.** `scripts/daily.sh`, `scripts/weekly.sh` and `scripts/poll.sh` are what a
 scheduler runs; nothing is installed for you.
@@ -368,7 +373,7 @@ scheduler runs; nothing is installed for you.
 | Script | Runs | Why |
 |--------|------|-----|
 | `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune`; `sitemaps` | what the sources changed; a day without a run is caught up by the next |
-| `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), then `semantic all`, `expand-graph`, `check` | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so, after
@@ -379,7 +384,9 @@ failing command fails the run and the next command still runs, one log per run i
 A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
-noted in `runs.log` and changes nothing else. With cron:
+noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
+chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
+goes back to nothing when the run starts. With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh

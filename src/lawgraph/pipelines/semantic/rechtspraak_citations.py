@@ -16,11 +16,17 @@ makes no stub. A stub judgment no edge reaches any more goes at the end.
 A decision of the ECHR is cited by application number ("EHRM 28 maart 2000, nr. 22492/93"):
 ``REFERS_TO`` to the decision of that number and date, or without a date to the only decision of
 the number (``_echr_citations``).
+
+An edge to a judgment cited by ECLI keeps the numbers of the paragraphs that name it
+(``meta.paragraphs``: "4.3", "5.1", as the judgment prints them, ``core.judgments
+.extract_sections``), so a list of citing judgments shows where each one cites without
+reading its text; none when no numbered paragraph names it.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 from lawgraph.config.constants import (
     EDGE_STATUS_CANONIEK,
@@ -33,7 +39,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.echr_citations import Cited, cited_in_dutch
 from lawgraph.core.ecli import cited_eclis
-from lawgraph.core.judgments import body_text, parse_judgment
+from lawgraph.core.judgments import body_text, extract_sections, parse_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
@@ -58,11 +64,32 @@ PROCEDURAL_RELATIONS = (
 )
 
 
+def paragraphs_citing(paragraphs: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Cited ECLI -> the numbers of the paragraphs that name it, in their order, each once;
+    a paragraph without a number counts for none."""
+    found: dict[str, list[str]] = {}
+    for paragraph in paragraphs:
+        number = paragraph.get("number")
+        if not number:
+            continue
+        for ecli in cited_eclis(str(paragraph.get("text") or "")):
+            numbers = found.setdefault(ecli, [])
+            if number not in numbers:
+                numbers.append(str(number))
+    return found
+
+
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
+    def __init__(self, store: Any) -> None:
+        super().__init__(store)
+        # (citing id, cited ECLI) -> the numbers of the paragraphs that name it
+        self._places: dict[tuple[str, str], list[str]] = {}
+
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
+        self._places = {}
         pending, all_cited_eclis, read, by_appno = self._collect_references(
             iso_timestamp(since)
         )
@@ -104,18 +131,22 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         by_appno: list[tuple[str, Cited]] = []
         for judgment, xml in self._judgment_texts(since_iso):
             try:
-                text = body_text(parse_judgment(xml))
+                root = parse_judgment(xml)
+                text = body_text(root)
             except ValueError:
                 continue
             if not judgment.node_id:
                 continue
             read.append(judgment.node_id)
             source_ecli = str(judgment.props["ecli"]).upper()
+            where = paragraphs_citing(extract_sections(root))
             for ecli in cited_eclis(text):
                 if ecli == source_ecli:
                     continue
                 pending.append((judgment.node_id, ecli))
                 all_cited_eclis.add(ecli)
+                if where.get(ecli):
+                    self._places[(judgment.node_id, ecli)] = where[ecli]
             by_appno += [(judgment.node_id, c) for c in cited_in_dutch(text)]
         return pending, all_cited_eclis, read, by_appno
 
@@ -162,7 +193,14 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 relation=RELATION_REFERS_TO,
                 source=SEMANTIC_SOURCE,
                 confidence=0.95,
-                meta={"cited_ecli": cited_ecli},
+                meta={
+                    "cited_ecli": cited_ecli,
+                    **(
+                        {"paragraphs": paragraphs}
+                        if (paragraphs := self._places.get((from_id, cited_ecli)))
+                        else {}
+                    ),
+                },
                 status=EDGE_STATUS_CANONIEK,
             )
             if edge_doc:

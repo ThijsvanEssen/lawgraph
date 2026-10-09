@@ -10,8 +10,10 @@ against a single recorded payload.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import sys
+from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -251,6 +253,11 @@ def case(payload: Payload) -> Record | None:
         "related_cases": related_cases(payload),
         # The cases this one replaces, and their papers its papers (REVISES).
         "replaces_cases": replaced_cases(payload),
+        # Zaak.Afgedaan: whether the Kamer is done with it (an amendment done with and
+        # without a decision was replaced or withdrawn; one not done with is still open)
+        "done": afgedaan
+        if isinstance(afgedaan := payload.get("Afgedaan"), bool)
+        else None,
     }
     if title:
         props["title"] = title
@@ -527,6 +534,29 @@ def seat_holding(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
             "role": payload.get("Functie") or None,
         },
     )
+
+
+def seat_vacancy(payload: Payload) -> tuple[str, dict[str, Any]] | None:
+    """``(Fractie_Id, period)`` for a FractieZetelVacature record: a seat of the faction no
+    member held, ``from_date`` to ``to_date`` inclusive (None: still vacant). The record's
+    ``TotEnMet`` is the day the successor takes the seat (whose own seat begins that day),
+    so the last vacant day is the one before. None when deleted, without a faction, or
+    when it ends before it begins (the source holds such records)."""
+    if is_deleted(payload):
+        return None
+    seat = next(_dicts(payload.get("FractieZetel")), {})
+    faction_id = str(seat.get("Fractie_Id") or "")
+    start, until = iso_date(payload.get("Van")), iso_date(payload.get("TotEnMet"))
+    if not faction_id or not start:
+        return None
+    end = (
+        (dt.date.fromisoformat(until) - dt.timedelta(days=1)).isoformat()
+        if until
+        else None
+    )
+    if end is not None and end < start:
+        return None
+    return faction_id, {"from_date": start, "to_date": end}
 
 
 def seat_changed_on(payload: Payload) -> str | None:
@@ -1039,6 +1069,25 @@ def vote(payload: Payload) -> VoteCast | None:
     )
 
 
+def is_roll_call(votes: list[VoteCast]) -> bool:
+    """A roll call names every member: each row has a Persoon_Id. A faction vote in which
+    a few members voted apart from their faction has rows of both kinds, and is none."""
+    return bool(votes) and all(cast.person_id for cast in votes)
+
+
+def seats_of(votes: list[VoteCast]) -> list[int]:
+    """The seats each row of a decision weighs, in the order of *votes*: a member one; a
+    faction its FractieGrootte without its members who voted apart in a row of their own
+    (their rows give the size of the faction too)."""
+    apart = Counter(cast.faction_id for cast in votes if cast.person_id)
+    return [
+        1
+        if cast.person_id
+        else max(int(cast.seats or 0) - apart.get(cast.faction_id, 0), 0)
+        for cast in votes
+    ]
+
+
 def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Record:
     """Node key and props for one Besluit and the votes cast on it.
 
@@ -1074,16 +1123,11 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     votes = sorted(votes, key=lambda cast: (cast.record_id or "", cast.person_id or ""))
     tally: dict[str, int] = {}
     voters: dict[str, int] = {}
-    for cast in votes:
+    for cast, seats in zip(votes, seats_of(votes), strict=True):
         choice = cast.choice
-        tally[choice] = tally.get(choice, 0) + int(cast.seats or 0)
+        tally[choice] = tally.get(choice, 0) + seats
         voters[choice] = voters.get(choice, 0) + 1
-
-    roll_call = any(cast.person_id for cast in votes)
-    if roll_call:
-        # In a roll-call each row is one member, so FractieGrootte would count
-        # the whole faction for every one of them.
-        tally = dict(voters)
+    roll_call = is_roll_call(votes)
 
     tally, voters = _in_vote_order(tally), _in_vote_order(voters)
     return make_node_key("decision", decision_id), {

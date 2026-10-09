@@ -77,15 +77,15 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | Command | Fetches | Stored kinds |
 |---------|---------|--------------|
 | `retrieve tk` | Zaak modified since `--since` (default `1d`); `--mode full` since 1995-01-01; `--limit` caps the result for development; `--replacing` only the cases that replace another (`Zaak.VervangenVanuit`, some 11,600 in all; with `--mode full` the backfill of that relation for the cases stored before the retrieve read it) | `tk-zaak` |
-| `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; with the Stemming window and `--skip-decisions`), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-document` |
+| `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; and those without a Stemming on an `Amendement` or `Motie`: `ingetrokken`, `uitstellen`, `aangehouden`, `vervallen`; with the Stemming window and `--skip-decisions`; `--mode unvoted` those of amendments and motions alone, since `--decisions-since` or `--since`, else all, about 25,000), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, FractieZetelVacature, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-fractie-zetel-vacature`, `tk-document` |
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
 | `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
-other options are in `docs/operations.md`. Commissie, Persoon, Fractie and FractieZetelPersoon
-are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
+other options are in `docs/operations.md`. Commissie, Persoon, Fractie, FractieZetelPersoon and
+FractieZetelVacature are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
 an interrupted run keeps what it fetched. A gaps run takes at most 50,000 dossiers (and
 `retrieve tk-content` at most 50,000 papers, `retrieve rechtspraak --mode gaps` 50,000
 judgments; `MAX_GAPS_PER_RUN`); the table of `retrieve all` says how many are left, and the next
@@ -197,7 +197,9 @@ Decision to the activity of its agenda item, `activity_id`; Document to the acti
 `MEMBER_OF` (dated, to committee and faction), `AUTHORED` (signatory to Document), `VOTED`. A run
 over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every stored seat of that
 person, so the member's timeline is made of all their seats, and takes the member and the faction
-from the database when the window holds neither.
+from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
+them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
+successor takes the seat; a record that ends before it begins is left out.
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -324,11 +326,15 @@ With `--touched-since` (`lawgraph poll`) it walks only the dossiers touched sinc
 `tk-government` only those dossiers and the commitments touched since then
 (`pipelines/semantic/_touched.py`): the dossier, commitment, paper, case or decision whose TK
 record was fetched since then (also the decision a fetched Stemming voted on), both ends of
-every edge written since then, and the dossiers these are `PART_OF`, `ABOUT` or `LEGISLATED_IN`,
-directly or through their case. For those it comes to what a run over all would. Of the
-touched dossiers `tk-government` reads the papers again only of those whose first signature
-can have changed: one that keeps none (`first_signed`), or of which a paper the window touched
-is dated on or before the one kept, or is it. What changes in another way (a cabinet, a post,
+every edge written since then that the step reads, and the dossiers these are `PART_OF`,
+`ABOUT` or `LEGISLATED_IN`, directly or through their case. The edges each reads: of
+`tk-dossier-outcomes` `ABOUT`, `VOTED`, `LEGISLATED_IN` and `PART_OF`; of `tk-government`
+`AUTHORED` to a paper (not to a case: the actors of `tk-case-actors`) and `PART_OF`. A wave of
+other edges (the actors of every case, the links between papers) touches none of their
+dossiers. For those it comes to what a run over all would. Of the touched dossiers
+`tk-government` reads the papers again only of those whose first signature can have changed:
+one that keeps none (`first_signed`), or of which a paper the window touched is dated on or
+before the one kept, or is it; found in one pass, however many dossiers the window touched. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
@@ -339,10 +345,10 @@ cabinet leaves the coalition the day its last post ends; a faction split off a c
 holds none and is opposition. A faction votes with its seats that day (`meta.seats`,
 FractieGrootte); a roll call counts each member as one seat of the faction they sat in. Per vote:
 the seats `Voor` and `Tegen` of the coalition and of the opposition; `pattern` `together` (every
-coalition seat on one side), `split` (on both) or `wissel` (split, and the side that won holds
-coalition and opposition seats); `carried` (passed with the coalition's seats alone more than
-half of those cast) and `decisive` (had the whole coalition voted against the outcome, it would
-have turned). A tie is rejected, as the Kamer counts it. Not for a vote without a cabinet or
+coalition seat on one side), `split` (on both) or `wissel` (split, and the side with the most
+coalition seats lost: a wisselmeerderheid); `carried` (passed with the coalition's seats alone
+more than half of those cast) and `decisive` (the opposition alone would have decided
+otherwise). A tie is rejected, as the Kamer counts it. Not for a vote without a cabinet or
 without a coalition vote, nor for the Eerste Kamer (its seats per day are not known). With
 `--since` the decisions dated since then (the daily run); without it every one, and the rows
 of decisions that no longer have one go (weekly, which also follows a change of the posts).
@@ -551,7 +557,9 @@ longer makes goes. `--since` takes the judgments retrieved from then on.
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
 `raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
-of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, no self citations,
+of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.paragraphs` (the
+numbers of the paragraphs that name it, as the judgment prints them, from
+`core/judgments.extract_sections`; none when no numbered paragraph does), no self citations,
 missing judgments become stubs. The ECLIs are read by `core/ecli.cited_eclis`: one is valid when
 its country issues ECLIs, its court code has the shape of one (letters for a Dutch court; whether
 the court exists is not checked), its year lies between 1900 and the current year and its number
@@ -907,6 +915,19 @@ support is removed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
+**Semantic `bwb-definitions`.** The definitions a regulation gives itself, its
+begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML and kept in
+`lg_instrument_definitions` (not a table of the graph; apart from the instrument's props, so
+its lists do not carry them). The BWB marks no definition as such; the article has a structure
+all the same: an `<al>` that announces them ("… wordt verstaan onder:"), then a `<lijst>` of
+`<li>` with its letter and JCI and an `<al>` "term: definition", or `<al>` after `<al>` that
+begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term goes on with the
+definition before it); and a sentence that defines one term. Per definition `term`, `text`,
+`article_key`, `article_number`, `place` (the letter), `jci`, `scope` (`kind`: `wet`, `besluit`,
+`hoofdstuk`, `paragraaf`, …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that
+part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
 `Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
 and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
@@ -981,7 +1002,8 @@ the pages must add up to the reported total, and an SRU diagnostic or a failed r
 regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
-`nota-van-toelichting` or `toelichting` section, `bwb_id` = the regulation retrieve found it
+`nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
+`toelichting`, in older formats), `bwb_id` = the regulation retrieve found it
 for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.

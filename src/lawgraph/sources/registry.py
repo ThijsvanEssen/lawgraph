@@ -95,6 +95,7 @@ from lawgraph.pipelines.semantic import (
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_relation_types import (
@@ -362,6 +363,47 @@ BWB_SEMANTIC = PipelineCommand(
     make_extra_kwargs=_bwb_articles_extra_kwargs,
 )
 
+
+def _bwb_definitions_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--after", help="Start past this BWB id: the next slice of a full run."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many regulations (a slice)."
+    )
+
+
+BWB_DEFINITIONS = PipelineCommand(
+    BWBDefinitionsSemanticPipeline,
+    "The definitions each regulation gives itself, read from its stored toestand.",
+    add_args=_bwb_definitions_add_args,
+    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+)
+
+
+def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--mixed-votes",
+        action="store_true",
+        help="Only the decisions read as a roll call that were a faction vote with "
+        "members voting apart, normalized again from their stored votes.",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="With --mixed-votes: this many decisions (a slice)."
+    )
+
+
+TK_DOSSIERS_NORMALIZE = PipelineCommand(
+    TKDossiersNormalizePipeline,
+    "Committees, members, factions, dossiers, activities, votes, commitments and "
+    "documents as nodes, with their edges.",
+    add_args=_tk_dossiers_normalize_add_args,
+    make_extra_kwargs=lambda args: {
+        "mixed_votes": args.mixed_votes,
+        "limit": args.limit,
+    },
+)
+
 # ── the pipelines, in the order each phase runs them ─────────────────────────
 
 RETRIEVE: list[Pipeline] = [
@@ -560,11 +602,8 @@ NORMALIZE: list[Pipeline] = [
         "Cases as nodes.",
     ),
     _pipeline(
-        TKDossiersNormalizePipeline,
-        (
-            "Committees, members, factions, dossiers, activities, votes, commitments and "
-            "documents as nodes, with their edges."
-        ),
+        TK_DOSSIERS_NORMALIZE,
+        TK_DOSSIERS_NORMALIZE.description,
         after=("tk",),  # the case-to-dossier links read the cases
     ),
     _pipeline(
@@ -679,6 +718,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWB_SEMANTIC,
         "REFERS_TO between articles, read from the XML.",
+    ),
+    _pipeline(
+        BWB_DEFINITIONS,
+        "The definitions each regulation gives itself (its begripsbepalingen).",
     ),
     _pipeline(
         BWBGrondslagenSemanticPipeline,

@@ -219,10 +219,14 @@ class TKClient(BaseClient):
         case_kinds: tuple[str, ...],
         since: dt.datetime | None = None,
         top: int = 250,
+        without_votes: bool = False,
     ) -> Iterable[dict[str, Any]]:
         """Fetch the Besluit records ``Stemmen - ...`` on a zaak of one of *case_kinds* (a
         bill, a budget), as ``fetch_stemmingen`` expands them: also those without a vote
-        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries."""
+        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries.
+        With *without_votes* only those: of an amendment or a motion the others come with
+        their Stemming (``Stemmen - ingetrokken``, ``- uitstellen``, ``- aangehouden``,
+        ``- vervallen`` do not)."""
         zaak = (
             "Zaak("
             "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
@@ -231,6 +235,8 @@ class TKClient(BaseClient):
         )
         kinds = " or ".join(f"z/Soort eq '{kind}'" for kind in case_kinds)
         odata_filter = f"startswith(BesluitSoort,'Stemmen') and Zaak/any(z:{kinds})"
+        if without_votes:
+            odata_filter += " and not Stemming/any()"
         if since is not None:
             since_string = odata_datetime(since)
             odata_filter += f" and ApiGewijzigdOp ge {since_string}"
@@ -382,6 +388,15 @@ class TKClient(BaseClient):
         """Fetch all Fractie records (canonical party list, current + historic)."""
         logger.info("Fetching Fractie records")
         return self._skip_paged_get("Fractie", params={}, page_size=top)
+
+    def fetch_fractie_zetel_vacatures(self, top: int = 250) -> Iterable[dict[str, Any]]:
+        """Fetch FractieZetelVacature: a seat of a faction no member held, from ``Van`` until
+        the successor took it (``TotEnMet``), with the faction of the seat."""
+        params: dict[str, Any] = {"$expand": "FractieZetel($select=Id,Fractie_Id)"}
+        logger.info("Fetching FractieZetelVacature records")
+        return self._skip_paged_get(
+            "FractieZetelVacature", params=params, page_size=top
+        )
 
     def fetch_fractie_zetel_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch FractieZetelPersoon (date-bounded seat holdings).

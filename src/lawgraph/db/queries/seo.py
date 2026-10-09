@@ -12,15 +12,23 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    RELATION_EXPLAINS,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.decisions import get_document_decisions
+from lawgraph.db.store import (
+    ReadTimedOut,
+    RequestCancelled,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
+from lawgraph.db.version_cache import cached
 
 # How many sources a page links to of each kind: enough for a reader and a crawler, few
 # enough for a page of a few tens of KB.
@@ -29,6 +37,12 @@ LINKS = 20
 PAPERS = 200
 # The articles of a law its table of contents lists, in their order.
 ARTICLES = 5000
+# The seconds a page waits for the judgments citing an article when they are not kept yet:
+# of a much cited article (6:162 BW) they are thousands, and the page is its text first,
+# as fast as the static shell (most visits come to an article no one asked for before).
+# They are computed on in the background and kept per version of the tables they read,
+# so a later page has them at once; the app fills them in for the first.
+CITED_BUDGET = 0.05
 
 
 def node_of(store: GraphStore, pad: Pad) -> str | None:
@@ -92,8 +106,9 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """An article (its props, its text too), its law, the judgments that cite it (the
-    most cited first) and how many judgments and papers cite or explain it."""
+    """An article (its props, its text too), its law and the judgments that cite it (the
+    most cited first); without those (``judgments`` empty) while they are not kept yet and
+    take past ``CITED_BUDGET`` (``cited``)."""
     row = _first(
         store,
         f"""
@@ -107,13 +122,53 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     )
     if row is None:
         return None
-    judgments = list(
+    left = read_time_left()
+    token = set_read_deadline(CITED_BUDGET if left is None else min(CITED_BUDGET, left))
+    try:
+        ids = cited(store, node_id)
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        return {**row, "judgments": []}
+    finally:
+        reset_read_deadline(token)
+    return {**row, "judgments": _light(store, ids)}
+
+
+def cited(store: GraphStore, node_id: str) -> list[str]:
+    """The ``LINKS`` judgments that cite an article, the most cited first. Kept per
+    version of the edges and the judgments: sorting the thousands that cite 6:162 BW takes
+    about half a second, reading what is kept nothing."""
+    return cached(
+        store,
+        ("seo article cited", node_id),
+        lambda: _cited(store, node_id),
+        tables=(COLLECTION_EDGES, COLLECTION_JUDGMENTS),
+    )
+
+
+def _light(store: GraphStore, ids: list[str]) -> list[dict[str, Any]]:
+    """``{id, light}`` of the judgments *ids*, in their order."""
+    if not ids:
+        return []
+    light = {
+        row["id"]: row["light"]
+        for row in store.query(
+            "SELECT id, props AS light FROM lg_judgment_light"
+            " WHERE id = ANY(%(ids)s::text[])",
+            {"ids": ids},
+        )
+    }
+    return [{"id": id_, "light": light.get(id_)} for id_ in ids]
+
+
+def _cited(store: GraphStore, node_id: str) -> list[str]:
+    return list(
         store.query(
             f"""
-            SELECT j.id, l.props AS light
+            SELECT j.id
             FROM edges e
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-            LEFT JOIN lg_judgment_light l ON l.id = j.id
             WHERE e.to_id = %(id)s AND e.relation = %(refers)s
               AND e.from_collection = '{COLLECTION_JUDGMENTS}'
             ORDER BY j.inbound_citation_count DESC NULLS LAST, j.key DESC
@@ -122,20 +177,6 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             {"id": node_id, "refers": RELATION_REFERS_TO, "limit": LINKS},
         )
     )
-    counts = _first(
-        store,
-        f"""
-        SELECT
-          (SELECT count(*) FROM edges e WHERE e.to_id = %(id)s
-             AND e.relation = %(refers)s
-             AND e.from_collection = '{COLLECTION_JUDGMENTS}')::int AS judgments,
-          (SELECT count(*) FROM edges e WHERE e.to_id = %(id)s
-             AND e.relation IN (%(refers)s, %(explains)s)
-             AND e.from_collection = '{COLLECTION_DOCUMENTS}')::int AS papers
-        """,
-        {"id": node_id, "refers": RELATION_REFERS_TO, "explains": RELATION_EXPLAINS},
-    )
-    return {**row, "judgments": judgments, "counts": counts}
 
 
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:

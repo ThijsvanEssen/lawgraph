@@ -118,6 +118,14 @@ def list_decisions(
             "`carried` or was `decisive` on."
         ),
     ] = None,
+    unvoted: Annotated[
+        bool,
+        Query(
+            description="Also the decisions that never came to a vote (withdrawn, "
+            "postponed, held, lapsed: ``passed`` null, the reason in ``decision_kind``); "
+            "without it only those with an outcome, and the facets count those."
+        ),
+    ] = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DecisionListResponse:
@@ -137,6 +145,7 @@ def list_decisions(
             party.strip() for party in (party_votes or "").split(",") if party.strip()
         ),
         coalition=coalition,
+        unvoted=unvoted,
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset)
     names = load_dossier_names(store)

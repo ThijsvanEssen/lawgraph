@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,8 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.config import settings
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import seo
 
 SHELL = """<!doctype html>
 <html lang="nl">
@@ -37,6 +39,11 @@ SHELL = """<!doctype html>
 	</body>
 </html>
 """
+# As on the server, read before a test patches it: a cold article page is as fast as the
+# static shell (~0.1 s) and waits no longer than this for its judgments.
+CITED_BUDGET = seo.CITED_BUDGET
+SORT = 1.0  # a sort of the judgments that takes longer than any page may wait
+
 ROUTES = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
     {"path": "/actueel", "title": "Actueel, Concordans", "description": "Het nieuws."},
@@ -66,6 +73,9 @@ def _seed(store: GraphStore) -> None:
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289",
                   citation_title="Burgerlijk Wetboek Boek 6", short_title="BW 6",
                   date_in_force="1992-01-01", kind="wet"),
+            _node("bwbr0001854", "instrument", bwb_id="BWBR0001854",
+                  citation_title="Wetboek van Strafrecht", short_title="Sr",
+                  date_in_force="1886-09-01", kind="wet"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -78,6 +88,10 @@ def _seed(store: GraphStore) -> None:
                   "2. Als onrechtmatige daad worden aangemerkt …"),
             _node("bwbr0005289_163", "article", bwb_id="BWBR0005289",
                   article_number="163", position=163, text="Geen verplichting …"),
+            _node("bwbr0001854_287", "article", bwb_id="BWBR0001854",
+                  article_number="287", heading="Doodslag", position=287,
+                  text="Hij die opzettelijk een ander van het leven berooft, wordt, als "
+                  "schuldig aan doodslag, gestraft …"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -149,6 +163,10 @@ def client(
     (tmp_path / "spa-routes.json").write_text(json.dumps(ROUTES))
     monkeypatch.setattr(settings, "SPA_INDEX", str(index))
     monkeypatch.setattr(settings, "SITE_URL", "https://concordans.nl")
+    # a page waits for what it links to, however slow the runner: what a page holds is
+    # tested here, how long it waits in test_an_article_page_reads_its_judgments_once_…
+    monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
+    version_cache.clear()
     shell.forget()
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
@@ -196,7 +214,8 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     page = _head(response.text)
     assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
-    assert page["description"].endswith("Met 1 uitspraken en Kamerstukken.")
+    # the text alone, the same before and after its judgments are kept (no count)
+    assert "uitspraken" not in page["description"]
     assert page["canonical"] == "https://concordans.nl/wetten/BWBR0005289/artikel/6:162"
     assert page["og_image"] == "https://concordans.nl/og/artikel.png"
     assert page["descriptions"] == 1  # the one of the shell replaced
@@ -217,6 +236,93 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     assert response.text.index('<main id="seo">') < response.text.index(
         '<div style="display: contents">'
     )
+
+
+def test_an_article_of_a_law_without_books(client: TestClient) -> None:
+    response = _get(client, "/wetten/BWBR0001854/artikel/287")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"].startswith("Artikel 287 Sr")
+    assert page["description"].startswith("Hij die opzettelijk een ander")
+    assert page["canonical"] == "https://concordans.nl/wetten/BWBR0001854/artikel/287"
+    assert "Hij die opzettelijk een ander" in page["main"]
+
+
+def test_an_article_whose_judgments_take_too_long_is_its_text(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Of a much cited article (6:162 BW on prod) the citing judgments take long: the page
+    is the article without them, not the shell."""
+    monkeypatch.setattr(seo, "CITED_BUDGET", 0.0)
+    response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] != "no-store"
+    page = _head(response.text)
+    assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
+    assert page["description"].startswith("1. Hij die jegens een ander")
+    assert "Hij die jegens een ander" in page["main"]
+    assert 'href="/wetten/BWBR0005289"' in page["main"]
+    assert "/uitspraken/" not in page["main"]
+
+
+def test_an_article_page_reads_its_judgments_once_per_version(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The judgments citing an article are sorted once per version of the edges and the
+    judgments (about half a second for 6:162 on prod), in the background, and a later
+    page reads them kept: a page that cannot wait for them is the article, the next one
+    has them."""
+    version_cache.clear()
+    sorted_ = []
+    compute = seo._cited
+
+    def slow(store: GraphStore, node_id: str) -> Any:
+        sorted_.append(node_id)
+        time.sleep(SORT)
+        return compute(store, node_id)
+
+    monkeypatch.setattr(seo, "_cited", slow)
+    assert CITED_BUDGET <= 0.05
+    monkeypatch.setattr(seo, "CITED_BUDGET", CITED_BUDGET)
+    started = time.monotonic()
+    first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+    # not kept yet: the article alone, without waiting for the sort
+    assert time.monotonic() - started < SORT / 2
+    assert "/uitspraken/" not in first["main"]
+    assert "Hij die jegens een ander" in first["main"]
+    for _ in range(100):  # computed on in the background
+        if _kept():
+            break
+        time.sleep(0.05)
+    for _ in range(3):
+        started = time.monotonic()
+        page = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+        assert time.monotonic() - started < SORT / 2  # read kept, not sorted again
+        assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in page["main"]
+    assert sorted_ == ["articles/bwbr0005289_162"]
+
+
+def _kept() -> bool:
+    return any("seo article cited" in str(key) for key in version_cache._values)
+
+
+@pytest.mark.parametrize(
+    ("path", "status"),
+    [
+        ("/wetten/BWBR0005289/artikel/6:162", 200),
+        ("/uitspraken/ecli:nl:hr:2019:2006", 301),
+        ("/bestaat/niet", 404),
+        ("/actueel", 200),
+    ],
+)
+def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> None:
+    """Caddy, crawlers and uptime checks ask HEAD."""
+    got = _get(client, path)
+    head = client.head(f"/render{path}", follow_redirects=False)
+    assert (head.status_code, got.status_code) == (status, status)
+    assert head.headers.get("location") == got.headers.get("location")
+    assert head.headers["cache-control"] == got.headers["cache-control"]
+    assert head.content == b""
 
 
 def test_a_law_lists_its_articles(client: TestClient) -> None:

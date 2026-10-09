@@ -1,0 +1,29 @@
+<toestand bwb-id="BWBR0018492"><wetgeving><wettekst><artikel bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1" stam-id="7187443" versie-id="30322972" id="C43497341" label-id="7175214" inwerking="2024-09-14" label="Artikel 1" bron="Stb.2024-256" effect="wijziging" ondertekening_bron="2024-09-09" publicatie_bron="2024-09-13" publicatie_iwt="2024-09-13" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">1</nr>
+  </kop>
+  <al>In dit besluit en de daarop berustende bepalingen wordt verstaan onder:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>
+        <nadruk type="cur">wet:</nadruk> de <extref doc="jci1.3:c:BWBR0018450" label-id="7147974" verwijzing-id="1972533" bwb-id="BWBR0018450">Zorgverzekeringswet</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0018492&amp;hoofdstuk=1&amp;artikel=1&amp;o=a&amp;z=2026-07-01&amp;g=2026-07-01" onderdeel="o=a" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>
+        <nadruk type="cur">verblijf:</nadruk> verblijf gedurende het etmaal;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0018492&amp;hoofdstuk=1&amp;artikel=1&amp;o=b&amp;z=2026-07-01&amp;g=2026-07-01" onderdeel="o=b" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>
+        <nadruk type="cur">eigen bijdrage:</nadruk> een eigen bijdrage als bedoeld in <extref doc="jci1.3:c:BWBR0018450&amp;artikel=11" label-id="7146464" verwijzing-id="1972534" bwb-id="BWBR0018450">artikel 11, derde lid van de wet</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0018492&amp;hoofdstuk=1&amp;artikel=1&amp;o=c&amp;z=2026-07-01&amp;g=2026-07-01" onderdeel="o=c" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeeld">
+      <li.nr>d.</li.nr>
+      <al>
+        <nadruk type="cur">geregistreerd geneesmiddel:</nadruk> een geneesmiddel waarvoor een handelsvergunning of parallelhandelsvergunning is verleend krachtens de <extref doc="jci1.3:c:BWBR0021505" label-id="8976374" verwijzing-id="2142724" bwb-id="BWBR0021505">Geneesmiddelenwet</extref> dan wel krachtens de verordening, bedoeld in <extref doc="jci1.3:c:BWBR0021505&amp;artikel=1" label-id="8974744" verwijzing-id="2142725" bwb-id="BWBR0021505">artikel 1, eerste lid, onder fff, van die wet</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0018492&amp;hoofdstuk=1&amp;artikel=1&amp;o=d&amp;z=2026-07-01&amp;g=2026-07-01" onderdeel="o=d" /></jcis></meta-data></li>
+    </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2024-256"><publicatiejaar>2024</publicatiejaar><publicatienr>256</publicatienr><uitgiftedatum isodatum="2024-09-13">13-09-2024</uitgiftedatum><ondertekeningsdatum isodatum="2024-09-09">09-09-2024</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2024-256"><publicatiejaar>2024</publicatiejaar><publicatienr>256</publicatienr><uitgiftedatum isodatum="2024-09-13">13-09-2024</uitgiftedatum><ondertekeningsdatum isodatum="2024-09-09">09-09-2024</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2024-09-14">14-09-2024</inwerkingtreding.datum><terugwerkend.datum datum-scope="tot-en-met" isodatum="2023-01-01">01-01-2023</terugwerkend.datum></inwerkingtreding><opmerkingen-inhoud><al>Artikel II van Stb. 2024/256 bevat overgangsrecht m.b.t. deze wijziging.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0018492&amp;artikel=1&amp;g=2026-07-01" onderdeel="artikel=1" korte-verwijzing="1.0:c:BWBR0018492&amp;artikel=1" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0018492&amp;hoofdstuk=1&amp;artikel=1&amp;z=2026-07-01&amp;g=2026-07-01" onderdeel="artikel=1" korte-verwijzing="jci1.3:c:BWBR0018492&amp;artikel=1" /></jcis></meta-data></artikel></wettekst></wetgeving></toestand>
