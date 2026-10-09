@@ -1173,3 +1173,100 @@ def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
         assert "kind" in client.get("/api/instruments").json()["facets"]
     finally:
         app.dependency_overrides.pop(get_store, None)
+
+
+def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
+    store: GraphStore,
+) -> None:
+    """Of every judgment that cites a law only its date is read before the page is cut,
+    and from ``judgments_citing``: a row of the table holds the text, and the Awb is
+    275,000 judgments (63 s of single-row reads cold, 2026-10-10)."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"_key": f"a{n}", "type": "article", "labels": ["BWB"],
+          "props": {"bwb_id": BWB, "article_number": str(n)}} for n in range(1, 4)],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": f"j{n}", "type": "judgment", "labels": ["Rechtspraak"],
+          "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "date_eff": f"2020-01-{n:02d}",
+                    "text": "x" * 5000}} for n in range(1, 21)],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [{"_key": f"e{n}", "_from": f"judgments/j{n}", "_to": f"articles/a{1 + n % 3}",
+          "relation": "REFERS_TO", "source": "t"} for n in range(1, 21)]
+    )  # fmt: skip
+    seen: list[tuple[Any, Any]] = []
+    stream = store._stream
+
+    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
+        seen.append((statement, params))
+        return stream(statement, params, *a, **k)
+
+    store._stream = recorded  # type: ignore[method-assign]
+    try:
+        found = instruments.get_citing_judgments(store, BWB, limit=5)
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    assert (found.total, len(found.items)) == (20, 5)
+    ((statement, params),) = seen
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        plan = conn.execute(
+            "EXPLAIN (FORMAT JSON) " + str(statement), params
+        ).fetchone()[0]
+    scans: list[tuple[str, str | None]] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("Relation Name") == "judgments":
+                scans.append((node["Node Type"], node.get("Index Name")))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(plan)
+    # the dates of every citing judgment by the covering index; the page's rows by key
+    assert ("Index Only Scan", "judgments_citing") in scans
+    assert sum(1 for kind, _ in scans if kind != "Index Only Scan") <= 1
+
+
+def test_the_judgments_citing_a_law_are_kept_per_request(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"_key": "a1", "type": "article", "labels": ["BWB"],
+          "props": {"bwb_id": BWB, "article_number": "1"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            {
+                "_key": "j1",
+                "type": "judgment",
+                "labels": [],
+                "props": {"date_eff": "2020"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [{"_key": "e1", "_from": "judgments/j1", "_to": "articles/a1",
+          "relation": "REFERS_TO", "source": "t"}]
+    )  # fmt: skip
+    first = instruments.get_citing_judgments(store, BWB)
+    calls = 0
+    stream = store._stream
+
+    def counted(*a: Any, **k: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return stream(*a, **k)
+
+    store._stream = counted  # type: ignore[method-assign]
+    try:
+        again = instruments.get_citing_judgments(store, BWB)
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    assert again == first
+    assert calls == 0
