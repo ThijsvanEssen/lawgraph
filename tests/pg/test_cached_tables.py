@@ -152,8 +152,8 @@ def _caller() -> str:
 
 def _exercise(store: GraphStore) -> None:
     """Everything that keeps an answer per table: the warm-up, the search counts, the
-    lids an article's edges cite, the judgments that cite it on its page and the papers
-    on the page of a member."""
+    lids an article's edges cite, the judgments that cite it on its page, the papers
+    on the page of a member and what a publication changes."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -162,6 +162,7 @@ def _exercise(store: GraphStore) -> None:
     nodes.get_node_with_neighbors(store, "articles", "a1")
     seo.cited(store, "articles/a1")
     seo.authored(store, "members/m1")
+    seo.changed(store, ("instruments/stb_2025_1",))
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(

@@ -102,6 +102,12 @@ def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
     text = store.upserted[-1].props["text"]
     assert text.startswith("NOTA VAN TOELICHTING") and len(text) > 5000
     assert "Mediabesluit 2008" in text
+    # its title is the publication's (``DC.title``), not the masthead "Staatsblad"
+    assert store.upserted[-1].props["title"] == (
+        "Besluit van 29 september 2025 tot wijziging van het Mediabesluit 2008 in "
+        "verband met het stellen van nadere regels omtrent een investeringsverplichting "
+        "voor Nederlands cultureel audiovisueel product"
+    )
 
 
 def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():

@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REPEALS,
 )
+from lawgraph.core.publication_xml import SERIES_NAMES
 from lawgraph.db import GraphStore
 
 # The laws whose articles are listed: those whose articles are cited most.
@@ -234,8 +235,10 @@ def publications(
         LEFT JOIN {COLLECTION_DOCUMENTS} note
             ON note.id = '{COLLECTION_DOCUMENTS}/' || split_part(l.official, '-', 1)
                          || '_' || replace(l.official, '-', '_')
-        WHERE (lg_str(note.props -> 'title') IS NOT NULL
-               AND lg_str(note.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$')
+        LEFT JOIN lg_document_light light ON light.id = note.id
+        WHERE (lg_str(light.props -> 'title') IS NOT NULL
+               AND lg_str(light.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$'
+               AND lower(lg_str(light.props -> 'title')) <> ALL(%(series_names)s::text[]))
            OR EXISTS (
                SELECT 1 FROM edges e
                WHERE e.from_id = ANY(ARRAY[l.id, note.id])
@@ -243,7 +246,12 @@ def publications(
            )
         ORDER BY l.id
         """,
-        {"since": since, "series": list(SERIES), "changes": changes},
+        {
+            "since": since,
+            "series": list(SERIES),
+            "changes": changes,
+            "series_names": sorted(SERIES_NAMES),
+        },
     )
 
 

@@ -1007,7 +1007,9 @@ regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
-`toelichting`, in older formats), `bwb_id` = the regulation retrieve found it
+`toelichting`, in older formats), `title` = the `citeertitel`, else the official title, else
+the `DC.title` of the metadata, else the first `titel` that is not the masthead of the series
+(`Staatsblad`), `bwb_id` = the regulation retrieve found it
 for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.

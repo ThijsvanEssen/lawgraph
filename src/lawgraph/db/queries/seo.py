@@ -498,7 +498,8 @@ _CHANGES = (RELATION_INTRODUCES, RELATION_AMENDS, RELATION_REPEALS, RELATION_EXP
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A publication in the Staatsblad or Tractatenblad: the instrument the BWB names, its
     nota van toelichting (the document of its own source, whose title is its title; the
-    page of one without such an instrument) and the regulations they change, by name."""
+    page of one without such an instrument) and the regulations they change, by name. The
+    note is read light (``lg_document_light``): its props hold its whole text."""
     collection, _, key = node_id.partition("/")
     if collection == COLLECTION_INSTRUMENTS:
         row = _node(store, COLLECTION_INSTRUMENTS, node_id)
@@ -509,28 +510,50 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             f"{COLLECTION_DOCUMENTS}/{make_node_key(official.split('-')[0], official)}"
         )
     else:
+        # the document of its own source: ``stb_stb_2026_94`` is stb-2026-94
         row, note_id = None, node_id
-    # the props of the note without its text: a nota van toelichting is long
+        official = key.partition("_")[2].replace("_", "-")
     note = _first(
         store,
         f"""
-        SELECT id, json_build_object(
-                   'title', props -> 'title', 'identifier', props -> 'identifier',
-                   'year', props -> 'year', 'number', props -> 'number',
-                   'bwb_id', props -> 'bwb_id') AS props
-        FROM {COLLECTION_DOCUMENTS} WHERE id = %(id)s
+        SELECT d.id, l.props -> 'title' AS title
+        FROM {COLLECTION_DOCUMENTS} d
+        LEFT JOIN lg_document_light l ON l.id = d.id
+        WHERE d.id = %(id)s
         """,
         {"id": note_id},
     )
     if row is None and note is None:
         return None
-    sources = [r["id"] for r in (row, note) if r is not None]
+    sources = tuple(r["id"] for r in (row, note) if r is not None)
+    parts = official.split("-")
     return {
         "id": node_id,
         "props": (row or {}).get("props") or {},
-        "note": (note or {}).get("props") or {},
-        "laws": _changed(store, sources),
+        "note": {
+            "title": (note or {}).get("title"),
+            "identifier": official,
+            "year": parts[1] if len(parts) == 3 else None,
+        },
+        "laws": changed(store, sources),
     }
+
+
+# The BWB id in the id of an article (``articles/bwbr0005290_248``), the first group: the
+# key of an article of the BWB starts with it (``core/bwb_xml.article_key``,
+# ``historical_article_key``).
+_ARTICLE_LAW = f"'^{COLLECTION_ARTICLES}/(bwbr[0-9]{{7}})_'"
+
+
+def changed(store: GraphStore, sources: tuple[str, ...]) -> list[dict[str, Any]]:
+    """``_changed``, kept per version of the edges, articles and instruments: a
+    publication that amends a code reads thousands of edges of its articles."""
+    return cached(
+        store,
+        ("seo publication changes", sources),
+        lambda: _changed(store, list(sources)),
+        tables=(COLLECTION_EDGES, COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS),
+    )
 
 
 def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
@@ -546,17 +569,31 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
               AND e.relation = ANY(%(changes)s::text[])
               AND e.to_collection IN ('{COLLECTION_INSTRUMENTS}', '{COLLECTION_ARTICLES}')
         ),
+        -- the law of an article from its key (``bwbr0005290_248``: BWBR0005290), the
+        -- article read only for one keyed otherwise (EUR-Lex): a code amended in many
+        -- articles would else read each of them (162 reads, 0.13 s cold, Stb. 2026, 94)
+        article_laws AS (
+            SELECT DISTINCT t.relation,
+                   upper(substring(t.to_id from {_ARTICLE_LAW})) AS bwb_id
+            FROM targets t
+            WHERE t.to_collection = '{COLLECTION_ARTICLES}'
+              AND t.to_id ~ {_ARTICLE_LAW}
+            UNION
+            SELECT DISTINCT t.relation, a.bwb_id
+            FROM targets t
+            JOIN {COLLECTION_ARTICLES} a ON a.id = t.to_id
+            WHERE t.to_collection = '{COLLECTION_ARTICLES}'
+              AND t.to_id !~ {_ARTICLE_LAW}
+        ),
         laws AS (
             SELECT i.id, t.relation
             FROM targets t
             JOIN {COLLECTION_INSTRUMENTS} i ON i.id = t.to_id
             WHERE t.to_collection = '{COLLECTION_INSTRUMENTS}'
             UNION
-            SELECT i.id, t.relation
-            FROM targets t
-            JOIN {COLLECTION_ARTICLES} a ON a.id = t.to_id
-            JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = a.bwb_id
-            WHERE t.to_collection = '{COLLECTION_ARTICLES}'
+            SELECT i.id, al.relation
+            FROM article_laws al
+            JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = al.bwb_id
         )
         SELECT i.id, json_build_object('bwb_id', i.bwb_id) AS props,
                coalesce(lg_str(i.props -> 'citation_title'),

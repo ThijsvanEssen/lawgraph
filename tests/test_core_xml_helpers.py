@@ -35,6 +35,15 @@ def test_first_named_and_find_own_text() -> None:
 def test_publication_title_helper() -> None:
     assert publication_title(_el("<r/>"), "fallback") == "fallback"
     assert publication_title(_el("<r><titel>T</titel></r>"), "f") == "T"
+    # the masthead of the series is no title; the metadata's ``DC.title`` is
+    masthead = "<r><titel>Staatsblad</titel><titel>WIJZIGING</titel></r>"
+    assert publication_title(_el(masthead), "f") == "WIJZIGING"
+    meta = (
+        '<r><metadata><meta name="DC.title" content="Besluit van 1 mei"/></metadata>'
+        "<titel>Staatsblad</titel></r>"
+    )
+    assert publication_title(_el(meta), "f") == "Besluit van 1 mei"
+    assert publication_title(_el("<r><titel>Tractatenblad</titel></r>"), "f") == "f"
 
 
 def test_normalize_instrument_id() -> None:
