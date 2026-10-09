@@ -32,6 +32,7 @@ from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
+    INSTRUMENT_DATE_IN_FORCE,
     SEARCH_FIELDS,
     search_column,
     search_words,
@@ -69,16 +70,23 @@ def _not_null(*values: str) -> str:
 
 # ── a period ──────────────────────────────────────────────────────────────────
 
-# The date of a hit a period (``from``, ``to``) asks for: of each type its own, a column of
-# its table with an index (a judgment the day of its decision, a paper its date, a dossier
-# the day it was opened, a vote its date, a commitment the day it was made). A type not
-# named has no date of its own: with a period it finds nothing.
-PERIOD_COLUMNS: dict[str, str] = {
-    "judgments": "date_eff",
-    "documents": "date",
-    "dossiers": "opened_on",
-    "decisions": "date",
-    "commitments": "made_on",
+# The date of a hit a period (``from``, ``to``) asks for, of a row ``{row}``: of each type its
+# own (a judgment the day of its decision, a paper its date, a dossier the day it was opened,
+# a vote its date, a commitment the day it was made, a law the day it came into force, as
+# the index ``instruments_date_in_force`` reads it), and of an article that of its law. A
+# type not named has no date of its own: with a period it finds nothing.
+PERIOD_DATES: dict[str, str] = {
+    "judgments": "{row}.date_eff",
+    "documents": "{row}.date",
+    "dossiers": "{row}.opened_on",
+    "decisions": "{row}.date",
+    "commitments": "{row}.made_on",
+    "instruments": INSTRUMENT_DATE_IN_FORCE.replace("props", "{row}.props"),
+    "articles": (
+        "(SELECT "
+        + INSTRUMENT_DATE_IN_FORCE.replace("props", "i.props")
+        + " FROM instruments i WHERE i.bwb_id = {row}.bwb_id ORDER BY i.key LIMIT 1)"
+    ),
 }
 
 
@@ -98,7 +106,7 @@ class Period:
         with a time of the last day is in it (before the day after)."""
         if not self:
             return ""
-        column = f"{row}.{PERIOD_COLUMNS[table]}"
+        column = PERIOD_DATES[table].format(row=row)
         parts = []
         if self.start:
             parts.append(f"{column} >= %(_period_from)s")
@@ -118,7 +126,7 @@ class Period:
     def keeps(self, table: str) -> bool:
         """Whether a hit of *table* can be in the period: every type without one, only
         those with a date of their own with one."""
-        return not self or table in PERIOD_COLUMNS
+        return not self or table in PERIOD_DATES
 
 
 NO_PERIOD = Period()
@@ -476,8 +484,10 @@ def _search_articles(
     notation: Notation | None,
     limit: int,
     live: bool = False,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     termed = _termed(store, tokens)
+    in_period = period.where("articles")
     text = _text_query(
         store,
         "articles",
@@ -486,6 +496,8 @@ def _search_articles(
         _ARTICLE_FIELDS,
         limit,
         joins=_ARTICLE_INSTRUMENT,
+        where=in_period,
+        params=period.params(),
         live=live,
         termed=termed,
     )
@@ -499,21 +511,25 @@ def _search_articles(
         precise: Query = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles doc {_ARTICLE_INSTRUMENT}
-            WHERE doc.key = ANY(%(keys)s)
+            WHERE doc.key = ANY(%(keys)s) {in_period}
             ORDER BY array_position(%(keys)s::text[], doc.key)
             LIMIT %(limit)s
             """,
-            {"keys": keys, "limit": limit},
+            {"keys": keys, "limit": limit, **period.params()},
         )
     else:
         precise = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles doc {_ARTICLE_INSTRUMENT}
-            WHERE doc.article_number = ANY(%(numbers)s)
+            WHERE doc.article_number = ANY(%(numbers)s) {in_period}
             ORDER BY doc.bwb_id NULLS FIRST, doc.key
             LIMIT %(limit)s
             """,
-            {"numbers": [a.number for a in notation.articles], "limit": limit},
+            {
+                "numbers": [a.number for a in notation.articles],
+                "limit": limit,
+                **period.params(),
+            },
         )
     return _with_terms(_two_phase_search(store, precise, text, limit), tokens, termed)
 
@@ -552,19 +568,25 @@ _INSTRUMENT_HIT = f"""
 
 
 def _search_instruments(
-    store: GraphStore, q: str, tokens: list[str], limit: int, live: bool = False
+    store: GraphStore,
+    q: str,
+    tokens: list[str],
+    limit: int,
+    live: bool = False,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
     precise: Query = (
         f"""
         SELECT {_INSTRUMENT_HIT} FROM instruments doc
-        WHERE doc.{search_column("aliases", "norm")} @> ARRAY[lg_fold(%(name)s)]
-           OR doc.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)]
+        WHERE (doc.{search_column("aliases", "norm")} @> ARRAY[lg_fold(%(name)s)]
+           OR doc.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)])
+          {period.where("instruments")}
         ORDER BY doc.citation_title NULLS FIRST, doc.key
         LIMIT %(limit)s
         """,
-        {"name": _folded(q), "limit": limit},
+        {"name": _folded(q), "limit": limit, **period.params()},
     )
     text = _text_query(
         store,
@@ -573,6 +595,8 @@ def _search_instruments(
         tokens,
         _INSTRUMENT_FIELDS,
         limit,
+        where=period.where("instruments"),
+        params=period.params(),
         live=live,
     )
     return _two_phase_search(store, precise, text, limit, precise_score=None)
@@ -1079,8 +1103,12 @@ def _full_searches(
     """The search of each type, ranked by its words; with a *period* only the types that
     have a date of their own, in it."""
     searches: Searches = {
-        "articles": lambda: _search_articles(store, tokens, notation, limit),
-        "instruments": lambda: _search_instruments(store, q, tokens, limit),
+        "articles": lambda: _search_articles(
+            store, tokens, notation, limit, period=period
+        ),
+        "instruments": lambda: _search_instruments(
+            store, q, tokens, limit, period=period
+        ),
         "judgments": lambda: _search_judgments(
             store, tokens, notation, limit, q, period
         ),
@@ -1120,8 +1148,12 @@ def _live_searches(
     """The search of each type while typing: nothing ranked by its words; with a
     *period* only the types that have a date of their own, in it."""
     searches: Searches = {
-        "articles": lambda: _search_articles(store, tokens, notation, limit, True),
-        "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
+        "articles": lambda: _search_articles(
+            store, tokens, notation, limit, True, period
+        ),
+        "instruments": lambda: _search_instruments(
+            store, q, tokens, limit, True, period
+        ),
         # a judgment the query names, else the newest that hold its words
         "judgments": lambda: (
             _search_judgments_live(store, tokens, notation, limit, q, period)
