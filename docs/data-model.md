@@ -489,6 +489,7 @@ Every Zaak of the Tweede Kamer, whatever its kind.
 | `dossier_numbers`, `started_on` | its dossiers; `Zaak.GestartOp` |
 | `related_cases` | `Zaak.GerelateerdNaar`: `id`, `kind` and `dossier_numbers` of each case the Kamer relates it to (read by `semantic tk-dossier-relations`) |
 | `replaces_cases` | `Zaak.VervangenVanuit`: the TK ids of the cases this one replaces (an amended amendment or motion, "ter vervanging van nr. 21"; read by `semantic tk-dossier-relations`) |
+| `done` | `Zaak.Afgedaan`: whether the Kamer is done with it. An amendment or motion done with and without a decision was replaced or withdrawn; one not done with is still open |
 
 ### Document (`documents`)
 
