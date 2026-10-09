@@ -112,11 +112,14 @@ def test_alias_rows_are_the_instruments_with_an_id_by_key(store: GraphStore) -> 
         "32016R0679",
         "BWBR9",
     ]
+    # with its titles: a code beside its versions keeps their abbreviation
     assert rows[1] == {
         "short_title": "W2",
         "aliases": ["W2", "Wtwee"],
         "bwb_id": "BWBR2",
         "celex": None,
+        "citation_title": "Wet twee",
+        "title": "Wet twee",
     }
 
 

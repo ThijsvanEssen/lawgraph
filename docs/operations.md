@@ -86,6 +86,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address is only in the memory of the rate limiter |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
+| `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
 | `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app |
 
 ### Logging and tests
@@ -147,7 +148,7 @@ passed to the pipelines that accept it and the others run in full.
 
 | Command | Options |
 |---------|---------|
-| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then |
+| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then. `rechtspraak` and `rechtspraak-citations` without it read every judgment, also in slices: `--after KEY` starts past that key (of the judgment; of its record for `rechtspraak-citations`), `--limit N` stops after N (the log names the last one read; `ops/relink-judgments.sh` runs those of `rechtspraak` at night) |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |
@@ -187,6 +188,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-grond
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
 | `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
+| `lawgraph sitemaps [--out DIR] [--base URL]` | the sitemaps of Concordans into `--out` (default `LAWGRAPH_SITEMAP_DIR`), each address on `--base` (default `LAWGRAPH_SITE_URL`): `sitemap.xml`, the index, and gzipped parts of at most 50,000 addresses per kind: `wetten` (every law with a BWB id that is no stub, `lastmod` the day its version in force began), `artikelen` (the articles in force of the 150 laws whose articles are cited most, `lastmod` that of their law), `moties` and `amendementen` (with a decision since 2018, `lastmod` the last day one was taken), `dossiers` (`lastmod` their last activity) and `paginas` (the pages of the app, `spa-routes.json`). Each by its readable address; a node without one is left out. A file is written beside its place and renamed, the index last, then the parts it no longer names are removed; `daily.sh` runs it |
 | `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
@@ -370,8 +372,8 @@ scheduler runs; nothing is installed for you.
 
 | Script | Runs | Why |
 |--------|------|-----|
-| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune` | what the sources changed; a day without a run is caught up by the next |
-| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), then `semantic all`, `expand-graph`, `check` | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune`; `sitemaps` | what the sources changed; a day without a run is caught up by the next |
+| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), then the steps of `semantic all` in its order (`semantic all --list`, the order of the registry: what a step reads comes before it, the linkers before `graph-light`, `bwb` before `bwb-amendments`) in full, `expand-graph`, `check`. Step by step, each under the lock on its own (`scripts/step.sh`, which waits up to an hour, `LAWGRAPH_LOCK_WAIT`, for a running poll), so the polls run in between. `rechtspraak` and `bwb-definitions` go in slices (`RECHTSPRAAK_SLICE`, default 100000 judgments; `DEFINITIONS_SLICE`, default 5000 regulations); a slice that does not go on (the same key again) or more than `MAX_SLICES` (200) of them stops the step as a failure. `rechtspraak-citations` is left to the daily run: a judgment cited by an ECLI that is not loaded yet is a stub the edge already reaches, and fills when it comes. A failing step does not stop the others; the failures are told at the end | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so, after
@@ -510,6 +512,11 @@ no code.
 last runs, long statements, disk), `log` (an ops job or `runs.log`), `sql` (a read-only query from `ops/`) and `run`
 (a script from `ops/`, in the background). Only files merged under `ops/` can be sent; `ops/README.md` has the
 commands and the lock a writing script takes.
+
+The server's own config is kept in `deploy/server/`: the systemd units and timers, the `concordans.nl` block of
+Caddy, and `alert.sh`. The ops actions `config-check` (read only: the diff against the live files,
+`systemd-analyze verify`, `caddy validate`) and `config-apply` (the same, then only what changed, installed and
+reloaded) keep the server and the repo the same; `deploy/server/README.md` has the details.
 
 ## Observability
 

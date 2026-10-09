@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parents[1]
 FAKE_LAWGRAPH = """#!/bin/sh
 echo "$*" >> "$CALLS"
 case "$*" in "$FAIL_ON"*) exit 1;; esac
+# the steps of `semantic all`, and a slice that names where to go on, then that it is done
+case "$*" in
+  "semantic all --list")
+    printf '%s\\n' tk rechtspraak rechtspraak-citations bwb-definitions graph-heat;;
+  *"--after k1"*) echo "The last read was None (go on with --after None)." >&2;;
+  *"--limit"*) echo "The last read was k1 (go on with --after k1)." >&2;;
+esac
 exit 0
 """
 
@@ -58,7 +65,7 @@ def _calls(checkout: Path) -> list[str]:
     return (checkout / "calls").read_text().splitlines()
 
 
-def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_the_prune(
+def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_after(
     checkout: Path,
 ) -> None:
     done = _run(checkout, "daily.sh")
@@ -69,6 +76,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_the
         "semantic all --since last",
         "check --skip-edges",
         "search-stats prune",  # the counts of the terms searched, older than a week
+        "sitemaps",
     ]
     assert (checkout / "logs" / "runs.log").read_text().count("daily.sh: ok") == 1
 
@@ -81,10 +89,46 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         # the members and their seats and vacancies, which the daily run skips
         "retrieve tk-dossiers --since 1d --skip-decisions --skip-documents",
         "normalize tk-dossiers --since 1d",
-        "semantic all",
+        "semantic all --list",
+        "semantic tk",
+        # the article citations in slices, until one reads nothing
+        "semantic rechtspraak --limit 100000",
+        "semantic rechtspraak --after k1 --limit 100000",
+        # rechtspraak-citations: left to the daily run (the stubs)
+        "semantic bwb-definitions --limit 5000",
+        "semantic bwb-definitions --after k1 --limit 5000",
+        "semantic graph-heat",
         "expand-graph",
         "check",
     ]
+    # each step took the lock on its own and let it go: a poll can run in between
+    runs = (checkout / "logs" / "runs.log").read_text()
+    assert runs.count("step.sh: ok") == 10
+    assert runs.count("weekly.sh: ok") == 1
+    assert not (checkout / "lawgraph-scheduled.lock").exists()
+
+
+def test_a_failing_weekly_step_is_told_and_the_rest_still_runs(checkout: Path) -> None:
+    done = _run(checkout, "weekly.sh", fail_on="semantic tk")
+    assert done.returncode == 1
+    assert _calls(checkout)[-2:] == ["expand-graph", "check"]
+    assert (
+        "weekly.sh: FAILED: lawgraph semantic tk"
+        in (checkout / "logs" / "runs.log").read_text()
+    )
+
+
+def test_a_weekly_step_waits_for_a_poll_that_holds_the_lock(checkout: Path) -> None:
+    """A step waits for a running poll (LAWGRAPH_LOCK_WAIT, an hour by default) instead
+    of being skipped: here the lock is let go a second after the run starts."""
+    lock = checkout / "lawgraph-scheduled.lock"
+    lock.mkdir()
+    release = subprocess.Popen(["sh", "-c", f"sleep 1; rmdir {lock}"])
+    try:
+        assert _run(checkout, "weekly.sh").returncode == 0
+    finally:
+        release.wait()
+    assert _calls(checkout)[0].startswith("retrieve tk-dossiers")
 
 
 def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
@@ -92,7 +136,7 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
 ) -> None:
     done = _run(checkout, "daily.sh", fail_on="normalize all")
     assert done.returncode == 1
-    assert len(_calls(checkout)) == 5  # semantic, check and the prune ran too
+    assert len(_calls(checkout)) == 6  # semantic, check, the prune and sitemaps ran too
     runs = (checkout / "logs" / "runs.log").read_text()
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
 
@@ -294,3 +338,65 @@ def test_a_poll_given_up_three_times_in_a_row_says_so_once(checkout: Path) -> No
     assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 0
     assert not (checkout / "logs" / "skipped-poll-tk").exists()
     assert (checkout / "logs" / "skipped-poll-rechtspraak").read_text().strip() == "1"
+
+
+def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None:
+    """The weekly run takes the steps in the order of ``semantic all --list``, the order of
+    the registry, which puts what a step reads before it (``test_semantic_order_puts_what_is
+    _read_first``: the linkers before graph-light, bwb before bwb-amendments, …). Only
+    rechtspraak-citations is left out; no step after it reads what it would add."""
+    from lawgraph.sources.registry import PIPELINES
+
+    names = [pipeline.name for pipeline in PIPELINES["semantic"]]
+    fake = checkout / ".venv" / "bin" / "lawgraph"
+    listing = " ".join(names)
+    fake.write_text(
+        FAKE_LAWGRAPH.replace(
+            "tk rechtspraak rechtspraak-citations bwb-definitions graph-heat", listing
+        )
+    )
+    assert _run(checkout, "weekly.sh").returncode == 0
+    ran = [
+        call.split()[1]
+        for call in _calls(checkout)
+        if call.startswith("semantic ") and call != "semantic all --list"
+    ]
+    # each step once, the sliced ones per slice
+    in_order = list(dict.fromkeys(ran))
+    assert in_order == [name for name in names if name != "rechtspraak-citations"]
+
+
+@pytest.mark.parametrize(
+    ("repeat", "cap", "failure"),
+    [
+        # the slice after k1 names k1 again: no step forward
+        (
+            '*"--after k1"*) echo "go on with --after k1)." >&2;;',
+            "",
+            "no progress after k1",
+        ),
+        # every slice goes on: a run over all is far fewer slices than the cap
+        (
+            '*"--after k"*) echo "go on with --after k$(wc -l < "$CALLS" | tr -d " "))." >&2;;',
+            "3",
+            "more than 3 slices",
+        ),
+    ],
+)
+def test_a_slice_that_does_not_go_on_stops_with_a_failure(
+    checkout: Path, repeat: str, cap: str, failure: str
+) -> None:
+    """A log line that repeats, or a key that does not move, would run the weekly's
+    slices for ever: it stops, is told, and the rest of the run goes on."""
+    fake = checkout / ".venv" / "bin" / "lawgraph"
+    fake.write_text(
+        FAKE_LAWGRAPH.replace(
+            '*"--after k1"*) echo "The last read was None (go on with --after None)." >&2;;',
+            repeat,
+        )
+    )
+    extra = {"MAX_SLICES": cap} if cap else {}
+    done = _run(checkout, "weekly.sh", **extra)
+    assert done.returncode == 1
+    assert failure in (checkout / "logs" / "runs.log").read_text()
+    assert _calls(checkout)[-2:] == ["expand-graph", "check"]

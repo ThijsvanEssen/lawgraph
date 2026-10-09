@@ -36,7 +36,9 @@ The sources rank: short titles, then the other abbreviations of the WTI, then th
 (`data/curated/instrument_abbreviations.json`, `lawgraph curated set instrument-abbreviations`:
 `AVG` for Verordening (EU) 2016/679, for an instrument in the graph only). The first source
 that has an abbreviation decides, and the abbreviation is a law's only when one law has it there
-(`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's).
+(`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's), or when the others are versions
+of it: their title is its title with a parenthesis after it (`Rv` is the Wetboek van Burgerlijke
+Rechtsvordering's, not that of its version "(geldt in geval van niet-digitaal procederen)").
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
@@ -527,7 +529,9 @@ the article first and resolves the law after it:
 | `artikel 3a van die wet` (also `deze`, `genoemde`, `voornoemde`), the law named last within 3,000 characters | 0.70 |
 
 Codes come from `instruments.props.short_title` and `aliases` (see the Overview), names from
-instrument titles; a title two instruments share is not a name. A missing target article is
+instrument titles; a title two instruments share is not a name. A title that ends in a year is a
+name without it too (`Vreemdelingenwet` for the Vreemdelingenwet 2000) when no instrument is
+called so and no other has that name with another year. A missing target article is
 resolved as the Overview says (a stub from 0.9); an article cited only as `artikel N` with no
 law is not written.
 

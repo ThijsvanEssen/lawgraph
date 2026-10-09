@@ -39,3 +39,69 @@ def test_the_backfill_steps_hand_on_their_moment() -> None:
         and "retrieve tk --replacing --mode full" in first
     )
     assert 'normalize tk --since "$since"' in second and "exit 1" in second
+
+
+SERVER = OPS.parent / "deploy" / "server"
+REPO_SCRIPTS = OPS.parent / "scripts"
+
+
+def test_the_server_config_is_there() -> None:
+    """What the server runs is kept here: the units, the Caddy block, the alert, apply.sh."""
+    for name in (
+        "apply.sh",
+        "caddy/concordans.caddy",
+        "bin/alert.sh",
+        "scheduler.env.example",
+    ):
+        assert (SERVER / name).is_file(), name
+    done = subprocess.run(
+        ["sh", "-n", str(SERVER / "apply.sh")], capture_output=True, text=True
+    )
+    assert done.returncode == 0, done.stderr
+
+
+@pytest.mark.parametrize(
+    "timer", sorted((SERVER / "systemd").glob("*.timer")), ids=lambda p: p.name
+)
+def test_a_timer_starts_a_unit_here_that_runs_a_script_in_scripts(timer: Path) -> None:
+    """Each timer names a service kept here (``Unit=`` or its own name), and that service runs a
+    script of ``scripts/`` from the checkout on the server."""
+    text = timer.read_text(encoding="utf-8")
+    assert re.search(r"^OnCalendar=.+ Europe/Amsterdam$", text, re.M), "no OnCalendar"
+    unit = re.search(r"^Unit=(\S+)$", text, re.M)
+    service = unit.group(1) if unit else timer.name.replace(".timer", ".service")
+    template = re.sub(r"@[^.]+\.service$", "@.service", service)
+    path = SERVER / "systemd" / template
+    assert path.is_file(), template
+    run = re.search(
+        r"^ExecStart=/srv/lawgraph/app/scripts/(\S+)",
+        path.read_text(encoding="utf-8"),
+        re.M,
+    )
+    assert run, f"{template} runs no script of scripts/"
+    assert (REPO_SCRIPTS / run.group(1)).is_file(), run.group(1)
+
+
+def test_every_service_but_the_api_is_started_by_a_timer() -> None:
+    timers = " ".join(
+        p.read_text(encoding="utf-8") + p.name
+        for p in (SERVER / "systemd").glob("*.timer")
+    )
+    for service in (SERVER / "systemd").glob("*.service"):
+        if service.name == "lawgraph-api.service":
+            continue
+        stem = service.name.replace("@.service", "@").replace(".service", "")
+        assert stem in timers, service.name
+
+
+def test_caddy_serves_the_sitemaps_from_where_they_are_written() -> None:
+    """``/sitemap*`` is handled before the files of the build and the render route, from the
+    directory ``scheduler.env`` gives ``lawgraph sitemaps``."""
+    caddy = (SERVER / "caddy" / "concordans.caddy").read_text(encoding="utf-8")
+    env = (SERVER / "scheduler.env.example").read_text(encoding="utf-8")
+    where = re.search(r"^LAWGRAPH_SITEMAP_DIR=(\S+)$", env, re.M)
+    assert where, "LAWGRAPH_SITEMAP_DIR"
+    block = re.search(r"handle /sitemap\* \{\s*root \* (\S+)\s*file_server\s*\}", caddy)
+    assert block and block.group(1) == where.group(1)
+    assert caddy.index("handle /sitemap*") < caddy.index("@file file")
+    assert caddy.index("handle /sitemap*") < caddy.index("rewrite * /render")
