@@ -47,9 +47,14 @@ def test_get_article_detail_returns_expected_fields(monkeypatch):
         "lawgraph.api.routes.articles.get_article_citations",
         lambda store, article_doc: [],
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.article_terms",
+        lambda store, instrument_id, props, citations: ([], {}, []),
+    )
     response = client.get("/api/articles/BWBR0001854/287")
     assert response.status_code == 200
     payload = response.json()
+    assert payload["term_spans"] == [] and payload["definitions"] == []
 
     article = payload["article"]
     assert article["display_name"] == "Artikel 287"
@@ -100,6 +105,31 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         "lawgraph.api.routes.articles.get_article_citations",
         lambda store, article_doc: [entry],
     )
+    definition = {
+        "article_key": "bwbr0001854_1",
+        "article_number": "1",
+        "term": "wet",
+        "text": "het Wetboek van Strafrecht",
+        "place": "a",
+        "jci": None,
+        "scope": {"kind": "wet", "path": ""},
+        "refers_to": "BWBR0001854",
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.article_terms",
+        lambda store, instrument_id, props, citations: (
+            [
+                {
+                    "start": 30,
+                    "end": 33,
+                    "term": "wet",
+                    "definition_ref": "bwbr0001854_1:a",
+                }
+            ],
+            {0: "bwbr0001854_1:a"},
+            [definition],
+        ),
+    )
     response = client.get("/api/articles/BWBR0001854/287")
     assert response.status_code == 200
     payload = response.json()
@@ -112,6 +142,13 @@ def test_get_article_detail_exposes_citations(monkeypatch):
     assert target["bwb_id"] == "BWBR0001854"
     assert target["article_number"] == "24c"
     assert target["display_name"] == "Artikel 24c"
+    # the defined terms: a span of its own, and the definition the citation names
+    assert payload["term_spans"] == [
+        {"start": 30, "end": 33, "term": "wet", "definition_ref": "bwbr0001854_1:a"}
+    ]
+    assert citation["definition_ref"] == "bwbr0001854_1:a"
+    assert payload["definitions"][0]["ref"] == "bwbr0001854_1:a"
+    assert payload["definitions"][0]["text"] == "het Wetboek van Strafrecht"
 
 
 _EXPLANATION_ROW = {

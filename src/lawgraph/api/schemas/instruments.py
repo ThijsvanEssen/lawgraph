@@ -11,6 +11,7 @@ from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_URL,
     VALID_UNTIL,
+    DefinitionDTO,
     DossierRefDTO,
     FacetCountDTO,
     JudgmentSummaryDTO,
@@ -1150,3 +1151,12 @@ class InstrumentEuLinksResponse(BaseModel):
     international_total: int = Field(
         ..., description="Absolute number of `international`, independent of `limit`."
     )
+
+
+class InstrumentDefinitionsResponse(BaseModel):
+    """The definitions an instrument gives itself."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    definitions: list[DefinitionDTO] = Field(default_factory=list)

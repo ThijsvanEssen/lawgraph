@@ -174,7 +174,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
                 self.store, touched_since, seeds
             )
             touched_dossiers = touched.touched_dossiers(
-                self.store, touched_since, seeds
+                self.store, touched_since, seeds, edges=touched.GOVERNMENT_EDGES
             )
             # of those, the dossiers whose first signature a touched paper can change
             some_dossiers = government_queries.dossiers_whose_first_may_change(

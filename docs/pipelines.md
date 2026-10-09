@@ -326,11 +326,15 @@ With `--touched-since` (`lawgraph poll`) it walks only the dossiers touched sinc
 `tk-government` only those dossiers and the commitments touched since then
 (`pipelines/semantic/_touched.py`): the dossier, commitment, paper, case or decision whose TK
 record was fetched since then (also the decision a fetched Stemming voted on), both ends of
-every edge written since then, and the dossiers these are `PART_OF`, `ABOUT` or `LEGISLATED_IN`,
-directly or through their case. For those it comes to what a run over all would. Of the
-touched dossiers `tk-government` reads the papers again only of those whose first signature
-can have changed: one that keeps none (`first_signed`), or of which a paper the window touched
-is dated on or before the one kept, or is it. What changes in another way (a cabinet, a post,
+every edge written since then that the step reads, and the dossiers these are `PART_OF`,
+`ABOUT` or `LEGISLATED_IN`, directly or through their case. The edges each reads: of
+`tk-dossier-outcomes` `ABOUT`, `VOTED`, `LEGISLATED_IN` and `PART_OF`; of `tk-government`
+`AUTHORED` to a paper (not to a case: the actors of `tk-case-actors`) and `PART_OF`. A wave of
+other edges (the actors of every case, the links between papers) touches none of their
+dossiers. For those it comes to what a run over all would. Of the touched dossiers
+`tk-government` reads the papers again only of those whose first signature can have changed:
+one that keeps none (`first_signed`), or of which a paper the window touched is dated on or
+before the one kept, or is it; found in one pass, however many dossiers the window touched. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
@@ -910,6 +914,19 @@ nothing is stubbed. The edges of an article are derived in full: one its referen
 support is removed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
+
+**Semantic `bwb-definitions`.** The definitions a regulation gives itself, its
+begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML and kept in
+`lg_instrument_definitions` (not a table of the graph; apart from the instrument's props, so
+its lists do not carry them). The BWB marks no definition as such; the article has a structure
+all the same: an `<al>` that announces them ("… wordt verstaan onder:"), then a `<lijst>` of
+`<li>` with its letter and JCI and an `<al>` "term: definition", or `<al>` after `<al>` that
+begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term goes on with the
+definition before it); and a sentence that defines one term. Per definition `term`, `text`,
+`article_key`, `article_number`, `place` (the letter), `jci`, `scope` (`kind`: `wet`, `besluit`,
+`hoofdstuk`, `paragraaf`, …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that
+part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
 `Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
