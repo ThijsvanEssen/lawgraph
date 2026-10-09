@@ -364,3 +364,39 @@ def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None
     # each step once, the sliced ones per slice
     in_order = list(dict.fromkeys(ran))
     assert in_order == [name for name in names if name != "rechtspraak-citations"]
+
+
+@pytest.mark.parametrize(
+    ("repeat", "cap", "failure"),
+    [
+        # the slice after k1 names k1 again: no step forward
+        (
+            '*"--after k1"*) echo "go on with --after k1)." >&2;;',
+            "",
+            "no progress after k1",
+        ),
+        # every slice goes on: a run over all is far fewer slices than the cap
+        (
+            '*"--after k"*) echo "go on with --after k$(wc -l < "$CALLS" | tr -d " "))." >&2;;',
+            "3",
+            "more than 3 slices",
+        ),
+    ],
+)
+def test_a_slice_that_does_not_go_on_stops_with_a_failure(
+    checkout: Path, repeat: str, cap: str, failure: str
+) -> None:
+    """A log line that repeats, or a key that does not move, would run the weekly's
+    slices for ever: it stops, is told, and the rest of the run goes on."""
+    fake = checkout / ".venv" / "bin" / "lawgraph"
+    fake.write_text(
+        FAKE_LAWGRAPH.replace(
+            '*"--after k1"*) echo "The last read was None (go on with --after None)." >&2;;',
+            repeat,
+        )
+    )
+    extra = {"MAX_SLICES": cap} if cap else {}
+    done = _run(checkout, "weekly.sh", **extra)
+    assert done.returncode == 1
+    assert failure in (checkout / "logs" / "runs.log").read_text()
+    assert _calls(checkout)[-2:] == ["expand-graph", "check"]

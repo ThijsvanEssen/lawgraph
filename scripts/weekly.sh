@@ -22,7 +22,13 @@ run() {  # run <lawgraph args...>: one step under the lock; a failure is remembe
 }
 slices() {  # slices <semantic step> <size>: its run over all, slice by slice, until one reads nothing
   after=""
+  n=0
   while :; do
+    n=$((n + 1))
+    if [ "$n" -gt "${MAX_SLICES:-200}" ]; then  # a run over all is far fewer slices
+      failures="${failures:+$failures; }lawgraph semantic $1: more than ${MAX_SLICES:-200} slices"
+      return 1
+    fi
     # the output is read for where to go on: in this shell, not in the subshell of $(…)
     out=$(sh scripts/step.sh semantic "$1" ${after:+--after "$after"} --limit "$2" 2>&1)
     rc=$?
@@ -33,6 +39,10 @@ slices() {  # slices <semantic step> <size>: its run over all, slice by slice, u
     fi
     next=$(printf '%s\n' "$out" | sed -n 's/.*go on with --after \([^)]*\)).*/\1/p' | tail -1)
     { [ -n "$next" ] && [ "$next" != None ]; } || return 0
+    if [ "$next" = "$after" ]; then  # no step forward: the same slice again and again
+      failures="${failures:+$failures; }lawgraph semantic $1: no progress after $after"
+      return 1
+    fi
     after=$next
   done
 }
