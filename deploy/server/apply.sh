@@ -24,9 +24,10 @@ failed=0
 note() { echo "== $*"; }
 bad() { echo "!! $*"; failed=1; }
 
-# the live Caddyfile with its concordans.nl block replaced by an import of the given file
+# the live Caddyfile with its concordans.nl block, or its import of it, replaced by an import of the given file
 caddyfile_with() {
-  awk -v snippet="$1" '
+  awk -v snippet="$1" -v live="$SNIPPET" '
+    $0 == "import " live { print "import " snippet; next }
     /^concordans\.nl \{/ { print "import " snippet; skip = 1; next }
     skip && /^\}/ { skip = 0; next }
     !skip { print }
