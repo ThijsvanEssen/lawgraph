@@ -338,3 +338,29 @@ def test_a_poll_given_up_three_times_in_a_row_says_so_once(checkout: Path) -> No
     assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 0
     assert not (checkout / "logs" / "skipped-poll-tk").exists()
     assert (checkout / "logs" / "skipped-poll-rechtspraak").read_text().strip() == "1"
+
+
+def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None:
+    """The weekly run takes the steps in the order of ``semantic all --list``, the order of
+    the registry, which puts what a step reads before it (``test_semantic_order_puts_what_is
+    _read_first``: the linkers before graph-light, bwb before bwb-amendments, …). Only
+    rechtspraak-citations is left out; no step after it reads what it would add."""
+    from lawgraph.sources.registry import PIPELINES
+
+    names = [pipeline.name for pipeline in PIPELINES["semantic"]]
+    fake = checkout / ".venv" / "bin" / "lawgraph"
+    listing = " ".join(names)
+    fake.write_text(
+        FAKE_LAWGRAPH.replace(
+            "tk rechtspraak rechtspraak-citations bwb-definitions graph-heat", listing
+        )
+    )
+    assert _run(checkout, "weekly.sh").returncode == 0
+    ran = [
+        call.split()[1]
+        for call in _calls(checkout)
+        if call.startswith("semantic ") and call != "semantic all --list"
+    ]
+    # each step once, the sliced ones per slice
+    in_order = list(dict.fromkeys(ran))
+    assert in_order == [name for name in names if name != "rechtspraak-citations"]
