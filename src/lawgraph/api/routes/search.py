@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,7 +14,12 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import LIVE_STALE_WAIT, search_full, search_live
+from lawgraph.db.queries.search import (
+    LIVE_STALE_WAIT,
+    Period,
+    search_full,
+    search_live,
+)
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
@@ -67,6 +73,18 @@ def search(
             )
         ),
     ] = "full",
+    date_from: Annotated[
+        dt.date | None,
+        Query(
+            alias="from",
+            description="Hits dated on or after this day, YYYY-MM-DD: each by a date of its "
+            "own; a type without one finds nothing with a period.",
+        ),
+    ] = None,
+    date_to: Annotated[
+        dt.date | None,
+        Query(alias="to", description="Hits dated on or before this day, YYYY-MM-DD."),
+    ] = None,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -82,9 +100,20 @@ def search(
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="`from` is after `to`.")
+    period = Period(
+        date_from.isoformat() if date_from else None,
+        date_to.isoformat() if date_to else None,
+    )
     search = search_live if mode == "live" else search_full
     raw, partial = search(
-        store, q=q, types=requested_types, kinds=kind_list, limit=limit
+        store,
+        q=q,
+        types=requested_types,
+        kinds=kind_list,
+        limit=limit,
+        period=period,
     )
 
     grouped: dict[str, list[SearchResultItem]] = {}

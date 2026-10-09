@@ -11,12 +11,14 @@ their order is held to D3.
 
 from __future__ import annotations
 
+import datetime as dt
 import functools
 import re
 import time
 import unicodedata
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
@@ -63,6 +65,63 @@ def _not_null(*values: str) -> str:
         f"WHEN coalesce(json_typeof({v}), 'null') <> 'null' THEN {v}" for v in values
     )
     return f"(CASE {cases} END)"
+
+
+# ── a period ──────────────────────────────────────────────────────────────────
+
+# The date of a hit a period (``from``, ``to``) asks for: of each type its own, a column of
+# its table with an index (a judgment the day of its decision, a paper its date, a dossier
+# the day it was opened, a vote its date, a commitment the day it was made). A type not
+# named has no date of its own: with a period it finds nothing.
+PERIOD_COLUMNS: dict[str, str] = {
+    "judgments": "date_eff",
+    "documents": "date",
+    "dossiers": "opened_on",
+    "decisions": "date",
+    "commitments": "made_on",
+}
+
+
+@dataclass(frozen=True)
+class Period:
+    """The days a search keeps its hits to: from *start* to *end*, both included
+    (YYYY-MM-DD); either open."""
+
+    start: str | None = None
+    end: str | None = None
+
+    def __bool__(self) -> bool:
+        return bool(self.start or self.end)
+
+    def where(self, table: str, row: str = "doc") -> str:
+        """``AND`` the date of a row of *table* in the period (empty without one); a date
+        with a time of the last day is in it (before the day after)."""
+        if not self:
+            return ""
+        column = f"{row}.{PERIOD_COLUMNS[table]}"
+        parts = []
+        if self.start:
+            parts.append(f"{column} >= %(_period_from)s")
+        if self.end:
+            parts.append(f"{column} < %(_period_until)s")
+        return " AND " + " AND ".join(parts)
+
+    def params(self) -> dict[str, Any]:
+        found: dict[str, Any] = {}
+        if self.start:
+            found["_period_from"] = self.start
+        if self.end:
+            day = dt.date.fromisoformat(self.end) + dt.timedelta(days=1)
+            found["_period_until"] = day.isoformat()
+        return found
+
+    def keeps(self, table: str) -> bool:
+        """Whether a hit of *table* can be in the period: every type without one, only
+        those with a date of their own with one."""
+        return not self or table in PERIOD_COLUMNS
+
+
+NO_PERIOD = Period()
 
 
 # ── the condition of a search ─────────────────────────────────────────────────
@@ -552,19 +611,27 @@ def _search_judgments(
     notation: Notation | None,
     limit: int,
     q: str = "",
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     text = _text_query(
-        store, "judgments", _JUDGMENT_HIT, tokens, _JUDGMENT_FIELDS, limit
+        store,
+        "judgments",
+        _JUDGMENT_HIT,
+        tokens,
+        _JUDGMENT_FIELDS,
+        limit,
+        where=period.where("judgments"),
+        params=period.params(),
     )
     if notation is not None and notation.kind == "ecli":
         ecli: Query = (
             f"""
             SELECT {_ECLI_HIT} FROM judgments doc
-            WHERE doc.ecli = %(ecli)s
+            WHERE doc.ecli = %(ecli)s {period.where("judgments")}
             ORDER BY doc.key
             LIMIT %(limit)s
             """,
-            {"ecli": notation.identifier, "limit": limit},
+            {"ecli": notation.identifier, "limit": limit, **period.params()},
         )
         return _two_phase_search(store, ecli, text, limit)
 
@@ -579,6 +646,7 @@ def _search_judgments(
         FROM (
             SELECT * FROM judgments doc
             WHERE doc.{search_column("names", "norm")} @> ARRAY[lg_fold(%(name)s)]
+              {period.where("judgments")}
             OFFSET 0
         ) doc
         ORDER BY doc.date_eff DESC NULLS LAST,
@@ -586,7 +654,7 @@ def _search_judgments(
                  doc.key
         LIMIT %(limit)s
         """,
-        {"name": q.strip(), "limit": limit},
+        {"name": q.strip(), "limit": limit, **period.params()},
     )
     return _two_phase_search(store, name, text, limit)
 
@@ -605,6 +673,7 @@ def _search_dossiers(
     kinds: list[str] | None,
     limit: int,
     live: bool = False,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     hit = f"""
         json_build_object(
@@ -629,8 +698,8 @@ def _search_dossiers(
         tokens,
         ["title", "display_name", "number"],
         limit,
-        where=_KIND if kinds else "",
-        params={"kind_filter": [k.lower() for k in kinds or []]},
+        where=(_KIND if kinds else "") + period.where("dossiers"),
+        params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
         live=live,
     )
     hits = list(store.query(*query, indexes_only=True))
@@ -667,6 +736,7 @@ def _search_documents(
     kinds: list[str] | None,
     limit: int,
     live: bool = False,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     # Hydrated PDF text isn't indexed (~500 KB rows are too bulky for sub-200-ms search);
     # identifier and title fields cover the UI use cases.
@@ -698,8 +768,8 @@ def _search_documents(
         tokens,
         ["display_name", "title", "external_id"],
         limit,
-        where=_KIND if kinds else "",
-        params={"kind_filter": [k.lower() for k in kinds or []]},
+        where=(_KIND if kinds else "") + period.where("documents"),
+        params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
         live=live,
     )
     return list(store.query(*query, indexes_only=True))
@@ -806,7 +876,7 @@ def _search_cabinets(
 
 
 def _search_commitments(
-    store: GraphStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int, period: Period = NO_PERIOD
 ) -> list[dict[str, Any]]:
     """Every word in the text or the number of the commitment (``TZ202609-011``), newest
     first."""
@@ -827,11 +897,11 @@ def _search_commitments(
             )
         )
         FROM commitments doc
-        WHERE {condition}
+        WHERE {condition} {period.where("commitments")}
         ORDER BY doc.made_on DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period.params(), "limit": limit}))
 
 
 # Words that name the type of a vote rather than what it was on: "stemming abortus" asks
@@ -840,7 +910,7 @@ _VOTE_WORDS = frozenset({"stemming", "stemmingen", "besluit", "besluiten"})
 
 
 def _search_decisions(
-    store: GraphStore, tokens: list[str], limit: int
+    store: GraphStore, tokens: list[str], limit: int, period: Period = NO_PERIOD
 ) -> list[dict[str, Any]]:
     """Every word (but those of ``_VOTE_WORDS``) in the subject or the kind of a vote,
     newest first; nothing when only such words are asked."""
@@ -863,11 +933,11 @@ def _search_decisions(
             )
         )
         FROM decisions doc
-        WHERE {condition}
+        WHERE {condition} {period.where("decisions")}
         ORDER BY doc.date DESC NULLS LAST, doc.key
         LIMIT %(limit)s
         """
-    return list(store.query(statement, {**params, "limit": limit}))
+    return list(store.query(statement, {**params, **period.params(), "limit": limit}))
 
 
 # ── Ranking ───────────────────────────────────────────────────────────────────
@@ -965,8 +1035,9 @@ def search_all(
     types: list[str],
     kinds: list[str] | None = None,
     limit: int = 20,
+    period: Period = NO_PERIOD,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Full-text search across requested entity types.
+    """Full-text search across requested entity types (of *period*: ``Period``).
 
     Returns a dict keyed by type name with a list of hit dicts each containing
     {id, key, collection, type, display_name, snippet, extra, score}, best score first.
@@ -979,7 +1050,7 @@ def search_all(
         return {t: [] for t in types}
 
     notation = _notation(store, q, types)
-    searches = _full_searches(store, q, tokens, notation, kinds, limit)
+    searches = _full_searches(store, q, tokens, notation, kinds, limit, period)
     wanted = [t for t in types if t in searches]
     # The types are searched side by side, each on a connection of its own: the answer
     # takes as long as the slowest type, not as long as all of them.
@@ -1003,20 +1074,37 @@ def _full_searches(
     notation: Notation | None,
     kinds: list[str] | None,
     limit: int,
+    period: Period = NO_PERIOD,
 ) -> Searches:
-    """The search of each type, ranked by its words."""
-    return {
+    """The search of each type, ranked by its words; with a *period* only the types that
+    have a date of their own, in it."""
+    searches: Searches = {
         "articles": lambda: _search_articles(store, tokens, notation, limit),
         "instruments": lambda: _search_instruments(store, q, tokens, limit),
-        "judgments": lambda: _search_judgments(store, tokens, notation, limit, q),
-        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit),
+        "judgments": lambda: _search_judgments(
+            store, tokens, notation, limit, q, period
+        ),
+        "dossiers": lambda: _search_dossiers(
+            store, tokens, kinds, limit, period=period
+        ),
         "committees": lambda: _search_committees(store, tokens, limit),
         "members": lambda: _search_members(store, tokens, limit),
         "factions": lambda: _search_factions(store, tokens, limit),
-        "documents": lambda: _search_documents(store, tokens, kinds, limit),
+        "documents": lambda: _search_documents(
+            store, tokens, kinds, limit, period=period
+        ),
         "cabinets": lambda: _search_cabinets(store, tokens, limit),
-        "commitments": lambda: _search_commitments(store, tokens, limit),
-        "decisions": lambda: _search_decisions(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit, period),
+        "decisions": lambda: _search_decisions(store, tokens, limit, period),
+    }
+    return _in_period(searches, period)
+
+
+def _in_period(searches: Searches, period: Period) -> Searches:
+    """*searches*, a type without a date of its own finding nothing within a *period*."""
+    return {
+        table: search if period.keeps(table) else (lambda: [])
+        for table, search in searches.items()
     }
 
 
@@ -1027,25 +1115,30 @@ def _live_searches(
     notation: Notation | None,
     kinds: list[str] | None,
     limit: int,
+    period: Period = NO_PERIOD,
 ) -> Searches:
-    """The search of each type while typing: nothing ranked by its words."""
-    return {
+    """The search of each type while typing: nothing ranked by its words; with a
+    *period* only the types that have a date of their own, in it."""
+    searches: Searches = {
         "articles": lambda: _search_articles(store, tokens, notation, limit, True),
         "instruments": lambda: _search_instruments(store, q, tokens, limit, True),
         # a judgment the query names, else the newest that hold its words
         "judgments": lambda: (
-            _search_judgments_live(store, tokens, notation, limit, q)
-            or _judgments_with_words(store, tokens, limit, q)
+            _search_judgments_live(store, tokens, notation, limit, q, period)
+            or _judgments_with_words(store, tokens, limit, q, period)
         ),
-        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True),
+        "dossiers": lambda: _search_dossiers(store, tokens, kinds, limit, True, period),
         "committees": lambda: _search_committees(store, tokens, limit, True),
         "members": lambda: _search_members(store, tokens, limit),
         "factions": lambda: _search_factions(store, tokens, limit),
-        "documents": lambda: _search_documents(store, tokens, kinds, limit, True),
+        "documents": lambda: _search_documents(
+            store, tokens, kinds, limit, True, period
+        ),
         "cabinets": lambda: _search_cabinets(store, tokens, limit),
-        "commitments": lambda: _search_commitments(store, tokens, limit),
-        "decisions": lambda: _search_decisions(store, tokens, limit),
+        "commitments": lambda: _search_commitments(store, tokens, limit, period),
+        "decisions": lambda: _search_decisions(store, tokens, limit, period),
     }
+    return _in_period(searches, period)
 
 
 # How long one type of the full search may rank (seconds): past it, the type answers what
@@ -1062,6 +1155,7 @@ def search_full(
     types: list[str],
     kinds: list[str] | None = None,
     limit: int = 20,
+    period: Period = NO_PERIOD,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
@@ -1072,8 +1166,8 @@ def search_full(
     if not tokens:
         return {t: [] for t in types}, set()
     notation = _notation(store, q, types)
-    full = _full_searches(store, q, tokens, notation, kinds, limit)
-    live = _live_searches(store, q, tokens, notation, kinds, limit)
+    full = _full_searches(store, q, tokens, notation, kinds, limit, period)
+    live = _live_searches(store, q, tokens, notation, kinds, limit, period)
     wanted = [t for t in types if t in full]
     found = side_by_side(
         _SEARCHES,
@@ -1116,6 +1210,7 @@ def search_live(
     types: list[str],
     kinds: list[str] | None = None,
     limit: int = 10,
+    period: Period = NO_PERIOD,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     """``search_all`` while typing: all types within ``LIVE_BUDGET``, nothing ranked by
     its words (``_live_query``), and the judgments without their summaries: an ECLI, the
@@ -1127,7 +1222,7 @@ def search_live(
     if not tokens:
         return {t: [] for t in types}, set()
     with stale_wait(LIVE_STALE_WAIT):
-        return _search_live(store, q, tokens, types, kinds, limit)
+        return _search_live(store, q, tokens, types, kinds, limit, period)
 
 
 # What a search while typing waits for a kept answer of a new data version (the parser of
@@ -1142,9 +1237,10 @@ def _search_live(
     types: list[str],
     kinds: list[str] | None,
     limit: int,
+    period: Period = NO_PERIOD,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     searches = _live_searches(
-        store, q, tokens, _notation(store, q, types), kinds, limit
+        store, q, tokens, _notation(store, q, types), kinds, limit, period
     )
     wanted = [t for t in types if t in searches]
     # one budget for them all: a type that waited for a thread (``side_by_side`` runs those
@@ -1310,7 +1406,11 @@ def _within_budget(
 
 
 def _judgments_with_words(
-    store: GraphStore, tokens: list[str], limit: int, q: str
+    store: GraphStore,
+    tokens: list[str],
+    limit: int,
+    q: str,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     """The judgments that hold every word (in their summary, name or display name), the
     newest first of the first ``LIVE_CANDIDATES`` found, without a rank (``_live_query``);
@@ -1325,7 +1425,9 @@ def _judgments_with_words(
                 tokens,
                 _JUDGMENT_FIELDS,
                 limit,
-                where="AND doc.stub IS NOT TRUE AND doc.same_as IS NULL",
+                where="AND doc.stub IS NOT TRUE AND doc.same_as IS NULL"
+                + period.where("judgments"),
+                params=period.params(),
             ),
             indexes_only=True,
         )
@@ -1338,6 +1440,7 @@ def _search_judgments_live(
     notation: Notation | None,
     limit: int,
     q: str,
+    period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     """The judgments a typed query names, without ranking a summary: an ECLI; a judgment
     whose name holds the query (``Urgenda``, ``Lindenbaum``); then those whose display name
@@ -1348,8 +1451,8 @@ def _search_judgments_live(
         return list(
             store.query(
                 f"SELECT {_ECLI_HIT} FROM judgments doc WHERE doc.ecli = %(ecli)s"
-                " ORDER BY doc.key LIMIT %(limit)s",
-                {"ecli": notation.identifier, "limit": limit},
+                f"{period.where('judgments')} ORDER BY doc.key LIMIT %(limit)s",
+                {"ecli": notation.identifier, "limit": limit, **period.params()},
             )
         )
     words = [t for t in tokens if len(t) >= LIVE_MIN_JUDGMENT]
@@ -1357,6 +1460,7 @@ def _search_judgments_live(
         return []
     params: dict[str, Any] = {f"_w{n}": w for n, w in enumerate(words)}
     params["limit"] = limit
+    params.update(period.params())
     holds = " AND ".join(
         f"doc.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
         for n in range(len(words))
@@ -1378,7 +1482,7 @@ def _search_judgments_live(
                 FROM (
                     SELECT * FROM judgments doc
                     WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
-                      AND {holds.format(column=column)}
+                      AND {holds.format(column=column)} {period.where("judgments")}
                     LIMIT %(candidates)s
                 ) doc
                 ORDER BY n

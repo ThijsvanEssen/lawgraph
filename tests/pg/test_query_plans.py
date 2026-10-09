@@ -52,6 +52,11 @@ URLS = [
     "/api/resolve?q=A.+Lid",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
     "/api/search?q=wet&mode=live",
+    # a period: each type by a date of its own, inside its lookup
+    "/api/search?q=wet&from=2019-01-01&to=2019-12-31",
+    "/api/search?q=wet&mode=live&from=2019-01-01&to=2019-12-31",
+    f"/api/search?q={ECLI}&from=2019-01-01",
+    "/api/search?q=Hoge+Raad&types=judgments&mode=live&to=2020-12-31",
     # an article by what its case law calls it (``lg_article_terms``), full and live
     "/api/search?q=noodweer&types=articles",
     "/api/search?q=noodweer&types=articles&mode=live",
