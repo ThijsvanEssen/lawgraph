@@ -316,6 +316,21 @@ class DecisionCoalitionCount(BaseModel):
     count: int
 
 
+class DecisionCabinetCoalition(BaseModel):
+    """What the coalition of one cabinet did on the decisions under every filter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cabinet: str = Field(..., description="The key of the cabinet.")
+    name: str | None = None
+    votes: int = Field(..., description="The votes with a coalition vote of it.")
+    together: int
+    split: int
+    wissel: int
+    carried: int
+    decisive: int
+
+
 class DecisionFacets(BaseModel):
     """The decisions under the filters, counted.
 
@@ -347,6 +362,11 @@ class DecisionFacets(BaseModel):
         description="Under every filter but `coalition`: how many votes the coalition voted "
         "`together`, `split` (no wisselmeerderheid) or as a `wissel`, and how many it "
         "`carried` or was `decisive` on; those with none left out.",
+    )
+    coalition_cabinets: list[DecisionCabinetCoalition] = Field(
+        default_factory=list,
+        description="Under every filter (a topic of the Overzicht: its words, Kamer and "
+        "period): per cabinet, newest first, what its coalition did on those votes.",
     )
 
 

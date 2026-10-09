@@ -68,6 +68,7 @@ EMPTY_FACETS: dict[str, list[Any]] = {
     "years": [],
     "party_votes": [],
     "coalition": [],
+    "coalition_cabinets": [],
 }
 
 # What the coalition did on a vote, as ``coalition`` filters and counts it: a pattern of
@@ -180,6 +181,34 @@ def _coalition_facet(where: list[str]) -> str:
         CROSS JOIN LATERAL (VALUES {values}) AS x(o, v, n)
         WHERE x.n > 0
     )"""
+
+
+# Per cabinet, what its coalition did on the decisions under every filter: a topic of the
+# Overzicht is the decisions of its words, Kamer and period.
+_COALITION_CABINETS = f"""(
+    SELECT coalesce(json_agg(json_build_object(
+        'cabinet', x.cabinet, 'name', lg_str(cab.props -> 'name'),
+        'votes', x.votes, 'together', x.together, 'split', x.split, 'wissel', x.wissel,
+        'carried', x.carried, 'decisive', x.decisive
+    ) ORDER BY lg_str(cab.props -> 'from_date') DESC NULLS LAST, x.cabinet ASC NULLS FIRST
+    ), '[]'::json)
+    FROM (
+        SELECT c.cabinet, count(*)::int AS votes,
+               {
+    ", ".join(
+        f"(count(*) FILTER (WHERE c.pattern = '{p}'))::int AS {p}"
+        for p in COALITION_PATTERNS
+    )
+},
+               {
+    ", ".join(f"(count(*) FILTER (WHERE c.{f}))::int AS {f}" for f in COALITION_FLAGS)
+}
+        FROM matching r
+        JOIN lg_decision_coalition c ON c.id = r.id
+        GROUP BY c.cabinet
+    ) x
+    LEFT JOIN cabinets cab ON cab.key = x.cabinet
+)"""
 
 
 def _where(clauses: list[str]) -> str:
@@ -449,7 +478,8 @@ def get_decisions(
                 ) year
             ),
             'party_votes', '[]'::json,
-            'coalition', {_coalition_facet(kind + passed)}
+            'coalition', {_coalition_facet(kind + passed)},
+            'coalition_cabinets', {_COALITION_CABINETS}
         )
     )
     """
