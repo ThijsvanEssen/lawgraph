@@ -115,6 +115,13 @@ URLS = [
     f"/render/uitspraken/{ECLI}",
     "/render/dossiers/36000",
     "/render/kamerstukken/36000/3",
+    "/render/leden/a-lid",
+    "/render/fracties/f1",
+    "/render/kabinetten/k1",
+    "/render/commissies/c1",
+    "/render/stb/2025/263",
+    "/render/toezeggingen/TZ202609-124",
+    "/render/stemmingen/b1",
     "/api/dossiers/36000/changed-articles",
     # a member: their votes (by roll-call and through their faction), dossiers, node, and
     # a path from their faction through its members
@@ -300,9 +307,38 @@ def _seed(store: GraphStore) -> None:
     }
     store.bulk_insert_or_update_nodes(
         "members",
-        [_node("m1", "member", name="A. Lid", faction_memberships=[membership])],
+        [
+            _node(
+                "m1",
+                "member",
+                name="A. Lid",
+                slug="a-lid",
+                faction_memberships=[membership],
+            )
+        ],
     )
     store.bulk_insert_or_update_nodes("factions", [_node("f1", "faction", name="F")])
+    store.bulk_insert_or_update_nodes(
+        "cabinets",
+        [
+            _node("k1", "cabinet", name="kabinet-Een", prime_minister="m1",
+                  previous="k0", factions=["f1"]),
+            _node("k0", "cabinet", name="kabinet-Nul"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "committees", [_node("c1", "committee", name="Commissie", slug="c1")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("stb_2025_263", "instrument", kind="publicatie",
+               citation_title="Stb. 2025, 263", official_id="stb-2025-263")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "commitments",
+        [_node("tz1", "commitment", number="TZ202609-124", text="Een brief.",
+               member_key="m1", cabinet="k1")],
+    )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "decisions",
         [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
@@ -311,6 +347,8 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
+            _edge("mc", "members/m1", "committees/c1", "MEMBER_OF"),
+            _edge("mk", "members/m1", "cabinets/k1", "SERVED_IN"),
             _edge("ma", "members/m1", "documents/d1", "AUTHORED"),
             _edge(
                 "fv", "factions/f1", "decisions/b1", "VOTED", meta={"choice": "Voor"}

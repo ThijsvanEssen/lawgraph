@@ -10,21 +10,34 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
     COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_MEMBERS,
     RELATION_ABOUT,
+    RELATION_AMENDS,
+    RELATION_EXPLAINS,
+    RELATION_INTRODUCES,
     RELATION_PART_OF,
+    RELATION_REPEALS,
 )
 from lawgraph.db import GraphStore
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
-# Motions and amendments with a decision since this day.
+# Motions and amendments with a decision since this day; publications and commitments
+# since it too.
 DECIDED_SINCE = "2018-01-01"
+# The series whose publications are listed: the Staatsblad and the Tractatenblad (the
+# Staatscourant is mostly regelingen of a day).
+SERIES = ("stb", "trb")
 
 # The day the version in force of each law began.
 _IN_FORCE = f"""
@@ -121,4 +134,129 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
         FROM {COLLECTION_DOSSIERS}
         ORDER BY id
         """
+    )
+
+
+# A field of the props that is a list with something in it.
+_LISTS = (
+    "CASE json_typeof(props -> '{field}')"
+    " WHEN 'array' THEN json_array_length(props -> '{field}') ELSE 0 END > 0"
+)
+
+
+def members(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """The members with a slug who sat in a chamber or held a post in a cabinet; no day
+    of change (none is kept)."""
+    yield from store.query(
+        f"""
+        SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
+               NULL AS lastmod
+        FROM {COLLECTION_MEMBERS}
+        WHERE lg_str(props -> 'slug') IS NOT NULL
+          AND ({_LISTS.format(field="faction_memberships")}
+               OR {_LISTS.format(field="government_functions")}
+               OR coalesce(json_typeof(props -> 'ek'), 'null') = 'object')
+        ORDER BY id
+        """
+    )
+
+
+def factions(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every faction, of both chambers, with the day one of its seats last changed."""
+    yield from store.query(
+        f"""
+        SELECT id, '{{}}'::json AS props, lg_str(props -> 'seats_changed_on') AS lastmod
+        FROM {COLLECTION_FACTIONS}
+        ORDER BY id
+        """
+    )
+
+
+def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every cabinet, with the day it last changed: its end, else the start of its last
+    phase, else its beëdiging."""
+    yield from store.query(
+        f"""
+        SELECT id, '{{}}'::json AS props,
+               coalesce(
+                   lg_str(props -> 'to_date'),
+                   (SELECT max(lg_str(p -> 'from_date'))
+                    FROM json_array_elements(
+                        CASE json_typeof(props -> 'phases')
+                            WHEN 'array' THEN props -> 'phases' ELSE '[]'::json END) p),
+                   lg_str(props -> 'from_date')
+               ) AS lastmod
+        FROM {COLLECTION_CABINETS}
+        ORDER BY id
+        """
+    )
+
+
+def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every committee with a slug, of both chambers; no day of change (none is kept)."""
+    yield from store.query(
+        f"""
+        SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
+               NULL AS lastmod
+        FROM {COLLECTION_COMMITTEES}
+        WHERE lg_str(props -> 'slug') IS NOT NULL
+        ORDER BY id
+        """
+    )
+
+
+def publications(
+    store: GraphStore, since: str = DECIDED_SINCE
+) -> Iterator[dict[str, Any]]:
+    """The publications in the Staatsblad and the Tractatenblad since *since* that have a
+    page to find (``api/seo/pages.publication_page``): a title of their own (their nota
+    van toelichting) or a regulation they change. The day they were published is their
+    lastmod."""
+    changes = [
+        RELATION_INTRODUCES,
+        RELATION_AMENDS,
+        RELATION_REPEALS,
+        RELATION_EXPLAINS,
+    ]
+    yield from store.query(
+        f"""
+        WITH listed AS (
+            SELECT i.id, lg_str(i.props -> 'official_id') AS official,
+                   i.date_published
+            FROM {COLLECTION_INSTRUMENTS} i
+            WHERE i.kind = 'publicatie' AND i.date_published >= %(since)s
+              AND split_part(lg_str(i.props -> 'official_id'), '-', 1)
+                  = ANY(%(series)s::text[])
+        )
+        SELECT l.id, json_build_object('official_id', l.official) AS props,
+               l.date_published AS lastmod
+        FROM listed l
+        LEFT JOIN {COLLECTION_DOCUMENTS} note
+            ON note.id = '{COLLECTION_DOCUMENTS}/' || split_part(l.official, '-', 1)
+                         || '_' || replace(l.official, '-', '_')
+        WHERE (lg_str(note.props -> 'title') IS NOT NULL
+               AND lg_str(note.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$')
+           OR EXISTS (
+               SELECT 1 FROM edges e
+               WHERE e.from_id = ANY(ARRAY[l.id, note.id])
+                 AND e.relation = ANY(%(changes)s::text[])
+           )
+        ORDER BY l.id
+        """,
+        {"since": since, "series": list(SERIES), "changes": changes},
+    )
+
+
+def commitments(
+    store: GraphStore, since: str = DECIDED_SINCE
+) -> Iterator[dict[str, Any]]:
+    """The commitments made since *since* that have a text, with the day they were made."""
+    yield from store.query(
+        f"""
+        SELECT id, json_build_object('number', number) AS props, made_on AS lastmod
+        FROM {COLLECTION_COMMITMENTS}
+        WHERE made_on >= %(since)s AND lg_str(props -> 'text') IS NOT NULL
+        ORDER BY id
+        """,
+        {"since": since},
     )

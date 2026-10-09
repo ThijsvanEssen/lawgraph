@@ -417,9 +417,12 @@ _OPEN: weakref.WeakSet[GraphStore] = weakref.WeakSet()
 
 
 @atexit.register
-def _close_open_stores() -> None:
+def close_stores(database: str | None = None) -> None:
+    """Close the stores still open, or those of *database*: their pools would go on
+    reconnecting to a database that is dropped."""
     for store in list(_OPEN):
-        store.close()
+        if database is None or store.name == database:
+            store.close()
 
 
 def version_stamp(versions: dict[str, int], tables: Iterable[str] | None = None) -> str:

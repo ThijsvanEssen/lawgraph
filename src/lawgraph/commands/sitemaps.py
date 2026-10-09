@@ -9,6 +9,11 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``artikelen``: the articles in force of the 150 laws whose articles are cited most;
 - ``moties``, ``amendementen``: those with a decision since 2018;
 - ``dossiers``: every dossier;
+- ``leden``: the members who sat in a chamber or held a post in a cabinet;
+- ``fracties``, ``kabinetten``, ``commissies``: every one (a committee with a slug);
+- ``publicaties``: in the Staatsblad and the Tractatenblad since 2018, with a title of
+  their own or a regulation they change;
+- ``toezeggingen``: those made since 2018 that have a text;
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``).
 
 Each by its readable address (``core/readable_paths.py``); a node without one is left out.
@@ -53,6 +58,12 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "moties": entries(queries.decided_papers(store, "Motie")),
         "amendementen": entries(queries.decided_papers(store, "Amendement")),
         "dossiers": entries(queries.dossiers(store)),
+        "leden": entries(queries.members(store)),
+        "fracties": entries(queries.factions(store)),
+        "kabinetten": entries(queries.cabinets(store)),
+        "commissies": entries(queries.committees(store)),
+        "publicaties": entries(queries.publications(store)),
+        "toezeggingen": entries(queries.commitments(store)),
         "paginas": [sitemaps.Entry(path) for path in shell.shell().routes],
     }
 
