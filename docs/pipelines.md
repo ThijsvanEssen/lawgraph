@@ -913,6 +913,19 @@ support is removed.
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
+**Semantic `bwb-definitions`.** The definitions a regulation gives itself, its
+begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML and kept in
+`lg_instrument_definitions` (not a table of the graph; apart from the instrument's props, so
+its lists do not carry them). The BWB marks no definition as such; the article has a structure
+all the same: an `<al>` that announces them ("… wordt verstaan onder:"), then a `<lijst>` of
+`<li>` with its letter and JCI and an `<al>` "term: definition", or `<al>` after `<al>` that
+begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term goes on with the
+definition before it); and a sentence that defines one term. Per definition `term`, `text`,
+`article_key`, `article_number`, `place` (the letter), `jci`, `scope` (`kind`: `wet`, `besluit`,
+`hoofdstuk`, `paragraaf`, …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that
+part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
 `Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
 and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
