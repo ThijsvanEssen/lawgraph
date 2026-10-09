@@ -18,6 +18,7 @@ from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -98,7 +99,11 @@ def _warm_subject_areas(store: GraphStore) -> None:
 # here runs on every warm-up; one made of parts kept per table (``stats``) finds them kept.
 PART_TABLES: dict[str, tuple[str, ...]] = {
     "coverage": (COLLECTION_JUDGMENTS,),
-    "instruments": (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS),
+    "instruments": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
     "documents": (COLLECTION_DOCUMENTS,),
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),

@@ -31,6 +31,12 @@ class FactionSeatsDTO(BaseModel):
         "the list knows.",
     )
     order: int = Field(..., description="Left-to-right position in the chamber.")
+    coalition: bool | None = Field(
+        None,
+        description="Of the coalition of the cabinet in office that day (`cabinet`): its "
+        "party held a post in it; a faction split off a coalition party is opposition. "
+        "Null when no cabinet was in office.",
+    )
 
 
 class SeatingPlanDTO(BaseModel):
@@ -73,6 +79,11 @@ class ParliamentSeatsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chamber: Literal["TK", "EK"] = "TK"
+    cabinet: dict[str, str | None] | None = Field(
+        None,
+        description="The cabinet in office on `as_of` (`key`, `name`), whose coalition "
+        "`coalition` marks; null when none was.",
+    )
     total_seats: int
     assigned_seats: int
     as_of: str

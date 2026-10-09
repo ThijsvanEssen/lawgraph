@@ -653,7 +653,17 @@ def test_the_list_by_title(store: GraphStore) -> None:
     _seed_list(store)
     got = instruments.get_instruments_list(store)
     assert list(got) == ["total", "items", "facets"]
-    assert got["facets"] == {"legal_area": [], "policy_domain": []}
+    assert got["facets"] == {
+        "legal_area": [],
+        "policy_domain": [],
+        # per kind without the kind filter, most first (null first among equals)
+        "kind": [
+            {"value": None, "count": 2},
+            {"value": "wet", "count": 2},
+            {"value": "amvb", "count": 1},
+            {"value": "verordening", "count": 1},
+        ],
+    }
     assert got["total"] == 6
     # no citation_title first, by key; then the titles in the collation
     assert [i["_key"] for i in got["items"]] == [
@@ -753,7 +763,16 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     assert instruments.get_instruments_list(store, offset=100) == {
         "total": 6,
         "items": [],
-        "facets": {"legal_area": [], "policy_domain": []},
+        "facets": {
+            "legal_area": [],
+            "policy_domain": [],
+            "kind": [
+                {"value": None, "count": 2},
+                {"value": "wet", "count": 2},
+                {"value": "amvb", "count": 1},
+                {"value": "verordening", "count": 1},
+            ],
+        },
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
@@ -1065,7 +1084,11 @@ def test_the_registers_are_counted_without_their_own_filter(store: GraphStore) -
     ]
     # and under the other filters: the EU act has no legal area
     eu = instruments.get_instruments_list(store, jurisdiction="eu")
-    assert eu["facets"] == {"legal_area": [], "policy_domain": []}
+    assert eu["facets"] == {
+        "legal_area": [],
+        "policy_domain": [],
+        "kind": [{"value": None, "count": 1}],
+    }
 
 
 def test_the_keys_of_the_registers(store: GraphStore) -> None:
@@ -1089,3 +1112,64 @@ def test_the_keys_of_the_registers(store: GraphStore) -> None:
     )
     assert sorted(rows["awr"]["domains"]) == ["belastingen", "c_tax"]
     assert rows["eu"]["areas"] == [] and rows["eu"]["domains"] == []
+
+
+def test_a_treaty_with_its_bwb_text_is_listed_once_as_the_text(
+    store: GraphStore,
+) -> None:
+    """A Verdragenbank treaty that the BWB text of the treaty is ``SAME_AS`` is that text:
+    the list has the text (with its articles), not the register record, and the total
+    and the facets count it once. ``jurisdiction=int`` keeps the Verdragenbank treaties;
+    ``facets.kind`` counts per kind without the kind filter."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc("bwbv0001234", "instrument", bwb_id="BWBV0001234", kind="verdrag",
+                 jurisdiction="nl", citation_title="Verdrag A (tekst)"),
+            _doc("verdrag_001", "instrument", kind="verdrag", jurisdiction="int",
+                 citation_title="Verdrag A", treaty_number="001234"),
+            _doc("verdrag_002", "instrument", kind="multilateraalverdrag",
+                 jurisdiction="int", citation_title="Verdrag B"),
+            _doc("bwbr0000001", "instrument", bwb_id="BWBR0000001", kind="wet",
+                 jurisdiction="nl", citation_title="Wet C"),
+            _doc("stb_2026_1", "instrument", kind="publicatie", jurisdiction="nl",
+                 citation_title="Stb. 2026, 1"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("instruments/bwbv0001234", "instruments/verdrag_001", "SAME_AS")]
+    )
+
+    every = instruments.get_instruments_list(store)
+    assert sorted(_keys(every["items"])) == [
+        "bwbr0000001",
+        "bwbv0001234",
+        "verdrag_002",
+    ]
+    assert every["total"] == 3
+    assert every["facets"]["kind"] == [
+        {"value": "multilateraalverdrag", "count": 1},
+        {"value": "verdrag", "count": 1},
+        {"value": "wet", "count": 1},
+    ]
+    treaties = instruments.get_instruments_list(store, kind="verdrag")
+    assert _keys(treaties["items"]) == ["bwbv0001234"]
+    # the kinds counted without the kind filter
+    assert len(treaties["facets"]["kind"]) == 3
+    international = instruments.get_instruments_list(store, jurisdiction="int")
+    assert _keys(international["items"]) == ["verdrag_002"]
+    assert international["total"] == 1
+    # without the edge the register record is listed again
+    store.execute("DELETE FROM edges WHERE relation = 'SAME_AS'")
+    assert instruments.get_instruments_list(store)["total"] == 4
+
+
+def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        assert client.get("/api/instruments?jurisdiction=int").status_code == 200
+        assert client.get("/api/instruments?jurisdiction=xx").status_code == 422
+        assert "kind" in client.get("/api/instruments").json()["facets"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)

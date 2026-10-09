@@ -511,6 +511,12 @@ class InstrumentFacets(BaseModel):
         description="The government themes of `scw_bwb_themas`, most first. Counted "
         "without the `policy_domain` filter.",
     )
+    kind: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per kind (`wet`, `verdrag`, `multilateraalverdrag`, …), most first. "
+        "Counted without the `kind` filter, over the list without a kind (no "
+        "publications).",
+    )
 
 
 class InstrumentListResponse(BaseModel):
