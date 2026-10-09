@@ -223,6 +223,8 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
             "vote_kind": None,
             "tally": {"Voor": 80, "Tegen": 70},
             "voters": {"Voor": 3, "Tegen": 2},
+            # of the motion it decided on, its dictum: none here
+            "dictum": None,
         }
     )
     # an empty chamber is no chamber: the first label of TK and EK; no tally is {}

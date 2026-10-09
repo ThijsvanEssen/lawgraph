@@ -48,6 +48,14 @@ class VoteDTO(BaseModel):
     seats: int = 0
 
 
+_DICTUM = (
+    "Of a vote on a motion, what the motion asks or says, as it writes it: the lines from "
+    "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+    "``en gaat over tot de orde van de dag``; null for any other vote and for a motion "
+    "without text."
+)
+
+
 class DecisionDTO(BaseModel):
     """One decision with every vote cast on it.
 
@@ -106,6 +114,7 @@ class DecisionDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     votes: list[VoteDTO] = Field(default_factory=list)
+    dictum: str | None = Field(None, description=_DICTUM)
 
     @classmethod
     def from_document(
@@ -140,6 +149,8 @@ class DecisionDTO(BaseModel):
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
             votes=[VoteDTO(**v) for v in doc.get("votes") or []],
+            # of the motion it decided on, which the route reads (``motion_dictums``)
+            dictum=None,
         )
 
 
@@ -186,6 +197,7 @@ class DecisionSummaryDTO(BaseModel):
     vote_kind: str | None = None
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
+    dictum: str | None = Field(None, description=_DICTUM)
 
 
 class DecisionKindCount(BaseModel):

@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     RELATION_ABOUT,
     RELATION_PART_OF,
@@ -175,7 +176,8 @@ _ITEM = f"""json_build_object(
     'bill_decision', d.props -> 'bill_decision',
     'vote_kind', d.props -> 'vote_kind',
     'tally', {_object_or_empty("d.props -> 'tally'")},
-    'voters', {_object_or_empty("d.props -> 'voters'")}
+    'voters', {_object_or_empty("d.props -> 'voters'")},
+    'primary_case_id', d.props -> 'primary_case_id'
 )"""
 
 # The order of the list: newest first, the key settling a day.
@@ -395,10 +397,55 @@ def get_decisions(
     )
     """
     rows = list(store.query(statement, bind))
-    page = rows[0] if rows else {"total": 0, "items": [], "facets": dict(EMPTY_FACETS)}
+    page: dict[str, Any] = (
+        rows[0] if rows else {"total": 0, "items": [], "facets": dict(EMPTY_FACETS)}
+    )
+    _add_dictums(store, page["items"])
     if filters.party_votes:
         _add_party_votes(store, filters, page)
     return page
+
+
+# The dictum of the motion of each case: of its oldest paper, as ``get_decision_document``
+# picks the paper of a decision, read from ``lg_document_light`` (without the text).
+_DICTUMS = f"""
+SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, l.props -> 'dictum' AS dictum
+FROM {COLLECTION_EDGES} e
+JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
+JOIN lg_document_light l ON l.id = e.from_id
+WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
+  AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+ORDER BY e.to_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+"""
+
+
+def motion_dictums(store: GraphStore, decisions: list[dict[str, Any]]) -> list[Any]:
+    """Per decision of *decisions* (``{primary_case_kind, primary_case_id}``) the dictum of
+    the motion it decided on (``core/motion_dictum.py``): None for a decision on anything
+    else, or on a motion without text."""
+    cases = [
+        f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
+        if d.get("primary_case_kind") == "Motie" and d.get("primary_case_id")
+        else None
+        for d in decisions
+    ]
+    wanted = sorted({c for c in cases if c})
+    found: dict[str, Any] = {}
+    if wanted:
+        found = {
+            row["case_id"]: row["dictum"]
+            for row in store.query(
+                _DICTUMS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
+            )
+        }
+    return [found.get(case) if case else None for case in cases]
+
+
+def _add_dictums(store: GraphStore, items: list[dict[str, Any]]) -> None:
+    """``dictum`` on each row of a page of decisions, in place of ``primary_case_id``."""
+    for item, dictum in zip(items, motion_dictums(store, items), strict=True):
+        item.pop("primary_case_id", None)
+        item["dictum"] = dictum
 
 
 def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:

@@ -21,6 +21,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kamerstuk
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -105,4 +106,6 @@ def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": [section.as_dict() for section in parsed.sections],
         "footnotes": parsed.footnotes,
+        # what a motion asks or says ("verzoekt de regering …"); null for any other paper
+        "dictum": read_dictum(parsed.text),
     }

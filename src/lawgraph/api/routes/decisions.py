@@ -30,6 +30,7 @@ from lawgraph.db.queries.decisions import (
     get_decision_detail,
     get_decision_document,
     get_decisions,
+    motion_dictums,
 )
 from lawgraph.db.queries.documents import get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -160,7 +161,9 @@ def get_decision(
     doc = get_decision_detail(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
-    return DecisionDTO.from_document(doc, load_dossier_names(store))
+    (dictum,) = motion_dictums(store, [doc["props"]])
+    dto = DecisionDTO.from_document(doc, load_dossier_names(store))
+    return dto.model_copy(update={"dictum": dictum})
 
 
 @router.get(

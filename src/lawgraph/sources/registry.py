@@ -90,6 +90,7 @@ from lawgraph.pipelines.semantic import (
     graph_heat,
     graph_light,
     graph_list_stats,
+    tk_dictum,
 )
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
@@ -813,6 +814,10 @@ SEMANTIC: list[Pipeline] = [
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
         ),
+    ),
+    _pipeline(
+        tk_dictum.main,
+        "Keeps the dictum of every motion with text (what it asks or says).",
     ),
     _pipeline(
         graph_light.main,

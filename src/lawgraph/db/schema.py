@@ -1284,6 +1284,8 @@ DOCUMENT_LIGHT_PROPS = (
     "dossier_number",
     "dossier_suffix",
     "sequence",
+    # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
+    "dictum",
 )
 
 
