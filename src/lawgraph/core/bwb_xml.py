@@ -592,6 +592,11 @@ def _article_number(article: ET.Element) -> str | None:
     return None
 
 
+def article_number(article: ET.Element) -> str | None:
+    """The number of an ``<artikel>`` ("1:1"), from its ``kop`` or its ``label``."""
+    return _article_number(article)
+
+
 def _article_title(article: ET.Element) -> str | None:
     """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed."""
     kop = _child(article, "kop")

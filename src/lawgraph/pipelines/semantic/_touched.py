@@ -6,7 +6,9 @@ With ``--touched-since`` they read only what was touched since then, and come to
 for it as a run over all: the commitments, documents, cases and decisions made of the TK
 records fetched since then (a Besluit that now says how a vote went is an old node), the
 dossiers whose own record was, and both ends of every edge written since then (a new vote,
-signature, paper or law). What is touched in another way (a cabinet, a post, the date of a
+signature, paper or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME_EDGES``):
+a wave of edges it does not read (the actors of every case, the links between papers)
+touches nothing of it. What is touched in another way (a cabinet, a post, the date of a
 publication) waits for the nightly run over all.
 """
 
@@ -26,6 +28,11 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
     RAW_KIND_TK_ZAAK,
+    RELATION_ABOUT,
+    RELATION_AUTHORED,
+    RELATION_LEGISLATED_IN,
+    RELATION_PART_OF,
+    RELATION_VOTED,
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
@@ -44,6 +51,23 @@ _NODES_OF_RECORDS: tuple[tuple[str, str, Callable[[str], str]], ...] = (
     (RAW_KIND_TK_ZAAK, COLLECTION_CASES, make_node_key),
     (RAW_KIND_TK_BESLUIT, COLLECTION_DECISIONS, decision_key),
 )
+
+
+# The edges whose writing can change what a step derives, by relation, with the collections
+# an edge of that relation to does not count for. ``tk-government``: the signature of a
+# paper (not of a case: ``tk-case-actors``) and a paper or case that joins a dossier.
+GOVERNMENT_EDGES: dict[str, tuple[str, ...]] = {
+    RELATION_AUTHORED: (COLLECTION_CASES,),
+    RELATION_PART_OF: (),
+}
+# ``tk-dossier-outcomes``: a decision about a dossier or its case, a vote on it, the
+# publication of its law, and a case that joins a dossier.
+OUTCOME_EDGES: dict[str, tuple[str, ...]] = {
+    RELATION_ABOUT: (),
+    RELATION_VOTED: (),
+    RELATION_LEGISLATED_IN: (),
+    RELATION_PART_OF: (),
+}
 
 
 def edge_moment(since: dt.datetime) -> str:
@@ -79,10 +103,15 @@ def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
 
 
 def touched_dossiers(
-    store: Store, since: dt.datetime, seeds: list[str] | None = None
+    store: Store,
+    since: dt.datetime,
+    seeds: list[str] | None = None,
+    *,
+    edges: dict[str, tuple[str, ...]],
 ) -> list[str]:
-    """The ``_id`` of the dossiers touched at or after *since*; *seeds* the nodes of the
-    records fetched since then when the caller has them (``tk_nodes_fetched_since``)."""
+    """The ``_id`` of the dossiers touched at or after *since* by a record or by one of the
+    *edges* the step reads; *seeds* the nodes of the records fetched since then when the
+    caller has them (``tk_nodes_fetched_since``)."""
     if seeds is None:
         seeds = tk_nodes_fetched_since(store, since)
     guids = [
@@ -95,7 +124,9 @@ def touched_dossiers(
         )
         if record
     ]
-    return semantic_tk.touched_dossier_ids(store, seeds, guids, edge_moment(since))
+    return semantic_tk.touched_dossier_ids(
+        store, seeds, guids, edge_moment(since), edges
+    )
 
 
 def touched_commitments(
@@ -105,5 +136,5 @@ def touched_commitments(
     if seeds is None:
         seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(
-        store, COLLECTION_COMMITMENTS, seeds, edge_moment(since)
+        store, COLLECTION_COMMITMENTS, seeds, edge_moment(since), GOVERNMENT_EDGES
     )

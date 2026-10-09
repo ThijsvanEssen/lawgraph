@@ -1349,6 +1349,18 @@ CREATE TABLE IF NOT EXISTS lg_decision_coalition (
 )
 """
 
+# The definitions each regulation gives itself (``core.bwb_definitions``), kept by ``semantic
+# bwb-definitions``: a row per regulation that has any. Apart from the instrument's props, so
+# its lists and their warm-up do not carry them (the Wft has hundreds). Not a table of the
+# graph: writing it raises no data version.
+INSTRUMENT_DEFINITIONS = """
+CREATE TABLE IF NOT EXISTS lg_instrument_definitions (
+    instrument_id text PRIMARY KEY,
+    bwb_id text NOT NULL,
+    definitions json NOT NULL
+)
+"""
+
 ARTICLE_TERMS = """
 CREATE TABLE IF NOT EXISTS lg_article_terms (
     article_id text PRIMARY KEY,
@@ -1423,6 +1435,7 @@ def statements() -> list[str]:
         *document_light(),
         ARTICLE_TERMS,
         DECISION_COALITION,
+        INSTRUMENT_DEFINITIONS,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)
