@@ -157,6 +157,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
 | `tk-dossier-outcomes` | `--touched-since` (a poll; `semantic all` never passes it): only the dossiers touched since then; without it every dossier |
 | `tk-government` | `--touched-since` (as above): only the commitments and dossiers touched since then; without it all of them |
+| `tk-coalition-votes` | `--since`: the decisions dated since then (the daily run); without it every decision, and the rows of decisions without a coalition vote go (weekly). What the coalition of the cabinet in office did on each vote of the Tweede Kamer, kept in `lg_decision_coalition` |
 | `tk-dossier-relations` | none (every dossier and every related case on every run) |
 | `tk-dictum` | `--all` (every motion with text again, after the rule changed); keeps the dictum of every motion with text whose text was read before `normalize tk-content` kept it (`core/motion_dictum.py`), 2,000 motions a statement, writing `dictum` alone; after that it reads only the few motions with text and no dictum (a text without the closing formula) |
 | `graph-light` | `--all` (every row again, after the props it keeps changed); keeps every judgment as a neighbour (`lg_judgment_light`) and every paper as the signals of its dossier read it (`lg_document_light`), without their text, for those written before the triggers; the triggers on `judgments` and `documents` keep them with every write, so after the first run it adds nothing |
@@ -169,7 +170,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-grondslagen`, `bwb-amend
 `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-duplicates`,
 `rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`, `tk-mvt`,
-`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`, `tk-dictum`,
+`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
+`tk-coalition-votes`, `tk-dictum`,
 `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats`.
 
 ### Other commands
@@ -200,7 +202,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM` and `STAATSCOURANT_POSTS` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements` and `normalize rijksoverheid` read them) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_DOSSIER_RELATIONS`, `TK_DICTUM`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_DOSSIER_RELATIONS`, `TK_DICTUM`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
 ## Runs
 

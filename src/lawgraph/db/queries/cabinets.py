@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.counting import Store
 from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -494,9 +495,7 @@ def cabinet_posts(store: GraphStore, key: str) -> list[dict[str, Any]]:
     return [dict(post) for post in rows if isinstance(post, dict)]
 
 
-def memberships_between(
-    store: GraphStore, start: str, end: str
-) -> list[dict[str, Any]]:
+def memberships_between(store: Store, start: str, end: str) -> list[dict[str, Any]]:
     """``{member, faction_key, from_date, to_date}`` of every faction membership of the
     Tweede Kamer that overlaps *start*..*end* (inclusive), from the members'
     ``faction_memberships`` (a column of its own, read without the rest of the props)."""
