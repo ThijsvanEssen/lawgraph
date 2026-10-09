@@ -133,7 +133,8 @@ def _seed(store: GraphStore) -> None:
             _vote("factions/pvv", "together", "Voor", 37),
             _vote("factions/vvd", "together", "Voor", 24),
             _vote("factions/gl", "together", "Tegen", 25),
-            # the PVV against, carried by the VVD with the opposition
+            # the PVV (the most coalition seats) against, beaten by the VVD with the
+            # opposition: a wisselmeerderheid
             _vote("factions/pvv", "wissel", "Tegen", 37),
             _vote("factions/vvd", "wissel", "Voor", 24),
             _vote("factions/gl", "wissel", "Voor", 25),
@@ -156,7 +157,8 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
     }
     assert rows == {
         "decisions/together": ("together", True, True),
-        "decisions/wissel": ("wissel", False, True),
+        # the opposition alone (GL for) would have passed it too: not decisive
+        "decisions/wissel": ("wissel", False, False),
         # the coalition (VVD) one against one: a tie is rejected, it decided it
         "decisions/roll_call": ("together", False, True),
     }
@@ -176,7 +178,7 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         "together": 2,
         "wissel": 1,
         "carried": 1,
-        "decisive": 3,
+        "decisive": 2,
     }
     # per cabinet, under every filter (a topic: its words, Kamer and period)
     assert everything["facets"]["coalition_cabinets"] == [
@@ -188,7 +190,7 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
             "split": 0,
             "wissel": 1,
             "carried": 1,
-            "decisive": 3,
+            "decisive": 2,
         }
     ]
     assert {
@@ -207,7 +209,7 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         "opposition_against": 0,
         "pattern": "wissel",
         "carried": False,
-        "decisive": True,
+        "decisive": False,
     }
 
     # a full run removes a row whose decision no longer has a coalition vote

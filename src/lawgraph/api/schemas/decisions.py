@@ -72,15 +72,16 @@ class CoalitionVoteDTO(BaseModel):
     pattern: Literal["together", "split", "wissel"] = Field(
         ...,
         description="`together`: every coalition seat on one side; `split`: on both; "
-        "`wissel`: split, and the side that won holds coalition and opposition seats.",
+        "`wissel`: split, and the side with the most coalition seats lost (a "
+        "wisselmeerderheid).",
     )
     carried: bool = Field(
         ..., description="Passed with the coalition's seats alone more than half cast."
     )
     decisive: bool = Field(
         ...,
-        description="Had the whole coalition voted against the outcome, it would have "
-        "turned.",
+        description="The opposition alone would have decided otherwise: the coalition's "
+        "votes made the outcome.",
     )
 
 
