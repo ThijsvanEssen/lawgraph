@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import CHAMBER_TK, RELATION_SERVED_IN, RELATION_VOTED
-from lawgraph.core.coalition import TK_SEATS_FROM, coalition_on, seat_timeline
+from lawgraph.core.coalition import EK_SEATS, TK_SEATS_FROM, coalition_on, seat_timeline
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.cabinets import (
@@ -107,6 +107,7 @@ def _ek_segment(
             "to_date": read_on,
             "coalition": sum(r[2] for r in rows if r[3]),
             "opposition": sum(r[2] for r in rows if not r[3]),
+            "vacant": max(EK_SEATS - sum(r[2] for r in rows), 0),
             "factions": [
                 {"key": k, "abbreviation": a, "seats": n, "coalition": c}
                 for k, a, n, c in rows
