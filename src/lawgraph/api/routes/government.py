@@ -3,6 +3,7 @@
 GET /api/ministries            — every ministry, in protocol order
 GET /api/cabinets              — every cabinet, newest first, with counts
 GET /api/cabinets/{key}        — one cabinet with its bewindspersonen by ministry
+GET /api/cabinets/{key}/seats  — the seats of its coalition in each Kamer over its period
 GET /api/commitments           — commitments, filtered and paged
 GET /api/commitments/{key}     — one commitment
 """
@@ -18,6 +19,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.government import (
     CabinetDetailDTO,
+    CabinetSeatsResponse,
     CabinetSummaryDTO,
     CommitmentDTO,
     CommitmentFacetsDTO,
@@ -25,6 +27,8 @@ from lawgraph.api.schemas.government import (
     MinistryDTO,
     MinistryPeriodDTO,
 )
+from lawgraph.config.constants import COLLECTION_CABINETS
+from lawgraph.core.coalition import EK_MAJORITY, TK_MAJORITY
 from lawgraph.core.ministries import MINISTRIES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import (
@@ -33,6 +37,7 @@ from lawgraph.db.queries.cabinets import (
     get_commitment,
     get_commitments,
 )
+from lawgraph.db.queries.coalition import cabinet_seats
 
 ministries_router = APIRouter()
 cabinets_router = APIRouter()
@@ -116,6 +121,40 @@ def get_cabinet_detail(
     if row is None:
         raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
     return CabinetDetailDTO.from_detail(row)
+
+
+@cabinets_router.get(
+    "/{key}/seats",
+    response_model=CabinetSeatsResponse,
+    summary="Cabinet seats",
+    description=(
+        "The seats of the cabinet's coalition in each Kamer over its period, a stretch per "
+        "change. The coalition on a day is the factions whose party held a post in the "
+        "cabinet that day (Rijksoverheid): a party that leaves the cabinet leaves the "
+        "coalition, a faction that splits off a coalition party is opposition. The seats "
+        "are those the members held (FractieZetelPersoon)."
+    ),
+    tags=["government"],
+)
+def get_cabinet_seats(
+    key: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> CabinetSeatsResponse:
+    # the cabinet node alone: its detail counts every paper its members signed
+    cabinet = store.get_document(COLLECTION_CABINETS, key)
+    if cabinet is None:
+        raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
+    props = cabinet.get("props") or {}
+    seats = cabinet_seats(store, cabinet, dt.date.today().isoformat())
+    return CabinetSeatsResponse(
+        key=cabinet["_key"],
+        name=props.get("name"),
+        from_date=props.get("from_date"),
+        to_date=props.get("to_date"),
+        majority={"TK": TK_MAJORITY, "EK": EK_MAJORITY},
+        tk=seats["tk"],
+        ek=seats["ek"],
+    )
 
 
 @commitments_router.get(

@@ -469,3 +469,73 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
         {"served_in": RELATION_SERVED_IN, "own": LABEL_RIJKSOVERHEID},
     )
     return list(rows)
+
+
+# ── coalition seats (``core.coalition``) ─────────────────────────────────────
+
+
+def cabinet_posts(store: GraphStore, key: str) -> list[dict[str, Any]]:
+    """Every post held in the cabinet *key* (``meta.posts`` of its ``SERVED_IN`` edges):
+    ``{party: {short, faction}, from_date, to_date, …}``, in the order of the edges."""
+    rows = store.query(
+        """
+        SELECT p.post
+        FROM cabinets c
+        JOIN edges e ON e.to_id = c.id AND e.relation = %(served_in)s
+        CROSS JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
+                 THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+        ) WITH ORDINALITY AS p(post, n)
+        WHERE c.key = %(key)s
+        ORDER BY e.key ASC, p.n ASC
+        """,
+        {"key": key, "served_in": RELATION_SERVED_IN},
+    )
+    return [dict(post) for post in rows if isinstance(post, dict)]
+
+
+def memberships_between(
+    store: GraphStore, start: str, end: str
+) -> list[dict[str, Any]]:
+    """``{member, faction_key, from_date, to_date}`` of every faction membership of the
+    Tweede Kamer that overlaps *start*..*end* (inclusive), from the members'
+    ``faction_memberships`` (a column of its own, read without the rest of the props)."""
+    rows = store.query(
+        """
+        SELECT m.key AS member, lg_str(f.period -> 'faction_key') AS faction_key,
+               lg_str(f.period -> 'from_date') AS from_date,
+               lg_str(f.period -> 'to_date') AS to_date
+        FROM members m
+        CROSS JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(m.pj_faction_memberships) = 'array'
+                 THEN m.pj_faction_memberships ELSE '[]'::json END
+        ) AS f(period)
+        WHERE m.in_parliament
+          AND lg_str(f.period -> 'from_date') <= %(end)s
+          AND (lg_str(f.period -> 'to_date') IS NULL
+               OR lg_str(f.period -> 'to_date') >= %(start)s)
+        ORDER BY 1 ASC NULLS FIRST, 3 ASC NULLS FIRST
+        """,
+        {"start": start, "end": end},
+    )
+    return list(rows)
+
+
+def cabinet_on(store: GraphStore, day: str) -> dict[str, Any] | None:
+    """``{key, name, from_date, to_date}`` of the cabinet in office on *day*: the newest that had
+    begun by then and had not ended before it; None before 1945 or between two."""
+    rows = store.query(
+        """
+        SELECT c.key, lg_str(c.props -> 'name') AS name,
+               lg_str(c.props -> 'from_date') AS from_date,
+               lg_str(c.props -> 'to_date') AS to_date
+        FROM cabinets c
+        WHERE lg_str(c.props -> 'from_date') <= %(day)s
+          AND (lg_str(c.props -> 'to_date') IS NULL
+               OR lg_str(c.props -> 'to_date') >= %(day)s)
+        ORDER BY lg_str(c.props -> 'from_date') DESC NULLS LAST, c.key ASC
+        LIMIT 1
+        """,
+        {"day": day},
+    )
+    return next(iter(rows), None)
