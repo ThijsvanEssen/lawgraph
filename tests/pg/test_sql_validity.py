@@ -32,7 +32,7 @@ _SQL_WORDS = re.compile(r"\b(FROM|SET|VALUES|RETURNING)\b")
 _PARAMETER = re.compile(r"%\((\w+)\)s|%s")
 _TEMPLATE = re.compile(r"\{\w*\}")
 # The common table expressions that a tail reads and its caller puts in front.
-_HEADS = ("stale", "grouped", "resolved")
+_HEADS = ("stale", "grouped", "resolved", "matching")
 _TAIL = re.compile(rf"\b(FROM|JOIN)\s+({'|'.join(_HEADS)})\b")
 # Fragments that read a row of the statement they go into (a LATERAL subquery), by file and
 # the alias of that row; the statement around them is judged whole.

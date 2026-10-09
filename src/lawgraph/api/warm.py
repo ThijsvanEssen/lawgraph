@@ -16,8 +16,11 @@ from functools import partial
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
+    COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -30,6 +33,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
+from lawgraph.db.queries.decisions import DecisionFilters, party_votes
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
@@ -103,6 +107,11 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
+    "decisions party votes": (
+        COLLECTION_DECISIONS,
+        COLLECTION_EDGES,
+        COLLECTION_FACTIONS,
+    ),
     "dossier names": (COLLECTION_DOSSIERS,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
@@ -130,6 +139,10 @@ def warm_up(store: GraphStore) -> None:
         "search codes": lambda: load_code_aliases(store),
         # the laws a dossier title names (``get_laws_named``)
         "dossier law names": lambda: load_law_names(store),
+        # every faction on every decision: seconds, the same for every visitor
+        "decisions party votes": lambda: party_votes(
+            store, DecisionFilters(party_votes=("all",))
+        ),
         "dossier names": lambda: load_dossier_names(store),
         **{
             f"search {table}": partial(search_statistics, store, table)

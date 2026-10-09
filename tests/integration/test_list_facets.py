@@ -113,10 +113,14 @@ def test_the_decisions_are_filtered_and_counted_per_kind_outcome_and_day(
 
     everything = _get(store, "/api/decisions")
     assert everything["total"] == 5
+    # per kind also how many carried and how many did not
     assert everything["facets"]["kind"] == [
-        {"value": "Motie", "count": 3},
-        {"value": "Amendement", "count": 1},
-        {"value": "Wetgeving", "count": 1},
+        {"value": "Motie", "count": 3, "passed": 1, "rejected": 2},
+        {"value": "Amendement", "count": 1, "passed": 1, "rejected": 0},
+        {"value": "Wetgeving", "count": 1, "passed": 1, "rejected": 0},
+    ]
+    assert everything["facets"]["years"] == [
+        {"year": "2025", "count": 5, "passed": 3, "rejected": 2}
     ]
     assert _counts(everything["facets"]["passed"]) == {True: 3, False: 2}
     assert everything["facets"]["days"] == [

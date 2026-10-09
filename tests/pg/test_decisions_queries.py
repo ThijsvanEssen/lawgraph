@@ -4,6 +4,7 @@ decision with its votes, and the document a decision was about."""
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 import psycopg
@@ -89,7 +90,13 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
     assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
     nothing = get_decisions(store, DecisionFilters(dossier="99999"))
     assert (nothing["total"], nothing["items"]) == (0, [])
-    assert nothing["facets"] == {"kind": [], "passed": [], "days": []}
+    assert nothing["facets"] == {
+        "kind": [],
+        "passed": [],
+        "days": [],
+        "years": [],
+        "party_votes": [],
+    }
     together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
 
@@ -227,12 +234,12 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
 
 def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
     facets = get_decisions(votes)["facets"]
-    assert list(facets) == ["kind", "passed", "days"]
-    # by count, most first, then by value (null first)
+    assert list(facets) == ["kind", "passed", "days", "years", "party_votes"]
+    # by count, most first, then by value (null first); per kind how many carried, not
     assert facets["kind"] == [
-        {"value": "Motie", "count": 3},
-        {"value": None, "count": 1},
-        {"value": "Amendement", "count": 1},
+        {"value": "Motie", "count": 3, "passed": 2, "rejected": 1},
+        {"value": None, "count": 1, "passed": 0, "rejected": 0},
+        {"value": "Amendement", "count": 1, "passed": 0, "rejected": 1},
     ]
     assert facets["passed"] == [
         {"value": False, "count": 2},
@@ -244,13 +251,23 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         {"date": "2023-05-05", "count": 2, "passed": 1},
         {"date": "2024-01-01", "count": 2, "passed": 1},
     ]
-    assert all(list(f) == ["value", "count"] for f in facets["kind"])
+    assert facets["years"] == [
+        {"year": None, "count": 1, "passed": 0, "rejected": 0},
+        {"year": "2023", "count": 2, "passed": 1, "rejected": 1},
+        {"year": "2024", "count": 2, "passed": 1, "rejected": 1},
+    ]
+    assert facets["party_votes"] == []  # none asked
+    assert all(
+        list(f) == ["value", "count", "passed", "rejected"] for f in facets["kind"]
+    )
     assert all(list(d) == ["date", "count", "passed"] for d in facets["days"])
 
     motions = get_decisions(votes, DecisionFilters(kinds=("Motie",), passed=True))
     assert motions["total"] == 2 and _keys(motions) == ["s1", "s2"]
     # the kinds under the outcome filter, the outcomes under the kind filter
-    assert motions["facets"]["kind"] == [{"value": "Motie", "count": 2}]
+    assert motions["facets"]["kind"] == [
+        {"value": "Motie", "count": 2, "passed": 2, "rejected": 0}
+    ]
     assert motions["facets"]["passed"] == [
         {"value": True, "count": 2},
         {"value": False, "count": 1},
@@ -273,8 +290,10 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         (DecisionFilters(date_to="2023-05-05"), ["s2", "s4"]),
         (DecisionFilters(date_from="2024-01-01", date_to="2024-01-01"), ["s0", "s1"]),
         # a part of the subject in any case, ASCII or not
-        (DecisionFilters(q="école"), ["s1"]),
-        (DecisionFilters(q="MOTIE"), ["s1", "s4"]),
+        (DecisionFilters(q=("école",)), ["s1"]),
+        (DecisionFilters(q=("MOTIE",)), ["s1", "s4"]),
+        # any of the words, each decision once
+        (DecisionFilters(q=("école", "amendement", "motie over")), ["s0", "s1"]),
         (DecisionFilters(kinds=("Amendement", "Motie")), ["s0", "s1", "s2", "s4"]),
         (DecisionFilters(passed=False), ["s0", "s4"]),
     ],
@@ -294,7 +313,12 @@ def test_the_pages(votes: GraphStore) -> None:
     assert _keys(get_decisions(votes, limit=2, offset=4)) == ["s3"]
     beyond = get_decisions(votes, limit=2, offset=10)
     assert beyond["items"] == [] and beyond["total"] == 5
-    assert beyond["facets"]["kind"][0] == {"value": "Motie", "count": 3}
+    assert beyond["facets"]["kind"][0] == {
+        "value": "Motie",
+        "count": 3,
+        "passed": 2,
+        "rejected": 1,
+    }
 
 
 def test_a_decision_with_its_votes(votes: GraphStore) -> None:
@@ -522,6 +546,146 @@ def test_the_words_of_a_subject(store: GraphStore, q: str, keys: list[str]) -> N
             for n, subject in enumerate(subjects, start=1)
         ],
     )  # fmt: skip
-    page = get_decisions(store, DecisionFilters(q=q))
+    page = get_decisions(store, DecisionFilters(q=(q,)))
     assert sorted(_keys(page)) == keys
     assert page["total"] == len(keys)
+
+
+def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
+    """``party_votes``: per faction asked how it voted on every decision under the
+    filters, in all, per kind and per year; none kept out (unlike ``party``). A vote of a
+    member is not one of its faction (``none``); an unknown faction is not listed."""
+    page = get_decisions(votes, DecisionFilters(party_votes=("VVD", "nobody")))
+    assert page["total"] == 5
+    assert page["facets"]["party_votes"] == [
+        {
+            "party": "vvd",
+            "name": "VVD",
+            "voor": 2,
+            "tegen": 1,
+            "none": 2,
+            "kind": [
+                {"value": "Motie", "voor": 2, "tegen": 0, "none": 1},
+                {"value": None, "voor": 0, "tegen": 0, "none": 1},
+                {"value": "Amendement", "voor": 0, "tegen": 1, "none": 0},
+            ],
+            "years": [
+                {"year": None, "voor": 0, "tegen": 0, "none": 1},
+                {"year": "2023", "voor": 1, "tegen": 0, "none": 1},
+                {"year": "2024", "voor": 1, "tegen": 1, "none": 0},
+            ],
+        }
+    ]
+    every = get_decisions(votes, DecisionFilters(party_votes=("all",)))
+    assert [(p["party"], p["name"], p["voor"], p["tegen"], p["none"])
+            for p in every["facets"]["party_votes"]] == [
+        ("a", "B-partij", 0, 1, 4),
+        ("vvd", "VVD", 2, 1, 2),
+        ("x", "B-partij", 0, 1, 4),
+    ]  # fmt: skip
+    # under the filters: the votes on the decisions of 2024 alone
+    recent = get_decisions(
+        votes, DecisionFilters(date_from="2024-01-01", party_votes=("vvd",))
+    )
+    (vvd,) = recent["facets"]["party_votes"]
+    assert (vvd["voor"], vvd["tegen"], vvd["none"]) == (1, 1, 0)
+
+
+def test_party_votes_past_their_budget_follow_on_the_next_request(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past ``PARTY_VOTES_BUDGET`` the page comes without them, ``partial``; they are
+    counted on, kept per data version, and a later request has them."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import decisions as decision_queries
+    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+
+    version_cache.clear()
+    read = decision_queries._read_party_votes
+
+    def slow(store: GraphStore, filters: DecisionFilters) -> Any:
+        time.sleep(1)
+        return read(store, filters)
+
+    monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
+    monkeypatch.setattr(decision_queries, "PARTY_VOTES_BUDGET", 0.3)
+    asked = DecisionFilters(party_votes=("all",))
+    token = set_read_deadline(10)  # a request
+    try:
+        started = time.monotonic()
+        first = get_decisions(votes, asked)
+        assert time.monotonic() - started < 0.9
+        assert first["partial"] is True and first["facets"]["party_votes"] == []
+        assert first["total"] == 5  # the page itself
+        time.sleep(1.2)
+        again = get_decisions(votes, asked)
+        assert "partial" not in again
+        assert [p["party"] for p in again["facets"]["party_votes"]] == ["a", "vvd", "x"]
+    finally:
+        reset_read_deadline(token)
+
+
+def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> None:
+    """The votes of factions on the decisions: the VOTED edges of each decision from
+    ``edges_to_cover`` (of one faction also its own from ``edges_from_cover``, of every
+    decision without a filter also by ``edges_relation``), never a scan of the edges."""
+    from lawgraph.db.queries import decisions as decision_queries
+
+    store.execute(
+        "INSERT INTO decisions (id, type, props)"
+        " SELECT 'decisions/f' || n, 'decision', json_build_object('kind', 'Motie',"
+        " 'passed', n % 2 = 0, 'date', to_char(date '2020-01-01' + n % 1500, 'YYYY-MM-DD'))"
+        " FROM generate_series(1, 2000) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'v' || n, 'factions/p' || n % 15, 'decisions/f' || n % 2000,"
+        " json_build_object('relation', 'VOTED', 'meta', json_build_object('choice', 'Voor'))"
+        " FROM generate_series(1, 30000) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'o' || n, 'documents/x' || n, 'cases/y' || n,"
+        " json_build_object('relation', 'PART_OF')"
+        " FROM generate_series(1, 60000) n"
+    )
+    store.vacuum_analyze()
+    every = DecisionFilters(party_votes=("all",))
+    for filters, allowed in (
+        # a few decisions (a window): of each its edges, by the covering index
+        (replace(every, date_from="2024-02-01"), {"edges_to_cover"}),
+        # one faction: its own votes (``edges_from_cover``), or those of each decision
+        (DecisionFilters(party_votes=("p1",)), {"edges_to_cover", "edges_from_cover"}),
+        # every decision of every faction: every vote, by the index on the relation or
+        # by the covering one, never a scan of all edges
+        (every, {"edges_to_cover", "edges_relation"}),
+    ):
+        asked = filters.party_votes
+        bind: dict[str, Any] = {}
+        statement = (
+            f"{decision_queries._matching(filters, bind)}\n"
+            f"SELECT {decision_queries._party_votes(filters, bind)} AS votes"
+        )
+        with store.pool.connection() as conn:
+            (plan,) = conn.execute(
+                f"EXPLAIN (FORMAT JSON) {statement}", bind
+            ).fetchone()  # type: ignore[misc]
+        nodes = list(_plan_nodes(plan[0]["Plan"]))
+        edges = [n for n in nodes if n.get("Relation Name") == "edges"]
+        assert edges, asked
+        assert all(n["Node Type"] != "Seq Scan" for n in edges), asked
+        # by the index or a bitmap of it: of each decision its edges, never another index
+        indexes = {
+            n["Index Name"]
+            for n in nodes
+            if str(n.get("Index Name", "")).startswith("edges")
+        }
+        assert indexes and indexes <= allowed, (filters, indexes)
+
+
+def _plan_nodes(node: dict[str, Any]) -> Any:
+    yield node
+    for child in node.get("Plans", []):
+        yield from _plan_nodes(child)
