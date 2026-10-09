@@ -19,6 +19,7 @@ from lawgraph.api.schemas.decisions import (
     DecisionDTO,
     DecisionFacets,
     DecisionListResponse,
+    DecisionMotionDTO,
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
@@ -31,7 +32,7 @@ from lawgraph.db.queries.decisions import (
     get_decision_detail,
     get_decision_document,
     get_decisions,
-    motion_dictums,
+    motion_papers,
 )
 from lawgraph.db.queries.documents import get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -180,11 +181,16 @@ def get_decision(
     doc = get_decision_detail(store, key)
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
-    (dictum,) = motion_dictums(store, [doc["props"]])
+    ((motion, dictum),) = motion_papers(store, [{**doc["props"], "id": doc["_id"]}])
     dto = DecisionDTO.from_document(
         doc, load_dossier_names(store), load_member_slugs(store)
     )
-    return dto.model_copy(update={"dictum": dictum})
+    return dto.model_copy(
+        update={
+            "dictum": dictum,
+            "motion": DecisionMotionDTO(**motion) if motion else None,
+        }
+    )
 
 
 @router.get(
