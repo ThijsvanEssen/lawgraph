@@ -564,11 +564,11 @@ def test_a_bucket_without_a_relation_has_its_page(store: GraphStore) -> None:
     assert pages == {("PART_OF", "documents"): ["a"], (None, "documents"): ["b"]}
 
 
-def test_the_lids_of_an_article_are_counted_once_while_its_edges_stand_still(
+def test_the_lids_of_an_article_are_counted_once_an_hour(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``lid_counts`` reads the meta of every edge of the article: kept while the edges
-    stand still, counted again when one is written."""
+    """``lid_counts`` reads the meta of every edge of the article: kept ``LIDS_MAX_AGE``,
+    also when an edge is written (every poll writes edges), then counted again."""
     from lawgraph.db import version_cache
 
     version_cache.clear()
@@ -609,5 +609,9 @@ def test_the_lids_of_an_article_are_counted_once_while_its_edges_stand_still(
             }
         ]
     )
+    # kept, though an edge was written
+    assert lids() == {"1": 1}
+    assert len(counted) == 1
+    monkeypatch.setattr(node_queries, "LIDS_MAX_AGE", 0.0)
     assert lids() == {"1": 1, "2": 1}
     assert len(counted) == 2

@@ -16,7 +16,7 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import lasting
 
 
 class NodeNotFoundError(ValueError):
@@ -269,15 +269,23 @@ def _kept_lids(
     filters: NeighborFilter,
     leden: list[str] | None,
 ) -> dict[tuple[str | None, str, str], dict[str, int]]:
-    """``_count_lids``, kept while the edges stand still: it reads the ``meta`` of every edge
-    of the article (of 6:162 BW, 9,000: half a second warm, seconds cold), for every page."""
+    """``_count_lids``, kept ``LIDS_MAX_AGE`` whatever the data does: it reads the ``meta``
+    of every edge of the article (of 6:162 BW, 9,000: half a second warm, seconds cold),
+    and every poll writes edges, so kept per version of them it was read again cold after
+    each (6–9 s on prod, 2026-10-09); a poll moves the counts of a much cited article by a
+    handful."""
     leden_key = None if leden is None else tuple(leden)
-    return cached(
+    return lasting(
         store,
         ("lid-counts", node_id, filters, leden_key),
         lambda: _count_lids(store, node_id, filters, leden),
-        tables=("edges",),
+        LIDS_MAX_AGE,
     )
+
+
+# How long the lid counts of an article are kept (seconds); a newer count is made in the
+# background after that, while the kept one is served.
+LIDS_MAX_AGE = 3600.0
 
 
 def _count_lids(
