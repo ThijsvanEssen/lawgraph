@@ -6,6 +6,7 @@
 step retrieve all --since last
 step normalize all --since last
 step semantic all --since last
+step feed-events
 step check --skip-edges
 step search-stats prune
 step sitemaps

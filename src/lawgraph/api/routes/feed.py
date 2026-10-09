@@ -1,7 +1,8 @@
 """The news feed.
 
-GET /api/feed       — dated events of the graph, newest first, filtered, with a cursor
-GET /api/feed.atom  — the same page as an Atom feed, for a feed reader
+GET /api/feed          — dated events of the graph, newest first, filtered, with a cursor
+GET /api/feed.atom     — the same page as an Atom feed, for a feed reader
+GET /api/feed/periods  — the events per month or day under the same filters
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from lawgraph.api.params import MinistryKey, parse_choices
 from lawgraph.api.schemas.feed import (
     FeedFacetsDTO,
     FeedItemDTO,
+    FeedPeriodDTO,
+    FeedPeriodsResponse,
     FeedResponse,
     FeedSummaryResponse,
     atom_feed,
@@ -28,9 +31,21 @@ from lawgraph.core.courts import TIERS
 from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.committees import load_member_slugs
-from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
+from lawgraph.db.queries.feed import (
+    COUNTS_BUDGET,
+    FeedFilters,
+    get_feed,
+    get_feed_summary,
+)
 from lawgraph.db.queries.stats import cached_data_as_of
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 
 router = APIRouter()
 # Mounted at ``/api``: a path of a router starts with ``/``, and ``feed.atom`` is no
@@ -397,3 +412,69 @@ def get_feed_summary_route(
     )
     summary.data_as_of = _data_as_of(store)
     return summary
+
+
+@router.get(
+    "/periods",
+    response_model=FeedPeriodsResponse,
+    summary="News feed per period",
+    description=(
+        "The events of ``GET /api/feed`` under the same filters, counted per month "
+        "(``per=month``) or day (``per=day``, at most "
+        f"{feed_events.MAX_DAYS} days from ``since``), per kind: each kind as the feed's "
+        "``kind`` facet counts it over those days. Every kind is counted unless ``kind`` "
+        "names some. From the events as ``lawgraph feed-events`` last wrote them "
+        "(``written_at``: after every poll and every night), not the live graph; not "
+        "``member`` and not ``tier``."
+    ),
+    tags=["feed"],
+)
+def get_feed_periods_route(
+    store: Annotated[GraphStore, Depends(get_store)],
+    scope: Annotated[FeedFilters, Depends(scope_filters)],
+    since: Annotated[dt.date | None, Query(description="On or after this day.")] = None,
+    until: Annotated[
+        dt.date | None, Query(description="On or before this day.")
+    ] = None,
+    per: Annotated[Literal["month", "day"], Query()] = "month",
+) -> FeedPeriodsResponse:
+    unsupported = feed_events.unsupported(scope)
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Not counted per period: {', '.join(unsupported)}.",
+        )
+    if per == "day":
+        last = until or dt.date.today()
+        if since is None or (last - since).days + 1 > feed_events.MAX_DAYS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"`per=day` needs `since`, at most {feed_events.MAX_DAYS} days "
+                "before `until`.",
+            )
+    filters = replace(
+        scope,
+        since=since.isoformat() if since else None,
+        until=until.isoformat() if until else None,
+    )
+    left = read_time_left()
+    token = set_read_deadline(
+        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
+    )
+    try:
+        raw = feed_events.get_periods(store, filters, per)
+        partial = raw["written_at"] is None
+    except ReadTimedOut:
+        raw, partial = {"periods": [], "written_at": None}, True
+    finally:
+        reset_read_deadline(token)
+    written = raw.get("written_at")
+    return FeedPeriodsResponse(
+        per=per,
+        since=filters.since,
+        until=filters.until,
+        periods=[] if partial else [FeedPeriodDTO(**p) for p in raw["periods"]],
+        partial=partial,
+        written_at=written.isoformat() if written else None,
+        data_as_of=_data_as_of(store),
+    )

@@ -122,6 +122,8 @@ URLS = [
     "/render/stb/2025/263",
     "/render/toezeggingen/TZ202609-124",
     "/render/stemmingen/b1",
+    # the events per month of a topic, by the index on their words
+    "/api/feed/periods?q=proef&chamber=TK",
     "/api/dossiers/36000/changed-articles",
     # a member: their votes (by roll-call and through their faction), dossiers, node, and
     # a path from their faction through its members
