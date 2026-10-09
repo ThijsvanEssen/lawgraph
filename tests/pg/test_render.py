@@ -336,3 +336,34 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
         body = client.get(f"/api/nodes/{node}").json()
         assert (body["title"], body["path"]) == (title, path), node
         assert body["description"]
+
+
+@pytest.mark.parametrize(
+    "focus", ["decisions/nothing", "activities/a1", "geen/collectie", "zonder-slash"]
+)
+def test_the_explorer_of_a_node_that_is_not_there_is_the_explorer(
+    client: TestClient, focus: str
+) -> None:
+    """No 500: a focus on a node the graph lacks, or on no node at all, is the page of the
+    explorer, which says so itself."""
+    response = _get(client, f"/explore?focus={focus}")
+    assert response.status_code == 200
+    assert _head(response.text)["title"] == "Verkenner, Concordans"
+
+
+def test_a_dossier_with_a_suffix_by_its_label(
+    client: TestClient, store: GraphStore
+) -> None:
+    """The key of a dossier is its label made a key (36600_viii): the page, its address
+    and the redirect from the explorer go by the label."""
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [_node("36600_viii", "dossier", label="36600-VIII", number="36600",
+               suffix="VIII", title="Begroting Onderwijs")],
+    )  # fmt: skip
+    page = _head(_get(client, "/dossiers/36600-VIII").text)
+    assert page["canonical"] == "https://concordans.nl/dossiers/36600-VIII"
+    focus = _get(client, "/explore?focus=dossiers/36600_viii")
+    assert focus.headers["location"] == "/dossiers/36600-VIII"
+    node = client.get("/api/nodes/dossiers/36600_viii").json()
+    assert node["path"] == "/dossiers/36600-VIII"

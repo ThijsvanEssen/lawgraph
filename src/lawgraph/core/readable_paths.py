@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
 
+from lawgraph.core.models import make_node_key
+
 ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
@@ -166,7 +168,7 @@ def focus_of_pad(pad: Pad) -> str | None:
     if pad.soort == "wet":
         return f"instruments/{pad.a.lower()}"
     if pad.soort == "dossier":
-        return f"dossiers/{pad.a}"
+        return f"dossiers/{make_node_key(pad.a)}"
     if pad.soort == "kabinet":
         return f"cabinets/{pad.a}"
     if pad.soort == "fractie":
@@ -176,6 +178,21 @@ def focus_of_pad(pad: Pad) -> str | None:
 
 def _text(value: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _dossier(key: str, props: dict[str, Any]) -> str | None:
+    """The address of a dossier by its label: its key is the label made a key
+    (``36600_viii``). The label is in its props (a dossier answer has it as its ``number``),
+    or is its number and its suffix (``lookup.answer``); a key of figures alone is it."""
+    label = _text(props.get("label"))
+    if not label and (number := _text(props.get("number"))):
+        suffix = _text(props.get("suffix"))
+        label = f"{number}-{suffix}" if suffix and "-" not in number else number
+    if not label and re.fullmatch(r"\d+", key):
+        label = key
+    if not label or not DOSSIER.match(label):
+        return None
+    return pad_href(Pad("dossier", label.upper()))
 
 
 def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
@@ -193,7 +210,7 @@ def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
             else None
         )
     if collection == "dossiers":
-        return pad_href(Pad("dossier", key)) if DOSSIER.match(key) else None
+        return _dossier(key, props)
     if collection == "articles":
         law = _text(props.get("bwb_id")) or _text(props.get("celex"))
         number = _text(props.get("article_number"))
