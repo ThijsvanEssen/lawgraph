@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 import pytest
 import requests
 
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.pipelines.retrieve.base import (
+    MISSING_FOR_DAYS,
+    missing_record,
+    spread_days,
+)
 from lawgraph.pipelines.retrieve.staatsblad import (
     MAX_DOWNLOAD_FAILURES,
     StaatsbladRetrievePipeline,
@@ -205,3 +211,16 @@ def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
     assert result.errors == [
         f"1 x more than {MAX_DOWNLOAD_FAILURES} downloads failed ({count})"
     ]
+
+
+def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> None:
+    """web-1, October 2026: 21,446 remembered 404s, all due within six days of each other."""
+    ids = [f"stb-1990-{n}" for n in range(2000)]
+    spread = {spread_days(i, MISSING_FOR_DAYS) for i in ids}
+    assert spread == set(range(MISSING_FOR_DAYS))  # every day of the second month
+    # the same publication, the same day, run after run
+    assert spread_days("stb-2015-29246", 30) == spread_days("stb-2015-29246", 30)
+    record = missing_record("staatsblad", "stb-amvb-xml", "stb-1990-1", spread=True)
+    due = dt.datetime.fromisoformat(record.meta["retry_after"])
+    days = (due - dt.datetime.now(dt.timezone.utc)).days
+    assert MISSING_FOR_DAYS - 1 <= days < 2 * MISSING_FOR_DAYS

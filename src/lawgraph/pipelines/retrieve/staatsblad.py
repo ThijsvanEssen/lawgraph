@@ -97,7 +97,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             streak.ok()
             if xml is None:
                 self.progress.skip("no XML (HTTP 404)", identifier)
-                yield missing_record(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, identifier)
+                # thousands of old publications have none: spread when they come due
+                yield missing_record(
+                    SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, identifier, spread=True
+                )
                 continue
             meta = {"identifier": identifier}
             if bwb_id:

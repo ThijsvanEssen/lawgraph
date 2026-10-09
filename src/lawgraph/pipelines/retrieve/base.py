@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import zlib
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -92,14 +93,19 @@ def missing_record(
     *,
     listed: bool = False,
     status: int = 404,
+    spread: bool = False,
 ) -> RetrieveRecord:
     """The record that remembers that *source* has no *kind* document for *external_id*.
 
     *listed*: the source itself named the document (an index, an SRU listing), so it is asked
     for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``. *status* is
-    what the source answered (``status_of``).
+    what the source answered (``status_of``). *spread*: as many days again at most, the same
+    for the same *external_id* (``spread_days``), so thousands of documents found missing in
+    one run come due on many days, not on one.
     """
     days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
+    if spread:
+        days += spread_days(external_id, days)
     retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
     return RetrieveRecord(
         source=source,
@@ -112,6 +118,12 @@ def missing_record(
         },
         counts=False,
     )
+
+
+def spread_days(external_id: str, days: int) -> int:
+    """0 to *days* − 1, the same for the same *external_id* on every run (a CRC, not the hash
+    of the process, which changes per run)."""
+    return zlib.crc32(external_id.encode()) % days if days > 0 else 0
 
 
 def status_of(exc: Exception) -> int | None:
