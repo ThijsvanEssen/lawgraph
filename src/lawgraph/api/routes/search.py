@@ -131,6 +131,7 @@ def search(
                     snippet=hit.get("snippet"),
                     score=hit["score"],
                     extra=hit.get("extra") or {},
+                    path_props=hit.get("path_props"),
                 )
             )
         grouped[type_key] = items

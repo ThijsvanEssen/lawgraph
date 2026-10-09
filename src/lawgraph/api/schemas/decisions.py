@@ -34,10 +34,11 @@ _DECISION_KIND = (
 )
 
 
-class VoteDTO(BaseModel):
+class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
     model_config = ConfigDict(extra="forbid")
+    path_id_field = "voter_id"
 
     voter_id: str = Field(..., description="Arango _id of the member or faction.")
     voter_key: str
@@ -151,10 +152,14 @@ class DecisionDTO(WithPath):
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], names: dict[str, dict[str, Any]]
+        cls,
+        doc: dict[str, Any],
+        names: dict[str, dict[str, Any]],
+        slugs: dict[str, str] | None = None,
     ) -> DecisionDTO:
-        """From the stored decision with its votes, and the names of the dossiers
-        (``load_dossier_names``)."""
+        """From the stored decision with its votes, the names of the dossiers
+        (``load_dossier_names``) and the slugs of the members (``load_member_slugs``),
+        the readable address of a member who voted."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -181,7 +186,10 @@ class DecisionDTO(WithPath):
             vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
-            votes=[VoteDTO(**v) for v in doc.get("votes") or []],
+            votes=[
+                VoteDTO(**v, path_props={"slug": (slugs or {}).get(v.get("voter_key"))})
+                for v in doc.get("votes") or []
+            ],
             coalition=doc.get("coalition"),
             # of the motion it decided on, which the route reads (``motion_dictums``)
             dictum=None,

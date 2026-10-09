@@ -150,10 +150,12 @@ class ExplainedTargetDTO(BaseModel):
     article_number: str | None = None
 
 
-class SubmitterDTO(BaseModel):
+class SubmitterDTO(WithPath):
     """Who submitted a motie or amendement."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
+    path_key_field = "member_key"
 
     name: str = Field(description="As the paper names them: `C.A.M. van der Plas`.")
     faction: str | None = Field(None, description="The faction they signed for.")
@@ -230,6 +232,7 @@ class DocumentTextResponse(DocumentOrigin):
         links: dict[str, Any] | None = None,
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
+        slugs: dict[str, str] | None = None,
     ) -> DocumentTextResponse:
         """From the stored document and what ``get_document_links`` found for it."""
         from lawgraph.config.constants import SOURCE_TK
@@ -263,14 +266,18 @@ class DocumentTextResponse(DocumentOrigin):
             dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
             submitters=[
-                SubmitterDTO(**row)
+                SubmitterDTO(
+                    **row,
+                    path_props={"slug": (slugs or {}).get(row.get("member_key") or "")},
+                )
                 for row in submitters(props.get("kind"), props.get("actors") or [])
             ],
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
             decisions=[
-                DecisionDTO.from_document(d, names or {}) for d in decisions or []
+                DecisionDTO.from_document(d, names or {}, slugs)
+                for d in decisions or []
             ],
             **origin,
         )

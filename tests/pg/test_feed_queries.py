@@ -405,6 +405,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             "function": "Minister van Financiën",
             "role": "bewindspersoon",
             "faction": None,
+            "path": None,
         }
     ]
     assert (commitment["ministry"], commitment["cabinet"]) == ("fin", "schoof")
@@ -432,6 +433,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             "function": "Tweede Kamerlid",
             "role": "indiener",
             "faction": {"key": "vvd", "short": "VVD", "path": "/fracties/vvd"},
+            "path": None,
         },
         {
             "key": BAKKER_KEY,
@@ -441,6 +443,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             "role": "medeindiener",
             # an older Fractie record of the faction
             "faction": {"key": "d66", "short": "D66", "path": "/fracties/d66"},
+            "path": None,
         },
     ]
 
@@ -464,6 +467,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
             "function": "minister",
             "role": "indiener",
             "faction": None,
+            "path": None,
         }
     ]
 

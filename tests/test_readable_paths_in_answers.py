@@ -5,6 +5,8 @@ not make one, never a wrong one."""
 from __future__ import annotations
 
 from lawgraph.api.schemas.common import DossierRefDTO, JudgmentSummaryDTO
+from lawgraph.api.schemas.decisions import VoteDTO
+from lawgraph.api.schemas.documents import SubmitterDTO
 from lawgraph.api.schemas.feed import FeedFactionDTO, FeedJudgmentDTO
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.search import SearchResultItem
@@ -58,6 +60,27 @@ def test_a_paper_without_its_dossier_suffix_has_no_address() -> None:
         display_name="Artikel 1", score=0.1, extra={"bwb_id": "BWBR0001854", "article_number": "1"},
     )  # fmt: skip
     assert article.path == "/wetten/BWBR0001854/artikel/1"
+
+
+def test_given_props_make_the_address() -> None:
+    """A member by its slug, a paper of a search hit by its dossier suffix: the props a
+    query gives along (``path_props``), not in the answer itself."""
+    vote = VoteDTO(
+        voter_id="members/m_bakker", voter_key="m_bakker", choice="Voor",
+        path_props={"slug": "bram-bakker"},
+    )  # fmt: skip
+    assert vote.path == "/leden/bram-bakker"
+    assert "path_props" not in vote.model_dump()
+    faction = VoteDTO(voter_id="factions/vvd", voter_key="vvd", choice="Voor")
+    assert faction.path == "/fracties/vvd"
+    assert SubmitterDTO(name="B. Bakker", member_key="m_bakker", role="indiener",
+                        path_props={"slug": None}).path is None  # fmt: skip
+    hit = SearchResultItem(
+        id="documents/p", key="p", collection="documents", type="document",
+        display_name="Motie", score=0.1, extra={"dossier_number": "36600", "sequence": 5},
+        path_props={"dossier_number": "36600", "dossier_suffix": "VIII", "sequence": 5},
+    )  # fmt: skip
+    assert hit.path == "/kamerstukken/36600-VIII/5"
 
 
 def test_a_path_given_back_is_left_out() -> None:
