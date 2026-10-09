@@ -91,6 +91,46 @@ _BACKFILL_CHUNK = 500
 class TKDossiersNormalizePipeline(NormalizePipelineBase):
     """Turn raw TK parliamentary records into parliament nodes and edges."""
 
+    def run(  # type: ignore[override]  # its own options beside since
+        self,
+        *,
+        since: dt.datetime | None = None,
+        mixed_votes: bool = False,
+        limit: int | None = None,
+    ) -> PipelineResult:
+        """The records since *since*, or all; with *mixed_votes* only the decisions read
+        as a roll call that were a faction vote with members voting apart
+        (``normalize_tk.mixed_vote_decisions``, *limit* of them: a slice)."""
+        if not mixed_votes:
+            return super().run(since=since)
+        return self._run_mixed_votes(limit)
+
+    def _run_mixed_votes(self, limit: int | None) -> PipelineResult:
+        """Normalize the votes of the mixed decisions again from their stored Stemming
+        rows (each carries its Besluit): their tally, kind and VOTED edges."""
+        result = PipelineResult()
+        self.store.reset_counts()
+        self._incremental = True
+        ids = normalize_tk.mixed_vote_decisions(self.store, limit)
+        logger.info("%d decisions read as a roll call with few votes.", len(ids))
+        if ids:
+            votes = tk_votes.read_votes(
+                raw_queries.vote_rows_of_decisions(self.store, ids)
+            )
+            decisions = tk_votes.normalize_decisions(self.store, votes)
+            tk_votes.link_votes(
+                self.store,
+                votes.by_decision,
+                decisions,
+                self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                source=EDGE_SOURCE,
+            )
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
+        result.unchanged += writes.unchanged
+        return result
+
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> dict[str, Iterable[dict[str, Any]]]:

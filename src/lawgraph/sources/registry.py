@@ -380,6 +380,30 @@ BWB_DEFINITIONS = PipelineCommand(
     make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
 )
 
+
+def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--mixed-votes",
+        action="store_true",
+        help="Only the decisions read as a roll call that were a faction vote with "
+        "members voting apart, normalized again from their stored votes.",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="With --mixed-votes: this many decisions (a slice)."
+    )
+
+
+TK_DOSSIERS_NORMALIZE = PipelineCommand(
+    TKDossiersNormalizePipeline,
+    "Committees, members, factions, dossiers, activities, votes, commitments and "
+    "documents as nodes, with their edges.",
+    add_args=_tk_dossiers_normalize_add_args,
+    make_extra_kwargs=lambda args: {
+        "mixed_votes": args.mixed_votes,
+        "limit": args.limit,
+    },
+)
+
 # ── the pipelines, in the order each phase runs them ─────────────────────────
 
 RETRIEVE: list[Pipeline] = [
@@ -578,11 +602,8 @@ NORMALIZE: list[Pipeline] = [
         "Cases as nodes.",
     ),
     _pipeline(
-        TKDossiersNormalizePipeline,
-        (
-            "Committees, members, factions, dossiers, activities, votes, commitments and "
-            "documents as nodes, with their edges."
-        ),
+        TK_DOSSIERS_NORMALIZE,
+        TK_DOSSIERS_NORMALIZE.description,
         after=("tk",),  # the case-to-dossier links read the cases
     ),
     _pipeline(
