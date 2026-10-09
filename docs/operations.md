@@ -492,6 +492,13 @@ host key, taken on the server itself and not over the network:
 with `StrictHostKeyChecking=yes`, so a host that answers with another key gets no deploy key and
 no code.
 
+## Operations without a personal key
+
+`.github/workflows/ops.yml` reaches the server with the deploy key, started by hand: `status` (health, timers, the
+last runs, long statements, disk), `log` (an ops job or `runs.log`), `sql` (a read-only query from `ops/`) and `run`
+(a script from `ops/`, in the background). Only files merged under `ops/` can be sent; `ops/README.md` has the
+commands and the lock a writing script takes.
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
