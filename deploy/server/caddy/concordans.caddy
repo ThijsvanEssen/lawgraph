@@ -1,0 +1,33 @@
+concordans.nl {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle /_app/immutable/* {
+		root * /srv/lawgraph/concordans/immutable
+		uri strip_prefix /_app/immutable
+		file_server
+	}
+
+	handle /_app/* {
+		root * /srv/lawgraph/concordans/current
+		file_server
+	}
+
+	handle {
+		root * /srv/lawgraph/concordans/current
+		try_files {path} /index.html
+		file_server
+	}
+
+	@immutable path /_app/immutable/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	@notImmutable not path /_app/immutable/*
+	header @notImmutable ?Cache-Control "no-cache"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
