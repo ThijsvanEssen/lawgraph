@@ -357,7 +357,8 @@ later downloads what the source lists as new or changed: a Staatscourant or Staa
 publication stored after its `modified` date, a BWB toestand that is still the stored one and
 a judgment not updated since are left alone; a document that answered HTTP 404, or a
 redirect that leads nowhere, is asked for again after 30 days (3 when the source listed it
-itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
+itself, as the SRU does a BWB toestand; a Staatsblad publication after 30 to 59 days, the same
+for the same publication, so the thousands without XML found in one run come due on many days). The Tweede Kamer pages are read again from the start on a
 re-run (upserts, so only time is repeated). A Staatsblad publication the source could not serve (an HTTP 500) is stored
 as nothing and asked for again next run; the step still succeeds, unless more than 25 of
 them failed (a source that is down stops it after 25 failures in a row).
