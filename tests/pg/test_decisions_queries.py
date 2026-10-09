@@ -97,6 +97,7 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "years": [],
         "party_votes": [],
         "coalition": [],
+        "coalition_cabinets": [],
     }
     together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
@@ -246,6 +247,7 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         "years",
         "party_votes",
         "coalition",
+        "coalition_cabinets",
     ]
     # by count, most first, then by value (null first); per kind how many carried, not
     assert facets["kind"] == [

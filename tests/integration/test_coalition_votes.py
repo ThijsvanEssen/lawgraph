@@ -178,6 +178,19 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         "carried": 1,
         "decisive": 3,
     }
+    # per cabinet, under every filter (a topic: its words, Kamer and period)
+    assert everything["facets"]["coalition_cabinets"] == [
+        {
+            "cabinet": "schoof",
+            "name": "kabinet-Schoof",
+            "votes": 3,
+            "together": 2,
+            "split": 0,
+            "wissel": 1,
+            "carried": 1,
+            "decisive": 3,
+        }
+    ]
     assert {
         i["key"]: (i["coalition"] or {}).get("pattern") for i in everything["items"]
     } == {
