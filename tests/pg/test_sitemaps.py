@@ -70,19 +70,28 @@ def _seed(store: GraphStore) -> None:
                   sequence=5),
             _node("kst_36496_72", "document", kind="Motie", dossier_number="36496",
                   sequence=72),
+            _node("kst_36496_73", "document", kind="Motie", dossier_number="36496",
+                  sequence=73),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "cases",
-        [_node(f"z_{n}", "case") for n in range(1, 5)],
+        [_node(f"z_{n}", "case") for n in range(1, 6)],
     )
     store.bulk_insert_or_update_nodes(
         "decisions",
         [
-            _node("s_1", "decision", date="2026-09-08"),
-            _node("s_1b", "decision", date="2026-09-15"),
-            _node("s_2", "decision", date="2025-03-01"),
-            _node("s_3", "decision", date="2016-05-01"),
+            _node("s_1", "decision", date="2026-09-08", passed=True),
+            _node("s_1b", "decision", date="2026-09-15", passed=False),
+            _node("s_2", "decision", date="2025-03-01", passed=True),
+            _node("s_3", "decision", date="2016-05-01", passed=False),
+            # withdrawn: a decision without an outcome, no vote
+            _node(
+                "s_5",
+                "decision",
+                date="2026-09-20",
+                decision_kind="Stemmen - ingetrokken",
+            ),
         ],
     )
     store.bulk_insert_or_update_edges(
@@ -97,6 +106,9 @@ def _seed(store: GraphStore) -> None:
             _edge("a3", "decisions/s_3", "cases/z_3", "ABOUT"),
             # never decided: kst_36496_72 is PART_OF a case without a decision
             _edge("p4", "documents/kst_36496_72", "cases/z_4", "PART_OF"),
+            # withdrawn, never voted on
+            _edge("p5", "documents/kst_36496_73", "cases/z_5", "PART_OF"),
+            _edge("a5", "decisions/s_5", "cases/z_5", "ABOUT"),
         ]
     )
     store.bulk_insert_or_update_nodes(
@@ -127,7 +139,7 @@ def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
         ("/wetten/BWBR0005289/artikel/6:162", "2025-07-01"),
         ("/wetten/BWBR0005289/artikel/6:163", "2025-07-01"),
     ]
-    # decided since 2018, on the last day it was decided on
+    # voted on since 2018, on the last day; one withdrawn is no page of a vote
     assert _paths(kinds, "moties") == [("/kamerstukken/36496/71", "2026-09-15")]
     assert _paths(kinds, "amendementen") == [
         ("/kamerstukken/36600-VIII/12", "2025-03-01")

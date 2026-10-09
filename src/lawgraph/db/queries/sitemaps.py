@@ -79,9 +79,9 @@ def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]
 def decided_papers(
     store: GraphStore, kind: str, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The papers of *kind* (``Motie``, ``Amendement``: the kinds that start with it) with
-    a decision since *since*: a decision is ABOUT a case the paper is PART_OF. The last day
-    one was taken on it is its lastmod."""
+    """The papers of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
+    on since *since*: a decision with an outcome (not one withdrawn or postponed) is ABOUT
+    a case the paper is PART_OF. The last day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
         SELECT doc.id,
@@ -98,7 +98,8 @@ def decided_papers(
         JOIN edges p ON p.to_id = a.to_id AND p.relation = %(part_of)s
             AND p.from_collection = '{COLLECTION_DOCUMENTS}'
         JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = p.from_id
-        WHERE dec.date >= %(since)s AND starts_with(doc.kind, %(kind)s)
+        WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
+          AND starts_with(doc.kind, %(kind)s)
         GROUP BY doc.id
         ORDER BY doc.id
         """,
