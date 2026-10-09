@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -490,52 +491,101 @@ def get_decisions(
     page: dict[str, Any] = (
         rows[0] if rows else {"total": 0, "items": [], "facets": dict(EMPTY_FACETS)}
     )
-    _add_dictums(store, page["items"])
+    _add_motions(store, page["items"])
     if filters.party_votes:
         _add_party_votes(store, filters, page)
     return page
 
 
-# The dictum of the motion of each case: of its oldest paper, as ``get_decision_document``
-# picks the paper of a decision, read from ``lg_document_light`` (without the text).
-_DICTUMS = f"""
-SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, l.props -> 'dictum' AS dictum
+# The paper a decision was taken on: the oldest paper of each case (as
+# ``get_decision_document`` picks the paper of a decision), its dictum and the props of its
+# address read from ``lg_document_light`` (without the text).
+_CASE_PAPERS = f"""
+SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, doc.id, l.props AS light
 FROM {COLLECTION_EDGES} e
 JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
-JOIN lg_document_light l ON l.id = e.from_id
+LEFT JOIN lg_document_light l ON l.id = e.from_id
 WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
 ORDER BY e.to_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
 """
+# The Kamerstuk a vote of the Eerste Kamer on a motion is ABOUT: the oldest, when several.
+# Its letter (``number``: AB) makes its address and is no light prop: read from its props,
+# of the few papers of a page.
+_ABOUT_PAPERS = f"""
+SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, doc.id, l.props AS light,
+       doc.props -> 'number' AS number
+FROM {COLLECTION_EDGES} e
+JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.to_id
+LEFT JOIN lg_document_light l ON l.id = e.to_id
+WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(about)s
+  AND e.to_collection = '{COLLECTION_DOCUMENTS}'
+ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+"""
+# The kinds of case whose paper is the motion or amendment a decision is about.
+MOTION_KINDS = ("Motie", "Amendement")
 
 
-def motion_dictums(store: GraphStore, decisions: list[dict[str, Any]]) -> list[Any]:
-    """Per decision of *decisions* (``{primary_case_kind, primary_case_id}``) the dictum of
-    the motion it decided on (``core/motion_dictum.py``): None for a decision on anything
-    else, or on a motion without text."""
+def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
+    if row is None:
+        return None
+    collection, _, key = row["id"].partition("/")
+    props = {**(row.get("light") or {}), "number": row.get("number")}
+    return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
+
+
+def motion_papers(
+    store: GraphStore, decisions: list[dict[str, Any]]
+) -> list[tuple[dict[str, Any] | None, Any]]:
+    """Per decision of *decisions* (``{id, primary_case_kind, primary_case_id}``) the
+    motion or amendment it was taken on (``{collection, key, path}``) and the dictum of a
+    motion (``core/motion_dictum.py``). The paper is the oldest of the case the vote singled
+    out, when that is a motion or amendment; else, for a decision whose ``kind`` is one, the
+    Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
+    motion, or a motion without text."""
     cases = [
         f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
-        if d.get("primary_case_kind") == "Motie" and d.get("primary_case_id")
+        if d.get("primary_case_kind") in MOTION_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
     ]
     wanted = sorted({c for c in cases if c})
-    found: dict[str, Any] = {}
+    by_case: dict[str, dict[str, Any]] = {}
     if wanted:
-        found = {
-            row["case_id"]: row["dictum"]
+        by_case = {
+            row["case_id"]: row
             for row in store.query(
-                _DICTUMS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
+                _CASE_PAPERS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
             )
         }
-    return [found.get(case) if case else None for case in cases]
+    # a decision on a motion without a case of its own: of the Eerste Kamer
+    others = sorted({str(d["id"]) for d, c in zip(decisions, cases, strict=True)
+                     if c is None and d.get("id") and d.get("kind") in MOTION_KINDS})  # fmt: skip
+    by_decision: dict[str, dict[str, Any]] = {}
+    if others:
+        by_decision = {
+            row["decision_id"]: row
+            for row in store.query(
+                _ABOUT_PAPERS, {"ids": others, "about": RELATION_ABOUT}
+            )
+        }
+    found = []
+    for decision, case in zip(decisions, cases, strict=True):
+        row = by_case.get(case) if case else by_decision.get(str(decision.get("id")))
+        motion = decision.get("primary_case_kind") == "Motie" and case is not None
+        dictum = ((row or {}).get("light") or {}).get("dictum") if motion else None
+        found.append((_paper(row), dictum))
+    return found
 
 
-def _add_dictums(store: GraphStore, items: list[dict[str, Any]]) -> None:
-    """``dictum`` on each row of a page of decisions, in place of ``primary_case_id``."""
-    for item, dictum in zip(items, motion_dictums(store, items), strict=True):
+def _add_motions(store: GraphStore, items: list[dict[str, Any]]) -> None:
+    """``motion`` and ``dictum`` on each row of a page of decisions, in place of
+    ``primary_case_id``."""
+    for item, (motion, dictum) in zip(items, motion_papers(store, items), strict=True):
         item.pop("primary_case_id", None)
         item["dictum"] = dictum
+        item["motion"] = motion
 
 
 def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
