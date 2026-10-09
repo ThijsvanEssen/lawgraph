@@ -18,9 +18,11 @@ from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
@@ -30,6 +32,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
+from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
@@ -98,12 +101,17 @@ def _warm_subject_areas(store: GraphStore) -> None:
 # here runs on every warm-up; one made of parts kept per table (``stats``) finds them kept.
 PART_TABLES: dict[str, tuple[str, ...]] = {
     "coverage": (COLLECTION_JUDGMENTS,),
-    "instruments": (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS),
+    "instruments": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
     "documents": (COLLECTION_DOCUMENTS,),
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
+    "member slugs": (COLLECTION_MEMBERS,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -131,6 +139,7 @@ def warm_up(store: GraphStore) -> None:
         # the laws a dossier title names (``get_laws_named``)
         "dossier law names": lambda: load_law_names(store),
         "dossier names": lambda: load_dossier_names(store),
+        "member slugs": lambda: load_member_slugs(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS

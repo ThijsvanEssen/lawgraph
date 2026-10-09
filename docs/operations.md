@@ -377,7 +377,9 @@ failing command fails the run and the next command still runs, one log per run i
 A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
-noted in `runs.log` and changes nothing else. With cron:
+noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
+chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
+goes back to nothing when the run starts. With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh

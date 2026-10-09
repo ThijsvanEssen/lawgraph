@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     InstrumentSummaryDTO,
     PublicationDTO,
     QualifierFields,
+    WithPath,
     address_of,
     semantic_fields,
 )
@@ -139,10 +140,11 @@ def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
     return sorted(references, key=lambda ref: (ref.start, ref.end))
 
 
-class ArticleSummaryDTO(BaseModel):
+class ArticleSummaryDTO(WithPath):
     """Summary of an article: its identifiers and text."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "articles"
 
     id: str
     key: str
@@ -312,10 +314,11 @@ class ArticleDetailResponse(BaseModel):
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
 
 
-class CitedByJudgment(BaseModel):
+class CitedByJudgment(WithPath):
     """The judgment of a passage that cites an article."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "judgments"
 
     id: str
     key: str

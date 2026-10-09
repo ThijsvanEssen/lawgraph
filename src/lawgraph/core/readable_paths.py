@@ -12,6 +12,7 @@
     /fracties/d66                        a fractie, by its key
     /commissies/szw                      a commissie, by its slug
     /toezeggingen/TZ202609-124           a toezegging, by its number
+    /stemmingen/decision_154df5db_…      a decision (a vote), by its key
 
 The same addresses as the front end (``src/lib/bron/leesbaar.ts`` of lawgraph-explorer:
 ``parsePad``, ``padHref``, ``padOfFocus``); ``readable-paths.json`` holds the cases both
@@ -24,6 +25,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
+
+from lawgraph.core.models import make_node_key
 
 ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
@@ -99,6 +102,8 @@ def parse_path(pathname: str) -> Pad | None:
         return Pad("fractie", a)
     if first == "commissies" and n == 2 and SLEUTEL.match(a):
         return Pad("commissie", a)
+    if first == "stemmingen" and n == 2 and SLEUTEL.match(a):
+        return Pad("stemming", a)
     if first == "toezeggingen" and n == 2 and COMMITMENT_NUMBER.match(a):
         return Pad("toezegging", a.upper())
     if (
@@ -144,6 +149,7 @@ def pad_href(pad: Pad) -> str:
         "fractie": "fracties",
         "commissie": "commissies",
         "toezegging": "toezeggingen",
+        "stemming": "stemmingen",
     }[s]
     return f"/{prefix}/{pad.a}"
 
@@ -166,11 +172,13 @@ def focus_of_pad(pad: Pad) -> str | None:
     if pad.soort == "wet":
         return f"instruments/{pad.a.lower()}"
     if pad.soort == "dossier":
-        return f"dossiers/{pad.a}"
+        return f"dossiers/{make_node_key(pad.a)}"
     if pad.soort == "kabinet":
         return f"cabinets/{pad.a}"
     if pad.soort == "fractie":
         return f"factions/{pad.a}"
+    if pad.soort == "stemming":
+        return f"decisions/{pad.a}"
     return None
 
 
@@ -178,62 +186,105 @@ def _text(value: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _judgment(key: str, props: dict[str, Any]) -> str | None:
+    ecli = _text(props.get("ecli")) or key_ecli(key)
+    return (
+        pad_href(Pad("uitspraak", ecli.upper())) if ecli and ECLI.match(ecli) else None
+    )
+
+
+def _dossier(key: str, props: dict[str, Any]) -> str | None:
+    """The address of a dossier by its label: its key is the label made a key
+    (``36600_viii``). The label is in its props (a dossier answer has it as its ``number``),
+    or is its number and its suffix (``lookup.answer``); a key of figures alone is it."""
+    label = _text(props.get("label"))
+    if not label and (number := _text(props.get("number"))):
+        suffix = _text(props.get("suffix"))
+        label = f"{number}-{suffix}" if suffix and "-" not in number else number
+    if not label and re.fullmatch(r"\d+", key):
+        label = key
+    return (
+        pad_href(Pad("dossier", label.upper()))
+        if label and DOSSIER.match(label)
+        else None
+    )
+
+
+def _article(key: str, props: dict[str, Any]) -> str | None:
+    law = _text(props.get("bwb_id")) or _text(props.get("celex"))
+    number = _text(props.get("article_number"))
+    # A number with a space ("bijlage 2 artikel 6") has no address of its own.
+    if not law or not number or re.search(r"\s", number):
+        return None
+    return pad_href(Pad("artikel", law, book_number(law, number)))
+
+
+def _instrument(key: str, props: dict[str, Any]) -> str | None:
+    if BWB.match(key):
+        return pad_href(Pad("wet", key.upper()))
+    official = _text(props.get("official_id")) or key.replace("_", "-")
+    m = _PUBLICATION_ID.match(official.lower())
+    return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None
+
+
+def _slug(soort: str, pattern: re.Pattern[str]) -> Any:
+    def by_slug(key: str, props: dict[str, Any]) -> str | None:
+        slug = _text(props.get("slug"))
+        return pad_href(Pad(soort, slug)) if slug and pattern.match(slug) else None
+
+    return by_slug
+
+
+def _by_key(soort: str) -> Any:
+    def by_key(key: str, props: dict[str, Any]) -> str | None:
+        return pad_href(Pad(soort, key)) if SLEUTEL.match(key) else None
+
+    return by_key
+
+
+def _commitment(key: str, props: dict[str, Any]) -> str | None:
+    number = _text(props.get("number"))
+    if not number or not COMMITMENT_NUMBER.match(number):
+        return None
+    return pad_href(Pad("toezegging", number.upper()))
+
+
+def _paper(key: str, props: dict[str, Any]) -> str | None:
+    # Dossier and number as the stuk is cited: 36600-VIII, and 31 in the Tweede Kamer or
+    # AB in the Eerste (``number``, the letter).
+    number = _text(props.get("dossier_number"))
+    suffix = _text(props.get("dossier_suffix"))
+    dossier = f"{number}-{suffix}" if number and suffix else number
+    sequence = props.get("sequence")
+    paper = (
+        str(sequence)
+        if isinstance(sequence, int) and not isinstance(sequence, bool)
+        else _text(props.get("number"))
+    )
+    if not dossier or not paper or not STUK.match(paper):
+        return None
+    return pad_href(Pad("kamerstuk", dossier, paper.upper()))
+
+
+# The readable address of a node of each collection that has one.
+_PATHS: dict[str, Any] = {
+    "judgments": _judgment,
+    "dossiers": _dossier,
+    "articles": _article,
+    "instruments": _instrument,
+    "members": _slug("lid", SLUG),
+    "committees": _slug("commissie", SLEUTEL),
+    "cabinets": _by_key("kabinet"),
+    "factions": _by_key("fractie"),
+    "decisions": _by_key("stemming"),
+    "commitments": _commitment,
+    "documents": _paper,
+}
+
+
 def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
     """The readable address of a node, from its key or the props of its node; None
-    where it has none (a decision, an activity: still /explore)."""
+    where it has none (an activity, an annex: still /explore)."""
     collection, _, key = node_id.partition("/")
-    if not key:
-        return None
-    props = props or {}
-    if collection == "judgments":
-        ecli = _text(props.get("ecli")) or key_ecli(key)
-        return (
-            pad_href(Pad("uitspraak", ecli.upper()))
-            if ecli and ECLI.match(ecli)
-            else None
-        )
-    if collection == "dossiers":
-        return pad_href(Pad("dossier", key)) if DOSSIER.match(key) else None
-    if collection == "articles":
-        law = _text(props.get("bwb_id")) or _text(props.get("celex"))
-        number = _text(props.get("article_number"))
-        # A number with a space ("bijlage 2 artikel 6") has no address of its own.
-        if not law or not number or re.search(r"\s", number):
-            return None
-        return pad_href(Pad("artikel", law, book_number(law, number)))
-    if collection == "instruments":
-        if BWB.match(key):
-            return pad_href(Pad("wet", key.upper()))
-        official = _text(props.get("official_id")) or key.replace("_", "-")
-        m = _PUBLICATION_ID.match(official.lower())
-        return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None
-    if collection == "members":
-        slug = _text(props.get("slug"))
-        return pad_href(Pad("lid", slug)) if slug and SLUG.match(slug) else None
-    if collection in ("cabinets", "factions"):
-        soort = "kabinet" if collection == "cabinets" else "fractie"
-        return pad_href(Pad(soort, key)) if SLEUTEL.match(key) else None
-    if collection == "committees":
-        slug = _text(props.get("slug"))
-        return (
-            pad_href(Pad("commissie", slug)) if slug and SLEUTEL.match(slug) else None
-        )
-    if collection == "commitments":
-        number = _text(props.get("number"))
-        if not number or not COMMITMENT_NUMBER.match(number):
-            return None
-        return pad_href(Pad("toezegging", number.upper()))
-    if collection == "documents":
-        number = _text(props.get("dossier_number"))
-        suffix = _text(props.get("dossier_suffix"))
-        dossier = f"{number}-{suffix}" if number and suffix else number
-        sequence = props.get("sequence")
-        paper = (
-            str(sequence)
-            if isinstance(sequence, int) and not isinstance(sequence, bool)
-            else _text(props.get("number"))
-        )
-        if not dossier or not paper or not STUK.match(paper):
-            return None
-        return pad_href(Pad("kamerstuk", dossier, paper.upper()))
-    return None
+    build = _PATHS.get(collection)
+    return build(key, props or {}) if key and build else None

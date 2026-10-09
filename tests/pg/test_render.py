@@ -272,8 +272,10 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
     focus = _get(client, "/explore?focus=articles/bwbr0005289_162&lezen=1")
     assert focus.status_code == 301
     assert focus.headers["location"] == "/wetten/BWBR0005289/artikel/6:162?lezen=1"
-    # a node without a readable address stays the explorer
-    explorer = _get(client, "/explore?focus=decisions/s_1")
+    # a decision by its key; a node without a readable address stays the explorer
+    vote = _get(client, "/explore?focus=decisions/s_1")
+    assert (vote.status_code, vote.headers["location"]) == (301, "/stemmingen/s_1")
+    explorer = _get(client, "/explore?focus=activities/a1")
     assert explorer.status_code == 200
     assert _head(explorer.text)["title"] == "Verkenner, Concordans"
 
@@ -281,6 +283,7 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
 @pytest.mark.parametrize(
     "path",
     ["/uitspraken/ECLI:NL:HR:1900:1", "/wetten/BWBR9999999", "/kamerstukken/36496/999",
+     "/stemmingen/s_999",
      "/bestaat/niet", "/wetten/xyz"],
 )  # fmt: skip
 def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
@@ -331,8 +334,45 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
          "/uitspraken/ECLI:NL:HR:2019:2006"),
         ("dossiers/36496", "36496 Wet AI-toezicht: dossier, moties en stemmingen",
          "/dossiers/36496"),
-        ("decisions/s_1", "s_1", None),
+        ("decisions/s_1", "s_1", "/stemmingen/s_1"),
     ):  # fmt: skip
         body = client.get(f"/api/nodes/{node}").json()
         assert (body["title"], body["path"]) == (title, path), node
         assert body["description"]
+
+
+def test_a_decision_has_its_page(client: TestClient) -> None:
+    response = _get(client, "/stemmingen/s_1")
+    assert response.status_code == 200
+    assert _head(response.text)["canonical"] == "https://concordans.nl/stemmingen/s_1"
+
+
+@pytest.mark.parametrize(
+    "focus", ["decisions/nothing", "activities/a1", "geen/collectie", "zonder-slash"]
+)
+def test_the_explorer_of_a_node_that_is_not_there_is_the_explorer(
+    client: TestClient, focus: str
+) -> None:
+    """No 500: a focus on a node the graph lacks, or on no node at all, is the page of the
+    explorer, which says so itself."""
+    response = _get(client, f"/explore?focus={focus}")
+    assert response.status_code == 200
+    assert _head(response.text)["title"] == "Verkenner, Concordans"
+
+
+def test_a_dossier_with_a_suffix_by_its_label(
+    client: TestClient, store: GraphStore
+) -> None:
+    """The key of a dossier is its label made a key (36600_viii): the page, its address
+    and the redirect from the explorer go by the label."""
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [_node("36600_viii", "dossier", label="36600-VIII", number="36600",
+               suffix="VIII", title="Begroting Onderwijs")],
+    )  # fmt: skip
+    page = _head(_get(client, "/dossiers/36600-VIII").text)
+    assert page["canonical"] == "https://concordans.nl/dossiers/36600-VIII"
+    focus = _get(client, "/explore?focus=dossiers/36600_viii")
+    assert focus.headers["location"] == "/dossiers/36600-VIII"
+    node = client.get("/api/nodes/dossiers/36600_viii").json()
+    assert node["path"] == "/dossiers/36600-VIII"

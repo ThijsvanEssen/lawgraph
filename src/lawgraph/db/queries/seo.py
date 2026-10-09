@@ -54,6 +54,8 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return lookup.find_faction(store, pad.a)
     if s == "commissie":
         return lookup.find_committee(store, pad.a)
+    if s == "stemming":
+        return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
     if s == "toezegging":
         return lookup.find_commitment(store, pad.a)
     return focus_of_pad(pad)

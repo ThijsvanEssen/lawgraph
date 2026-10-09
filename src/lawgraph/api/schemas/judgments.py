@@ -11,6 +11,7 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     JudgmentSummaryDTO,
     QualifierFields,
+    WithPath,
 )
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
@@ -452,10 +453,11 @@ _COURT_KIND = (
 )
 
 
-class JudgmentListItemDTO(BaseModel):
+class JudgmentListItemDTO(WithPath):
     """Row in the paginated /api/judgments list."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "judgments"
 
     id: str
     key: str

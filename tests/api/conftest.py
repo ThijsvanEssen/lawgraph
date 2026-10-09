@@ -47,3 +47,17 @@ def stub_dossier_names(monkeypatch) -> None:
             f"lawgraph.api.routes.{module}.load_dossier_names",
             lambda store: DOSSIER_NAMES,
         )
+
+
+# The slugs of the members the routes put a member's readable address by: one.
+MEMBER_SLUGS = {"m_bakker": "bram-bakker"}
+
+
+@pytest.fixture(autouse=True)
+def stub_member_slugs(monkeypatch) -> None:
+    """The routes read ``MEMBER_SLUGS``, not a database."""
+    for module in ("decisions", "documents", "government", "feed"):
+        monkeypatch.setattr(
+            f"lawgraph.api.routes.{module}.load_member_slugs",
+            lambda store: MEMBER_SLUGS,
+        )

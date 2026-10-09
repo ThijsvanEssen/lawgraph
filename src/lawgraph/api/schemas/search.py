@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.common import WithPath
 from lawgraph.api.schemas.resolve import ResolveResponse
 
 # The collections ``search_all`` can search, named as the collection is.
@@ -26,7 +27,7 @@ SEARCH_TYPES = frozenset(
 )
 
 
-class SearchResultItem(BaseModel):
+class SearchResultItem(WithPath):
     """One search hit, typed by collection."""
 
     model_config = ConfigDict(extra="forbid")

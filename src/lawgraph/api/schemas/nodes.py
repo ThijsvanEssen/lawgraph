@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.common import WithPath
 from lawgraph.core.documents import chamber_of, document_sender, paper_number
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
@@ -57,7 +58,7 @@ def _build_node_payload(
     }
 
 
-class BaseNodeDTO(BaseModel):
+class BaseNodeDTO(WithPath):
     """Common node representation used by multiple responses."""
 
     model_config = ConfigDict(extra="forbid")
@@ -85,7 +86,7 @@ class BaseNodeDTO(BaseModel):
 _NAMED_BY_DOSSIER = ("documents", "activities", "decisions")
 
 
-class NeighborDTO(BaseModel):
+class NeighborDTO(WithPath):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
     model_config = ConfigDict(extra="forbid")

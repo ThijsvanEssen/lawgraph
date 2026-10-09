@@ -267,6 +267,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert cabinets[0]["prime_minister"] == {
         "key": "jetten",
         "name": "Rob Arnoldus Adrianus Jetten",
+        "path": "/leden/rob-arnoldus-adrianus-jetten",
     }
     assert (cabinets[0]["bills"], cabinets[0]["commitments"]) == (1, 2)
     assert cabinets[0]["members"] >= 25
@@ -326,6 +327,7 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         "key": "heinen",
         "name": "Eelco Heinen",
         "function": "Minister van Financiën",
+        "path": "/leden/eelco-heinen",
     }
     assert (first["cabinet"], first["post"]) == ("jetten", "minister")
     assert [d["number"] for d in first["dossiers"]] == ["37022"]

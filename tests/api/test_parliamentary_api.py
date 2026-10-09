@@ -617,6 +617,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
         "name": "VVD",
         "choice": "Voor",
         "seats": 24,
+        "path": "/fracties/vvd",
     }
 
 

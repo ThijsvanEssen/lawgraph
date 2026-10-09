@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
-from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO
+from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO, WithPath
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
@@ -66,13 +66,19 @@ class MinistryDTO(BaseModel):
     periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
 
-class PersonRefDTO(BaseModel):
+class PersonRefDTO(WithPath):
     """A member named from another node."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
+
+
+def _slug(person: dict[str, Any], slugs: dict[str, str] | None) -> dict[str, Any]:
+    """The props of a member's address: its slug (``load_member_slugs``)."""
+    return {"slug": (slugs or {}).get(person.get("key") or "")}
 
 
 class SourceRefDTO(BaseModel):
@@ -156,10 +162,11 @@ class CabinetSeatsResponse(BaseModel):
     )
 
 
-class CabinetSummaryDTO(BaseModel):
+class CabinetSummaryDTO(WithPath):
     """A cabinet in the list, with its counts."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "cabinets"
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
@@ -199,16 +206,21 @@ class CabinetSummaryDTO(BaseModel):
     commitments: int = Field(0, description="Commitments made while it was in office.")
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
+    def from_row(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CabinetSummaryDTO:
         cabinet = row["cabinet"]
         props = cabinet.get("props") or {}
+        prime = row.get("prime_minister")
         return cls(
             key=cabinet["_key"],
             name=props.get("name") or cabinet["_key"],
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
             previous=props.get("previous"),
-            prime_minister=row.get("prime_minister"),
+            prime_minister=(
+                PersonRefDTO(**prime, path_props=_slug(prime, slugs)) if prime else None
+            ),
             parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
             factions=props.get("factions") or [],
             demissionary_from=props.get("demissionary_from"),
@@ -332,9 +344,11 @@ class CabinetMinistryDTO(BaseModel):
     seats: list[CabinetSeatDTO]
 
 
-def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
+def _post_dto(
+    item: dict[str, Any], post: dict[str, Any], slugs: dict[str, str] | None
+) -> CabinetPostDTO:
     return CabinetPostDTO(
-        member=item["member"],
+        member=PersonRefDTO(**item["member"], path_props=_slug(item["member"], slugs)),
         post=post.get("post"),
         function=post.get("function"),
         also_named=post.get("also_named") or [],
@@ -399,15 +413,17 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     ministries: list[CabinetMinistryDTO] = Field(default_factory=list)
 
     @classmethod
-    def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
+    def from_detail(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CabinetDetailDTO:
         members = row.get("members") or []
-        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
+        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)}, slugs)
         # a seat stands under its ministry: the one its key names (by the name the ministry
         # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
         # whose function names no ministry, that of its last post; each post keeps its own
         # ``ministry`` of its day
         held = [
-            (post, _post_dto(item, post))
+            (post, _post_dto(item, post, slugs))
             for item in members
             for post in item.get("posts") or []
         ]
@@ -435,8 +451,9 @@ class CabinetDetailDTO(CabinetSummaryDTO):
         return cls(**summary.model_dump(), ministries=ministries)
 
 
-class CommitmentDossierDTO(BaseModel):
+class CommitmentDossierDTO(WithPath):
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     key: str
     number: str | None = None
@@ -460,10 +477,11 @@ class CommitmentMemberDTO(PersonRefDTO):
     function: str | None = None
 
 
-class CommitmentDTO(BaseModel):
+class CommitmentDTO(WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "commitments"
 
     key: str
     number: str | None = Field(
@@ -486,7 +504,11 @@ class CommitmentDTO(BaseModel):
     activity: CommitmentActivityDTO | None = None
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> CommitmentDTO:
+    def from_row(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CommitmentDTO:
+        """From a row of ``get_commitments``, and the slugs of the members
+        (``load_member_slugs``) for the address of who made it."""
         commitment = row["commitment"]
         props = commitment.get("props") or {}
         member = row.get("member")
@@ -500,7 +522,11 @@ class CommitmentDTO(BaseModel):
             expected_resolution=due if due and due != NO_DUE_DATE else None,
             minister_name=props.get("minister_name"),
             member=(
-                CommitmentMemberDTO(**member, function=props.get("minister_role"))
+                CommitmentMemberDTO(
+                    **member,
+                    function=props.get("minister_role"),
+                    path_props=_slug(member, slugs),
+                )
                 if member
                 else None
             ),
