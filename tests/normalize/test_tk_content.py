@@ -94,6 +94,7 @@ def test_only_the_props_of_the_text_are_written() -> None:
         "budget",
         "sections",
         "footnotes",
+        "dictum",
     }
 
 

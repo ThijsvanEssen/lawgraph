@@ -202,6 +202,13 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
+    dictum: str | None = Field(
+        None,
+        description="Of a motion, what it asks or says, as it writes it: the lines from "
+        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
+        "motion without text.",
+    )
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
@@ -253,6 +260,7 @@ class DocumentTextResponse(DocumentOrigin):
                 else None
             ),
             text=text,
+            dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
             submitters=[
                 SubmitterDTO(**row)
@@ -369,6 +377,13 @@ class DocumentListItemDTO(BaseModel):
         description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
         "Kamer paper and a paper without a signature.",
     )
+    dictum: str | None = Field(
+        None,
+        description="Of a motion, what it asks or says, as it writes it: the lines from "
+        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
+        "motion without text.",
+    )
 
     @classmethod
     def from_row(
@@ -391,6 +406,7 @@ class DocumentListItemDTO(BaseModel):
             title=row.get("title"),
             session_year=row.get("session_year"),
             sender=sender_of(row),
+            dictum=row.get("dictum"),
         )
 
 

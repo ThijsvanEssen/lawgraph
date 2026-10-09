@@ -659,6 +659,7 @@ on the Document of the paper (`meta.document` of the raw record):
 | `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
 | `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
 | `footnotes` | `[{number, text}]` in document order |
+| `dictum` | of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before, and in `lg_document_light` |
 | `sections` | the headings of the paper, in document order, as below |
 
 The XML has no element for an article: the artikelsgewijs part of a memorandum is a run of

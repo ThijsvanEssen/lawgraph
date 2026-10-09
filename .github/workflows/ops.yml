@@ -1,0 +1,143 @@
+name: ops
+
+# Operations on the server without a personal SSH key, with the deploy key of deploy.yml. Started by
+# hand (Actions → ops → Run workflow, or `gh workflow run ops -f action=status`); every run is in
+# the Actions log. Four actions:
+#   status  read only: health, timers, the last runs, running statements, disk, the ops jobs;
+#   log     read only: the tail of one ops job's log (`name`), or of runs.log without a name;
+#   sql     read only: an `ops/<name>.sql` of this ref, in a read-only session with a timeout;
+#   run     an `ops/<name>.sh` of this ref, started in the background on the server
+#           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it.
+# It runs only on develop or main (a first step fails on any other ref), and only files under
+# `ops/` of that ref can be sent, so what runs on the server has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
+# when it writes (see ops/README.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: status, log, sql or run
+        required: true
+        type: choice
+        options: [status, log, sql, run]
+        default: status
+      name:
+        description: For log, sql and run, the file name under ops/ without extension
+        required: false
+        type: string
+      lines:
+        description: For log, how many lines from the end
+        required: false
+        type: string
+        default: '80'
+
+concurrency:
+  group: ops
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /srv/lawgraph
+  OPS_DIR: /srv/lawgraph/ops
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    steps:
+      # what runs on the server comes from a merged branch only: a run on any other ref would send
+      # that branch's ops/ with the deploy key
+      - name: Only from develop or main
+        if: github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main'
+        run: |
+          echo "ops runs only on develop or main, not on $GITHUB_REF"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: ops
+          sparse-checkout-cone-mode: false
+
+      - name: Check the input
+        env:
+          ACTION: ${{ inputs.action }}
+          NAME: ${{ inputs.name }}
+          LINES: ${{ inputs.lines }}
+        run: |
+          case "$NAME" in *[!a-z0-9.-]*) echo "name may hold only a-z, 0-9, . and -"; exit 1 ;; esac
+          case "$LINES" in ''|*[!0-9]*) echo "lines must be a number"; exit 1 ;; esac
+          case "$ACTION" in
+            sql) [ -f "ops/$NAME.sql" ] || { echo "no ops/$NAME.sql on this ref"; exit 1; } ;;
+            run) [ -f "ops/$NAME.sh" ] || { echo "no ops/$NAME.sh on this ref"; exit 1; } ;;
+          esac
+
+      - name: SSH key and host key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+      - name: Status
+        if: inputs.action == 'status'
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR OPS_DIR=$OPS_DIR sh -s" << 'EOF'
+          echo "== $(date -u '+%F %T') UTC, $(uptime | sed 's/.*load/load/')"
+          echo "== health"; curl -s http://127.0.0.1:8000/api/health | cut -c1-300; echo
+          echo "== release"; git -C "$DEPLOY_DIR/app" log --oneline -1
+          echo "== timers"; systemctl list-timers 'lawgraph*' --no-pager | head -12
+          echo "== running units"; systemctl list-units --state=activating,active,deactivating --no-legend 'lawgraph-*.service'
+          echo "== lock"; ls -ld "$DEPLOY_DIR/tmp/lawgraph-scheduled.lock" 2>/dev/null || echo "free"
+          echo "== runs.log"; tail -12 "$DEPLOY_DIR/logs/runs.log"
+          echo "== statements running over 10 s"
+          docker exec lawgraph-postgres psql -U lawgraph -d lawgraph -Atc "SELECT pid, application_name, date_trunc('second', now() - query_start), wait_event, left(query, 120) FROM pg_stat_activity WHERE datname = current_database() AND state <> 'idle' AND now() - query_start > interval '10 seconds' ORDER BY 3 DESC"
+          echo "== disk"; df -h "$DEPLOY_DIR" / | tail -2
+          echo "== ops jobs"
+          for f in "$OPS_DIR"/*.log; do
+            [ -e "$f" ] || continue
+            echo "-- $(basename "$f" .log): $(tail -1 "$f" | cut -c1-200)"
+          done
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+
+      - name: Log
+        if: inputs.action == 'log'
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_DIR=$DEPLOY_DIR OPS_DIR=$OPS_DIR NAME='$NAME' LINES='$LINES' sh -s" << 'EOF'
+          if [ -n "$NAME" ]; then tail -n "$LINES" "$OPS_DIR/$NAME.log"; else tail -n "$LINES" "$DEPLOY_DIR/logs/runs.log"; fi
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          NAME: ${{ inputs.name }}
+          LINES: ${{ inputs.lines }}
+
+      # read only by the session itself: PostgreSQL refuses any write, whatever the file holds
+      - name: SQL
+        if: inputs.action == 'sql'
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=600s' lawgraph-postgres psql -X -U lawgraph -d lawgraph" \
+            < "ops/$NAME.sql"
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          NAME: ${{ inputs.name }}
+
+      # the script goes over as a new file (never overwriting one that runs) and starts detached
+      - name: Run
+        if: inputs.action == 'run'
+        run: |
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes $DEPLOY_USER@$DEPLOY_HOST"
+          $SSH "mkdir -p $OPS_DIR"
+          $SSH "cat > $OPS_DIR/$NAME.sh.new && mv $OPS_DIR/$NAME.sh.new $OPS_DIR/$NAME.sh" < "ops/$NAME.sh"
+          $SSH "cd $DEPLOY_DIR/app && nohup sh $OPS_DIR/$NAME.sh > $OPS_DIR/$NAME.log 2>&1 < /dev/null & sleep 3; head -5 $OPS_DIR/$NAME.log"
+          echo "started; follow it with: gh workflow run ops -f action=log -f name=$NAME"
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          NAME: ${{ inputs.name }}
