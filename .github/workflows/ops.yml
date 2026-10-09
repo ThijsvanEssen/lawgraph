@@ -135,7 +135,9 @@ jobs:
         run: |
           SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes $DEPLOY_USER@$DEPLOY_HOST"
           tar -C ops -cf - . | $SSH "mkdir -p $OPS_DIR && d=\$(mktemp -d $OPS_DIR/.in.XXXXXX) && tar -C \$d -xf - && for f in \$d/*; do mv \"\$f\" $OPS_DIR/; done && rmdir \$d"
-          $SSH "cd $DEPLOY_DIR/app && nohup sh $OPS_DIR/$NAME.sh > $OPS_DIR/$NAME.log 2>&1 < /dev/null & sleep 3; head -5 $OPS_DIR/$NAME.log"
+          # only the nohup goes to the background: `cd … && nohup … &` would put the whole list there, with
+          # the channel of this ssh as its output, and the job would wait for the script to end
+          $SSH "cd $DEPLOY_DIR/app || exit 1; nohup sh $OPS_DIR/$NAME.sh > $OPS_DIR/$NAME.log 2>&1 < /dev/null & sleep 3; head -5 $OPS_DIR/$NAME.log"
           echo "started; follow it with: gh workflow run ops -f action=log -f name=$NAME"
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
