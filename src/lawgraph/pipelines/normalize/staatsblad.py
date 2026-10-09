@@ -99,9 +99,10 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
         # Extract title
         title = publication_title(root, f"Staatsblad {year}/{number}")
 
-        # Extract NvT text from nota-van-toelichting section
+        # The nota van toelichting: ``nota-toelichting`` in the XML of the repository (an AMvB
+        # of 2025: stb-2025-263), the other names in older formats
         nvt_text = extract_section_text(
-            root, "nota-van-toelichting", "nota_van_toelichting"
+            root, "nota-toelichting", "nota-van-toelichting", "nota_van_toelichting"
         )
         if not nvt_text:
             nvt_text = extract_section_text(root, "toelichting")

@@ -983,7 +983,8 @@ the pages must add up to the reported total, and an SRU diagnostic or a failed r
 regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
-`nota-van-toelichting` or `toelichting` section, `bwb_id` = the regulation retrieve found it
+`nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
+`toelichting`, in older formats), `bwb_id` = the regulation retrieve found it
 for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
