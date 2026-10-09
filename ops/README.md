@@ -28,6 +28,6 @@ A writing script can source `_steps.sh` for that preamble: it waits until no sch
 and gives `counts <block> <before|after> <file.sql>` (a read-only query from here, printed and kept) and
 `step <label> <lawgraph args...>` (one command, its log kept; the script stops at the first failure). Outputs go to
 `/srv/lawgraph/ops/out/<script>/`. A run sends the whole of `ops/`, so a script can run its siblings
-(`chain-rest.sh` runs `tk-dictum.sh`, `post-0.79.29.sh` and `post-0.79.30.sh`, each with its own lock).
+(`chain-rest.sh` runs `tk-dictum.sh`, `post-0.79.29.sh` and `post-0.79.30.sh`, each with its own lock). A chain that should run at night waits for its window itself (`revises-backfill.sh`: `NOT_BEFORE`, `NOT_AFTER`).
 
 A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.
