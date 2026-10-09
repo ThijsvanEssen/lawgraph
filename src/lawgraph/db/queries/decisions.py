@@ -11,7 +11,6 @@ from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
-    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     RELATION_ABOUT,
     RELATION_PART_OF,
@@ -30,7 +29,7 @@ from lawgraph.db.store import (
     reset_read_deadline,
     set_read_deadline,
 )
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import lasting
 
 
 @dataclass(frozen=True)
@@ -418,7 +417,7 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
 
 # The seconds a request waits for ``party_votes`` (every vote of a faction on 69,000
 # decisions without a filter): past them the page comes without it, ``partial``, and it is
-# counted on for the next request (``party_votes``).
+# counted on for a later request (``party_votes``).
 PARTY_VOTES_BUDGET = 3.0
 
 
@@ -441,16 +440,21 @@ def _add_party_votes(
         reset_read_deadline(token)
 
 
+# How long ``party_votes`` under a filter are kept (seconds), whatever the data does: every
+# faction on every decision reads every VOTED edge (minutes on the full graph), every write
+# of a run of the pipelines changes the version of the edges, and a vote hardly moves
+# the counts. Computed on demand only, never in the warm-up.
+PARTY_VOTES_MAX_AGE = 3600.0
+
+
 def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
-    """``_PARTY_VOTES`` under *filters*, kept while the decisions, the edges and the
-    factions stand still: the same for every visitor of those filters, so after one
-    computation free. Without other filters and for every faction it is computed in the
-    warm-up (``api/warm.py``)."""
-    return cached(
+    """``_PARTY_VOTES`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
+    computation per filter at a time, in the background, the same for every visitor."""
+    return lasting(
         store,
         ("decisions party votes", filters),
         lambda: _read_party_votes(store, filters),
-        tables=(COLLECTION_DECISIONS, COLLECTION_EDGES, COLLECTION_FACTIONS),
+        PARTY_VOTES_MAX_AGE,
     )
 
 

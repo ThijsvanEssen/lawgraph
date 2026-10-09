@@ -689,3 +689,35 @@ def _plan_nodes(node: dict[str, Any]) -> Any:
     yield node
     for child in node.get("Plans", []):
         yield from _plan_nodes(child)
+
+
+def test_party_votes_are_counted_once_an_hour_not_per_write(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run of the pipelines writes edges all the time: the votes of every faction are not
+    counted again for each new version, only once ``PARTY_VOTES_MAX_AGE`` has passed;
+    and never in the warm-up."""
+    from lawgraph.api import warm
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import decisions as decision_queries
+
+    version_cache.clear()
+    read = decision_queries._read_party_votes
+    reads: list[DecisionFilters] = []
+
+    def counted(store: GraphStore, filters: DecisionFilters) -> Any:
+        reads.append(filters)
+        return read(store, filters)
+
+    monkeypatch.setattr(decision_queries, "_read_party_votes", counted)
+    every = DecisionFilters(party_votes=("all",))
+    first = decision_queries.party_votes(votes, every)
+    votes.bulk_insert_or_update_edges(
+        [_vote("v8", "factions/x", "s2", choice="Voor", seats=40)]
+    )
+    assert decision_queries.party_votes(votes, every) == first
+    assert len(reads) == 1
+    monkeypatch.setattr(decision_queries, "PARTY_VOTES_MAX_AGE", 0.0)
+    again = decision_queries.party_votes(votes, every)
+    assert len(reads) == 2 and again != first  # the new vote of x
+    assert not any("party votes" in part for part in warm.PART_TABLES)
