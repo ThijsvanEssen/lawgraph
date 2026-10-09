@@ -87,13 +87,23 @@ def test_a_vote_the_coalition_carries_together() -> None:
     assert (result["coalition_for"], result["opposition_against"]) == (88, 34)
     assert result["pattern"] == "together"
     assert result["passed"] and result["carried"]
-    # the coalition alone against: 0 for, 122 against — it decided
+    # the opposition alone: 7 for, 34 against — the coalition decided
     assert result["decisive"]
 
 
-def test_a_wisselmeerderheid_passes_with_the_opposition_against_part_of_the_coalition() -> (
-    None
-):
+def test_a_vote_the_opposition_alone_would_have_passed_too_is_not_decisive() -> None:
+    """Decisive: the opposition alone would have decided otherwise. A coalition with a
+    majority could always turn a vote, so that says nothing."""
+    votes = [("pvv", "Voor", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
+    votes += [("bbb", "Voor", 7), ("gl", "Voor", 25), ("d66", "Tegen", 9)]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None and result["passed"] and result["carried"]
+    assert not result["decisive"]
+
+
+def test_the_coalition_majority_winning_with_the_opposition_is_a_split() -> None:
+    """VVD and NSC (44) for, PVV (37) against: the side with the most coalition seats wins,
+    with part of the opposition. The coalition is split; no wisselmeerderheid."""
     votes = [("pvv", "Tegen", 37), ("vvd", "Voor", 24), ("nsc", "Voor", 20)]
     votes += [
         ("bbb", "Tegen", 7),
@@ -103,8 +113,26 @@ def test_a_wisselmeerderheid_passes_with_the_opposition_against_part_of_the_coal
     ]
     result = vote_pattern(votes, COALITION)
     assert result is not None
+    assert result["pattern"] == "split" and result["passed"]
+    assert not result["carried"]
+
+
+def test_a_wisselmeerderheid_beats_the_coalition_majority() -> None:
+    """PVV and VVD (61) against, NSC (20) for with the opposition: the side with the most
+    coalition seats loses. A wisselmeerderheid."""
+    votes = [("pvv", "Tegen", 37), ("vvd", "Tegen", 24), ("nsc", "Voor", 20)]
+    votes += [
+        ("bbb", "Voor", 7),
+        ("gl", "Voor", 25),
+        ("d66", "Voor", 9),
+        ("sp", "Voor", 5),
+    ]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
     assert result["pattern"] == "wissel" and result["passed"]
     assert not result["carried"]
+    # the opposition alone passed it too: the coalition did not decide
+    assert not result["decisive"]
 
 
 def test_a_split_coalition_on_the_losing_side_is_no_wissel() -> None:

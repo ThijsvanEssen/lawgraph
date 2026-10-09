@@ -163,9 +163,11 @@ def vote_pattern(
 
     ``passed``: more seats for than against (a tie is rejected, as the Kamer counts it).
     ``together``: every coalition seat on one side; ``split``: on both. ``wissel``: split,
-    and the winning side holds coalition and opposition seats. ``carried``: passed with the
-    coalition's seats for alone more than half of those cast. ``decisive``: had the whole
-    coalition voted the other way, the outcome would have turned."""
+    and the side with the most coalition seats lost (a wisselmeerderheid: part of the
+    coalition with the opposition beat the rest of it). ``carried``: passed with the
+    coalition's seats for alone more than half of those cast. ``decisive``: the opposition
+    alone would have decided otherwise (a coalition with a majority could always turn a
+    vote, which says nothing)."""
     seats = {
         (True, VOTE_FOR): 0,
         (True, VOTE_AGAINST): 0,
@@ -181,15 +183,11 @@ def vote_pattern(
         return None
     passed = c_for + o_for > c_against + o_against
     split = c_for > 0 and c_against > 0
-    winners = (c_for, o_for) if passed else (c_against, o_against)
-    wissel = split and winners[0] > 0 and winners[1] > 0
+    # the side with the most coalition seats lost (none when they are even)
+    wissel = split and (c_for > c_against) != passed and c_for != c_against
     cast = c_for + c_against + o_for + o_against
-    whole = c_for + c_against
-    # the whole coalition against the outcome: would it have turned?
-    if passed:
-        decisive = not o_for > o_against + whole
-    else:
-        decisive = o_for + whole > o_against
+    # the opposition alone: would it have decided the same?
+    decisive = (o_for > o_against) != passed
     return {
         "coalition_for": c_for,
         "coalition_against": c_against,
