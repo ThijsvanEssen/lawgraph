@@ -409,6 +409,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "key": "c1",
         "slug": "ienw",
         "name": "Vaste commissie voor Infrastructuur",
+        "path": "/commissies/ienw",
     }
     assert committee["body"] == {
         "kind": "Commissiedebat",

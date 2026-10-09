@@ -130,7 +130,9 @@ def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> 
     }
     assert body["instruments"][1]["celex"] == "32016L0680"
     assert body["instruments"][1]["bwb_id"] is None
-    assert body["committees"] == [{**_HUB["committees"][0], "role": "lead"}]
+    assert body["committees"] == [
+        {**_HUB["committees"][0], "role": "lead", "path": "/commissies/a"}
+    ]
     assert body["documents_by_kind"] == {"Motie": 3, "Brief": 2}
     # no page of its bill: nothing of it
     assert body["senate"] == {

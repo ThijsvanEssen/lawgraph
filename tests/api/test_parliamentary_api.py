@@ -339,6 +339,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "key": "ienw",
         "slug": "ienw",
         "name": "Infrastructuur",
+        "path": "/commissies/ienw",
     }
     assert activity["body"]["agenda_title"] == "2025-03-06 - Debat"
     assert decision["body"]["tally"] == {"Voor": 80}

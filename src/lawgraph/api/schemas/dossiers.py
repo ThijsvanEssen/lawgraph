@@ -98,10 +98,11 @@ class TkDecisionDTO(BaseModel):
     date: str | None = None
 
 
-class TimelineCommitteeDTO(BaseModel):
-    """The committee that leads an activity."""
+class TimelineCommitteeDTO(WithPath):
+    """The committee that leads an activity, with its address (``/commissies/<slug>``)."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "committees"
 
     key: str
     slug: str | None = None
