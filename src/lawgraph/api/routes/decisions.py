@@ -25,6 +25,7 @@ from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     get_decision_detail,
@@ -109,6 +110,14 @@ def list_decisions(
             "kind and per year). Keeps no decision out, unlike ``party``."
         ),
     ] = None,
+    coalition: Annotated[
+        Literal["together", "split", "wissel", "carried", "decisive"] | None,
+        Query(
+            description="Only the votes of the Tweede Kamer on which the coalition voted "
+            "`together`, `split` (no wisselmeerderheid) or as a `wissel`, or which it "
+            "`carried` or was `decisive` on."
+        ),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DecisionListResponse:
@@ -127,6 +136,7 @@ def list_decisions(
         party_votes=tuple(
             party.strip() for party in (party_votes or "").split(",") if party.strip()
         ),
+        coalition=coalition,
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset)
     names = load_dossier_names(store)
@@ -162,7 +172,9 @@ def get_decision(
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
     (dictum,) = motion_dictums(store, [doc["props"]])
-    dto = DecisionDTO.from_document(doc, load_dossier_names(store))
+    dto = DecisionDTO.from_document(
+        doc, load_dossier_names(store), load_member_slugs(store)
+    )
     return dto.model_copy(update={"dictum": dictum})
 
 
@@ -189,5 +201,7 @@ def get_decision_document_route(
             detail=f"No document resolvable for decision '{key}'.",
         )
     return DocumentTextResponse.from_document(
-        document, get_document_links(store, document["_id"])
+        document,
+        get_document_links(store, document["_id"]),
+        slugs=load_member_slugs(store),
     )

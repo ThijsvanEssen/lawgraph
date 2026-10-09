@@ -7,12 +7,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
+from lawgraph.api.schemas.common import WithPath
 
 
-class FactionSeatsDTO(BaseModel):
+class FactionSeatsDTO(WithPath):
     """A party's seats, and where it sits in the hemicycle."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "factions"
 
     id: str
     key: str

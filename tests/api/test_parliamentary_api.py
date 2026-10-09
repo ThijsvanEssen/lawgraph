@@ -444,6 +444,7 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
         "days": [],
         "years": [],
         "party_votes": [],
+        "coalition": [],
     }
 
 
@@ -504,6 +505,13 @@ def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
     assert client.get("/api/decisions", params=params).status_code == 422
 
 
+def test_decisions_are_filtered_by_what_the_coalition_did(monkeypatch) -> None:
+    asked = _asking(monkeypatch)
+    client.get("/api/decisions", params={"coalition": "wissel"})
+    assert asked[-1].coalition == "wissel"
+    assert client.get("/api/decisions", params={"coalition": "nope"}).status_code == 422
+
+
 def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
     facets = {
         "kind": [
@@ -523,6 +531,10 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
                 "kind": [{"value": "Motie", "voor": 3, "tegen": 0, "none": 0}],
                 "years": [{"year": "2024", "voor": 3, "tegen": 0, "none": 1}],
             }
+        ],
+        "coalition": [
+            {"value": "together", "count": 3},
+            {"value": "wissel", "count": 1},
         ],
     }
     monkeypatch.setattr(
@@ -592,6 +604,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
         "name": "VVD",
         "choice": "Voor",
         "seats": 24,
+        "path": "/fracties/vvd",
     }
 
 

@@ -19,6 +19,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.config import settings
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import seo
 
 SHELL = """<!doctype html>
 <html lang="nl">
@@ -66,6 +67,9 @@ def _seed(store: GraphStore) -> None:
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289",
                   citation_title="Burgerlijk Wetboek Boek 6", short_title="BW 6",
                   date_in_force="1992-01-01", kind="wet"),
+            _node("bwbr0001854", "instrument", bwb_id="BWBR0001854",
+                  citation_title="Wetboek van Strafrecht", short_title="Sr",
+                  date_in_force="1886-09-01", kind="wet"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -78,6 +82,10 @@ def _seed(store: GraphStore) -> None:
                   "2. Als onrechtmatige daad worden aangemerkt …"),
             _node("bwbr0005289_163", "article", bwb_id="BWBR0005289",
                   article_number="163", position=163, text="Geen verplichting …"),
+            _node("bwbr0001854_287", "article", bwb_id="BWBR0001854",
+                  article_number="287", heading="Doodslag", position=287,
+                  text="Hij die opzettelijk een ander van het leven berooft, wordt, als "
+                  "schuldig aan doodslag, gestraft …"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -219,6 +227,52 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     )
 
 
+def test_an_article_of_a_law_without_books(client: TestClient) -> None:
+    response = _get(client, "/wetten/BWBR0001854/artikel/287")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"].startswith("Artikel 287 Sr")
+    assert page["description"].startswith("Hij die opzettelijk een ander")
+    assert page["canonical"] == "https://concordans.nl/wetten/BWBR0001854/artikel/287"
+    assert "Hij die opzettelijk een ander" in page["main"]
+
+
+def test_an_article_whose_judgments_take_too_long_is_its_text(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Of a much cited article (6:162 BW on prod) the citing judgments take long: the page
+    is the article without them, not the shell."""
+    monkeypatch.setattr(seo, "CITED_BUDGET", 0.0)
+    response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] != "no-store"
+    page = _head(response.text)
+    assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
+    assert page["description"].startswith("1. Hij die jegens een ander")
+    assert "Hij die jegens een ander" in page["main"]
+    assert 'href="/wetten/BWBR0005289"' in page["main"]
+    assert "/uitspraken/" not in page["main"]
+
+
+@pytest.mark.parametrize(
+    ("path", "status"),
+    [
+        ("/wetten/BWBR0005289/artikel/6:162", 200),
+        ("/uitspraken/ecli:nl:hr:2019:2006", 301),
+        ("/bestaat/niet", 404),
+        ("/actueel", 200),
+    ],
+)
+def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> None:
+    """Caddy, crawlers and uptime checks ask HEAD."""
+    got = _get(client, path)
+    head = client.head(f"/render{path}", follow_redirects=False)
+    assert (head.status_code, got.status_code) == (status, status)
+    assert head.headers.get("location") == got.headers.get("location")
+    assert head.headers["cache-control"] == got.headers["cache-control"]
+    assert head.content == b""
+
+
 def test_a_law_lists_its_articles(client: TestClient) -> None:
     page = _head(_get(client, "/wetten/BWBR0005289").text)
     assert page["title"] == "Burgerlijk Wetboek Boek 6 (BW 6), Concordans"
@@ -272,8 +326,10 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
     focus = _get(client, "/explore?focus=articles/bwbr0005289_162&lezen=1")
     assert focus.status_code == 301
     assert focus.headers["location"] == "/wetten/BWBR0005289/artikel/6:162?lezen=1"
-    # a node without a readable address stays the explorer
-    explorer = _get(client, "/explore?focus=decisions/s_1")
+    # a decision by its key; a node without a readable address stays the explorer
+    vote = _get(client, "/explore?focus=decisions/s_1")
+    assert (vote.status_code, vote.headers["location"]) == (301, "/stemmingen/s_1")
+    explorer = _get(client, "/explore?focus=activities/a1")
     assert explorer.status_code == 200
     assert _head(explorer.text)["title"] == "Verkenner, Concordans"
 
@@ -281,6 +337,7 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
 @pytest.mark.parametrize(
     "path",
     ["/uitspraken/ECLI:NL:HR:1900:1", "/wetten/BWBR9999999", "/kamerstukken/36496/999",
+     "/stemmingen/s_999",
      "/bestaat/niet", "/wetten/xyz"],
 )  # fmt: skip
 def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
@@ -331,11 +388,17 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
          "/uitspraken/ECLI:NL:HR:2019:2006"),
         ("dossiers/36496", "36496 Wet AI-toezicht: dossier, moties en stemmingen",
          "/dossiers/36496"),
-        ("decisions/s_1", "s_1", None),
+        ("decisions/s_1", "s_1", "/stemmingen/s_1"),
     ):  # fmt: skip
         body = client.get(f"/api/nodes/{node}").json()
         assert (body["title"], body["path"]) == (title, path), node
         assert body["description"]
+
+
+def test_a_decision_has_its_page(client: TestClient) -> None:
+    response = _get(client, "/stemmingen/s_1")
+    assert response.status_code == 200
+    assert _head(response.text)["canonical"] == "https://concordans.nl/stemmingen/s_1"
 
 
 @pytest.mark.parametrize(

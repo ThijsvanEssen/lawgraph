@@ -125,6 +125,7 @@ def test_the_highest_courts_by_the_day_they_were_published(
         "decided_on": "2026-08-01",
         "advocate_general": None,
         "advocate_general_role": None,
+        "path": "/uitspraken/ECLI:NL:HR:2026:1",
     }
     assert item["official_url"] == (
         "https://uitspraken.rechtspraak.nl/details?id=ECLI:NL:HR:2026:1"

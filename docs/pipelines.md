@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-dictum` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
@@ -330,6 +330,22 @@ touched dossiers `tk-government` reads the papers again only of those whose firs
 can have changed: one that keeps none (`first_signed`), or of which a paper the window touched
 is dated on or before the one kept, or is it. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
+
+**Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
+(`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
+and the detail of decisions read. The coalition on the day of a vote is the factions whose party
+held a post in the cabinet in office then (`meta.posts` of `SERVED_IN`): a party that leaves the
+cabinet leaves the coalition the day its last post ends; a faction split off a coalition party
+holds none and is opposition. A faction votes with its seats that day (`meta.seats`,
+FractieGrootte); a roll call counts each member as one seat of the faction they sat in. Per vote:
+the seats `Voor` and `Tegen` of the coalition and of the opposition; `pattern` `together` (every
+coalition seat on one side), `split` (on both) or `wissel` (split, and the side that won holds
+coalition and opposition seats); `carried` (passed with the coalition's seats alone more than
+half of those cast) and `decisive` (had the whole coalition voted against the outcome, it would
+have turned). A tie is rejected, as the Kamer counts it. Not for a vote without a cabinet or
+without a coalition vote, nor for the Eerste Kamer (its seats per day are not known). With
+`--since` the decisions dated since then (the daily run); without it every one, and the rows
+of decisions that no longer have one go (weekly, which also follows a change of the posts).
 
 <a id="semantic-tk-dossier-relations"></a>
 **Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record
@@ -1489,6 +1505,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
+| semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
+from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.core.documents import chamber_of
 
 _KIND = (
@@ -34,10 +34,11 @@ _DECISION_KIND = (
 )
 
 
-class VoteDTO(BaseModel):
+class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
     model_config = ConfigDict(extra="forbid")
+    path_id_field = "voter_id"
 
     voter_id: str = Field(..., description="Arango _id of the member or faction.")
     voter_key: str
@@ -56,7 +57,34 @@ _DICTUM = (
 )
 
 
-class DecisionDTO(BaseModel):
+class CoalitionVoteDTO(BaseModel):
+    """What the coalition of the cabinet in office did on a vote of the Tweede Kamer
+    (``semantic tk-coalition-votes``): the seats ``Voor`` and ``Tegen`` of the coalition and
+    of the opposition (a faction with its seats that day, a member of a roll call as one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cabinet: str = Field(..., description="The key of the cabinet in office that day.")
+    coalition_for: int
+    coalition_against: int
+    opposition_for: int
+    opposition_against: int
+    pattern: Literal["together", "split", "wissel"] = Field(
+        ...,
+        description="`together`: every coalition seat on one side; `split`: on both; "
+        "`wissel`: split, and the side that won holds coalition and opposition seats.",
+    )
+    carried: bool = Field(
+        ..., description="Passed with the coalition's seats alone more than half cast."
+    )
+    decisive: bool = Field(
+        ...,
+        description="Had the whole coalition voted against the outcome, it would have "
+        "turned.",
+    )
+
+
+class DecisionDTO(WithPath):
     """One decision with every vote cast on it.
 
     ``vote_kind`` says who the votes come from: ``member`` for a roll-call
@@ -66,6 +94,7 @@ class DecisionDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "decisions"
 
     id: str
     key: str
@@ -114,14 +143,23 @@ class DecisionDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     votes: list[VoteDTO] = Field(default_factory=list)
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="What the coalition did on the vote; null without a cabinet, without "
+        "a coalition vote, and in the Eerste Kamer.",
+    )
     dictum: str | None = Field(None, description=_DICTUM)
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], names: dict[str, dict[str, Any]]
+        cls,
+        doc: dict[str, Any],
+        names: dict[str, dict[str, Any]],
+        slugs: dict[str, str] | None = None,
     ) -> DecisionDTO:
-        """From the stored decision with its votes, and the names of the dossiers
-        (``load_dossier_names``)."""
+        """From the stored decision with its votes, the names of the dossiers
+        (``load_dossier_names``) and the slugs of the members (``load_member_slugs``),
+        the readable address of a member who voted."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -148,13 +186,17 @@ class DecisionDTO(BaseModel):
             vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
-            votes=[VoteDTO(**v) for v in doc.get("votes") or []],
+            votes=[
+                VoteDTO(**v, path_props={"slug": (slugs or {}).get(v.get("voter_key"))})
+                for v in doc.get("votes") or []
+            ],
+            coalition=doc.get("coalition"),
             # of the motion it decided on, which the route reads (``motion_dictums``)
             dictum=None,
         )
 
 
-class DecisionSummaryDTO(BaseModel):
+class DecisionSummaryDTO(WithPath):
     """One row in the decision browser.
 
     ``tally`` sums the seats behind each choice — the number to show for a
@@ -165,6 +207,7 @@ class DecisionSummaryDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "decisions"
 
     id: str
     key: str
@@ -198,6 +241,9 @@ class DecisionSummaryDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     dictum: str | None = Field(None, description=_DICTUM)
+    coalition: CoalitionVoteDTO | None = Field(
+        None, description="What the coalition did on the vote, as on the detail."
+    )
 
 
 class DecisionKindCount(BaseModel):
@@ -271,6 +317,15 @@ class PartyVotes(PartyVoteCount):
     years: list[PartyVoteYearCount] = Field(default_factory=list)
 
 
+class DecisionCoalitionCount(BaseModel):
+    """How many of the decisions saw the coalition do this (``coalition`` filter values)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    count: int
+
+
 class DecisionFacets(BaseModel):
     """The decisions under the filters, counted.
 
@@ -296,6 +351,12 @@ class DecisionFacets(BaseModel):
     party_votes: list[PartyVotes] = Field(
         default_factory=list,
         description="With ``party_votes``: per faction asked, by key, how it voted.",
+    )
+    coalition: list[DecisionCoalitionCount] = Field(
+        default_factory=list,
+        description="Under every filter but `coalition`: how many votes the coalition voted "
+        "`together`, `split` (no wisselmeerderheid) or as a `wissel`, and how many it "
+        "`carried` or was `decisive` on; those with none left out.",
     )
 
 

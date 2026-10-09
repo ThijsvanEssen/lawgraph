@@ -21,6 +21,13 @@ from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.decisions import get_document_decisions
+from lawgraph.db.store import (
+    ReadTimedOut,
+    RequestCancelled,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 
 # How many sources a page links to of each kind: enough for a reader and a crawler, few
 # enough for a page of a few tens of KB.
@@ -29,6 +36,9 @@ LINKS = 20
 PAPERS = 200
 # The articles of a law its table of contents lists, in their order.
 ARTICLES = 5000
+# The seconds the judgments citing an article may take to read: of a much cited article
+# (6:162 BW) they are thousands, and the page is its text first.
+CITED_BUDGET = 0.5
 
 
 def node_of(store: GraphStore, pad: Pad) -> str | None:
@@ -54,6 +64,8 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return lookup.find_faction(store, pad.a)
     if s == "commissie":
         return lookup.find_committee(store, pad.a)
+    if s == "stemming":
+        return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
     if s == "toezegging":
         return lookup.find_commitment(store, pad.a)
     return focus_of_pad(pad)
@@ -91,7 +103,8 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An article (its props, its text too), its law, the judgments that cite it (the
-    most cited first) and how many judgments and papers cite or explain it."""
+    most cited first) and how many judgments and papers cite or explain it; without
+    those (``judgments`` empty, ``counts`` None) when they take past ``CITED_BUDGET``."""
     row = _first(
         store,
         f"""
@@ -105,6 +118,21 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     )
     if row is None:
         return None
+    left = read_time_left()
+    token = set_read_deadline(CITED_BUDGET if left is None else min(CITED_BUDGET, left))
+    try:
+        return {**row, **_cited(store, node_id)}
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        return {**row, "judgments": [], "counts": None}
+    finally:
+        reset_read_deadline(token)
+
+
+def _cited(store: GraphStore, node_id: str) -> dict[str, Any]:
+    """The judgments that cite an article (the most cited first) and how many judgments
+    and papers cite or explain it."""
     judgments = list(
         store.query(
             f"""
@@ -133,7 +161,7 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         """,
         {"id": node_id, "refers": RELATION_REFERS_TO, "explains": RELATION_EXPLAINS},
     )
-    return {**row, "judgments": judgments, "counts": counts}
+    return {"judgments": judgments, "counts": counts}
 
 
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:

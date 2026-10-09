@@ -4,14 +4,15 @@ summaries, citation spans and article relations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.official_urls import instrument_url, publication_url
+from lawgraph.core.readable_paths import path_of
 
 # The description of every ``official_url`` of an instrument.
 OFFICIAL_URL = (
@@ -70,6 +71,94 @@ def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# The fields a readable address is built from (``core.readable_paths.path_of``), under the
+# names the props of a node have them.
+PATH_FIELDS = (
+    "ecli",
+    "bwb_id",
+    "celex",
+    "article_number",
+    "dossier_number",
+    "dossier_suffix",
+    "sequence",
+    "number",
+    "slug",
+    "official_id",
+)
+
+
+class WithPath(BaseModel):
+    """A source with its readable address (``path``), from its id (or its collection and
+    key) and the fields it has under the names of ``PATH_FIELDS``, or its ``props`` (a
+    search hit: its ``extra``). Null where they do not make one; for a paper also where
+    the fields cannot say its dossier's suffix (``36600-VIII``), rather than a wrong one.
+    One function for the API, the server HTML and the front end (``readable-paths.json``)."""
+
+    # the collection of a source whose fields have no id and no ``collection``
+    path_collection: ClassVar[str | None] = None
+    # what the address is built from when the fields of the answer do not say it (the own
+    # dossier number and suffix of a paper whose answer names its dossier by label, the
+    # slug of a member named by key): not part of the answer
+    path_props: dict[str, Any] | None = Field(default=None, exclude=True)
+    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
+    # suffix in it: then the address of a paper needs no ``dossier_suffix``
+    path_dossier_is_label: ClassVar[bool] = False
+    # the fields that hold the id and the key, when they are named otherwise
+    path_id_field: ClassVar[str] = "id"
+    path_key_field: ClassVar[str] = "key"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _without_path(cls, data: Any) -> Any:
+        """``path`` is computed: one given (a ``model_dump`` built on) is left out."""
+        if isinstance(data, dict) and "path" in data:
+            return {k: v for k, v in data.items() if k != "path"}
+        return data
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
+        "for a source without one, or when the answer lacks what makes it."
+    )
+    @property
+    def path(self) -> str | None:
+        return readable_path(self)
+
+
+def readable_path(model: BaseModel) -> str | None:
+    """The readable address of the source *model* describes (``WithPath``)."""
+    values = model.__dict__
+    kind = type(model)
+    raw_id = values.get(kind.path_id_field)  # type: ignore[attr-defined]
+    node_id = raw_id if isinstance(raw_id, str) else None
+    collection = (
+        values.get("collection")
+        or type(model).__dict__.get("path_collection")
+        or getattr(model, "path_collection", None)
+    )
+    if not node_id or "/" not in node_id:
+        key = values.get(kind.path_key_field) or (  # type: ignore[attr-defined]
+            "_" if collection == "judgments" else None
+        )
+        if not (collection and key):
+            return None
+        node_id = f"{collection}/{key}"
+    if isinstance(values.get("path_props"), dict):
+        return path_of(node_id, values["path_props"])
+    props: dict[str, Any] = {}
+    for bag in ("props", "extra"):
+        if isinstance(values.get(bag), dict):
+            props.update(values[bag])
+    props.update({f: values[f] for f in PATH_FIELDS if values.get(f) is not None})
+    if node_id.startswith("documents/") and not (
+        "dossier_suffix" in values
+        or "dossier_suffix" in props
+        or "props" in values
+        or type(model).path_dossier_is_label  # type: ignore[attr-defined]
+    ):
+        return None
+    return path_of(node_id, props)
+
+
 class QualifierFields(BaseModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
 
@@ -86,10 +175,11 @@ class QualifierFields(BaseModel):
     aanhef: bool = Field(default=False, description="Whether the aanhef is named.")
 
 
-class InstrumentSummaryDTO(BaseModel):
+class InstrumentSummaryDTO(WithPath):
     """Short representation of an instrument."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
 
     id: str
     key: str
@@ -168,10 +258,11 @@ class ArticleCitationSpan(QualifierFields):
     confidence: float | None = None
 
 
-class JudgmentSummaryDTO(BaseModel):
+class JudgmentSummaryDTO(WithPath):
     """Lightweight judgment summary for listing matches."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "judgments"
 
     id: str
     key: str
@@ -189,10 +280,11 @@ class JudgmentSummaryDTO(BaseModel):
         )
 
 
-class ArticleRelationDTO(BaseModel):
+class ArticleRelationDTO(WithPath):
     """Article reference plus optional parent instrument used in judgment responses."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "articles"
 
     id: str
     key: str
@@ -253,10 +345,11 @@ def dossier_names_of(
     return list(seen.values())
 
 
-class DossierRefDTO(BaseModel):
+class DossierRefDTO(WithPath):
     """Reference to a Kamerstukdossier by number; ``title`` is null when unknown."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     number: str
     key: str

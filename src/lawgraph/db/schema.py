@@ -1331,6 +1331,24 @@ END $$""",
 # the number of light summaries each stem is in, which the terms are weighed against.
 # ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
 # words. Not tables of the graph: the step raises the data version of ``articles`` itself.
+# What the coalition did on each vote (``core.coalition.vote_pattern``), kept by ``semantic
+# tk-coalition-votes``: its seats for and against, the opposition's, the pattern (``together``,
+# ``split``, ``wissel``) and whether it carried or decided the vote; a row per decision with
+# a cabinet and a coalition vote. Not a table of the graph: writing it raises no data version.
+DECISION_COALITION = """
+CREATE TABLE IF NOT EXISTS lg_decision_coalition (
+    id text PRIMARY KEY,
+    cabinet text NOT NULL,
+    coalition_for int NOT NULL,
+    coalition_against int NOT NULL,
+    opposition_for int NOT NULL,
+    opposition_against int NOT NULL,
+    pattern text NOT NULL,
+    carried boolean NOT NULL,
+    decisive boolean NOT NULL
+)
+"""
+
 ARTICLE_TERMS = """
 CREATE TABLE IF NOT EXISTS lg_article_terms (
     article_id text PRIMARY KEY,
@@ -1404,6 +1422,7 @@ def statements() -> list[str]:
         *judgment_light(),
         *document_light(),
         ARTICLE_TERMS,
+        DECISION_COALITION,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)

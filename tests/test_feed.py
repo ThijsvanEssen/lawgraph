@@ -113,7 +113,7 @@ VOTE_ROW = {
             "role": "Eerste ondertekenaar",
             "capacity": "kamerlid",
             "faction_id": "f-d66",
-            "faction": {"key": "d66", "short": "D66"},
+            "faction": {"key": "d66", "short": "D66", "path": "/fracties/d66"},
         },
         {"name": "griffier", "role": "Mede ondertekenaar", "capacity": "overig"},
     ],
@@ -138,7 +138,9 @@ def test_a_vote_is_an_item() -> None:
             "surname": "Bakker",
             "function": None,
             "role": "indiener",
-            "faction": {"key": "d66", "short": "D66"},
+            "faction": {"key": "d66", "short": "D66", "path": "/fracties/d66"},
+            # no slug in the row: no address
+            "path": None,
         }
     ]
     assert item.dossier is not None and item.dossier.short_title is None

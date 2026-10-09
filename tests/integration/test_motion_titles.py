@@ -186,12 +186,14 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
                 "faction": "PVV",
                 "member_key": make_node_key(FABER),
                 "role": "indiener",
+                "path": "/leden/m-faber",
             },
             {
                 "name": "I. Ellian",
                 "faction": "VVD",
                 "member_key": make_node_key(ELLIAN),
                 "role": "medeindiener",
+                "path": "/leden/i-ellian",
             },
         ]
         amendment = client.get(

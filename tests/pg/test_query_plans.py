@@ -138,6 +138,8 @@ _WHOLE_BY_DESIGN = (
     ),
     # the names of the dossiers, once per data version of them (``load_dossier_names``)
     re.compile(r"SELECT DISTINCT ON \(label\) label, lg_str\(pj_title\) AS title"),
+    # the slugs of the members, once per data version of them (``load_member_slugs``)
+    re.compile(r"SELECT key, lg_str\(props -> 'slug'\) AS slug FROM members"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).

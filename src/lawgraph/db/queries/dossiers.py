@@ -53,6 +53,7 @@ from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.version_cache import cached
 
@@ -437,12 +438,13 @@ def _attach_decision_documents(
     if not decisions:
         return
     by_case = _documents_by_case(store, dossier_id)
+    slugs = load_member_slugs(store)
     for row in decisions:
         body = row.get("body") or {}
         document = by_case.get(str(body.get("primary_case_id") or ""))
         if document is None:
             continue
-        body["document"] = _document_summary(document)
+        body["document"] = _document_summary(document, slugs)
         row["body"] = body
 
 
@@ -467,8 +469,11 @@ def _documents_by_case(store: GraphStore, dossier_id: str) -> dict[str, dict[str
     return by_case
 
 
-def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
-    """The part of a document a timeline entry shows: what it says and who signed."""
+def _document_summary(
+    document: dict[str, Any], slugs: dict[str, str]
+) -> dict[str, Any]:
+    """The part of a document a timeline entry shows: what it says and who signed (each
+    with the slug of its member, by *slugs*, for its readable address)."""
     props = document.get("props") or {}
     text = props.get("text") or ""
     signatories = []
@@ -485,6 +490,9 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
                 "source_role": actor.get("role") or "",
                 "function": actor.get("function"),
                 "capacity": actor.get("capacity"),
+                "path_props": {
+                    "slug": slugs.get(make_node_key(str(actor.get("person_id") or "")))
+                },
             }
         )
     return {

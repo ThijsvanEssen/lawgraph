@@ -96,6 +96,7 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "days": [],
         "years": [],
         "party_votes": [],
+        "coalition": [],
     }
     together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
     assert together["total"] == 1
@@ -223,6 +224,8 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
             "vote_kind": None,
             "tally": {"Voor": 80, "Tegen": 70},
             "voters": {"Voor": 3, "Tegen": 2},
+            # no cabinet in office: no coalition
+            "coalition": None,
             # of the motion it decided on, its dictum: none here
             "dictum": None,
         }
@@ -236,7 +239,14 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
 
 def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
     facets = get_decisions(votes)["facets"]
-    assert list(facets) == ["kind", "passed", "days", "years", "party_votes"]
+    assert list(facets) == [
+        "kind",
+        "passed",
+        "days",
+        "years",
+        "party_votes",
+        "coalition",
+    ]
     # by count, most first, then by value (null first); per kind how many carried, not
     assert facets["kind"] == [
         {"value": "Motie", "count": 3, "passed": 2, "rejected": 1},
@@ -327,7 +337,16 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
     detail = get_decision_detail(votes, "s1")
     assert detail is not None
     # MERGE(decision, {votes}): the keys of the document in byte order, then votes
-    assert list(detail) == ["_id", "_key", "labels", "props", "type", "votes"]
+    assert list(detail) == [
+        "_id",
+        "_key",
+        "labels",
+        "props",
+        "type",
+        "votes",
+        "coalition",
+    ]
+    assert detail["coalition"] is None  # no cabinet in office: no coalition
     assert (detail["_id"], detail["labels"]) == ("decisions/s1", ["TK"])
     assert detail["props"]["tally"] == {"Voor": 80, "Tegen": 70}
     # the most seats first, then by name, then by key; no seats last; a voter that is
