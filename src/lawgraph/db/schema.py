@@ -1112,12 +1112,21 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
         " ON judgments USING gin (public.lg_subject_areas(subjects))",
     ),
-    # the member lists in name order: those who held a seat, and the Eerste Kamer's
+    # the member lists in name order: those who held a seat, and the Eerste Kamer's; a
+    # member by their slug (``/leden/rob-jetten``)
     COLLECTION_MEMBERS: (
         "CREATE INDEX IF NOT EXISTS members_list_name ON members"
         " (list_name NULLS FIRST, key) WHERE in_parliament AND list_name <> ''",
         "CREATE INDEX IF NOT EXISTS members_list_ek ON members"
         " (list_name NULLS FIRST, key) WHERE in_ek",
+        "CREATE INDEX IF NOT EXISTS members_slug"
+        " ON members (public.lg_str(props -> 'slug'))",
+    ),
+    # a committee by its slug or its key (``/commissies/szw``)
+    COLLECTION_COMMITTEES: (
+        "CREATE INDEX IF NOT EXISTS committees_slug"
+        " ON committees (public.lg_str(props -> 'slug'))",
+        "CREATE INDEX IF NOT EXISTS committees_lower_key ON committees (lower(key))",
     ),
 }
 

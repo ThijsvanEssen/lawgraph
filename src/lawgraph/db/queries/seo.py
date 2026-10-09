@@ -6,16 +6,24 @@ paper is never read; that of an article is (it is the page).
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITTEES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+    RELATION_AUTHORED,
+    RELATION_MEMBER_OF,
     RELATION_REFERS_TO,
+    RELATION_SERVED_IN,
 )
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
@@ -30,6 +38,8 @@ from lawgraph.db.store import (
 )
 from lawgraph.db.version_cache import cached
 
+T = TypeVar("T")
+
 # How many sources a page links to of each kind: enough for a reader and a crawler, few
 # enough for a page of a few tens of KB.
 LINKS = 20
@@ -37,7 +47,10 @@ LINKS = 20
 PAPERS = 200
 # The articles of a law its table of contents lists, in their order.
 ARTICLES = 5000
-# The seconds a page waits for the judgments citing an article when they are not kept yet:
+# The members a page of a faction or committee lists, and the bewindspersonen of a cabinet.
+MEMBERS = 300
+# The seconds a page waits for the judgments citing an article (or the papers of a member)
+# when they are not kept yet:
 # of a much cited article (6:162 BW) they are thousands, and the page is its text first,
 # as fast as the static shell (most visits come to an article no one asked for before).
 # They are computed on in the background and kept per version of the tables they read,
@@ -122,17 +135,23 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     )
     if row is None:
         return None
+    ids: list[str] = _within_budget(lambda: cited(store, node_id), [])
+    return {**row, "judgments": _light(store, ids)}
+
+
+def _within_budget(read: Callable[[], T], instead: T) -> T:
+    """What *read* gives within ``CITED_BUDGET``, else *instead*: what is not kept yet goes
+    on computing in the background for the next page."""
     left = read_time_left()
     token = set_read_deadline(CITED_BUDGET if left is None else min(CITED_BUDGET, left))
     try:
-        ids = cited(store, node_id)
+        return read()
     except RequestCancelled:
         raise
     except ReadTimedOut:
-        return {**row, "judgments": []}
+        return instead
     finally:
         reset_read_deadline(token)
-    return {**row, "judgments": _light(store, ids)}
 
 
 def cited(store: GraphStore, node_id: str) -> list[str]:
@@ -281,6 +300,183 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     return {**row, "papers": papers, "total": total}
 
 
+# ── people and bodies of the chambers and the government ──────────────────────
+
+# A membership not ended: a seat of the Tweede Kamer without its last day, one of the
+# Eerste Kamer still on its page.
+_CURRENT = (
+    "lg_str(e.doc -> 'meta' -> 'to_date') IS NULL"
+    " AND lg_str(e.doc -> 'meta' -> 'observed_until') IS NULL"
+)
+
+
+def _node(store: GraphStore, table: str, node_id: str) -> dict[str, Any] | None:
+    return _first(
+        store,
+        f"SELECT id, key, props FROM {table} WHERE id = %(id)s",
+        {"id": node_id},
+    )
+
+
+def member(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A member: their props, and the papers they signed, newest first (without them while
+    they are not kept yet and take past ``CITED_BUDGET``)."""
+    row = _node(store, COLLECTION_MEMBERS, node_id)
+    if row is None:
+        return None
+    ids: list[str] = _within_budget(lambda: authored(store, node_id), [])
+    papers = list(
+        store.query(
+            f"""
+            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            FROM {COLLECTION_DOCUMENTS} d
+            LEFT JOIN lg_document_light l ON l.id = d.id
+            WHERE d.id = ANY(%(ids)s::text[])
+            ORDER BY d.date DESC NULLS LAST, d.key ASC
+            """,
+            {"ids": ids},
+        )
+    )
+    return {**row, "papers": papers}
+
+
+def authored(store: GraphStore, node_id: str) -> list[str]:
+    """The ``LINKS`` papers a member signed, newest first. Kept per version of the edges
+    and the papers: of a member long in the Kamer they are thousands to sort."""
+    return cached(
+        store,
+        ("seo member papers", node_id),
+        lambda: _authored(store, node_id),
+        tables=(COLLECTION_EDGES, COLLECTION_DOCUMENTS),
+    )
+
+
+def _authored(store: GraphStore, node_id: str) -> list[str]:
+    return list(
+        store.query(
+            f"""
+            SELECT d.id
+            FROM edges e
+            JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.to_id
+            WHERE e.from_id = %(id)s AND e.relation = %(authored)s
+              AND e.to_collection = '{COLLECTION_DOCUMENTS}'
+            ORDER BY d.date DESC NULLS LAST, d.key DESC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "authored": RELATION_AUTHORED, "limit": LINKS},
+        )
+    )
+
+
+def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
+    """The members of a faction or committee now, by name: ``id``, ``name``, ``slug`` and
+    the ``meta`` of their membership (its role)."""
+    return list(
+        store.query(
+            f"""
+            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
+                                  lg_str(m.props -> 'display_name')) AS name,
+                   lg_str(m.props -> 'slug') AS slug, e.doc -> 'meta' AS meta
+            FROM edges e
+            JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
+            WHERE e.to_id = %(id)s AND e.relation = %(member_of)s
+              AND e.from_collection = '{COLLECTION_MEMBERS}' AND {_CURRENT}
+            ORDER BY lg_str(m.props -> 'family_name') ASC NULLS LAST, name ASC NULLS LAST, m.id
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "member_of": RELATION_MEMBER_OF, "limit": MEMBERS},
+        )
+    )
+
+
+def faction(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A faction: its props and its members now."""
+    row = _node(store, COLLECTION_FACTIONS, node_id)
+    if row is None:
+        return None
+    return {**row, "members": _members_of(store, node_id)}
+
+
+def committee(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A committee: its props and its members now, with their role."""
+    row = _node(store, COLLECTION_COMMITTEES, node_id)
+    if row is None:
+        return None
+    return {**row, "members": _members_of(store, node_id)}
+
+
+def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A cabinet: its props, its bewindspersonen with their posts (``SERVED_IN``), the name
+    and slug of its prime minister, the name of the cabinet before it and the names of
+    its factions."""
+    row = _node(store, COLLECTION_CABINETS, node_id)
+    if row is None:
+        return None
+    props = row["props"] or {}
+    served = list(
+        store.query(
+            f"""
+            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
+                                  lg_str(m.props -> 'display_name')) AS name,
+                   lg_str(m.props -> 'slug') AS slug,
+                   e.doc -> 'meta' -> 'posts' AS posts
+            FROM edges e
+            JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
+            WHERE e.to_id = %(id)s AND e.relation = %(served_in)s
+              AND e.from_collection = '{COLLECTION_MEMBERS}'
+            ORDER BY name ASC NULLS LAST, m.id
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "served_in": RELATION_SERVED_IN, "limit": MEMBERS},
+        )
+    )
+    keys = [k for k in props.get("factions") or [] if isinstance(k, str)]
+    factions = {
+        r["key"]: r["name"]
+        for r in store.query(
+            f"""
+            SELECT key, coalesce(lg_str(props -> 'abbreviation'),
+                                 lg_str(props -> 'name')) AS name
+            FROM {COLLECTION_FACTIONS} WHERE key = ANY(%(keys)s::text[])
+            """,
+            {"keys": keys},
+        )
+    }
+    pm = props.get("prime_minister")
+    prime_minister = (
+        _first(
+            store,
+            f"""
+            SELECT id, coalesce(lg_str(props -> 'name'),
+                                lg_str(props -> 'display_name')) AS name,
+                   lg_str(props -> 'slug') AS slug
+            FROM {COLLECTION_MEMBERS} WHERE key = %(key)s
+            """,
+            {"key": pm},
+        )
+        if isinstance(pm, str)
+        else None
+    )
+    before = props.get("previous")
+    previous = (
+        _first(
+            store,
+            f"SELECT lg_str(props -> 'name') FROM {COLLECTION_CABINETS}"
+            " WHERE key = %(key)s",
+            {"key": before},
+        )
+        if isinstance(before, str)
+        else None
+    )
+    return {
+        **row,
+        "served": served,
+        "factions": [(k, factions[k]) for k in keys if k in factions],
+        "prime_minister": prime_minister,
+        "previous": (before, previous) if previous else None,
+    }
+
+
 # The reads of each kind of page.
 READS = {
     "wet": law,
@@ -288,4 +484,8 @@ READS = {
     "uitspraak": judgment,
     "kamerstuk": paper,
     "dossier": dossier,
+    "lid": member,
+    "fractie": faction,
+    "kabinet": cabinet,
+    "commissie": committee,
 }
