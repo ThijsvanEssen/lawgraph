@@ -55,6 +55,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -91,19 +92,21 @@ _BACKFILL_CHUNK = 500
 class TKDossiersNormalizePipeline(NormalizePipelineBase):
     """Turn raw TK parliamentary records into parliament nodes and edges."""
 
-    def run(  # type: ignore[override]  # its own options beside since
-        self,
-        *,
-        since: dt.datetime | None = None,
-        mixed_votes: bool = False,
-        limit: int | None = None,
-    ) -> PipelineResult:
-        """The records since *since*, or all; with *mixed_votes* only the decisions read
-        as a roll call that were a faction vote with members voting apart
+    def __init__(
+        self, store: GraphStore, *, mixed_votes: bool = False, limit: int | None = None
+    ) -> None:
+        """With *mixed_votes* a run reads only the decisions taken for a roll call that
+        were a faction vote with members voting apart
         (``normalize_tk.mixed_vote_decisions``, *limit* of them: a slice)."""
-        if not mixed_votes:
-            return super().run(since=since)
-        return self._run_mixed_votes(limit)
+        super().__init__(store)
+        self._mixed_votes = mixed_votes
+        self._limit = limit
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        """The records since *since*, or all; the mixed decisions alone when asked."""
+        if self._mixed_votes:
+            return self._run_mixed_votes(self._limit)
+        return super().run(since=since)
 
     def _run_mixed_votes(self, limit: int | None) -> PipelineResult:
         """Normalize the votes of the mixed decisions again from their stored Stemming
