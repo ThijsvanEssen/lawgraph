@@ -10,7 +10,7 @@ from xml.etree import ElementTree
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import FacetCountDTO
+from lawgraph.api.schemas.common import FacetCountDTO, WithPath
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import CHAMBER_TK
 from lawgraph.core.documents import paper_number
@@ -60,8 +60,9 @@ class FeedNodeDTO(BaseModel):
     key: str
 
 
-class FeedDossierDTO(BaseModel):
+class FeedDossierDTO(WithPath):
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     key: str
     number: str = Field(..., description="The label: ``36600-VII``, a path segment.")
@@ -80,8 +81,9 @@ class FeedDossierDTO(BaseModel):
     )
 
 
-class FeedFactionDTO(BaseModel):
+class FeedFactionDTO(WithPath):
     model_config = ConfigDict(extra="forbid")
+    path_collection = "factions"
 
     key: str
     short: str | None = Field(None, description="Its abbreviation: ``VVD``.")
@@ -197,11 +199,12 @@ class FeedCommencementDTO(BaseModel):
     )
 
 
-class FeedJudgmentDTO(BaseModel):
+class FeedJudgmentDTO(WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "judgments"
 
     ecli: str | None = None
     court: str | None = Field(None, description="ECLI court code, `HR`, `RVS`.")
@@ -244,7 +247,7 @@ class FeedHeadlineDTO(BaseModel):
     )
 
 
-class FeedItemDTO(BaseModel):
+class FeedItemDTO(WithPath):
     """One event."""
 
     model_config = ConfigDict(extra="forbid")

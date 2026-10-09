@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import FacetCountDTO
+from lawgraph.api.schemas.common import FacetCountDTO, WithPath
 from lawgraph.api.schemas.documents import (
     DocumentOrigin,
     SenderDTO,
@@ -439,7 +439,7 @@ class DossierDocumentsResponse(BaseModel):
     items: list[DossierDocumentDTO]
 
 
-class DossierSummaryDTO(BaseModel):
+class DossierSummaryDTO(WithPath):
     """A dossier in a list.
 
     ``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of
@@ -456,6 +456,7 @@ class DossierSummaryDTO(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "dossiers"
 
     id: str
     key: str
@@ -1061,7 +1062,7 @@ class DossierTimelineResponse(BaseModel):
 DossierMutationKind = Literal["mutation", "explanation"]
 
 
-class DossierMutationNode(BaseModel):
+class DossierMutationNode(WithPath):
     """A node in the pending-change subgraph."""
 
     model_config = ConfigDict(extra="forbid")
