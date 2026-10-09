@@ -32,6 +32,11 @@ def word_pattern(q: str) -> str:
     return f"{start}{escaped}{end}"
 
 
-def holds(text: str) -> str:
-    """SQL: the SQL *text* holds the words of the bind ``q_word`` (``word_pattern``)."""
-    return f"lower({text}) ~ %(q_word)s"
+def holds(text: str, param: str = "q_word") -> str:
+    """SQL: the SQL *text* holds the words of the bind *param* (``word_pattern``)."""
+    return f"lower({text}) ~ %({param})s"
+
+
+def lower_like(param: str) -> str:
+    """``LOWER_LIKE`` of the bind *param*."""
+    return f"'%%' || lg_like(%({param})s) || '%%'"

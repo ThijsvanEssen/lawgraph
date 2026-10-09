@@ -50,8 +50,9 @@ _VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
         "filtered by kind, outcome, party (and how it voted), chamber, dossier, date "
         "and subject. ``total`` is the absolute count, independent of ``limit``. "
         "``facets`` counts the decisions under the filters: per ``kind`` (without the "
-        "kind filter), per outcome ``passed`` (without the passed filter) and per day "
-        "(under all filters)."
+        "kind filter; with how many carried and did not), per outcome ``passed`` "
+        "(without the passed filter), per day and per year (under all filters), and with "
+        "``party_votes`` how the factions asked voted on them."
     ),
     tags=["decisions"],
 )
@@ -91,8 +92,21 @@ def list_decisions(
         Query(alias="to", description="Voted on or before this date, YYYY-MM-DD."),
     ] = None,
     q: Annotated[
+        list[str] | None,
+        Query(
+            description="Words of the subject, in any case: each from the start of a "
+            "word, one of at most four characters as a whole word. Repeat it for "
+            "decisions that hold any of them (``q=AI&q=kunstmatige intelligentie``)."
+        ),
+    ] = None,
+    party_votes: Annotated[
         str | None,
-        Query(description="A part of the subject, in any case."),
+        Query(
+            description="Comma-separated faction keys, or ``all`` for every faction "
+            "that voted on one: ``facets.party_votes`` says how each voted on the "
+            "decisions under the filters (``voor``, ``tegen``, ``none``; in all, per "
+            "kind and per year). Keeps no decision out, unlike ``party``."
+        ),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -108,7 +122,10 @@ def list_decisions(
         dossier=dossier,
         date_from=date_from.isoformat() if date_from else None,
         date_to=date_to.isoformat() if date_to else None,
-        q=(q or "").strip() or None,
+        q=tuple(word.strip() for word in q or () if word.strip()),
+        party_votes=tuple(
+            party.strip() for party in (party_votes or "").split(",") if party.strip()
+        ),
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset)
     names = load_dossier_names(store)
@@ -122,6 +139,7 @@ def list_decisions(
             for row in raw.get("items") or []
         ],
         facets=DecisionFacets(**(raw.get("facets") or {})),
+        partial=bool(raw.get("partial")),
     )
 
 
