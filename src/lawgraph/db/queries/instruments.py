@@ -9,6 +9,7 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
@@ -16,6 +17,7 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
+    RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.judgments import KIND_CONCLUSIE
@@ -657,6 +659,16 @@ def _legal_area_tree(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 IN_FORCE = INSTRUMENT_DATE_IN_FORCE
 
 
+# The instruments under the filters per kind, most first: without the kind filter, over
+# the list without a kind (every instrument but the publications).
+_KIND_FACET = """
+    SELECT kind AS value, count(*)::int AS count
+    FROM instruments {where}
+    GROUP BY kind
+    ORDER BY count DESC, value ASC NULLS FIRST
+"""
+
+
 def get_instruments_list(
     store: GraphStore,
     *,
@@ -708,8 +720,14 @@ def get_instruments_list(
     }[sort]
     # Without a kind, every instrument but the publications (one without a kind too): the
     # condition of the list's indexes, written out so that every plan can use them.
+    no_publications = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
     conditions = [
-        "kind = %(kind)s" if kind else f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
+        "kind = %(kind)s" if kind else no_publications,
+        # a treaty of the Verdragenbank whose BWB text is in the graph (``SAME_AS`` into it)
+        # is that text, which has the articles: listed once, as the text
+        f"NOT EXISTS (SELECT 1 FROM edges e WHERE e.to_id = instruments.id"
+        f" AND e.relation = '{RELATION_SAME_AS}'"
+        f" AND e.from_collection = '{COLLECTION_INSTRUMENTS}')",
     ]
     if jurisdiction:
         conditions.append("jurisdiction = %(jurisdiction)s")
@@ -734,8 +752,10 @@ def get_instruments_list(
     chosen = {"legal_area": legal_area, "policy_domain": policy_domain}
 
     def where(leave_out: str = "") -> str:
+        # without its own filter the kinds are counted over the list without a kind
+        first = no_publications if leave_out == "kind" else conditions[0]
         return " AND ".join(
-            [*conditions]
+            [first, *conditions[1:]]
             + [
                 clause
                 for name, clause in own.items()
@@ -767,19 +787,25 @@ def get_instruments_list(
     # The facets are the same on every page and for every visitor: kept per data version
     # under the filters alone.
     counted = {k: v for k, v in params.items() if k not in ("limit", "offset")}
-    rows, areas, domains = run_together(
+    rows, areas, domains, kinds = run_together(
         lambda: list(store.query(_paged(matched, page), params)),
         lambda: cached_rows(
             store,
             _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
             counted,
-            tables=(COLLECTION_INSTRUMENTS,),
+            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
         ),
         lambda: cached_rows(
             store,
             _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
             counted,
-            tables=(COLLECTION_INSTRUMENTS,),
+            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
+        ),
+        lambda: cached_rows(
+            store,
+            _KIND_FACET.format(where=f"WHERE {where('kind')}"),
+            counted,
+            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
         ),
     )
     items, total = _split_page(iter(rows))
@@ -793,6 +819,7 @@ def get_instruments_list(
         "facets": {
             "legal_area": _legal_area_tree(areas),
             "policy_domain": [dict(row) for row in domains],
+            "kind": [dict(row) for row in kinds],
         },
     }
 
