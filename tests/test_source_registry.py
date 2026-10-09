@@ -184,3 +184,18 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
         expected = {skip_variable(phase, n).split("_SKIP_")[1] for n in rows[phase]}
         assert documented == expected, phase
     assert {p.name for p in PIPELINES["normalize"]} == rows["normalize"]
+
+
+def test_semantic_all_lists_its_steps_in_order_without_running_them(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``semantic all --list``: the names the weekly run takes one by one, each under the
+    lock on its own; no step runs and no database is asked."""
+    from lawgraph.pipelines.orchestration import semantic_all
+    from lawgraph.sources.registry import PIPELINES
+
+    result = semantic_all(["--list"])
+    names = capsys.readouterr().out.split()
+    assert names == [pipeline.name for pipeline in PIPELINES["semantic"]]
+    assert names[:2] == ["tk", "rechtspraak"] and "rechtspraak-citations" in names
+    assert result.errors == []

@@ -77,7 +77,8 @@ class SemanticPipelineBase(PipelineBase):
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
-        # the key of the last judgment ``_judgment_paragraphs`` read: where a slice ends
+        # the key of the last judgment a run read (``_judgment_paragraphs``, ``_judgment_texts``):
+        # where a slice ends
         self.last_judgment_read: str | None = None
         # law id -> what its loaded articles say (``_law``), read once per law and run.
         self._laws: dict[str, _LawArticles | None] = {}
@@ -171,25 +172,40 @@ class SemanticPipelineBase(PipelineBase):
     # --------------------------------------------------------------- judgments
 
     def _judgment_texts(
-        self, since_iso: str | None = None
+        self,
+        since_iso: str | None = None,
+        *,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[tuple[Node, str]]:
         """``(judgment node, XML)`` of every stored Rechtspraak judgment, from raw_sources.
 
         The XML is not kept on the judgment node (it holds the summary, the text and the
         paragraphs already): it is read from the payload store, where retrieve put it. The
-        node is the one normalize makes of the same ECLI.
+        node is the one normalize makes of the same ECLI. A slice: past the record key
+        *after*, *limit* of them; ``last_judgment_read`` is the record key it ended at.
         """
         total = None
-        if (
-            not since_iso
-        ):  # from the index; with a date every record would have to be read
+        sliced = bool(after) or limit is not None
+        if not since_iso and not sliced:  # from the index
             total = raw_queries.count_judgment_records(self.store)
-        rows = raw_queries.judgment_payload_refs(
-            self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
-        )
+        if sliced:
+            rows = raw_queries.judgment_payload_refs(
+                self.store,
+                since_iso=since_iso,
+                batch_size=JUDGMENT_BATCH_SIZE,
+                after=after,
+                limit=limit,
+            )
+        else:
+            rows = raw_queries.judgment_payload_refs(
+                self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
+            )
+        self.last_judgment_read = None
         for row in self._track(
             self.store.with_payloads(rows), "judgments", total=total
         ):
+            self.last_judgment_read = row.get("key") or self.last_judgment_read
             ecli = str(row.get("ecli") or "").strip()
             if not ecli or row.get("payload_text") is None:
                 continue

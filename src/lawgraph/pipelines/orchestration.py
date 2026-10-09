@@ -339,5 +339,15 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--strict", action="store_true", help="Stop at the first failing step."
     )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="Print the names of the steps in the order they run, one a line, and run "
+        "none: what scripts/weekly.sh takes one by one.",
+    )
     args = parser.parse_args(argv)
+    if args.list:
+        for pipeline in PIPELINES["semantic"]:
+            print(pipeline.name)
+        return PipelineResult()
     return _run_phase("semantic", parser, args, _since_argv, strict=args.strict)
