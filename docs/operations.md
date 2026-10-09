@@ -85,7 +85,8 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address is only in the memory of the rate limiter |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
-| `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to |
+| `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
+| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app |
 
 ### Logging and tests
 
@@ -471,6 +472,8 @@ on the server after the deploy. An index a release adds to a large table (`ensur
 what is missing at the start of the API, in one transaction that blocks the table) is built
 beforehand by hand with the same name: `CREATE INDEX CONCURRENTLY IF NOT EXISTS …` (for
 `edges_from_cover`, `edges_to_cover`, `documents_feed_title_g`, `instruments_dossier_numbers`, `instruments_date_in_force` and `instruments_list_date_published` as in `schema.py`); the start then finds it.
+
+In front of both, Caddy serves a file of the front end's build that exists (`/_app/*`, `/og/*`, `robots.txt`), sends `/api/*` to the API, and rewrites every other path to `/render{uri}` of the API: the HTML of the page, a 301 or a real 404 (`docs/api.md`). When the API does not answer within 2 s or answers 502, 503 or 504, Caddy serves the build's `index.html` itself, so the site stays up without the API.
 
 The server it expects:
 

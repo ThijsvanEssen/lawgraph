@@ -316,3 +316,23 @@ def test_without_the_list_of_pages_every_other_path_is_the_shell(
     response = _get(client, "/bestaat/niet")
     assert response.status_code == 200
     assert _head(response.text)["main"] is None
+
+
+def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
+    client: TestClient,
+) -> None:
+    """``title``, ``description`` and ``path`` of ``/api/nodes``: the SPA shows the same
+    title when it opens a node, from the same templates."""
+    for node, title, path in (
+        ("articles/bwbr0005289_162", "Artikel 6:162 BW: onrechtmatige daad",
+         "/wetten/BWBR0005289/artikel/6:162"),
+        ("judgments/ecli_nl_hr_2019_2006",
+         "ECLI:NL:HR:2019:2006, Hoge Raad 20-12-2019 (Urgenda)",
+         "/uitspraken/ECLI:NL:HR:2019:2006"),
+        ("dossiers/36496", "36496 Wet AI-toezicht: dossier, moties en stemmingen",
+         "/dossiers/36496"),
+        ("decisions/s_1", "s_1", None),
+    ):  # fmt: skip
+        body = client.get(f"/api/nodes/{node}").json()
+        assert (body["title"], body["path"]) == (title, path), node
+        assert body["description"]

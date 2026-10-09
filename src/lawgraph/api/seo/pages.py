@@ -514,3 +514,37 @@ PAGES = {
     "kamerstuk": paper_page,
     "dossier": dossier_page,
 }
+
+
+def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
+    """The title and description of a node from its own props alone, as its page has them
+    (without what a page reads beside them: the outcome of a motion, the counts of an
+    article): what the SPA shows when it opens a node in the app."""
+    collection, _, key = node_id.partition("/")
+    if collection == "instruments":
+        name = law_name(props) or _text(props.get("display_name"))
+        since = _day(props.get("date_in_force"))
+        return name, cut(
+            f"{name}, geldend sinds {since}" if since else name, DESCRIPTION_MAX
+        )
+    if collection == "articles":
+        law = {
+            "bwb_id": props.get("bwb_id"),
+            "short_title": props.get("instrument_abbreviation"),
+            "citation_title": props.get("instrument_citation_title"),
+        }
+        title = article_title(props, law)
+        return title, cut(_text(props.get("text")) or title, DESCRIPTION_MAX)
+    if collection == "judgments":
+        light = {**props, "date": props.get("date") or props.get("date_eff")}
+        title = judgment_title(light, node_id)
+        return title, cut(_text(props.get("summary")) or title, DESCRIPTION_MAX)
+    if collection == "documents":
+        row = {"subject": props.get("subject"), "kind": props.get("kind")}
+        title = paper_title(row, props, [])
+        return title, cut(title, DESCRIPTION_MAX)
+    if collection == "dossiers":
+        title = dossier_title(props, key)
+        return title, cut(_text(props.get("title")) or title, DESCRIPTION_MAX)
+    name = _text(props.get("display_name")) or _text(props.get("name")) or key
+    return name, cut(name, DESCRIPTION_MAX)

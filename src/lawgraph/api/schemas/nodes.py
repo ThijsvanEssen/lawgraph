@@ -181,6 +181,17 @@ class NodeGraphResponse(BaseModel):
 
     node: BaseNodeDTO
     neighbors: NodeNeighborsDTO
+    title: str = Field(
+        "",
+        description="The title of the node as its page has it (``Artikel 6:162 BW: "
+        "onrechtmatige daad``), without the name of the site.",
+    )
+    description: str = Field("", description="The description of its page.")
+    path: str | None = Field(
+        None,
+        description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
+        "for a node without one.",
+    )
 
 
 class NodeNeighborhoodEdge(BaseModel):
