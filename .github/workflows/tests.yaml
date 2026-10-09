@@ -62,13 +62,15 @@ jobs:
       - uses: actions/checkout@v4
 
       # Test data only: the data directory in memory, and no waiting for the disk (fsync,
-      # synchronous_commit and full_page_writes off). JIT off, as on postgres-test.
+      # synchronous_commit and full_page_writes off). JIT off, as on postgres-test. The
+      # official image from the ECR Public mirror of Docker Hub (the same digest): a runner
+      # pulling from Docker Hub without login hits its rate limit.
       - name: Start PostgreSQL
         run: |
           docker run -d --name postgres -p 5433:5432 \
             --tmpfs /var/lib/postgresql:rw,size=8g \
             -e POSTGRES_USER=lawgraph -e POSTGRES_PASSWORD=lawgraph-test \
-            postgres:18 \
+            public.ecr.aws/docker/library/postgres:18 \
             -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
             -c jit=off -c max_connections=300
           for _ in $(seq 1 60); do
