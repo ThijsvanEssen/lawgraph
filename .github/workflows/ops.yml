@@ -6,7 +6,7 @@ name: ops
 #   status  read only: health, timers, the last runs, running statements, disk, the ops jobs;
 #   log     read only: the tail of one ops job's log (`name`), or of runs.log without a name;
 #   sql     read only: an `ops/<name>.sql` of this ref, in a read-only session with a timeout;
-#   run     an `ops/<name>.sh` of this ref, started in the background on the server
+#   run     an `ops/<name>.sh` of this ref (with the rest of ops/ beside it), started in the background on the server
 #           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it.
 # It runs only on develop or main (a first step fails on any other ref), and only files under
 # `ops/` of that ref can be sent, so what runs on the server has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
@@ -128,13 +128,13 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           NAME: ${{ inputs.name }}
 
-      # the script goes over as a new file (never overwriting one that runs) and starts detached
+      # the whole of ops/ goes over (a script runs its siblings and reads their queries), each file as a
+      # new file moved into place, so a script that runs keeps the one it started with; then it starts detached
       - name: Run
         if: inputs.action == 'run'
         run: |
           SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes $DEPLOY_USER@$DEPLOY_HOST"
-          $SSH "mkdir -p $OPS_DIR"
-          $SSH "cat > $OPS_DIR/$NAME.sh.new && mv $OPS_DIR/$NAME.sh.new $OPS_DIR/$NAME.sh" < "ops/$NAME.sh"
+          tar -C ops -cf - . | $SSH "mkdir -p $OPS_DIR && d=\$(mktemp -d $OPS_DIR/.in.XXXXXX) && tar -C \$d -xf - && for f in \$d/*; do mv \"\$f\" $OPS_DIR/; done && rmdir \$d"
           $SSH "cd $DEPLOY_DIR/app && nohup sh $OPS_DIR/$NAME.sh > $OPS_DIR/$NAME.log 2>&1 < /dev/null & sleep 3; head -5 $OPS_DIR/$NAME.log"
           echo "started; follow it with: gh workflow run ops -f action=log -f name=$NAME"
         env:
