@@ -1383,6 +1383,77 @@ CREATE TABLE IF NOT EXISTS lg_summary_stems (
 """
 
 
+# One light row per event of the feed (``queries/feed_events.py``), written by ``lawgraph
+# feed-events`` from the same reading of the events as the feed: what ``GET
+# /api/feed/periods`` counts per month or day, with an index on its words instead of a
+# reading of every event per request. ``title`` and ``dossier_title`` are the texts the
+# feed matches ``q`` against (its title and that of its first dossier), in lower case;
+# ``words`` their tokens of letters and digits (``lg_alnum_tokens``), a superset of what
+# matches, which the feed's own pattern then checks. Not a table of the graph: writing it
+# raises no data version; ``lg_feed_events_state`` says when it was written.
+FEED_EVENTS_TABLE = "lg_feed_events"
+FEED_EVENTS_COLUMNS = """
+    kind text NOT NULL,
+    id text NOT NULL,
+    date text NOT NULL,
+    chamber text,
+    ministry text,
+    factions text[] NOT NULL,
+    labels text[] NOT NULL,
+    title text,
+    dossier_title text,
+    words tsvector NOT NULL,
+    PRIMARY KEY (kind, id)
+"""
+# The indexes of the table, per name a definition on ``{table}`` (the table itself, or the
+# one a full rewrite builds before it takes its place).
+FEED_EVENTS_INDEXES = {
+    "lg_feed_events_date": "CREATE INDEX IF NOT EXISTS {name} ON {table} (date, kind)",
+    "lg_feed_events_words": "CREATE INDEX IF NOT EXISTS {name} ON {table} USING gin (words)",
+    "lg_feed_events_factions": (
+        "CREATE INDEX IF NOT EXISTS {name} ON {table} USING gin (factions)"
+    ),
+}
+
+
+def feed_events() -> list[str]:
+    statements = [
+        f"CREATE TABLE IF NOT EXISTS {FEED_EVENTS_TABLE} ({FEED_EVENTS_COLUMNS})",
+        """CREATE TABLE IF NOT EXISTS lg_feed_events_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    written_at timestamptz NOT NULL,
+    since text
+)""",
+        # the tokens of letters and digits of a text, as the feed's pattern (``\m``, ``\M``)
+        # tells a word: by the character classes of the database
+        """CREATE OR REPLACE FUNCTION lg_alnum_tokens(t text) RETURNS tsvector
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT array_to_tsvector(coalesce(array_remove(
+        regexp_split_to_array(lower(coalesce(t, '')), '[^[:alnum:]]+'), ''), '{}'))
+$$""",
+        # the events whose ``words`` may hold the words *q* (``queries/_words``): every
+        # token of them but the last as a whole, the last from its start (whole as well
+        # when *whole*, a short word); NULL when *q* has no letter or digit
+        """CREATE OR REPLACE FUNCTION lg_word_query(q text, whole boolean) RETURNS tsquery
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN cardinality(tokens) = 0 THEN NULL ELSE (
+        SELECT string_agg(
+            quote_literal(token)
+            || CASE WHEN n = cardinality(tokens) AND NOT whole THEN ':*' ELSE '' END,
+            ' & ' ORDER BY n)
+        FROM unnest(tokens) WITH ORDINALITY AS u(token, n)
+    )::tsquery END
+    FROM (SELECT coalesce(array_remove(
+        regexp_split_to_array(lower(q), '[^[:alnum:]]+'), ''), '{}') AS tokens) t
+$$""",
+    ]
+    statements += [
+        definition.format(name=name, table=FEED_EVENTS_TABLE)
+        for name, definition in FEED_EVENTS_INDEXES.items()
+    ]
+    return statements
+
+
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
@@ -1445,6 +1516,7 @@ def statements() -> list[str]:
         ARTICLE_TERMS,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
+        *feed_events(),
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)

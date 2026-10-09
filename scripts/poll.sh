@@ -20,4 +20,6 @@ window="${2:-$window}"
 export LAWGRAPH_LOG_FILE="$LOG_DIR/poll-$chain-$(date +%Y-%m-%d).log"
 
 step poll "$chain" --since "$window"
+# the days a poll changes, again in the counts per period of the feed
+step feed-events --days 14
 finish

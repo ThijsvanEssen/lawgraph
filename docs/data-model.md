@@ -776,6 +776,14 @@ generated columns `source`, `kind`, `external_id` and `fetched_at` and the index
 `(source, kind, key)` and `(source, fetched_at)`. The view `nodes` unions the node tables for a
 lookup by id.
 
+`lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
+`ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
+with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
+feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it.
+Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
+superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
+when it was written. Not tables of the graph: writing them raises no data version.
+
 `lg_data_version` holds a counter per table of the graph. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. The API's `ETag` is made from these counters
