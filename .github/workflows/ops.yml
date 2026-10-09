@@ -8,8 +8,8 @@ name: ops
 #   sql     read only: an `ops/<name>.sql` of this ref, in a read-only session with a timeout;
 #   run     an `ops/<name>.sh` of this ref, started in the background on the server
 #           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it.
-# Only files under `ops/` of the ref the workflow runs on can be sent, so what runs on the server
-# has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
+# It runs only on develop or main (a first step fails on any other ref), and only files under
+# `ops/` of that ref can be sent, so what runs on the server has been reviewed and merged. A script under `ops/` takes the lock of the scheduled runs itself
 # when it writes (see ops/README.md).
 
 on:
@@ -43,6 +43,14 @@ jobs:
   ops:
     runs-on: ubuntu-latest
     steps:
+      # what runs on the server comes from a merged branch only: a run on any other ref would send
+      # that branch's ops/ with the deploy key
+      - name: Only from develop or main
+        if: github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main'
+        run: |
+          echo "ops runs only on develop or main, not on $GITHUB_REF"
+          exit 1
+
       - uses: actions/checkout@v4
         with:
           sparse-checkout: ops

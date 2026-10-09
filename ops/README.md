@@ -1,7 +1,8 @@
 # ops/
 
 Scripts and read-only queries for the server, run through `.github/workflows/ops.yml` with the deploy key: no
-personal SSH key, and every run is in the Actions log. Only what is merged here can be sent.
+personal SSH key, and every run is in the Actions log. The workflow runs only on `develop` or `main` (on any other
+ref its first step fails), so only what is merged here can be sent.
 
 ```sh
 gh workflow run ops -f action=status                       # health, timers, runs, statements, disk, ops jobs
