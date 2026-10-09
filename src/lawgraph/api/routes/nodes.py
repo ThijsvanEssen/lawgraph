@@ -18,10 +18,12 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborsDTO,
     node_type_of,
 )
+from lawgraph.api.seo.pages import title_of
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
 from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
+from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -279,6 +281,8 @@ def get_node_graph(
         )
         for bucket in data.buckets
     ]
+    node_props = data.node.get("props") or {}
+    title, description = title_of(data.node["_id"], node_props)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
             data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
@@ -286,6 +290,9 @@ def get_node_graph(
         neighbors=NodeNeighborsDTO(
             total=sum(bucket.total for bucket in buckets), buckets=buckets
         ),
+        title=title,
+        description=description,
+        path=path_of(data.node["_id"], node_props),
     )
 
 

@@ -110,6 +110,11 @@ URLS = [
     "/api/nodes/in-flux",
     "/api/annexes/a1",
     "/api/dossiers/36000",
+    # the server HTML of a page (``/render``): a judgment, a dossier, a paper (the law of
+    # this graph has no BWB id of seven figures, so no readable address)
+    f"/render/uitspraken/{ECLI}",
+    "/render/dossiers/36000",
+    "/render/kamerstukken/36000/3",
     "/api/dossiers/36000/changed-articles",
     # a member: their votes (by roll-call and through their faction), dossiers, node, and
     # a path from their faction through its members
@@ -248,7 +253,17 @@ def _seed(store: GraphStore) -> None:
     )
     store.bulk_insert_or_update_nodes(
         "documents",
-        [_node("d1", "document", title="Memorie van toelichting", kind="memorie")],
+        [
+            _node(
+                "d1",
+                "document",
+                title="Memorie van toelichting",
+                kind="memorie",
+                dossier_number="36000",
+                dossier_numbers=["36000"],
+                sequence=3,
+            )
+        ],
     )
     store.bulk_insert_or_update_nodes(
         "annexes", [_node("a1", "annex", bwb_id=BWB, title="Bijlage")]
