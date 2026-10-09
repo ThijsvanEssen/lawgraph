@@ -32,8 +32,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # every node collection, edges, raw_sources, pipeline_state, the data versions and
     # the kept heat (lg_heat, lg_heat_state), the light judgments and papers
     # (lg_judgment_light, lg_document_light) and the terms of the articles with the stems
-    # of the summaries they are weighed against (lg_article_terms, lg_summary_stems)
-    assert tables == len(NODE_COLLECTIONS) + 10
+    # of the summaries they are weighed against (lg_article_terms, lg_summary_stems), and
+    # what the coalition did on each vote (lg_decision_coalition)
+    assert tables == len(NODE_COLLECTIONS) + 11
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:

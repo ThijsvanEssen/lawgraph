@@ -103,7 +103,13 @@ def list_instruments(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[str | None, Query(description="Free-text match")] = None,
-    jurisdiction: Annotated[Literal["nl", "eu"] | None, Query()] = None,
+    jurisdiction: Annotated[
+        Literal["nl", "eu", "int"] | None,
+        Query(
+            description="``nl``, ``eu``, or ``int``: the treaties of the Verdragenbank "
+            "(``Internationaal``)."
+        ),
+    ] = None,
     kind: Annotated[str | None, Query()] = None,
     article_count_min: Annotated[int | None, Query(ge=0)] = None,
     legal_area: Annotated[

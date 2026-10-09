@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.config.constants import CHAMBER_TK, RELATION_SERVED_IN, RELATION_VOTED
 from lawgraph.core.coalition import TK_SEATS_FROM, coalition_on, seat_timeline
 from lawgraph.db import GraphStore
+from lawgraph.db.counting import Store
 from lawgraph.db.queries.cabinets import (
     cabinet_on,
     cabinet_posts,
@@ -141,3 +144,97 @@ def faction_abbreviations(store: GraphStore, keys: set[str]) -> dict[str, str]:
         {"keys": sorted(keys)},
     )
     return {row["key"]: row["abbreviation"] for row in rows}
+
+
+# ── what the coalition did on each vote (``semantic tk-coalition-votes``) ─────────
+
+
+def cabinets_with_posts(store: Store) -> list[dict[str, Any]]:
+    """``{key, from_date, to_date, posts}`` of every cabinet, newest first: the posts held in
+    it (``meta.posts`` of its ``SERVED_IN`` edges)."""
+    rows = store.query(
+        """
+        SELECT c.key, lg_str(c.props -> 'from_date') AS from_date,
+               lg_str(c.props -> 'to_date') AS to_date,
+               coalesce((
+                   SELECT json_agg(p.post ORDER BY e.key, p.n)
+                   FROM edges e
+                   CROSS JOIN LATERAL json_array_elements(
+                       CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
+                            THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+                   ) WITH ORDINALITY AS p(post, n)
+                   WHERE e.to_id = c.id AND e.relation = %(served_in)s
+               ), '[]'::json) AS posts
+        FROM cabinets c
+        WHERE lg_str(c.props -> 'from_date') IS NOT NULL
+        ORDER BY lg_str(c.props -> 'from_date') DESC NULLS LAST, c.key ASC
+        """,
+        {"served_in": RELATION_SERVED_IN},
+    )
+    return list(rows)
+
+
+def decision_votes(store: Store, since_date: str | None) -> Any:
+    """``{id, date, voter_collection, voter, choice, seats}`` of every vote on a decision of
+    the Tweede Kamer (dated *since_date* or later when given), by decision: a faction with
+    its seats that day (``meta.seats``), or a member of a roll call."""
+    since = "AND d.date >= %(since)s" if since_date else ""
+    return store.query(
+        f"""
+        SELECT d.id, d.date, e.from_collection AS voter_collection,
+               split_part(e.from_id, '/', 2) AS voter,
+               lg_str(e.doc -> 'meta' -> 'choice') AS choice,
+               coalesce(lg_num(e.doc -> 'meta' -> 'seats'), 0)::int AS seats
+        FROM decisions d
+        JOIN edges e ON e.to_id = d.id AND e.relation = %(voted)s
+        WHERE %(tk)s = ANY(d.labels) AND d.date IS NOT NULL {since}
+        ORDER BY d.id ASC, e.key ASC
+        """,
+        {"voted": RELATION_VOTED, "tk": CHAMBER_TK, "since": since_date},
+    )
+
+
+_COLUMNS = (
+    "id",
+    "cabinet",
+    "coalition_for",
+    "coalition_against",
+    "opposition_for",
+    "opposition_against",
+    "pattern",
+    "carried",
+    "decisive",
+)
+
+
+def keep_decision_coalition(store: Store, rows: list[dict[str, Any]]) -> None:
+    """Write the rows of ``lg_decision_coalition``, replacing those of the same decision."""
+    if not rows:
+        return
+    names = ", ".join(_COLUMNS)
+    store.execute(
+        f"""
+        INSERT INTO lg_decision_coalition ({names})
+        SELECT {names} FROM json_populate_recordset(
+            NULL::lg_decision_coalition, %(rows)s::json
+        )
+        ON CONFLICT (id) DO UPDATE SET
+        {", ".join(f"{c} = EXCLUDED.{c}" for c in _COLUMNS[1:])}
+        """,
+        {"rows": json.dumps([{c: row[c] for c in _COLUMNS} for row in rows])},
+    )
+
+
+def remove_decision_coalition_except(store: Store, keep: list[str]) -> int:
+    """Remove the rows of the decisions not in *keep* (a full run: no coalition vote any
+    more); how many went."""
+    return len(
+        store.execute(
+            """
+            DELETE FROM lg_decision_coalition c
+            WHERE NOT EXISTS (SELECT 1 FROM unnest(%(keep)s::text[]) k WHERE k = c.id)
+            RETURNING 1
+            """,
+            {"keep": keep},
+        )
+    )

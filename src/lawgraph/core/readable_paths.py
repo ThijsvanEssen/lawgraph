@@ -194,11 +194,11 @@ def _judgment(key: str, props: dict[str, Any]) -> str | None:
 
 
 def _dossier(key: str, props: dict[str, Any]) -> str | None:
-    # the key is the label made a key (36600_viii): the label is in the props (a dossier
-    # answer has it as its ``number``); a key of figures alone is the label
+    """The address of a dossier by its label: its key is the label made a key
+    (``36600_viii``). The label is in its props (a dossier answer has it as its ``number``),
+    or is its number and its suffix (``lookup.answer``); a key of figures alone is it."""
     label = _text(props.get("label"))
     if not label and (number := _text(props.get("number"))):
-        # its number, and its suffix when it has one apart (``lookup.answer``)
         suffix = _text(props.get("suffix"))
         label = f"{number}-{suffix}" if suffix and "-" not in number else number
     if not label and re.fullmatch(r"\d+", key):

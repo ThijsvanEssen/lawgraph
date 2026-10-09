@@ -347,6 +347,19 @@ def test_a_decision_has_its_page(client: TestClient) -> None:
     assert _head(response.text)["canonical"] == "https://concordans.nl/stemmingen/s_1"
 
 
+@pytest.mark.parametrize(
+    "focus", ["decisions/nothing", "activities/a1", "geen/collectie", "zonder-slash"]
+)
+def test_the_explorer_of_a_node_that_is_not_there_is_the_explorer(
+    client: TestClient, focus: str
+) -> None:
+    """No 500: a focus on a node the graph lacks, or on no node at all, is the page of the
+    explorer, which says so itself."""
+    response = _get(client, f"/explore?focus={focus}")
+    assert response.status_code == 200
+    assert _head(response.text)["title"] == "Verkenner, Concordans"
+
+
 def test_a_dossier_with_a_suffix_by_its_label(
     client: TestClient, store: GraphStore
 ) -> None:
