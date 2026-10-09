@@ -34,6 +34,24 @@ _DECISION_KIND = (
 )
 
 
+_MOTION = (
+    "The motion or amendment the decision was taken on: the oldest paper of the case the "
+    "vote singled out (``primary_case_kind`` ``Motie`` or ``Amendement``), as its dictum "
+    "and ``/api/decisions/{key}/document``; else the Kamerstuk it is about (a vote of the "
+    "Eerste Kamer on a motion). Null for anything else, and for a case without a paper."
+)
+
+
+class DecisionMotionDTO(BaseModel):
+    """The paper a decision was taken on: its node and readable address."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    collection: str
+    key: str
+    path: str | None = None
+
+
 class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
@@ -150,6 +168,7 @@ class DecisionDTO(WithPath):
         "a coalition vote, and in the Eerste Kamer.",
     )
     dictum: str | None = Field(None, description=_DICTUM)
+    motion: DecisionMotionDTO | None = Field(None, description=_MOTION)
 
     @classmethod
     def from_document(
@@ -192,8 +211,9 @@ class DecisionDTO(WithPath):
                 for v in doc.get("votes") or []
             ],
             coalition=doc.get("coalition"),
-            # of the motion it decided on, which the route reads (``motion_dictums``)
+            # of the motion it decided on, which the route reads (``motion_papers``)
             dictum=None,
+            motion=None,
         )
 
 
@@ -242,6 +262,7 @@ class DecisionSummaryDTO(WithPath):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     dictum: str | None = Field(None, description=_DICTUM)
+    motion: DecisionMotionDTO | None = Field(None, description=_MOTION)
     coalition: CoalitionVoteDTO | None = Field(
         None, description="What the coalition did on the vote, as on the detail."
     )
