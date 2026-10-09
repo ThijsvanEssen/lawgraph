@@ -35,8 +35,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # of the summaries they are weighed against (lg_article_terms, lg_summary_stems), and
     # what the coalition did on each vote (lg_decision_coalition), the definitions of
     # the regulations (lg_instrument_definitions), and the events of the feed with when
-    # they were written (lg_feed_events, lg_feed_events_state)
-    assert tables == len(NODE_COLLECTIONS) + 14
+    # they were written (lg_feed_events, lg_feed_events_state), and the chains of the
+    # amendments (lg_amendment_chains)
+    assert tables == len(NODE_COLLECTIONS) + 15
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:

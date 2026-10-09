@@ -1430,6 +1430,18 @@ def feed_events() -> list[str]:
     written_at timestamptz NOT NULL,
     since text
 )""",
+        # the amendments as the Kamer handles them (``queries/feed_events.CHAINS``): a row
+        # per chain of papers that replace each other (REVISES; the chain is named by its
+        # last paper) and paper of it, with the day of its first paper and its outcome
+        """CREATE TABLE IF NOT EXISTS lg_amendment_chains (
+    chain_id text NOT NULL,
+    paper_id text NOT NULL,
+    first_date text,
+    outcome text NOT NULL,
+    PRIMARY KEY (chain_id, paper_id)
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_amendment_chains_paper"
+        " ON lg_amendment_chains (paper_id)",
         # the tokens of letters and digits of a text, as the feed's pattern (``\m``, ``\M``)
         # tells a word: by the character classes of the database
         """CREATE OR REPLACE FUNCTION lg_alnum_tokens(t text) RETURNS tsvector
