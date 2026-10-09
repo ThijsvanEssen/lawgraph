@@ -25,6 +25,7 @@ from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     get_decision_detail,
@@ -171,7 +172,9 @@ def get_decision(
     if doc is None:
         raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
     (dictum,) = motion_dictums(store, [doc["props"]])
-    dto = DecisionDTO.from_document(doc, load_dossier_names(store))
+    dto = DecisionDTO.from_document(
+        doc, load_dossier_names(store), load_member_slugs(store)
+    )
     return dto.model_copy(update={"dictum": dictum})
 
 
@@ -198,5 +201,7 @@ def get_decision_document_route(
             detail=f"No document resolvable for decision '{key}'.",
         )
     return DocumentTextResponse.from_document(
-        document, get_document_links(store, document["_id"])
+        document,
+        get_document_links(store, document["_id"]),
+        slugs=load_member_slugs(store),
     )

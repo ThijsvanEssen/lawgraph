@@ -38,6 +38,7 @@ from lawgraph.db.queries.cabinets import (
     get_commitments,
 )
 from lawgraph.db.queries.coalition import cabinet_seats
+from lawgraph.db.queries.committees import load_member_slugs
 
 ministries_router = APIRouter()
 cabinets_router = APIRouter()
@@ -96,7 +97,8 @@ def list_ministries() -> list[MinistryDTO]:
 def list_cabinets(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> list[CabinetSummaryDTO]:
-    return [CabinetSummaryDTO.from_row(row) for row in get_cabinets(store)]
+    slugs = load_member_slugs(store)
+    return [CabinetSummaryDTO.from_row(row, slugs) for row in get_cabinets(store)]
 
 
 @cabinets_router.get(
@@ -120,7 +122,7 @@ def get_cabinet_detail(
     row = get_cabinet(store, key)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
-    return CabinetDetailDTO.from_detail(row)
+    return CabinetDetailDTO.from_detail(row, load_member_slugs(store))
 
 
 @cabinets_router.get(
@@ -221,9 +223,10 @@ def list_commitments(
         made_from=date_from.isoformat() if date_from else None,
         made_to=date_to.isoformat() if date_to else None,
     )
+    slugs = load_member_slugs(store)
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitmentDTO.from_row(row) for row in raw.get("items") or []],
+        items=[CommitmentDTO.from_row(row, slugs) for row in raw.get("items") or []],
         facets=CommitmentFacetsDTO(**(raw.get("facets") or {})),
     )
 
@@ -241,4 +244,4 @@ def get_commitment_detail(
     row = get_commitment(store, key)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Commitment '{key}' not found.")
-    return CommitmentDTO.from_row(row)
+    return CommitmentDTO.from_row(row, load_member_slugs(store))

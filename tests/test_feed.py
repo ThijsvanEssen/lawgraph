@@ -139,6 +139,8 @@ def test_a_vote_is_an_item() -> None:
             "function": None,
             "role": "indiener",
             "faction": {"key": "d66", "short": "D66", "path": "/fracties/d66"},
+            # no slug in the row: no address
+            "path": None,
         }
     ]
     assert item.dossier is not None and item.dossier.short_title is None

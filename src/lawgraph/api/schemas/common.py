@@ -96,6 +96,16 @@ class WithPath(BaseModel):
 
     # the collection of a source whose fields have no id and no ``collection``
     path_collection: ClassVar[str | None] = None
+    # what the address is built from when the fields of the answer do not say it (the own
+    # dossier number and suffix of a paper whose answer names its dossier by label, the
+    # slug of a member named by key): not part of the answer
+    path_props: dict[str, Any] | None = Field(default=None, exclude=True)
+    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
+    # suffix in it: then the address of a paper needs no ``dossier_suffix``
+    path_dossier_is_label: ClassVar[bool] = False
+    # the fields that hold the id and the key, when they are named otherwise
+    path_id_field: ClassVar[str] = "id"
+    path_key_field: ClassVar[str] = "key"
 
     @model_validator(mode="before")
     @classmethod
@@ -117,24 +127,33 @@ class WithPath(BaseModel):
 def readable_path(model: BaseModel) -> str | None:
     """The readable address of the source *model* describes (``WithPath``)."""
     values = model.__dict__
-    node_id = values.get("id") if isinstance(values.get("id"), str) else None
+    kind = type(model)
+    raw_id = values.get(kind.path_id_field)  # type: ignore[attr-defined]
+    node_id = raw_id if isinstance(raw_id, str) else None
     collection = (
         values.get("collection")
         or type(model).__dict__.get("path_collection")
         or getattr(model, "path_collection", None)
     )
     if not node_id or "/" not in node_id:
-        key = values.get("key") or ("_" if collection == "judgments" else None)
+        key = values.get(kind.path_key_field) or (  # type: ignore[attr-defined]
+            "_" if collection == "judgments" else None
+        )
         if not (collection and key):
             return None
         node_id = f"{collection}/{key}"
+    if isinstance(values.get("path_props"), dict):
+        return path_of(node_id, values["path_props"])
     props: dict[str, Any] = {}
     for bag in ("props", "extra"):
         if isinstance(values.get(bag), dict):
             props.update(values[bag])
     props.update({f: values[f] for f in PATH_FIELDS if values.get(f) is not None})
     if node_id.startswith("documents/") and not (
-        "dossier_suffix" in values or "dossier_suffix" in props or "props" in values
+        "dossier_suffix" in values
+        or "dossier_suffix" in props
+        or "props" in values
+        or type(model).path_dossier_is_label  # type: ignore[attr-defined]
     ):
         return None
     return path_of(node_id, props)

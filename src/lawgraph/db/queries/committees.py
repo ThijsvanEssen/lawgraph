@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
 _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -1011,3 +1012,25 @@ def get_ek_faction_votes(
     )
     row = next(rows, None)
     return row or {"total": 0, "counts": {}, "items": []}
+
+
+def _read_member_slugs(store: GraphStore) -> dict[str, str]:
+    return {
+        row["key"]: row["slug"]
+        for row in store.query(
+            f"SELECT key, lg_str(props -> 'slug') AS slug FROM {COLLECTION_MEMBERS}"
+            " WHERE lg_str(props -> 'slug') IS NOT NULL"
+        )
+    }
+
+
+def load_member_slugs(store: GraphStore) -> dict[str, str]:
+    """The slug of every member by its key (the readable address of a member named by
+    its key alone, ``/leden/<slug>``), kept while the members stand still: computed on
+    first use, and in the warm-up (``api/warm.py``)."""
+    return cached(
+        store,
+        ("member-slugs",),
+        lambda: _read_member_slugs(store),
+        tables=(COLLECTION_MEMBERS,),
+    )
