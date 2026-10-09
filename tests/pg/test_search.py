@@ -1003,7 +1003,38 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
     )
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [_node("bwbr9", "instrument", title="Klimaatwet", citation_title="Klimaatwet")],
+        [
+            _node(
+                "bwbr9",
+                "instrument",
+                bwb_id="BWBR9",
+                title="Klimaatwet",
+                citation_title="Klimaatwet",
+                date_in_force="2019-09-01",
+            ),
+            _node(
+                "bwbr8",
+                "instrument",
+                bwb_id="BWBR8",
+                title="Oude klimaatwet",
+                citation_title="Oude klimaatwet",
+                date_in_force="2010-01-01",
+            ),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                f"bwbr{n}_1",
+                "article",
+                bwb_id=f"BWBR{n}",
+                article_number="1",
+                display_name=f"Artikel 1 Klimaatwet {n}",
+                text="Klimaat.",
+            )
+            for n in (8, 9)
+        ],
     )
     period = search_queries.Period("2019-01-01", "2019-12-31")
     types = [
@@ -1013,6 +1044,8 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
         "decisions",
         "commitments",
         "instruments",
+        "articles",
+        "members",
     ]
 
     def keys(found: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
@@ -1031,11 +1064,15 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
         "dossiers": ["2019"],
         "decisions": ["v2019"],
         "commitments": ["c2019"],
-        # a law has no date of its own here yet: with a period it finds nothing
-        "instruments": [],
+        # a law by the day it came into force, an article by that of its law
+        "instruments": ["bwbr9"],
+        "articles": ["bwbr9_1"],
+        # a member has no date of its own: with a period nothing
+        "members": [],
     }
     assert full == expected
     assert live == expected
     # without a period every one
     every = keys(search_queries.search_all(store, q="klimaat", types=types))
-    assert len(every["judgments"]) == 3 and every["instruments"] == ["bwbr9"]
+    assert len(every["judgments"]) == 3
+    assert every["instruments"] == ["bwbr8", "bwbr9"]
