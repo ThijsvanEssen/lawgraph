@@ -132,6 +132,12 @@ class SeatStretchDTO(BaseModel):
     to_date: str
     coalition: int = Field(..., description="The seats of the coalition.")
     opposition: int
+    vacant: int = Field(
+        0,
+        description="Seats no member held: between a member who left (most often to become "
+        "a bewindspersoon) and the successor's installation; the source records them as "
+        "FractieZetelVacature. `coalition`, `opposition` and `vacant` add up to the Kamer.",
+    )
     factions: list[CoalitionFactionSeatsDTO] = Field(
         default_factory=list, description="The coalition first, then by seats."
     )

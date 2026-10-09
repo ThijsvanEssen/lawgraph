@@ -89,7 +89,7 @@ def seat_timeline(
 ) -> list[dict[str, Any]]:
     """The seats of the coalition and the opposition from *start* to *end*, one segment per
     stretch in which neither the coalition nor any faction's seats changed:
-    ``{from_date, to_date, coalition, opposition, factions: [{key, seats, coalition}]}``,
+    ``{from_date, to_date, coalition, opposition, vacant, factions: [{key, seats, coalition}]}``,
     the factions by seats, the coalition first. A day on which the coalition or a seat
     changes starts a segment."""
     periods = [
@@ -112,6 +112,9 @@ def seat_timeline(
             "to_date": end,
             "coalition": sum(n for _, n, c in ranked if c),
             "opposition": sum(n for _, n, c in ranked if not c),
+            # a seat between two members (a member who became a bewindspersoon, before the
+            # successor is installed: FractieZetelVacature), so the stretch adds up
+            "vacant": max(TK_SEATS - sum(n for _, n, _c in ranked), 0),
             "factions": factions,
         }
         if segments and segments[-1]["factions"] == factions:
