@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     RELATION_ACCOMPANIES,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
+    RELATION_IMPLEMENTS,
     RELATION_INTRODUCES,
     RELATION_LED_BY,
     RELATION_LEGISLATED_IN,
@@ -760,6 +761,53 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     }
     rows = list(store.query(_DOSSIER_HUB_SQL, bind))
     return rows[0] if rows else {}
+
+
+def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str, Any]]:
+    """``{id, basis}`` of the EU acts a dossier's acts implement: ``IMPLEMENTS`` from an
+    instrument ``LEGISLATED_IN`` the dossier, ``basis`` ``staatsblad`` from an amending
+    publication, ``wet`` from the act itself; each act and basis once, by id."""
+    rows = store.query(
+        f"""
+        SELECT DISTINCT m.to_id AS id,
+               CASE WHEN {_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
+                    ELSE 'wet' END AS basis
+        FROM {COLLECTION_EDGES} l
+        JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
+        JOIN {COLLECTION_EDGES} m ON m.from_id = s.id AND m.relation = %(implements)s
+        WHERE l.to_id = %(dossier_id)s AND l.relation = %(legislated_in)s
+          AND l.from_collection = '{COLLECTION_INSTRUMENTS}'
+        ORDER BY 1 ASC NULLS FIRST, 2 ASC NULLS FIRST
+        """,
+        {
+            "dossier_id": dossier_id,
+            "implements": RELATION_IMPLEMENTS,
+            "legislated_in": RELATION_LEGISLATED_IN,
+        },
+    )
+    return list(rows)
+
+
+def get_instrument_names(
+    store: GraphStore, ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """id -> ``{key, bwb_id, celex, name, short}`` of the instruments *ids*: ``name`` the
+    citation title, else the title or the display name; ``short`` the short title the source
+    gives (the WTI afkorting of a BWB act), else none."""
+    if not ids:
+        return {}
+    rows = store.query(
+        f"""
+        SELECT i.id, i.key, i.bwb_id, i.celex,
+               coalesce(i.citation_title, lg_str(i.props -> 'title'),
+                        lg_str(i.props -> 'display_name')) AS name,
+               lg_str(i.props -> 'short_title') AS short
+        FROM {COLLECTION_INSTRUMENTS} i
+        WHERE i.id = ANY(%(ids)s::text[])
+        """,
+        {"ids": ids},
+    )
+    return {row.pop("id"): row for row in rows}
 
 
 def classify_relation(relation: str | None) -> str:
