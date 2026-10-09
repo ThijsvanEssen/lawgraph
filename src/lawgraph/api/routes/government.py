@@ -97,7 +97,8 @@ def list_ministries() -> list[MinistryDTO]:
 def list_cabinets(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> list[CabinetSummaryDTO]:
-    return [CabinetSummaryDTO.from_row(row) for row in get_cabinets(store)]
+    slugs = load_member_slugs(store)
+    return [CabinetSummaryDTO.from_row(row, slugs) for row in get_cabinets(store)]
 
 
 @cabinets_router.get(
@@ -121,7 +122,7 @@ def get_cabinet_detail(
     row = get_cabinet(store, key)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
-    return CabinetDetailDTO.from_detail(row)
+    return CabinetDetailDTO.from_detail(row, load_member_slugs(store))
 
 
 @cabinets_router.get(

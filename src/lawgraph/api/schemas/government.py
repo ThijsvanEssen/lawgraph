@@ -76,6 +76,11 @@ class PersonRefDTO(WithPath):
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
 
 
+def _slug(person: dict[str, Any], slugs: dict[str, str] | None) -> dict[str, Any]:
+    """The props of a member's address: its slug (``load_member_slugs``)."""
+    return {"slug": (slugs or {}).get(person.get("key") or "")}
+
+
 class SourceRefDTO(BaseModel):
     """Where it was read: ``rijksoverheid``, with the page and the day."""
 
@@ -201,16 +206,21 @@ class CabinetSummaryDTO(WithPath):
     commitments: int = Field(0, description="Commitments made while it was in office.")
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
+    def from_row(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CabinetSummaryDTO:
         cabinet = row["cabinet"]
         props = cabinet.get("props") or {}
+        prime = row.get("prime_minister")
         return cls(
             key=cabinet["_key"],
             name=props.get("name") or cabinet["_key"],
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
             previous=props.get("previous"),
-            prime_minister=row.get("prime_minister"),
+            prime_minister=(
+                PersonRefDTO(**prime, path_props=_slug(prime, slugs)) if prime else None
+            ),
             parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
             factions=props.get("factions") or [],
             demissionary_from=props.get("demissionary_from"),
@@ -334,9 +344,11 @@ class CabinetMinistryDTO(BaseModel):
     seats: list[CabinetSeatDTO]
 
 
-def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
+def _post_dto(
+    item: dict[str, Any], post: dict[str, Any], slugs: dict[str, str] | None
+) -> CabinetPostDTO:
     return CabinetPostDTO(
-        member=item["member"],
+        member=PersonRefDTO(**item["member"], path_props=_slug(item["member"], slugs)),
         post=post.get("post"),
         function=post.get("function"),
         also_named=post.get("also_named") or [],
@@ -401,15 +413,17 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     ministries: list[CabinetMinistryDTO] = Field(default_factory=list)
 
     @classmethod
-    def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
+    def from_detail(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CabinetDetailDTO:
         members = row.get("members") or []
-        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
+        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)}, slugs)
         # a seat stands under its ministry: the one its key names (by the name the ministry
         # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
         # whose function names no ministry, that of its last post; each post keeps its own
         # ``ministry`` of its day
         held = [
-            (post, _post_dto(item, post))
+            (post, _post_dto(item, post, slugs))
             for item in members
             for post in item.get("posts") or []
         ]
@@ -511,7 +525,7 @@ class CommitmentDTO(WithPath):
                 CommitmentMemberDTO(
                     **member,
                     function=props.get("minister_role"),
-                    path_props={"slug": (slugs or {}).get(member.get("key") or "")},
+                    path_props=_slug(member, slugs),
                 )
                 if member
                 else None
