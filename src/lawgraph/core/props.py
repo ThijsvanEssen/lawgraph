@@ -762,6 +762,9 @@ class FactionProps(_CommonProps):
     seats: int | None = None
     # the day one of its seats last changed (FractieZetel.GewijzigdOp)
     seats_changed_on: str | None = None
+    # the periods a seat of it was held by no member (FractieZetelVacature):
+    # ``{from_date, to_date}``, both inclusive
+    vacancies: list | None = None
     active: bool | None = None
     # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
     # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
@@ -800,6 +803,8 @@ class CaseProps(_CommonProps):
     related_cases: list[RelatedCase] | None = None
     # Zaak.VervangenVanuit: the ids of the cases this one replaces
     replaces_cases: list[str] | None = None
+    # Zaak.Afgedaan: whether the Kamer is done with it
+    done: bool | None = None
 
 
 # ---------------------------------------------------------------------------

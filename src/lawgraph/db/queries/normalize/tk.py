@@ -721,3 +721,31 @@ def member_slug_rows(store: Store) -> Iterator[dict[str, Any]]:
             ]
         },
     )
+
+
+# Fewer votes than a roll call of the Tweede Kamer can hold (150, a few absent): a decision
+# read as a roll call before a faction vote with members voting apart was told from one.
+MIXED_VOTES_BELOW = 100
+
+
+def mixed_vote_decisions(store: Store, limit: int | None = None) -> list[str]:
+    """The TK ``Besluit_Id`` of the decisions taken for a roll call (``vote_kind``
+    ``member``) with fewer than ``MIXED_VOTES_BELOW`` votes, in key order: faction votes in
+    which a few members voted apart, whose faction rows were left out. Normalized again
+    they are faction votes, so a next slice no longer finds them."""
+    return [
+        str(row)
+        for row in store.query(
+            f"""
+            SELECT lg_str(d.props -> 'decision_id')
+            FROM {COLLECTION_DECISIONS} d
+            WHERE lg_str(d.props -> 'vote_kind') = 'member'
+              AND lg_str(d.props -> 'decision_id') IS NOT NULL
+              AND (SELECT count(*) FROM {COLLECTION_EDGES} e
+                   WHERE e.to_id = d.id AND e.relation = %(voted)s) < %(below)s
+            ORDER BY d.key
+            LIMIT %(limit)s
+            """,
+            {"voted": RELATION_VOTED, "below": MIXED_VOTES_BELOW, "limit": limit},
+        )
+    ]

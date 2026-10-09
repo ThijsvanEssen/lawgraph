@@ -45,7 +45,9 @@ class DecisionFilters:
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
-    ``wissel``, or ``carried`` or ``decisive`` the vote.
+    ``wissel``, or ``carried`` or ``decisive`` the vote. Without *unvoted* only the
+    decisions with an outcome (``passed`` set); with it also those that never came to a
+    vote (``Stemmen - ingetrokken``, ``- uitstellen``, ``- aangehouden``, ``- vervallen``).
     """
 
     kinds: tuple[str, ...] | None = None
@@ -59,6 +61,7 @@ class DecisionFilters:
     q: tuple[str, ...] = ()
     party_votes: tuple[str, ...] = ()
     coalition: str | None = None
+    unvoted: bool = False
 
 
 EMPTY_FACETS: dict[str, list[Any]] = {
@@ -68,6 +71,7 @@ EMPTY_FACETS: dict[str, list[Any]] = {
     "years": [],
     "party_votes": [],
     "coalition": [],
+    "coalition_cabinets": [],
 }
 
 # What the coalition did on a vote, as ``coalition`` filters and counts it: a pattern of
@@ -79,7 +83,7 @@ COALITION_VALUES = COALITION_PATTERNS + COALITION_FLAGS
 
 def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     """The conditions on the decision ``d`` but for kind and outcome."""
-    clauses: list[str] = []
+    clauses: list[str] = [] if filters.unvoted else ["d.passed IS NOT NULL"]
     if filters.chamber is not None:
         # TK decisions carry the label "TK", EK ones "EK".
         clauses.append("%(chamber)s = ANY(d.labels)")
@@ -180,6 +184,34 @@ def _coalition_facet(where: list[str]) -> str:
         CROSS JOIN LATERAL (VALUES {values}) AS x(o, v, n)
         WHERE x.n > 0
     )"""
+
+
+# Per cabinet, what its coalition did on the decisions under every filter: a topic of the
+# Overzicht is the decisions of its words, Kamer and period.
+_COALITION_CABINETS = f"""(
+    SELECT coalesce(json_agg(json_build_object(
+        'cabinet', x.cabinet, 'name', lg_str(cab.props -> 'name'),
+        'votes', x.votes, 'together', x.together, 'split', x.split, 'wissel', x.wissel,
+        'carried', x.carried, 'decisive', x.decisive
+    ) ORDER BY lg_str(cab.props -> 'from_date') DESC NULLS LAST, x.cabinet ASC NULLS FIRST
+    ), '[]'::json)
+    FROM (
+        SELECT c.cabinet, count(*)::int AS votes,
+               {
+    ", ".join(
+        f"(count(*) FILTER (WHERE c.pattern = '{p}'))::int AS {p}"
+        for p in COALITION_PATTERNS
+    )
+},
+               {
+    ", ".join(f"(count(*) FILTER (WHERE c.{f}))::int AS {f}" for f in COALITION_FLAGS)
+}
+        FROM matching r
+        JOIN lg_decision_coalition c ON c.id = r.id
+        GROUP BY c.cabinet
+    ) x
+    LEFT JOIN cabinets cab ON cab.key = x.cabinet
+)"""
 
 
 def _where(clauses: list[str]) -> str:
@@ -449,7 +481,8 @@ def get_decisions(
                 ) year
             ),
             'party_votes', '[]'::json,
-            'coalition', {_coalition_facet(kind + passed)}
+            'coalition', {_coalition_facet(kind + passed)},
+            'coalition_cabinets', {_COALITION_CABINETS}
         )
     )
     """

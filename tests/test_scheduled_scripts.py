@@ -77,7 +77,14 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
     checkout: Path,
 ) -> None:
     assert _run(checkout, "weekly.sh").returncode == 0
-    assert _calls(checkout) == ["semantic all", "expand-graph", "check"]
+    assert _calls(checkout) == [
+        # the members and their seats and vacancies, which the daily run skips
+        "retrieve tk-dossiers --since 1d --skip-decisions --skip-documents",
+        "normalize tk-dossiers --since 1d",
+        "semantic all",
+        "expand-graph",
+        "check",
+    ]
 
 
 def test_a_failing_command_fails_the_run_and_the_rest_still_runs(

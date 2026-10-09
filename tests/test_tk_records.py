@@ -610,6 +610,35 @@ def test_a_roll_call_counts_members_not_faction_sizes() -> None:
     assert [cast.seats for cast in votes] == [1, 1, 1]
 
 
+def _faber() -> list[tk_records.VoteCast]:
+    """Motie Faber, 12 May 2026, in part: Groep Markuszower (7) against, but for three of
+    its members, each a row of their own with the size of the group."""
+    rows = [
+        _vote(Id="s-1", Soort="Voor", FractieGrootte=22),
+        _vote(Id="s-2", Soort="Tegen", FractieGrootte=7, Fractie_Id="f-gm"),
+        *(
+            _vote(Id=f"s-{n}", Soort="Voor", FractieGrootte=7, Fractie_Id="f-gm",
+                  Persoon_Id=f"p-{n}")
+            for n in (3, 4, 5)
+        ),
+        _vote(Id="s-6", Soort="Tegen", FractieGrootte=26, Fractie_Id="f-d66"),
+    ]  # fmt: skip
+    return [vote for row in rows if (vote := tk_records.vote(row))]
+
+
+def test_a_faction_vote_with_members_voting_apart_is_no_roll_call() -> None:
+    """A member who votes apart from their faction has a row of their own: the faction
+    then counts its seats without them, each of them one seat. It is no roll call, which
+    names every member."""
+    votes = _faber()
+    _, props = tk_records.decision(
+        "b-1", {"BesluitSoort": "Stemmen - verworpen"}, votes
+    )
+    assert props["vote_kind"] == "faction"
+    assert props["tally"] == {"Voor": 25, "Tegen": 30}
+    assert tk_records.seats_of(votes) == [22, 4, 1, 1, 1, 26]
+
+
 def test_the_outcome_falls_back_to_the_tally_when_the_source_is_silent() -> None:
     votes = [
         tk_records.vote(_vote(Soort="Voor", FractieGrootte=10)),
@@ -1027,3 +1056,39 @@ def test_the_actors_of_a_case_are_its_submitters_and_lead_committee() -> None:
         ("Indiener", "bewindspersoon")
     ]
     assert actors["committee_ids"] == ["befe416e-ca1b-4804-97d0-7aca1dcba888"]
+
+
+def test_a_vacant_seat_ends_the_day_before_the_successor_takes_it() -> None:
+    def record(start: str, until: str | None, **extra: object) -> dict:
+        return {
+            "Van": f"{start}T00:00:00+01:00",
+            "TotEnMet": f"{until}T00:00:00+01:00" if until else None,
+            "FractieZetel": {"Id": "z", "Fractie_Id": "d66"},
+            **extra,
+        }
+
+    # kabinet-Jetten: vacant from 23 February, the successor installed on the 25th
+    assert tk_records.seat_vacancy(record("2026-02-23", "2026-02-25")) == (
+        "d66",
+        {"from_date": "2026-02-23", "to_date": "2026-02-24"},
+    )
+    assert tk_records.seat_vacancy(record("2026-02-23", None))[1]["to_date"] is None  # type: ignore[index]
+    # the source holds a vacancy that ends before it begins: none
+    assert tk_records.seat_vacancy(record("2026-02-23", "2026-02-22")) is None
+    assert (
+        tk_records.seat_vacancy(record("2026-02-23", "2026-02-25", Verwijderd=True))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("afgedaan", "done"), [(True, True), (False, False), (None, None)]
+)
+def test_a_case_says_whether_the_kamer_is_done_with_it(
+    afgedaan: bool | None, done: bool | None
+) -> None:
+    """``Zaak.Afgedaan``: an amendment not done with and without a decision is not voted
+    on yet; one done with and without a decision was withdrawn or replaced."""
+    payload = {"Id": "z-1", "Soort": "Amendement", "Afgedaan": afgedaan}
+    _, props = tk_records.case(payload)  # type: ignore[misc]
+    assert props["done"] is done

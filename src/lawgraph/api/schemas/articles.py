@@ -14,9 +14,11 @@ from lawgraph.api.schemas.common import (
     VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
+    DefinitionDTO,
     InstrumentSummaryDTO,
     PublicationDTO,
     QualifierFields,
+    TermSpanDTO,
     WithPath,
     address_of,
     semantic_fields,
@@ -298,6 +300,18 @@ class ArticleDetailResponse(BaseModel):
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
+    term_spans: list[TermSpanDTO] = Field(
+        default_factory=list,
+        description="Every place the text uses a term its regulation defines (where that "
+        "definition holds: its regulation, or its chapter or paragraph), as `definitions`; "
+        "not inside a citation, which names the definition itself (`definition_ref`) when "
+        "it is the regulation cited.",
+    )
+    definitions: list[DefinitionDTO] = Field(
+        default_factory=list,
+        description="The definitions `term_spans` and `citations` name, as the regulation "
+        "gives them.",
+    )
     references: list[ArticleReferenceDTO] = Field(
         default_factory=list,
         description="Every reference the text of the article makes, as stored on it, "

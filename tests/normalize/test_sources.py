@@ -87,6 +87,23 @@ def test_staatsblad_normalize_creates_publication():
     assert node.props["bwb_id"] == "BWBR0001234"
 
 
+def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
+    """stb-2025-263 as the repository serves it: the note is ``<nota-toelichting>``. Read
+    as none, every Staatsblad note had an empty text and no EXPLAINS (web-1, 9,875)."""
+    from pathlib import Path
+
+    from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+
+    xml = (Path(__file__).parents[1] / "fixtures" / "stb_2025_263.xml").read_text()
+    store = _FakeStore()
+    StaatsbladNormalizePipeline(store=store).normalize_nodes(
+        [_raw("stb-2025-263", payload_text=xml)], PipelineResult()
+    )
+    text = store.upserted[-1].props["text"]
+    assert text.startswith("NOTA VAN TOELICHTING") and len(text) > 5000
+    assert "Mediabesluit 2008" in text
+
+
 def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():
     """The toestand of BWBR0009999 named this publication: that is the regulation it
     explains, not BWBR0001234, the first law its text cites."""
