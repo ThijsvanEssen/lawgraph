@@ -139,6 +139,9 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
     TKAmendmentArticlesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_amends import TKAmendsSemanticPipeline
+from lawgraph.pipelines.semantic.tk_coalition_votes import (
+    TKCoalitionVotesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
 )
@@ -814,6 +817,11 @@ SEMANTIC: list[Pipeline] = [
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
         ),
+    ),
+    _pipeline(
+        TKCoalitionVotesSemanticPipeline,
+        "What the coalition did on each vote of the Tweede Kamer: together, split or a "
+        "wisselmeerderheid, and whether it carried or decided it.",
     ),
     _pipeline(
         tk_dictum.main,

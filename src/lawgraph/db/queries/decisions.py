@@ -43,6 +43,9 @@ class DecisionFilters:
     words of the subject, any of them (``_words``: each from the start of a word, a short
     one whole, any case). *party_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
+    *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
+    ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
+    ``wissel``, or ``carried`` or ``decisive`` the vote.
     """
 
     kinds: tuple[str, ...] | None = None
@@ -55,6 +58,7 @@ class DecisionFilters:
     date_to: str | None = None
     q: tuple[str, ...] = ()
     party_votes: tuple[str, ...] = ()
+    coalition: str | None = None
 
 
 EMPTY_FACETS: dict[str, list[Any]] = {
@@ -63,7 +67,14 @@ EMPTY_FACETS: dict[str, list[Any]] = {
     "days": [],
     "years": [],
     "party_votes": [],
+    "coalition": [],
 }
+
+# What the coalition did on a vote, as ``coalition`` filters and counts it: a pattern of
+# ``lg_decision_coalition`` (each vote has one), or a flag of it.
+COALITION_PATTERNS = ("together", "split", "wissel")
+COALITION_FLAGS = ("carried", "decisive")
+COALITION_VALUES = COALITION_PATTERNS + COALITION_FLAGS
 
 
 def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
@@ -138,6 +149,39 @@ def _passed_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     return ["r.passed = %(passed)s"]
 
 
+def _coalition_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
+    if filters.coalition is None:
+        return []
+    if filters.coalition in COALITION_FLAGS:
+        return [f"r.coalition_{filters.coalition} IS TRUE"]
+    bind["coalition"] = filters.coalition
+    return ["r.coalition_pattern = %(coalition)s"]
+
+
+def _coalition_facet(where: list[str]) -> str:
+    """SQL: ``[{value, count}]`` of the filtered decisions per thing the coalition did,
+    in the order of ``COALITION_VALUES``, those with none left out."""
+    counts = ", ".join(
+        [
+            f"count(*) FILTER (WHERE r.coalition_pattern = '{p}') AS {p}"
+            for p in COALITION_PATTERNS
+        ]
+        + [
+            f"count(*) FILTER (WHERE r.coalition_{f} IS TRUE) AS {f}"
+            for f in COALITION_FLAGS
+        ]
+    )
+    values = ", ".join(f"({n}, '{v}', c.{v})" for n, v in enumerate(COALITION_VALUES))
+    return f"""(
+        SELECT coalesce(json_agg(
+            json_build_object('value', x.v, 'count', x.n) ORDER BY x.o
+        ), '[]'::json)
+        FROM (SELECT {counts} FROM filtered r {_where(where)}) c
+        CROSS JOIN LATERAL (VALUES {values}) AS x(o, v, n)
+        WHERE x.n > 0
+    )"""
+
+
 def _where(clauses: list[str]) -> str:
     return f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
@@ -177,7 +221,17 @@ _ITEM = f"""json_build_object(
     'vote_kind', d.props -> 'vote_kind',
     'tally', {_object_or_empty("d.props -> 'tally'")},
     'voters', {_object_or_empty("d.props -> 'voters'")},
-    'primary_case_id', d.props -> 'primary_case_id'
+    'primary_case_id', d.props -> 'primary_case_id',
+    'coalition', CASE WHEN c.id IS NULL THEN NULL ELSE json_build_object(
+        'cabinet', c.cabinet,
+        'coalition_for', c.coalition_for,
+        'coalition_against', c.coalition_against,
+        'opposition_for', c.opposition_for,
+        'opposition_against', c.opposition_against,
+        'pattern', c.pattern,
+        'carried', c.carried,
+        'decisive', c.decisive
+    ) END
 )"""
 
 # The order of the list: newest first, the key settling a day.
@@ -349,6 +403,7 @@ def get_decisions(
     }
     kind = _kind_filter(filters, bind)
     passed = _passed_filter(filters, bind)
+    coalition = _coalition_filter(filters, bind)
     statement = f"""
     {_matching(filters, bind)}
     SELECT json_build_object(
@@ -362,10 +417,11 @@ def get_decisions(
                 LIMIT %(limit)s OFFSET %(offset)s
             ) page
             JOIN decisions d ON d.id = page.id
+            LEFT JOIN lg_decision_coalition c ON c.id = d.id
         ),
         'facets', json_build_object(
-            'kind', {_kind_facet(passed)},
-            'passed', {_facet("r.passed", "filtered", kind)},
+            'kind', {_kind_facet(passed + coalition)},
+            'passed', {_facet("r.passed", "filtered", kind + coalition)},
             'days', (
                 SELECT coalesce(json_agg(
                     json_build_object('date', date, 'count', count, 'passed', passed)
@@ -392,7 +448,8 @@ def get_decisions(
                     GROUP BY 1
                 ) year
             ),
-            'party_votes', '[]'::json
+            'party_votes', '[]'::json,
+            'coalition', {_coalition_facet(kind + passed)}
         )
     )
     """
@@ -452,10 +509,17 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``WITH`` the decisions under every filter but kind and outcome (``filtered``:
     id, key, kind, passed, date) and under all of them (``matching``)."""
     common = _common_filters(filters, bind)
-    rest = _kind_filter(filters, bind) + _passed_filter(filters, bind)
+    rest = (
+        _kind_filter(filters, bind)
+        + _passed_filter(filters, bind)
+        + _coalition_filter(filters, bind)
+    )
     return f"""WITH filtered AS MATERIALIZED (
-        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date
-        FROM decisions d {_where(common)}
+        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date,
+               c.pattern AS coalition_pattern, c.carried AS coalition_carried,
+               c.decisive AS coalition_decisive
+        FROM decisions d
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
     ),
     matching AS MATERIALIZED (
         SELECT * FROM filtered r {_where(rest)}
@@ -547,7 +611,20 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
                 SELECT id, key, props, name FROM factions WHERE id = e.from_id
             ) v ON true
             WHERE e.to_id = d.id AND e.relation = %(voted)s
-        ) AS votes
+        ) AS votes,
+        (
+            SELECT json_build_object(
+                'cabinet', c.cabinet,
+                'coalition_for', c.coalition_for,
+                'coalition_against', c.coalition_against,
+                'opposition_for', c.opposition_for,
+                'opposition_against', c.opposition_against,
+                'pattern', c.pattern,
+                'carried', c.carried,
+                'decisive', c.decisive
+            )
+            FROM lg_decision_coalition c WHERE c.id = d.id
+        ) AS coalition
         FROM decisions d
         WHERE d.key = %(key)s
         """,
@@ -565,6 +642,7 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
         "props": doc["props"],
         "type": doc["type"],
         "votes": row["votes"],
+        "coalition": row["coalition"],
     }
 
 
