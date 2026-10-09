@@ -326,11 +326,15 @@ With `--touched-since` (`lawgraph poll`) it walks only the dossiers touched sinc
 `tk-government` only those dossiers and the commitments touched since then
 (`pipelines/semantic/_touched.py`): the dossier, commitment, paper, case or decision whose TK
 record was fetched since then (also the decision a fetched Stemming voted on), both ends of
-every edge written since then, and the dossiers these are `PART_OF`, `ABOUT` or `LEGISLATED_IN`,
-directly or through their case. For those it comes to what a run over all would. Of the
-touched dossiers `tk-government` reads the papers again only of those whose first signature
-can have changed: one that keeps none (`first_signed`), or of which a paper the window touched
-is dated on or before the one kept, or is it. What changes in another way (a cabinet, a post,
+every edge written since then that the step reads, and the dossiers these are `PART_OF`,
+`ABOUT` or `LEGISLATED_IN`, directly or through their case. The edges each reads: of
+`tk-dossier-outcomes` `ABOUT`, `VOTED`, `LEGISLATED_IN` and `PART_OF`; of `tk-government`
+`AUTHORED` to a paper (not to a case: the actors of `tk-case-actors`) and `PART_OF`. A wave of
+other edges (the actors of every case, the links between papers) touches none of their
+dossiers. For those it comes to what a run over all would. Of the touched dossiers
+`tk-government` reads the papers again only of those whose first signature can have changed:
+one that keeps none (`first_signed`), or of which a paper the window touched is dated on or
+before the one kept, or is it; found in one pass, however many dossiers the window touched. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer

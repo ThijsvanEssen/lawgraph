@@ -50,7 +50,9 @@ class TKDossierOutcomesSemanticPipeline(SemanticPipelineBase):
         ids = (
             list(semantic_tk.dossier_ids(self.store))
             if touched_since is None
-            else touched.touched_dossiers(self.store, touched_since)
+            else touched.touched_dossiers(
+                self.store, touched_since, edges=touched.OUTCOME_EDGES
+            )
         )
         closed = 0
         for chunk in self._track(chunked(ids, _CHUNK), "dossier chunks"):
