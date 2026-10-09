@@ -219,10 +219,14 @@ class TKClient(BaseClient):
         case_kinds: tuple[str, ...],
         since: dt.datetime | None = None,
         top: int = 250,
+        without_votes: bool = False,
     ) -> Iterable[dict[str, Any]]:
         """Fetch the Besluit records ``Stemmen - ...`` on a zaak of one of *case_kinds* (a
         bill, a budget), as ``fetch_stemmingen`` expands them: also those without a vote
-        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries."""
+        (``Stemmen - zonder stemming aannemen``, a hamerstuk), which no Stemming carries.
+        With *without_votes* only those: of an amendment or a motion the others come with
+        their Stemming (``Stemmen - ingetrokken``, ``- uitstellen``, ``- aangehouden``,
+        ``- vervallen`` do not)."""
         zaak = (
             "Zaak("
             "$select=Id,Soort,Titel,Nummer,Onderwerp,Volgnummer,Vergaderjaar;"
@@ -231,6 +235,8 @@ class TKClient(BaseClient):
         )
         kinds = " or ".join(f"z/Soort eq '{kind}'" for kind in case_kinds)
         odata_filter = f"startswith(BesluitSoort,'Stemmen') and Zaak/any(z:{kinds})"
+        if without_votes:
+            odata_filter += " and not Stemming/any()"
         if since is not None:
             since_string = odata_datetime(since)
             odata_filter += f" and ApiGewijzigdOp ge {since_string}"
