@@ -1107,10 +1107,16 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
         f" ON documents USING gin (({feed_title()}) gin_trgm_ops)",
     ),
-    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
+    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
+    # what the judgments citing a law or an article are sorted and filtered on, from the
+    # index alone (``judgments_citing``): a much cited law (the Awb, Sr) is hundreds of
+    # thousands of them, and a row of the table holds the text. On a large database built
+    # beforehand with CREATE INDEX CONCURRENTLY.
     COLLECTION_JUDGMENTS: (
         "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
         " ON judgments USING gin (public.lg_subject_areas(subjects))",
+        "CREATE INDEX IF NOT EXISTS judgments_citing ON judgments (id)"
+        " INCLUDE (date_eff, ecli, court_code, tier, inbound_citation_count)",
     ),
     # the member lists in name order: those who held a seat, and the Eerste Kamer's; a
     # member by their slug (``/leden/rob-jetten``)
