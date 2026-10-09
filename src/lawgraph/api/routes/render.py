@@ -30,6 +30,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup, seo
+from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import (
     ReadTimedOut,
     RequestCancelled,
@@ -129,6 +130,17 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
     )
 
 
+def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """What the readable address of the node *node_id* is built from (``lookup.answer``);
+    None for a node that is not there or no node at all."""
+    collection, _, key = node_id.partition("/")
+    if collection not in NODE_COLLECTIONS or not key:
+        return None
+    if not store.has_node(collection, key):
+        return None
+    return lookup.answer(store, node_id).get("props") or {}
+
+
 @router.get("/render/{path:path}", include_in_schema=False)
 def render_page(
     path: str,
@@ -137,7 +149,7 @@ def render_page(
 ) -> Response:
     pathname = "/" + path
     if pathname == "/explore" and (focus := request.query_params.get("focus")):
-        props = lookup.answer(store, focus).get("props") if "/" in focus else None
+        props = _props_of(store, focus)
         readable = path_of(focus, props) if props is not None else None
         if readable:
             return _redirect(readable + _query(request, drop="focus"))
