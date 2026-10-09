@@ -29,6 +29,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
         limit: int = 0,
         case_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
+        replacing: bool = False,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         """Yield the TK Zaak records that match the filters.
@@ -40,6 +41,10 @@ class TKRetrievePipeline(RetrievePipelineBase):
         ``limit`` caps the in-memory result list per entity after fetching
         (useful for smoke-test / development runs); it is not an OData ``$top``,
         which would silently drop records beyond the cap.
+
+        With *replacing* only the cases that replace another (``Zaak.VervangenVanuit``): with
+        the epoch as *since*, every one of them, the cases stored before the retrieve read
+        that relation.
         """
         logger.info(
             "Fetching TK Zaak since %s%s",
@@ -53,6 +58,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
             top=None,
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
+            replacing=replacing,
         )
         case_count = 0
         for case in cases:

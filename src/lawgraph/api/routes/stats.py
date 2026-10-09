@@ -14,6 +14,7 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.stats import (
@@ -21,8 +22,30 @@ from lawgraph.db.queries.stats import (
     get_db_stats,
     get_judgment_coverage,
 )
+from lawgraph.db.version_cache import cached
 
 router = APIRouter()
+
+
+def stats_data(store: GraphStore) -> dict:
+    """The counts of ``/api/stats``: the same for every visitor; the counts of each table
+    kept until that table changes, so a poll of judgments counts the judgments again."""
+    return get_db_stats(
+        store,
+        lambda table, compute: cached(
+            store, ("stats", table), compute, tables=(table,)
+        ),
+    )
+
+
+def coverage_data(store: GraphStore) -> dict:
+    """The counts of ``/api/stats/coverage``: kept until the judgments change."""
+    return cached(
+        store,
+        ("coverage",),
+        lambda: get_judgment_coverage(store),
+        tables=(COLLECTION_JUDGMENTS,),
+    )
 
 
 @router.get(
@@ -38,7 +61,7 @@ router = APIRouter()
     tags=["stats"],
 )
 def get_stats(store: Annotated[GraphStore, Depends(get_store)]) -> StatsResponse:
-    data = get_db_stats(store)
+    data = stats_data(store)
     return StatsResponse(
         nodes=data["nodes"],
         stubs=data.get("stubs", {}),
@@ -98,7 +121,7 @@ def _kind(row: dict) -> str | None:
 def get_coverage(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentCoverageResponse:
-    data = get_judgment_coverage(store)
+    data = coverage_data(store)
     courts = sorted(
         (
             CoverageCourtDTO(**row, court_kind=_kind(row))

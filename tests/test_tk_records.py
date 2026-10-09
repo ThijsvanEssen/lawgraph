@@ -345,6 +345,22 @@ def test_a_moved_activity_names_the_activities_that_replaced_it() -> None:
     assert props["replaced_by"] == []
 
 
+def test_a_case_names_the_cases_it_replaces() -> None:
+    """An amended amendment ("ter vervanging van nr. 21") replaces the case of nr. 21
+    (``Zaak.VervangenVanuit``); a deleted one is none."""
+    record = {
+        "Id": "z-71",
+        "Nummer": "2024Z07443",
+        "Soort": "Amendement",
+        "VervangenVanuit": [
+            {"Id": "z-21", "Verwijderd": False},
+            {"Id": "z-gone", "Verwijderd": True},
+        ],
+    }
+    assert tk_records.replaced_cases(record) == ["z-21"]
+    assert tk_records.replaced_cases({"Id": "z-1"}) == []
+
+
 def test_a_plenary_activity_has_no_lead_committee() -> None:
     _, props = tk_records.activity({"Id": "a-1", "Soort": "Plenaire vergadering"})
     assert props["committee_id"] is None
@@ -919,3 +935,95 @@ def test_a_paper_numbered_in_no_dossier_is_no_kamerstuk() -> None:
     assert props["dossier_numbers"] == ["37020-XV"]
     assert (props["dossier_number"], props["sequence"]) == (None, None)
     assert not props["display_name"].startswith("Kamerstuk")
+
+
+def test_the_links_of_a_document_are_its_activities_attachments_and_letters() -> None:
+    # 2023D18976, a stenogram as the Gegevensmagazijn gives it with these expansions
+    stenogram = {
+        "Id": "9cd4c32c-77fb-4713-821d-faf5ebd49b61",
+        "Soort": "Stenogram",
+        "Onderwerp": "Kunstmatige intelligentie",
+        "Datum": "2023-03-28T18:35:00+02:00",
+        "DocumentNummer": "2023D18976",
+        "Vergaderjaar": "2022-2023",
+        "Volgnummer": -1,
+        "Zaak": [],
+        "Kamerstukdossier": [],
+        "DocumentActor": [],
+        "Activiteit": [{"Id": "a76eec4d-9cde-48de-aefa-6385e69dd0e1"}],
+        "BijlageDocument": [],
+        "BronDocument": [],
+    }
+    _key, props = tk_records.document(stenogram)  # type: ignore[misc]
+    assert props["case_ids"] == [] and props["dossier_numbers"] == []
+    assert props["activity_ids"] == ["a76eec4d-9cde-48de-aefa-6385e69dd0e1"]
+    assert props["attachment_ids"] == [] and props["attached_to_ids"] == []
+
+    letter = {"BijlageDocument": [{"Id": "b1"}, {"Id": "b2"}, {"Id": "b1"}, {}]}
+    assert tk_records.document_links(letter) == {
+        "activity_ids": [],
+        "attachment_ids": [
+            "b1",
+            "b2",
+        ],  # once each, in order; one without an id is none
+        "attached_to_ids": [],
+    }
+    # a record of retrieve tk-document-links: the same fields, nothing else
+    assert tk_records.document_links({"Id": "b1", "BronDocument": [{"Id": "x"}]})[
+        "attached_to_ids"
+    ] == ["x"]
+
+
+def test_the_actors_of_a_case_are_its_submitters_and_lead_committee() -> None:
+    # a motion of a member, and a bill of a minister, as retrieve tk-case-actors stores them
+    motion = {
+        "Id": "2965764e-cc8e-45f1-8f55-00003c0ab2dd",
+        "ZaakActor": [
+            {
+                "Relatie": "Voortouwcommissie",
+                "ActorAfkorting": "TK",
+                "Commissie_Id": "tk",
+            },
+            {"Relatie": "Indiener", "Persoon_Id": "p1", "Fractie_Id": "f1"},
+            {"Relatie": "Medeindiener", "Persoon_Id": "p2", "Fractie_Id": "f2"},
+            {"Relatie": "Gericht aan", "Persoon_Id": "p3", "Functie": "minister"},
+            {"Relatie": "Indiener", "Persoon_Id": None},  # no person: no submitter
+        ],
+    }
+    actors = tk_records.case_actors(motion)
+    assert actors["submitters"] == [
+        {
+            "person_id": "p1",
+            "role": "Indiener",
+            "function": None,
+            "capacity": "kamerlid",
+        },
+        {
+            "person_id": "p2",
+            "role": "Medeindiener",
+            "function": None,
+            "capacity": "kamerlid",
+        },
+    ]
+    assert actors["committee_ids"] == []  # the plenary leads: no committee
+
+    bill = {
+        "ZaakActor": [
+            {
+                "Relatie": "Voortouwcommissie",
+                "ActorAfkorting": "VWS",
+                "Commissie_Id": "befe416e-ca1b-4804-97d0-7aca1dcba888",
+            },
+            {
+                "Relatie": "Indiener",
+                "Persoon_Id": "07de26f3-a939-4ae4-b7a5-43f868a665d1",
+                "Functie": "minister voor Medische Zorg",
+            },
+            {"Relatie": "Volgcommissie", "Commissie_Id": "other"},
+        ]
+    }
+    actors = tk_records.case_actors(bill)
+    assert [(s["role"], s["capacity"]) for s in actors["submitters"]] == [
+        ("Indiener", "bewindspersoon")
+    ]
+    assert actors["committee_ids"] == ["befe416e-ca1b-4804-97d0-7aca1dcba888"]

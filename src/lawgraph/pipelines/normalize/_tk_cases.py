@@ -8,7 +8,7 @@ decision, PART_OF for a document).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -20,6 +20,8 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -113,15 +115,75 @@ def link_subjects(
     logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
 
 
-def link_cases_to_dossiers(store: Store, *, source: str) -> None:
-    """PART_OF edges from every stored case to the dossiers it belongs to.
+def link_letters_to_commitments(
+    store: Store, commitment_nodes: Iterable[Node], *, source: str
+) -> None:
+    """ANSWERS from each letter that fulfils a commitment (``letter_ids``,
+    ``KamerbriefNakoming``) to it, when the letter is stored."""
+    pairs = [
+        (make_node_key(str(letter)), node.node_id)
+        for node in commitment_nodes
+        if node.node_id
+        for letter in node.props.get("letter_ids") or []
+    ]
+    stored = store.existing_keys(COLLECTION_DOCUMENTS, {letter for letter, _ in pairs})
+    writer = EdgeWriter(store, what="letter to commitment edges")
+    for letter, commitment in pairs:
+        if letter in stored:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{letter}",
+                commitment,
+                RELATION_ANSWERS,
+                source=source,
+            )
+    writer.flush()
+    logger.info("Linked %d letters to the commitments they fulfil.", writer.added)
+
+
+def link_decisions_to_activities(
+    store: Store, decision_nodes: Iterable[Node], *, source: str
+) -> None:
+    """MADE_IN from a decision to the activity of its agenda item (``activity_id``), the
+    meeting it was taken in, when that activity is stored."""
+    pairs = [
+        (node_id, COLLECTION_ACTIVITIES, make_node_key(str(activity)))
+        for node in decision_nodes
+        if (node_id := node.node_id) and (activity := node.props.get("activity_id"))
+    ]
+    writer = EdgeWriter(store, what="decision to activity edges")
+    _queue_existing(store, pairs, RELATION_MADE_IN, writer, source=source)
+    writer.flush()
+    logger.info("Linked %d decisions to the activity they were taken in.", writer.added)
+
+
+def link_cases_to_dossiers(
+    store: Store,
+    *,
+    source: str,
+    cases: list[str] | None = None,
+    dossiers: Sequence[str] = (),
+) -> None:
+    """PART_OF edges from the stored cases to the dossiers they belong to: every case, or
+    on a run over a window the *cases* (``_id``) it touched and the cases that name one of
+    the *dossiers* (labels) it wrote, which may be new.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
     so the link is made here, once the dossiers are in place.
     """
+    if cases is None:
+        rows: Iterable[dict[str, Any]] = normalize_tk.case_dossier_numbers(store)
+    else:
+        rows = [
+            *normalize_tk.case_dossier_numbers_of(store, cases),
+            *(
+                normalize_tk.case_dossier_numbers_naming(store, list(dossiers))
+                if dossiers
+                else ()
+            ),
+        ]
     pairs = [
         (row["id"], COLLECTION_DOSSIERS, make_node_key(str(number)))
-        for row in normalize_tk.case_dossier_numbers(store)
+        for row in rows
         for number in row["dossier_numbers"] or []
     ]
     writer = EdgeWriter(store, what="case to dossier edges")
@@ -239,6 +301,59 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
     logger.info("Wrote %d AUTHORED edges.", writer.added)
 
 
+def link_documents(
+    store: Store,
+    links: Iterable[tuple[str, dict[str, Any]]],
+    *,
+    source: str,
+) -> None:
+    """MADE_IN from a document to the activities it is the record of (a stenogram: its
+    debate), and ACCOMPANIES from an attachment to its letter, between nodes that exist.
+
+    *links* are ``(TK id of the document, tk_records.document_links)``. An attachment is
+    named by its letter (``attachment_ids``) and names its letter (``attached_to_ids``):
+    either one makes the edge, so a run that holds only one of the two papers makes it too.
+    """
+    links = list(links)
+    made_in: list[tuple[str, str]] = []
+    accompanies: list[tuple[str, str]] = []
+    for document_id, of in links:
+        document = make_node_key(document_id)
+        made_in += [(document, make_node_key(a)) for a in of.get("activity_ids") or []]
+        accompanies += [
+            (make_node_key(attachment), document)
+            for attachment in of.get("attachment_ids") or []
+        ] + [
+            (document, make_node_key(letter))
+            for letter in of.get("attached_to_ids") or []
+        ]
+    documents = store.existing_keys(
+        COLLECTION_DOCUMENTS,
+        {key for pair in accompanies for key in pair} | {d for d, _ in made_in},
+    )
+    activities = store.existing_keys(COLLECTION_ACTIVITIES, {a for _, a in made_in})
+
+    writer = EdgeWriter(store, what="document links")
+    for document, activity in made_in:
+        if document in documents and activity in activities:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{document}",
+                f"{COLLECTION_ACTIVITIES}/{activity}",
+                RELATION_MADE_IN,
+                source=source,
+            )
+    for attachment, letter in accompanies:
+        if attachment != letter and attachment in documents and letter in documents:
+            writer.add(
+                f"{COLLECTION_DOCUMENTS}/{attachment}",
+                f"{COLLECTION_DOCUMENTS}/{letter}",
+                RELATION_ACCOMPANIES,
+                source=source,
+            )
+    writer.flush()
+    logger.info("Wrote %d document links (MADE_IN, ACCOMPANIES).", writer.added)
+
+
 # What the edge builders read from a node; the rest of its props (the whole API payload
 # among them) is only needed for the write.
 LINK_PROPS = (
@@ -248,6 +363,11 @@ LINK_PROPS = (
     "number",
     "activity_number",
     "actors",
+    "activity_id",
+    "activity_ids",
+    "attachment_ids",
+    "attached_to_ids",
+    "letter_ids",
     "case_kinds_by_dossier",
     "vote_kind",
 )

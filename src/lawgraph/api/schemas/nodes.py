@@ -6,29 +6,18 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.core.models import TYPE_OF_COLLECTION
+from lawgraph.core.documents import chamber_of, document_sender, paper_number
+from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
+from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
 
 # Props a node response leaves out by default: none (the graph views drop the large ones).
 _DROP_PROPS_KEYS: tuple[str, ...] = ()
 
 
-# Props that bloat the wire size of graph-view payloads without serving any
-# frontend rendering need. Stripped from focal node + every neighbor on the
-# /api/nodes/{coll}/{key} response. The detail endpoints
-# (/api/judgments/{ecli}, /api/articles/...) still return them when the
-# reader actually needs the body.
-DROP_PROPS_KEYS_GRAPH = (
-    "text",
-    "paragraphs",
-    "parties",
-    "subjects",
-    "judgment_metadata",
-    "raw_data",
-    "raw",  # documents carry the source TK payload here
-    "entries",  # annexes carry their table rows here
-    "unresolved_citations",
-)
+# Props the graph views leave out of every node, the node itself too (``db/_rows.py``; a
+# neighbour leaves out more, in its SQL: ``NEIGHBOUR_PROPS_LEFT_OUT``).
+DROP_PROPS_KEYS_GRAPH = GRAPH_PROPS_LEFT_OUT
 
 
 def node_type_of(collection: str) -> str:
@@ -49,6 +38,14 @@ def _build_node_payload(
     link = tk_url(doc.get("type"), props)
     if link:
         sanitized["tk_url"] = link
+    if doc.get("type") == NodeType.DOCUMENT.value and "number" not in props:
+        # A paper's number as its chamber cites it, under the name an EK paper stores it.
+        number = paper_number(chamber_of(doc.get("labels")), props)
+        if number:
+            sanitized["number"] = number
+        sender = document_sender(props.get("actors"), props.get("date"))
+        if sender:
+            sanitized["sender"] = sender
     return {
         "id": doc["_id"],
         "key": doc["_key"],
@@ -84,6 +81,10 @@ class BaseNodeDTO(BaseModel):
         return cls(**payload)
 
 
+# The neighbours that carry the short title of their first dossier (``NeighborDTO``).
+_NAMED_BY_DOSSIER = ("documents", "activities", "decisions")
+
+
 class NeighborDTO(BaseModel):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
@@ -110,8 +111,26 @@ class NeighborDTO(BaseModel):
         edge: dict[str, Any],
         direction: Literal["outbound", "inbound"],
         confidence: float | None,
+        names: dict[str, dict[str, Any]] | None = None,
     ) -> NeighborDTO:
+        """From the neighbour and its edge; a paper, an activity or a decision has in its
+        props ``dossier_short_title``, the name its first dossier goes by (by *names*,
+        ``load_dossier_names``; null without one)."""
         payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
+        props = payload.get("props")
+        if names is not None and isinstance(props, dict):
+            if payload["collection"] in _NAMED_BY_DOSSIER:
+                # a copy: the neighbour may be one kept for every request
+                props = payload["props"] = dict(props)
+                numbers = props.get("dossier_numbers") or [props.get("dossier_number")]
+                first = (
+                    str(numbers[0] or "")
+                    if isinstance(numbers, list) and numbers
+                    else ""
+                )
+                props["dossier_short_title"] = (names.get(first) or {}).get(
+                    "short_title"
+                )
         meta = edge.get("meta")
         return cls(
             **payload,
@@ -135,6 +154,14 @@ class NeighborBucketDTO(BaseModel):
     type: str
     total: int
     next_offset: int | None
+    lid_counts: dict[str, int] | None = Field(
+        None,
+        description=(
+            "Of an article: per lid the edges of the whole bucket cite, how many do "
+            '("" for those that cite none; an edge that cites two counts for each); '
+            "null when none of them cites a lid."
+        ),
+    )
     items: list[NeighborDTO]
 
 

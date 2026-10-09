@@ -80,6 +80,20 @@ def test_a_run_on_a_graph_without_what_it_reads_warns_and_notes_it(
     assert any("Run normalize tk-dossiers first" in m for m in caplog.messages)
 
 
+@pytest.mark.parametrize("flag", ["-h", "--help"])
+def test_help_needs_no_database(monkeypatch, flag: str) -> None:
+    """``retrieve tk-content --help`` printed its options only after a query."""
+
+    def no_database() -> object:
+        raise AssertionError("the help asked the database")
+
+    monkeypatch.setattr(inputs, "GraphStore", no_database)
+    calls: list[list[str]] = []
+    command = reading(_command(calls), [Reads("tk-dossiers", "documents", "TK")])
+    assert command([flag]).notes == []
+    assert calls == [[flag]]
+
+
 def test_a_run_on_a_graph_that_holds_it_says_nothing(graph, caplog) -> None:
     graph.add(("documents", "TK"))
     command = reading(_command([]), [Reads("tk-dossiers", "documents", "TK")])

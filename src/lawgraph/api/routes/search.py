@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated
+import datetime as dt
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.resolve import ResolveResponse
@@ -12,7 +14,13 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search import (
+    LIVE_STALE_WAIT,
+    Period,
+    search_full,
+    search_live,
+)
+from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -52,6 +60,31 @@ def search(
     resolve: Annotated[
         bool, Query(description="Also resolve `q`, as `/api/resolve` does")
     ] = False,
+    mode: Annotated[
+        Literal["full", "live"],
+        Query(
+            description=(
+                "`live` while typing: all types within 250 ms, cut off types in `partial`, "
+                "nothing ranked by its words (a word, or the start of a word of a name or "
+                "title), the judgments by ECLI, name and display name (court, date, case number), "
+                "the most cited first, and only from three characters; `full` (the "
+                "default) ranks everything, a type within 3 s: past it, its `live` hits "
+                "and the type in `partial`"
+            )
+        ),
+    ] = "full",
+    date_from: Annotated[
+        dt.date | None,
+        Query(
+            alias="from",
+            description="Hits dated on or after this day, YYYY-MM-DD: each by a date of its "
+            "own; a type without one finds nothing with a period.",
+        ),
+    ] = None,
+    date_to: Annotated[
+        dt.date | None,
+        Query(alias="to", description="Hits dated on or before this day, YYYY-MM-DD."),
+    ] = None,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -63,15 +96,24 @@ def search(
             ),
         )
     requested_types = types or list(SEARCH_TYPES)
+    search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
-    raw = search_all(
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="`from` is after `to`.")
+    period = Period(
+        date_from.isoformat() if date_from else None,
+        date_to.isoformat() if date_to else None,
+    )
+    search = search_live if mode == "live" else search_full
+    raw, partial = search(
         store,
         q=q,
         types=requested_types,
         kinds=kind_list,
         limit=limit,
+        period=period,
     )
 
     grouped: dict[str, list[SearchResultItem]] = {}
@@ -101,12 +143,17 @@ def search(
         types=requested_types,
         total=total,
         results=grouped,
-        resolved=_resolved(store, q) if resolve else None,
+        partial=dict.fromkeys(sorted(partial), True),
+        resolved=_resolved(store, q, mode) if resolve else None,
     )
 
 
-def _resolved(store: GraphStore, q: str) -> ResolveResponse:
-    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``)."""
+def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
+    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``).
+    While typing (``live``) it takes the parser of citations of the version before at once,
+    as the search does (``LIVE_STALE_WAIT``)."""
     if len(q) > RESOLVE_MAX_LENGTH:
         return ResolveResponse(q=q, **NO_MATCH)
-    return ResolveResponse(q=q, **resolve_query(store, q))
+    wait = LIVE_STALE_WAIT if mode == "live" else STALE_WAIT
+    with stale_wait(wait):
+        return ResolveResponse(q=q, **resolve_query(store, q))

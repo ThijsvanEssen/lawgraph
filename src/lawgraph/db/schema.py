@@ -849,6 +849,26 @@ def search_column(field: str, analyzer: str) -> str:
     return f"s_{field.replace('.', '_')}_{suffix}"
 
 
+def start_of_value_sql(table: str, field: str, word: str, row: str = "doc") -> str:
+    """SQL: a value of *field* (of the row *row*; no row: the table read) starts with the
+    word in the SQL *word*, in any case. A field searched for a part of its value as well
+    (``ngram``) is folded there, accents and all (``lg_fold``): its start is matched there,
+    at the start of the column or after the separator of its values. Another field (an
+    abbreviation, an identifier) is matched in any case on its values as they are."""
+    on = f"{row}." if row else ""
+    if "ngram" in SEARCH_FIELDS[table][field]:
+        column = f"{on}{search_column(field, 'ngram')}"
+        folded = f"lg_like(lg_fold({word}))"
+        return (
+            f"({column} LIKE {folded} || '%%'"
+            f" OR {column} LIKE '%%' || chr(31) || {folded} || '%%')"
+        )
+    return (
+        f"{on}{search_column(field, 'prefix')}"
+        f" ILIKE '%%' || chr(31) || lg_like({word}) || '%%'"
+    )
+
+
 def _values_sql(field: str) -> str:
     if "." in field:
         parent, child = field.split(".", 1)
@@ -918,6 +938,18 @@ def _search_indexes(collection: str) -> list[str]:
         statements.append(
             f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"
             " USING gin (search_names gin_trgm_ops)"
+        )
+        # the name folded as the search folds (``lg_fold``): ``yesilgoz`` finds Yeşilgöz.
+        # An index, not a column: no row is written again (``search_names`` is lower case
+        # only, a stored column).
+        folded = (
+            "lg_fold(name)"
+            if collection == COLLECTION_MEMBERS
+            else "lg_fold(search_names)"
+        )
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_names_folded ON {collection}"
+            f" USING gin (({folded}) gin_trgm_ops)"
         )
     for column in _search_columns(collection):
         name = f"{collection}_{column.name}"
@@ -1019,6 +1051,27 @@ def node_table(collection: str) -> list[str]:
     )
 
 
+# The day an instrument came into force, as text: the expression of the index
+# ``instruments_date_in_force``.
+INSTRUMENT_DATE_IN_FORCE = "public.lg_str(props -> 'date_in_force')"
+
+# The dossier numbers of an instrument (a publication's), as text: the expression of the
+# index ``instruments_dossier_numbers``.
+INSTRUMENT_DOSSIER_NUMBERS = "public.lg_text_array(props -> 'dossier_numbers')"
+
+
+def feed_title(alias: str = "") -> str:
+    """The title the feed shows of a paper (``queries/feed.py``), its subject or else its
+    title, folded as the search folds (``lg_fold``): the expression of the trigram index
+    ``documents_feed_title_g``, which serves the words (``q``) of the feed. The index and
+    the feed write it alike, or the planner does not take the index."""
+    p = f"{alias}." if alias else ""
+    return (
+        f"public.lg_fold(coalesce((CASE WHEN public.lg_truthy({p}pj_subject)"
+        f" THEN {p}pj_subject ELSE {p}pj_title END) #>> '{{}}', ''))"
+    )
+
+
 # The instruments list holds every instrument but the publications: an index per sort of
 # it over those alone, so that a page does not pass every publication on the way.
 _LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
@@ -1033,11 +1086,26 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         " ON instruments USING gin (public.lg_legal_area_keys(props))",
         "CREATE INDEX IF NOT EXISTS instruments_policy_domains"
         " ON instruments USING gin (public.lg_policy_domain_keys(props))",
+        # the instruments of the list (no publications: a few thousand) by the day they
+        # came into force (``from``/``to``)
+        "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
+        f" ON instruments (({INSTRUMENT_DATE_IN_FORCE})) WHERE {_LISTED}",
+        # and by the day they were published (``published_from``/``published_to``):
+        # ``(kind, date_published)`` holds every publication too
+        "CREATE INDEX IF NOT EXISTS instruments_list_date_published"
+        f" ON instruments (date_published) WHERE {_LISTED}",
+        # the publications of a dossier, for the words (``q``) of the feed in its title
+        "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
+        f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",
     ),
     # /api/documents, newest first: a page without a kind or dossier reads only itself.
     COLLECTION_DOCUMENTS: (
         "CREATE INDEX IF NOT EXISTS documents_list_date"
         " ON documents (date DESC NULLS LAST, key)",
+        # the words of the feed (``q``) in the title it shows; on a large database built
+        # beforehand with CREATE INDEX CONCURRENTLY
+        "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
+        f" ON documents USING gin (({feed_title()}) gin_trgm_ops)",
     ),
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
     COLLECTION_JUDGMENTS: (
@@ -1074,12 +1142,20 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
         (lg_text_array(doc -> 'meta' -> 'record_ids')) STORED,
     created_at text GENERATED ALWAYS AS (lg_str(doc -> 'created_at')) STORED
 );
-CREATE INDEX IF NOT EXISTS edges_from ON edges (from_id, relation, to_collection);
-CREATE INDEX IF NOT EXISTS edges_to ON edges (to_id, relation, from_collection);
+-- The edges at a node by relation and the other collection, in key order, with both ends
+-- without the row: a level of ``paths`` reads a node with 20,000 edges from a few hundred
+-- pages of the index, not a page of the table per edge; a page of a node's neighbours stops
+-- after its limit in key order instead of reading and sorting the whole bucket. The only
+-- indexes by end: one on the ends alone, smaller, was taken for a bucket the planner
+-- thought held one edge, and read the table for every edge of a hub. On a large database
+-- built beforehand with CREATE INDEX CONCURRENTLY.
+CREATE INDEX IF NOT EXISTS edges_to_cover ON edges (to_id, relation, from_collection, key)
+    INCLUDE (from_id, to_collection);
+CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_collection, key)
+    INCLUDE (to_id, from_collection);
 CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
 CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
 CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);
-CREATE INDEX IF NOT EXISTS edges_confidence ON edges (confidence);
 CREATE INDEX IF NOT EXISTS edges_record_ids ON edges USING gin (record_ids);
 CREATE INDEX IF NOT EXISTS edges_semantic_type ON edges (semantic_type)
     WHERE semantic_type IS NOT NULL;
@@ -1107,6 +1183,166 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_PIPELINE_STATE} (
     doc json NOT NULL
 )
 """
+
+# The heat of the whole graph (``/api/nodes/heat`` without ids), kept by ``semantic graph-heat``:
+# per window of months the nodes with the highest count, and when it was counted. Not a
+# table of the graph: writing it raises no data version.
+HEAT = """
+CREATE TABLE IF NOT EXISTS lg_heat (
+    months int NOT NULL,
+    id text NOT NULL,
+    count int NOT NULL,
+    PRIMARY KEY (months, id)
+);
+CREATE INDEX IF NOT EXISTS lg_heat_highest ON lg_heat (months, count DESC, id);
+CREATE TABLE IF NOT EXISTS lg_heat_state (
+    one boolean PRIMARY KEY DEFAULT true CHECK (one),
+    computed_at text NOT NULL,
+    data_version text
+)
+"""
+
+# What a judgment is as a neighbour, a node of a neighbourhood or of a path (the props the
+# explorer reads of it there, in their stored order; its summary as long as a preview needs),
+# kept apart from its props, which hold its whole text: a neighbour reads these, not the text.
+# Kept by triggers on every write of a judgment; ``semantic graph-light`` fills it once. Not
+# a table of the graph: writing it raises no data version.
+JUDGMENT_LIGHT_PROPS = (
+    "ecli",
+    "display_name",
+    "names",
+    "summary",
+    "date",
+    "court",
+    "court_code",
+    "case_number",
+    "source",
+    "jurisdiction",
+    "stub",
+    "translation_of",
+    "advocate_general",
+    "advocate_general_role",
+)
+# The characters of a summary kept: one more than a neighbour shows, so it knows to cut.
+JUDGMENT_LIGHT_SUMMARY = 401
+
+
+def judgment_light() -> list[str]:
+    keys = ", ".join(f"'{key}'" for key in JUDGMENT_LIGHT_PROPS)
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_judgment_light (
+    id text PRIMARY KEY,
+    props json NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_judgment_light_props(p json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_object_agg(
+        e.key,
+        CASE WHEN e.key = 'summary' AND json_typeof(e.value) = 'string'
+             THEN to_json(left(e.value #>> '{{}}', {JUDGMENT_LIGHT_SUMMARY}))
+             ELSE e.value END
+        ORDER BY e.n), '{{}}'::json)
+    FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
+        WITH ORDINALITY AS e(key, value, n)
+    WHERE e.key IN ({keys})
+$$""",
+        """CREATE OR REPLACE FUNCTION lg_keep_judgment_light() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_judgment_light l USING changed c WHERE l.id = c.id;
+    ELSE
+        INSERT INTO public.lg_judgment_light (id, props)
+        SELECT c.id, public.lg_judgment_light_props(c.props) FROM changed c
+        ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER judgments_light_{event.lower()}"
+            f" AFTER {event} ON judgments REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_judgment_light()"
+        )
+    return statements
+
+
+# What ``normalize tk-dossiers`` reads of each paper of a dossier to derive its title, kind
+# and phases (``queries/normalize/tk.dossier_signals``), kept apart from its props, which
+# hold its whole text: the signals of a dossier read these, not the text of its papers.
+# Kept by triggers on every write of a document; ``semantic graph-light`` fills it once. Not
+# a table of the graph: writing it raises no data version.
+DOCUMENT_LIGHT_PROPS = (
+    "kind",
+    "date",
+    "dossier_title",
+    "title",
+    "display_name",
+    "dossier_numbers",
+    "case_kinds",
+    "dossier_number",
+    "dossier_suffix",
+    "sequence",
+    # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
+    "dictum",
+)
+
+
+def document_light() -> list[str]:
+    keys = ", ".join(f"'{key}'" for key in DOCUMENT_LIGHT_PROPS)
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_document_light (
+    id text PRIMARY KEY,
+    props json NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_document_light_props(p json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT json_object_agg(e.key, e.value ORDER BY e.n)
+    FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
+        WITH ORDINALITY AS e(key, value, n)
+    WHERE e.key IN ({keys})
+$$""",
+        """CREATE OR REPLACE FUNCTION lg_keep_document_light() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_document_light l USING changed c WHERE l.id = c.id;
+    ELSE
+        INSERT INTO public.lg_document_light (id, props)
+        SELECT c.id, coalesce(public.lg_document_light_props(c.props), '{}'::json)
+        FROM changed c
+        ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER documents_light_{event.lower()}"
+            f" AFTER {event} ON documents REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_document_light()"
+        )
+    return statements
+
+
+# The terms of an article: the stems that recur in the summaries of the judgments that cite
+# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
+# the number of light summaries each stem is in, which the terms are weighed against.
+# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
+# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
+ARTICLE_TERMS = """
+CREATE TABLE IF NOT EXISTS lg_article_terms (
+    article_id text PRIMARY KEY,
+    terms text[] NOT NULL
+);
+CREATE INDEX IF NOT EXISTS lg_article_terms_terms ON lg_article_terms USING gin (terms);
+CREATE TABLE IF NOT EXISTS lg_summary_stems (
+    stem text PRIMARY KEY,
+    judgments integer NOT NULL
+)
+"""
+
 
 # ── data version ─────────────────────────────────────────────────────────────
 
@@ -1160,13 +1396,62 @@ def statements() -> list[str]:
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)
-    found += [EDGES, RAW_SOURCES, PIPELINE_STATE, nodes_view()]
+    found += [
+        EDGES,
+        RAW_SOURCES,
+        PIPELINE_STATE,
+        HEAT,
+        *judgment_light(),
+        *document_light(),
+        ARTICLE_TERMS,
+        nodes_view(),
+    ]
     found += data_version_triggers(COLLECTION_EDGES)
     return found
 
 
 class SchemaOutdated(RuntimeError):
     """The tables of the database are not those of the schema: it needs building again."""
+
+
+class CollationMismatch(RuntimeError):
+    """The database compares and sorts strings by another collation than ``COLLATION``."""
+
+
+# ``pg_database.datlocprovider``: the library a database's collation comes from.
+_PROVIDERS = {"i": "icu", "c": "libc", "b": "builtin"}
+
+
+def collation_of(conn: psycopg.Connection) -> str:
+    """The collation of the database of *conn*: ``icu und-u-kf-upper``, ``libc en_US.utf8``."""
+    row = conn.execute(
+        "SELECT datlocprovider, datlocale, datcollate FROM pg_database"
+        " WHERE datname = current_database()"
+    ).fetchone()
+    assert row is not None  # the database of the connection exists
+    provider, locale, collate = row
+    name = _PROVIDERS.get(str(provider), str(provider))
+    return f"{name} {locale if provider in ('i', 'b') else collate}"
+
+
+def check_collation(conn: psycopg.Connection, allowed: str = "") -> None:
+    """Refuse a database that does not sort by ``COLLATION``, unless it is *allowed*.
+
+    A database lawgraph makes has it (``create_database_sql``); one the postgres image
+    made at its first start (``POSTGRES_DB``) has the collation of the system. Under that
+    one strings compare otherwise: a bound "after every date" falls before the dates, and
+    names, titles and keys sort in another order than the API promises."""
+    found = collation_of(conn)
+    if found == f"icu {COLLATION}":
+        return
+    if allowed and found == allowed:
+        return
+    raise CollationMismatch(
+        f"the database sorts strings by {found}, not by icu {COLLATION}; queries that "
+        "compare or sort strings answer otherwise. Make a database with lawgraph "
+        "(create_database_sql) and restore a dump of this one into it (docs/operations.md, "
+        f"Database). LAWGRAPH_ALLOW_COLLATION='{found}' lets this one through for that."
+    )
 
 
 _TABLE = re.compile(r"CREATE TABLE IF NOT EXISTS (\w+) \(")
@@ -1257,7 +1542,7 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
     return differences
 
 
-def ensure_schema(conn: psycopg.Connection) -> None:
+def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> None:
     """Create what is missing of the schema in the database of *conn*, in one transaction
     that holds a lock, so two processes that start together do not race.
 
@@ -1267,8 +1552,10 @@ def ensure_schema(conn: psycopg.Connection) -> None:
     created, instead of letting queries fail later: the database is built again, there is
     no migration (clean slate). A changed expression is not seen: of a generated column, nor
     of a derived column of a node table (its trigger is replaced here, but rows written
-    before keep what the old one computed)."""
+    before keep what the old one computed). A database that does not sort by ``COLLATION``
+    is refused first (``check_collation``), unless it is *allowed_collation*."""
     with conn.transaction():
+        check_collation(conn, allowed_collation)
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
         # before anything is created: an index on a column the table lacks would fail first
         differences = schema_drift(conn)

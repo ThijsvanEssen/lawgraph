@@ -53,7 +53,11 @@ from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePip
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+from lawgraph.pipelines.normalize.tk_case_actors import TKCaseActorsNormalizePipeline
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
+from lawgraph.pipelines.normalize.tk_document_links import (
+    TKDocumentLinksNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve_commands import (
@@ -74,12 +78,20 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_staatscourant,
     retrieve_staatscourant_posts,
     retrieve_tk,
+    retrieve_tk_case_actors,
     retrieve_tk_content,
+    retrieve_tk_document_links,
     retrieve_tk_dossiers,
     retrieve_tooi,
     retrieve_verdragenbank,
 )
-from lawgraph.pipelines.semantic import graph_list_stats
+from lawgraph.pipelines.semantic import (
+    graph_article_terms,
+    graph_heat,
+    graph_light,
+    graph_list_stats,
+    tk_dictum,
+)
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
@@ -89,6 +101,7 @@ from lawgraph.pipelines.semantic.bwb_relation_types import (
     BWBRelationTypesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
+from lawgraph.pipelines.semantic.echr_versions import ECHRVersionsSemanticPipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
@@ -299,7 +312,11 @@ def _pipeline(
 
 
 def _bwb_articles_add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--store-citations", action="store_true")
+    parser.add_argument(
+        "--store-citations",
+        action="store_true",
+        help="Also keep the references found on each article (props.citations).",
+    )
 
 
 def _bwb_articles_extra_kwargs(args: argparse.Namespace) -> dict:
@@ -362,10 +379,28 @@ RETRIEVE: list[Pipeline] = [
         fills_gaps=True,
     ),
     _pipeline(
+        retrieve_tk_document_links,
+        (
+            "The links of Tweede Kamer documents alone: the activity a document is the record"
+            " of (a stenogram: its debate), its attachments, the letters it is attached to."
+        ),
+        argv_for_all=_windowed_argv,
+        lane=LANE_TWEEDE_KAMER,
+    ),
+    _pipeline(
+        retrieve_tk_case_actors,
+        (
+            "The actors of Tweede Kamer cases alone: who submitted a case and which"
+            " committee leads it."
+        ),
+        argv_for_all=_windowed_argv,
+        lane=LANE_TWEEDE_KAMER,
+    ),
+    _pipeline(
         retrieve_tk_content,
         (
-            "XML of Tweede Kamer papers (explanatory memoranda) from the KOOP repository: those "
-            "of which none is stored yet, one XML per paper."
+            "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
+            "repository: those of which none is stored yet, one XML per paper."
         ),
         argv_for_all=_no_argv,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
@@ -530,6 +565,22 @@ NORMALIZE: list[Pipeline] = [
         after=("tk",),  # the case-to-dossier links read the cases
     ),
     _pipeline(
+        TKDocumentLinksNormalizePipeline,
+        (
+            "MADE_IN from a document to the activity it is the record of, and ACCOMPANIES "
+            "from an attachment to its letter, from the stored links of the documents."
+        ),
+        after=("tk-dossiers",),  # the documents and activities it links
+    ),
+    _pipeline(
+        TKCaseActorsNormalizePipeline,
+        (
+            "AUTHORED from a member to the case they submitted, and LED_BY from a case to "
+            "its lead committee, from the stored actors of the cases."
+        ),
+        after=("tk", "tk-dossiers"),  # the cases, members and committees it links
+    ),
+    _pipeline(
         TKContentNormalizePipeline,
         (
             "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
@@ -658,6 +709,13 @@ SEMANTIC: list[Pipeline] = [
         "REFERS_TO: links ECHR judgments to Convention articles.",
     ),
     _pipeline(
+        ECHRVersionsSemanticPipeline,
+        (
+            "SAME_AS between the language versions of an ECHR decision without an ECLI "
+            "(same appno and date); the lists show it once."
+        ),
+    ),
+    _pipeline(
         RechtspraakAppealSemanticPipeline,
         (
             "APPEAL_OF, CONTINUES and REFERRED_BY from a judgment to the earlier judgments "
@@ -689,8 +747,9 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakCitationsSemanticPipeline,
         (
-            "ECLI references between judgments: REFERS_TO, none between judgments the steps "
-            "above tie; cited judgments that are not loaded become stubs."
+            "ECLI references between judgments: REFERS_TO, none between judgments that "
+            "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; "
+            "cited judgments that are not loaded become stubs."
         ),
     ),
     _pipeline(
@@ -755,6 +814,22 @@ SEMANTIC: list[Pipeline] = [
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
         ),
+    ),
+    _pipeline(
+        tk_dictum.main,
+        "Keeps the dictum of every motion with text (what it asks or says).",
+    ),
+    _pipeline(
+        graph_light.main,
+        "Keeps every judgment as a neighbour without its text, for those written before.",
+    ),
+    _pipeline(
+        graph_article_terms.main,
+        "Keeps per article the terms the judgments that cite it call it by.",
+    ),
+    _pipeline(
+        graph_heat.main,
+        "Keeps the heat of the whole graph, which the API reads instead of the edges.",
     ),
     _pipeline(
         graph_list_stats.main,

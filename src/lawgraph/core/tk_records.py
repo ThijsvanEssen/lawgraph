@@ -249,6 +249,8 @@ def case(payload: Payload) -> Record | None:
         "started_on": iso_date(payload.get("GestartOp")),
         # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
         "related_cases": related_cases(payload),
+        # The cases this one replaces, and their papers its papers (REVISES).
+        "replaces_cases": replaced_cases(payload),
     }
     if title:
         props["title"] = title
@@ -272,6 +274,16 @@ def related_cases(payload: Payload) -> list[dict[str, Any]]:
             "dossier_numbers": dossier_numbers([other]),
         }
         for other in _dicts(payload.get("GerelateerdNaar"))
+        if other.get("Id") and not other.get("Verwijderd")
+    ]
+
+
+def replaced_cases(payload: Payload) -> list[str]:
+    """The ids of the cases a Zaak replaces (``VervangenVanuit``): an amended amendment or
+    motion, "ter vervanging van nr. 21", replaces the case of nr. 21."""
+    return [
+        str(other["Id"])
+        for other in _dicts(payload.get("VervangenVanuit"))
         if other.get("Id") and not other.get("Verwijderd")
     ]
 
@@ -703,6 +715,10 @@ def commitment(payload: Payload) -> Record | None:
         "activity_number": str(payload.get("ActiviteitNummer") or ""),
         "number": _text(payload, "Nummer") or None,
         "display_name": shorten(text, 80),
+        # the letters that fulfil it (``KamerbriefNakoming``): ANSWERS
+        "letter_ids": _distinct(
+            [str(d.get("Id") or "") for d in _dicts(payload.get("KamerbriefNakoming"))]
+        ),
     }
 
 
@@ -771,6 +787,47 @@ def document_actors(payload: Payload) -> list[dict[str, Any]]:
             }
         )
     return actors
+
+
+# The ZaakActor relations of the people who submitted a Zaak, and of its lead committee.
+CASE_SUBMITTER_RELATIONS = ("Indiener", "Medeindiener")
+CASE_LEAD_RELATION = "Voortouwcommissie"
+
+
+def case_actors(payload: Payload) -> dict[str, Any]:
+    """Who submitted a Zaak and which committee leads it, from its ``ZaakActor``:
+    ``submitters`` (``person_id``, ``role`` as the source writes it, ``function`` and the
+    ``capacity`` that makes it, as ``document_actors``) and ``committee_ids`` (the
+    voortouwcommissie; none when the plenary leads, as for an activity). Read from a record
+    of ``retrieve tk-case-actors``."""
+    actors = list(_dicts(payload.get("ZaakActor")))
+    submitters = []
+    for actor in actors:
+        person_id = str(actor.get("Persoon_Id") or "")
+        if actor.get("Relatie") not in CASE_SUBMITTER_RELATIONS or not person_id:
+            continue
+        function = (actor.get("Functie") or "").strip() or None
+        submitters.append(
+            {
+                "person_id": person_id,
+                "role": actor["Relatie"],
+                "function": function,
+                "capacity": signing_capacity(
+                    function, str(actor.get("Fractie_Id") or "") or None
+                ),
+            }
+        )
+    return {
+        "submitters": submitters,
+        "committee_ids": _distinct(
+            [
+                str(actor.get("Commissie_Id") or "")
+                for actor in actors
+                if actor.get("Relatie") == CASE_LEAD_RELATION
+                and actor.get("ActorAfkorting") != PLENARY_VOORTOUW
+            ]
+        ),
+    }
 
 
 def submitters(
@@ -874,6 +931,25 @@ def document(payload: Payload) -> Record | None:
         "document_number": payload.get("DocumentNummer") or None,
         "display_name": document_display_name(own_label, sequence, kind, title),
         "actors": document_actors(payload),
+        **document_links(payload),
+    }
+
+
+def document_links(payload: Payload) -> dict[str, list[str]]:
+    """The links of a Document, as TK ids: ``activity_ids`` (``Activiteit``: the debate a
+    stenogram is the record of), ``attachment_ids`` (``BijlageDocument``: the attachments
+    of a letter) and ``attached_to_ids`` (``BronDocument``: the letters it is an attachment
+    of). Read from a Document record and from one of ``retrieve tk-document-links``."""
+
+    def ids(field: str) -> list[str]:
+        return _distinct(
+            [str(item.get("Id") or "") for item in _dicts(payload.get(field))]
+        )
+
+    return {
+        "activity_ids": ids("Activiteit"),
+        "attachment_ids": ids("BijlageDocument"),
+        "attached_to_ids": ids("BronDocument"),
     }
 
 
@@ -1013,6 +1089,8 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     return make_node_key("decision", decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
+        # the activity of its agenda item: the meeting it was taken in (MADE_IN)
+        "activity_id": str(activity.get("Id") or "") or None,
         # The day of the vote; a row's GewijzigdOp is when it was last edited.
         "date": iso_date(activity.get("Datum"))
         or (iso_date(votes[0].changed_at) if votes else None),

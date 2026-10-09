@@ -13,6 +13,19 @@ from lawgraph.core.time import odata_datetime
 
 logger = get_logger(__name__)
 
+# The links of a Document (``tk_records.document_links``): the activity it is the record of
+# (a stenogram: its debate), its attachments, and the letters it is an attachment of.
+_DOCUMENT_LINKS = (
+    "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
+)
+
+# The actors of a Zaak (``tk_records.case_actors``): who submitted it (``Indiener``,
+# ``Medeindiener``) and its lead committee (``Voortouwcommissie``), among the others.
+_CASE_ACTORS = (
+    "ZaakActor($select=Relatie,Functie,ActorAfkorting,Persoon_Id,Fractie_Id,"
+    "Commissie_Id)"
+)
+
 
 def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
     """Build an OData OR expression: (contains(tolower(F),'kw') or ...)."""
@@ -85,12 +98,16 @@ class TKClient(BaseClient):
         top: int | None = 100,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
+        replacing: bool = False,
     ) -> Iterable[dict[str, Any]]:
-        """Return TK Zaak records modified since *since*."""
+        """Return TK Zaak records modified since *since*; with *replacing* only those that
+        replace another (``VervangenVanuit``: an amended amendment or motion)."""
         since_string = odata_datetime(since)
         odata_filter = f"ApiGewijzigdOp ge {since_string}"
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
+        if replacing:
+            odata_filter += " and VervangenVanuit/any()"
         params: dict[str, Any] = {
             "$filter": odata_filter,
             # What `normalize tk` reads the dossier numbers of a case from, and the cases
@@ -98,7 +115,9 @@ class TKClient(BaseClient):
             "$expand": (
                 "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "GerelateerdNaar($select=Id,Soort,Verwijderd;"
-                "$expand=Kamerstukdossier($select=Nummer,Toevoeging))"
+                "$expand=Kamerstukdossier($select=Nummer,Toevoeging)),"
+                # the case an amended amendment or motion replaces ("ter vervanging van")
+                "VervangenVanuit($select=Id,Verwijderd)"
             ),
         }
         if top is not None:
@@ -233,8 +252,9 @@ class TKClient(BaseClient):
         since: dt.datetime | None = None,
         top: int = 250,
     ) -> Iterable[dict[str, Any]]:
-        """Fetch Toezegging (ministerial commitment) records."""
-        params: dict[str, Any] = {}
+        """Fetch Toezegging (ministerial commitment) records, with the letters that fulfil
+        them (``KamerbriefNakoming``, their ids)."""
+        params: dict[str, Any] = {"$expand": "KamerbriefNakoming($select=Id)"}
         if since is not None:
             since_string = odata_datetime(since)
             params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
@@ -282,7 +302,8 @@ class TKClient(BaseClient):
                 "Kamerstukdossier($select=Id,Nummer,Toevoeging),"
                 "Zaak($select=Id,Soort,Titel,Onderwerp,Nummer;"
                 "$expand=Kamerstukdossier($select=Id,Nummer,Toevoeging,Titel)),"
-                "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id)"
+                "DocumentActor($select=Id,ActorNaam,ActorFractie,Functie,Relatie,Persoon_Id,Fractie_Id),"
+                f"{_DOCUMENT_LINKS}"
             ),
         }
         filters: list[str] = []
@@ -312,6 +333,39 @@ class TKClient(BaseClient):
         else:
             logger.info("Fetching all Document records")
         return self._skip_paged_get("Document", params=params, page_size=top)
+
+    def fetch_document_links(
+        self, since: dt.datetime | None = None, top: int = 250
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the links of every Document (modified since *since*), and nothing else:
+        its id, whether it was deleted, and the ids of its activities, attachments and the
+        letters it is an attachment of. A record is a few hundred bytes, against kilobytes
+        for a whole Document, so every paper's links can be fetched again at little cost."""
+        params: dict[str, Any] = {
+            "$select": "Id,Verwijderd",
+            "$expand": _DOCUMENT_LINKS,
+        }
+        if since is not None:
+            params["$filter"] = f"ApiGewijzigdOp ge {odata_datetime(since)}"
+            logger.info("Fetching Document links modified since %s", since.isoformat())
+        else:
+            logger.info("Fetching the links of every Document")
+        return self._skip_paged_get("Document", params=params, page_size=top)
+
+    def fetch_case_actors(
+        self, since: dt.datetime | None = None, top: int = 250
+    ) -> Iterable[dict[str, Any]]:
+        """Fetch the actors of every Zaak (modified since *since*), and nothing else: its
+        id, whether it was deleted, and per actor its relation, function, abbreviation and
+        the ids of its person, faction or committee. A change of an actor moves the
+        ``ApiGewijzigdOp`` of its Zaak, so a window finds it."""
+        params: dict[str, Any] = {"$select": "Id,Verwijderd", "$expand": _CASE_ACTORS}
+        if since is not None:
+            params["$filter"] = f"ApiGewijzigdOp ge {odata_datetime(since)}"
+            logger.info("Fetching Zaak actors modified since %s", since.isoformat())
+        else:
+            logger.info("Fetching the actors of every Zaak")
+        return self._skip_paged_get("Zaak", params=params, page_size=top)
 
     def fetch_personen(self, top: int = 250) -> Iterable[dict[str, Any]]:
         """Fetch Persoon (parliamentary member) records.

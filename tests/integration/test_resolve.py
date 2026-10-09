@@ -20,9 +20,8 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
-from lawgraph.db.queries import search as search_module
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search import SCORE_IDENTIFIER, SCORE_WORDS, search_all
 from lawgraph.db.store import _text
@@ -172,6 +171,7 @@ def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
             "confidence": 0.0,
             "match": None,
             "alternatives": [],
+            "alternatives_total": 0,
             "qualifier": None,
         }
 
@@ -264,7 +264,7 @@ def _treaty_and_eu_act(store: GraphStore) -> None:
         short_title="Algemene verordening gegevensbescherming",
     )
     _article(store, GDPR, "6")
-    search_module._law_cache.clear()
+    version_cache.clear()
 
 
 @pytest.mark.parametrize(
@@ -410,7 +410,7 @@ def test_an_exact_name_comes_before_names_that_start_with_it(
     store: GraphStore,
 ) -> None:
     _instrument(store, "BWBR0009100", "Grondwet voor het Koninkrijk der Nederlanden")
-    search_module._law_cache.clear()
+    version_cache.clear()
     answer = resolve(store, "Grondwet")
     assert _keys(answer) == ["bwbr0001840", "bwbr0009100"]
     assert [answer["confidence"], answer["alternatives"][0]["confidence"]] == [0.9, 0.6]

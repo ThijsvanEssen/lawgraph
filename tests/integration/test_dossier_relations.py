@@ -46,6 +46,10 @@ _DOSSIERS = [
 ]
 
 
+_NR_21 = "c21a0000-0000-4000-8000-000000000021"
+_NR_71 = "c71a0000-0000-4000-8000-000000000071"
+
+
 def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
     records: list[tuple[str, dict[str, Any]]] = [
         (
@@ -76,7 +80,48 @@ def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
             }
         ],
     }
-    records += [(RAW_KIND_TK_ZAAK, change), (RAW_KIND_TK_ZAAK, letter)]
+    # the motion's own case, retrieved too: the two cases are tied themselves
+    motion = {
+        "Id": uid(3, 2),
+        "Nummer": "2025Z20000",
+        "Soort": "Motie",
+        "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "XXII"}],
+    }
+    # an amendment, and the amended one that replaces it ("ter vervanging van nr. 21")
+    amendment = {
+        "Id": uid(4, 2),
+        "Nummer": "2025Z07053",
+        "Soort": "Amendement",
+        "Kamerstukdossier": [{"Nummer": 36800, "Toevoeging": "XXII"}],
+    }
+    amended = {
+        **amendment,
+        "Id": uid(5, 2),
+        "Nummer": "2025Z07443",
+        "VervangenVanuit": [{"Id": uid(4, 2), "Verwijderd": False}],
+    }
+    records += [
+        (RAW_KIND_TK_ZAAK, change),
+        (RAW_KIND_TK_ZAAK, letter),
+        (RAW_KIND_TK_ZAAK, motion),
+        (RAW_KIND_TK_ZAAK, amendment),
+        (RAW_KIND_TK_ZAAK, amended),
+    ]
+    for paper, number, case in ((_NR_21, 21, amendment), (_NR_71, 71, amended)):
+        records.append(
+            (
+                RAW_KIND_TK_DOCUMENT,
+                {
+                    "Id": paper,
+                    "DocumentNummer": f"2025D{number:05d}",
+                    "Soort": "Amendement",
+                    "Titel": _DOSSIERS[4][2],
+                    "Datum": f"{today.isoformat()}T00:00:00+02:00",
+                    "Volgnummer": number,
+                    "Zaak": [case],
+                },
+            )
+        )
     records.append(
         (
             RAW_KIND_TK_DOCUMENT,
@@ -100,6 +145,20 @@ def _records(today: dt.date) -> list[tuple[str, dict[str, Any]]]:
                 "Soort": "Plenair debat (wetgeving)",
                 "Datum": f"{today.isoformat()}T00:00:00+02:00",
                 "Agendapunt": [{"Zaak": [change]}],
+            },
+        )
+    )
+    # the debate first planned a week earlier, moved: the plenary debate above replaced it
+    records.append(
+        (
+            RAW_KIND_TK_ACTIVITEIT,
+            {
+                "Id": "5b9c0e5e-1d3f-4a6c-9b0e-2c7d6f3e8a11",
+                "Nummer": "2026A02790",
+                "Soort": "Plenair debat (wetgeving)",
+                "Status": "Verplaatst",
+                "Datum": f"{(today - dt.timedelta(days=7)).isoformat()}T00:00:00+02:00",
+                "VervangenDoor": [{"Id": "72da4199", "Nummer": "2026A02881"}],
             },
         )
     )
@@ -149,6 +208,24 @@ def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
         ("ACCOMPANIES", "dossiers/37035_iii", "dossiers/37020"),
         ("ACCOMPANIES", "dossiers/37035_iia", "dossiers/37020"),
         ("RELATED_TO", "dossiers/21501_02", "dossiers/36800_xxii"),
+        # the letter and the motion it answers, case to case
+        (
+            "RELATED_TO",
+            "cases/" + uid(2, 2).lower().replace("-", "_"),
+            "cases/" + uid(3, 2).lower().replace("-", "_"),
+        ),
+        # the amended amendment replaces nr. 21: paper to paper
+        (
+            "REVISES",
+            "documents/" + _NR_71.replace("-", "_"),
+            "documents/" + _NR_21.replace("-", "_"),
+        ),
+        # the debate continues the one it replaced
+        (
+            "CONTINUES",
+            "activities/72da4199_b2ec_4f4e_9a19_53071d8e1ab4",
+            "activities/5b9c0e5e_1d3f_4a6c_9b0e_2c7d6f3e8a11",
+        ),
     }
     # 37035-IIA has no budget of 2026 in the graph: it revises nothing.
     cli("semantic", "tk-dossier-relations")

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from urllib.parse import quote
 
 from dotenv import find_dotenv, load_dotenv
@@ -54,6 +55,15 @@ DB_URL = os.getenv(
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
 DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+# Connections of one process for what the API computes in the background (its warm-up and
+# the answers it keeps per data version), apart from the ones above: a slow computation
+# never keeps a request waiting for a connection. Opened when first needed. One for each
+# computation of ``version_cache`` (its ``WORKERS``, 3) and one for the warm-up.
+DB_BACKGROUND_POOL_SIZE = _env_positive_int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 4)
+# A database whose strings sort by another collation than the schema's ICU collation is
+# refused; this names the one let through anyway, for the dump and restore that replaces it
+# (``libc en_US.utf8``, as the refusal names it).
+ALLOW_COLLATION = os.getenv("LAWGRAPH_ALLOW_COLLATION", "").strip()
 # The longest a statement that writes may run (``statement_timeout``, db/store.py), in
 # milliseconds: a ceiling that is never off. A build on a slow disk raises it.
 WRITE_TIMEOUT_MS = _env_positive_int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
@@ -87,6 +97,10 @@ DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
 PAYLOAD_STORE = os.getenv(
     "LAWGRAPH_PAYLOAD_STORE", "file://~/.local/share/lawgraph/payloads"
 )
+# Where the API keeps the counts of the terms searched (``core/search_stats.py``).
+SEARCH_STATS_DIR = Path(
+    os.getenv("LAWGRAPH_SEARCH_STATS_DIR", "~/.local/share/lawgraph/search-stats")
+).expanduser()
 S3_ENDPOINT = os.getenv("LAWGRAPH_S3_ENDPOINT") or None
 S3_REGION = os.getenv("LAWGRAPH_S3_REGION") or None
 S3_ACCESS_KEY = os.getenv("LAWGRAPH_S3_ACCESS_KEY") or None
@@ -177,6 +191,16 @@ API_ALLOWED_ORIGINS = _env_list(
     "LAWGRAPH_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
 )
+# The longest one request to the API may read the database, in milliseconds: every
+# statement of it gets what is left (a request of eight counts lasts no eight ceilings).
+API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30_000)
+# The API computes the answers every visitor asks (facets of the unfiltered lists, the
+# statistics, the heat) at its start and after every data change, in the background.
+API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
+# At least this many minutes between the starts of two warm-ups after a data change (0: none):
+# a poll that writes every half hour does not keep the database warming. Between them the API
+# answers from what it kept of the data before.
+API_WARM_UP_MIN_INTERVAL = float(os.getenv("LAWGRAPH_WARM_UP_MIN_INTERVAL", "0"))
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))

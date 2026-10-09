@@ -13,8 +13,10 @@ from psycopg import sql
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
     RELATION_PART_OF,
 )
 from lawgraph.core.models import collection_from_id, make_node_key
@@ -26,7 +28,7 @@ from lawgraph.db.schema import search_column
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
 CONFIDENCE_CITATION = 0.95  # a citation read whole: article of a law, dossier, paper
-CONFIDENCE_NAME = 0.9  # a law by its exact abbreviation or full name
+CONFIDENCE_NAME = 0.9  # a law, faction or member by its exact abbreviation or full name
 CONFIDENCE_PARTIAL = 0.6  # the dossier of a paper that is not in the graph; a law by the start of its name
 CONFIDENCE_AMBIGUOUS = 0.5  # the ceiling when several nodes fit equally well
 CONFIDENCE_CONTAINS = 0.4  # a law by part of its name
@@ -53,16 +55,32 @@ def _not_null(*fields: str) -> str:
     return f"(CASE {cases} END)"
 
 
+_DEFAULT_NAME = _not_null("display_name", "title")
+# An article that has no name of its own (a stub: a citation named it before, or without,
+# its law's text) is named by its number and its law: "Artikel 162 Burgerlijk Wetboek Boek 7".
+_ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
+    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(doc.props -> 'article_number'),
+                             coalesce(lg_str(i.props -> 'citation_title'),
+                                      lg_str(i.props -> 'title'))))
+    FROM (SELECT 1) one
+    LEFT JOIN LATERAL (
+        SELECT i.props FROM instruments i
+        WHERE i.bwb_id = doc.bwb_id OR i.celex = doc.celex
+        ORDER BY i.key LIMIT 1
+    ) i ON true
+    WHERE lg_str(doc.props -> 'article_number') IS NOT NULL
+))"""
 _NAME_OF = {
     COLLECTION_INSTRUMENTS: _not_null("citation_title", "display_name", "title"),
+    COLLECTION_ARTICLES: _ARTICLE_NAME,
 }
-_DEFAULT_NAME = _not_null("display_name", "title")
 
 NO_MATCH: dict[str, Any] = {
     "kind": "none",
     "confidence": 0.0,
     "match": None,
     "alternatives": [],
+    "alternatives_total": 0,
     "qualifier": None,
 }
 
@@ -134,11 +152,45 @@ def _laws_named(store: GraphStore, matches: list[LawMatch]) -> list[dict[str, An
 
 def _articles(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     named = [a for a in notation.articles if a.law_id]
+    if notation.choice:
+        return _chosen(store, notation)
     if named:
         keys = [make_node_key(a.law_id, a.number) for a in named]
         rows = _by_keys(store, COLLECTION_ARTICLES, keys)
         return [_target(row, "article", CONFIDENCE_CITATION) for row in rows]
     return _articles_without_law(store, [a.number for a in notation.articles])
+
+
+def _chosen(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
+    """The articles a citation that leaves the book open may mean, the most cited first
+    (of as many, in the order of the books): of a code it names, its books (``artikel 162
+    BW``: Boek 6 before Boek 1); without a law (``art. 8:69``) the article of that book of
+    the code with books and those of that number in any law together (the Awb's 8:69
+    before Boek 8 BW). One alone is the citation, several are a choice (each at most
+    ``CONFIDENCE_AMBIGUOUS``)."""
+    named = [a for a in notation.articles if a.law_id]
+    keys = [make_node_key(a.law_id or "", a.number) for a in named]
+    found = [
+        _target(row, "article", CONFIDENCE_CITATION)
+        for row in _by_keys(store, COLLECTION_ARTICLES, keys)
+    ]
+    loose = [a.number for a in notation.articles if not a.law_id]
+    if loose:
+        seen = {t["id"] for t in found}
+        found += [t for t in _articles_without_law(store, loose) if t["id"] not in seen]
+    return _capped(_most_cited_first(store, found) if len(found) > 1 else found)
+
+
+def _most_cited_first(
+    store: GraphStore, targets: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """*targets* (articles) the most cited first; of as many citations, in their order."""
+    rows = store.query(
+        "SELECT id, inbound_citation_count AS n FROM articles WHERE id = ANY(%(ids)s)",
+        {"ids": [t["id"] for t in targets]},
+    )
+    cited = {row["id"]: row["n"] or 0 for row in rows}
+    return sorted(targets, key=lambda t: -cited.get(t["id"], 0))
 
 
 def _articles_without_law(
@@ -150,7 +202,7 @@ def _articles_without_law(
     """
     folded = search_column("article_number", "norm")
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+        SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
         FROM articles doc
         WHERE doc.{folded} && (
             SELECT array_agg(lg_fold(n)) FROM unnest(%(numbers)s::text[]) AS n
@@ -179,7 +231,7 @@ def _headed_article(
         if not law_ids:
             continue
         statement = f"""
-            SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+            SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
             FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
             JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
             WHERE coalesce(json_typeof(doc.props -> 'article_number'), 'null') = 'null'
@@ -297,34 +349,94 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return [_target(r, "dossier", CONFIDENCE_PARTIAL) for r in exact or rows]
 
 
+# ── factions and members ──────────────────────────────────────────────────────
+
+# The factions whose abbreviation, name or alias is the query, and the members whose name
+# it is, folded (``lg_fold``) and whole; each through its trigram index of folded names
+# (``schema._search_indexes``). The seated first, then the most seats, then the key.
+_PARTIES_SQL = f"""
+SELECT p.id, p.key, p.display_name, p.kind
+FROM (
+    SELECT f.id, f.key, coalesce(f.props ->> 'name', f.props ->> 'abbreviation')
+               AS display_name,
+           'faction' AS kind, 0 AS n, f.active, f.seats
+    FROM {COLLECTION_FACTIONS} f
+    WHERE lg_fold(f.search_names) LIKE '%%' || lg_like(lg_fold(%(q)s)) || '%%'
+      AND lg_fold(%(q)s) = ANY(
+          ARRAY[lg_fold(f.props ->> 'abbreviation'), lg_fold(f.props ->> 'name')]
+          || lg_fold_all(lg_text_array(f.props -> 'aliases'))
+      )
+    UNION ALL
+    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.active, NULL
+    FROM {COLLECTION_MEMBERS} m
+    WHERE lg_fold(m.name) LIKE lg_like(lg_fold(%(q)s))
+) p
+ORDER BY p.n, p.active DESC NULLS LAST, p.seats DESC NULLS LAST, p.key
+LIMIT %(limit)s
+"""
+
+
+def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
+    """The factions and members *q* is the name of: the first sure (a party named "VVD" goes
+    before the regulation whose abbreviation it is), the others as alternatives."""
+    rows = store.query(_PARTIES_SQL, {"q": q.strip(), "limit": ALTERNATIVES + 1})
+    return [
+        _target(row, row["kind"], CONFIDENCE_NAME if n == 0 else CONFIDENCE_AMBIGUOUS)
+        for n, row in enumerate(rows)
+    ]
+
+
 # ── the answer ────────────────────────────────────────────────────────────────
 
 
-def _candidates(store: GraphStore, q: str) -> tuple[list[dict[str, Any]], str | None]:
-    """What the query may mean, and the qualifier (``derde lid``) of a citation."""
+def _candidates(
+    store: GraphStore, q: str
+) -> tuple[list[dict[str, Any]], str | None, bool]:
+    """What the query may mean, the qualifier (``derde lid``) of a citation, and whether it
+    is a choice between them (``art. 3 BW``)."""
     parser = load_notation_parser(store)
     notation = parser.parse(q)
     if notation is None:
         headed = _headed_article(store, q, parser)
-        return headed or _laws_named(store, parser.law_matches(q)), None
+        if headed:
+            return headed, None, False
+        # a faction or member before a law of the same name, which then is an alternative
+        laws = _laws_named(store, parser.law_matches(q))
+        return [*_parties_named(store, q), *laws], None, False
     if notation.kind == "article":
-        return _articles(store, notation), notation.qualifier
+        return _articles(store, notation), notation.qualifier, notation.choice
     if notation.kind == "dossier":
-        return _dossier(store, notation), None
+        return _dossier(store, notation), None, False
     if notation.kind == "document":
-        return _document(store, notation), None
+        return _document(store, notation), None, False
     if notation.kind == "commitment":
-        return _commitment(store, notation), None
-    return _identified(store, notation), None
+        return _commitment(store, notation), None, False
+    return _identified(store, notation), None, False
+
+
+# The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
+CHOICES = 10
 
 
 def resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """The best match for *q* and up to ``ALTERNATIVES`` others, best first.
 
     ``kind`` and ``confidence`` are those of the match; ``qualifier`` is the ``lid`` or
-    ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error.
+    ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error. A
+    citation that leaves open which of several articles it means (``art. 3 BW``) has no
+    match: ``alternatives`` are the ``CHOICES`` first of them, in the order of the books.
+    ``alternatives_total`` is how many alternatives were found.
     """
-    candidates, qualifier = _candidates(store, q)
+    candidates, qualifier, choice = _candidates(store, q)
+    if choice and len(candidates) > 1:
+        return {
+            "kind": "article",
+            "confidence": CONFIDENCE_AMBIGUOUS,
+            "match": None,
+            "alternatives": candidates[:CHOICES],
+            "alternatives_total": len(candidates),
+            "qualifier": qualifier,
+        }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
         return dict(NO_MATCH)
@@ -334,5 +446,6 @@ def resolve(store: GraphStore, q: str) -> dict[str, Any]:
         "confidence": best["confidence"],
         "match": best,
         "alternatives": ordered[1 : ALTERNATIVES + 1],
+        "alternatives_total": len(ordered) - 1,
         "qualifier": qualifier if best["kind"] == "article" else None,
     }

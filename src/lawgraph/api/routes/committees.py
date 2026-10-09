@@ -41,6 +41,7 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentDTO,
     TouchedInstrumentsResponse,
 )
+from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.cache import _MISSING, TTLCache
@@ -59,7 +60,7 @@ from lawgraph.db.queries.committees import (
     get_member_votes,
     get_members,
 )
-from lawgraph.db.queries.dossiers import enrich_dossier_docs
+from lawgraph.db.queries.dossiers import enrich_dossier_docs, load_dossier_names
 
 router = APIRouter()
 members_router = APIRouter()
@@ -70,6 +71,25 @@ factions_router = APIRouter()
 _faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] = (
     TTLCache(maxsize=64)
 )
+
+
+# A period of the lists (inclusive; one side alone is open on the other): those active in it.
+ActiveFrom = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or after this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+ActiveTo = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or before this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+
+
+def _day(day: dt.date | None) -> str | None:
+    return day.isoformat() if day else None
 
 
 @router.get(
@@ -88,10 +108,17 @@ def list_committees(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[CommitteeDTO]:
     return [
         CommitteeDTO.from_document(doc)
-        for doc in get_committees(store, chamber=chamber)
+        for doc in get_committees(
+            store,
+            chamber=chamber,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
+        )
     ]
 
 
@@ -154,9 +181,16 @@ def list_committee_activities(
     raw = get_committee_activities(store, slug, limit=limit, offset=offset)
     if raw is None:
         raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
+    names = load_dossier_names(store)
     return CommitteeActivitiesResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitteeActivityDTO(**item) for item in raw.get("items") or []],
+        items=[
+            CommitteeActivityDTO(
+                **item,
+                dossiers=dossier_names_of(item.get("dossier_numbers") or [], names),
+            )
+            for item in raw.get("items") or []
+        ],
     )
 
 
@@ -182,7 +216,10 @@ def list_members(
     active: Annotated[
         bool | None, Query(description="Only members currently seated.")
     ] = None,
-    q: Annotated[str | None, Query(description="Name substring.")] = None,
+    q: Annotated[
+        str | None,
+        Query(description="A part of the name, in any case, with or without accents."),
+    ] = None,
     include_all: Annotated[bool, Query()] = False,
     capacity: Annotated[
         Literal["bewindspersoon"] | None,
@@ -215,6 +252,8 @@ def list_members(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[MemberDTO]:
     if chamber == "EK":
         ek = get_ek_members(
@@ -225,6 +264,8 @@ def list_members(
             sort=sort,
             limit=limit,
             offset=offset,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
         )
         return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
@@ -239,6 +280,8 @@ def list_members(
         sort=sort,
         limit=limit,
         offset=offset,
+        active_from=_day(active_from),
+        active_to=_day(active_to),
     )
     return [MemberDTO.from_document(d) for d in docs]
 
@@ -349,7 +392,13 @@ def list_factions(
     active: Annotated[
         bool | None, Query(description="Only (in)active parties.")
     ] = None,
-    q: Annotated[str | None, Query(description="Name or abbreviation.")] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            description="A part of the name or abbreviation, in any case, with or "
+            "without accents."
+        ),
+    ] = None,
     chamber: Annotated[
         Literal["TK", "EK"],
         Query(
@@ -357,10 +406,19 @@ def list_factions(
             "(periods as observed: ``observed_from``, ``observed_until``)."
         ),
     ] = "TK",
+    active_from: ActiveFrom = None,
+    active_to: ActiveTo = None,
 ) -> list[FactionDTO]:
     return [
         FactionDTO.from_document(doc, member_count=int(doc.get("member_count") or 0))
-        for doc in get_factions(store, active=active, q=q, chamber=chamber)
+        for doc in get_factions(
+            store,
+            active=active,
+            q=q,
+            chamber=chamber,
+            active_from=_day(active_from),
+            active_to=_day(active_to),
+        )
     ]
 
 
@@ -457,11 +515,18 @@ def list_faction_votes(
         limit=limit,
         offset=offset,
     )
+    names = load_dossier_names(store)
     return EkFactionVotesResponse(
         faction_key=key,
         total=int(raw.get("total") or 0),
         counts=raw.get("counts") or {},
-        items=[EkFactionVoteDTO(**item) for item in raw.get("items") or []],
+        items=[
+            EkFactionVoteDTO(
+                **item,
+                dossiers=dossier_names_of(item.get("dossier_numbers") or [], names),
+            )
+            for item in raw.get("items") or []
+        ],
         source=EkSourceDTO(
             url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
             retrieved_on=None,  # each vote has its own day of reading

@@ -24,6 +24,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
     DEFAULT_BUCKET_LIMIT,
     NeighborFilter,
@@ -32,7 +33,12 @@ from lawgraph.db.queries.nodes import (
     get_node_neighborhood,
     get_node_with_neighbors,
 )
-from lawgraph.db.queries.overlay import get_heat_counts, get_in_flux_counts
+from lawgraph.db.queries.overlay import (
+    HEAT_MAX_LIMIT,
+    get_heat_counts,
+    get_in_flux_counts,
+    stored_heat,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -86,13 +92,21 @@ def bulk_in_flux(
     return JSONResponse(cached)
 
 
+# The nodes a request may name, and how many the map of the whole graph keeps.
+HEAT_MAX_IDS = 500
+HEAT_LIMIT = 10_000
+
+
 @router.get(
     "/heat",
     summary="Bulk activity score per node (heat layer)",
     description=(
         "A map of node id → activity count over the past N months, where "
         "activity is the number of incoming edges created in that window. "
-        "Pass months=3 for a 90-day window."
+        "Pass months=3 for a 90-day window. `ids` (comma-separated node ids, at most "
+        f"{HEAT_MAX_IDS}) counts those nodes alone, the ones a view draws; without it the "
+        "`limit` nodes with the highest counts (the whole graph has 1.85 million), as "
+        "`semantic graph-heat` last counted them; 503 until it has."
     ),
     tags=["nodes"],
     response_class=JSONResponse,
@@ -113,14 +127,33 @@ def bulk_heat(
             "without losing visible heat halos."
         ),
     ),
+    ids: str | None = Query(
+        default=None,
+        description=f"Comma-separated node ids to count, at most {HEAT_MAX_IDS}.",
+    ),
+    limit: int = Query(
+        default=HEAT_LIMIT,
+        ge=1,
+        le=HEAT_MAX_LIMIT,
+        description="Without ids: the nodes with the highest counts, this many.",
+    ),
 ) -> JSONResponse:
     """Return activity counts per node for the heat-layer overlay."""
-    cache_key = f"heat:m={months}:mc={min_count}"
-    cached = _overlay_cache.get(cache_key)
-    if cached is _MISSING:
-        cached = get_heat_counts(store, months=months, min_count=min_count)
-        _overlay_cache.set(cache_key, cached)
-    return JSONResponse(cached)
+    if ids is not None:
+        wanted = sorted({i.strip() for i in ids.split(",") if i.strip()})
+        if len(wanted) > HEAT_MAX_IDS:
+            raise HTTPException(status_code=422, detail=f"At most {HEAT_MAX_IDS} ids.")
+        return JSONResponse(
+            get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
+        )
+    kept = stored_heat(store, months, min_count, limit)
+    if kept is None:
+        raise HTTPException(
+            status_code=503,
+            detail="The heat of the whole graph is not counted yet (semantic graph-heat).",
+            headers={"Retry-After": "3600"},
+        )
+    return JSONResponse(kept)
 
 
 def neighbor_filter(
@@ -194,11 +227,27 @@ def get_node_graph(
         int,
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
+    props: Annotated[
+        Literal["full", "canvas"],
+        Query(
+            description=(
+                "`canvas`: of a neighbour only the props the canvas of the explorer "
+                "draws, per collection, and of its edge only the `meta` it reads (null "
+                "when none); `full` (the default) every prop but the text"
+            )
+        ),
+    ] = "full",
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     try:
         data = get_node_with_neighbors(
-            store, collection, key, filters=filters, limit=limit, offset=offset
+            store,
+            collection,
+            key,
+            filters=filters,
+            limit=limit,
+            offset=offset,
+            canvas=props == "canvas",
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -207,6 +256,7 @@ def get_node_graph(
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
         raise HTTPException(status_code=404, detail=str(err)) from err
 
+    names = load_dossier_names(store)
     buckets = [
         NeighborBucketDTO(
             relation=bucket.facet.relation,
@@ -215,12 +265,14 @@ def get_node_graph(
             type=node_type_of(bucket.facet.collection),
             total=bucket.facet.count,
             next_offset=bucket.next_offset,
+            lid_counts=bucket.lid_counts,
             items=[
                 NeighborDTO.from_entry(
                     doc=entry.doc,
                     edge=entry.edge,
                     direction=entry.direction,
                     confidence=entry.confidence,
+                    names=names,
                 )
                 for entry in bucket.entries
             ],

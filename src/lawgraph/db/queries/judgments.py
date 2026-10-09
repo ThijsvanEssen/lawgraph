@@ -18,6 +18,7 @@ from lawgraph.core.judgments import case_number_keys
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.version_cache import lasting_rows
 
 
 @dataclass
@@ -100,9 +101,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         same_as=_linked_judgments(
             store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
         ),
-        related_to=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_RELATED_TO, both_ways=True
-        ),
+        related_to=_related_judgments(store, judgment_doc["_id"]),
         metadata=metadata,
         series=[
             doc
@@ -150,6 +149,48 @@ def _linked_judgments(
         ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
         """,
         {"jid": judgment_id, "relation": relation, "both_ways": both_ways},
+    )
+    return list(rows)
+
+
+def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]]:
+    """The connected cases (``RELATED_TO``) of *judgment_id*, both ways, as
+    ``_linked_judgments`` gives them, each with its ``links``: per edge the ``direction``
+    (``outbound``: this judgment's summary names it; ``inbound``: its summary names this
+    one) and the ``basis`` and ``text`` of the edge's meta, the sentence that names it."""
+    rows = store.query(
+        """
+        WITH l AS (
+            SELECT e.to_id AS id, 'outbound' AS direction, e.doc -> 'meta' AS meta
+            FROM edges e
+            WHERE e.from_id = %(jid)s AND e.relation = %(relation)s
+              AND e.to_collection = 'judgments'
+            UNION ALL
+            SELECT e.from_id, 'inbound', e.doc -> 'meta'
+            FROM edges e
+            WHERE e.to_id = %(jid)s AND e.relation = %(relation)s
+              AND e.from_collection = 'judgments'
+        )
+        SELECT json_build_object(
+            '_id', j.id,
+            '_key', j.key,
+            'props', json_build_object(
+                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
+            ),
+            'links', (
+                SELECT json_agg(json_build_object(
+                    'direction', l.direction,
+                    'basis', l.meta -> 'basis',
+                    'text', l.meta -> 'text'
+                ) ORDER BY l.direction DESC NULLS LAST)
+                FROM l WHERE l.id = j.id
+            )
+        )
+        FROM judgments j
+        WHERE j.id IN (SELECT id FROM l)
+        ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
+        """,
+        {"jid": judgment_id, "relation": RELATION_RELATED_TO},
     )
     return list(rows)
 
@@ -307,6 +348,11 @@ _ITEM = """json_build_object(
 
 # facet -> the value it counts and the filters it leaves out. A judgment counts once for
 # each of its areas of law (``subjects``).
+# How long the facets and the total of a list are kept (seconds), whatever the data does:
+# under a filter that holds a few hundred thousand judgments each reads them all, and a run
+# of the pipelines hardly moves them. The page itself is read fresh.
+FACETS_MAX_AGE = 3600.0
+
 _FACETS: dict[str, tuple[str, frozenset[str]]] = {
     "tier": ("j.tier", _TIER_FILTERS),
     "court_kind": ("j.court_kind", _COURT_KIND_FILTERS),
@@ -332,8 +378,10 @@ def get_judgments_list(
     sort: str = "date_desc",
     limit: int = 50,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """Paginated, filterable list of judgments, with facets.
+    """Paginated, filterable list of judgments, with facets (``facets=False``: the page and
+    the total alone, ``facets`` None).
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
@@ -357,7 +405,9 @@ def get_judgments_list(
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)
     if exact is not None:
-        found = get_judgments_list(store, exact, sort=sort, limit=limit, offset=offset)
+        found = get_judgments_list(
+            store, exact, sort=sort, limit=limit, offset=offset, facets=facets
+        )
         if found["total"]:
             return found
     tokens = tokenize_search_query(filters.q) if filters.q else []
@@ -398,49 +448,54 @@ def get_judgments_list(
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
         join = _FACET_JOINS.get(name, "")
-        return lambda: list(
-            store.query(
-                f"""
-                SELECT {value} AS value, count(*)::int AS count
-                FROM judgments j {join} {where(leave_out)}
-                GROUP BY 1
-                ORDER BY {by_count}value NULLS FIRST
-                """,
-                params,
-            )
+        return lambda: lasting_rows(
+            store,
+            f"""
+            SELECT {value} AS value, count(*)::int AS count
+            FROM judgments j {join} {where(leave_out)}
+            GROUP BY 1
+            ORDER BY {by_count}value NULLS FIRST
+            """,
+            _without_page(params),
+            max_age=FACETS_MAX_AGE,
         )
 
     def narrower() -> list[Any]:
         leave_out = _SUBJECT_AREA_FILTERS | _SUBJECT_FILTERS
-        return list(
-            store.query(
-                f"""
-                SELECT value, count(*)::int AS count
-                FROM (
-                    SELECT s.value FROM judgments j
-                    CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
-                ) subjects
-                WHERE strpos(value, ';') > 0
-                GROUP BY 1
-                ORDER BY count DESC, value NULLS FIRST
-                """,
-                params,
-            )
+        return lasting_rows(
+            store,
+            f"""
+            SELECT value, count(*)::int AS count
+            FROM (
+                SELECT s.value FROM judgments j
+                CROSS JOIN LATERAL unnest(j.subjects) AS s(value) {where(leave_out)}
+            ) subjects
+            WHERE strpos(value, ';') > 0
+            GROUP BY 1
+            ORDER BY count DESC, value NULLS FIRST
+            """,
+            _without_page(params),
+            max_age=FACETS_MAX_AGE,
         )
 
     filtered = [*names, *(["search"] if search else [])]
+    if not facets:
+        page, total = run_together(
+            items, lambda: _total(store, filtered, where(), params)
+        )
+        return {"total": total, "items": page, "facets": None}
     answers: list[Any] = run_together(
         items,
         *(facet(name) for name in _FACETS),
         narrower,
         lambda: _total(store, filtered, where(), params),
     )
-    facets = dict(zip(_FACETS, answers[1:-2], strict=True))
-    facets["subject_area"] = _with_narrower(facets["subject_area"], answers[-2])
+    counted = dict(zip(_FACETS, answers[1:-2], strict=True))
+    counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
     result: dict[str, Any] = {
         "total": answers[-1],
         "items": answers[0],
-        "facets": facets,
+        "facets": counted,
     }
     return result
 
@@ -473,7 +528,15 @@ def _total(
             """
     else:
         statement = f"SELECT count(*) FROM judgments j {where}"
-    return int(next(store.query(statement, params)))
+    return int(
+        lasting_rows(store, statement, _without_page(params), max_age=FACETS_MAX_AGE)[0]
+    )
+
+
+def _without_page(params: dict[str, Any]) -> dict[str, Any]:
+    """*params* without the page: the counts are the same on every page, and are kept per
+    data version (``version_cache``) under the filters alone."""
+    return {k: v for k, v in params.items() if k not in ("limit", "offset")}
 
 
 # A case number as a query: a token with a digit and a slash or dash, as courts write them

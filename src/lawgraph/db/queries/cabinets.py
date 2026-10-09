@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
 KIND_BILL = "Wetgeving"
@@ -126,11 +127,30 @@ WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
 """
 
 
+# How long the page of a cabinet is kept (seconds), whatever the data does: its counts read
+# every paper its members signed (a minute for the newest cabinets together, from disk), and a
+# poll of other sources (an hour of judgments) changes none of them; a newly signed paper
+# counts within the hour.
+CABINET_MAX_AGE = 3600.0
+
+
 def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One cabinet with every member and their posts in it, and per member the counts
     ``dossiers`` (signed first or with others as a bewindspersoon within the cabinet's
     period, directly or through a case), ``bills`` (of those, government bills) and
-    ``open_commitments`` (made under it and still open); None when unknown."""
+    ``open_commitments`` (made under it and still open); None when unknown. Kept
+    ``CABINET_MAX_AGE`` and a day, whatever the data does: the counts read every paper a
+    member ever signed, for a long-serving minister thousands, a minute from disk."""
+    today = dt.date.today().isoformat()
+    return lasting(
+        store,
+        ("cabinet", key, today),
+        lambda: _cabinet(store, key, today),
+        CABINET_MAX_AGE,
+    )
+
+
+def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
     rows = store.query(
         f"""
         SELECT c.id, c.key, c.type, c.labels, c.props,
@@ -169,7 +189,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
         """,
         {
             "key": key,
-            "today": dt.date.today().isoformat(),
+            "today": today,
             "served_in": RELATION_SERVED_IN,
             "authored": RELATION_AUTHORED,
             "government": CAPACITY_GOVERNMENT,
@@ -263,9 +283,18 @@ def _commitment_filters(
     due_before: str | None,
     overdue: bool,
     q: str | None,
+    made_from: str | None = None,
+    made_to: str | None = None,
 ) -> list[str]:
     """The conditions on the commitment ``c`` of every count, their values in *bind*."""
     shared: list[str] = []
+    # the day it was made, inclusive (``commitments_made_on``)
+    if made_from:
+        shared.append("c.made_on >= %(made_from)s")
+        bind["made_from"] = made_from
+    if made_to:
+        shared.append("c.made_on <= %(made_to)s")
+        bind["made_to"] = made_to
     if member:
         shared.append("c.member_key = %(member)s")
         bind["member"] = member
@@ -281,10 +310,11 @@ def _commitment_filters(
         bind["no_date"] = NO_DUE_DATE
         bind["today"] = dt.date.today().isoformat()
     if q:
-        # AQL CONTAINS finds nothing for "" (*q* of spaces alone); LOWER of a missing text
-        # is "".
+        # nothing holds "" (*q* of spaces alone); a missing text is ""; both folded as the
+        # search folds them (lg_fold: lower case, no accents)
         shared.append(
-            "%(q)s <> '' AND strpos(lower(coalesce(c.props ->> 'text', '')), %(q)s) > 0"
+            "%(q)s <> '' AND strpos(lg_fold(coalesce(c.props ->> 'text', '')),"
+            " lg_fold(%(q)s)) > 0"
         )
         bind["q"] = q.strip().lower()
     if dossier:
@@ -313,12 +343,14 @@ def get_commitments(
     sort: str = "date",
     limit: int = 100,
     offset: int = 0,
+    made_from: str | None = None,
+    made_to: str | None = None,
 ) -> dict[str, Any]:
     """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
     ``ministry`` the number of commitments per value under the other filters, each
     dimension counted without its own filter. *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
-    has passed; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
+    has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
     first, those without one last)."""
     own: dict[str, str] = {}
     bind: dict[str, Any] = {
@@ -342,6 +374,8 @@ def get_commitments(
         due_before=due_before,
         overdue=overdue,
         q=q,
+        made_from=made_from,
+        made_to=made_to,
     )
     if sort == "expected_resolution":
         bind["no_date"] = NO_DUE_DATE

@@ -25,7 +25,6 @@ from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
     InstrumentSummaryDTO,
-    JudgmentSummaryDTO,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
@@ -52,8 +51,9 @@ logger = get_logger(__name__)
     summary="One article with its references",
     description=(
         "Looks up an article by `bwb_id` and `article_number`, adds its parent "
-        "instrument and every judgment that cites it, plus the article "
-        "references recorded on the article itself."
+        "instrument, the number of judgments that cite it (`metadata.judgment_count`; "
+        "`/cited-by` pages them), and the article references recorded on the article "
+        "itself."
     ),
     tags=["articles"],
 )
@@ -62,7 +62,7 @@ def get_article_detail(
     article_number: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleDetailResponse:
-    """Return an article plus its instrument and mentioning judgments."""
+    """Return an article plus its instrument and the number of judgments citing it."""
     article_number = native_article_number(bwb_id, article_number)
     try:
         data = get_article_with_relations(store, bwb_id, article_number)
@@ -76,7 +76,6 @@ def get_article_detail(
         else None
     )
 
-    judgments = [JudgmentSummaryDTO.from_document(doc) for doc in data.judgments]
     citation_entries = get_article_citations(store, data.article)
     citations = [
         ArticleCitationSpan(
@@ -97,7 +96,6 @@ def get_article_detail(
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
-        judgments=judgments,
         citations=citations,
         references=references_from_props(data.article.get("props") or {}),
         metadata=data.metadata or None,

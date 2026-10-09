@@ -91,6 +91,34 @@ def test_a_paper_belongs_to_the_dossier_with_its_number_and_addition(
     ]
 
 
+def test_a_paper_on_more_than_one_dossier_is_matched_to_the_others_by_label(
+    store: GraphStore,
+) -> None:
+    _seed(
+        store,
+        COLLECTION_DOSSIERS,
+        _node("33081", "dossier", number="33081", label="33081"),
+        _node("33082", "dossier", number="33082", label="33082"),
+        _node("36200_xvi", "dossier", number="36200", suffix="XVI", label="36200-XVI"),
+    )
+    _seed(
+        store,
+        COLLECTION_DOCUMENTS,
+        _paper("ek_two", "33081", dossier_numbers=["33081", "33082"]),
+        _paper("ek_chapter", "33626", dossier_numbers=["33626", "36200-XVI", "99999"]),
+        _paper("ek_one", "33081", dossier_numbers=["33081"]),
+        _paper("tk_two", "33081", source=SOURCE_TK, dossier_numbers=["33081", "33082"]),
+    )
+    rows = semantic_tk.ek_papers_in_other_dossiers(store)
+    # past the first number; a dossier not in the graph and a TK paper give nothing
+    assert [
+        (r["document_key"], r["dossier_key"], r["dossier_suffix"]) for r in rows
+    ] == [
+        ("ek_chapter", "36200_xvi", "XVI"),
+        ("ek_two", "33082", None),
+    ]
+
+
 def test_every_paper_is_linked_not_the_first_ten_thousand(store: GraphStore) -> None:
     _dossiers(store)
     papers = [_paper(f"ek_{n}", "37020") for n in range(10_001)]

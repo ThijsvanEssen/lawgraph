@@ -10,7 +10,9 @@ From each Verdragenbank treaty (``verdrag_<id>``, its props from the item XML, s
 * ``LEGISLATED_IN`` to the dossier of its approval, for a dossier that is in the graph: the
   number is the leading digits of the register's ``DossierNummer`` ("8689 (R542)" is 8689);
 * ``PART_OF`` to the treaty it belongs to (``Moederverdrag``: a Protocol to its Convention),
-  when that treaty is in the graph.
+  when that treaty is in the graph;
+* ``SAME_AS`` into it from the BWB text of the treaty (``BWBV…``), which names it by its
+  treaty number (``wetgeving@verdragnummer``).
 
 Derived in full on every run: an edge the register no longer names goes.
 """
@@ -28,6 +30,7 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_PUBLISHED_IN,
+    RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION, publication_key
 from lawgraph.core.logging import get_logger
@@ -82,7 +85,8 @@ def dossier_number(text: Any) -> str | None:
 
 
 class VerdragenbankSemanticPipeline(SemanticPipelineBase):
-    """PUBLISHED_IN, LEGISLATED_IN and PART_OF from what the register of a treaty names."""
+    """PUBLISHED_IN, LEGISLATED_IN and PART_OF from what the register of a treaty names, and
+    SAME_AS into it from its BWB text."""
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -112,21 +116,45 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 kept.setdefault(source_id, set()).add(
                     edge_key(source_id, relation, target_id)
                 )
-        edges.flush_into(result)
         read = [f"{COLLECTION_INSTRUMENTS}/{t['key']}" for t in treaties]
+        same = self._same_as(edges)
+        edges.flush_into(result)
         removed = sum(
             semantic_edges.remove_edges_from(
                 self.store, relation, EDGE_SOURCE_VERDRAGENBANK, read, kept
             )
             for relation in _RELATIONS
+        ) + semantic_edges.remove_edges_to(
+            self.store, [RELATION_SAME_AS], EDGE_SOURCE_VERDRAGENBANK, read, same
         )
         logger.info(
-            "%d treaties: %d edges; removed %d the register no longer names.",
+            "%d treaties: %d edges, %d SAME_AS from their BWB text; removed %d the "
+            "register no longer names.",
             len(treaties),
             sum(len(keys) for keys in kept.values()),
+            sum(len(keys) for keys in same.values()),
             removed,
         )
         return result
+
+    def _same_as(self, edges: EdgeWriter) -> dict[str, set[str]]:
+        """Queue SAME_AS from the BWB text of a treaty to its Verdragenbank treaty, by
+        treaty number; the keys queued, per Verdragenbank treaty. Derived in full: an edge
+        whose number no longer matches goes."""
+        kept: dict[str, set[str]] = {}
+        for row in semantic_verdragenbank.same_treaties(self.store):
+            text_id, register_id = row["text_id"], row["register_id"]
+            edges.add(
+                text_id,
+                register_id,
+                RELATION_SAME_AS,
+                source=EDGE_SOURCE_VERDRAGENBANK,
+                confidence=1.0,
+            )
+            kept.setdefault(register_id, set()).add(
+                edge_key(text_id, RELATION_SAME_AS, register_id)
+            )
+        return kept
 
     @staticmethod
     def _wanted(

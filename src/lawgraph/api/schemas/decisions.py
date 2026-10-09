@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
 from lawgraph.core.documents import chamber_of
 
 _KIND = (
@@ -47,6 +48,14 @@ class VoteDTO(BaseModel):
     seats: int = 0
 
 
+_DICTUM = (
+    "Of a vote on a motion, what the motion asks or says, as it writes it: the lines from "
+    "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+    "``en gaat over tot de orde van de dag``; null for any other vote and for a motion "
+    "without text."
+)
+
+
 class DecisionDTO(BaseModel):
     """One decision with every vote cast on it.
 
@@ -79,6 +88,11 @@ class DecisionDTO(BaseModel):
         default_factory=list,
         description="The dossiers of the cases it decided (``36774``, ``37020-XV``).",
     )
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers``, in their order: ``number``, "
+        "``short_title``, ``title`` as ``/api/dossiers`` gives them.",
+    )
     chamber: str | None = Field(None, description="'TK' or 'EK'.")
     result: str | None = Field(None, description=_RESULT)
     method: str | None = Field(None, description=_METHOD)
@@ -100,9 +114,14 @@ class DecisionDTO(BaseModel):
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
     votes: list[VoteDTO] = Field(default_factory=list)
+    dictum: str | None = Field(None, description=_DICTUM)
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> DecisionDTO:
+    def from_document(
+        cls, doc: dict[str, Any], names: dict[str, dict[str, Any]]
+    ) -> DecisionDTO:
+        """From the stored decision with its votes, and the names of the dossiers
+        (``load_dossier_names``)."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -115,6 +134,7 @@ class DecisionDTO(BaseModel):
             decision_kind=props.get("decision_kind"),
             primary_case_kind=props.get("primary_case_kind"),
             dossier_numbers=props.get("dossier_numbers") or [],
+            dossiers=dossier_names_of(props.get("dossier_numbers") or [], names),
             chamber=props.get("chamber") or chamber_of(doc.get("labels")),
             result=props.get("result"),
             method=props.get("method"),
@@ -129,6 +149,8 @@ class DecisionDTO(BaseModel):
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
             votes=[VoteDTO(**v) for v in doc.get("votes") or []],
+            # of the motion it decided on, which the route reads (``motion_dictums``)
+            dictum=None,
         )
 
 
@@ -137,8 +159,9 @@ class DecisionSummaryDTO(BaseModel):
 
     ``tally`` sums the seats behind each choice — the number to show for a
     result — and ``voters`` counts how many factions (or members) made it.
-    ``external_id`` identifies the motion within a debate; use it rather than
-    ``subject``, which is shared by every motion on the same agenda item.
+    ``subject`` is that of the case the vote decided; a vote without a case of its own
+    on an agenda item of several shares the item's subject with its siblings, and
+    ``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -147,9 +170,24 @@ class DecisionSummaryDTO(BaseModel):
     key: str
     date: str | None = None
     subject: str | None = None
+    display_name: str | None = Field(
+        None,
+        description="The heading of the vote, distinct per sibling on an agenda item: "
+        "``Motie 2024Z17945: <subject>``, the subject alone when it names its kind.",
+    )
     external_id: str | None = None
     dossier_numbers: list[str] = Field(default_factory=list)
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers``, in their order: ``number``, "
+        "``short_title``, ``title`` as ``/api/dossiers`` gives them.",
+    )
     kind: str | None = Field(None, description=_KIND)
+    primary_case_kind: str | None = Field(
+        None,
+        description="The ``Zaak.Soort`` of the case the vote singled out (``Motie``, "
+        "``Amendement``, ``Wetgeving``); null when it singled out none.",
+    )
     decision_kind: str | None = Field(None, description=_DECISION_KIND)
     passed: bool | None = None
     chamber: str | None = None
@@ -159,15 +197,19 @@ class DecisionSummaryDTO(BaseModel):
     vote_kind: str | None = None
     tally: dict[str, int] = Field(default_factory=dict)
     voters: dict[str, int] = Field(default_factory=dict)
+    dictum: str | None = Field(None, description=_DICTUM)
 
 
 class DecisionKindCount(BaseModel):
-    """How many of the decisions are of one kind."""
+    """How many of the decisions are of one kind, and how many of those carried and did
+    not (the rest have no outcome)."""
 
     model_config = ConfigDict(extra="forbid")
 
     value: str | None
     count: int
+    passed: int = 0
+    rejected: int = 0
 
 
 class DecisionOutcomeCount(BaseModel):
@@ -189,6 +231,46 @@ class DecisionDayCount(BaseModel):
     passed: int
 
 
+class DecisionYearCount(BaseModel):
+    """The decisions of one year: how many, how many carried, how many did not."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: str | None
+    count: int
+    passed: int
+    rejected: int
+
+
+class PartyVoteCount(BaseModel):
+    """How a faction voted on some of the decisions: ``voor``, ``tegen``, and ``none``
+    (another choice, or no vote of the faction: a roll-call vote is one of members)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    voor: int
+    tegen: int
+    none: int
+
+
+class PartyVoteKindCount(PartyVoteCount):
+    value: str | None = Field(None, description="The kind, as in ``kind``.")
+
+
+class PartyVoteYearCount(PartyVoteCount):
+    year: str | None = None
+
+
+class PartyVotes(PartyVoteCount):
+    """How one faction voted on the decisions under every filter: in all, per kind (most
+    decisions first) and per year (oldest first)."""
+
+    party: str = Field(..., description="The key of the faction.")
+    name: str | None = Field(None, description="Its abbreviation, else its name.")
+    kind: list[PartyVoteKindCount] = Field(default_factory=list)
+    years: list[PartyVoteYearCount] = Field(default_factory=list)
+
+
 class DecisionFacets(BaseModel):
     """The decisions under the filters, counted.
 
@@ -208,6 +290,13 @@ class DecisionFacets(BaseModel):
     days: list[DecisionDayCount] = Field(
         default_factory=list, description="Per date of the vote, oldest first."
     )
+    years: list[DecisionYearCount] = Field(
+        default_factory=list, description="Per year of the vote, oldest first."
+    )
+    party_votes: list[PartyVotes] = Field(
+        default_factory=list,
+        description="With ``party_votes``: per faction asked, by key, how it voted.",
+    )
 
 
 class DecisionListResponse(BaseModel):
@@ -218,3 +307,8 @@ class DecisionListResponse(BaseModel):
     total: int = Field(..., description="Matching decisions, independent of ``limit``.")
     items: list[DecisionSummaryDTO]
     facets: DecisionFacets = Field(default_factory=DecisionFacets)
+    partial: bool = Field(
+        False,
+        description="``party_votes`` was asked for but is still being counted (every vote "
+        "on every decision: seconds, once per change of the data): ``[]`` now; ask again.",
+    )

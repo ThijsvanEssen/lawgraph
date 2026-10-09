@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+import asyncio
 import collections
+import faulthandler
+import ipaddress
 import logging
+import signal
+import sys
 import time
 import uuid
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Any
 
 import anyio
+import anyio.to_thread
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
     annexes,
@@ -34,16 +42,29 @@ from lawgraph.api.routes import (
     search,
     stats,
 )
+from lawgraph.api.schemas.health import HealthDTO
 from lawgraph.config.settings import (
     API_ALLOWED_ORIGINS,
     API_HOST,
     API_PORT,
     API_RATE_LIMIT_CALLS,
     API_RATE_LIMIT_PERIOD,
+    API_REQUEST_TIMEOUT_MS,
     API_TRUSTED_PROXIES,
+    API_WARM_UP,
 )
 from lawgraph.core.logging import setup_logging
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries._helpers import busy_calls
+from lawgraph.db.store import (
+    Cancellation,
+    ReadTimedOut,
+    RequestCancelled,
+    reset_cancellation,
+    reset_read_deadline,
+    set_cancellation,
+    set_read_deadline,
+)
 
 setup_logging()
 
@@ -145,19 +166,75 @@ def _if_none_match(scope) -> list[bytes]:
     ]
 
 
+class _ReadDeadlineMiddleware:
+    """Every request reads the database for at most ``LAWGRAPH_API_REQUEST_TIMEOUT_MS`` in
+    all: each statement gets what is left (``store.set_read_deadline``), so a request of
+    eight counts does not last eight read ceilings. Past it the request answers 503
+    (``ReadTimedOut``)."""
+
+    def __init__(self, app) -> None:
+        self._app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        token = set_read_deadline(API_REQUEST_TIMEOUT_MS / 1000)
+        try:
+            await self._app(scope, receive, send)
+        finally:
+            reset_read_deadline(token)
+
+
+class _CancelOnDisconnectMiddleware:
+    """A request whose client went away (a browser that aborts a search at the next
+    keystroke) stops reading the database: the reads it runs are cancelled at once, and it
+    starts no other (``store.Cancellation``). Without this it read on until its deadline,
+    and the search the client did want waited behind it. A computation of the cache it
+    started goes on, for the next request."""
+
+    def __init__(self, app) -> None:
+        self._app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        cancellation = Cancellation()
+        token = set_cancellation(cancellation)
+        # every message of the client passes here on its way to the app, so that a
+        # disconnect is seen while the app does not read
+        messages: asyncio.Queue = asyncio.Queue()
+
+        async def listen() -> None:
+            while True:
+                message = await receive()
+                await messages.put(message)
+                if message["type"] == "http.disconnect":
+                    await anyio.to_thread.run_sync(cancellation.cancel)
+                    return
+
+        listening = asyncio.create_task(listen())
+        try:
+            await self._app(scope, messages.get, send)
+        finally:
+            listening.cancel()
+            reset_cancellation(token)
+
+
 class _RateLimitMiddleware:
     """Simple sliding-window rate limiter keyed by client IP.
 
-    Requests originating from our own frontends — i.e. carrying an
-    ``Origin`` header that matches ``LAWGRAPH_ALLOWED_ORIGINS`` — bypass
-    the limit entirely. The limit still backstops anonymous traffic
-    (curl, scrapers, server-to-server abuse).
+    Every request counts, also one with the ``Origin`` of our own front end: any client
+    can send that header, and a visitor of the front end has an address of their own.
 
     Configuration (env vars):
       LAWGRAPH_RATE_LIMIT_CALLS    — max requests per window (default 200)
       LAWGRAPH_RATE_LIMIT_PERIOD   — window in seconds (default 60)
       LAWGRAPH_TRUSTED_PROXIES     — comma-separated IPs that may set
-                                     X-Forwarded-For (default loopback only)
+                                     X-Forwarded-For (default loopback only);
+                                     its right-most address that is no such
+                                     proxy is the client
 
     Note: state is stored in-process. With multiple uvicorn workers the
     effective limit is N_workers × LAWGRAPH_RATE_LIMIT_CALLS. Use a
@@ -167,11 +244,10 @@ class _RateLimitMiddleware:
 
     _LOOPBACK_PROXIES = frozenset({"127.0.0.1", "::1"})
 
-    def __init__(self, app, *, trusted_origins: frozenset[str]) -> None:
+    def __init__(self, app) -> None:
         self._app = app
         self._calls = API_RATE_LIMIT_CALLS
         self._period = API_RATE_LIMIT_PERIOD
-        self._trusted_origins = trusted_origins
         # X-Forwarded-For is honoured only from these hops; loopback is always trusted so
         # a reverse proxy on the same host works.
         self._trusted_proxies = API_TRUSTED_PROXIES | self._LOOPBACK_PROXIES
@@ -185,14 +261,17 @@ class _RateLimitMiddleware:
     ) -> str:
         client = scope.get("client")
         hop_ip = client[0] if client else "unknown"
-        if hop_ip in trusted_proxies:
-            xff = headers.get(b"x-forwarded-for", b"").decode("latin-1").strip()
-            if xff:
-                # XFF is a comma-separated list; the left-most entry is the
-                # original client. Trust it when the hop IP is a known proxy.
-                first = xff.split(",", 1)[0].strip()
-                if first:
-                    return first
+        if hop_ip not in trusted_proxies:
+            return hop_ip
+        # X-Forwarded-For is a list each proxy appends the address it was called from to.
+        # The client writes what it likes at the left, so read from the right: the first
+        # address that is no proxy of ours is the one our own proxy saw. (The left-most
+        # entry let a made-up header pass the limit as a new client every time.)
+        xff = headers.get(b"x-forwarded-for", b"").decode("latin-1")
+        hops = [hop.strip() for hop in xff.split(",") if hop.strip()]
+        for hop in reversed(hops):
+            if hop not in trusted_proxies:
+                return hop
         return hop_ip
 
     async def __call__(self, scope, receive, send) -> None:
@@ -200,16 +279,7 @@ class _RateLimitMiddleware:
             await self._app(scope, receive, send)
             return
 
-        # Bypass for first-party callers: the browser sets Origin and
-        # the user can't forge it from a same-origin context, so
-        # matching it against the CORS allow-list is a faithful
-        # "our own app" check.
         headers = dict(scope.get("headers") or [])
-        origin = headers.get(b"origin", b"").decode("latin-1").strip()
-        if origin and origin in self._trusted_origins:
-            await self._app(scope, receive, send)
-            return
-
         ip = self._client_ip(scope, headers, self._trusted_proxies)
         now = time.time()
         cutoff = now - self._period
@@ -241,7 +311,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.1",
+    version="0.79.32",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -278,6 +348,20 @@ for _name, _router in (
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 
 
+def truncated_ip(host: str) -> str:
+    """The network of *host*, not the host: an IPv4 address to its /24 (``203.0.113.0``),
+    an IPv6 address to its /48. The full address is in no log line; only the rate limiter
+    holds it, in memory. What is no address (``-``, a name) is left as it is."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    prefix = 24 if address.version == 4 else 48
+    return str(
+        ipaddress.ip_network(f"{address}/{prefix}", strict=False).network_address
+    )
+
+
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -286,10 +370,10 @@ async def _log_requests(request: Request, call_next):
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
+    # the path without its query string (a search term may name a person) and the
+    # network of the client, never its address
     path = request.url.path
-    if request.url.query:
-        path = f"{path}?{request.url.query}"
-    client = request.client.host if request.client else "-"
+    client = truncated_ip(request.client.host) if request.client else "-"
     size = response.headers.get("content-length", "-")
     _logger.info(
         "[%s] %s %s %s → %d %sb (%.1fms)",
@@ -304,7 +388,9 @@ async def _log_requests(request: Request, call_next):
     return response
 
 
-app.add_middleware(_RateLimitMiddleware, trusted_origins=frozenset(API_ALLOWED_ORIGINS))
+app.add_middleware(_ReadDeadlineMiddleware)
+app.add_middleware(_CancelOnDisconnectMiddleware)
+app.add_middleware(_RateLimitMiddleware)
 app.add_middleware(
     _CacheControlMiddleware,
     store=lambda: app.dependency_overrides.get(get_store, get_store)(),
@@ -316,7 +402,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    # no allow_credentials: the API has no cookies and no authentication to send along
     allow_methods=["GET", "HEAD", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -328,18 +414,101 @@ async def root() -> dict[str, str]:
     return {"name": "lawgraph-api", "version": app.version}
 
 
-@app.get("/api/health", tags=["root"])
+@app.get("/api/health", tags=["root"], response_model=HealthDTO)
 async def health(
     store: Annotated[GraphStore, Depends(get_store)],
-) -> dict[str, str]:
-    """Health check — verifies database connectivity."""
+) -> HealthDTO:
+    """Health check — verifies database connectivity; ``version`` the version of the API
+    (what a deploy checks against its tag). ``warm``: the answers every visitor
+    asks are computed for the data as it is now (null when the API does not warm up); a
+    deploy waits for true before its smoke test. ``warm_version`` the data version they
+    were last computed for (the answers a request gets while a newer one computes, null
+    before the first warm-up), ``data_version`` the version now, ``computing`` whether a
+    warm-up or an answer of a newer version is being computed. ``pools``: per connection
+    pool its size, the free connections and the reads waiting for one; ``busy`` what the
+    threads of the shared pools and of the background (the cache, the warm-up) run now,
+    and how long."""
     try:
         store.ping()
-        return {"status": "ok", "database": "connected"}
+        answer: dict[str, Any] = {
+            "status": "ok",
+            "version": app.version,
+            "database": "connected",
+            "warm": None,
+        }
+        if API_WARM_UP:
+            from lawgraph.api.warm import is_warm, warmed_version
+
+            answer |= {
+                "warm": is_warm(store),
+                "warm_version": warmed_version(),
+                "data_version": store.data_version(),
+                "computing": version_cache.computing(store),
+            }
+        return HealthDTO.model_validate(
+            answer
+            | {
+                "pools": store.pool_usage(),
+                "busy": sorted(
+                    busy_calls() + version_cache.busy(),
+                    key=lambda call: -call["seconds"],
+                ),
+            }
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail=f"Database unavailable: {exc}"
         ) from exc
+
+
+def _start_warm_up() -> None:
+    """Compute what every visitor asks, in the background: now, and after every change of
+    the data (``api/warm.py``). A database that cannot be reached is warmed later."""
+    if not API_WARM_UP:
+        return
+    from lawgraph.api.dependencies import get_store as store_of
+    from lawgraph.api.warm import warm_up
+
+    version_cache.on_new_version(warm_up)
+    try:
+        version_cache.warm(store_of(), settle=0)
+    except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
+        _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
+
+
+def _thread_dump_on_signal() -> None:
+    """``SIGUSR1`` writes the stack of every thread of the process to stderr (under
+    systemd, the journal): ``systemctl kill -s USR1 lawgraph-api`` shows what a hanging
+    request waits on. Nothing is written without the signal."""
+    if hasattr(signal, "SIGUSR1"):
+        faulthandler.register(signal.SIGUSR1, file=sys.stderr, all_threads=True)
+
+
+app.router.on_startup.append(_thread_dump_on_signal)
+app.router.on_startup.append(_start_warm_up)
+app.router.on_startup.append(search_terms.start)
+app.router.on_shutdown.append(search_terms.stop)
+
+
+# How long a client waits before it asks again after a read ran past its ceiling.
+READ_TIMEOUT_RETRY_AFTER = 30
+
+
+@app.exception_handler(ReadTimedOut)
+async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
+    """A query that ran past ``LAWGRAPH_READ_TIMEOUT_MS``: the server is busy, not broken
+    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client.
+    A request whose client went away (``RequestCancelled``) is no trouble of the server: it
+    is logged as information, and its answer reaches no one."""
+    if isinstance(exc, RequestCancelled):
+        _logger.info("%s %s: the client went away", request.method, request.url.path)
+    else:
+        _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The query took too long. Try again later, or narrow it."},
+        headers={"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)},
+    )
 
 
 def _run_server() -> None:

@@ -118,6 +118,27 @@ def list_instruments(
         Query(max_length=200, description="A government theme by TOOI id or slug."),
     ] = None,
     sort: Annotated[Literal["title", "article_count"], Query()] = "title",
+    date_from: Annotated[
+        dt.date | None,
+        Query(
+            alias="from",
+            description="Came into force on or after this day, YYYY-MM-DD.",
+        ),
+    ] = None,
+    date_to: Annotated[
+        dt.date | None,
+        Query(
+            alias="to", description="Came into force on or before this day, YYYY-MM-DD."
+        ),
+    ] = None,
+    published_from: Annotated[
+        dt.date | None,
+        Query(description="Published on or after this day, YYYY-MM-DD."),
+    ] = None,
+    published_to: Annotated[
+        dt.date | None,
+        Query(description="Published on or before this day, YYYY-MM-DD."),
+    ] = None,
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
@@ -132,6 +153,10 @@ def list_instruments(
         sort=sort,
         limit=limit,
         offset=offset,
+        in_force_from=_day(date_from),
+        in_force_to=_day(date_to),
+        published_from=_day(published_from),
+        published_to=_day(published_to),
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(
@@ -139,6 +164,10 @@ def list_instruments(
         total=int(data.get("total", 0)),
         facets=InstrumentFacets(**(data.get("facets") or {})),
     )
+
+
+def _day(day: dt.date | None) -> str | None:
+    return day.isoformat() if day else None
 
 
 def _instrument_or_404(store: GraphStore, identifier: str) -> dict:
@@ -223,8 +252,13 @@ def get_instrument_eu_links(
 ) -> InstrumentEuLinksResponse:
     doc = _instrument_or_404(store, identifier)
     eu = get_eu_links(store, doc["_id"], limit=limit)
+    cited = (doc.get("props") or {}).get("inbound_citation_count")
     international = get_international_links(
-        store, doc["_id"], scope_of_node(doc), limit=limit
+        store,
+        doc["_id"],
+        scope_of_node(doc),
+        limit=limit,
+        cited=cited if isinstance(cited, int) else None,
     )
     links = [_international_link(r, "treaty") for r in international.treaties] + [
         _international_link(r, "echr_judgment") for r in international.judgments

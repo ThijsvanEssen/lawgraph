@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -24,6 +25,7 @@ from lawgraph.config.constants import (
     RELATION_ACCOMPANIES,
     RELATION_AMENDS,
     RELATION_EXPLAINS,
+    RELATION_IMPLEMENTS,
     RELATION_INTRODUCES,
     RELATION_LED_BY,
     RELATION_LEGISLATED_IN,
@@ -34,14 +36,25 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
-from lawgraph.core.documents import chamber_of, is_explanatory, numbered_in
-from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
+from lawgraph.core.documents import (
+    chamber_of,
+    document_sender,
+    is_explanatory,
+    numbered_in,
+    paper_number,
+)
+from lawgraph.core.dossier_numbers import (
+    parse_dossier_query,
+    short_title,
+    suffix_sort_key,
+)
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.db.version_cache import cached
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
@@ -86,6 +99,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
         "document_number",
         "url",
         "source",
+        "actors",
     ],
     "activity": [
         "kind",
@@ -479,12 +493,14 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
+        "number": paper_number(chamber_of(document.get("labels")), props),
         "dossier_number": numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
         "session_year": props.get("session_year"),
         "date": props.get("date"),
         "tk_url": tk_url(NodeType.DOCUMENT.value, props),
+        "sender": document_sender(props.get("actors"), props.get("date")),
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
@@ -497,12 +513,14 @@ def _document_summary(document: dict[str, Any]) -> dict[str, Any]:
 # pass (a TK document carries its whole API payload, which every ``props -> 'x'`` would
 # parse again).
 _DOSSIER_DOCUMENT_KEYS = [
+    "actors",
     "date",
     "display_name",
     "document_number",
     "dossier_number",
     "dossier_suffix",
     "kind",
+    "number",
     "sequence",
     "session_year",
     "source",
@@ -516,6 +534,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'kind', dp.props -> 'kind',
             'title', {_not_null("dp.props -> 'title'", "dp.props -> 'display_name'")},
             'sequence', dp.props -> 'sequence',
+            'number', dp.props -> 'number',
             'dossier_number', dp.props -> 'dossier_number',
             'dossier_suffix', dp.props -> 'dossier_suffix',
             'session_year', dp.props -> 'session_year',
@@ -523,6 +542,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'document_number', dp.props -> 'document_number',
             'display_name', dp.props -> 'display_name',
             'source', dp.props -> 'source',
+            'actors', dp.props -> 'actors',
             'labels', to_json(d.labels)
         )"""
 
@@ -741,6 +761,53 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     }
     rows = list(store.query(_DOSSIER_HUB_SQL, bind))
     return rows[0] if rows else {}
+
+
+def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str, Any]]:
+    """``{id, basis}`` of the EU acts a dossier's acts implement: ``IMPLEMENTS`` from an
+    instrument ``LEGISLATED_IN`` the dossier, ``basis`` ``staatsblad`` from an amending
+    publication, ``wet`` from the act itself; each act and basis once, by id."""
+    rows = store.query(
+        f"""
+        SELECT DISTINCT m.to_id AS id,
+               CASE WHEN {_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
+                    ELSE 'wet' END AS basis
+        FROM {COLLECTION_EDGES} l
+        JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
+        JOIN {COLLECTION_EDGES} m ON m.from_id = s.id AND m.relation = %(implements)s
+        WHERE l.to_id = %(dossier_id)s AND l.relation = %(legislated_in)s
+          AND l.from_collection = '{COLLECTION_INSTRUMENTS}'
+        ORDER BY 1 ASC NULLS FIRST, 2 ASC NULLS FIRST
+        """,
+        {
+            "dossier_id": dossier_id,
+            "implements": RELATION_IMPLEMENTS,
+            "legislated_in": RELATION_LEGISLATED_IN,
+        },
+    )
+    return list(rows)
+
+
+def get_instrument_names(
+    store: GraphStore, ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """id -> ``{key, bwb_id, celex, name, short}`` of the instruments *ids*: ``name`` the
+    citation title, else the title or the display name; ``short`` the short title the source
+    gives (the WTI afkorting of a BWB act), else none."""
+    if not ids:
+        return {}
+    rows = store.query(
+        f"""
+        SELECT i.id, i.key, i.bwb_id, i.celex,
+               coalesce(i.citation_title, lg_str(i.props -> 'title'),
+                        lg_str(i.props -> 'display_name')) AS name,
+               lg_str(i.props -> 'short_title') AS short
+        FROM {COLLECTION_INSTRUMENTS} i
+        WHERE i.id = ANY(%(ids)s::text[])
+        """,
+        {"ids": ids},
+    )
+    return {row.pop("id"): row for row in rows}
 
 
 def classify_relation(relation: str | None) -> str:
@@ -1026,10 +1093,10 @@ def _dossier_filters(
             own[name] = clause
             bind[name] = list(value) if isinstance(value, tuple) else value
     if filters.number:
-        # a prefix as a range, so the index on the label answers it
-        shared.append("ds.label >= %(number)s AND ds.label < %(number_end)s")
+        # byte for byte, whatever the collation of the database: a range up to a bound
+        # that sorts after every label holds under ICU, not under glibc
+        shared.append("starts_with(ds.label, %(number)s)")
         bind["number"] = filters.number
-        bind["number_end"] = filters.number + "\uffff"
     if filters.subject:
         shared.append(_subject_filter(filters.subject, bind))
     if filters.has_phase:
@@ -1203,45 +1270,68 @@ def get_dossier_titles(
     return {row["key"]: row["title"] for row in rows}
 
 
-# Of each name: the first instrument (by key) whose citation title, title or short title
-# it is, in lower case; else the instrument whose citation title it begins, when one alone.
-# A stub is never one.
-_LAWS_NAMED_SQL = f"""
-SELECT n.name,
-       found.key IS NOT NULL AS loaded,
-       found.key,
-       found.bwb_id
-FROM unnest(%(names)s::text[]) WITH ORDINALITY AS n(name, ord)
-LEFT JOIN LATERAL (
-    SELECT i.key, i.props -> 'bwb_id' AS bwb_id
-    FROM {COLLECTION_INSTRUMENTS} i
-    WHERE i.stub IS DISTINCT FROM TRUE
-      AND (lower({_as_text("i.props -> 'citation_title'")}) = lower(n.name)
-           OR lower({_as_text("i.props -> 'title'")}) = lower(n.name)
-           OR lower({_as_text("i.props -> 'short_title'")}) = lower(n.name))
-    ORDER BY i.key ASC
-    LIMIT 1
-) exact ON TRUE
-LEFT JOIN LATERAL (
-    SELECT min(b.key) AS key, (array_agg(b.bwb_id))[1] AS bwb_id, count(*) AS n
-    FROM (
-        SELECT i.key, i.props -> 'bwb_id' AS bwb_id
-        FROM {COLLECTION_INSTRUMENTS} i
-        WHERE exact.key IS NULL AND i.stub IS DISTINCT FROM TRUE
-          AND starts_with(lower({_as_text("i.props -> 'citation_title'")}),
-                          lower(n.name) || ' ')
-        LIMIT 2
-    ) b
-) begun ON TRUE
-CROSS JOIN LATERAL (
-    SELECT exact.key, exact.bwb_id WHERE exact.key IS NOT NULL
-    UNION ALL
-    SELECT begun.key, begun.bwb_id WHERE exact.key IS NULL AND begun.n = 1
-    UNION ALL
-    SELECT NULL, NULL WHERE exact.key IS NULL AND begun.n <> 1
-) found
-ORDER BY n.ord
+# Of every instrument that is no stub: its key, BWB id and the names a dossier title may
+# give it, in lower case. Read whole, once per version of the instruments
+# (``load_law_names``): a name looked up in the table itself read every instrument per name
+# (4-5 s for the dossier of a bill that names its laws).
+_LAW_NAMES_SQL = f"""
+SELECT i.key, i.props -> 'bwb_id' AS bwb_id,
+       lower({_as_text("i.props -> 'citation_title'")}) AS citation_title,
+       lower({_as_text("i.props -> 'title'")}) AS title,
+       lower({_as_text("i.props -> 'short_title'")}) AS short_title
+FROM {COLLECTION_INSTRUMENTS} i
+WHERE i.stub IS DISTINCT FROM TRUE
+ORDER BY i.key ASC
 """
+
+
+@dataclass(frozen=True)
+class _LawNames:
+    """The names of the instruments: of each name in lower case the first instrument (by
+    key) whose citation title, title or short title it is, and the citation titles in
+    order, to find the ones a name begins."""
+
+    exact: dict[str, tuple[str, Any]]
+    titles: list[tuple[str, str, Any]]
+
+
+def _read_law_names(store: GraphStore) -> _LawNames:
+    exact: dict[str, tuple[str, Any]] = {}
+    titles: list[tuple[str, str, Any]] = []
+    for row in store.query(_LAW_NAMES_SQL):
+        found = (row["key"], row["bwb_id"])
+        for name in (row["citation_title"], row["title"], row["short_title"]):
+            if name:
+                exact.setdefault(name, found)
+        if row["citation_title"]:
+            titles.append((row["citation_title"], *found))
+    titles.sort(key=lambda title: (title[0], title[1]))
+    return _LawNames(exact, titles)
+
+
+def load_law_names(store: GraphStore) -> _LawNames:
+    """``_LawNames``, kept while the instruments stand still: computed on first use, and in
+    the warm-up (``api/warm.py``)."""
+    return cached(
+        store,
+        ("dossier-law-names",),
+        lambda: _read_law_names(store),
+        tables=(COLLECTION_INSTRUMENTS,),
+    )
+
+
+def _law_named(names: _LawNames, name: str) -> tuple[str, Any] | None:
+    """The instrument *name* is the name of, else the one instrument whose citation title it
+    begins (a name the title cut at "in"); None when there is none, or more than one."""
+    lowered = name.lower()
+    if lowered in names.exact:
+        return names.exact[lowered]
+    begins = f"{lowered} "
+    at = bisect_left(names.titles, (begins,))
+    found = [
+        title for title in names.titles[at : at + 2] if title[0].startswith(begins)
+    ]
+    return (found[0][1], found[0][2]) if len(found) == 1 else None
 
 
 def get_laws_named(store: GraphStore, names: list[str]) -> list[dict[str, Any]]:
@@ -1250,7 +1340,15 @@ def get_laws_named(store: GraphStore, names: list[str]) -> list[dict[str, Any]]:
     the one citation title the name begins (a name the title cut at "in")."""
     if not names:
         return []
-    return list(store.query(_LAWS_NAMED_SQL, {"names": names}))
+    known = load_law_names(store)
+    rows = []
+    for name in names:
+        found = _law_named(known, name)
+        key, bwb_id = found or (None, None)
+        rows.append(
+            {"name": name, "loaded": found is not None, "key": key, "bwb_id": bwb_id}
+        )
+    return rows
 
 
 def tk_values(store: GraphStore) -> dict[str, set[str]]:
@@ -1317,3 +1415,36 @@ def get_next_activity(
         },
     )
     return next(iter(rows), None)
+
+
+# The title of every dossier by its number (label), of the first dossier by key that has it:
+# columns only, one read of the 8,000 dossiers per data version (``load_dossier_names``).
+_DOSSIER_NAMES_SQL = f"""
+    SELECT DISTINCT ON (label) label, lg_str(pj_title) AS title
+    FROM {COLLECTION_DOSSIERS}
+    WHERE label IS NOT NULL
+    ORDER BY label ASC NULLS LAST, key ASC NULLS LAST
+"""
+
+
+def _read_dossier_names(store: GraphStore) -> dict[str, dict[str, Any]]:
+    return {
+        row["label"]: {
+            "number": row["label"],
+            "short_title": short_title(row["title"]),
+            "title": row["title"],
+        }
+        for row in store.query(_DOSSIER_NAMES_SQL)
+    }
+
+
+def load_dossier_names(store: GraphStore) -> dict[str, dict[str, Any]]:
+    """``{number, short_title, title}`` of every dossier by its number (``short_title`` as
+    ``/api/dossiers`` gives it), kept while the dossiers stand still: computed on first use,
+    and in the warm-up (``api/warm.py``)."""
+    return cached(
+        store,
+        ("dossier-names",),
+        lambda: _read_dossier_names(store),
+        tables=(COLLECTION_DOSSIERS,),
+    )

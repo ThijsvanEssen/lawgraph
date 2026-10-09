@@ -19,6 +19,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentFacets,
     JudgmentListItemDTO,
     JudgmentListResponse,
+    RelatedJudgmentDTO,
     mentions_of,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
@@ -50,7 +51,8 @@ logger = get_logger(__name__)
         "and court_kind filters), per `court_kind` (without its own filter), per "
         "`source` (without the source filter), per year of `date` (without `from` "
         "and `to`), per area of law (`subjects`, without `subject`) and per `procedure` "
-        "(without its filter)."
+        "(without its filter). `facets=false` leaves them out (null): the pages after the "
+        "first need none."
     ),
     tags=["judgments"],
 )
@@ -58,6 +60,9 @@ def list_judgments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    facets: Annotated[
+        bool, Query(description="Count per tier, court kind, source, year, area.")
+    ] = True,
     q: Annotated[
         str | None, Query(description="Free-text over display_name/ecli/summary")
     ] = None,
@@ -138,12 +143,14 @@ def list_judgments(
         cited_by_min=cited_by_min,
         include_stubs=include_stubs,
     )
-    data = get_judgments_list(store, filters, sort=sort, limit=limit, offset=offset)
+    data = get_judgments_list(
+        store, filters, sort=sort, limit=limit, offset=offset, facets=facets
+    )
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
     return JudgmentListResponse(
         items=items,
         total=int(data.get("total", 0)),
-        facets=JudgmentFacets(**(data.get("facets") or {})),
+        facets=JudgmentFacets(**(data.get("facets") or {})) if facets else None,
     )
 
 
@@ -200,7 +207,7 @@ def get_judgment_detail(
         cited_articles=cited_articles,
         cited_judgments=cited_judgments,
         same_as=[JudgmentSummaryDTO.from_document(doc) for doc in data.same_as],
-        related_to=[JudgmentSummaryDTO.from_document(doc) for doc in data.related_to],
+        related_to=[RelatedJudgmentDTO.from_document(doc) for doc in data.related_to],
         series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
         metadata=data.metadata or None,
     )

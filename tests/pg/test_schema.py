@@ -29,8 +29,11 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
         "SELECT count(*) FROM information_schema.tables"
         " WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
     )
-    # every node collection, edges, raw_sources, pipeline_state and the data versions
-    assert tables == len(NODE_COLLECTIONS) + 4
+    # every node collection, edges, raw_sources, pipeline_state, the data versions and
+    # the kept heat (lg_heat, lg_heat_state), the light judgments and papers
+    # (lg_judgment_light, lg_document_light) and the terms of the articles with the stems
+    # of the summaries they are weighed against (lg_article_terms, lg_summary_stems)
+    assert tables == len(NODE_COLLECTIONS) + 10
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:
@@ -162,6 +165,23 @@ def test_a_column_the_schema_lacks_stops_the_start(conn: psycopg.Connection) -> 
     conn.execute("ALTER TABLE edges ADD COLUMN weight int")
     with pytest.raises(SchemaOutdated, match=r"edges\.weight staat niet in het schema"):
         ensure_schema(conn)
+
+
+def test_an_index_the_schema_dropped_does_not_stop_the_start(
+    conn: psycopg.Connection,
+) -> None:
+    """An index the schema no longer makes stays until it is dropped by hand (``DROP INDEX
+    CONCURRENTLY`` on a large database): the start goes on, and it is not made again."""
+    conn.execute("CREATE INDEX edges_to ON edges (to_id, relation, from_collection)")
+    ensure_schema(conn)
+    assert conn.execute(
+        "SELECT count(*) FROM pg_indexes WHERE indexname = 'edges_to'"
+    ).fetchone() == (1,)
+    conn.execute("DROP INDEX edges_to")
+    ensure_schema(conn)
+    assert conn.execute(
+        "SELECT count(*) FROM pg_indexes WHERE indexname = 'edges_to'"
+    ).fetchone() == (0,)
 
 
 @pytest.mark.parametrize(

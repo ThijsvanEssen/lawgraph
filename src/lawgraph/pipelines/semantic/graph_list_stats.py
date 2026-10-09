@@ -1,7 +1,7 @@
 """``lawgraph semantic graph-list-stats``: precompute list-endpoint sort and filter keys on nodes.
 
 Persists the keys onto each document so ``/api/instruments``, ``/api/judgments``
-and friends can sort and filter via persistent indexes instead of deriving the
+and friends can sort and filter by an index instead of deriving the
 value per row.
 
 Fields written:
@@ -40,13 +40,12 @@ the document.
 
 from __future__ import annotations
 
-import argparse
-
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import graph_stats
+from lawgraph.pipelines.command import command_parser
 
 logger = get_logger(__name__)
 
@@ -59,11 +58,11 @@ _REFRESHERS = (
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description=(
             "Precompute the list-endpoint sort and filter keys on instruments, "
             "judgments, articles and committees so those endpoints can sort and "
-            "filter via persistent indexes."
+            "filter by an index."
         )
     )
     only_group = parser.add_mutually_exclusive_group()
@@ -74,7 +73,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Report how many docs would change; write nothing.",
+        help="Report how many rows would change; write nothing.",
     )
     args = parser.parse_args(argv)
 

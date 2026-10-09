@@ -111,6 +111,8 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             "originating_body": payload.get("originatingbody") or "",
             "articles": articles if isinstance(articles, list) else [articles],
             "conclusion": payload.get("conclusion") or "",
+            # of the record: a decision is in HUDOC once per language (``echr-versions``)
+            "language": payload.get("languageisocode") or None,
         }
         importance = payload.get("importance")
         if importance is not None:

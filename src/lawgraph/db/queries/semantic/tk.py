@@ -13,6 +13,7 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
+    COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -140,8 +141,9 @@ def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]
 def tk_document_titles(
     store: Store, since_date: str | None
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with their kind, their title and, of a paper named by its own
-    subject, the title of its dossier; those of *since_date* or later when it is given."""
+    """The Tweede Kamer documents with their kind, their title, their dossiers and, of a paper
+    named by its own subject, the title of its dossier; those of *since_date* or later when it
+    is given."""
     # ``doc.props.date >= @since``: a string by the collation; an array or an object sorts
     # above every string in ArangoDB, so it passes too
     since_filter = ""
@@ -151,12 +153,35 @@ def tk_document_titles(
             " AND json_typeof(d.props -> 'date') IN ('array', 'object')))"
         )
     sql = f"""
-        SELECT {slim_sql("d", "kind", "title", "dossier_title", "display_name")}
+        SELECT {
+        slim_sql(
+            "d", "kind", "title", "dossier_title", "display_name", "dossier_numbers"
+        )
+    }
         FROM {COLLECTION_DOCUMENTS} d
         WHERE '{CHAMBER_TK}' = ANY(d.labels) {since_filter}
         ORDER BY d.key
         """
     return store.query(sql, {"since": since_date})
+
+
+def acts_of_dossiers(store: Store) -> dict[str, set[str]]:
+    """Dossier label -> the ids of the instruments ``LEGISLATED_IN`` it: the acts a dossier
+    made (the BWB names its dossier in the brondata of the act)."""
+    rows = store.query(
+        f"""
+        SELECT ds.label, l.from_id
+        FROM {COLLECTION_EDGES} l
+        JOIN {COLLECTION_DOSSIERS} ds ON ds.id = l.to_id
+        WHERE l.relation = %(legislated_in)s AND ds.label IS NOT NULL
+        ORDER BY ds.label ASC NULLS FIRST, l.from_id ASC NULLS FIRST
+        """,
+        {"legislated_in": RELATION_LEGISLATED_IN},
+    )
+    acts: dict[str, set[str]] = {}
+    for row in rows:
+        acts.setdefault(row["label"], set()).add(row["from_id"])
+    return acts
 
 
 _TO_SCAN_FOR_AMENDMENTS_SQL = f"""
@@ -229,6 +254,30 @@ CROSS JOIN LATERAL (
 WHERE {present_sql("c.p -> 'dossier_number'")}
 ORDER BY c.key
 """
+
+
+# The other dossiers an Eerste Kamer paper names (``dossier_numbers`` past its first), by the
+# label of the dossier: a paper on more than one bill.
+_EK_PAPERS_OTHER_SQL = f"""
+SELECT json_build_object(
+    'document_key', d.key,
+    'dossier_key', ds.key,
+    'dossier_number', ds.number,
+    'dossier_suffix', ds.props -> 'suffix'
+)
+FROM {COLLECTION_DOCUMENTS} d
+CROSS JOIN LATERAL unnest(d.dossier_numbers[2:]) AS l(label)
+JOIN {COLLECTION_DOSSIERS} ds ON ds.label = l.label
+WHERE d.source = %(source)s AND cardinality(d.dossier_numbers) > 1
+ORDER BY d.key, ds.key
+"""
+
+
+def ek_papers_in_other_dossiers(store: Store) -> Iterator[dict[str, Any]]:
+    """``{document_key, dossier_key, dossier_number, dossier_suffix}`` of the other dossiers
+    an Eerste Kamer paper names, past the first that ``ek_papers_in_tk_dossiers`` matches,
+    that are in the graph."""
+    return store.query(_EK_PAPERS_OTHER_SQL, {"source": SOURCE_EERSTEKAMER})
 
 
 def ek_papers_in_tk_dossiers(store: Store) -> Iterator[dict[str, Any]]:
@@ -515,6 +564,8 @@ SELECT json_build_object(
         WHERE e.to_id = ds.id AND e.relation = %(about)s
           AND e.from_collection = '{COLLECTION_DECISIONS}'
           AND lg_str(dc.props -> 'chamber') = '{CHAMBER_EK}'
+          -- the votes on the bill, not those on a motion about it
+          AND lg_str(dc.props -> 'kind') IS DISTINCT FROM 'Motie'
     )
 )
 FROM unnest(%(dossier_ids)s::text[]) WITH ORDINALITY AS a(dossier_id, ord)
@@ -567,3 +618,116 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, kind, dossier_numbers, related_cases}`` of every case the Kamer relates to
     another."""
     return store.query(_RELATED_CASES_SQL)
+
+
+def replacing_cases(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, replaces}`` of every case that replaces another (``Zaak.VervangenVanuit``):
+    its node id and the TK ids of the cases it replaces."""
+    return store.query(
+        f"""
+        SELECT id, props -> 'replaces_cases' AS replaces
+        FROM {COLLECTION_CASES}
+        WHERE {nonempty_sql("props -> 'replaces_cases'")}
+        ORDER BY key
+        """
+    )
+
+
+def papers_of_cases(store: Store, cases: list[str]) -> dict[str, list[str]]:
+    """Per case of *cases* (node ids) the papers that are ``PART_OF`` it, in id order."""
+    found: dict[str, list[str]] = {}
+    for row in store.query(
+        f"""
+        SELECT e.to_id AS case_id, e.from_id AS paper
+        FROM {COLLECTION_EDGES} e
+        WHERE e.to_id = ANY(%(cases)s::text[]) AND e.relation = '{RELATION_PART_OF}'
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+        ORDER BY e.to_id, e.from_id
+        """,
+        {"cases": cases},
+    ):
+        found.setdefault(row["case_id"], []).append(row["paper"])
+    return found
+
+
+# What a poll touched: the nodes *ids* (made of the raw records it fetched), the dossiers of
+# the Kamerstukdossier records *guids* (a dossier's key is its number), and both ends of
+# every edge written since *since*; and the dossiers they belong to: a touched dossier, the
+# dossier a touched paper, case, decision or instrument is PART_OF, ABOUT or LEGISLATED_IN,
+# directly or through its case. ``created_at`` is set when an edge is inserted, never after.
+_TOUCHED_DOSSIERS_SQL = f"""
+WITH seeds AS (
+    SELECT unnest(%(ids)s::text[]) AS id
+    UNION
+    SELECT d.id FROM {COLLECTION_DOSSIERS} d
+    WHERE lg_str(d.props -> 'external_id') = ANY(%(guids)s::text[])
+    UNION
+    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE e.created_at >= %(since)s
+),
+parts AS (
+    SELECT id FROM seeds
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN seeds s ON e.from_id = s.id
+    WHERE e.relation = %(part_of)s AND e.to_collection = '{COLLECTION_CASES}'
+),
+touched AS (
+    SELECT id FROM parts
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN parts p ON e.from_id = p.id
+    WHERE e.relation = ANY(%(relations)s::text[])
+      AND e.to_collection = '{COLLECTION_DOSSIERS}'
+)
+SELECT ds.id FROM touched t JOIN {COLLECTION_DOSSIERS} ds ON ds.id = t.id
+ORDER BY ds.key
+"""
+
+
+def touched_dossier_ids(
+    store: Store, ids: list[str], guids: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the dossiers the nodes *ids*, the dossier records *guids*, or an
+    edge written at or after *since_iso* belong to (see ``_TOUCHED_DOSSIERS_SQL``)."""
+    params = {
+        "ids": ids,
+        "guids": guids,
+        "since": since_iso,
+        "part_of": RELATION_PART_OF,
+        "relations": [RELATION_PART_OF, RELATION_ABOUT, RELATION_LEGISLATED_IN],
+    }
+    return list(store.query(_TOUCHED_DOSSIERS_SQL, params))
+
+
+def touched_ids(
+    store: Store, collection: str, ids: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the nodes of *collection* among *ids* or at an end of an edge
+    written at or after *since_iso*."""
+    return list(
+        store.query(
+            f"""
+            SELECT n.id FROM {collection} n
+            WHERE n.id = ANY(%(ids)s::text[])
+               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e
+                           WHERE e.created_at >= %(since)s)
+               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e
+                           WHERE e.created_at >= %(since)s)
+            ORDER BY n.key
+            """,
+            {"ids": ids, "since": since_iso},
+        )
+    )
+
+
+def activity_numbers(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, number, replaced_by}`` of every activity with a number: what an activity that
+    was moved names (``Activiteit.VervangenDoor``) is the number of the one that replaced it."""
+    sql = f"""
+        SELECT a.id, lg_str(a.props -> 'number') AS number,
+               a.props -> 'replaced_by' AS replaced_by
+        FROM {COLLECTION_ACTIVITIES} a
+        WHERE coalesce(lg_str(a.props -> 'number'), '') <> ''
+        ORDER BY a.key
+        """
+    return store.query(sql)

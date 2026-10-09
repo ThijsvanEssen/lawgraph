@@ -23,6 +23,8 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_MADE_IN,
@@ -124,6 +126,11 @@ def _raw(payload: dict[str, Any]) -> dict[str, Any]:
         (RELATION_ABOUT, COLLECTION_COMMITMENTS, {COLLECTION_DOSSIERS}),
         (RELATION_LED_BY, COLLECTION_ACTIVITIES, {COLLECTION_COMMITTEES}),
         (RELATION_MADE_IN, COLLECTION_COMMITMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_MADE_IN, COLLECTION_DOCUMENTS, {COLLECTION_ACTIVITIES}),
+        (RELATION_ANSWERS, COLLECTION_DOCUMENTS, {COLLECTION_COMMITMENTS}),
+        (RELATION_MADE_IN, COLLECTION_DECISIONS, {COLLECTION_ACTIVITIES}),
+        (RELATION_AUTHORED, COLLECTION_MEMBERS, {COLLECTION_COMMITMENTS}),
+        (RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, {COLLECTION_DOCUMENTS}),
         (
             RELATION_MEMBER_OF,
             COLLECTION_MEMBERS,
@@ -772,20 +779,27 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
 # ── dossiers a window touches ────────────────────────────────────────────────
 
 
-def test_a_window_refreshes_the_dossiers_its_records_belong_to() -> None:
+def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> None:
+    """In one read of the dossiers, not one per dossier."""
     from types import SimpleNamespace
 
     from lawgraph.config.constants import COLLECTION_DOSSIERS
+    from lawgraph.db.queries.normalize import tk as normalize_tk
     from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
-    stored = {"36000": "stored 36000", "37020_xv": "stored 37020-XV"}
-    asked: list[str] = []
+    stored = {"36000", "37020_xv"}
+    asked: list[list[str]] = []
 
-    def get_node(collection: str, key: str) -> Any:
-        assert collection == COLLECTION_DOSSIERS
-        asked.append(key)
-        return stored.get(key)
+    def dossiers_by_key(store: Any, keys: list[str]) -> Any:
+        asked.append(keys)
+        return iter(
+            {"id": f"{COLLECTION_DOSSIERS}/{key}", "key": key, "type": "dossier",
+             "labels": [], "props": {"title": key}}
+            for key in keys
+            if key in stored
+        )  # fmt: skip
 
+    monkeypatch.setattr(normalize_tk, "dossiers_by_key", dossiers_by_key)
     own = _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36500")
     normalized = {
         "dossiers": {"36500": own, "guid-36500": own},
@@ -800,13 +814,85 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to() -> None:
         },
         "decisions": {},
     }
-    window = SimpleNamespace(
-        _incremental=True, store=SimpleNamespace(get_node=get_node)
-    )
+    window = SimpleNamespace(_incremental=True, store=object())
     touched = TKDossiersNormalizePipeline._touched_dossiers(window, normalized)  # type: ignore[arg-type]
     # the window's own dossier is refreshed anyway; one no record holds is passed over
-    assert touched == {"36000": "stored 36000", "37020-XV": "stored 37020-XV"}
-    assert sorted(asked) == ["36000", "37020_xv", "99999"]
+    assert {label: node.key for label, node in touched.items()} == {
+        "36000": "36000",
+        "37020-XV": "37020_xv",
+    }
+    assert asked == [["36000", "37020_xv", "99999"]]  # one read
     # a run over everything holds every dossier already
     whole = SimpleNamespace(_incremental=False, store=None)
     assert TKDossiersNormalizePipeline._touched_dossiers(whole, normalized) == {}  # type: ignore[arg-type]
+
+
+# ── links of a document: the activity it records, attachments and letters ─────
+
+# The stenogram of the Tweede Kamer of 28 March 2023 (2023D18976): no case, no dossier,
+# only the debate it is the record of (Document.Activiteit, 2023A00493).
+STENOGRAM = "9cd4c32c-77fb-4713-821d-faf5ebd49b61"
+DEBATE = "a76eec4d-9cde-48de-aefa-6385e69dd0e1"
+
+
+def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_letter() -> (
+    None
+):
+    store = _Store(
+        existing={
+            COLLECTION_DOCUMENTS: {
+                "9cd4c32c_77fb_4713_821d_faf5ebd49b61",
+                "letter",
+                "memo",
+                "report",
+            },
+            COLLECTION_ACTIVITIES: {"a76eec4d_9cde_48de_aefa_6385e69dd0e1"},
+        }
+    )
+    links = [
+        (STENOGRAM, {"activity_ids": [DEBATE, "gone"]}),
+        # the letter names its attachments; the report names its letter (a run that
+        # read only the report makes the same edge); a paper not stored makes none
+        ("letter", {"attachment_ids": ["memo", "absent"]}),
+        ("report", {"attached_to_ids": ["letter"]}),
+        ("memo", {"attached_to_ids": ["letter"]}),  # the same edge as the letter's
+    ]
+    tk_cases.link_documents(store, links, source=SOURCE)
+    assert set(store.edge_meta) == {
+        (
+            "documents/9cd4c32c_77fb_4713_821d_faf5ebd49b61",
+            RELATION_MADE_IN,
+            "activities/a76eec4d_9cde_48de_aefa_6385e69dd0e1",
+        ),
+        ("documents/memo", RELATION_ACCOMPANIES, "documents/letter"),
+        ("documents/report", RELATION_ACCOMPANIES, "documents/letter"),
+    }
+    # one lookup per collection, whatever the number of documents
+    assert store.existence_calls == 2
+
+
+def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
+    store = _Store(existing={COLLECTION_DOCUMENTS: {"letter"}})
+    commitment = _node(
+        COLLECTION_COMMITMENTS,
+        NodeType.COMMITMENT,
+        "tz1",
+        letter_ids=["LETTER", "absent"],
+    )
+    tk_cases.link_letters_to_commitments(store, [commitment], source=SOURCE)
+    assert set(store.edge_meta) == {
+        ("documents/letter", RELATION_ANSWERS, "commitments/tz1")
+    }
+
+
+def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
+    store = _Store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
+    decisions = [
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b1", activity_id="ACT-1"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b2", activity_id="gone"),
+        _node(COLLECTION_DECISIONS, NodeType.DECISION, "b3"),
+    ]
+    tk_cases.link_decisions_to_activities(store, decisions, source=SOURCE)
+    assert set(store.edge_meta) == {
+        ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
+    }

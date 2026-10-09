@@ -30,6 +30,7 @@ from lawgraph.db.queries.documents import (
     get_document_passages,
     list_documents,
 )
+from lawgraph.db.queries.dossiers import load_dossier_names
 
 router = APIRouter()
 
@@ -84,9 +85,12 @@ def list_chamber_documents(
         offset=offset,
         facets=facets,
     )
+    names = load_dossier_names(store)
     return DocumentListResponse(
         total=raw.get("total"),
-        items=[DocumentListItemDTO.from_row(row) for row in raw.get("items") or []],
+        items=[
+            DocumentListItemDTO.from_row(row, names) for row in raw.get("items") or []
+        ],
         facets=raw.get("facets"),
     )
 
@@ -116,6 +120,7 @@ def get_document_text(
         doc,
         get_document_links(store, doc["_id"]),
         get_document_decisions(store, doc["_id"]),
+        load_dossier_names(store),
     )
 
 

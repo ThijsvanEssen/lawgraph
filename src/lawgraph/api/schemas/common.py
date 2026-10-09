@@ -3,11 +3,13 @@ summaries, citation spans and article relations."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.core.bwb_xml import article_address
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.official_urls import instrument_url, publication_url
 
@@ -223,6 +225,34 @@ class ArticleRelationDTO(BaseModel):
         )
 
 
+class DossierNameDTO(BaseModel):
+    """The names of a dossier next to its bare number, as ``/api/dossiers`` gives them;
+    null when no dossier has the number."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    number: str
+    short_title: str | None = Field(
+        None,
+        description="The name it goes by: ``Begroting Defensie 2027``, the short title of "
+        "a bill (``Wet betaalbare huur``).",
+    )
+    title: str | None = None
+
+
+def dossier_names_of(
+    numbers: Iterable[Any], names: dict[str, dict[str, Any]]
+) -> list[DossierNameDTO]:
+    """The ``DossierNameDTO`` of each of *numbers* in their order, once each, from *names*
+    (``load_dossier_names``)."""
+    seen: dict[str, DossierNameDTO] = {}
+    for number in numbers:
+        text = str(number or "").strip()
+        if text and text not in seen:
+            seen[text] = DossierNameDTO(**(names.get(text) or {"number": text}))
+    return list(seen.values())
+
+
 class DossierRefDTO(BaseModel):
     """Reference to a Kamerstukdossier by number; ``title`` is null when unknown."""
 
@@ -231,6 +261,9 @@ class DossierRefDTO(BaseModel):
     number: str
     key: str
     title: str | None = None
+    short_title: str | None = Field(
+        None, description="The name it goes by, as ``/api/dossiers`` gives it."
+    )
 
     @classmethod
     def from_number(
@@ -239,7 +272,8 @@ class DossierRefDTO(BaseModel):
         """Build from a dossier number and an optional ``key -> title`` lookup."""
         text = str(number)
         key = make_node_key(text)
-        return cls(number=text, key=key, title=(titles or {}).get(key))
+        title = (titles or {}).get(key)
+        return cls(number=text, key=key, title=title, short_title=short_title(title))
 
 
 class PublicationDTO(BaseModel):

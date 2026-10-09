@@ -396,6 +396,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "tk_url": "https://www.tweedekamer.nl/kamerstukken/detail"
         "?id=2025D00003&did=2025D00003",
         "url": None,
+        "sender": None,  # the seed has no signatures
     }
     ek = entries["ek_1"].model_dump()["body"]
     assert ek["chamber"] == "EK" and ek["url"] == "https://ek.example/1"
@@ -427,6 +428,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
     assert decision["passed"] is True and decision["external_id"] == "b1"
     document = decision["document"]
     assert document["key"] == "motie" and document["chamber"] == "TK"
+    assert document["number"] is None  # the seed numbers the motion in no dossier
     assert document["dictum_excerpt"].startswith("Artikel 5 wordt gewijzigd.")
     assert len(document["dictum_excerpt"]) <= 280
     assert [s["role"] for s in document["signatories"]] == ["indiener", "mede-indiener"]
@@ -1251,6 +1253,7 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "kind",
         "title",
         "sequence",
+        "number",
         "dossier_number",
         "dossier_suffix",
         "session_year",
@@ -1258,6 +1261,7 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "document_number",
         "display_name",
         "source",
+        "actors",
         "labels",
     ]
     assert (a["id"], a["title"], a["sequence"], a["labels"]) == (
@@ -2193,3 +2197,55 @@ def test_the_next_thing_the_kamer_has_planned_about_a_dossier(
     # the day itself counts; after the last one nothing is planned
     assert get_next_activity(store, dossier, "2026-10-20")["key"] == "vote"  # type: ignore[index]
     assert get_next_activity(store, dossier, "2026-10-21") is None
+
+
+def test_the_names_of_the_dossiers_are_read_once_per_version(
+    store: GraphStore, monkeypatch: Any
+) -> None:
+    """``load_dossier_names``: per number the title and the short title ``/api/dossiers``
+    gives (of the first dossier by key that has the number), read again only once the
+    dossiers changed."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import dossiers as dossier_queries
+
+    def dossier(key: str, label: str, title: str) -> dict[str, Any]:
+        return {
+            "_key": key,
+            "type": "dossier",
+            "labels": ["TK"],
+            "props": {"label": label, "title": title},
+        }
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            dossier("36000", "36000", "Wijziging van de Wet X (Wet beter voorbeeld)"),
+            dossier(
+                "37020_xv",
+                "37020-XV",
+                "Vaststelling van de begrotingsstaten van het Ministerie van Defensie (X)"
+                " voor het jaar 2027",
+            ),
+        ],
+    )
+    version_cache.clear()
+    reads: list[int] = []
+    read = dossier_queries._read_dossier_names
+
+    def counted(store_: GraphStore) -> Any:
+        reads.append(1)
+        return read(store_)
+
+    monkeypatch.setattr(dossier_queries, "_read_dossier_names", counted)
+    names = dossier_queries.load_dossier_names(store)
+    assert names["36000"] == {
+        "number": "36000",
+        "short_title": "Wet beter voorbeeld",
+        "title": "Wijziging van de Wet X (Wet beter voorbeeld)",
+    }
+    assert names["37020-XV"]["short_title"] == "Begroting Defensie 2027"
+    assert dossier_queries.load_dossier_names(store) is names
+    assert len(reads) == 1
+    store.bulk_insert_or_update_nodes("dossiers", [dossier("36001", "36001", "Wonen")])
+    assert dossier_queries.load_dossier_names(store)["36001"]["title"] == "Wonen"
+    assert len(reads) == 2

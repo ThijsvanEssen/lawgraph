@@ -139,10 +139,14 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
     )
 
 
-def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
+def judgments_with_related_eclis(
+    store: Store, *, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
-    related_eclis}`` of every judgment that names an earlier one."""
+    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one,
+    only those of *eclis* when it is given."""
     related = "j.props -> 'related_eclis'"
+    later = "j.props -> 'later_eclis'"
     sql = f"""
         SELECT j.id AS j_id,
                j.props -> 'ecli' AS ecli,
@@ -150,12 +154,18 @@ def judgments_with_related_eclis(store: Store) -> Iterator[dict[str, Any]]:
                j.props -> 'case_number' AS case_number,
                {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure_type,
-               {related} AS related_eclis
+               {_or_empty(related)} AS related_eclis,
+               {_or_empty(later)} AS later_eclis
         FROM judgments j
-        WHERE {_length(related)} > 0
+        WHERE ({_length(related)} > 0 OR {_length(later)} > 0) {_of_eclis(eclis)}
         ORDER BY j.key
         """
-    return store.query(sql)
+    return store.query(sql, {"eclis": eclis})
+
+
+def _of_eclis(eclis: list[str] | None) -> str:
+    """SQL: only the judgments of ``%(eclis)s`` (the index on ``ecli``); nothing without."""
+    return "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
 
 
 def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
@@ -183,13 +193,13 @@ def _postgres_regex(pattern: str) -> str:
 
 
 def appeals_to_read(
-    store: Store, *, procedure: str, paragraphs: int
+    store: Store, *, procedure: str, paragraphs: int, eclis: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
     """``{key, j_id, ecli, read, paragraphs, unresolved_appeal_targets}`` of the appeals
     whose metadata names no earlier instance (``read``: *procedure*, a regular expression,
     matches their ``judgment_metadata.type``, case-insensitive), with their first
     *paragraphs* paragraphs; and of the judgments that carry unresolved appeal targets, so
-    that those no longer read lose them."""
+    that those no longer read lose them. Only those of *eclis* when it is given."""
     targets = "j.props -> 'unresolved_appeal_targets'"
     texts = _slice(
         "props -> 'paragraphs'",
@@ -208,7 +218,7 @@ def appeals_to_read(
                    {targets} AS unresolved_appeal_targets,
                    {_present(targets)} AS has_targets
             FROM judgments j
-            WHERE j.source = %(source)s
+            WHERE j.source = %(source)s {_of_eclis(eclis)}
         ) j
         WHERE read OR has_targets
         ORDER BY key
@@ -219,6 +229,7 @@ def appeals_to_read(
             "source": SOURCE_RECHTSPRAAK,
             "procedure": _postgres_regex(procedure),
             "paragraphs": paragraphs,
+            "eclis": eclis,
         },
     )
 
@@ -267,18 +278,36 @@ def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, 
     return store.query(sql, {"keys": keys, **_conclusion_params()})
 
 
-def decisions_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
-    """``{ecli, date, case_number}`` of the decisions (not conclusions) of these *dates*."""
-    sql = f"""
-        SELECT j.props -> 'ecli' AS ecli,
-               j.props -> 'date_eff' AS date,
-               j.props -> 'case_number' AS case_number
+def judgments_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, date, case_number}`` of the judgments of these *dates*, conclusions among
+    them (``conclusions_among`` tells them apart). From the columns and ``lg_judgment_light``:
+    the dates an appeal or a referral names cover nearly every court day, and the props of
+    every judgment of them would be its text."""
+    sql = """
+        SELECT j.ecli, j.date_eff AS date,
+               CASE WHEN l.id IS NULL THEN j.props -> 'case_number'
+                    ELSE l.props -> 'case_number' END AS case_number
         FROM judgments j
-        WHERE j.date_eff = ANY(%(dates)s::text[]) AND {_present("j.props -> 'ecli'")}
-          AND NOT {_IS_CONCLUSION}
+        -- a judgment not kept light yet (before `semantic graph-light`) reads its props
+        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        WHERE j.date_eff = ANY(%(dates)s::text[]) AND j.ecli IS NOT NULL
         ORDER BY j.key
         """
-    return store.query(sql, {"dates": dates, **_conclusion_params()})
+    return store.query(sql, {"dates": dates})
+
+
+def conclusions_among(store: Store, eclis: list[str]) -> set[str]:
+    """The conclusions (of an advocate-general) among the judgments of *eclis*, upper case:
+    by their ``document_type`` or their court. Read for the few that matched."""
+    sql = f"""
+        SELECT upper(j.ecli) AS ecli FROM judgments j
+        WHERE j.ecli = ANY(%(eclis)s::text[]) AND {_IS_CONCLUSION}
+        """
+    return {
+        str(ecli)
+        for ecli in store.query(sql, {"eclis": eclis, **_conclusion_params()})
+        if ecli
+    }
 
 
 def court_decisions_between(
@@ -545,3 +574,44 @@ def judgments_naming_related_cases(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY j.key
         """
     )
+
+
+def echr_decisions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, appno, date}`` of every ECHR decision, one per decision: not a language
+    version that is ``SAME_AS`` another (``semantic echr-versions``). Columns only."""
+    sql = """
+        SELECT j.id, j.appno, j.date_eff AS date
+        FROM judgments j
+        WHERE j.source = %(source)s AND coalesce(j.appno, '') <> '' AND j.same_as IS NULL
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_texts(store: Store) -> Iterator[dict[str, Any]]:
+    """``{j_id, appno, text}`` of the ECHR judgments with a text (their DOCX, English or
+    French), one per decision."""
+    sql = """
+        SELECT j.id AS j_id, j.appno, j.props -> 'text' AS text
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.same_as IS NULL
+          AND json_typeof(j.props -> 'text') = 'string'
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})
+
+
+def echr_versions(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, appno, date, item_id, language, same_as}`` of the ECHR decisions without
+    an ECLI and with an appno: HUDOC holds one per language, each a node of its own (a
+    decision with an ECLI is one node already)."""
+    sql = """
+        SELECT j.id, j.key, j.appno, j.date_eff AS date,
+               lg_str(j.props -> 'external_id') AS item_id,
+               lg_str(j.props -> 'language') AS language,
+               j.same_as
+        FROM judgments j
+        WHERE j.source = %(source)s AND j.ecli IS NULL AND coalesce(j.appno, '') <> ''
+        ORDER BY j.key
+        """
+    return store.query(sql, {"source": SOURCE_ECHR})

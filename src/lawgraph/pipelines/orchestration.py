@@ -27,6 +27,7 @@ from lawgraph.pipelines.command import (
     accepts_since,
     add_since_argument,
     combined_result,
+    command_parser,
     run_command,
 )
 from lawgraph.pipelines.retrieve_commands import GAPS
@@ -246,12 +247,13 @@ def _run_phase(
 
 
 def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description="Run all retrieve pipelines.")
+    parser = command_parser(description="Run all retrieve pipelines.")
     add_since_argument(
         parser,
         default="1d",
         last=True,
-        help="Incremental mode: what changed since then (ISO date or 7d)." + _LAST_HELP,
+        help="Incremental mode: what changed since then (ISO date, 7d, 2h or 90m)."
+        + _LAST_HELP,
     )
     parser.add_argument(
         "--mode",
@@ -265,10 +267,12 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         type=window_since,
         default=window_since(DEFAULT_WINDOW),
         metavar="DATE",
-        help="Full mode: the sources that keep producing (Tweede Kamer, "
-        "Rechtspraak, Staatscourant, Eerste Kamer, ECHR) read only what changed since then. "
-        "ISO date, relative (730d) or 'all' for the whole history. Default: "
-        f"{DEFAULT_WINDOW}. Reference sources (BWB, Verdragenbank) are always read in full.",
+        help="Full mode: the sources that keep producing (Tweede Kamer, Rechtspraak, "
+        "Staatscourant, Eerste Kamer, ECHR, the implementing measures of EUR-Lex) read only "
+        "what changed since then. ISO date, relative (730d) or 'all' for the whole history. "
+        f"Default: {DEFAULT_WINDOW}. The reference sources (BWB, Verdragenbank) are read in "
+        "full; the sources that choose from the graph (tk-content, eurlex) or from a stored "
+        "list run as they always do.",
     )
     parser.add_argument(
         "--jobs",
@@ -313,18 +317,19 @@ def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:
 
 
 def normalize_all(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description="Run all normalize pipelines.")
+    parser = command_parser(description="Run all normalize pipelines.")
     add_since_argument(
         parser,
         last=True,
-        help="Only the raw records fetched since then (ISO date or 7d)." + _LAST_HELP,
+        help="Only the raw records fetched since then (ISO date, 7d, 2h or 90m)."
+        + _LAST_HELP,
     )
     args = parser.parse_args(argv)
     return _run_phase("normalize", parser, args, _since_argv)
 
 
 def semantic_all(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description="Run all semantic pipelines.")
+    parser = command_parser(description="Run all semantic pipelines.")
     add_since_argument(
         parser,
         last=True,

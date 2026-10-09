@@ -80,10 +80,12 @@ def cabinet_periods(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def commitment_makers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, name, role, ministry_name, text, date, props}`` of every commitment: who made
-    it as the source writes it, the ministry the source gives it, its text, and what is
-    stored now of who made it."""
+def commitment_makers(
+    store: Store, ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{key, name, role, ministry_name, text, date, props}`` of every commitment, or of
+    those with an ``_id`` in *ids*: who made it as the source writes it, the ministry the
+    source gives it, its text, and what is stored now of who made it."""
     return store.query(
         f"""
         SELECT json_build_object(
@@ -96,8 +98,10 @@ def commitment_makers(store: Store) -> Iterator[dict[str, Any]]:
             'props', {_keep("c.props", "member_key", "post", "ministry", "cabinet")}
         )
         FROM commitments c
+        WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
         ORDER BY c.key COLLATE "C"
-        """
+        """,
+        {"ids": ids},
     )
 
 
@@ -109,22 +113,27 @@ WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
     FROM edges p
     WHERE p.relation = %(part_of)s AND p.to_collection = '{COLLECTION_DOSSIERS}'
-      AND p.from_collection <> '{COLLECTION_CASES}'
+      AND p.from_collection <> '{COLLECTION_CASES}' /* papers */
     UNION
     SELECT c.to_id, p.from_id
     FROM edges c
     JOIN edges p ON p.to_id = c.from_id AND p.relation = %(part_of)s
     WHERE c.relation = %(part_of)s AND c.to_collection = '{COLLECTION_DOSSIERS}'
-      AND c.from_collection = '{COLLECTION_CASES}'
+      AND c.from_collection = '{COLLECTION_CASES}' /* cases */
 ),
 signatures AS (
     SELECT papers.dossier_id, papers.paper_id, a.key, a.from_id, a.doc -> 'meta' AS meta,
-           CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-                THEN (SELECT d.date FROM documents d WHERE d.id = a.to_id)
-                ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
-           END AS date
+           dated.date
     FROM papers
     JOIN edges a ON a.to_id = papers.paper_id AND a.relation = %(authored)s
+    -- the date read once per signature, not once for each place that names it
+    CROSS JOIN LATERAL (
+        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
+                    THEN (SELECT d.date FROM documents d WHERE d.id = a.to_id)
+                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
+               END AS date
+        OFFSET 0
+    ) dated
     WHERE lg_str(a.doc -> 'meta' -> 'role') = %(first_role)s
       AND lg_str(a.doc -> 'meta' -> 'capacity') = ANY(%(capacities)s)
 ),
@@ -133,7 +142,8 @@ firsts AS (
         'date', date,
         'member', split_part(from_id, '/', 2),
         'capacity', meta -> 'capacity',
-        'function', meta -> 'function'
+        'function', meta -> 'function',
+        'paper', paper_id
     ) AS first
     FROM signatures
     WHERE date IS NOT NULL
@@ -142,29 +152,114 @@ firsts AS (
 SELECT json_build_object(
     'key', dossier.key,
     'first', firsts.first,
-    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet")}
+    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
 )
 FROM dossiers dossier
-LEFT JOIN firsts ON firsts.dossier_id = dossier.id
+LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */
 ORDER BY dossier.key COLLATE "C"
 """
+# The same for the dossiers of ``%(ids)s`` alone: their papers, by index.
+_ONLY_SOME = {
+    " /* papers */": " AND p.to_id = ANY(%(ids)s::text[])",
+    " /* cases */": " AND c.to_id = ANY(%(ids)s::text[])",
+    " /* dossiers */": " WHERE dossier.id = ANY(%(ids)s::text[])",
+}
 
 
-def dossier_first_signatures(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, first, props}`` of every dossier: ``first`` the first signature of its
-    earliest document signed first by a Kamerlid or a bewindspersoon (``{date, member,
-    capacity, function}``, null when there is none), ``props`` what is stored now.
+def dossier_first_signatures(
+    store: Store, ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{key, first, props}`` of every dossier, or of those with an ``_id`` in *ids*:
+    ``first`` the first signature of its earliest document signed first by a Kamerlid or
+    a bewindspersoon (``{date, member, capacity, function}``, null when there is none),
+    ``props`` what is stored now.
 
     With ``hash_joins``: the planner takes the first signatures (a condition on ``meta``)
     for a few dozen rows where there are a hundred thousand, and loops over them for every
-    paper; on the server that ran for hours."""
+    paper; on the server that ran for hours. A few dossiers are read by index instead."""
+    some = ids is not None
+    statement = _FIRST_SIGNATURES_SQL
+    for marker, condition in _ONLY_SOME.items() if some else ():
+        statement = statement.replace(marker, condition)
     return store.query(
-        _FIRST_SIGNATURES_SQL,
+        statement,
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
             "first_role": ROLE_FIRST_SIGNATORY,
             "capacities": [CAPACITY_MEMBER, CAPACITY_GOVERNMENT],
+            "ids": ids,
         },
-        hash_joins=True,
+        hash_joins=not some,
+    )
+
+
+# Of the dossiers *ids*, those whose first signature a window can have changed: the papers
+# it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
+# written since *since*), walked up to their dossiers (directly or through a case), and of
+# those the dossiers that keep no first signature yet, or whose touched paper is dated on or
+# before the one kept, or is the one kept. A paper that comes later than the first, as almost
+# every new one, changes nothing.
+_FIRST_MAY_CHANGE_SQL = f"""
+WITH touched AS (
+    SELECT unnest(%(seeds)s::text[]) AS paper_id
+    UNION
+    SELECT a.to_id FROM edges a
+    WHERE a.relation = %(authored)s AND a.created_at >= %(since)s
+),
+up AS (
+    SELECT e.to_id AS dossier_id, t.paper_id
+    FROM touched t
+    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
+     AND e.to_collection = '{COLLECTION_DOSSIERS}'
+    UNION
+    SELECT c.to_id, t.paper_id
+    FROM touched t
+    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
+     AND e.to_collection = '{COLLECTION_CASES}'
+    JOIN edges c ON c.from_id = e.to_id AND c.relation = %(part_of)s
+     AND c.to_collection = '{COLLECTION_DOSSIERS}'
+),
+dated AS (
+    SELECT up.dossier_id, up.paper_id,
+           CASE WHEN split_part(up.paper_id, '/', 1) = '{COLLECTION_DOCUMENTS}'
+                THEN (SELECT d.date FROM documents d WHERE d.id = up.paper_id)
+                ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = up.paper_id)
+           END AS date
+    FROM up
+    WHERE up.dossier_id = ANY(%(ids)s::text[])
+)
+SELECT ds.id
+FROM {COLLECTION_DOSSIERS} ds
+WHERE ds.id = ANY(%(ids)s::text[])
+  AND (
+      NOT lg_truthy(ds.props -> 'first_signed')
+      OR EXISTS (
+          SELECT 1 FROM dated t
+          WHERE t.dossier_id = ds.id
+            AND (t.paper_id = lg_str(ds.props -> 'first_signed' -> 'paper')
+                 OR t.date <= lg_str(ds.props -> 'first_signed' -> 'date'))
+      )
+  )
+ORDER BY ds.key COLLATE "C"
+"""
+
+
+def dossiers_whose_first_may_change(
+    store: Store, ids: list[str], seeds: list[str], since_iso: str
+) -> list[str]:
+    """The ``_id`` of the dossiers among *ids* whose first signature a window can have
+    changed (see ``_FIRST_MAY_CHANGE_SQL``): the only ones ``semantic tk-government
+    --touched-since`` reads the papers of; the others keep what they have."""
+    return list(
+        store.query(
+            _FIRST_MAY_CHANGE_SQL,
+            {
+                "ids": ids,
+                "seeds": seeds,
+                "since": since_iso,
+                "authored": RELATION_AUTHORED,
+                "part_of": RELATION_PART_OF,
+            },
+        )
     )

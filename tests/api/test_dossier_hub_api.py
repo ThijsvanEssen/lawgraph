@@ -106,6 +106,13 @@ def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> Non
         "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
     monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_implements",
+        lambda store, dossier_id: [],
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_instrument_names", lambda store, ids: {}
+    )
+    monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_next_activity",
         lambda store, dossier_id, today: None,
     )
@@ -223,6 +230,14 @@ def test_committee_activities_are_paged_with_a_total(
 
     assert body["total"] == 41
     assert body["items"][0]["dossier_numbers"] == ["36000"]
+    # the names of its dossiers next to the numbers (``load_dossier_names``)
+    assert body["items"][0]["dossiers"] == [
+        {
+            "number": "36000",
+            "short_title": "Wet beter voorbeeld",
+            "title": "Wijziging van de Wet X (Wet beter voorbeeld)",
+        }
+    ]
     assert body["items"][1] == {
         "id": "activities/a2",
         "key": "a2",
@@ -231,6 +246,7 @@ def test_committee_activities_are_paged_with_a_total(
         "agenda_title": None,
         "status": None,
         "dossier_numbers": [],
+        "dossiers": [],
     }
 
 

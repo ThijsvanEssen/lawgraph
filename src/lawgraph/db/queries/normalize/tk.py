@@ -44,9 +44,62 @@ ORDER BY c.key COLLATE "C"
 """
 
 
+def dossiers_by_key(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """The stored dossiers of *keys*, as rows of ``node_doc``, in one read."""
+    return store.query(
+        f"""
+        SELECT id, key, type, labels, props FROM {COLLECTION_DOSSIERS}
+        WHERE key = ANY(%(keys)s::text[])
+        ORDER BY key COLLATE "C"
+        """,
+        {"keys": keys},
+    )
+
+
 def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, dossier_numbers}`` of every case that names a dossier."""
     return store.query(_CASE_NUMBERS_SQL)
+
+
+def case_dossier_numbers_of(store: Store, ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{id, dossier_numbers}`` of the cases *ids* (``_id``) that name a dossier."""
+    return store.query(
+        f"""
+        SELECT c.id, x.numbers AS dossier_numbers
+        FROM {COLLECTION_CASES} c
+        CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
+        WHERE c.id = ANY(%(ids)s::text[]) AND {present_sql("x.numbers")}
+        ORDER BY c.key COLLATE "C"
+        """,
+        {"ids": ids},
+    )
+
+
+def case_dossier_numbers_naming(
+    store: Store, labels: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{id, dossier_numbers}`` of the cases that name one of the dossiers *labels*: a
+    read of every case (no column holds their dossiers), for a run that wrote dossiers."""
+    return store.query(
+        f"""
+        SELECT c.id, x.numbers AS dossier_numbers
+        FROM {COLLECTION_CASES} c
+        CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
+        WHERE {present_sql("x.numbers")}
+          AND (
+              (json_typeof(x.numbers) = 'string'
+               AND x.numbers #>> '{{}}' = ANY(%(labels)s::text[]))
+              OR EXISTS (
+                  SELECT 1 FROM json_array_elements_text(
+                      CASE WHEN json_typeof(x.numbers) = 'array' THEN x.numbers END
+                  ) AS n(label)
+                  WHERE n.label = ANY(%(labels)s::text[])
+              )
+          )
+        ORDER BY c.key COLLATE "C"
+        """,
+        {"labels": labels},
+    )
 
 
 # One pass over the props of each node: its ``external_id`` and the props kept, in the
@@ -175,7 +228,8 @@ _SUBJECT_ORDER = _json_keys("n.p -> 'date'")
 
 # ``asked``: the dossiers in their order; ``member_docs``: the documents PART_OF each,
 # directly or through one of its cases, once per edge; ``signals``: the few fields of each
-# document, from its props cut down once (``cut``); ``subjects``: the activities and
+# document, from ``lg_document_light`` (``schema.DOCUMENT_LIGHT_PROPS``), which does not read
+# its props and their text, else from its props cut down once (``cut``); ``subjects``: the activities and
 # decisions ABOUT each, from their props cut down once. A doc and a decision come out
 # with their keys in byte order, as ``UNSET`` gave them.
 _DOSSIER_SIGNALS_SQL = f"""
@@ -204,7 +258,9 @@ member_docs AS (
      AND e2.from_collection = '{COLLECTION_DOCUMENTS}'
 ),
 cut AS MATERIALIZED (
-    SELECT d.id, {_DOC_CUT} AS p
+    SELECT d.id, coalesce(
+        (SELECT l.props FROM lg_document_light l WHERE l.id = d.id), {_DOC_CUT}
+    ) AS p
     FROM {COLLECTION_DOCUMENTS} d
     WHERE d.id IN (SELECT doc_id FROM member_docs)
 ),
@@ -312,17 +368,9 @@ ORDER BY a.ord
 """
 
 
-def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
-    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
-    belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
-    holds.
-
-    Only the few fields that are used are read, from props cut down once per node: a TK
-    document holds its text and its payload. ``case_kinds`` is a set to its readers;
-    sorted, it is the same list every time.
-    """
-    bind = {
+def dossier_signals_bind(dossier_ids: list[str]) -> dict[str, Any]:
+    """The parameters of ``_DOSSIER_SIGNALS_SQL`` for *dossier_ids*."""
+    return {
         "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,
         "dossier_ids": dossier_ids,
@@ -349,7 +397,19 @@ def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, 
             "primary_case_kind",
         ],
     }
-    return store.query(_DOSSIER_SIGNALS_SQL, bind)
+
+
+def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
+    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
+    belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
+    holds.
+
+    Only the few fields that are used are read, from props cut down once per node: a TK
+    document holds its text and its payload. ``case_kinds`` is a set to its readers;
+    sorted, it is the same list every time.
+    """
+    return store.query(_DOSSIER_SIGNALS_SQL, dossier_signals_bind(dossier_ids))
 
 
 def dossiers_of_numbers(store: Store, numbers: list[str]) -> Iterator[dict[str, Any]]:

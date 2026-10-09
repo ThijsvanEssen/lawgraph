@@ -104,6 +104,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         ),
         "limit": 10,
         "offset": 20,
+        "canvas": False,
     }
     node = payload["node"]
     assert node["id"].startswith("instruments")
@@ -138,7 +139,12 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
 
     monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", fake)
     assert client.get("/api/nodes/instruments/x").status_code == 200
-    assert seen == {"filters": NeighborFilter(), "limit": 30, "offset": 0}
+    assert seen == {
+        "filters": NeighborFilter(),
+        "limit": 30,
+        "offset": 0,
+        "canvas": False,
+    }
 
 
 @pytest.mark.parametrize("path", ["", "/neighborhood"])
@@ -181,3 +187,11 @@ def test_the_type_of_a_neighbor_collection_is_read_from_the_collection():
     assert node_type_of("article_versions") == "article_version"
     assert node_type_of("annexes") == "annex"
     assert node_type_of("unknown") == ""
+
+
+def test_heat_names_at_most_500_nodes() -> None:
+    from lawgraph.api.routes.nodes import HEAT_MAX_IDS
+
+    ids = ",".join(f"articles/a{n}" for n in range(HEAT_MAX_IDS + 1))
+    response = TestClient(app).get("/api/nodes/heat", params={"ids": ids})
+    assert response.status_code == 422

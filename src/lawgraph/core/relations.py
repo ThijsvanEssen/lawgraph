@@ -191,11 +191,12 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "CONTINUES",
-        (_J,),
-        (_J,),
+        (_J, _ACT),
+        (_J, _ACT),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
-        "shares its court and case number.",
+        "shares its court and case number. An activity → the moved activity it replaced "
+        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`).",
     ),
     RelationSpec(
         "REFERRED_BY",
@@ -216,20 +217,23 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "ANSWERS",
-        (_J,),
-        (_J,),
+        (_J, _DOC),
+        (_J, _COMMIT),
         "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
         "questions: the earlier instance its metadata names (`meta.basis` "
         "`formal_relation`), else the ECLI or the case number and date its text names "
-        "(`referral_text`).",
+        "(`referral_text`). A letter → the commitment it fulfils "
+        "(`Toezegging.KamerbriefNakoming`).",
     ),
     RelationSpec(
         "SAME_AS",
-        (_J,),
-        (_J,),
+        (_J, _I),
+        (_J, _I),
         "A publication of a decision → the publication of the same decision that replaces "
         "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
-        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept.",
+        "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. "
+        "The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty "
+        "number the text names (`wetgeving@verdragnummer`).",
     ),
     RelationSpec(
         "SCOPED_BY",
@@ -247,15 +251,18 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "LED_BY",
-        (_ACT,),
+        (_ACT, _CASE),
         (_COMMITTEE,),
-        "The lead committee (`voortouwcommissie`) of an activity; absent for plenary.",
+        "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
+        "plenary.",
     ),
     RelationSpec(
         "MADE_IN",
-        (_COMMIT,),
+        (_COMMIT, _DOC, _DEC),
         (_ACT,),
-        "The activity in which a commitment (toezegging) was made.",
+        "The activity in which a commitment (toezegging) was made, or a decision taken (the "
+        "activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the "
+        "record (a stenogram of its debate: `Document.Activiteit`).",
     ),
     RelationSpec(
         "MEMBER_OF",
@@ -273,15 +280,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "AUTHORED",
         (_MEMBER,),
-        (_DOC, _CASE),
+        (_DOC, _CASE, _COMMIT),
         "A person signed or submitted a document or case; `role` says how "
         "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
-        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`).",
+        "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A "
+        "bewindspersoon made a commitment (`role` `toezegger`).",
     ),
     RelationSpec(
         "RELATED_TO",
-        (_DOSSIER, _J),
-        (_DOSSIER, _J),
+        (_DOSSIER, _J, _CASE),
+        (_DOSSIER, _J, _CASE),
+        "Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). "
         "Dossier → dossier: the Kamer relates a case of this dossier to a case of the other "
         "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
         "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. "
@@ -293,17 +302,20 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "REVISES",
-        (_DOSSIER,),
-        (_DOSSIER,),
+        (_DOSSIER, _DOC),
+        (_DOSSIER, _DOC),
         "A supplementary budget or a slotwet revises the budget of its chapter and year "
-        "(`meta.rule`: `begrotingswijziging` or `slotwet`).",
+        "(`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended "
+        'amendment or motion replaces the one it names, "ter vervanging van nr. 21" '
+        "(`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document).",
     ),
     RelationSpec(
         "ACCOMPANIES",
-        (_DOSSIER,),
-        (_DOSSIER,),
+        (_DOSSIER, _DOC),
+        (_DOSSIER, _DOC),
         "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
-        "Miljoenennota (`meta.nota`) that its title names.",
+        "Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an "
+        "attachment is sent with its letter (Document → Document: `BijlageDocument`).",
     ),
     RelationSpec(
         "SECOND_READING_OF",

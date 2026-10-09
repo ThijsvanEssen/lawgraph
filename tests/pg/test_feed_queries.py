@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_PART_OF,
 )
-from lawgraph.config.settings import API_ALLOWED_ORIGINS, SITE_URL
+from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
@@ -324,9 +324,8 @@ def _seed(store: GraphStore) -> None:
 
 
 def _test_client() -> TestClient:
-    """A client of the front end, whose origin the rate limit lets through: these tests ask
-    more than the limit allows one address, and the tests after them would get 429."""
-    return TestClient(app, headers={"Origin": API_ALLOWED_ORIGINS[0]})
+    """A client of the API (the suite's rate limit is set high in ``tests/conftest.py``)."""
+    return TestClient(app)
 
 
 def _serve(store: GraphStore) -> None:
@@ -1146,7 +1145,10 @@ def test_one_statement_reads_a_page_whatever_its_size(
         for facets in (True, False):
             get_feed(store, FeedFilters(), limit=limit, facets=facets)
     get_feed_summary(store, FeedFilters(since="2026-01-01"))
-    assert len(statements) == 5
+    feed = [s for s in statements if "lg_data_version" not in str(s)]
+    # a page each (4), the total and facets once (kept for the second page with facets,
+    # whatever its size), the summary
+    assert len(feed) == 6
 
 
 def test_props_of_another_type_are_no_event_or_no_dossier(store: GraphStore) -> None:
@@ -1475,3 +1477,390 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
         judgments = _plan(store, sql, bind)
         assert _seq_scans(judgments) == []
         assert _limit_over_index(judgments, "judgments")
+
+
+def test_one_reading_counts_the_feed_and_every_kind_alike(store: GraphStore) -> None:
+    """The total and the facets of the feed without a kind and of each kind on its own,
+    from one reading of the events, are what each counts on its own, in the same order."""
+    from lawgraph.core.feed import DEFAULT_KINDS, FEED_KINDS
+    from lawgraph.db.queries import feed
+
+    _seed(store)
+    for since in (None, "2026-01-01"):
+        shared = feed._counts_per_kind(store, FeedFilters(since=since))
+        assert shared[DEFAULT_KINDS] == feed._counts(store, FeedFilters(since=since))
+        for kind in FEED_KINDS:
+            alone = feed._counts(store, FeedFilters(kinds=(kind,), since=since))
+            assert shared[(kind,)] == alone, (kind, since)
+
+
+def test_the_kinds_of_the_feed_are_counted_once_for_all(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.core.feed import FEED_KINDS
+    from lawgraph.db.queries import feed
+
+    _seed(store)
+    readings: list[FeedFilters] = []
+    real = feed._counts_per_kind
+
+    def counted(store_: GraphStore, filters: FeedFilters) -> Any:
+        readings.append(filters)
+        return real(store_, filters)
+
+    monkeypatch.setattr(feed, "_counts_per_kind", counted)
+    feed.feed_counts(store, FeedFilters())
+    for kind in FEED_KINDS:
+        feed.feed_counts(store, FeedFilters(kinds=(kind,)))
+    assert readings == [FeedFilters()]
+    # a filter on more than the kind is counted on its own
+    assert feed._shared_kinds(FeedFilters(kinds=(FEED_KINDS[0],), q=("wet",))) is None
+    assert feed._shared_kinds(FeedFilters(kinds=FEED_KINDS[:2])) is None
+
+
+def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under a filter not counted before (an ``until``: a minute or more on the full
+    graph, cold), the page answers within ``COUNTS_BUDGET`` without its total and facets,
+    ``partial``; they are counted on, and the next request has them."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import feed as feed_queries
+
+    version_cache.clear()
+    expected = _feed(client, until="2026-12-31")
+    assert expected["partial"] is False and expected["total"]
+    version_cache.clear()
+    counts = feed_queries._counts_per_kind
+
+    def slow(store: GraphStore, filters: Any) -> Any:
+        time.sleep(2)
+        return counts(store, filters)
+
+    monkeypatch.setattr(feed_queries, "_counts_per_kind", slow)
+    monkeypatch.setattr(feed_queries, "COUNTS_BUDGET", 0.3)
+    started = time.monotonic()
+    first = _feed(client, until="2026-12-31")
+    assert time.monotonic() - started < 1.5
+    assert first["partial"] is True
+    assert first["total"] is None and first["facets"] is None
+    assert _ids(first) == _ids(expected)
+    time.sleep(2.5)
+    again = _feed(client, until="2026-12-31")
+    assert again["partial"] is False
+    assert again["total"] == expected["total"]
+    assert again["facets"] == expected["facets"]
+
+
+def _ago(days: int) -> str:
+    import datetime as dt
+
+    return (dt.date.today() - dt.timedelta(days=days)).isoformat()
+
+
+# one Motie on stikstof in each window of ``WORDS_WINDOWS`` and one before them all, and
+# one on another subject
+WORDS_AGO = [10, 200, 800, 3000]
+
+
+def _words_over_the_years(store: GraphStore) -> None:
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: [
+                _raw(f"m{n}", ["TK"], kind="Motie", date=_ago(n), subject="Stikstof")
+                for n in WORDS_AGO
+            ]
+            + [_raw("other", ["TK"], kind="Motie", date=_ago(5), subject="Wonen")],
+        },
+    )
+
+
+@pytest.mark.parametrize("limit", [1, 2, 4, 50])
+def test_words_without_a_first_day_are_searched_back_window_by_window(
+    store: GraphStore, limit: int
+) -> None:
+    """``q`` without ``since``: the windows back from today find, page by page, what one
+    reading of every day finds, the oldest too, and say no day was left unsearched."""
+    _words_over_the_years(store)
+    every = FeedFilters(q=("stikstof",), since="1900-01-01")
+    expected = _ids(get_feed(store, every, facets=False))
+    assert expected == [f"documents/m{n}" for n in WORDS_AGO]
+    seen: list[str] = []
+    cursor = None
+    for _ in range(10):
+        raw = get_feed(store, FeedFilters(q=("stikstof",)), cursor=cursor, limit=limit)
+        assert "searched_from" not in raw and "partial" not in raw
+        seen += _ids(raw)[:limit]
+        if len(raw["items"]) <= limit:
+            break
+        last = raw["items"][limit - 1]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+    assert seen == expected
+    assert _ids(get_feed(store, FeedFilters(q=("stikstof",), until=_ago(100)))) == [
+        f"documents/m{n}" for n in WORDS_AGO[1:]
+    ]
+
+
+def test_words_searched_past_their_budget_answer_what_was_found(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the budget ends the search in a window, the page has what the windows before
+    found, ``partial``, and the first day searched; asked again with ``until`` the day
+    before, it goes on from there. With no budget at all nothing was searched."""
+    from lawgraph.db.queries import feed as feed_queries
+    from lawgraph.db.store import ReadTimedOut
+
+    _words_over_the_years(store)
+    rows = feed_queries._rows
+    calls: list[FeedFilters] = []
+
+    def timed_out_in_the_second(
+        store: GraphStore, filters: FeedFilters, *a: Any
+    ) -> Any:
+        calls.append(filters)
+        if len(calls) == 2:
+            raise ReadTimedOut("budget spent")
+        return rows(store, filters, *a)
+
+    monkeypatch.setattr(feed_queries, "_rows", timed_out_in_the_second)
+    raw = get_feed(store, FeedFilters(q=("stikstof",)), facets=False)
+    assert _ids(raw) == ["documents/m10"]
+    assert raw["partial"] is True and raw["searched_from"] == _ago(90)
+    assert calls[1].until == _ago(91) and calls[1].since == _ago(365)
+    monkeypatch.setattr(feed_queries, "_rows", rows)
+
+    on = get_feed(store, FeedFilters(q=("stikstof",), until=_ago(91)), facets=False)
+    assert _ids(on) == [f"documents/m{n}" for n in WORDS_AGO[1:]]
+
+    monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
+    none = get_feed(store, FeedFilters(q=("stikstof",)))
+    assert none["items"] == [] and none["partial"] is True
+    assert none["searched_from"] == _ago(-1)
+    # a first day, or no words, reads as before: one reading under the filters
+    assert _ids(get_feed(store, FeedFilters(q=("stikstof",), since=_ago(365)))) == [
+        "documents/m10",
+        "documents/m200",
+    ]
+    assert len(get_feed(store, FeedFilters())["items"]) == 5
+
+
+def test_a_feed_searched_past_its_budget_says_so(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``/api/feed`` has ``searched_from`` (null when every day was searched)."""
+    from lawgraph.db.queries import feed as feed_queries
+
+    assert _feed(client, q="grens")["searched_from"] is None
+    monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
+    raw = _feed(client, q="grens", facets="false")
+    assert raw["partial"] is True and raw["items"] == []
+    assert raw["searched_from"] == _ago(-1)
+
+
+# ── words: whole words and their candidates by index ─────────────────────────
+
+
+def _words(store: GraphStore) -> None:
+    """Papers whose subject holds ``ai`` or ``stikstof`` as a word, or as a part of one; a
+    vote and a commitment with a word in their title; a motion whose dossier has it in
+    its."""
+    subjects = {
+        "w1": "Motie over de AI-verordening",
+        "w2": "Regels voor AI",
+        "w3": "Universitaire opleidingen",
+        "w4": "Airport Schiphol",
+        "w5": "Stikstofbank en natuurstikstof",
+    }
+    _load(
+        store,
+        {
+            COLLECTION_DOCUMENTS: [
+                _raw(key, ["TK"], kind="Motie", date=f"2026-05-0{n + 1}", subject=subject,
+                     dossier_numbers=["36001"])
+                for n, (key, subject) in enumerate(subjects.items())
+            ]
+            + [_raw("w6", ["TK"], kind="Motie", date="2026-05-07", subject="Motie Bakker",
+                    dossier_numbers=["36002"]),
+               _raw("w7", ["TK"], kind="Motie", date="2026-05-08", subject="Natuurstikstof",
+                    dossier_numbers=["36001"])],
+            COLLECTION_DOSSIERS: [
+                _raw("36001", label="36001", title="Onderwijs"),
+                _raw("36002", label="36002", title="Wet op de AI-toezichthouder"),
+            ],
+            COLLECTION_DECISIONS: [
+                _raw("v1", date="2026-05-02", passed=True, kind="Motie",
+                     subject="Stemming over AI in de zorg"),
+                _raw("v2", date="2026-05-02", passed=False, kind="Motie",
+                     subject="Stemming over dairy"),
+            ],
+            COLLECTION_COMMITMENTS: [
+                _raw("c1", made_on="2026-05-03", text="De minister stuurt een brief over AI"),
+            ],
+        },
+    )  # fmt: skip
+
+
+WORDS_WINDOW = {"since": "2026-05-01", "until": "2026-05-12"}
+
+
+def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
+    client: TestClient, store: GraphStore
+) -> None:
+    """``ai`` (at most four letters) is a whole word: the AI-verordening, AI in the title of
+    the dossier, not universitaire, Airport or dairy; alike in the page, its total, the
+    summary and the Atom feed."""
+    _words(store)
+    expected = {
+        "documents/w1",
+        "documents/w2",
+        "documents/w6",
+        "decisions/v1",
+        "commitments/c1",
+    }
+    page = _feed(client, q="AI", **WORDS_WINDOW)
+    assert set(_ids(page)) == expected
+    assert page["total"] == len(expected)
+    response = client.get(
+        "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "q": "AI"}
+    )
+    assert response.status_code == 200, response.text
+    assert sum(day["total"] for day in response.json()["days"]) == len(expected)
+    atom = client.get("/api/feed.atom", params={"q": "ai", **WORDS_WINDOW})
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    ids = {
+        (entry.find("a:id", ns).text or "").split(":", 2)[2]  # type: ignore[union-attr]
+        for entry in ElementTree.fromstring(atom.content).findall("a:entry", ns)
+    }
+    assert ids == expected
+    # a word of five letters or more from the start of a word: Stikstofbank, not
+    # Natuurstikstof
+    assert set(_ids(_feed(client, q="stikstof", **WORDS_WINDOW))) == {"documents/w5"}
+
+
+WORDS = ["AI", "ai-ver", "stikstof", "natuurstikstof", "grens", "wet voorbeeld",
+         "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b"]  # fmt: skip
+
+
+@pytest.mark.parametrize("q", WORDS)
+@pytest.mark.parametrize("facets", [False, True])
+def test_the_candidates_by_index_keep_every_event_the_words_keep(
+    client: TestClient,
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    q: str,
+    facets: bool,
+) -> None:
+    """Read from the rows the indexes find, or from every row: the same events and the same
+    counts, of every kind."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import feed as feed_queries
+
+    _words(store)
+    filters = FeedFilters(q=(q,), since="1900-01-01")
+    by_index = get_feed(store, filters, facets=facets)
+    version_cache.clear()
+    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    every = get_feed(store, filters, facets=facets)
+    assert _ids(by_index) == _ids(every)
+    assert by_index.get("total") == every.get("total")
+    assert by_index.get("facets") == every.get("facets")
+
+
+def test_words_are_found_by_index_not_by_reading_every_day(store: GraphStore) -> None:
+    """Many papers, votes and judgments over the years and a word few of them hold: each
+    kind reads the rows its trigram index finds (and the dossiers whose title holds the
+    word), not every row in date order; no large table is read whole."""
+    _busy(store)
+    _crowd(store)
+    _words(store)
+    store.vacuum_analyze()
+    sql, bind = feed_query(
+        FeedFilters(q=("toezichthouder",), kinds=("Motie", "stemming", "uitspraak")),
+        limit=50,
+        facets=False,
+    )
+    plan = _plan(store, sql, bind)
+    assert _seq_scans(plan) == []
+    for table in ("documents", "decisions", "judgments"):
+        assert not _limit_over_index(plan, table), table
+    used = {node.get("Index Name") for node in _plan_nodes(plan)}
+    assert {
+        "documents_feed_title_g",
+        "documents_dossier_numbers",
+        "decisions_search_words",
+        "judgments_s_display_name_g",
+    } <= used, used
+
+
+def test_words_are_found_before_the_index_is_built(store: GraphStore) -> None:
+    """A deploy before ``documents_feed_title_g`` (and ``instruments_dossier_numbers``) is
+    built answers the same events, by reading the rows of the papers instead."""
+    from lawgraph.db import schema, version_cache
+
+    _words(store)
+    filters = FeedFilters(q=("toezichthouder",), since="1900-01-01")
+    with_index = get_feed(store, filters)
+    built = [
+        statement
+        for collection in ("documents", "instruments")
+        for statement in schema._LIST_INDEXES[collection]
+        if "feed_title_g" in statement or "instruments_dossier_numbers" in statement
+    ]
+    assert len(built) == 2
+    store.execute("DROP INDEX documents_feed_title_g, instruments_dossier_numbers")
+    try:
+        version_cache.clear()  # the counts too, not those kept
+        assert get_feed(store, filters) == with_index
+        assert _ids(with_index) == ["documents/w6"]
+    finally:
+        for statement in built:
+            store.execute(statement)
+
+
+def test_several_words_find_the_events_that_hold_any_of_them(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``q`` repeated: any of the words, each event once; alike in the page, its total, the
+    summary and the Atom feed; by index the same events as from every row."""
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import feed as feed_queries
+
+    _words(store)
+    both = {
+        "documents/w1",
+        "documents/w2",
+        "documents/w5",
+        "documents/w6",
+        "decisions/v1",
+        "commitments/c1",
+    }
+    page = _feed(client, q=["AI", "stikstof", "AI", " "], **WORDS_WINDOW)
+    assert set(_ids(page)) == both and len(_ids(page)) == len(both)
+    assert page["total"] == len(both)
+    response = client.get(
+        "/api/feed/summary",
+        params={"until": "2026-05-12", "days": 12, "q": ["AI", "stikstof"]},
+    )
+    assert sum(day["total"] for day in response.json()["days"]) == len(both)
+    atom = client.get(
+        "/api/feed.atom", params={"q": ["ai", "stikstof"], **WORDS_WINDOW}
+    )
+    root = ElementTree.fromstring(atom.content)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    assert len(root.findall("a:entry", ns)) == len(both)
+    assert "‘ai’ of ‘stikstof’" in (root.find("a:title", ns).text or "")  # type: ignore[union-attr]
+
+    filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
+    by_index = get_feed(store, filters)
+    version_cache.clear()
+    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    assert get_feed(store, filters) == by_index
+    assert _ids(by_index) == ["documents/w6", "documents/w5"]
+
+
+def test_too_many_or_too_long_words_are_422(client: TestClient) -> None:
+    assert client.get("/api/feed", params={"q": ["w"] * 11}).status_code == 422
+    assert client.get("/api/feed", params={"q": ["w" * 201]}).status_code == 422

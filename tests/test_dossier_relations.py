@@ -204,3 +204,56 @@ def test_a_second_reading_is_tied_to_the_dossiers_of_its_first() -> None:
         ("35785", "35418"),
         ("35785", "35419"),
     ]
+
+
+def test_the_cases_the_kamer_relates_are_tied_once_also_in_one_dossier() -> None:
+    from lawgraph.core.dossier_relations import related_case_pairs
+
+    cases = [
+        {
+            "id": "z-letter",
+            "kind": "Brief regering",
+            "related_cases": [{"id": "z-motion", "kind": "Motie"}, {"id": "z-letter"}],
+        },
+        {
+            "id": "z-letter",
+            "kind": "Brief regering",
+            "related_cases": [{"id": "z-motion"}],
+        },
+    ]
+    assert list(related_case_pairs(cases)) == [
+        ("z-letter", "z-motion", {"case_kinds": "Brief regering → Motie"})
+    ]
+
+
+def test_the_papers_of_a_case_revise_those_of_the_case_it_replaces() -> None:
+    from lawgraph.core.dossier_relations import replaced_cases, replaced_papers
+
+    cases = replaced_cases(
+        [
+            {"id": "cases/z_71", "replaces": ["Z-21"]},
+            {"id": "cases/z_80", "replaces": ["z-not-loaded"]},
+            {"id": "cases/z_90", "replaces": []},
+        ]
+    )
+    assert cases == [("cases/z_71", "cases/z_21"), ("cases/z_80", "cases/z_not_loaded")]
+    papers = {
+        "cases/z_71": ["documents/nr71"],
+        "cases/z_21": ["documents/nr21"],
+        "cases/z_80": ["documents/nr80"],
+    }
+    # a case whose papers are not in the graph revises none
+    assert list(replaced_papers(cases, papers)) == [
+        ("documents/nr71", "documents/nr21")
+    ]
+
+
+def test_a_moved_activity_is_continued_by_the_one_that_replaced_it() -> None:
+    from lawgraph.core.dossier_relations import moved_activities
+
+    rows = [
+        {"id": "activities/a", "number": "2026A00001", "replaced_by": ["2026A00002"]},
+        {"id": "activities/b", "number": "2026A00002", "replaced_by": []},
+        {"id": "activities/c", "number": "2026A00003", "replaced_by": ["2026A09999"]},
+    ]
+    assert list(moved_activities(rows)) == [("activities/b", "activities/a")]

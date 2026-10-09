@@ -424,6 +424,17 @@ def test_extract_staatsblad_ref_from_bwb_xml() -> None:
     assert fn("<r>tekst stb-2001-56</r>") == ("2001", "56")
     assert fn("<r/>") is None
     assert fn("<bad") is None
+    # BWB writes publicatienr; of its publications, the one that made the regulation
+    bwb = (
+        '<toestand><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb">'
+        "<publicatiejaar>2019</publicatiejaar><publicatienr>7</publicatienr></publicatie>"
+        '<publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="">'
+        "<publicatiejaar>1931</publicatiejaar><publicatienr>248</publicatienr></publicatie>"
+        '<publicatie soort="Stcrt"><publicatiejaar>1931</publicatiejaar>'
+        "<publicatienr>99</publicatienr></publicatie>"
+        "</oorspronkelijk></brondata></toestand>"
+    )
+    assert fn(bwb) == ("1931", "248")
 
 
 # ── retrieve id cleaning ─────────────────────────────────────────────────────
@@ -534,6 +545,47 @@ def test_a_relative_since_overlaps_with_the_run_before_it() -> None:
         (now - since) - (dt.timedelta(days=1) + RELATIVE_SINCE_OVERLAP)
     ) < dt.timedelta(seconds=5)
     assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)
+
+
+@pytest.mark.parametrize(
+    ("value", "window"),
+    [("2h", {"hours": 2}), ("90m", {"minutes": 90}), (" 3h ", {"hours": 3})],
+)
+def test_a_poll_window_in_hours_or_minutes_is_taken_as_it_is(value, window) -> None:
+    """A poll every 30 minutes with `--since 2h` overlaps by its own window; six hours more
+    would make every poll read a working day."""
+    import datetime as dt
+
+    from lawgraph.core.time import parse_since
+
+    now = dt.datetime.now(dt.timezone.utc)
+    since = parse_since(value)
+    assert since is not None
+    assert abs((now - since) - dt.timedelta(**window)) < dt.timedelta(seconds=5)
+
+
+@pytest.mark.parametrize("value", ["2x", "h", "-2h", "2.5h", "2hours"])
+def test_a_since_that_is_no_window_or_date_is_refused(value) -> None:
+    from lawgraph.core.time import parse_since
+
+    with pytest.raises(ValueError, match="Cannot parse --since"):
+        parse_since(value)
+
+
+def test_a_pipeline_command_takes_a_window_in_hours() -> None:
+    """The option itself, as `normalize <source> --since 2h` parses it."""
+    import argparse
+    import datetime as dt
+
+    from lawgraph.pipelines.command import add_since_argument
+
+    parser = argparse.ArgumentParser()
+    add_since_argument(parser, last=True)
+    since = parser.parse_args(["--since", "90m"]).since
+    assert isinstance(since, dt.datetime)
+    ago = dt.datetime.now(dt.timezone.utc) - since
+    assert abs(ago - dt.timedelta(minutes=90)) < dt.timedelta(seconds=5)
+    assert parser.parse_args(["--since", "last"]).since == "last"
 
 
 @pytest.mark.parametrize("payload", [None, "", "<bad", "geen xml"])

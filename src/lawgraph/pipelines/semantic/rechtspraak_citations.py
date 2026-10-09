@@ -12,6 +12,10 @@ rule) is removed.
 The ECLIs are read by ``core.ecli.cited_eclis``: a malformed one is repaired where the text shows
 what was meant (a split LJN, NL and the court swapped, a range) and dropped otherwise, so it
 makes no stub. A stub judgment no edge reaches any more goes at the end.
+
+A decision of the ECHR is cited by application number ("EHRM 28 maart 2000, nr. 22492/93"):
+``REFERS_TO`` to the decision of that number and date, or without a date to the only decision of
+the number (``_echr_citations``).
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from lawgraph.config.constants import (
     RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.echr_citations import Cited, cited_in_dutch
 from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.judgments import body_text, parse_judgment
 from lawgraph.core.logging import get_logger
@@ -37,6 +42,7 @@ from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.db.store import edge_key
 
+from . import _echr_citations
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -57,7 +63,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        pending, all_cited_eclis, read = self._collect_references(iso_timestamp(since))
+        pending, all_cited_eclis, read, by_appno = self._collect_references(
+            iso_timestamp(since)
+        )
 
         logger.info(
             "Found %d ECLI references in the text of %d judgments.",
@@ -68,6 +76,15 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         ecli_to_id = self._resolve_eclis(all_cited_eclis) if pending else {}
         tied = self._procedural_pairs(sorted({from_id for from_id, _ in pending}))
         kept = self._emit_edges(pending, ecli_to_id, tied, result)
+        if by_appno:
+            for from_id, keys in _echr_citations.link(
+                self.store,
+                by_appno,
+                _echr_citations.decisions_index(self.store),
+                source=SEMANTIC_SOURCE,
+                result=result,
+            ).items():
+                kept.setdefault(from_id, set()).update(keys)
         removed = semantic_edges.remove_edges_from(
             self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
         )
@@ -78,12 +95,13 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
     def _collect_references(
         self, since_iso: str | None = None
-    ) -> tuple[list[tuple[str, str]], set[str], list[str]]:
-        """``(citing id, cited ECLI)`` pairs, the ECLIs cited, and the ids of every
-        judgment whose text was read."""
+    ) -> tuple[list[tuple[str, str]], set[str], list[str], list[tuple[str, Cited]]]:
+        """``(citing id, cited ECLI)`` pairs, the ECLIs cited, the ids of every judgment
+        whose text was read, and ``(citing id, cited ECHR decision)`` pairs."""
         pending: list[tuple[str, str]] = []
         all_cited_eclis: set[str] = set()
         read: list[str] = []
+        by_appno: list[tuple[str, Cited]] = []
         for judgment, xml in self._judgment_texts(since_iso):
             try:
                 text = body_text(parse_judgment(xml))
@@ -98,7 +116,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     continue
                 pending.append((judgment.node_id, ecli))
                 all_cited_eclis.add(ecli)
-        return pending, all_cited_eclis, read
+            by_appno += [(judgment.node_id, c) for c in cited_in_dutch(text)]
+        return pending, all_cited_eclis, read, by_appno
 
     def _procedural_pairs(self, ids: list[str]) -> set[tuple[str, str]]:
         """``(id, other)`` for every judgment of *ids* and the judgments a procedural edge

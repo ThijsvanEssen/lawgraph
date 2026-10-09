@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
+from lawgraph.config.constants import CHAMBER_TK
+from lawgraph.core.documents import paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
@@ -283,6 +285,10 @@ class FeedItemDTO(BaseModel):
     tk_url: str | None = Field(
         None, description="The page of a paper on tweedekamer.nl."
     )
+    number: str | None = Field(
+        None,
+        description="Of a paper its nr. in its dossier (``12``); null for the other kinds.",
+    )
     headline: FeedHeadlineDTO
     vote: FeedVoteDTO | None = None
     commitment: FeedCommitmentDTO | None = None
@@ -332,6 +338,7 @@ class FeedItemDTO(BaseModel):
             tk_url=document_page(props.get("document_number"))
             if kind in DOCUMENT_EVENTS
             else None,
+            number=paper_number(CHAMBER_TK, props) if kind in DOCUMENT_EVENTS else None,
             vote=_vote(props) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
@@ -553,6 +560,24 @@ class FeedResponse(BaseModel):
         None, description="Events under the filters, all pages; null without facets."
     )
     facets: FeedFacetsDTO | None = Field(None, description="Null without facets.")
+    partial: bool = Field(
+        False,
+        description=(
+            "Part of the answer is still to come: ``total`` and ``facets`` were asked for "
+            "but are still being counted (under a filter not counted before, that takes a "
+            "minute or more): null now, ask again; or, with ``searched_from``, the search "
+            "for ``q`` did not reach the first event."
+        ),
+    )
+    searched_from: str | None = Field(
+        None,
+        description=(
+            "With ``q`` and no ``since``: the first day searched when the search stopped "
+            "before the first event (YYYY-MM-DD). The events found are those from that day "
+            "on; ask with ``until`` the day before (and no ``cursor``) for older ones. Null "
+            "when every day was searched."
+        ),
+    )
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source: how current the graph is, as in `GET /api/stats`.",

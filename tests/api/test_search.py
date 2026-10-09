@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.db.queries import search as search_module
+from lawgraph.db import version_cache
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search import (
     SCORE_CONTAINS,
@@ -16,6 +16,7 @@ from lawgraph.db.queries.search import (
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
+    Period,
     rank_hits,
     score_hit,
     tokenize_search_query,
@@ -83,6 +84,11 @@ def hit(**fields: Any) -> dict[str, Any]:
             ),
             SCORE_CONTAINS,
         ),
+        # Letters with and without accents are one, as ``lg_fold`` folds them.
+        ("yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_CONTAINS),
+        ("Yeşilgöz", hit(display_name="dilan yesilgoz-zegerius"), SCORE_CONTAINS),
+        ("dilan yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_PREFIX),
+        ("cooperatie", hit(extra={"heading": "Coöperatie"}), SCORE_TITLE),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
     ],
 )
@@ -123,32 +129,6 @@ def test_a_hit_that_has_a_score_keeps_it() -> None:
 # ── The laws behind the citation parser ───────────────────────────────────────
 
 
-def test_the_laws_are_read_once_for_many_searches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    reads: list[str] = []
-
-    def codes(store: Any) -> dict[str, str]:
-        reads.append("codes")
-        return {"Sr": "BWBR0001854"}
-
-    def names(store: Any) -> dict[str, list[str]]:
-        reads.append("names")
-        return {"wetboek van strafrecht": ["BWBR0001854"]}
-
-    monkeypatch.setattr(search_module, "load_code_aliases", codes)
-    monkeypatch.setattr(search_module, "_load_law_names", names)
-
-    first = search_module.load_notation_parser(None)
-    again = search_module.load_notation_parser(None)
-
-    assert again is first
-    assert reads == ["codes", "names"]  # the abbreviations and the names, once each
-    notation = first.parse("artikel 287 Sr")
-    assert notation is not None and notation.kind == "article"
-    assert [(a.law_id, a.number) for a in notation.articles] == [("BWBR0001854", "287")]
-
-
 # ── Route-level tests with the search stubbed ─────────────────────────────────
 
 
@@ -166,9 +146,29 @@ _SR_ART_287 = {
 
 @pytest.fixture(autouse=True)
 def _cleanup():
-    search_module._law_cache.clear()
+    version_cache.clear()
     yield
-    search_module._law_cache.clear()
+    version_cache.clear()
+
+
+def test_the_search_route_passes_its_period(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``from`` and ``to`` are the period, both days in it; ``from`` after ``to`` is 422."""
+    asked: dict[str, Any] = {}
+
+    def search_live(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        asked.update(kwargs)
+        return {}, set()
+
+    monkeypatch.setattr("lawgraph.api.routes.search.search_live", search_live)
+    client = TestClient(app)
+    params = {"q": "klimaat", "mode": "live", "from": "2019-01-01", "to": "2019-12-31"}
+    assert client.get("/api/search", params=params).status_code == 200
+    assert asked["period"] == Period("2019-01-01", "2019-12-31")
+    params = {"q": "klimaat", "from": "2020-01-01", "to": "2019-12-31"}
+    assert client.get("/api/search", params=params).status_code == 422
+    assert (
+        client.get("/api/search", params={"q": "x", "from": "2019"}).status_code == 422
+    )
 
 
 def test_the_search_route_passes_its_parameters_and_keeps_the_order(
@@ -176,12 +176,14 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
 ) -> None:
     asked: dict[str, Any] = {}
 
-    def search_all(store: Any, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
+    def search_full(
+        store: Any, **kwargs: Any
+    ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
         asked.update(kwargs)
         weaker = {**_SR_ART_287, "id": "articles/x", "key": "x", "score": SCORE_WORDS}
-        return {"articles": [_SR_ART_287, weaker]}
+        return {"articles": [_SR_ART_287, weaker]}, set()
 
-    monkeypatch.setattr("lawgraph.api.routes.search.search_all", search_all)
+    monkeypatch.setattr("lawgraph.api.routes.search.search_full", search_full)
 
     response = TestClient(app).get(
         "/api/search",
@@ -194,6 +196,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         "types": ["articles"],
         "kinds": ["Motie", "Brief"],
         "limit": 5,
+        "period": Period(),
     }
     articles = response.json()["results"]["articles"]
     assert [(a["key"], a["score"]) for a in articles] == [
@@ -218,6 +221,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "confidence": 0.9,
         },
         "alternatives": [],
+        "alternatives_total": 0,
         "qualifier": None,
     }
     asked: list[str] = []
@@ -227,7 +231,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
         return resolved
 
     monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_all", lambda store, **kwargs: {}
+        "lawgraph.api.routes.search.search_full", lambda store, **kwargs: ({}, set())
     )
     monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
     client = TestClient(app)
@@ -246,7 +250,7 @@ def test_an_unknown_type_is_refused_before_the_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_all",
+        "lawgraph.api.routes.search.search_full",
         lambda store, **kwargs: pytest.fail("searched"),
     )
     response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
@@ -267,6 +271,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "confidence",
         "match",
         "alternatives",
+        "alternatives_total",
         "qualifier",
     }
     assert set(schemas["ResolveMatch"]["properties"]) == {
@@ -298,6 +303,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
             "confidence": 0.95,
             "match": match,
             "alternatives": [],
+            "alternatives_total": 0,
             "qualifier": None,
         },
         "zzzz onbekend": dict(NO_MATCH),
@@ -324,6 +330,60 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         "confidence": 0.0,
         "match": None,
         "alternatives": [],
+        "alternatives_total": 0,
         "qualifier": None,
     }
     assert client.get("/api/resolve", params={"q": ""}).status_code == 422
+
+
+def test_a_resolve_answer_says_how_many_alternatives_it_found() -> None:
+    """``alternatives_total`` in every answer; a choice has no ``match``."""
+    from lawgraph.api.schemas.resolve import ResolveResponse
+
+    choice = ResolveResponse(
+        q="art. 3 BW",
+        kind="article",
+        confidence=0.5,
+        match=None,
+        alternatives=[],
+        alternatives_total=9,
+        qualifier=None,
+    )
+    assert choice.model_dump()["alternatives_total"] == 9
+    assert (
+        ResolveResponse(
+            q="x", kind="none", confidence=0, match=None, alternatives=[]
+        ).alternatives_total
+        == 0
+    )
+
+
+def test_a_search_says_which_types_it_cut_off(monkeypatch) -> None:
+    """``partial`` names the types cut off: of a live search at its budget, of the full
+    search those that answered their live hits."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.routes import search as route
+
+    monkeypatch.setattr(
+        route,
+        "search_live",
+        lambda store, **k: ({"judgments": [], "articles": []}, {"judgments"}),
+    )
+    monkeypatch.setattr(
+        route,
+        "search_full",
+        lambda store, **k: ({"judgments": [], "articles": []}, {"judgments"}),
+    )
+    client = TestClient(app)
+    live = client.get(
+        "/api/search",
+        params={"q": "huur", "mode": "live", "types": ["judgments", "articles"]},
+    )
+    assert live.status_code == 200 and live.json()["partial"] == {"judgments": True}
+    full = client.get("/api/search", params={"q": "huur", "types": ["articles"]})
+    assert full.status_code == 200 and full.json()["partial"] == {"judgments": True}
+    assert (
+        client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
+    )

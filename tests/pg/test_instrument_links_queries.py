@@ -335,3 +335,47 @@ def test_international_links_are_cut_and_scoped(store: GraphStore) -> None:
         (r["instrument"]["_key"], r["counterpart_article"]) for r in eu.treaties
     ] == [("bwbv0001000", None)]
     assert eu.judgments_total == 0
+
+
+def test_the_echr_judgments_of_a_law_cited_much_are_found_from_their_side(
+    store: GraphStore,
+) -> None:
+    """A law cited much (the Awb: a million edges of Dutch judgments into its articles) has
+    its ECHR judgments found from theirs, whose number does not grow with the law; the
+    answer is the same either way, and only a law cited little reads its own edges."""
+    import json
+
+    from lawgraph.db.queries import instrument_links
+    from lawgraph.db.store import _query
+
+    _seed(store)
+    scope = InstrumentScope("bwb_id", "BWBR0009001")
+    little = get_international_links(store, REGULATION, scope)
+    much = get_international_links(
+        store, REGULATION, scope, cited=instrument_links.ECHR_SIDE_FROM
+    )
+    assert much == little
+    assert [r["judgment"]["_key"] for r in much.judgments][0] == "echr_2"
+
+    statements: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        for cited in (None, instrument_links.ECHR_SIDE_FROM):
+            get_international_links(store, REGULATION, scope, cited=cited)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    plans = []
+    with store.pool.connection() as conn:
+        for statement, params in statements:
+            explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
+            plans.append(json.dumps(conn.execute(explain, params).fetchone()[0]))
+    by_target, by_echr = plans
+    # the law cited much reads no edge into it: the edges of the ECHR judgments first
+    assert "echr_edges" in by_echr and "edges_to" not in by_echr
+    assert "echr_edges" not in by_target

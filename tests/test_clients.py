@@ -90,6 +90,17 @@ def test_tkclient_zaken_modified_since_builds_correct_url_and_params() -> None:
 
     assert isinstance(result, list)
     assert result[0]["Id"] == 1
+    # the case it replaces comes with each case
+    assert "VervangenVanuit($select=Id,Verwijderd)" in session.last_params["$expand"]
+    assert "VervangenVanuit/any()" not in flt
+
+
+def test_tkclient_reads_only_the_replacing_cases_when_asked() -> None:
+    """The backfill of ``Zaak.VervangenVanuit``: only the cases that replace another."""
+    session = DummySession(DummyResponse(json_data={"value": []}))
+    client = TKClient(session=session)
+    list(client.zaken_modified_since(dt.datetime(1995, 1, 1), top=None, replacing=True))
+    assert session.last_params["$filter"].endswith(" and VervangenVanuit/any()")
 
 
 # --------------------------------------------------------------------
@@ -299,3 +310,68 @@ def test_a_dossier_is_asked_for_by_its_number() -> None:
     assert session.last_url == "https://example.org/OData/v4/2.0/Kamerstukdossier"
     assert session.last_params is not None
     assert session.last_params["$filter"] == "Nummer eq 35786"
+
+
+def test_the_links_of_documents_are_asked_for_alone_and_with_every_document(
+    monkeypatch: Any,
+) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append((entity, params)) or iter(()),
+    )
+    links = (
+        "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
+    )
+
+    list(client.fetch_document_links())
+    list(
+        client.fetch_document_links(
+            since=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+        )
+    )
+    list(client.fetch_documents())
+    (_, every), (_, since), (_, documents) = asked
+    assert every == {"$select": "Id,Verwijderd", "$expand": links}
+    assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
+    # every Document of tk-dossiers carries its links too
+    assert documents["$expand"].endswith(links)
+    assert all(entity == "Document" for entity, _ in asked)
+
+
+def test_the_actors_of_cases_are_asked_for_alone(monkeypatch: Any) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append((entity, params)) or iter(()),
+    )
+    list(client.fetch_case_actors())
+    list(
+        client.fetch_case_actors(since=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc))
+    )
+    (entity, every), (_, since) = asked
+    assert entity == "Zaak"
+    assert every == {
+        "$select": "Id,Verwijderd",
+        "$expand": "ZaakActor($select=Relatie,Functie,ActorAfkorting,Persoon_Id,"
+        "Fractie_Id,Commissie_Id)",
+    }
+    assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
+
+
+def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it(
+    monkeypatch: Any,
+) -> None:
+    client = TKClient(session=object())  # type: ignore[arg-type]
+    asked: list[dict] = []
+    monkeypatch.setattr(
+        client,
+        "_skip_paged_get",
+        lambda entity, params, page_size: asked.append(params) or iter(()),
+    )
+    list(client.fetch_toezeggingen())
+    assert asked == [{"$expand": "KamerbriefNakoming($select=Id)"}]

@@ -7,7 +7,8 @@ of the four matches of ``queries/search.py``: each stem of a word (``text``), th
 the start of a value (``identity``; a value is mostly unique, so its df is taken as 1), the
 folded word as a whole value (``norm``) and the word as a part of the folded value
 (``ngram``). The document frequencies of a query's terms are counted first, in one
-statement of index lookups; the mean lengths of the fields per table once a minute.
+statement of index lookups; the mean lengths of the fields per table once per data version,
+from a sample on a large table.
 """
 
 from __future__ import annotations
@@ -17,16 +18,29 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.core.cache import TTLCache
-from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.core.logging import get_logger
+from lawgraph.core.word_forms import word_forms
+from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
+from lawgraph.db.store import ReadTimedOut, reset_read_deadline, set_read_deadline
+from lawgraph.db.version_cache import cached, lasting
+
+logger = get_logger(__name__)
 
 K1 = 1.2
 B = 0.75
+# The rows a large table's mean field lengths are taken from (``_stats``).
+SAMPLE_ROWS = 20_000
+# A field found fewer times in the sample is measured over the whole table (``_stats``).
+MIN_SAMPLED = 100
+# How long the statistics of a table are kept (seconds), whatever the data does.
+STATS_MAX_AGE = 6 * 3600.0
+# How long the counts of the document frequencies of one search of a table may take
+# together (seconds): every term and field in one statement, under this one deadline (it
+# runs in the background, for the next request too, ``_counted``).
+DF_TIMEOUT = 5.0
 
-_stats_cache: TTLCache[str, dict[str, float]] = TTLCache(maxsize=16, ttl=60.0)
-# The document frequencies of terms, per table, field, analyzer and term: they change with
-# the data as the lengths do.
-_df_cache: TTLCache[tuple[str, str, str, str], float] = TTLCache(maxsize=4096, ttl=60.0)
+# The statistics of a table and the document frequencies of terms are kept per data version
+# (``version_cache``): on the full graph they take a minute, and change only with the data.
 # The stems of a word: what the stemmer makes of it does not change.
 _stems: dict[str, list[str]] = {}
 # The types of one search are scored side by side; the caches are not thread-safe.
@@ -52,29 +66,68 @@ def _length(field: str, analyzer: str) -> str:
 
 
 def _stats(store: Any, table: str) -> dict[str, float]:
-    """``N`` and the mean length per ``field/analyzer`` over the rows that have it."""
-    with _stats_lock:
-        cached = _stats_cache.get(table)
-    if isinstance(cached, dict):
-        return cached
-    names = [
-        f"{field}/{analyzer}"
-        for field, analyzers in SEARCH_FIELDS[table].items()
-        for analyzer in analyzers
-    ]
-    means = [
-        f"avg(nullif({_length(*name.split('/'))}, 0))::float AS a{n}"
-        for n, name in enumerate(names)
+    """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
+    large table these are estimates: ``N`` is the planner's count (``pg_class.reltuples``)
+    and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
+    as counting a million judgments takes minutes from disk. A field the sample holds
+    fewer than ``MIN_SAMPLED`` times (the names of a judgment: a few hundred of a million)
+    is measured over the whole table, reading that field alone (a scan of the table, not of
+    its large values). Kept ``STATS_MAX_AGE`` whatever the data does, computed on the
+    background connections: a run of the pipelines hardly moves them."""
+
+    def count() -> dict[str, float]:
+        names = [
+            f"{field}/{analyzer}"
+            for field, analyzers in SEARCH_FIELDS[table].items()
+            for analyzer in analyzers
+        ]
+        estimate = _estimated_rows(store, table)
+        if estimate < SAMPLE_ROWS * 5:
+            n, means, _ = _means(store, table, names, "")
+            return {"N": n, **means}
+        percent = 100.0 * SAMPLE_ROWS / estimate
+        _, means, seen = _means(
+            store, table, names, f" TABLESAMPLE SYSTEM ({percent:.6f}) REPEATABLE (0)"
+        )
+        rare = [name for name in names if seen[name] < MIN_SAMPLED]
+        if rare:
+            means.update(_means(store, table, rare, "")[1])
+        return {"N": estimate, **means}
+
+    return lasting(store, ("bm25-stats", table), count, STATS_MAX_AGE)
+
+
+def _means(
+    store: Any, table: str, names: list[str], sample: str
+) -> tuple[float, dict[str, float], dict[str, int]]:
+    """The rows of *table* (or of its *sample*), and per name the mean length over the rows
+    that have the field (1 when none has it) and how many have it."""
+    lengths = [_length(*name.split("/")) for name in names]
+    columns = [
+        f"avg(nullif({length}, 0))::float AS a{n}, count(nullif({length}, 0)) AS c{n}"
+        for n, length in enumerate(lengths)
     ]
     row = next(
-        store.query(f"SELECT count(*)::float AS n, {', '.join(means)} FROM {table} doc")
+        store.query(
+            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} doc"
+            + sample
+        )
     )
-    found = {"N": float(row["n"] or 0)}
-    for n, name in enumerate(names):
-        found[name] = float(row[f"a{n}"] or 1.0)
-    with _stats_lock:
-        _stats_cache.set(table, found)
-    return found
+    means = {name: float(row[f"a{n}"] or 1.0) for n, name in enumerate(names)}
+    seen = {name: int(row[f"c{n}"]) for n, name in enumerate(names)}
+    return float(row["n"] or 0), means, seen
+
+
+def _estimated_rows(store: Any, table: str) -> float:
+    """The rows of *table* as the planner counts them (-1 before its first ``ANALYZE``)."""
+    return float(
+        next(
+            store.query(
+                "SELECT reltuples::float FROM pg_class WHERE oid = %(table)s::regclass",
+                {"table": table},
+            )
+        )
+    )
 
 
 def _tf(term: _Term) -> str:
@@ -84,12 +137,16 @@ def _tf(term: _Term) -> str:
     if term.analyzer == "text":
         return f"cardinality(array_positions({column}, {p}::text))"
     if term.analyzer == "identity":
-        return f"(SELECT count(*) FROM unnest({column}) AS v WHERE starts_with(v, {p}))"
+        # from three characters, as the condition of the search matches a start of a value
+        return (
+            f"(CASE WHEN char_length({p}) >= 3 THEN (SELECT count(*) FROM unnest({column})"
+            f" AS v WHERE starts_with(lg_fold(v), lg_fold({p}))) ELSE 0 END)"
+        )
     if term.analyzer == "norm":
         return f"cardinality(array_positions({column}, lg_fold({p})))"
     return (
         f"(CASE WHEN char_length({p}) BETWEEN 3 AND 12 THEN"
-        f" (char_length({column}) - char_length(replace({column}, {p}, '')))"
+        f" (char_length({column}) - char_length(replace({column}, lg_fold({p}), '')))"
         f" / char_length({p}) ELSE 0 END)"
     )
 
@@ -105,14 +162,13 @@ def _df(table: str, term: _Term) -> str:
     if term.analyzer == "ngram":
         return (
             f"(SELECT count(*) FROM {table} WHERE char_length({p}) BETWEEN 3 AND 12"
-            f" AND {column} LIKE '%%' || replace(replace(replace({p}, '\\', '\\\\'),"
-            f" '%%', '\\%%'), '_', '\\_') || '%%')"
+            f" AND {column} LIKE '%%' || replace(replace(replace(lg_fold({p}),"
+            f" '\\', '\\\\'), '%%', '\\%%'), '_', '\\_') || '%%')"
         )
-    # identity: the rows that have a value starting with the word
-    return (
-        f"(SELECT count(*) FROM {table} WHERE"
-        f" {search_column(term.field, 'prefix')} LIKE '%%' || chr(31) || lg_like({p}) || '%%')"
-    )
+    # identity: the rows that have a value starting with the word, of three characters or
+    # more (as the condition of the search, ``search._field_condition``)
+    start = start_of_value_sql(table, term.field, p, row="")
+    return f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND {start})"
 
 
 def _stems_of(store: Any, word: str) -> list[str]:
@@ -128,25 +184,106 @@ def _stems_of(store: Any, word: str) -> list[str]:
 
 
 def _frequencies(
-    store: Any, table: str, terms: list[_Term], params: dict[str, Any]
+    store: Any, table: str, terms: list[_Term], params: dict[str, Any], rows: float
 ) -> list[float]:
-    """The document frequency of each term, from the cache or counted in one statement."""
-    keys = [(table, t.field, t.analyzer, str(params[t.param])) for t in terms]
-    with _stats_lock:
-        cached = [_df_cache.get(key) for key in keys]
-    missing = [n for n, value in enumerate(cached) if not isinstance(value, float)]
-    if missing:
-        counts = [f"{_df(table, terms[n])} AS d{n}" for n in missing]
+    """The document frequency of each term, kept per data version. A word whose stem is one
+    of the most common elements of its column (``_common_elements``) takes the frequency the
+    planner keeps of it; every other term is counted, in one statement: for a common word
+    those counts were the slowest part of a search (2 s of 3 on the full graph)."""
+    if not terms:
+        return []
+    key = (
+        "bm25-df",
+        table,
+        tuple((t.field, t.analyzer, str(params[t.param])) for t in terms),
+    )
+
+    # read here, not in the computation below: a computation of the cache does not wait
+    # for another one (they share a pool, whose workers would all wait for each other)
+    common = {
+        column: _common_elements(store, table, column)
+        for column in {
+            search_column(t.field, t.analyzer) for t in terms if t.analyzer == "text"
+        }
+    }
+
+    def count() -> list[float]:
+        found: dict[int, float] = {}
+        for n, term in enumerate(terms):
+            if term.analyzer == "text":
+                known = common[search_column(term.field, term.analyzer)]
+                if str(params[term.param]) in known:
+                    found[n] = known[str(params[term.param])]
+        counted = [n for n in range(len(terms)) if n not in found]
+        if counted:
+            found.update(_counted(store, table, terms, params, counted, rows))
+        return [found[n] for n in range(len(terms))]
+
+    return cached(store, key, count, tables=(table,))
+
+
+def _counted(
+    store: Any,
+    table: str,
+    terms: list[_Term],
+    params: dict[str, Any],
+    counted: list[int],
+    rows: float,
+) -> dict[int, float]:
+    """The document frequencies of the terms *counted*, in one statement of index lookups,
+    within ``DF_TIMEOUT`` seconds. A count that takes longer is of terms too common to tell
+    apart: each takes *rows*, so it weighs next to nothing in the rank and still keeps the
+    rows that hold it (a short part of a word that half the rows start with)."""
+    counts = [f"{_df(table, terms[n])} AS d{n}" for n in counted]
+    token = set_read_deadline(DF_TIMEOUT)
+    try:
         # Counted from the indexes: a scan would detoast the search columns of every row.
+        # (one more column: a row of one column is its value, not a dict)
         row = next(
-            store.query(f"SELECT {', '.join(counts)}", params, indexes_only=True)
+            store.query(
+                f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
+            )
         )
-        with _stats_lock:
-            for n in missing:
-                counted = float(row[f"d{n}"])
-                cached[n] = counted
-                _df_cache.set(keys[n], counted)
-    return [float(value) for value in cached]  # type: ignore[arg-type]
+    except ReadTimedOut:
+        logger.info(
+            "The frequencies of a search of %s took over %s s: taken as every row.",
+            table,
+            DF_TIMEOUT,
+        )
+        return dict.fromkeys(counted, rows)
+    finally:
+        reset_read_deadline(token)
+    return {n: float(row[f"d{n}"]) for n in counted}
+
+
+def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
+    """The most common elements of the array *column* of *table* and the rows that hold
+    each, as ``ANALYZE`` sampled them (``pg_stats``: its share of the rows times the rows of
+    the table), kept ``STATS_MAX_AGE``; empty before the table is analyzed."""
+
+    def read() -> dict[str, float]:
+        row = next(
+            store.query(
+                """
+                SELECT coalesce(s.most_common_elems::text::text[], '{}') AS elements,
+                       coalesce(s.most_common_elem_freqs, '{}') AS shares,
+                       (SELECT reltuples::float FROM pg_class
+                        WHERE oid = %(table)s::regclass) AS n
+                FROM (SELECT 1) one
+                LEFT JOIN pg_stats s ON s.schemaname = current_schema()
+                    AND s.tablename = %(table)s AND s.attname = %(column)s
+                """,
+                {"table": table, "column": column},
+            )
+        )
+        rows = max(float(row["n"] or 0), 0.0)
+        # the shares end with three of their own (the least, the most, of null elements)
+        return {
+            element: share * rows
+            for element, share in zip(row["elements"], row["shares"], strict=False)
+        }
+
+    return lasting(store, ("bm25-common", table, column), read, STATS_MAX_AGE)
 
 
 def _terms(
@@ -157,7 +294,8 @@ def _terms(
     boosts: dict[str, float],
 ) -> tuple[list[_Term], dict[str, Any]]:
     params: dict[str, Any] = dict(words)
-    stems = {word: _stems_of(store, value) for word, value in words.items()}
+    # the stems of a word and of its forms that stem apart, as the search matches it
+    stems = {word: _stems_of(store, word_forms(value)) for word, value in words.items()}
     terms = []
     for word in words:
         for field in fields:
@@ -188,7 +326,7 @@ def bm25_sql(
     if not terms:
         return "0", "", params
     stats = _stats(store, table)
-    frequencies = _frequencies(store, table, terms, params)
+    frequencies = _frequencies(store, table, terms, params, stats["N"])
     columns, parts = [], []
     lengths: dict[tuple[str, str], str] = {}  # one length per field and analyzer
     for n, term in enumerate(terms):

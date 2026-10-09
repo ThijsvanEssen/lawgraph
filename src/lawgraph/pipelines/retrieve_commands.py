@@ -15,7 +15,7 @@ from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.command import add_since_argument
+from lawgraph.pipelines.command import add_since_argument, command_parser
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
@@ -45,9 +45,13 @@ from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_case_actors import TKCaseActorsRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.tk_document_links import (
+    TKDocumentLinksRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
@@ -63,8 +67,16 @@ def _add_mode_argument(
     parser: argparse.ArgumentParser, *, extra_modes: tuple[str, ...] = ()
 ) -> None:
     """What to fetch: what changed (``incremental``), all of it (``full``), or an extra mode."""
+    extra = (
+        f"; also {', '.join(extra_modes)} (see docs/pipelines.md)"
+        if extra_modes
+        else ""
+    )
     parser.add_argument(
-        "--mode", choices=["incremental", "full", *extra_modes], default="incremental"
+        "--mode",
+        choices=["incremental", "full", *extra_modes],
+        default="incremental",
+        help=f"incremental (default): what changed since --since; full: all of it{extra}.",
     )
 
 
@@ -73,21 +85,23 @@ def _date(since: dt.datetime | None) -> str | None:
 
 
 def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the current BWB toestand of regulations."
     )
     parser.add_argument(
         "--bwb-id",
         dest="bwb_ids",
         action="append",
-        help="Incremental mode: regulation to fetch (repeatable); default is BWB_IDS.",
+        help="Incremental mode: regulation to fetch (repeatable); default: the "
+        "BWB_IDS environment variable.",
     )
     parser.add_argument(
         "--min-stubs",
         type=int,
         default=_gaps.DEFAULT_MIN_STUBS,
         metavar="N",
-        help="Gaps mode: a law is fetched when N of its articles are referred to.",
+        help="Gaps mode: a law is fetched when N of its articles are referred to "
+        "(default: %(default)s).",
     )
     _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
@@ -102,7 +116,7 @@ def retrieve_bwb(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the historical BWB toestanden that are not stored yet."
     )
     parser.add_argument(
@@ -123,9 +137,18 @@ def retrieve_bwb_history(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description="Retrieve ECHR HUDOC judgments.")
-    parser.add_argument("--respondent", default="NLD")
-    parser.add_argument("--max-records", type=int, default=10000)
+    parser = command_parser(description="Retrieve ECHR HUDOC judgments.")
+    parser.add_argument(
+        "--respondent",
+        default="NLD",
+        help="The state the judgments are against (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--max-records",
+        type=int,
+        default=10000,
+        help="Incremental mode: at most this many judgments (default: %(default)s).",
+    )
     add_since_argument(parser)
     _add_mode_argument(parser, extra_modes=(GAPS,))
     args = parser.parse_args(argv)
@@ -144,16 +167,21 @@ def retrieve_echr(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
-        description="Retrieve EUR-Lex acts by CELEX number."
-    )
+    parser = command_parser(description="Retrieve EUR-Lex acts by CELEX number.")
     parser.add_argument(
         "--celex",
         action="append",
         help="Incremental mode: act to fetch (repeatable); default is every act in the graph.",
     )
-    parser.add_argument("--lang", default="NL")
-    parser.add_argument("--country", default="NLD")
+    parser.add_argument(
+        "--lang", default="NL", help="Language of the text (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--country",
+        default="NLD",
+        help="nim and cjeu: the country of the measures or judgments (default: "
+        "%(default)s).",
+    )
     parser.add_argument(
         "--type",
         dest="cdm_types",
@@ -189,10 +217,14 @@ def retrieve_eurlex(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_eurlex_nim(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the national implementing measures of EUR-Lex (CELLAR)."
     )
-    parser.add_argument("--country", default="NLD")
+    parser.add_argument(
+        "--country",
+        default="NLD",
+        help="The country of the measures (default: %(default)s).",
+    )
     add_since_argument(parser, default="30d")
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
@@ -203,10 +235,12 @@ def retrieve_eurlex_nim(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the Eerste Kamer Kamerstukken (KOOP SRU)."
     )
-    parser.add_argument("--max-records", type=int, default=None)
+    parser.add_argument(
+        "--max-records", type=int, default=None, help="At most this many papers."
+    )
     add_since_argument(parser)
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
@@ -217,7 +251,7 @@ def retrieve_eerstekamer(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the votes of the Eerste Kamer on bills and the list of the "
         "bills it rejected (eerstekamer.nl)."
     )
@@ -229,7 +263,7 @@ def retrieve_eerstekamer_votes(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
+    command_parser(
         description="Retrieve the factions and committees of the Eerste Kamer as they are "
         "today (eerstekamer.nl): a snapshot of about 40 pages."
     ).parse_args(argv)
@@ -237,7 +271,7 @@ def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineR
 
 
 def retrieve_eerstekamer_agenda(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the agendas of the plenary sittings and committee meetings of "
         "the Eerste Kamer (eerstekamer.nl): those planned, and back to --since (without "
         "it back to June 2015, a long run that goes on where one broke off)."
@@ -250,7 +284,7 @@ def retrieve_eerstekamer_agenda(argv: list[str] | None = None) -> PipelineResult
 
 
 def retrieve_eerstekamer_bills(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve the pages of the bills of the Eerste Kamer (eerstekamer.nl): "
         "those its committees list and those it voted on since --since."
     )
@@ -262,8 +296,9 @@ def retrieve_eerstekamer_bills(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
-        description="Retrieve Rechtspraak judgments of chosen courts, by decision date."
+    parser = command_parser(
+        description="Retrieve Rechtspraak judgments of every court (--court narrows it), "
+        "by decision date."
     )
     parser.add_argument(
         "--court",
@@ -307,10 +342,14 @@ def retrieve_rechtspraak(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_staatsblad(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
-        description="Retrieve Staatsblad publications of AMvBs."
+    parser = command_parser(description="Retrieve Staatsblad publications of AMvBs.")
+    parser.add_argument(
+        "--mode",
+        choices=["from-graph", "full"],
+        default="from-graph",
+        help="from-graph (default): the publications the stored BWB toestanden name; "
+        "full: every AMvB the SRU lists.",
     )
-    parser.add_argument("--mode", choices=["from-graph", "full"], default="from-graph")
     args = parser.parse_args(argv)
 
     store = GraphStore()
@@ -321,10 +360,14 @@ def retrieve_staatsblad(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_staatscourant(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve Staatscourant ministerial regulations."
     )
-    parser.add_argument("--identifiers", nargs="*")
+    parser.add_argument(
+        "--identifiers",
+        nargs="*",
+        help="Fetch these publications (stcrt-…) as they are.",
+    )
     add_since_argument(parser)
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
@@ -338,27 +381,40 @@ def retrieve_staatscourant(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_tk(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description="Retrieve Tweede Kamer cases.")
-    parser.add_argument("--limit", type=int, default=0)
+    parser = command_parser(description="Retrieve Tweede Kamer cases.")
+    parser.add_argument(
+        "--limit", type=int, default=0, help="At most this many cases (0: every one)."
+    )
+    parser.add_argument(
+        "--replacing",
+        action="store_true",
+        help="Only the cases that replace another (an amended amendment or motion, "
+        "Zaak.VervangenVanuit); with --mode full every one of them, once after the "
+        "retrieve began to read that relation.",
+    )
     add_since_argument(parser, default="1d")
     _add_mode_argument(parser)
     args = parser.parse_args(argv)
 
     since = _TK_EPOCH if args.mode == "full" else args.since
-    return TKRetrievePipeline(GraphStore()).run(since=since, limit=args.limit)
+    return TKRetrievePipeline(GraphStore()).run(
+        since=since, limit=args.limit, replacing=args.replacing
+    )
 
 
 def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
-        description="Retrieve the XML of Tweede Kamer documents."
-    )
+    parser = command_parser(description="Retrieve the XML of Tweede Kamer documents.")
     parser.add_argument(
         "--kind",
         action="append",
         help="A word of the kind of paper to fetch (repeatable; default: "
         f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
     )
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Say which papers would be fetched; fetch nothing.",
+    )
     parser.add_argument(
         "--mode",
         choices=[GAPS],
@@ -371,8 +427,34 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
 
 
+def retrieve_tk_document_links(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the links of Tweede Kamer documents: the activity a document "
+        "is the record of, its attachments and the letters it is an attachment of."
+    )
+    add_since_argument(parser, default="1d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    since = None if args.mode == "full" else args.since
+    return TKDocumentLinksRetrievePipeline(GraphStore()).run(since=since)
+
+
+def retrieve_tk_case_actors(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the actors of Tweede Kamer cases: who submitted a case and "
+        "which committee leads it."
+    )
+    add_since_argument(parser, default="1d")
+    _add_mode_argument(parser)
+    args = parser.parse_args(argv)
+
+    since = None if args.mode == "full" else args.since
+    return TKCaseActorsRetrievePipeline(GraphStore()).run(since=since)
+
+
 def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
+    parser = command_parser(
         description="Retrieve Tweede Kamer dossiers, decisions, votes, committees and members."
     )
     add_since_argument(parser)
@@ -384,10 +466,27 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         "--documents-since",
         help="Documents only: overrides --since (a full fetch is over 400K records).",
     )
-    parser.add_argument("--skip-members", action="store_true")
-    parser.add_argument("--skip-decisions", action="store_true")
-    parser.add_argument("--skip-documents", action="store_true")
-    parser.add_argument("--dossier-number", type=int, default=None, metavar="N")
+    add_since_argument(
+        parser,
+        "--commitments-since",
+        help="Commitments (Toezegging) only: overrides --since.",
+    )
+    parser.add_argument(
+        "--skip-members",
+        action="store_true",
+        help="Skip persons, factions and their seats.",
+    )
+    parser.add_argument(
+        "--skip-decisions", action="store_true", help="Skip votes and decisions."
+    )
+    parser.add_argument("--skip-documents", action="store_true", help="Skip documents.")
+    parser.add_argument(
+        "--dossier-number",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Only this dossier and its documents, whatever the dates.",
+    )
     parser.add_argument(
         "--mode",
         choices=["window", GAPS],
@@ -407,6 +506,7 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
         since=args.since,
         decisions_since=args.decisions_since,
         documents_since=args.documents_since,
+        commitments_since=args.commitments_since,
         skip_members=args.skip_members,
         skip_decisions=args.skip_decisions,
         skip_documents=args.skip_documents,
@@ -415,10 +515,10 @@ def retrieve_tk_dossiers(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(
-        description="Retrieve treaties from the Verdragenbank."
+    parser = command_parser(description="Retrieve treaties from the Verdragenbank.")
+    parser.add_argument(
+        "--max-records", type=int, default=None, help="At most this many treaties."
     )
-    parser.add_argument("--max-records", type=int, default=None)
     parser.add_argument(
         "--mode",
         choices=["full", GAPS],
@@ -443,28 +543,28 @@ def retrieve_verdragenbank(argv: list[str] | None = None) -> PipelineResult:
 
 
 def retrieve_rijksoverheid(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
+    command_parser(
         description="Retrieve the page of every cabinet since 1945 from rijksoverheid.nl."
     ).parse_args(argv)
     return RijksoverheidRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_tooi(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
+    command_parser(
         description="Retrieve the TOOI value list of every ministry (KOOP)."
     ).parse_args(argv)
     return TooiRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_rechtspraak_instanties(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
+    command_parser(
         description="Retrieve the Instanties value list of the Rechtspraak (every court)."
     ).parse_args(argv)
     return RechtspraakInstantiesRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_staatscourant_posts(argv: list[str] | None = None) -> PipelineResult:
-    argparse.ArgumentParser(
+    command_parser(
         description="Retrieve per cabinet post whose function names no ministry which "
         "ministries issued the publications naming it (KOOP SRU)."
     ).parse_args(argv)

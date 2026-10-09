@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.tk_records import NO_DUE_DATE
 
@@ -386,6 +387,9 @@ class CommitmentDossierDTO(BaseModel):
     key: str
     number: str | None = None
     title: str | None = None
+    short_title: str | None = Field(
+        None, description="The name it goes by, as ``/api/dossiers`` gives it."
+    )
 
 
 class CommitmentActivityDTO(BaseModel):
@@ -449,7 +453,10 @@ class CommitmentDTO(BaseModel):
             post=props.get("post"),
             ministry=props.get("ministry"),
             cabinet=props.get("cabinet"),
-            dossiers=[CommitmentDossierDTO(**d) for d in row.get("dossiers") or []],
+            dossiers=[
+                CommitmentDossierDTO(**d, short_title=short_title(d.get("title")))
+                for d in row.get("dossiers") or []
+            ],
             activity=row.get("activity"),
         )
 

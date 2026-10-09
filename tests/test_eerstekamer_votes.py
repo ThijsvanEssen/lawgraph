@@ -11,6 +11,7 @@ import pytest
 from lawgraph.config.constants import RAW_KIND_EK_REJECTED, RAW_KIND_EK_VOTES_DAY
 from lawgraph.core import eerstekamer_votes as ev
 from lawgraph.core.dossier_stages import derive_outcome, ek_outcome
+from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of, observed_on
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
@@ -20,6 +21,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 PAGE_1 = (FIXTURES / "ek_votes_page_1.html").read_text()
 PAGE_2 = (FIXTURES / "ek_votes_page_2.html").read_text()
 REJECTED = (FIXTURES / "ek_rejected_page_1.html").read_text()
+# the list of every vote, on bills and on motions, as served on 2026-10-09
+ALL = (FIXTURES / "ek_votes_alles_page_1.html").read_text()
 
 
 @pytest.mark.parametrize(
@@ -73,6 +76,33 @@ def test_a_vote_is_read_as_the_kamer_writes_it() -> None:
     # a hamerstuk, with and without factions that ask to have their vote recorded
     assert votes["36880"].method == "Hamerstuk" and votes["36880"].factions == {}
     assert votes["36745"].factions == {"aantekening gevraagd": ["SGP", "FVD", "JA21"]}
+
+
+def test_a_vote_on_a_motion_is_read_by_its_letter() -> None:
+    """The list of every vote names a motion by the number of its dossier and its letter
+    (``37.020, M``), a bill by its number; the list of bills alone shows a vote on a motion
+    as one on its bill."""
+    assert ev.VOTES_PATH.endswith("filter=alles")
+    day, _, fragment = ev.days(ALL)[0]
+    assert day == "2026-10-06"
+    found = ev.votes(day, fragment)
+    motions = [v for v in found if v.letter]
+    bills = [v for v in found if not v.letter]
+    assert (len(bills), len(motions)) == (5, 9)
+    beukering = next(v for v in motions if v.letter == "M")
+    assert (beukering.number, beukering.label, beukering.result) == (
+        "37.020",
+        "37020",
+        "Verworpen",
+    )
+    assert beukering.title.startswith("Motie-Beukering (Fractie-Beukering) c.s. over ")
+    assert beukering.motion_path == "/motiedossier/37020_m_motie_beukering_fractie"
+    assert beukering.bill_path is None
+    assert beukering.method == "Stemming bij zitten en opstaan, verworpen"
+    assert (
+        beukering.factions["voor"][0] == "BBB" and "VVD" in beukering.factions["tegen"]
+    )
+    assert all(v.bill_path and v.motion_path is None for v in bills)
 
 
 def test_the_rejected_bills_are_read_with_their_day_and_number() -> None:
@@ -185,3 +215,20 @@ def test_the_eerste_kamer_closes_a_dossier() -> None:
     # the Staatsblad dates an adopted law
     published = derive_outcome([{"date_published": "2026-10-15"}], [], adopted)
     assert (published.outcome, published.closed_on) == ("aangenomen", "2026-10-15")
+
+
+def test_a_name_on_the_list_of_votes_is_the_faction_observed_that_day() -> None:
+    def faction(id_: str, since: str | None, until: str | None) -> dict:
+        return {"id": id_, "observed_from": since, "observed_until": until, "seats": 3}
+
+    old = faction("factions/ek_a_old", "2019-06-11", "2023-06-13")
+    new = faction("factions/ek_a_new", "2023-06-13", None)
+    factions = {"A": [old, new]}
+    assert faction_of(factions, "A", "2020-01-01") is old
+    assert faction_of(factions, "A", "2026-10-06") is new
+    # before either was observed: none of two, the only one of one
+    assert faction_of(factions, "A", "2016-01-01") is None
+    assert faction_of({"A": [new]}, "A", "2016-01-01") is new
+    assert faction_of(factions, "B", "2026-10-06") is None
+    # its seats count only in the period it was observed
+    assert observed_on(new, "2026-10-06") and not observed_on(new, "2016-01-01")

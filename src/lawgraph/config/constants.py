@@ -192,6 +192,11 @@ RAW_KIND_TK_TOEZEGGING = "tk-toezegging"
 RAW_KIND_TK_COMMISSIE = "tk-commissie"
 RAW_KIND_TK_PERSOON = "tk-persoon"
 RAW_KIND_TK_DOCUMENT = "tk-document"
+# The links of a Document alone (its activities, attachments and the letters it is an
+# attachment of): ``retrieve tk-document-links``.
+RAW_KIND_TK_DOCUMENT_LINKS = "tk-document-links"
+# The actors of a Zaak alone (its submitters and lead committee): ``retrieve tk-case-actors``.
+RAW_KIND_TK_CASE_ACTORS = "tk-case-actors"
 RAW_KIND_TK_FRACTIE = "tk-fractie"
 RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
@@ -255,6 +260,8 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_COMMISSIE,
         RAW_KIND_TK_PERSOON,
         RAW_KIND_TK_DOCUMENT,
+        RAW_KIND_TK_DOCUMENT_LINKS,
+        RAW_KIND_TK_CASE_ACTORS,
         RAW_KIND_TK_FRACTIE,
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_KAMERSTUK_XML,

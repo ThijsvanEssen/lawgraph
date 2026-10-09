@@ -10,7 +10,8 @@ names, unless the text names another: "De minister van Asiel en Migratie zegt to
 role ``Minister van Justitie en Veiligheid`` is a commitment of Asiel en Migratie, which that
 minister held ad interim; without either, the ministry of the post the member held that day
 (``normalize rijksoverheid``). ``post`` is read from the role. ``cabinet`` is the cabinet in
-office on the day.
+office on the day. A member found is also an ``AUTHORED`` edge to the commitment (``meta.role``
+``toezegger``, ``meta.function`` the role as written), removed where the match is gone.
 
 A dossier is brought in by whoever signed its earliest signed document first: a
 bewindspersoon gives it the ``ministry`` their function names, else that of the post they
@@ -19,26 +20,43 @@ then. Both are null for a dossier none of
 whose documents a Kamerlid or bewindspersoon signed first.
 
 Runs over every commitment and dossier after ``normalize rijksoverheid`` has written the cabinets
-and posts, and writes only what changed.
+and posts, and writes only what changed; with ``--touched-since`` over those a poll touched
+since then (``semantic/_touched.py``).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import re
+import time
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_COMMITMENTS, COLLECTION_DOSSIERS
+from lawgraph.config.constants import (
+    COLLECTION_COMMITMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_MEMBERS,
+    RELATION_AUTHORED,
+)
 from lawgraph.core.cabinets import cabinet_on
 from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.core.time import format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.store import edge_key
 
+from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
+
+SEMANTIC_SOURCE = "tk-government"
+# The role of the member who made a commitment, on their AUTHORED edge.
+ROLE_COMMITTED = "toezegger"
 
 
 # "De minister van Asiel en Migratie zegt toe ...": the function a commitment is made in.
@@ -116,9 +134,16 @@ def dossier_props(
     people: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
-    document was signed first as *first* (``{date, member, capacity, function}``)."""
+    document was signed first as *first* (``{date, member, capacity, function, paper}``),
+    and that signature itself (``first_signed``): a run over a window reads the papers of a
+    dossier again only when one it touched may come before it."""
     if not first:
-        return {"ministry": None, "initiative": None, "cabinet": None}
+        return {
+            "ministry": None,
+            "initiative": None,
+            "cabinet": None,
+            "first_signed": None,
+        }
     capacity = first.get("capacity")
     ministry = None
     if capacity == CAPACITY_GOVERNMENT:
@@ -130,31 +155,74 @@ def dossier_props(
         "ministry": ministry,
         "initiative": capacity == CAPACITY_MEMBER,
         "cabinet": cabinet_on(first.get("date"), cabinets),
+        "first_signed": first,
     }
 
 
 class TKGovernmentSemanticPipeline(SemanticPipelineBase):
     """Write who made each commitment and who brought each dossier in."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         people = list(government_queries.government_people(self.store))
         cabinets = list(government_queries.cabinet_periods(self.store))
+        some_commitments = some_dossiers = None
+        if touched_since is not None:
+            began = time.monotonic()
+            seeds = touched.tk_nodes_fetched_since(self.store, touched_since)
+            some_commitments = touched.touched_commitments(
+                self.store, touched_since, seeds
+            )
+            touched_dossiers = touched.touched_dossiers(
+                self.store, touched_since, seeds
+            )
+            # of those, the dossiers whose first signature a touched paper can change
+            some_dossiers = government_queries.dossiers_whose_first_may_change(
+                self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
+            )
+            logger.info(
+                "Touched since %s: %d commitments and %d dossiers, of which %d may have "
+                "another first signature, found in %s.",
+                touched_since.isoformat(timespec="seconds"),
+                len(some_commitments),
+                len(touched_dossiers),
+                len(some_dossiers),
+                format_duration(time.monotonic() - began),
+            )
 
         commitments = []
         matched = total = 0
+        makers = EdgeWriter(self.store, what=None)
+        kept: dict[str, set[str]] = {}
+        read: list[str] = []
         for row in self._track(
-            list(government_queries.commitment_makers(self.store)), "commitments"
+            list(government_queries.commitment_makers(self.store, some_commitments)),
+            "commitments",
         ):
             props = commitment_props(row, people, cabinets)
             total += 1
             matched += props["member_key"] is not None
             if props != row.get("props"):
                 commitments.append(self._update(row["key"], NodeType.COMMITMENT, props))
+            commitment = f"{COLLECTION_COMMITMENTS}/{row['key']}"
+            read.append(commitment)
+            if props["member_key"]:
+                member = f"{COLLECTION_MEMBERS}/{props['member_key']}"
+                makers.add(
+                    member,
+                    commitment,
+                    RELATION_AUTHORED,
+                    source=SEMANTIC_SOURCE,
+                    meta={"role": ROLE_COMMITTED, "function": row.get("role")},
+                )
+                kept[commitment] = {edge_key(member, RELATION_AUTHORED, commitment)}
         dossiers = []
         brought = 0
         for row in self._track(
-            list(government_queries.dossier_first_signatures(self.store)), "dossiers"
+            list(
+                government_queries.dossier_first_signatures(self.store, some_dossiers)
+            ),
+            "dossiers",
         ):
             props = dossier_props(row.get("first"), cabinets, people)
             brought += props["initiative"] is not None
@@ -167,6 +235,12 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         ):
             if updates:
                 self.store.bulk_insert_or_update_nodes(collection, updates)
+        # who made each commitment, as an edge too: written after the member keys, removed
+        # where the match is gone
+        makers.flush_into(result)
+        semantic_edges.remove_edges_to(
+            self.store, [RELATION_AUTHORED], SEMANTIC_SOURCE, read, kept
+        )
         result.updated = len(commitments) + len(dossiers)
         logger.info(
             "%d of %d commitments matched to a member; %d dossiers brought in by a "

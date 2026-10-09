@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db import edge_key as _sha1_edge_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -105,6 +106,21 @@ def test_detect_eu_citations_richtlijn_article() -> None:
     assert any(hit.celex == "32010L0013" for hit in hits)
     cine = [hit for hit in hits if hit.celex == "32010L0013"]
     assert cine[0].kind == "article"
+
+
+def test_a_bw_article_resolves_through_its_book() -> None:
+    """``BW`` is a code family: ``artikel 6:162 BW`` is article 162 of book 6, whatever the
+    aliases map ``BW`` to; without a book it names no article."""
+    book_6 = CODE_FAMILIES["BW"]["6"]
+    hits = detect_eu_citations(
+        "aansprakelijk op grond van artikel 6:162 BW", {"BW": "x"}
+    )
+    assert [(h.bwb_id, h.article_number) for h in hits] == [(book_6, "162")]
+    assert (
+        detect_eu_citations("artikel 7a:1576h BW", {})[0].bwb_id
+        == (CODE_FAMILIES["BW"]["7A"])
+    )
+    assert detect_eu_citations("artikel 162 BW", {"BW": "x"}) == []
 
 
 def test_detect_eu_citations_bwb_article_alias() -> None:

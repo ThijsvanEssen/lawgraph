@@ -6,14 +6,52 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.params import MinistryKey
+from lawgraph.api.schemas.common import DossierNameDTO, dossier_names_of
 from lawgraph.api.schemas.decisions import DecisionDTO
-from lawgraph.core.documents import chamber_of, is_explanatory
+from lawgraph.core.documents import (
+    chamber_of,
+    document_sender,
+    is_explanatory,
+    paper_number,
+)
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import submitters
 
 Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
+
+
+class SenderDTO(BaseModel):
+    """Who sent a Tweede Kamer paper: its first signatory, else the signature the source
+    calls its sender (``Afzender``), as the source gives it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(None, description="As the source writes it.")
+    function: str | None = Field(
+        None,
+        description="The function they signed in: 'minister van Financiën', "
+        "'Tweede Kamerlid'; null when the source gives none.",
+    )
+    faction: str | None = Field(None, description="Of a Kamerlid: the faction.")
+    capacity: SigningCapacity | None = Field(
+        None,
+        description="'bewindspersoon' (a letter of the government), 'kamerlid' or "
+        "'overig' (the griffier, the Raad van State, ...).",
+    )
+    member_key: str | None = Field(None, description="Their Member node, if named.")
+    ministry: MinistryKey | None = Field(
+        None, description="Of a bewindspersoon the ministry their function names."
+    )
+
+
+def sender_of(props: dict[str, Any]) -> SenderDTO | None:
+    """The ``SenderDTO`` of a document with these props (its ``actors`` and ``date``)."""
+    sender = document_sender(props.get("actors"), props.get("date"))
+    return SenderDTO(**sender) if sender else None
 
 
 class DocumentOrigin(BaseModel):
@@ -49,15 +87,6 @@ def origin_fields(
         "source": source or None,
         "is_explanatory": is_explanatory(kind),
     }
-
-
-def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
-    """Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper
-    (its ``sequence``), the letter of an Eerste Kamer one (its ``number``)."""
-    if chamber == "EK":
-        return props.get("number")
-    sequence = props.get("sequence")
-    return str(sequence) if chamber == "TK" and sequence else None
 
 
 class ArticleRefDTO(BaseModel):
@@ -154,6 +183,16 @@ class DocumentTextResponse(DocumentOrigin):
     document_id: str
     title: str | None = None
     kind: str | None = None
+    number: str | None = Field(
+        None,
+        description="Its number in its dossier as its chamber numbers it: the nr. of a "
+        "Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``).",
+    )
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
     date: str | None = None
     external_id: str | None = None
     tk_url: str | None = Field(None, description="The document on tweedekamer.nl.")
@@ -163,6 +202,13 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
+    dictum: str | None = Field(
+        None,
+        description="Of a motion, what it asks or says, as it writes it: the lines from "
+        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
+        "motion without text.",
+    )
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
@@ -183,6 +229,7 @@ class DocumentTextResponse(DocumentOrigin):
         doc: dict[str, Any],
         links: dict[str, Any] | None = None,
         decisions: list[dict[str, Any]] | None = None,
+        names: dict[str, dict[str, Any]] | None = None,
     ) -> DocumentTextResponse:
         """From the stored document and what ``get_document_links`` found for it."""
         from lawgraph.config.constants import SOURCE_TK
@@ -194,11 +241,16 @@ class DocumentTextResponse(DocumentOrigin):
         external_id: str | None = props.get("external_id")
         date = props.get("date") or (props.get("raw") or {}).get("Datum")
         text: str | None = props.get("text")
+        origin = origin_fields(
+            doc.get("labels"), props.get("source"), props.get("kind")
+        )
         return cls(
             key=doc["_key"],
             document_id=doc["_id"],
             title=props.get("title"),
             kind=props.get("kind"),
+            number=paper_number(origin["chamber"], props),
+            sender=sender_of(props),
             date=strip_time_component(date),
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
@@ -208,6 +260,7 @@ class DocumentTextResponse(DocumentOrigin):
                 else None
             ),
             text=text,
+            dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
             submitters=[
                 SubmitterDTO(**row)
@@ -216,8 +269,10 @@ class DocumentTextResponse(DocumentOrigin):
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
-            decisions=[DecisionDTO.from_document(d) for d in decisions or []],
-            **origin_fields(doc.get("labels"), props.get("source"), props.get("kind")),
+            decisions=[
+                DecisionDTO.from_document(d, names or {}) for d in decisions or []
+            ],
+            **origin,
         )
 
 
@@ -299,6 +354,12 @@ class DocumentListItemDTO(BaseModel):
     dossier_numbers: list[str] = Field(
         default_factory=list, description="Every dossier it is part of, as labels."
     )
+    dossiers: list[DossierNameDTO] = Field(
+        default_factory=list,
+        description="The names of ``dossier_numbers`` (or of ``dossier_number`` without "
+        "them), in their order: ``number``, ``short_title``, ``title`` as "
+        "``/api/dossiers`` gives them.",
+    )
     number: str | None = Field(
         None,
         description="Its number in the dossier: of the Tweede Kamer the nr. (``5``), of "
@@ -311,9 +372,26 @@ class DocumentListItemDTO(BaseModel):
         description="The session year as the source writes it (``2025-2026``): with the "
         "chamber, dossier and number the citation, Kamerstukken I 2025/26, 36791, C.",
     )
+    sender: SenderDTO | None = Field(
+        None,
+        description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
+        "Kamer paper and a paper without a signature.",
+    )
+    dictum: str | None = Field(
+        None,
+        description="Of a motion, what it asks or says, as it writes it: the lines from "
+        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
+        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
+        "motion without text.",
+    )
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> DocumentListItemDTO:
+    def from_row(
+        cls, row: dict[str, Any], names: dict[str, dict[str, Any]]
+    ) -> DocumentListItemDTO:
+        """From a row of ``list_documents`` and the names of the dossiers
+        (``load_dossier_names``)."""
+        numbers = row.get("dossier_numbers") or [row.get("dossier_number")]
         return cls(
             id=row["id"],
             key=row["key"],
@@ -322,10 +400,13 @@ class DocumentListItemDTO(BaseModel):
             dossier_number=row.get("dossier_number"),
             dossier_suffix=row.get("dossier_suffix"),
             dossier_numbers=row.get("dossier_numbers") or [],
+            dossiers=dossier_names_of(numbers, names),
             number=paper_number(row.get("chamber"), row),
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),
+            sender=sender_of(row),
+            dictum=row.get("dictum"),
         )
 
 

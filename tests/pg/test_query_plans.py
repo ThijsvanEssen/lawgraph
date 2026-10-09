@@ -30,6 +30,7 @@ from psycopg import sql
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import _query, _text
 
@@ -48,7 +49,18 @@ URLS = [
     "/api/search?q=statusbrief&types=commitments",
     "/api/search?q=stemming+abortus&types=decisions",
     "/api/resolve?q=art.+1+BWBR0001",
+    "/api/resolve?q=A.+Lid",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
+    "/api/search?q=wet&mode=live",
+    # a period: each type by a date of its own, inside its lookup
+    "/api/search?q=wet&from=2019-01-01&to=2019-12-31",
+    "/api/search?q=wet&mode=live&from=2019-01-01&to=2019-12-31",
+    f"/api/search?q={ECLI}&from=2019-01-01",
+    "/api/search?q=Hoge+Raad&types=judgments&mode=live&to=2020-12-31",
+    # an article by what its case law calls it (``lg_article_terms``), full and live
+    "/api/search?q=noodweer&types=articles",
+    "/api/search?q=noodweer&types=articles&mode=live",
+    "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     "/api/judgments",
     "/api/judgments?sort=date_asc",
@@ -64,6 +76,10 @@ URLS = [
     "/api/instruments?sort=article_count",
     "/api/instruments?jurisdiction=nl",
     "/api/instruments?q=wet",
+    # a period: the day an instrument came into force, or was published
+    "/api/instruments?from=2015-01-01&to=2020-12-31",
+    "/api/instruments?published_from=2015-01-01",
+    "/api/commitments?from=2024-01-01&to=2024-12-31",
     f"/api/instruments/{BWB}",
     f"/api/instruments/{BWB}/articles",
     f"/api/instruments/{BWB}/articles/at/2020-01-01",
@@ -85,6 +101,7 @@ URLS = [
     f"/api/relationships/search?law={BWB}",
     "/api/relationships/search?type=conditional_requirement",
     f"/api/nodes/articles/{BWB.lower()}_1",
+    f"/api/nodes/articles/{BWB.lower()}_1?props=canvas",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
@@ -92,16 +109,30 @@ URLS = [
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
+    "/api/dossiers/36000",
     "/api/dossiers/36000/changed-articles",
+    # a member: their votes (by roll-call and through their faction), dossiers, node, and
+    # a path from their faction through its members
+    "/api/members/m1/votes",
+    "/api/members/m1/dossiers",
+    "/api/members/m1/touched-instruments",
+    "/api/factions/f1/dossiers",
+    "/api/nodes/members/m1",
+    f"/api/paths?ids=factions/f1,instruments/{BWB.lower()}&expand=members",
 ]
 
 # Statements that read a table whole on purpose, each kept for a minute: the statistics
-# BM25 weighs a search with, and the names and abbreviations of every law that a search or
-# a citation is resolved against.
+# BM25 weighs a search with, and the names and abbreviations of every law that a search, a
+# citation or the title of a dossier is resolved against.
 _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT count\(\*\)::float AS n, avg\("),
     re.compile(r"FROM instruments\s+WHERE coalesce\(bwb_id, celex\) IS NOT NULL"),
     re.compile(r"FROM instruments\s+WHERE bwb_id IS NOT NULL OR celex IS NOT NULL"),
+    re.compile(
+        r"FROM instruments i\s+WHERE i.stub IS DISTINCT FROM TRUE\s+ORDER BY i.key"
+    ),
+    # the names of the dossiers, once per data version of them (``load_dossier_names``)
+    re.compile(r"SELECT DISTINCT ON \(label\) label, lg_str\(pj_title\) AS title"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).
@@ -223,7 +254,17 @@ def _seed(store: GraphStore) -> None:
         "annexes", [_node("a1", "annex", bwb_id=BWB, title="Bijlage")]
     )
     store.bulk_insert_or_update_nodes(
-        "dossiers", [_node("36000", "dossier", number="36000", label="36000")]
+        "dossiers",
+        [
+            _node(
+                "36000",
+                "dossier",
+                number="36000",
+                label="36000",
+                # a law the title names: the dossier looks it up (``get_laws_named``)
+                title="Wijziging van de Wet op de proef",
+            )
+        ],
     )
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -233,7 +274,35 @@ def _seed(store: GraphStore) -> None:
             )
         ],
     )
+    membership = {
+        "faction_id": "factions/f1",
+        "faction_key": "f1",
+        "abbreviation": "F",
+        "from_date": "2010-01-01",
+        "to_date": None,
+    }
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [_node("m1", "member", name="A. Lid", faction_memberships=[membership])],
+    )
+    store.bulk_insert_or_update_nodes("factions", [_node("f1", "faction", name="F")])
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
+    )
     article = f"articles/{BWB.lower()}_1"
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
+            _edge("ma", "members/m1", "documents/d1", "AUTHORED"),
+            _edge(
+                "fv", "factions/f1", "decisions/b1", "VOTED", meta={"choice": "Voor"}
+            ),
+            _edge(
+                "mv", "members/m1", "decisions/b2", "VOTED", meta={"choice": "Tegen"}
+            ),
+        ]
+    )
     store.bulk_insert_or_update_edges(
         [
             _edge("p1", article, "instruments/bwbr0001", "PART_OF"),
@@ -273,6 +342,10 @@ def _seed(store: GraphStore) -> None:
             ),
         ]
     )
+    store.execute(
+        "INSERT INTO lg_article_terms (article_id, terms)"
+        f" VALUES ('articles/{BWB.lower()}_1', ARRAY['noodwer'])"
+    )
     _fill(store)
     store.vacuum_analyze()
 
@@ -288,7 +361,10 @@ def _fill(store: GraphStore) -> None:
     statements.append(
         "INSERT INTO edges (key, from_id, to_id, doc)"
         " SELECT 'filler_' || n, 'judgments/filler_' || n % 9973,"
-        " 'articles/filler_' || n % 9967, json_build_object('relation', 'FILLER')"
+        " 'articles/filler_' || n % 9967, json_build_object('relation', 'FILLER',"
+        # a moment of its own, as nearly every edge has: an index that starts with it is
+        # no way to the edges of a node
+        " 'created_at', '2020-01-01T00:00:00.' || lpad(n::text, 6, '0'))"
         f" FROM generate_series(1, {FILLER * 5}) n"
     )
     for statement in statements:
@@ -299,6 +375,8 @@ def _fill(store: GraphStore) -> None:
 def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
     """``(url, statement, params)`` of every read the routes run."""
     _seed(store)
+    # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
+    store_heat(store, HEAT_MAX_LIMIT)
     captured: list[tuple[str, Any, Any]] = []
     current = {"url": ""}
     query = store.query
@@ -315,7 +393,7 @@ def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
         client = TestClient(app)
         for url in URLS:
             current["url"] = url
-            response = client.get(url, headers={"Origin": "http://localhost:5173"})
+            response = client.get(url)
             assert response.status_code == 200, (url, response.text[:300])
         yield captured
     finally:
@@ -334,6 +412,23 @@ def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
     return bool(condition) and not _flags_only(condition)
 
 
+def _skipped(
+    node: dict[str, Any], leading: dict[str, str], partial: frozenset[str]
+) -> bool:
+    """Whether the scan's condition leaves out the first column of its index: a skip scan
+    over every value of it (``to_id`` through ``(created_at, to_id)`` reads the whole index
+    on the full database). A partial index holds only the rows of its condition."""
+    if node.get("Index Name") in partial:
+        return False
+    column = leading.get(node.get("Index Name") or "")
+    condition = node.get("Index Cond") or ""
+    return (
+        bool(column and condition)
+        and not _flags_only(condition)
+        and not re.search(rf"\b{column}\b", condition)
+    )
+
+
 # Nodes that read all of their input before they give a row: below them a limit above
 # stops nothing early.
 _READS_ALL = ("Sort", "Incremental Sort", "Hash", "Materialize", "Aggregate", "Unique")
@@ -344,6 +439,7 @@ def _faults(
     partial: frozenset[str] = frozenset(),
     limited: bool = False,
     grouped: bool = False,
+    leading: dict[str, str] | None = None,
 ) -> list[str]:
     """The whole reads in the plan *node*: a sequential scan, and a scan that nothing
     narrows, unless it only tests flags and is either cut short by a limit (a page read
@@ -356,6 +452,11 @@ def _faults(
     found = []
     if kind == "Seq Scan":
         found.append(f"Seq Scan on {node.get('Relation Name')}")
+    elif kind in _SCANS and _skipped(node, leading or {}, partial):
+        found.append(
+            f"{kind} on {node.get('Relation Name')} skips the first column of"
+            f" {node.get('Index Name')}"
+        )
     elif kind in _SCANS and not _narrowed(node, partial):
         filtered = node.get("Filter", "")
         if not (_flags_only(filtered) and (limited or grouped)):
@@ -364,7 +465,9 @@ def _faults(
                 + (f", filtered by {filtered}" if filtered else "")
             )
     for child in node.get("Plans", []):
-        found += _faults(child, partial, limited, grouped or kind == "Aggregate")
+        found += _faults(
+            child, partial, limited, grouped or kind == "Aggregate", leading
+        )
     return found
 
 
@@ -398,6 +501,15 @@ def test_the_routes_read_through_indexes(
                 "SELECT indexrelid::regclass::text FROM pg_index WHERE indpred IS NOT NULL"
             )
         )
+        # the first column of every index on a column (not on an expression)
+        leading = dict(
+            conn.execute(
+                "SELECT i.indexrelid::regclass::text, a.attname FROM pg_index i"
+                " JOIN pg_attribute a"
+                "   ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]"
+                " WHERE i.indkey[0] <> 0"
+            ).fetchall()
+        )
         for url, statement, params in statements:
             text = _text(statement)
             if any(pattern.search(text) for pattern in _WHOLE_BY_DESIGN):
@@ -407,7 +519,7 @@ def test_the_routes_read_through_indexes(
                 (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
             except psycopg.Error as exc:
                 pytest.fail(f"{url}: {exc}\n{text}")
-            found = _faults(plan[0]["Plan"], partial)
+            found = _faults(plan[0]["Plan"], partial, leading=leading)
             if found:
                 outline = "\n      ".join(_outline(plan[0]["Plan"]))
                 faults.append(
@@ -459,3 +571,35 @@ def test_a_page_read_whole_is_found() -> None:
     on_partial = {"Node Type": "Index Scan", "Index Name": "edges_semantic_type"}
     sorted_partial = {"Node Type": "Sort", "Plans": [on_partial]}
     assert _faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
+
+
+def _shape(node: dict[str, Any]) -> list[str]:
+    """The plan as its nodes, their tables and indexes, without costs."""
+    own = " ".join(
+        str(node[k]) for k in ("Node Type", "Relation Name", "Index Name") if k in node
+    )
+    return [own] + [line for child in node.get("Plans", []) for line in _shape(child)]
+
+
+def test_a_cursor_is_planned_as_the_query_it_reads(
+    store: GraphStore, statements: list[tuple[str, Any, Any]]
+) -> None:
+    """``store.query`` reads every statement through a server-side cursor; planned for its
+    first tenth (the default ``cursor_tuple_fraction``), a statement with ``ORDER BY …
+    LIMIT`` may walk a table in index order. The connections of the pool plan a cursor
+    for all its rows: as the statement itself."""
+    differ = []
+    with store.pool.connection() as conn:
+        assert conn.execute("SHOW cursor_tuple_fraction").fetchone() == ("1",)
+        for url, statement, params in statements:
+            query = _query(statement)
+            plain = sql.SQL("EXPLAIN (FORMAT JSON) ") + query
+            cursor = (
+                sql.SQL("EXPLAIN (FORMAT JSON) DECLARE plan_check CURSOR FOR ") + query
+            )
+            (as_query,) = conn.execute(plain, params).fetchone()  # type: ignore[misc]
+            (as_cursor,) = conn.execute(cursor, params).fetchone()  # type: ignore[misc]
+            if _shape(as_query[0]["Plan"]) != _shape(as_cursor[0]["Plan"]):
+                differ.append(f"{url}: {' '.join(_text(statement).split())[:200]}")
+            conn.rollback()
+    assert not differ, "\n".join(sorted(set(differ)))

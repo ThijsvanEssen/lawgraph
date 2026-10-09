@@ -56,6 +56,41 @@ def _array(value: str) -> str:
     return f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE '[]'::json END"
 
 
+def _overlaps(start: str, end: str) -> str:
+    """SQL: the period from the JSON *start* to the JSON *end* (inclusive; none: from the
+    first day, or still going on) overlaps the one asked (``%(active_from)s`` to
+    ``%(active_to)s``, inclusive; null: open on that side)."""
+    return (
+        f"(%(active_to)s::text IS NULL OR coalesce(lg_str({start}), '') <= %(active_to)s)"
+        f" AND (%(active_from)s::text IS NULL OR {_is_null(end)}"
+        f" OR lg_str({end}) >= %(active_from)s)"
+    )
+
+
+# The start and end of a period ``p.v`` of a list, and the posts a member held.
+_FROM_DATE = "p.v -> 'from_date'"
+_TO_DATE = "p.v -> 'to_date'"
+_GOVERNMENT_FUNCTIONS = "m.props -> 'government_functions'"
+
+
+def _a_period_overlaps(periods: str) -> str:
+    """SQL: one of the periods of the JSON list *periods* (``from_date``, ``to_date``)
+    overlaps the one asked (``_overlaps``)."""
+    return (
+        f"EXISTS (SELECT 1 FROM json_array_elements({_array(periods)}) AS p(v)"
+        f" WHERE {_overlaps(_FROM_DATE, _TO_DATE)})"
+    )
+
+
+def _period(
+    bind: dict[str, Any], active_from: str | None, active_to: str | None
+) -> bool:
+    """Put the period asked in *bind*; whether one was asked."""
+    bind["active_from"] = active_from
+    bind["active_to"] = active_to
+    return bool(active_from or active_to)
+
+
 def _nonempty(value: str) -> str:
     """SQL: AQL ``LENGTH(value) > 0`` of a list."""
     return (
@@ -65,9 +100,12 @@ def _nonempty(value: str) -> str:
 
 
 def _contains(text: str) -> str:
-    """SQL: AQL ``CONTAINS(LOWER(text), %(q)s)``: ``LOWER(null)`` is ``""``, and nothing
-    contains ``""``."""
-    return f"(%(q)s <> '' AND strpos(lower(coalesce({text}, '')), %(q)s) > 0)"
+    """SQL: *text* holds ``%(q)s``, both folded as the search folds them (``lg_fold``: lower
+    case, no accents: ``yesilgoz`` finds Yeşilgöz); null holds nothing, and nothing holds
+    ``""``."""
+    return (
+        f"(%(q)s <> '' AND strpos(lg_fold(coalesce({text}, '')), lg_fold(%(q)s)) > 0)"
+    )
 
 
 def _chamber(table: str, chamber: str) -> str:
@@ -90,21 +128,34 @@ def _page(source: str, *order: str) -> str:
     """
 
 
-def get_committees(store: GraphStore, *, chamber: str = "TK") -> list[dict[str, Any]]:
+def get_committees(
+    store: GraphStore,
+    *,
+    chamber: str = "TK",
+    active_from: str | None = None,
+    active_to: str | None = None,
+) -> list[dict[str, Any]]:
     """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
     the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
-    graph-list-stats`` counted."""
+    graph-list-stats`` counted. With a period (*active_from*, *active_to*) those that
+    existed in it (``started_on`` to ``ended_on``), also the ones that ended since."""
+    bind: dict[str, Any] = {"guid": _GUID_NAME}
+    existing = (
+        _overlaps("c.props -> 'started_on'", "c.props -> 'ended_on'")
+        if _period(bind, active_from, active_to)
+        else _is_null("c.props -> 'observed_until'")
+    )
     rows = store.query(
         f"""
         SELECT {_NODE.format(t="c")}
         FROM {COLLECTION_COMMITTEES} c
         WHERE {_chamber("c", chamber)}
-          AND {_is_null("c.props -> 'observed_until'")}
+          AND {existing}
           AND c.props ->> 'name' <> ''
           AND c.props ->> 'name' !~* %(guid)s
         ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC
         """,
-        {"guid": _GUID_NAME},
+        bind,
     )
     return [node_doc(row) for row in rows]
 
@@ -323,17 +374,32 @@ _SEATED = f"""EXISTS (
 
 # The member's party, or an abbreviation, name or alias in their faction timeline (AQL
 # ``LOWER(null)`` is ``""``).
+# A faction period of the member's timeline names the party: its abbreviation, name or an
+# alias.
+_PERIOD_OF_PARTY = f"""(
+            lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
+            OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
+            OR EXISTS (
+                SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
+                WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
+            )
+        )"""
+_TIMELINE = _array("m.props -> 'faction_memberships'")
+_PERIODS = f"json_array_elements({_TIMELINE}) AS f(period)"
+
+# The member is or was of the party: its current party, or any period of its timeline.
 _PARTY = f"""
     lower(coalesce(m.props ->> 'party', '')) = %(party)s
-    OR EXISTS (
-        SELECT 1
-        FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
-        WHERE lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
-           OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
-           OR EXISTS (
-               SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
-               WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
-           )
+    OR EXISTS (SELECT 1 FROM {_PERIODS} WHERE {_PERIOD_OF_PARTY})
+"""
+
+# The member sits for the party now: a period of it without an end (what ``seated`` reads).
+# A member who left the party for another is seated, but not for it.
+_SEATED_FOR_PARTY = f"""
+    EXISTS (
+        SELECT 1 FROM {_PERIODS}
+        WHERE coalesce(json_typeof(f.period -> 'to_date'), 'null') = 'null'
+          AND {_PERIOD_OF_PARTY}
     )
 """
 
@@ -385,6 +451,8 @@ def get_members(
     sort: str = "name",
     limit: int = 500,
     offset: int = 0,
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """Members of parliament, in name order (or *sort*); never a record without a name.
     *slug* keeps the one member of that slug, whoever they are.
@@ -393,7 +461,10 @@ def get_members(
     ministers and other people the TK Persoon endpoint exposes. *government* keeps
     those who held a post in a cabinet, *cabinet* those who held one in that cabinet
     (both whether they sat in parliament or not). *party* matches the current party or
-    any abbreviation, name or alias in the member's faction timeline.
+    any abbreviation, name or alias in the member's faction timeline; with *active* only a
+    period without an end, so a member who left the party for another is not counted.
+    With a period (*active_from*, *active_to*) those who held a seat or a post in a cabinet
+    in it.
     """
     # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
     # with them a page of the list is read from an index in name order
@@ -411,11 +482,17 @@ def get_members(
     elif not (include_all or government or cabinet):
         filters.append("m.in_parliament")
     if party:
-        filters.append(_PARTY)
+        # seated (*active*) and of a party: seated for it, not for another one since
+        filters.append(_SEATED_FOR_PARTY if active else _PARTY)
         bind["party"] = party.strip().lower()
     if q:
         filters.append(_contains("n.name"))
         bind["q"] = q.strip().lower()
+    if _period(bind, active_from, active_to):
+        filters.append(
+            f"{_a_period_overlaps('m.pj_faction_memberships')}"
+            f" OR {_a_period_overlaps(_GOVERNMENT_FUNCTIONS)}"
+        )
     return _members_page(store, filters, bind, "m.seated", sort)
 
 
@@ -432,10 +509,13 @@ def get_ek_members(
     sort: str = "name",
     limit: int = 500,
     offset: int = 0,
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """The members of the Eerste Kamer (``props.ek``), in name order (or *sort*): those the last
     snapshot shows (*active*), those it no longer does, or both. *party* matches the
-    abbreviation of their faction."""
+    abbreviation of their faction. With a period (*active_from*, *active_to*) those the
+    snapshots showed in it (``observed_from`` to ``observed_until``)."""
     filters = ["m.in_ek"]
     bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
     if party:
@@ -446,6 +526,13 @@ def get_ek_members(
     if q:
         filters.append(f"{_contains('n.name')} OR {_contains(_EK_NAME)}")
         bind["q"] = q.strip().lower()
+    if _period(bind, active_from, active_to):
+        filters.append(
+            _overlaps(
+                "m.props -> 'ek' -> 'observed_from'",
+                "m.props -> 'ek' -> 'observed_until'",
+            )
+        )
     seated = _is_null("m.props -> 'ek' -> 'observed_until'")
     return _members_page(store, filters, bind, seated, sort)
 
@@ -461,11 +548,18 @@ def get_factions(
     active: bool | None = None,
     q: str | None = None,
     chamber: str = "TK",
+    active_from: str | None = None,
+    active_to: str | None = None,
 ) -> list[dict[str, Any]]:
     """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
-    the members the last snapshot shows), seated ones first."""
+    the members the last snapshot shows), seated ones first; with a period (*active_from*,
+    *active_to*) those active in it (``active_from`` to ``active_until``)."""
     bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
+    if _period(bind, active_from, active_to):
+        filters.append(
+            _overlaps("f.props -> 'active_from'", "f.props -> 'active_until'")
+        )
     if active is not None:
         filters.append("f.active = %(active)s")
         bind["active"] = active
@@ -527,6 +621,11 @@ _IN_MEMBERSHIP = f"""
 """
 
 
+# The faction votes of a period read first, the newest by date, before which of them were
+# roll-calls is known (``_member_votes_page``): a multiple of the page, as roll-calls are few.
+VOTE_CANDIDATES = 2
+
+
 def get_member_votes(
     store: GraphStore, member_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
@@ -537,68 +636,133 @@ def get_member_votes(
     and counts for the member only while they belonged to it — which is what
     ``faction_memberships`` dates. ``party`` is the party they sat for at the
     time, so historic votes keep their colour after a switch.
+
+    Whether a vote of the faction was a roll-call is in the props of its decision: of each
+    period only the newest ``VOTE_CANDIDATES`` times the page are read for it (a large
+    party votes tens of thousands of times), and more when the roll-calls among those
+    leave less than a page.
     """
-    rows = store.query(
-        f"""
-        WITH member AS (
-            SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
-        ),
-        voted AS (
-            SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
-                   member.props -> 'party' AS party,
-                   NULL::json AS faction_key, NULL::text AS faction_order,
-                   'member'::text AS vote_source
-            FROM member
-            JOIN {COLLECTION_EDGES} e
-              ON e.from_id = %(member_id)s AND e.relation = %(voted)s
-            UNION ALL
-            SELECT e.to_id, e.doc -> 'meta',
-                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
-                        THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
-                   f.period -> 'faction_key', f.period ->> 'faction_key',
-                   'faction'::text
-            FROM member
-            CROSS JOIN LATERAL json_array_elements(
-                {_array("member.props -> 'faction_memberships'")}
-            ) AS f(period)
-            JOIN {COLLECTION_EDGES} e
-              ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
-            JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
-            WHERE d.date IS NOT NULL
-              AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+    candidates = max(limit, 1) * VOTE_CANDIDATES
+    while True:
+        (row,) = store.query(
+            _MEMBER_VOTES, _member_votes_params(member_id, limit, candidates)
+        )
+        if row["complete"]:
+            return list(row["votes"])
+        candidates *= 4
+
+
+def _member_votes_params(member_id: str, limit: int, candidates: int) -> dict[str, Any]:
+    return {
+        "member_id": member_id,
+        "limit": limit,
+        "candidates": candidates,
+        "voted": RELATION_VOTED,
+        "roll_call": VOTE_KIND_MEMBER,
+    }
+
+
+_MEMBER_VOTES = f"""
+    WITH member AS (
+        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+    ),
+    periods AS (
+        SELECT f.period, f.n
+        FROM member
+        CROSS JOIN LATERAL json_array_elements(
+            {_array("member.props -> 'faction_memberships'")}
+        ) WITH ORDINALITY AS f(period, n)
+    ),
+    -- per period the newest votes of the faction: the decisions of the period newest first
+    -- (their index of the dates), each with the faction's vote on it; a faction votes on
+    -- nearly every decision while it is seated, so few are read past the page (from the
+    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
+    -- member of seven periods)
+    candidates AS (
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key
+        FROM periods p
+        CROSS JOIN LATERAL (
+            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key
+            FROM {COLLECTION_DECISIONS} d
+            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+            -- per decision (never joined whole: that reads every vote of the faction)
+            CROSS JOIN LATERAL (
+                SELECT v.key FROM {COLLECTION_EDGES} v
+                WHERE v.to_id = d.id AND v.relation = %(voted)s
+                  AND v.from_collection = '{COLLECTION_FACTIONS}'
+                  AND v.from_id = p.period ->> 'faction_id'
+                OFFSET 0
+            ) v
+            -- the period's bounds as conditions of the index, so that the walk over the
+            -- dates starts at the end of the period and stops at its start, not at the
+            -- newest and the oldest decision (an old period passed 30,000 newer ones); the
+            -- start as a row, as two plain bounds of one column are taken for a narrow
+            -- range whose sort costs nothing, and the dates would be read whole and sorted;
+            -- the test of the period itself stays
+            WHERE ROW(d.date, d.key)
+                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
+              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
               AND {_IN_MEMBERSHIP}
-        ),
-        page AS (
-            SELECT v.*, d.key, d.date
-            FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
-            ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
-            LIMIT %(limit)s
-        )
-        SELECT json_build_object(
-            'decision_id', d.id,
-            'decision_key', d.key,
-            'external_id', d.props -> 'decision_id',
-            'date', d.props -> 'date',
-            'subject', d.props -> 'subject',
-            'passed', d.props -> 'passed',
-            'choice', page.meta -> 'choice',
-            'seats', page.meta -> 'seats',
-            'party', page.party,
-            'faction_key', page.faction_key,
-            'vote_source', page.vote_source
-        )
-        FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
-        ORDER BY page.date DESC NULLS LAST, page.key ASC,
-                 page.faction_order ASC NULLS FIRST
-        """,
-        {
-            "member_id": member_id,
-            "limit": limit,
-            "voted": RELATION_VOTED,
-            "roll_call": VOTE_KIND_MEMBER,
-        },
+            -- NULLS FIRST as the index of the dates walked backward gives it (no date is
+            -- null here): the walk stops after the candidates instead of a sort of them all
+            ORDER BY d.date DESC NULLS FIRST, d.key ASC
+            LIMIT %(candidates)s
+        ) c
+    ),
+    -- of those, the votes no roll-call made
+    kept AS (
+        SELECT c.* FROM candidates c
+        JOIN {COLLECTION_DECISIONS} d ON d.id = c.decision_id
+        WHERE lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+    ),
+    voted AS (
+        SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+               member.props -> 'party' AS party,
+               NULL::json AS faction_key, NULL::text AS faction_order,
+               'member'::text AS vote_source
+        FROM member
+        JOIN {COLLECTION_EDGES} e
+          ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+        UNION ALL
+        SELECT k.decision_id, e.doc -> 'meta',
+               CASE WHEN {_is_null("k.period -> 'abbreviation'")}
+                    THEN k.period -> 'name' ELSE k.period -> 'abbreviation' END,
+               k.period -> 'faction_key', k.period ->> 'faction_key',
+               'faction'::text
+        FROM kept k JOIN {COLLECTION_EDGES} e ON e.key = k.edge_key
+    ),
+    page AS (
+        SELECT v.*, d.key, d.date
+        FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
+        ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
+        LIMIT %(limit)s
     )
-    return list(rows)
+    SELECT
+        -- a period cut at its candidates whose roll-calls left less than a page may lack
+        -- votes of the page: read again with more
+        NOT EXISTS (
+            SELECT 1 FROM periods p
+            WHERE (SELECT count(*) FROM candidates c WHERE c.n = p.n) = %(candidates)s
+              AND (SELECT count(*) FROM kept k WHERE k.n = p.n) < %(limit)s
+        ) AS complete,
+        coalesce((
+            SELECT json_agg(json_build_object(
+                'decision_id', d.id,
+                'decision_key', d.key,
+                'external_id', d.props -> 'decision_id',
+                'date', d.props -> 'date',
+                'subject', d.props -> 'subject',
+                'passed', d.props -> 'passed',
+                'choice', page.meta -> 'choice',
+                'seats', page.meta -> 'seats',
+                'party', page.party,
+                'faction_key', page.faction_key,
+                'vote_source', page.vote_source
+            ) ORDER BY page.date DESC NULLS LAST, page.key ASC,
+                       page.faction_order ASC NULLS FIRST)
+            FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
+        ), '[]'::json) AS votes
+"""
 
 
 def get_actor_touched_instruments(

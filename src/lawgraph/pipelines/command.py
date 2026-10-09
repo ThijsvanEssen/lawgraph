@@ -33,13 +33,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import inspect
+import re
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from lawgraph.core.logging import get_logger, log_step
+from lawgraph.core.logging import current_step, get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import GraphStore
@@ -51,8 +52,33 @@ logger = get_logger(__name__)
 Command = Callable[..., PipelineResult]  # ``command(argv)``
 
 _SINCE_HELP = (
-    "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d')."
+    "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d', '2h', "
+    "'90m')."
 )
+
+# A step that reads everything because what decides it can change anywhere: only what was
+# touched since then, which a poll asks for and ``<phase> all`` does not.
+_TOUCHED_SINCE_HELP = (
+    "Only what was touched since this moment (a poll); without it everything. ISO 8601 "
+    "or relative ('2h')."
+)
+
+
+def command_parser(description: str = "", **kwargs: Any) -> argparse.ArgumentParser:
+    """The parser of a command: its usage names the command as one types it (``lawgraph
+    retrieve tk``), from the label ``run_command`` runs it under."""
+    step = current_step()
+    return argparse.ArgumentParser(
+        prog=f"lawgraph {step}" if step else None, description=description, **kwargs
+    )
+
+
+def docstring_title(doc: str | None) -> str:
+    r"""The first line of a command's docstring, without the command it opens with:
+    ``\`\`lawgraph check\`\`: is the database …`` is ``Is the database …``."""
+    first = (doc or "").strip().splitlines()[0] if (doc or "").strip() else ""
+    rest = re.sub(r"``([^`]*)``", r"\1", re.sub(r"^``[^`]*``:\s*", "", first))
+    return rest[:1].upper() + rest[1:]
 
 
 def add_since_argument(
@@ -65,6 +91,8 @@ def add_since_argument(
 ) -> None:
     """With *last* the value ``last`` is passed on as it is (see ``pipelines/watermark``)."""
     parse = _since_or_last if last else _since
+    if default:
+        help = f"{help} Default: {default}."
     parser.add_argument(flag, type=parse, default=_since(default), help=help)
 
 
@@ -98,22 +126,38 @@ class PipelineCommand:
     def accepts_since(self) -> bool:
         return "since" in inspect.signature(self.pipeline_cls.run).parameters
 
+    @property
+    def accepts_touched_since(self) -> bool:
+        return "touched_since" in inspect.signature(self.pipeline_cls.run).parameters
+
     def __call__(self, argv: list[str] | None = None) -> PipelineResult:
-        parser = argparse.ArgumentParser(description=self.description)
+        parser = command_parser(self.description)
         if self.accepts_since:
             add_since_argument(parser)
+        if self.accepts_touched_since:
+            add_since_argument(parser, "--touched-since", help=_TOUCHED_SINCE_HELP)
         if self.add_args:
             self.add_args(parser)
         args = parser.parse_args(argv)
 
         extra = self.make_extra_kwargs(args) if self.make_extra_kwargs else {}
         pipeline = self.pipeline_cls(store=GraphStore(), **extra)
-        return pipeline.run(since=args.since) if self.accepts_since else pipeline.run()
+        options: dict[str, Any] = {}
+        if self.accepts_since:
+            options["since"] = args.since
+        if self.accepts_touched_since:
+            options["touched_since"] = args.touched_since
+        return pipeline.run(**options)
 
 
 def accepts_since(command: Command) -> bool:
     """Whether *command* takes ``--since``; a hand-written command says so itself."""
     return bool(getattr(command, "accepts_since", False))
+
+
+def accepts_touched_since(command: Command) -> bool:
+    """Whether *command* takes ``--touched-since`` (``<phase> all`` never passes it)."""
+    return bool(getattr(command, "accepts_touched_since", False))
 
 
 # ── running one ──────────────────────────────────────────────────────────────

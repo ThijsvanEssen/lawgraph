@@ -141,6 +141,13 @@ def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
         "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
     )
     monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_dossier_implements",
+        lambda store, dossier_id: [],
+    )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_instrument_names", lambda store, ids: {}
+    )
+    monkeypatch.setattr(
         "lawgraph.api.routes.dossiers.get_next_activity",
         lambda store, dossier_id, today: None,
     )
@@ -317,6 +324,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "session_year": "2024-2025",
         "tk_url": _MVT_PAGE,
         "url": None,
+        "sender": None,  # the seed has no signatures
     }
     # The pages on tweedekamer.nl follow from the numbers, never from a stored link.
     assert document["tk_url"] == _MVT_PAGE
@@ -429,7 +437,13 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
     assert body["items"][0]["tally"] == {"Voor": 76, "Tegen": 74}
     assert body["items"][0]["vote_kind"] == "faction"
     assert body["items"][0]["kind"] == "Motie"
-    assert body["facets"] == {"kind": [], "passed": [], "days": []}
+    assert body["facets"] == {
+        "kind": [],
+        "passed": [],
+        "days": [],
+        "years": [],
+        "party_votes": [],
+    }
 
 
 def _asking(monkeypatch) -> list[DecisionFilters]:
@@ -472,7 +486,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
         choice="Tegen",
         date_from="2024-01-01",
         date_to="2024-12-31",
-        q="Wachtlijsten",
+        q=("Wachtlijsten",),
     )
 
 
@@ -491,9 +505,24 @@ def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
 
 def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
     facets = {
-        "kind": [{"value": "Motie", "count": 3}, {"value": None, "count": 1}],
+        "kind": [
+            {"value": "Motie", "count": 3, "passed": 3, "rejected": 0},
+            {"value": None, "count": 1, "passed": 0, "rejected": 0},
+        ],
         "passed": [{"value": True, "count": 3}, {"value": None, "count": 1}],
         "days": [{"date": "2024-10-16", "count": 4, "passed": 3}],
+        "years": [{"year": "2024", "count": 4, "passed": 3, "rejected": 0}],
+        "party_votes": [
+            {
+                "party": "vvd",
+                "name": "VVD",
+                "voor": 3,
+                "tegen": 0,
+                "none": 1,
+                "kind": [{"value": "Motie", "voor": 3, "tegen": 0, "none": 0}],
+                "years": [{"year": "2024", "voor": 3, "tegen": 0, "none": 1}],
+            }
+        ],
     }
     monkeypatch.setattr(
         "lawgraph.api.routes.decisions.get_decisions",
@@ -614,3 +643,24 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
     assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
     assert body["assigned_seats"] == 33
     assert client.get("/api/parliament/seats?date=gisteren").status_code == 422
+
+
+def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
+    monkeypatch,
+) -> None:
+    """``q`` repeated: any of the words; ``party_votes``: the factions asked, or all."""
+    asked = _asking(monkeypatch)
+    response = client.get(
+        "/api/decisions",
+        params=[
+            ("q", "AI"),
+            ("q", " kunstmatige intelligentie "),
+            ("q", " "),
+            ("party_votes", "VVD, PVV,"),
+        ],
+    )
+    assert response.status_code == 200
+    assert asked[0].q == ("AI", "kunstmatige intelligentie")
+    assert asked[0].party_votes == ("VVD", "PVV")
+    client.get("/api/decisions", params={"party_votes": "all"})
+    assert asked[1].party_votes == ("all",) and asked[1].q == ()
