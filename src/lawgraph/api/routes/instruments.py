@@ -8,7 +8,11 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.common import FacetCountDTO, JudgmentSummaryDTO
+from lawgraph.api.schemas.common import (
+    DefinitionDTO,
+    FacetCountDTO,
+    JudgmentSummaryDTO,
+)
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
@@ -19,6 +23,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
     InstrumentArticleVersionDTO,
+    InstrumentDefinitionsResponse,
     InstrumentDetailDTO,
     InstrumentDossierItem,
     InstrumentDossiersResponse,
@@ -38,6 +43,7 @@ from lawgraph.api.schemas.instruments import (
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
+from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
     get_international_links,
@@ -228,6 +234,32 @@ def _international_link(
         confidence=edge.get("confidence"),
         source=edge.get("source"),
         meta=edge.get("meta") or {},
+    )
+
+
+@router.get(
+    "/{identifier}/definitions",
+    response_model=InstrumentDefinitionsResponse,
+    summary="The definitions an instrument gives itself",
+    description=(
+        "Its begripsbepalingen, as its text gives them, in the order of the text: each "
+        "`term` with its `text`, the article and letter it stands in, where it holds "
+        "(`scope`: the whole regulation, or a chapter or paragraph of it) and the "
+        "regulation a definition is (`refers_to`: `wet`, de Zorgverzekeringswet). Empty for "
+        "one that defines nothing. 404 for an unknown instrument."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_definitions(
+    identifier: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> InstrumentDefinitionsResponse:
+    doc = _instrument_or_404(store, identifier)
+    return InstrumentDefinitionsResponse(
+        key=doc["_key"],
+        definitions=[
+            DefinitionDTO.from_definition(d) for d in definitions_of(store, doc["_id"])
+        ],
     )
 
 

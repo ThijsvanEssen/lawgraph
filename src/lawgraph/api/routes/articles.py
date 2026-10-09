@@ -24,9 +24,11 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
+    DefinitionDTO,
     InstrumentSummaryDTO,
+    TermSpanDTO,
 )
-from lawgraph.config.constants import COLLECTION_ARTICLES
+from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import native_article_number
@@ -39,6 +41,7 @@ from lawgraph.db.queries.articles import (
     get_article_legislative_history,
     get_article_with_relations,
 )
+from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.relationships import get_article_relationship_data
 
 router = APIRouter()
@@ -77,6 +80,7 @@ def get_article_detail(
     )
 
     citation_entries = get_article_citations(store, data.article)
+    term_spans, citation_refs, used = _defined_terms(store, data, citation_entries)
     citations = [
         ArticleCitationSpan(
             start=entry.start,
@@ -85,9 +89,10 @@ def get_article_detail(
             target=_build_article_citation_target(entry.target),
             reference_kind=entry.reference_kind,
             confidence=entry.confidence,
+            definition_ref=citation_refs.get(index),
             **entry.qualifier.to_dict(),
         )
-        for entry in citation_entries
+        for index, entry in enumerate(citation_entries)
     ]
 
     relationship_data = get_article_relationship_data(store, data.article["_id"])
@@ -97,12 +102,39 @@ def get_article_detail(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
         citations=citations,
+        term_spans=[TermSpanDTO(**span) for span in term_spans],
+        definitions=[DefinitionDTO.from_definition(d) for d in used],
         references=references_from_props(data.article.get("props") or {}),
         metadata=data.metadata or None,
         upstream_dependencies=upstream,
         downstream_implications=downstream,
         scope_articles=scope,
     )
+
+
+def _defined_terms(
+    store: GraphStore, data: Any, entries: list[Any]
+) -> tuple[list[dict[str, Any]], dict[int, str], list[dict[str, Any]]]:
+    """The terms of the article its regulation defines (``definitions.article_terms``):
+    of its instrument, or the one its BWB id names; none without either."""
+    props = data.article.get("props") or {}
+    if data.instrument is not None:
+        instrument_id = data.instrument["_id"]
+    elif props.get("bwb_id"):
+        instrument_id = f"{COLLECTION_INSTRUMENTS}/{make_node_key(props['bwb_id'])}"
+    else:
+        return [], {}, []
+    # one per entry, in its order, so a ref lands on its citation; one without a place
+    # (-1, -1) holds no term
+    citations = [
+        (
+            e.start if e.start is not None else -1,
+            e.end if e.end is not None else -1,
+            (e.target.get("props") or {}).get("bwb_id"),
+        )
+        for e in entries
+    ]
+    return article_terms(store, instrument_id, props, citations)
 
 
 def _build_relationship_dtos(

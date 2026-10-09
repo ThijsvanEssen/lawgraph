@@ -73,3 +73,88 @@ def test_the_definitions_of_each_regulation_are_kept(database: str, cli: Any) ->
     assert json.dumps(_kept(store)["BWBR0020368"][0]["scope"]) == json.dumps(
         {"kind": "wet", "path": ""}
     )
+
+
+def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
+    database: str, cli: Any
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.db.queries.definitions import article_terms
+
+    store = GraphStore()
+    _toestand(store, "BWBR0018492", (FIXTURES / "bwb_definitions_bzv.xml").read_text())
+    cli("semantic", "bwb-definitions")
+    text = (
+        "Ter uitvoering van artikel 11, derde lid, van de wet heeft de verzekerde een "
+        "eigen bijdrage. De wet geldt ook bij verblijf."
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "_key": "bwbr0018492",
+                "type": "instrument",
+                "labels": ["BWB"],
+                "props": {"bwb_id": "BWBR0018492", "title": "Besluit zorgverzekering"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "_key": "bwbr0018492_2",
+                "type": "article",
+                "labels": ["BWB"],
+                "props": {
+                    "bwb_id": "BWBR0018492",
+                    "article_number": "2",
+                    "text": text,
+                    "path": "/Hoofdstuk2/Artikel2",
+                },
+            }
+        ],
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        listed = client.get("/api/instruments/BWBR0018492/definitions").json()
+        article = client.get("/api/articles/BWBR0018492/2").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert [d["term"] for d in listed["definitions"]][:2] == ["wet", "verblijf"]
+    assert listed["definitions"][0]["ref"] == "bwbr0018492_1:a"
+    marked = [
+        (text[s["start"] : s["end"]], s["definition_ref"])
+        for s in article["term_spans"]
+    ]
+    assert ("wet", "bwbr0018492_1:a") in marked and (
+        "verblijf",
+        "bwbr0018492_1:b",
+    ) in marked
+    assert ("eigen bijdrage", "bwbr0018492_1:c") in marked
+    assert {d["ref"] for d in article["definitions"]} >= {"bwbr0018492_1:a"}
+
+    # "van de wet" in a citation of the Zorgverzekeringswet: no span of its own, the
+    # citation names the definition of "wet"; one of another law names none
+    start = text.index("artikel 11")
+    end = text.index("van de wet") + len("van de wet")
+    spans, refs, _ = article_terms(
+        store,
+        "instruments/bwbr0018492",
+        {"text": text, "path": "/Hoofdstuk2/Artikel2"},
+        [(start, end, "BWBR0018450")],
+    )
+    assert refs == {0: "bwbr0018492_1:a"}
+    assert all(not (start <= s["start"] < end) for s in spans)
+    _, other, _ = article_terms(
+        store,
+        "instruments/bwbr0018492",
+        {"text": text, "path": "/Hoofdstuk2/Artikel2"},
+        [(start, end, "BWBR0005537")],
+    )
+    assert other == {}
