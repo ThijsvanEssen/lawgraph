@@ -580,6 +580,7 @@ _ITEM_KEYS = [
     "title",
     "session_year",
     "actors",
+    "dictum",
 ]
 
 
@@ -635,6 +636,7 @@ def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
         "title": "Titel",
         "session_year": "2025-2026",
         "actors": None,
+        "dictum": None,
     }
     assert (bare["key"], bare["chamber"], bare["title"], bare["dossier_numbers"]) == (
         "bare",

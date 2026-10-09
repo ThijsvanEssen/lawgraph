@@ -403,6 +403,8 @@ class JudgmentProps(_CommonProps):
 class DocumentProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
+    # what a motion asks or says, its dictum (``core/motion_dictum.py``)
+    dictum: str | None = None
     title: str | None = None
     # a paper named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None
