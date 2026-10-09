@@ -782,6 +782,13 @@ def _search_documents(
                           END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}
+            ),
+            -- what its readable address is built from: its own dossier, not a label
+            'path_props', json_build_object(
+                'dossier_number', doc.dossier_number,
+                'dossier_suffix', doc.props -> 'dossier_suffix',
+                'sequence', doc.props -> 'sequence',
+                'number', doc.props -> 'number'
             )
         )
     """

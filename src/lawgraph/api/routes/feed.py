@@ -28,6 +28,7 @@ from lawgraph.core.courts import TIERS
 from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
 
@@ -163,7 +164,8 @@ def _page(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     raw = get_feed(store, filters, cursor=after, limit=limit, facets=facets)
     rows = raw.get("items") or []
-    page = [FeedItemDTO.from_row(row) for row in rows[:limit]]
+    slugs = load_member_slugs(store)
+    page = [FeedItemDTO.from_row(row, slugs) for row in rows[:limit]]
     last = page[-1] if len(rows) > limit else None
     return FeedResponse(
         items=page,

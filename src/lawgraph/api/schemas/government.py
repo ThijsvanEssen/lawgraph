@@ -66,10 +66,11 @@ class MinistryDTO(BaseModel):
     periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
 
-class PersonRefDTO(BaseModel):
+class PersonRefDTO(WithPath):
     """A member named from another node."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
@@ -489,7 +490,11 @@ class CommitmentDTO(WithPath):
     activity: CommitmentActivityDTO | None = None
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> CommitmentDTO:
+    def from_row(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> CommitmentDTO:
+        """From a row of ``get_commitments``, and the slugs of the members
+        (``load_member_slugs``) for the address of who made it."""
         commitment = row["commitment"]
         props = commitment.get("props") or {}
         member = row.get("member")
@@ -503,7 +508,11 @@ class CommitmentDTO(WithPath):
             expected_resolution=due if due and due != NO_DUE_DATE else None,
             minister_name=props.get("minister_name"),
             member=(
-                CommitmentMemberDTO(**member, function=props.get("minister_role"))
+                CommitmentMemberDTO(
+                    **member,
+                    function=props.get("minister_role"),
+                    path_props={"slug": (slugs or {}).get(member.get("key") or "")},
+                )
                 if member
                 else None
             ),

@@ -38,6 +38,7 @@ from lawgraph.db.queries.cabinets import (
     get_commitments,
 )
 from lawgraph.db.queries.coalition import cabinet_seats
+from lawgraph.db.queries.committees import load_member_slugs
 
 ministries_router = APIRouter()
 cabinets_router = APIRouter()
@@ -223,7 +224,11 @@ def list_commitments(
     )
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitmentDTO.from_row(row) for row in raw.get("items") or []],
+        items=[
+            CommitmentDTO.from_row(row, slugs)
+            for slugs in [load_member_slugs(store)]
+            for row in raw.get("items") or []
+        ],
         facets=CommitmentFacetsDTO(**(raw.get("facets") or {})),
     )
 
@@ -241,4 +246,4 @@ def get_commitment_detail(
     row = get_commitment(store, key)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Commitment '{key}' not found.")
-    return CommitmentDTO.from_row(row)
+    return CommitmentDTO.from_row(row, load_member_slugs(store))

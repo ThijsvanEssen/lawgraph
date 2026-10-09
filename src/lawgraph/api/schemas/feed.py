@@ -89,12 +89,13 @@ class FeedFactionDTO(WithPath):
     short: str | None = Field(None, description="Its abbreviation: ``VVD``.")
 
 
-class FeedPersonDTO(BaseModel):
+class FeedPersonDTO(WithPath):
     """Someone who signed the event: submitted a paper (``indiener``), signed it with the
     one who did (``medeindiener``), or signed it or made the commitment for the
     government (``bewindspersoon``)."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
 
     key: str | None = Field(None, description="Member key; null when unknown.")
     name: str | None = Field(
@@ -300,13 +301,15 @@ class FeedItemDTO(WithPath):
     judgment: FeedJudgmentDTO | None = None
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
+    def from_row(
+        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
+    ) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
         collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
-        persons = _persons(kind, row)
+        persons = _persons(kind, row, slugs or {})
         short, basis = _dossier_short_title(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
@@ -420,7 +423,9 @@ def _surname(signature: dict[str, Any]) -> str | None:
     return " ".join(member[1:]) if len(member) > 1 else None
 
 
-def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
+def _persons(
+    kind: str, row: dict[str, Any], slugs: dict[str, str]
+) -> list[FeedPersonDTO]:
     """The signatures as people, named as the member routes name them (the name they go by
     and the surname: ``Hanneke Steen``), else as the paper names them. A person the paper
     lists twice (first and co-signatory, as a minister for two posts) is one person, with
@@ -445,6 +450,7 @@ def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
         persons.append(
             FeedPersonDTO(
                 key=signature.get("member_key"),
+                path_props={"slug": slugs.get(signature.get("member_key") or "")},
                 name=signature.get("member_name") or signature.get("name"),
                 surname=_surname(signature),
                 function=signature.get("function"),

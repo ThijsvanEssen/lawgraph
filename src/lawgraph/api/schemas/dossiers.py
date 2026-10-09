@@ -108,10 +108,12 @@ class TimelineCommitteeDTO(BaseModel):
     name: str | None = None
 
 
-class TimelineSignatoryDTO(BaseModel):
+class TimelineSignatoryDTO(WithPath):
     """Who signed the document a decision was taken on."""
 
     model_config = ConfigDict(extra="forbid")
+    path_collection = "members"
+    path_key_field = "member_key"
 
     member_key: str | None = None
     name: str | None = None
@@ -130,8 +132,10 @@ class TimelineSignatoryDTO(BaseModel):
     )
 
 
-class DocumentEntryDTO(DocumentOrigin):
+class DocumentEntryDTO(DocumentOrigin, WithPath):
     """A document as it is named from another node: identity and paper number, never text."""
+
+    path_dossier_is_label = True
 
     id: str
     key: str
