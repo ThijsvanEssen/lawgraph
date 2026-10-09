@@ -440,7 +440,7 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
          "/uitspraken/ECLI:NL:HR:2019:2006"),
         ("dossiers/36496", "36496 Wet AI-toezicht: dossier, moties en stemmingen",
          "/dossiers/36496"),
-        ("decisions/s_1", "s_1", "/stemmingen/s_1"),
+        ("decisions/s_1", "Stemming, 08-09-2026: aangenomen", "/stemmingen/s_1"),
     ):  # fmt: skip
         body = client.get(f"/api/nodes/{node}").json()
         assert (body["title"], body["path"]) == (title, path), node
@@ -709,3 +709,109 @@ def test_the_app_titles_a_person_or_body_as_its_page(
         ),
     ):
         assert client.get(f"/api/nodes/{node}").json()["title"] == title, node
+
+
+def _seed_publications(store: GraphStore) -> None:
+    """A Staatsblad the BWB names with its nota van toelichting, one known only by its
+    own source, a commitment with the letter that fulfils it, and a decision."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("stb_2025_263", "instrument", kind="publicatie",
+               citation_title="Stb. 2025, 263", official_id="stb-2025-263",
+               publication_kind="Stb", publication_year=2025, publication_number=263,
+               date_signed="2025-08-20", date_published="2025-09-02",
+               dossier_numbers=["36496"])],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("stb_stb_2025_263", "document", identifier="stb-2025-263",
+                  kind="Nota van toelichting", year="2025", number="263",
+                  title="Besluit tot wijziging van het Mediabesluit 2008",
+                  text="Nota van toelichting. " * 500),
+            _node("stb_stb_2024_7", "document", identifier="stb-2024-7",
+                  kind="Nota van toelichting", year="2024", number="7",
+                  title="Staatsblad 2024/7", text="…"),
+            _node("kst_36496_80", "document", kind="Brief regering",
+                  dossier_number="36496", sequence=80, date="2026-10-01",
+                  subject="Nakoming van de toezegging over AI-toezicht"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "commitments",
+        [_node("tz_1", "commitment", number="TZ202609-124",
+               text="De minister stuurt voor de zomer een brief over AI-toezicht.",
+               made_on="2026-09-10", minister_name="R. Jetten",
+               minister_role="minister-president", ministry_name="Algemene Zaken",
+               status="Openstaand", expected_resolution="0001-01-01",
+               member_key="m_jetten", cabinet="jetten")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("am1", "instruments/stb_2025_263", "articles/bwbr0005289_162",
+                  "AMENDS"),
+            _edge("ab1", "commitments/tz_1", "dossiers/36496", "ABOUT"),
+            _edge("an1", "documents/kst_36496_80", "commitments/tz_1", "ANSWERS"),
+        ]
+    )  # fmt: skip
+
+
+def test_a_publication_has_its_title_and_what_it_changes(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_publications(store)
+    response = _get(client, "/stb/2025/263")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == (
+        "Stb. 2025, 263: Besluit tot wijziging van het Mediabesluit 2008, Concordans"
+    )
+    assert "gepubliceerd 02-09-2025" in page["description"]
+    assert "over Burgerlijk Wetboek Boek 6" in page["description"]
+    assert page["robots"] is None
+    assert 'href="/wetten/BWBR0005289"' in page["main"]
+    assert "(wijzigt)" in page["main"]
+    assert 'href="/dossiers/36496"' in page["main"]
+    assert "zoek.officielebekendmakingen.nl/stb-2025-263" in page["main"]
+    assert "Nota van toelichting. Nota" not in response.text  # its text is not read
+    assert page["data"]["@graph"][0]["legislationIdentifier"] == "stb-2025-263"
+
+
+def test_a_publication_without_a_title_or_a_change_is_not_indexed(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_publications(store)
+    page = _head(_get(client, "/stb/2024/7").text)
+    assert page["title"] == "Stb. 2024, 7, Concordans"
+    assert page["canonical"] == "https://concordans.nl/stb/2024/7"
+    assert page["robots"] == "noindex"
+
+
+def test_a_commitment_has_its_text_minister_and_the_letter_that_fulfils_it(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    _seed_publications(store)
+    page = _head(_get(client, "/toezeggingen/TZ202609-124").text)
+    assert page["title"].startswith("Toezegging TZ202609-124: De minister stuurt")
+    assert page["description"] == (
+        "De minister stuurt voor de zomer een brief over AI-toezicht."
+    )
+    assert 'href="/leden/rob-jetten"' in page["main"]
+    assert 'href="/kabinetten/jetten"' in page["main"]
+    assert 'href="/dossiers/36496"' in page["main"]
+    assert 'href="/kamerstukken/36496/80"' in page["main"]
+    assert "Openstaand" in page["main"]
+    assert "Verwachte afdoening" not in page["main"]  # 0001-01-01: none named
+    assert page["data"]["@graph"][0]["identifier"] == "TZ202609-124"
+
+
+def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> None:
+    response = _get(client, "/stemmingen/s_1")
+    page = _head(response.text)
+    assert page["title"] == "Stemming, 08-09-2026: aangenomen, Concordans"
+    assert page["description"].endswith("voor: VVD; tegen: PVV")
+    assert page["canonical"] == "https://concordans.nl/stemmingen/s_1"
+    assert page["robots"] == "noindex"
+    assert 'href="/kamerstukken/36496/71"' in page["main"]
+    assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
