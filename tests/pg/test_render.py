@@ -272,9 +272,12 @@ def test_an_article_page_reads_its_judgments_once_per_version(
         return compute(store, node_id)
 
     monkeypatch.setattr(seo, "_cited", slow)
-    monkeypatch.setattr(seo, "CITED_BUDGET", 0.1)
+    started = time.monotonic()
     first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
-    assert "/uitspraken/" not in first["main"]  # not kept yet: the article alone
+    # not kept yet: the article alone, as fast as the static shell
+    assert time.monotonic() - started < 0.1
+    assert "/uitspraken/" not in first["main"]
+    assert "Hij die jegens een ander" in first["main"]
     for _ in range(50):  # computed on in the background
         if _kept():
             break

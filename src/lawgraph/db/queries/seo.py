@@ -39,10 +39,11 @@ PAPERS = 200
 # The articles of a law its table of contents lists, in their order.
 ARTICLES = 5000
 # The seconds a page waits for the judgments citing an article when they are not kept yet:
-# of a much cited article (6:162 BW) they are thousands, and the page is its text first.
+# of a much cited article (6:162 BW) they are thousands, and the page is its text first,
+# as fast as the static shell (most visits come to an article no one asked for before).
 # They are computed on in the background and kept per version of the tables they read,
-# so a later page has them at once.
-CITED_BUDGET = 0.5
+# so a later page has them at once; the app fills them in for the first.
+CITED_BUDGET = 0.05
 
 
 def node_of(store: GraphStore, pad: Pad) -> str | None:
