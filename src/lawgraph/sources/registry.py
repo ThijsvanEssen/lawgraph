@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal, cast, get_args
+from typing import Any, Literal, cast, get_args
 
 from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
@@ -393,21 +393,36 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _rechtspraak_semantic_add_args(parser: argparse.ArgumentParser) -> None:
+def _slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every judgment in slices."""
     parser.add_argument(
         "--after",
-        help="Start past this judgment key: the next slice of a run over all.",
+        help="Start past this key (of the judgment, or of its record for "
+        "rechtspraak-citations): the next slice of a run over all.",
     )
     parser.add_argument(
         "--limit", type=int, help="Stop after this many judgments (a slice)."
     )
 
 
+def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    return {"after": args.after, "limit": args.limit}
+
+
 RECHTSPRAAK_SEMANTIC = PipelineCommand(
     RechtspraakSemanticPipeline,
     "Article citations in judgments: REFERS_TO to BWB articles.",
-    add_args=_rechtspraak_semantic_add_args,
-    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+    add_args=_slice_add_args,
+    make_extra_kwargs=_slice_kwargs,
+)
+
+RECHTSPRAAK_CITATIONS = PipelineCommand(
+    RechtspraakCitationsSemanticPipeline,
+    "ECLI references between judgments: REFERS_TO, none between judgments that "
+    "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; cited "
+    "judgments that are not loaded become stubs.",
+    add_args=_slice_add_args,
+    make_extra_kwargs=_slice_kwargs,
 )
 
 TK_DOSSIERS_NORMALIZE = PipelineCommand(
@@ -804,14 +819,7 @@ SEMANTIC: list[Pipeline] = [
             "(dcterms:isReplacedBy); the lists show the decision once."
         ),
     ),
-    _pipeline(
-        RechtspraakCitationsSemanticPipeline,
-        (
-            "ECLI references between judgments: REFERS_TO, none between judgments that "
-            "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; "
-            "cited judgments that are not loaded become stubs."
-        ),
-    ),
+    _pipeline(RECHTSPRAAK_CITATIONS, RECHTSPRAAK_CITATIONS.description),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,
         "Series of parallel judgments: one court, one day, (nearly) the same text.",

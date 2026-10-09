@@ -108,3 +108,43 @@ def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbour(
 
     assert paragraphs(cited) == [["1.1", "4.3"]]
     assert paragraphs(article) == [["3.2", "5.1"]]
+
+
+def test_a_run_over_all_in_slices_reads_each_judgment_once(
+    database: str, cli: Any
+) -> None:
+    """``--after``, ``--limit``: the run over all that gives the citations of #419 their
+    paragraphs goes at night in slices; each slice names where to go on, the edges of
+    every slice stay, and a slice past the end reads nothing."""
+    store = GraphStore()
+    with RawSourceWriter(store) as writer:
+        for ecli, xml in (
+            (RULING, _ruling()),
+            (CITED, _xml(CITED, "Hoge Raad", "2015-05-01", "14/00001")),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=xml,
+                    meta={"ecli": ecli},
+                )
+            )
+    cli("normalize", "rechtspraak")
+
+    after, slices = "", 0
+    while True:
+        args = ["semantic", "rechtspraak-citations", "--limit", "1"]
+        done = cli(*args, *(["--after", after] if after else []))
+        out = done.stdout + done.stderr
+        after = out.split("go on with --after ")[-1].split(")")[0]
+        slices += 1
+        if after == "None":
+            break
+    assert slices == 3  # two judgments, one a slice, then one that reads nothing
+    (meta,) = store.query(
+        "SELECT doc -> 'meta' FROM edges WHERE relation = 'REFERS_TO'"
+        " AND from_collection = 'judgments' AND to_collection = 'judgments'"
+    )
+    assert meta == {"cited_ecli": CITED, "paragraphs": ["1.1", "4.3"]}
