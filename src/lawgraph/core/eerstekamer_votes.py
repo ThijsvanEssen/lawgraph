@@ -1,13 +1,17 @@
 """The votes of the Eerste Kamer on bills, as eerstekamer.nl lists them (pure functions).
 
-``/stemmingen_per_vergaderdag?filter=wetsvoorstellen`` lists every vote on a bill since June
-2015, newest first, 25 to a page and grouped by the day of the meeting (``<h2>`` with the
-date; a day that runs over a page starts the next one again, ``(vervolg)``). Each vote is one
-item: the outcome as the image the Kamer shows (its ``alt``: ``Aangenomen``, ``Verworpen``),
-the bill with a link to its page and its number (``36.791``, ``36.600 VII``, ``36.455
-(R2188)``), and a link to the part of the report of the meeting whose text is how it was
-decided (``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``), with the factions
-that voted for, against, or asked to have their vote recorded.
+``/stemmingen_per_vergaderdag?filter=alles`` lists every vote since June 2015, newest first,
+25 to a page and grouped by the day of the meeting (``<h2>`` with the date; a day that runs
+over a page starts the next one again, ``(vervolg)``). Each vote is one item: the outcome as
+the image the Kamer shows (its ``alt``: ``Aangenomen``, ``Verworpen``), what was voted on
+with a link to its page, and a link to the part of the report of the meeting whose text is
+how it was decided (``Hamerstuk``, ``Stemming bij zitten en opstaan, aangenomen``), with the
+factions that voted for, against, or asked to have their vote recorded. What was voted on is
+a bill (``/wetsvoorstel/``, its number: ``36.791``, ``36.600 VII``, ``36.455 (R2188)``) or a
+motion (``/motiedossier/``, the number of its dossier and its letter: ``37.020, M``, its name
+before it: ``Motie-Beukering (Fractie-Beukering) c.s. over …``). The list of bills alone
+(``filter=wetsvoorstellen``) shows a vote on a motion as one on its bill, under the bill's
+name and number.
 
 ``/verworpen_in_de_eerste_kamer`` lists every bill the Kamer rejected since 1996, newest
 first, 50 to a page: the day, the bill's page and its number.
@@ -24,7 +28,7 @@ from dataclasses import dataclass, field
 
 from lawgraph.core.rijksoverheid import parse_date
 
-VOTES_PATH = "/stemmingen_per_vergaderdag?filter=wetsvoorstellen"
+VOTES_PATH = "/stemmingen_per_vergaderdag?filter=alles"
 REJECTED_PATH = "/verworpen_in_de_eerste_kamer"
 
 # The outcome the Kamer shows (``alt`` of the image of a vote).
@@ -38,6 +42,9 @@ _CONTINUED = "(vervolg)"
 _ITEM = '<li class="opsomitem met_image image_breed">'
 _RESULT = re.compile(r'<img [^>]*alt="([^"]*)"')
 _BILL = re.compile(r'<a href="(/wetsvoorstel/[^"]+)">([^<]+)</a>')
+_MOTION = re.compile(r'<a href="(/motiedossier/[^"]+)">([^<]+)</a>')
+# The number of a motion: that of its dossier and its letter, ``37.020, M``.
+_MOTION_NUMBER = re.compile(r"^(?P<number>.+?),\s*(?P<letter>[A-Z]{1,3})$")
 _METHOD = re.compile(r'<a href="([^"]*verslagdeel[^"]*)">\s*([^<]+?)\s*</a>')
 _FACTIONS = re.compile(r"<strong>([^<]+):</strong>([^<]*)")
 # ``eerdere stemmingen``: the link to the page before (in time) of the list.
@@ -71,10 +78,15 @@ class Vote:
     label: str  # the dossier label of the Tweede Kamer: 36600-VII
     title: str
     result: str  # Aangenomen, Verworpen
-    bill_path: str  # /wetsvoorstel/36791_wet_toekomstbestendige
+    bill_path: (
+        str | None
+    )  # /wetsvoorstel/36791_wet_toekomstbestendige; None of a motion
     method: str | None = None  # Hamerstuk, Stemming bij zitten en opstaan, aangenomen
     report_path: str | None = None  # the part of the report of the meeting
     factions: dict[str, list[str]] = field(default_factory=dict)  # by label
+    # of a vote on a motion: its letter in its dossier (M) and its page
+    letter: str | None = None
+    motion_path: str | None = None  # /motiedossier/37020_m_motie_beukering_fractie
 
 
 def text(fragment: str) -> str:
@@ -117,29 +129,39 @@ def _names(value: str) -> list[str]:
 
 
 def votes(date: str, fragment: str) -> list[Vote]:
-    """The votes of one day (its fragment of one or more pages)."""
+    """The votes of one day (its fragment of one or more pages): on a bill or a motion."""
     found = []
     for item in fragment.split(_ITEM)[1:]:
-        result, bill = _RESULT.search(item), _BILL.search(item)
-        if not result or not bill:
+        result = _RESULT.search(item)
+        subject = _BILL.search(item) or _MOTION.search(item)
+        if not result or not subject:
             continue
-        label = dossier_label(text(bill[2]))
+        number, letter = text(subject[2]), None
+        motion = subject[1].startswith("/motiedossier/")
+        if motion:
+            parts = _MOTION_NUMBER.match(number)
+            if not parts:
+                continue
+            number, letter = parts["number"], parts["letter"]
+        label = dossier_label(number)
         if label is None:
             continue
         method = _METHOD.search(item)
         found.append(
             Vote(
                 date=date,
-                number=text(bill[2]),
+                number=number,
                 label=label,
-                title=text(item[: bill.start()]).rstrip(" ("),
+                title=text(item[: subject.start()]).rstrip(" ("),
                 result=result[1],
-                bill_path=bill[1],
+                bill_path=None if motion else subject[1],
                 method=text(method[2]) if method else None,
                 report_path=method[1] if method else None,
                 factions={
                     text(name): _names(names) for name, names in _FACTIONS.findall(item)
                 },
+                letter=letter,
+                motion_path=subject[1] if motion else None,
             )
         )
     return found

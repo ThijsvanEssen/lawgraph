@@ -580,6 +580,10 @@ class DecisionProps(_CommonProps):
     source_url: str | None = None
     retrieved_on: str | None = None
     bill_decision: bool | None = None
+    # of a vote of the Eerste Kamer on a motion (``kind`` Motie): its letter in its dossier
+    # and its page (``/motiedossier/…``)
+    letter: str | None = None
+    motion_url: str | None = None
 
 
 # ---------------------------------------------------------------------------

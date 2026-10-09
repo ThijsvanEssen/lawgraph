@@ -182,3 +182,105 @@ def test_the_api_shows_the_eerste_kamer(store: GraphStore) -> None:
         assert vote["body"]["method"] == "Stemming bij zitten en opstaan, aangenomen"
     finally:
         app.dependency_overrides.pop(get_store, None)
+
+
+def test_a_vote_on_a_motion_is_its_own_decision_and_a_day_read_is_derived_in_full(
+    database: str, cli: Any
+) -> None:
+    """The list of every vote (2026-10-06, as served on 2026-10-09): a vote on a motion is a
+    decision of its own, on the motion's letter, about the motion (``Kamerstuk I 37020,
+    M``) and its dossier. A decision of that day the list no longer gives (made when a
+    motion counted as a vote on its bill) goes with its edges; one of a day not read stays.
+    A vote on a motion decides no bill."""
+    from lawgraph.config.constants import COLLECTION_DECISIONS, COLLECTION_DOCUMENTS
+
+    store = GraphStore()
+    stale = Node(
+        collection=COLLECTION_DECISIONS,
+        type=NodeType.DECISION,
+        key="ek_2026_10_06_37020_2",
+        labels=["EK"],
+        props={"chamber": "EK", "date": "2026-10-06", "dossier_numbers": ["37020"]},
+    )
+    other_day = Node(
+        collection=COLLECTION_DECISIONS,
+        type=NodeType.DECISION,
+        key="ek_2026_09_29_99999_1",
+        labels=["EK"],
+        props={"chamber": "EK", "date": "2026-09-29", "dossier_numbers": ["99999"]},
+    )
+    motion_m = Node(
+        collection=COLLECTION_DOCUMENTS,
+        type=NodeType.DOCUMENT,
+        key="ek_kst_1000001",
+        labels=["EersteKamer", "EK"],
+        props={
+            "number": "M",
+            "kind": "Motie",
+            "dossier_number": "37020",
+            "dossier_numbers": ["37020"],
+            "title": "Motie van het lid Beukering c.s.",
+        },
+    )
+    with NodeWriter(store) as writer:
+        writer.add_all([_dossier("37020"), stale, other_day, motion_m])
+        writer.add(
+            Node(
+                collection=COLLECTION_FACTIONS,
+                type=NodeType.FACTION,
+                key="ek_boerburgerbeweging",
+                labels=["EK"],
+                props={"chamber": "EK", "name": "BBB-fractie", "abbreviation": "BBB"},
+            )
+        )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc) VALUES ('stale_vote',"
+        " 'factions/ek_boerburgerbeweging', 'decisions/ek_2026_10_06_37020_2',"
+        " json_build_object('relation', 'VOTED'))"
+    )
+    day, _, fragment = ev.days((FIXTURES / "ek_votes_alles_page_1.html").read_text())[0]
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_EERSTEKAMER,
+                kind=RAW_KIND_EK_VOTES_DAY,
+                external_id=day,
+                payload_text=fragment,
+                meta={"url": "https://www.eerstekamer.nl/x", "read_on": "2026-10-09"},
+            )
+        )
+    cli("normalize", "eerstekamer-votes")
+    cli("semantic", "tk-dossier-outcomes")
+
+    keys = set(store.query("SELECT key FROM decisions ORDER BY key"))
+    assert "ek_2026_10_06_37020_m" in keys and "ek_2026_10_06_36920_1" in keys
+    assert "ek_2026_10_06_37020_2" not in keys  # no longer in the list: gone
+    assert "ek_2026_09_29_99999_1" in keys  # a day not read stays
+    assert len([k for k in keys if k.startswith("ek_2026_10_06_")]) == 14
+    assert next(store.query("SELECT count(*) FROM edges WHERE key = 'stale_vote'")) == 0
+
+    motion = store.get_document(COLLECTION_DECISIONS, "ek_2026_10_06_37020_m")["props"]
+    assert (motion["kind"], motion["letter"], motion["result"]) == (
+        "Motie",
+        "M",
+        "Verworpen",
+    )
+    assert motion["motion_url"].endswith(
+        "/motiedossier/37020_m_motie_beukering_fractie"
+    )
+    about = set(
+        store.query(
+            "SELECT to_id FROM edges WHERE from_id = 'decisions/ek_2026_10_06_37020_m'"
+            " AND relation = 'ABOUT' ORDER BY to_id"
+        )
+    )
+    assert about == {"dossiers/37020", "documents/ek_kst_1000001"}
+    voted = list(
+        store.query(
+            "SELECT doc -> 'meta' ->> 'choice' FROM edges WHERE relation = 'VOTED'"
+            " AND to_id = 'decisions/ek_2026_10_06_37020_m'"
+        )
+    )
+    assert voted == ["Voor"]  # BBB voted for
+    # nine motions on the Algemene Politieke Beschouwingen decide no bill
+    assert not _props(store, "37020").get("ek_outcome")

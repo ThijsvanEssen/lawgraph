@@ -564,6 +564,8 @@ SELECT json_build_object(
         WHERE e.to_id = ds.id AND e.relation = %(about)s
           AND e.from_collection = '{COLLECTION_DECISIONS}'
           AND lg_str(dc.props -> 'chamber') = '{CHAMBER_EK}'
+          -- the votes on the bill, not those on a motion about it
+          AND lg_str(dc.props -> 'kind') IS DISTINCT FROM 'Motie'
     )
 )
 FROM unnest(%(dossier_ids)s::text[]) WITH ORDINALITY AS a(dossier_id, ord)

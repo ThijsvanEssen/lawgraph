@@ -129,7 +129,7 @@ and exits 1 when any of them failed.
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
 | `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) |
-| `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, 106 pages), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
+| `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, on bills and motions), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
 | `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records`, `--only-stored` (only the treaties stored already) |
 
 ### normalize

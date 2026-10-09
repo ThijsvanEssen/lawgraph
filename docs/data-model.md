@@ -542,7 +542,7 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | `kind` | what was decided on: the `Zaak.Soort` of the primary case; without one the Soort of the cases on its agendapunt when they are all of one; else null. Never read from the subject |
 | `passed` | from the `BesluitSoort`, else the tally; null for a decision that is no vote |
 | `vote_kind`, `tally`, `voters` | `member` or `faction`; seats per choice (members per choice on a roll-call); how many cast each choice. A decision on a bill without votes (a hamerstuk) comes from a `tk-besluit` record and has no `tally` and `vote_kind` null |
-| Eerste Kamer | `normalize eerstekamer-votes`, key `ek_<date>_<label>_<n>`: `result` and `method` as eerstekamer.nl writes them, `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; `bill_decision` and `kind` from `semantic tk-dossier-outcomes` (the vote that decided the bill, with the kind of its dossier) |
+| Eerste Kamer | `normalize eerstekamer-votes`, key `ek_<date>_<label>_<n>` (a vote on a bill) or `ek_<date>_<label>_<letter>` (a vote on a motion: `kind` `Motie`, `letter`, `motion_url`, also `ABOUT` the motion's Kamerstuk): `result` and `method` as eerstekamer.nl writes them, `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; `bill_decision` and `kind` from `semantic tk-dossier-outcomes` (the vote that decided the bill, with the kind of its dossier) |
 
 ### Commitment (`commitments`)
 
