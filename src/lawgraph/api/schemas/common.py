@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
+from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
@@ -256,6 +257,50 @@ class ArticleCitationSpan(QualifierFields):
         "from one article to another; null for other citations.",
     )
     confidence: float | None = None
+    definition_ref: str | None = Field(
+        default=None,
+        description="The definition the regulation gives of a term in the citation's text "
+        'that is the regulation cited ("van de wet": its `wet`), as `definitions[].ref`.',
+    )
+
+
+class DefinitionDTO(BaseModel):
+    """A definition a regulation gives itself (its begripsbepalingen), as its text has it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ref: str = Field(..., description="What a span names it by: article and letter.")
+    term: str
+    text: str
+    article_key: str
+    article_number: str | None = None
+    place: str | None = Field(None, description="The letter of its onderdeel: `a`.")
+    jci: str | None = None
+    scope: dict[str, str] = Field(
+        default_factory=dict,
+        description="Where it holds: `kind` (`wet`, `besluit`, `hoofdstuk`, …) and `path` "
+        "(that part, empty for the whole regulation).",
+    )
+    refers_to: str | None = Field(
+        None,
+        description="The BWB id of the regulation the definition is (`wet`: de "
+        "Zorgverzekeringswet).",
+    )
+
+    @classmethod
+    def from_definition(cls, definition: dict[str, Any]) -> DefinitionDTO:
+        return cls(ref=definition_ref(definition), **definition)
+
+
+class TermSpanDTO(BaseModel):
+    """Where the text of an article uses a term its regulation defines."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: int
+    end: int
+    term: str
+    definition_ref: str
 
 
 class JudgmentSummaryDTO(WithPath):
