@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
+    RAW_KIND_TK_FRACTIEZETELVACATURE,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
@@ -179,6 +180,12 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 RAW_KIND_TK_FRACTIEZETELPERSOON,
                 "Id",
                 lambda: self.client.fetch_fractie_zetel_personen(),
+            )
+            self._fetch_and_store(
+                result,
+                RAW_KIND_TK_FRACTIEZETELVACATURE,
+                "Id",
+                lambda: self.client.fetch_fractie_zetel_vacatures(),
             )
         if not skip_documents:
             doc_since = documents_since if documents_since is not None else since

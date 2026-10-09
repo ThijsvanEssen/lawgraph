@@ -1027,3 +1027,26 @@ def test_the_actors_of_a_case_are_its_submitters_and_lead_committee() -> None:
         ("Indiener", "bewindspersoon")
     ]
     assert actors["committee_ids"] == ["befe416e-ca1b-4804-97d0-7aca1dcba888"]
+
+
+def test_a_vacant_seat_ends_the_day_before_the_successor_takes_it() -> None:
+    def record(start: str, until: str | None, **extra: object) -> dict:
+        return {
+            "Van": f"{start}T00:00:00+01:00",
+            "TotEnMet": f"{until}T00:00:00+01:00" if until else None,
+            "FractieZetel": {"Id": "z", "Fractie_Id": "d66"},
+            **extra,
+        }
+
+    # kabinet-Jetten: vacant from 23 February, the successor installed on the 25th
+    assert tk_records.seat_vacancy(record("2026-02-23", "2026-02-25")) == (
+        "d66",
+        {"from_date": "2026-02-23", "to_date": "2026-02-24"},
+    )
+    assert tk_records.seat_vacancy(record("2026-02-23", None))[1]["to_date"] is None  # type: ignore[index]
+    # the source holds a vacancy that ends before it begins: none
+    assert tk_records.seat_vacancy(record("2026-02-23", "2026-02-22")) is None
+    assert (
+        tk_records.seat_vacancy(record("2026-02-23", "2026-02-25", Verwijderd=True))
+        is None
+    )

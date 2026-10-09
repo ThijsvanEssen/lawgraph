@@ -366,7 +366,7 @@ scheduler runs; nothing is installed for you.
 | Script | Runs | Why |
 |--------|------|-----|
 | `daily.sh` | `retrieve all`, `normalize all`, `semantic all`, each `--since last`; `check --skip-edges`; `search-stats prune` | what the sources changed; a day without a run is caught up by the next |
-| `weekly.sh` | `semantic all`, `expand-graph`, `check` | a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), then `semantic all`, `expand-graph`, `check` | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so, after
