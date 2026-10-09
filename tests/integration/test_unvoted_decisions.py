@@ -9,7 +9,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_DOCUMENT,
@@ -45,7 +48,7 @@ def _zaak(salt: int, done: bool) -> dict[str, Any]:
     }
 
 
-WITHDRAWN, OPEN = _zaak(60, True), _zaak(61, False)
+WITHDRAWN, OPEN, REJECTED = _zaak(60, True), _zaak(61, False), _zaak(62, True)
 
 
 def _paper(case: dict[str, Any], sequence: int) -> dict[str, Any]:
@@ -61,19 +64,25 @@ def _paper(case: dict[str, Any], sequence: int) -> dict[str, Any]:
     }
 
 
-WITHDRAWAL = {
-    "Id": uid(NUMBER, 7),
-    "BesluitSoort": "Stemmen - ingetrokken",
-    "BesluitTekst": "Ingetrokken.",
-    "AgendapuntZaakBesluitVolgorde": 1,
-    "Verwijderd": False,
-    "Zaak": [WITHDRAWN],
-    "Agendapunt": {
-        "Onderwerp": "Ingetrokken amendement",
-        "Activiteit": {"Soort": "Stemmingen", "Datum": "2024-04-25T15:00:00"},
-        "Zaak": [WITHDRAWN],
-    },
-}
+def _besluit(salt: int, case: dict[str, Any], kind: str, text: str) -> dict[str, Any]:
+    return {
+        "Id": uid(NUMBER, salt),
+        "BesluitSoort": kind,
+        "BesluitTekst": text,
+        "AgendapuntZaakBesluitVolgorde": 1,
+        "Verwijderd": False,
+        "Zaak": [case],
+        "Agendapunt": {
+            "Onderwerp": case["Onderwerp"],
+            "Activiteit": {"Soort": "Stemmingen", "Datum": "2024-04-25T15:00:00"},
+            "Zaak": [case],
+        },
+    }
+
+
+WITHDRAWAL = _besluit(7, WITHDRAWN, "Stemmen - ingetrokken", "Ingetrokken.")
+# a vote with an outcome, for the list beside it
+REJECTION = _besluit(8, REJECTED, "Stemmen - verworpen", "Verworpen.")
 
 
 @pytest.fixture()
@@ -85,7 +94,10 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         (RAW_KIND_TK_ZAAK, OPEN),
         (RAW_KIND_TK_DOCUMENT, _paper(WITHDRAWN, 60)),
         (RAW_KIND_TK_DOCUMENT, _paper(OPEN, 61)),
+        (RAW_KIND_TK_ZAAK, REJECTED),
+        (RAW_KIND_TK_DOCUMENT, _paper(REJECTED, 62)),
         (RAW_KIND_TK_BESLUIT, WITHDRAWAL),
+        (RAW_KIND_TK_BESLUIT, REJECTION),
     ]
     with RawSourceWriter(store) as writer:
         for kind, payload in records:
@@ -108,6 +120,7 @@ def test_a_withdrawn_amendment_has_its_decision_and_an_open_one_none(
     case = f"cases/{make_node_key(WITHDRAWN['Id'])}"
     (decision,) = store.query(
         "SELECT json_build_object('id', id, 'props', props) FROM decisions"
+        " WHERE passed IS NULL"
     )
     props = decision["props"]
     assert props["decision_kind"] == "Stemmen - ingetrokken"
@@ -130,4 +143,37 @@ def test_a_withdrawn_amendment_has_its_decision_and_an_open_one_none(
     assert done == {
         make_node_key(WITHDRAWN["Id"]): True,
         make_node_key(OPEN["Id"]): False,
+        make_node_key(REJECTED["Id"]): True,
     }
+
+
+def test_the_list_of_votes_keeps_out_what_never_came_to_a_vote(
+    store: GraphStore,
+) -> None:
+    """``/api/decisions`` lists the decisions with an outcome, and its facets count those;
+    ``unvoted=true`` also the others (withdrawn, postponed, held, lapsed)."""
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        votes = client.get("/api/decisions").json()
+        assert votes["total"] == 1
+        assert [i["decision_kind"] for i in votes["items"]] == ["Stemmen - verworpen"]
+        assert votes["facets"]["passed"] == [{"value": False, "count": 1}]
+        assert sum(k["count"] for k in votes["facets"]["kind"]) == 1
+
+        every = client.get("/api/decisions?unvoted=true").json()
+        assert every["total"] == 2
+        assert {i["decision_kind"] for i in every["items"]} == {
+            "Stemmen - verworpen",
+            "Stemmen - ingetrokken",
+        }
+        assert {(p["value"], p["count"]) for p in every["facets"]["passed"]} == {
+            (False, 1),
+            (None, 1),
+        }
+        # the outcome filter still reads the outcome
+        assert (
+            client.get("/api/decisions?unvoted=true&passed=false").json()["total"] == 1
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
