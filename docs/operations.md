@@ -358,7 +358,9 @@ publication stored after its `modified` date, a BWB toestand that is still the s
 a judgment not updated since are left alone; a document that answered HTTP 404, or a
 redirect that leads nowhere, is asked for again after 30 days (3 when the source listed it
 itself, as the SRU does a BWB toestand). The Tweede Kamer pages are read again from the start on a
-re-run (upserts, so only time is repeated).
+re-run (upserts, so only time is repeated). A Staatsblad publication the source could not serve (an HTTP 500) is stored
+as nothing and asked for again next run; the step still succeeds, unless more than 25 of
+them failed (a source that is down stops it after 25 failures in a row).
 
 **Scheduled.** `scripts/daily.sh`, `scripts/weekly.sh` and `scripts/poll.sh` are what a
 scheduler runs; nothing is installed for you.

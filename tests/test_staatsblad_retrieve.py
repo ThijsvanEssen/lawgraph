@@ -8,7 +8,10 @@ import pytest
 import requests
 
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from lawgraph.pipelines.retrieve.staatsblad import (
+    MAX_DOWNLOAD_FAILURES,
+    StaatsbladRetrievePipeline,
+)
 from tests.fakes import RawSourcesFake
 
 
@@ -153,3 +156,52 @@ def test_a_toestand_without_xml_is_skipped_not_a_crash() -> None:
         [{"bwb_id": "BWBR0000001", "payload_text": None, "kind": "bwb-toestand-xml"}]
     )
     assert client.fetched == [] and result.skipped == 1
+
+
+class _Failing(_Client):
+    """The source answers HTTP 500 for the publications in *broken*."""
+
+    def __init__(self, broken: set[str]) -> None:
+        super().__init__()
+        self.broken = broken
+
+    def fetch_publication_xml(self, identifier: str) -> str | None:
+        if identifier in self.broken:
+            self.fetched.append(identifier)
+            response = requests.Response()
+            response.status_code = 500
+            raise requests.HTTPError("500 Server Error", response=response)
+        return super().fetch_publication_xml(identifier)
+
+
+def test_one_publication_the_source_cannot_serve_is_asked_again_next_run() -> None:
+    """stb-2015-29246 on web-1: one HTTP 500 no longer fails the step."""
+    rows = [
+        _row("BWBR0000001", _toestand("2015", "29246")),
+        _row("BWBR0000002", _toestand("2002", "2")),
+    ]
+    store = _Store(rows)
+    client = _Failing({"stb-2015-29246"})
+    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
+        store
+    )
+    assert result.errors == [] and result.created == 1
+    # nothing stored for it, so the next run asks for it again
+    assert store.stored == ["stb-2002-2"]
+
+
+def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
+    count = MAX_DOWNLOAD_FAILURES + 1
+    rows = []
+    for n in range(count):  # a broken one, then a served one: the source is not down
+        rows.append(_row(f"BWBR{n:07d}", _toestand("2015", str(n))))
+        rows.append(_row(f"BWBS{n:07d}", _toestand("2016", str(n))))
+    store = _Store(rows)
+    client = _Failing({f"stb-2015-{n}" for n in range(count)})
+    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
+        store
+    )
+    assert result.created == count
+    assert result.errors == [
+        f"1 x more than {MAX_DOWNLOAD_FAILURES} downloads failed ({count})"
+    ]

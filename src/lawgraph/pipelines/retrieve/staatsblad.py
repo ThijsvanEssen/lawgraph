@@ -25,6 +25,10 @@ from .base import (
 
 logger = get_logger(__name__)
 
+# The downloads a run may fail and still succeed: each is asked for again the next run;
+# more than these fails the step (a source that is down stops it sooner: FailureStreak).
+MAX_DOWNLOAD_FAILURES = 25
+
 
 class StaatsbladRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for Staatsblad AMvB XML documents."""
@@ -75,14 +79,20 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         ]
         self.progress.expect(len(todo))
         streak = FailureStreak("Staatsblad")
+        failed = 0
         for bwb_id, identifier in todo:
             try:
                 xml = self.client.fetch_publication_xml(identifier)
             except Exception as exc:
-                self.progress.fail(
-                    f"download failed ({failure_reason(exc)})", identifier
+                # one publication the source could not serve (an HTTP 500): stored nothing,
+                # so the next run asks for it again; a source that is down still stops
+                # the step (``FailureStreak``)
+                self.progress.skip(
+                    f"download failed ({failure_reason(exc)}), asked again next run",
+                    identifier,
                 )
                 streak.failed(identifier, exc)
+                failed += 1
                 continue
             streak.ok()
             if xml is None:
@@ -98,6 +108,15 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
                 external_id=identifier,
                 payload_text=xml,
                 meta=meta,
+            )
+        if failed:
+            logger.warning(
+                "Staatsblad: %d downloads failed; they are asked for again next run.",
+                failed,
+            )
+        if failed > MAX_DOWNLOAD_FAILURES:
+            self.progress.problem(
+                f"more than {MAX_DOWNLOAD_FAILURES} downloads failed ({failed})"
             )
 
     def _candidates_from_bwb(
