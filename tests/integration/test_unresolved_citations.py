@@ -159,3 +159,27 @@ def test_a_law_that_is_loaded_later_takes_its_citations_over(
         "WHERE key = 'ecli_nl_hr_2019_1278'"
     )
     assert [(c["law"], c["article_number"]) for c in props] == [("Sv", "350")]
+
+
+def test_the_code_keeps_rv_beside_its_version_for_paper_in_slices(
+    client: tuple[TestClient, GraphStore, Any],
+) -> None:
+    """As on the server: the code and its version for procedures on paper both have the
+    abbreviation Rv, neither as its short title. The code is the law cited; a run over all
+    in slices (``--after``, ``--limit``) reads every judgment once."""
+    _, store, cli = client
+    title = "Wetboek van Burgerlijke Rechtsvordering"
+    _put(store, COLLECTION_INSTRUMENTS, RV.lower(), bwb_id=RV, title=title,
+         citation_title=title, aliases=["Rv"])  # fmt: skip
+    _put(store, COLLECTION_INSTRUMENTS, "bwbr0039872", bwb_id="BWBR0039872",
+         title=f"{title} (geldt in geval van niet-digitaal procederen)",
+         citation_title=f"{title} (geldt in geval van niet-digitaal procederen)",
+         aliases=["Rv"])  # fmt: skip
+    first = cli("semantic", "rechtspraak", "--limit", "1")
+    assert "go on with --after ecli_nl_hr_2019_1278" in first.stderr + first.stdout
+    assert f"{RV.lower()}_392" in _cited(store)
+    assert "bwbr0039872_392" not in _cited(store)
+    after = cli(
+        "semantic", "rechtspraak", "--after", "ecli_nl_hr_2019_1278", "--limit", "1"
+    )
+    assert "The last read was None" in after.stderr + after.stdout

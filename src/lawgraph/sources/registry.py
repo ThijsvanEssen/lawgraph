@@ -393,6 +393,23 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _rechtspraak_semantic_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--after",
+        help="Start past this judgment key: the next slice of a run over all.",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many judgments (a slice)."
+    )
+
+
+RECHTSPRAAK_SEMANTIC = PipelineCommand(
+    RechtspraakSemanticPipeline,
+    "Article citations in judgments: REFERS_TO to BWB articles.",
+    add_args=_rechtspraak_semantic_add_args,
+    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+)
+
 TK_DOSSIERS_NORMALIZE = PipelineCommand(
     TKDossiersNormalizePipeline,
     "Committees, members, factions, dossiers, activities, votes, commitments and "
@@ -707,10 +724,7 @@ SEMANTIC: list[Pipeline] = [
         TKSemanticPipeline,
         "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
     ),
-    _pipeline(
-        RechtspraakSemanticPipeline,
-        "Article citations in judgments: REFERS_TO to BWB articles.",
-    ),
+    _pipeline(RECHTSPRAAK_SEMANTIC, RECHTSPRAAK_SEMANTIC.description),
     _pipeline(
         EurlexSemanticPipeline,
         "Article citations in EU articles: links EU instruments to national and EU articles.",
