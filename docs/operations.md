@@ -148,7 +148,7 @@ passed to the pipelines that accept it and the others run in full.
 
 | Command | Options |
 |---------|---------|
-| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then |
+| `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then. `rechtspraak` without it reads every judgment, also in slices: `--after KEY` starts past that judgment key, `--limit N` stops after N (the log names the last one read; `ops/relink-judgments.sh` runs them at night) |
 | `bwb` | `--since` (as above), `--store-citations` |
 | `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions` |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes` | none |

@@ -105,19 +105,34 @@ def _conclusion_params() -> dict[str, Any]:
 
 
 def judgment_paragraphs(
-    store: Store, *, eclis: list[str] | None, batch_size: int
+    store: Store,
+    *,
+    eclis: list[str] | None,
+    batch_size: int,
+    after: str | None = None,
+    limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     """``{ecli, paragraphs, unresolved_citations}`` (as a slim document) of every
-    Rechtspraak judgment, only those of *eclis* when it is given."""
+    Rechtspraak judgment in key order, only those of *eclis* when it is given; a slice:
+    past the key *after*, *limit* of them."""
     recent = "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
+    past = "AND j.key > %(after)s" if after else ""
     sql = f"""
         SELECT {_slim("j", "ecli", "paragraphs", "unresolved_citations")}
         FROM judgments j
-        WHERE j.source = %(source)s {recent}
+        WHERE j.source = %(source)s {recent} {past}
         ORDER BY j.key
+        LIMIT %(limit)s
         """
     return store.query(
-        sql, {"source": SOURCE_RECHTSPRAAK, "eclis": eclis}, batch_size=batch_size
+        sql,
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "eclis": eclis,
+            "after": after,
+            "limit": limit,
+        },
+        batch_size=batch_size,
     )
 
 

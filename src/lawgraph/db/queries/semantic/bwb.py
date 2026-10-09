@@ -54,12 +54,13 @@ def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, An
 
 # The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
 def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{short_title, aliases, bwb_id, celex}`` of the instruments with a BWB id or a
-    CELEX number, in the order of their keys."""
+    """``{short_title, aliases, bwb_id, celex, citation_title, title}`` of the instruments
+    with a BWB id or a CELEX number, in the order of their keys."""
     return store.query(
         """
         SELECT props -> 'short_title' AS short_title, props -> 'aliases' AS aliases,
-               props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex
+               props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
+               props -> 'citation_title' AS citation_title, props -> 'title' AS title
         FROM instruments
         WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
         ORDER BY key

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
@@ -49,20 +50,26 @@ def code_aliases(
     """Abbreviation, as its source spells it -> the BWB id or CELEX number of the one law it
     stands for.
 
-    *rows* are ``{bwb_id, celex, short_title, aliases}`` of the instruments in the graph;
-    *curated* adds abbreviations by law id (``curated instrument-abbreviations``), for the
-    laws among *rows* only. The sources rank: a short title, then the other abbreviations of
-    the source (the WTI's, ``WvSr`` beside ``Sr``), then the curated ones. An abbreviation is
-    decided by the first of them that has it, whatever the others say, and is the law's only
-    when one law has it there. Comparison ignores case. A code whose books are regulations of
-    their own (``BW``) and an alias that starts with a digit (``6 BW``: the number of a
-    citation stands there) are no abbreviation of one law.
+    *rows* are ``{bwb_id, celex, short_title, aliases, citation_title, title}`` of the
+    instruments in the graph; *curated* adds abbreviations by law id (``curated
+    instrument-abbreviations``), for the laws among *rows* only. The sources rank: a short
+    title, then the other abbreviations of the source (the WTI's, ``WvSr`` beside ``Sr``),
+    then the curated ones. An abbreviation is decided by the first of them that has it,
+    whatever the others say, and is the law's only when one law has it there, or when the
+    others are versions of it (``_base_law``: Rv beside Rv "(geldt in geval van
+    niet-digitaal procederen)"). Comparison ignores case. A code whose books are
+    regulations of their own (``BW``) and an alias that starts with a digit (``6 BW``: the
+    number of a citation stands there) are no abbreviation of one law.
     """
     tiers: list[dict[str, dict[str, str]]] = [{}, {}, {}]  # upper -> law id -> spelling
+    titles: dict[str, str] = {}
     for row in rows:
         law_id = normalize_instrument_id(row.get("bwb_id") or row.get("celex"))
         if not law_id:
             continue
+        title = str(row.get("citation_title") or row.get("title") or "").strip()
+        if title:
+            titles[law_id] = title
         sources = (
             [row.get("short_title")],
             row.get("aliases") or [],
@@ -84,7 +91,57 @@ def code_aliases(
             if len(laws) == 1:
                 ((law_id, spelled),) = laws.items()
                 found[spelled] = law_id
+            elif base := _base_law(list(laws), titles):
+                found[laws[base]] = base
     return found
+
+
+def _base_law(law_ids: list[str], titles: Mapping[str, str]) -> str | None:
+    """Of laws that claim one abbreviation, the one whose title the others all have with a
+    parenthesis after it, a version of it (``(geldt in geval van niet-digitaal
+    procederen)``); None when there is none."""
+    for law_id in law_ids:
+        title = titles.get(law_id)
+        if title and all(
+            other == law_id or (titles.get(other) or "").startswith(f"{title} (")
+            for other in law_ids
+        ):
+            return law_id
+    return None
+
+
+# A title that ends in a year: "Vreemdelingenwet 2000".
+_WITH_YEAR = re.compile(r"^(?P<name>.*\S)\s+(?:1[89]|20)\d\d$")
+
+
+def instrument_names(rows: Iterable[Mapping[str, Any]]) -> InstrumentAliasMap:
+    """Law name -> ``(bwb_id, celex)``: the ``title`` and ``citation_title`` of the
+    instruments with a BWB id or a CELEX number, and such a name without the year it ends
+    in ("Vreemdelingenwet" for the Vreemdelingenwet 2000), as texts cite it. A name that
+    two instruments share is left out: it would link to whichever came first; a name
+    without its year only stands when no instrument is called so and no other has that name
+    with another year."""
+    index: InstrumentAliasMap = {}
+    ambiguous: set[str] = set()
+    without_year: dict[str, set[tuple[str | None, str | None]]] = {}
+    for row in rows:
+        pair = (
+            normalize_instrument_id(row.get("bwb_id")),
+            normalize_instrument_id(row.get("celex")),
+        )
+        for name_field in ("title", "citation_title"):
+            label = str(row.get(name_field) or "").strip()
+            if not label or label in ambiguous:
+                continue
+            if index.setdefault(label, pair) != pair:
+                del index[label]
+                ambiguous.add(label)
+            if match := _WITH_YEAR.match(label):
+                without_year.setdefault(match["name"], set()).add(pair)
+    for name, pairs in without_year.items():
+        if len(pairs) == 1 and name not in index and name not in ambiguous:
+            index[name] = next(iter(pairs))
+    return index
 
 
 def normalize_instrument_id(value: Any) -> str | None:
