@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.db.queries.coalition import Coalition
 from lawgraph.db.queries.decisions import DecisionFilters
 
 client = TestClient(app)
@@ -610,7 +611,16 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
         "lawgraph.api.routes.parliament.get_factions",
         lambda store, **kwargs: [_FACTION],
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.coalition_of_day",
+        lambda store, day: Coalition(
+            cabinet={"key": "schoof", "name": "kabinet-Schoof"}, factions={"vvd"}
+        ),
+    )
     body = client.get("/api/parliament/seats").json()
+    # the coalition of the cabinet in office that day
+    assert body["cabinet"]["key"] == "schoof"
+    assert body["factions"][0]["coalition"] is True
     assert body["total_seats"] == 150
     assert body["assigned_seats"] == 24
     assert body["factions"][0]["abbreviation"] == "VVD"
@@ -637,7 +647,12 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
         return {"vvd": 33}
 
     monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.coalition_of_day",
+        lambda store, day: Coalition(cabinet=None),
+    )
     body = client.get("/api/parliament/seats?date=2010-10-10").json()
+    assert body["cabinet"] is None and body["factions"][0]["coalition"] is None
     assert asked == ["2010-10-10"]
     assert body["as_of"] == "2010-10-10"
     assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]

@@ -102,6 +102,60 @@ class CabinetPhaseDTO(BaseModel):
     source: SourceRefDTO | None = None
 
 
+class CoalitionFactionSeatsDTO(BaseModel):
+    """A faction's seats in a stretch of a cabinet, and whether it is of the coalition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    abbreviation: str | None = None
+    seats: int
+    coalition: bool = Field(
+        ...,
+        description="Its party held a post in the cabinet that day; a faction split off a "
+        "coalition party holds none: opposition.",
+    )
+
+
+class SeatStretchDTO(BaseModel):
+    """A stretch of days in which neither the coalition nor any faction's seats changed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_date: str
+    to_date: str
+    coalition: int = Field(..., description="The seats of the coalition.")
+    opposition: int
+    factions: list[CoalitionFactionSeatsDTO] = Field(
+        default_factory=list, description="The coalition first, then by seats."
+    )
+
+
+class CabinetSeatsResponse(BaseModel):
+    """The seats of a cabinet's coalition in each Kamer over its period."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
+    majority: dict[str, int] = Field(
+        ..., description="The seats a majority takes: `TK` 76 of 150, `EK` 38 of 75."
+    )
+    tk: list[SeatStretchDTO] | None = Field(
+        None,
+        description="The Tweede Kamer, a stretch per change (a split, a party leaving the "
+        "cabinet, a seat changing hands); null for a cabinet that began before 30 November "
+        "2006, from when every seat is known.",
+    )
+    ek: list[SeatStretchDTO] | None = Field(
+        None,
+        description="The Eerste Kamer on the day its composition was read, when the "
+        "cabinet was in office then; null otherwise (it has no seats per day).",
+    )
+
+
 class CabinetSummaryDTO(BaseModel):
     """A cabinet in the list, with its counts."""
 

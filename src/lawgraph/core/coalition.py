@@ -1,0 +1,124 @@
+"""Which factions form the coalition of a cabinet, day by day, and its seats over time.
+
+Pure: no I/O. The coalition on a day is the factions whose party held a post in the cabinet
+that day (``meta.posts`` of ``SERVED_IN``, from Rijksoverheid): a party that leaves the
+cabinet leaves the coalition the day its last post ends, whatever the fixed list of the
+cabinet's parties says. A faction that splits off a coalition party is a faction of its own
+that holds no post: opposition (Thijs, 2026-10-09). A post without a faction (``partijloos``)
+makes no faction coalition.
+
+The seats of a faction on a day are the members whose membership period covers it
+(``faction_memberships``, FractieZetelPersoon): complete from the Kamer installed on 30
+November 2006 (``TK_SEATS_FROM``); a cabinet that began before has no seat timeline.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+# The first day every seat of the Tweede Kamer is known (FractieZetelPersoon).
+TK_SEATS_FROM = "2006-11-30"
+# The seats of each Kamer, and the majority of them.
+TK_SEATS, EK_SEATS = 150, 75
+TK_MAJORITY, EK_MAJORITY = TK_SEATS // 2 + 1, EK_SEATS // 2 + 1
+
+
+@dataclass(frozen=True)
+class Period:
+    """Days *start* to *end*, both inclusive; *end* None: still running."""
+
+    start: str
+    end: str | None
+
+    def covers(self, day: str) -> bool:
+        return self.start <= day and (self.end is None or day <= self.end)
+
+
+def _next_day(day: str) -> str:
+    return (dt.date.fromisoformat(day) + dt.timedelta(days=1)).isoformat()
+
+
+def _period(row: Mapping[str, Any], start_key: str, end_key: str) -> Period | None:
+    start = str(row.get(start_key) or "")[:10]
+    end = str(row.get(end_key) or "")[:10] or None
+    return Period(start, end) if start else None
+
+
+def coalition_on(posts: Iterable[Mapping[str, Any]], day: str) -> set[str]:
+    """The faction keys whose party held a post of the cabinet on *day*."""
+    found: set[str] = set()
+    for post in posts:
+        faction = ((post.get("party") or {}).get("faction")) or None
+        period = _period(post, "from_date", "to_date")
+        if faction and period and period.covers(day):
+            found.add(str(faction))
+    return found
+
+
+def change_days(periods: Iterable[Period], start: str, end: str) -> list[str]:
+    """The days within *start*..*end* on which one of *periods* begins or the day after it
+    ends; *start* first, each once, in order."""
+    days = {start}
+    for period in periods:
+        for day in (period.start, _next_day(period.end) if period.end else None):
+            if day and start < day <= end:
+                days.add(day)
+    return sorted(days)
+
+
+def seats_on(memberships: Sequence[Mapping[str, Any]], day: str) -> dict[str, int]:
+    """Faction key -> its seats on *day*: the members whose period covers it. *memberships*
+    are ``{member, faction_key, from_date, to_date}``; a member counts once per faction."""
+    members: dict[str, set[str]] = {}
+    for row in memberships:
+        period = _period(row, "from_date", "to_date")
+        faction = row.get("faction_key")
+        if faction and period and period.covers(day):
+            members.setdefault(str(faction), set()).add(str(row.get("member")))
+    return {faction: len(keys) for faction, keys in members.items()}
+
+
+def seat_timeline(
+    posts: Sequence[Mapping[str, Any]],
+    memberships: Sequence[Mapping[str, Any]],
+    start: str,
+    end: str,
+) -> list[dict[str, Any]]:
+    """The seats of the coalition and the opposition from *start* to *end*, one segment per
+    stretch in which neither the coalition nor any faction's seats changed:
+    ``{from_date, to_date, coalition, opposition, factions: [{key, seats, coalition}]}``,
+    the factions by seats, the coalition first. A day on which the coalition or a seat
+    changes starts a segment."""
+    periods = [
+        p
+        for row in [*posts, *memberships]
+        if (p := _period(row, "from_date", "to_date")) is not None
+    ]
+    days = change_days(periods, start, end)
+    segments: list[dict[str, Any]] = []
+    for day in days:
+        coalition = coalition_on(posts, day)
+        seats = seats_on(memberships, day)
+        ranked = sorted(
+            ((key, n, key in coalition) for key, n in seats.items() if n > 0),
+            key=lambda f: (not f[2], -f[1], f[0]),
+        )
+        factions = [{"key": k, "seats": n, "coalition": c} for k, n, c in ranked]
+        segment = {
+            "from_date": day,
+            "to_date": end,
+            "coalition": sum(n for _, n, c in ranked if c),
+            "opposition": sum(n for _, n, c in ranked if not c),
+            "factions": factions,
+        }
+        if segments and segments[-1]["factions"] == factions:
+            continue  # nothing changed that day: the stretch goes on
+        if segments:
+            segments[-1]["to_date"] = (
+                dt.date.fromisoformat(day) - dt.timedelta(days=1)
+            ).isoformat()
+        segments.append(segment)
+    return segments
