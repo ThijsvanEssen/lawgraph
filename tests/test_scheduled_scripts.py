@@ -262,3 +262,28 @@ def test_a_dump_can_be_read_by_whoever_uploads_it(checkout: Path) -> None:
     assert dump.stat().st_mode & 0o005 == 0o005  # others may list and enter it
     for paper in dump.iterdir():
         assert paper.stat().st_mode & 0o004, paper.name  # and read every file
+
+
+def test_a_poll_given_up_three_times_in_a_row_says_so_once(checkout: Path) -> None:
+    """A long run that keeps the polls out is told after the third poll it kept out, not after
+    every one; a poll that runs sets the count back, and each chain counts on its own."""
+    alerts = checkout / "alerts"
+    alert = {"LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}'}
+    lock = checkout / "lawgraph-scheduled.lock"
+    lock.mkdir()
+    for _ in range(2):
+        assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 75
+    assert _run(checkout, "poll.sh", args=["rechtspraak"], **alert).returncode == 75
+    assert not alerts.exists()
+    assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 75
+    assert alerts.read_text().count("skipped 3 times in a row") == 1
+    assert "poll tk" in alerts.read_text()
+    assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 75
+    assert (
+        alerts.read_text().count("skipped 3 times in a row") == 1
+    )  # once, not every time
+
+    lock.rmdir()
+    assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 0
+    assert not (checkout / "logs" / "skipped-poll-tk").exists()
+    assert (checkout / "logs" / "skipped-poll-rechtspraak").read_text().strip() == "1"
