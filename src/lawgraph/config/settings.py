@@ -101,6 +101,10 @@ PAYLOAD_STORE = os.getenv(
 SEARCH_STATS_DIR = Path(
     os.getenv("LAWGRAPH_SEARCH_STATS_DIR", "~/.local/share/lawgraph/search-stats")
 ).expanduser()
+# Where ``lawgraph sitemaps`` writes the sitemaps of Concordans, which Caddy serves.
+SITEMAP_DIR = Path(
+    os.getenv("LAWGRAPH_SITEMAP_DIR", "~/.local/share/lawgraph/sitemaps")
+).expanduser()
 S3_ENDPOINT = os.getenv("LAWGRAPH_S3_ENDPOINT") or None
 S3_REGION = os.getenv("LAWGRAPH_S3_REGION") or None
 S3_ACCESS_KEY = os.getenv("LAWGRAPH_S3_ACCESS_KEY") or None
