@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import sys
+from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -1068,6 +1069,25 @@ def vote(payload: Payload) -> VoteCast | None:
     )
 
 
+def is_roll_call(votes: list[VoteCast]) -> bool:
+    """A roll call names every member: each row has a Persoon_Id. A faction vote in which
+    a few members voted apart from their faction has rows of both kinds, and is none."""
+    return bool(votes) and all(cast.person_id for cast in votes)
+
+
+def seats_of(votes: list[VoteCast]) -> list[int]:
+    """The seats each row of a decision weighs, in the order of *votes*: a member one; a
+    faction its FractieGrootte without its members who voted apart in a row of their own
+    (their rows give the size of the faction too)."""
+    apart = Counter(cast.faction_id for cast in votes if cast.person_id)
+    return [
+        1
+        if cast.person_id
+        else max(int(cast.seats or 0) - apart.get(cast.faction_id, 0), 0)
+        for cast in votes
+    ]
+
+
 def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Record:
     """Node key and props for one Besluit and the votes cast on it.
 
@@ -1103,16 +1123,11 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     votes = sorted(votes, key=lambda cast: (cast.record_id or "", cast.person_id or ""))
     tally: dict[str, int] = {}
     voters: dict[str, int] = {}
-    for cast in votes:
+    for cast, seats in zip(votes, seats_of(votes), strict=True):
         choice = cast.choice
-        tally[choice] = tally.get(choice, 0) + int(cast.seats or 0)
+        tally[choice] = tally.get(choice, 0) + seats
         voters[choice] = voters.get(choice, 0) + 1
-
-    roll_call = any(cast.person_id for cast in votes)
-    if roll_call:
-        # In a roll-call each row is one member, so FractieGrootte would count
-        # the whole faction for every one of them.
-        tally = dict(voters)
+    roll_call = is_roll_call(votes)
 
     tally, voters = _in_vote_order(tally), _in_vote_order(voters)
     return make_node_key("decision", decision_id), {

@@ -542,7 +542,7 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | `primary_case_id`, `primary_case_kind` | the zaak it decided (`Wetgeving` on the vote on a bill itself) |
 | `kind` | what was decided on: the `Zaak.Soort` of the primary case; without one the Soort of the cases on its agendapunt when they are all of one; else null. Never read from the subject |
 | `passed` | from the `BesluitSoort`, else the tally; null for a decision that is no vote |
-| `vote_kind`, `tally`, `voters` | `member` or `faction`; seats per choice (members per choice on a roll-call); how many cast each choice. A decision on a bill without votes (a hamerstuk) comes from a `tk-besluit` record and has no `tally` and `vote_kind` null |
+| `vote_kind`, `tally`, `voters` | `member` (a roll call: every row a member) or `faction`; seats per choice (a member one, a faction its seats without its members who voted apart); how many rows cast each choice. A decision on a bill without votes (a hamerstuk) comes from a `tk-besluit` record and has no `tally` and `vote_kind` null |
 | Eerste Kamer | `normalize eerstekamer-votes`, key `ek_<date>_<label>_<n>` (a vote on a bill) or `ek_<date>_<label>_<letter>` (a vote on a motion: `kind` `Motie`, `letter`, `motion_url`, also `ABOUT` the motion's Kamerstuk): `result` and `method` as eerstekamer.nl writes them, `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; `bill_decision` and `kind` from `semantic tk-dossier-outcomes` (the vote that decided the bill, with the kind of its dossier) |
 
 ### Commitment (`commitments`)
@@ -687,9 +687,13 @@ cannot be read gives its text, no sections and `structure_quality` `none`.
 
 Votes: TK returns one row per voter per `Besluit`. A roll-call (`Hoofdelijk`) names every
 member, so its `VOTED` edges start at the member; any other vote is cast per faction and the
-edge starts at the faction. The decision carries `vote_kind` (`member` or `faction`), `tally`
-(seats per choice, members per choice on a roll-call), `voters` (how many cast each choice)
-and `passed`; each edge carries `meta.choice`, `meta.seats` (the seats of the faction; 1 for a member on a roll-call, whose row carries the size of the faction) and `meta.record_ids` (the Stemming it is made of). The API derives a member's
+edge starts at the faction. A member who votes apart from their faction has a row of their
+own beside the faction's: their edge starts at the member with one seat, and the faction's
+carries its seats without them. The decision carries `vote_kind` (`member` when every row is
+a member's, else `faction`), `tally` (seats per choice), `voters` (how many rows cast each
+choice) and `passed`; each edge carries `meta.choice`, `meta.seats` (the seats of the faction
+without its members who voted apart; 1 for a member, whose row carries the size of the
+faction) and `meta.record_ids` (the Stemming it is made of). The API derives a member's
 non-roll-call votes from the faction they belonged to at the time, using
 `members.props.faction_memberships`.
 
