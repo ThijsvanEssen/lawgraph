@@ -1,0 +1,14 @@
+[Unit]
+Description=LawGraph: the weekly run
+After=docker.service
+RequiresMountsFor=/srv/lawgraph
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/srv/lawgraph/app
+EnvironmentFile=/srv/lawgraph/scheduler.env
+# 75: another scheduled run holds the lock; this one is skipped, not failed
+SuccessExitStatus=75
+TimeoutStartSec=infinity
+ExecStart=/srv/lawgraph/app/scripts/weekly.sh

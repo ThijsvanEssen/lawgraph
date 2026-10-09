@@ -1,0 +1,14 @@
+[Unit]
+Description=LawGraph: poll %i
+After=docker.service
+RequiresMountsFor=/srv/lawgraph
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/srv/lawgraph/app
+EnvironmentFile=/srv/lawgraph/scheduler.env
+# 75: another run (nightly, weekly, backup, deploy or another poll) holds the lock
+SuccessExitStatus=75
+TimeoutStartSec=45min
+ExecStart=/srv/lawgraph/app/scripts/poll.sh %i

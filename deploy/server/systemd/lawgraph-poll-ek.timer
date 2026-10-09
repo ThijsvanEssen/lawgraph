@@ -1,0 +1,6 @@
+[Timer]
+OnCalendar=Tue *-*-* 15,18:10 Europe/Amsterdam
+Unit=lawgraph-poll@ek.service
+
+[Install]
+WantedBy=timers.target
