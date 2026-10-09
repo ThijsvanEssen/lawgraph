@@ -82,10 +82,16 @@ def paragraphs_citing(paragraphs: list[dict[str, Any]]) -> dict[str, list[str]]:
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
-    def __init__(self, store: Any) -> None:
+    def __init__(
+        self, store: Any, *, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that record key, so many
+        judgments; the log names the last one read."""
         super().__init__(store)
         # (citing id, cited ECLI) -> the numbers of the paragraphs that name it
         self._places: dict[tuple[str, str], list[str]] = {}
+        self.after = after
+        self.limit = limit
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -118,6 +124,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
+        if self.after or self.limit is not None:
+            last = self.last_judgment_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
         return result
 
     def _collect_references(
@@ -129,7 +138,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         all_cited_eclis: set[str] = set()
         read: list[str] = []
         by_appno: list[tuple[str, Cited]] = []
-        for judgment, xml in self._judgment_texts(since_iso):
+        for judgment, xml in self._judgment_texts(
+            since_iso, after=self.after, limit=self.limit
+        ):
             try:
                 root = parse_judgment(xml)
                 text = body_text(root)

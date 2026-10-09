@@ -279,18 +279,32 @@ _ECLI = "coalesce(nullif(lg_str(doc -> 'meta' -> 'ecli'), ''), external_id)"
 
 
 def judgment_payload_refs(
-    store: Store, *, since_iso: str | None, batch_size: int
+    store: Store,
+    *,
+    since_iso: str | None,
+    batch_size: int,
+    after: str | None = None,
+    limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """``{ecli, payload_ref}`` of every stored Rechtspraak judgment with a payload,
-    those fetched at or after *since_iso* when it is given."""
+    """``{key, ecli, payload_ref}`` of every stored Rechtspraak judgment with a payload,
+    those fetched at or after *since_iso* when it is given; a slice: past the record key
+    *after*, *limit* of them."""
+    past = "AND key > %(after)s" if after else ""
     return store.query(
         f"""
-        SELECT {_ECLI} AS ecli, doc -> 'payload_ref' AS payload_ref FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s AND {_SINCE}
+        SELECT key, {_ECLI} AS ecli, doc -> 'payload_ref' AS payload_ref FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND {_SINCE} {past}
           AND coalesce(json_typeof(doc -> 'payload_ref'), 'null') <> 'null'
         {_ORDER}
+        LIMIT %(limit)s
         """,
-        {"source": SOURCE_RECHTSPRAAK, "kind": RAW_KIND_RS_CONTENT, "since": since_iso},
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "kind": RAW_KIND_RS_CONTENT,
+            "since": since_iso,
+            "after": after,
+            "limit": limit,
+        },
         batch_size=batch_size,
     )
 

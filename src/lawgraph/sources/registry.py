@@ -393,6 +393,24 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _slice_add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--after", help="Start past this record key: the next slice of a run over all."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many judgments (a slice)."
+    )
+
+
+RECHTSPRAAK_CITATIONS = PipelineCommand(
+    RechtspraakCitationsSemanticPipeline,
+    "ECLI references between judgments: REFERS_TO, none between judgments that "
+    "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; cited "
+    "judgments that are not loaded become stubs.",
+    add_args=_slice_add_args,
+    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+)
+
 TK_DOSSIERS_NORMALIZE = PipelineCommand(
     TKDossiersNormalizePipeline,
     "Committees, members, factions, dossiers, activities, votes, commitments and "
@@ -790,14 +808,7 @@ SEMANTIC: list[Pipeline] = [
             "(dcterms:isReplacedBy); the lists show the decision once."
         ),
     ),
-    _pipeline(
-        RechtspraakCitationsSemanticPipeline,
-        (
-            "ECLI references between judgments: REFERS_TO, none between judgments that "
-            "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; "
-            "cited judgments that are not loaded become stubs."
-        ),
-    ),
+    _pipeline(RECHTSPRAAK_CITATIONS, RECHTSPRAAK_CITATIONS.description),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,
         "Series of parallel judgments: one court, one day, (nearly) the same text.",
