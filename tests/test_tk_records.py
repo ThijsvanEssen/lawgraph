@@ -1050,3 +1050,16 @@ def test_a_vacant_seat_ends_the_day_before_the_successor_takes_it() -> None:
         tk_records.seat_vacancy(record("2026-02-23", "2026-02-25", Verwijderd=True))
         is None
     )
+
+
+@pytest.mark.parametrize(
+    ("afgedaan", "done"), [(True, True), (False, False), (None, None)]
+)
+def test_a_case_says_whether_the_kamer_is_done_with_it(
+    afgedaan: bool | None, done: bool | None
+) -> None:
+    """``Zaak.Afgedaan``: an amendment not done with and without a decision is not voted
+    on yet; one done with and without a decision was withdrawn or replaced."""
+    payload = {"Id": "z-1", "Soort": "Amendement", "Afgedaan": afgedaan}
+    _, props = tk_records.case(payload)  # type: ignore[misc]
+    assert props["done"] is done

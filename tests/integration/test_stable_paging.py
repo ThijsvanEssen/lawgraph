@@ -38,7 +38,13 @@ def _nodes() -> list[Node]:
                 (
                     COLLECTION_DECISIONS,
                     NodeType.DECISION,
-                    {"subject": "Motie", "date": "2026-09-22", "dossier_numbers": []},
+                    # votes with an outcome: the list holds those alone
+                    {
+                        "subject": "Motie",
+                        "date": "2026-09-22",
+                        "dossier_numbers": [],
+                        "passed": i % 2 == 0,
+                    },
                 ),
                 (
                     COLLECTION_DOCUMENTS,
