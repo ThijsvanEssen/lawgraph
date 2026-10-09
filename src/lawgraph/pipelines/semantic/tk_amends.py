@@ -5,6 +5,12 @@ whose title signals a legislative amendment ("Wijziging van de ...") to a statut
 the graph, found through the instrument aliases. The edges are what ``semantic
 tk-amendment-articles`` starts from. A document that is read loses the edges of this step it
 no longer gets: a motie on a bill's dossier carries the bill's title and amends nothing.
+
+Two names in such a title are no law the bill amends: an EU act it implements ("in verband
+met de implementatie van Verordening (EU) 2023/2869"; a Dutch bill cannot amend EU law), and
+the act it makes itself, whose citeertitel closes the title ("(Wet implementatie Europees
+centraal toegangspunt)"): the instrument ``LEGISLATED_IN`` the document's dossier, once that
+act is published and loaded.
 """
 
 from __future__ import annotations
@@ -93,10 +99,16 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store, what=None)
         kept: dict[str, set[str]] = {}
+        acts = semantic_tk.acts_of_dossiers(self.store)
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
             keys = kept.setdefault(doc_node.node_id or "", set())
-            for edge_doc in self._amends_edges(doc_node, instrument_aliases):
+            own_acts = {
+                act
+                for label in doc_node.props.get("dossier_numbers") or []
+                for act in acts.get(str(label), ())
+            }
+            for edge_doc in self._amends_edges(doc_node, instrument_aliases, own_acts):
                 keys.add(edge_doc["_key"])
                 edges.add_doc(edge_doc)
 
@@ -108,9 +120,13 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _amends_edges(
-        self, doc_node: Node, instrument_aliases: InstrumentAliasMap
+        self,
+        doc_node: Node,
+        instrument_aliases: InstrumentAliasMap,
+        own_acts: set[str],
     ) -> Iterator[dict[str, Any]]:
-        """The AMENDS edges of one document; none unless its kind can amend a law."""
+        """The AMENDS edges of one document; none unless its kind can amend a law, none to
+        an EU act and none to an act of its own dossier (*own_acts*, instrument ids)."""
         if not tk_records.may_amend(doc_node.props.get("kind")):
             return
         # An amendement is named by its own subject; the dossier's title says which law
@@ -124,8 +140,10 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
             str(title) if title else None, instrument_aliases
         )
         for bwb_id, celex, confidence in hits:
+            if not bwb_id:  # an EU act: implemented, not amended
+                continue
             target = self._resolve_instrument(bwb_id=bwb_id, celex=celex)
-            if not target:
+            if not target or target.node_id in own_acts:
                 continue
             edge_doc = self._make_edge_doc(
                 from_node=doc_node,

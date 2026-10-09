@@ -114,6 +114,9 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda store, since_date: iter(list(store._pub_docs)),
     )
     monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(
+        semantic_tk, "acts_of_dossiers", lambda store: getattr(store, "acts", {})
+    )
 
 
 def _make_pub(
@@ -195,6 +198,56 @@ def test_a_motion_on_the_bill_amends_nothing() -> None:
     TKAmendsSemanticPipeline(store=store).run()
 
     assert [e["_from"] for e in store.edges.values()] == ["documents/amendement"]
+
+
+TITLE_36931 = (
+    "Wijziging van de Wet op het financieel toezicht in verband met de implementatie van "
+    "Verordening (EU) 2023/2869 betreffende het Europees centraal toegangspunt "
+    "(Wet implementatie Europees centraal toegangspunt)"
+)
+
+
+def test_a_bill_amends_neither_the_eu_act_it_implements_nor_its_own_act() -> None:
+    bill = _make_pub("bill", TITLE_36931)
+    bill["props"]["dossier_numbers"] = ["36931"]
+    own = _make_instrument_node(
+        "BWBR0052854", title="Wet implementatie Europees centraal toegangspunt"
+    )
+    eu = Node(
+        collection="instruments",
+        type=NodeType.INSTRUMENT,
+        key="32023r2869",
+        props={"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
+        _skip_validation=True,
+    )
+    store = _FakeStore(
+        pub_docs=[bill],
+        nodes={
+            ("instruments", "bwbr0020368"): _make_instrument_node(
+                "BWBR0020368", title="Wet op het financieel toezicht"
+            ),
+            ("instruments", own.key): own,
+            ("instruments", eu.key): eu,
+        },
+    )
+    # the act its dossier made, as the BWB names the dossier in its brondata
+    store.acts = {"36931": {"instruments/bwbr0052854"}}  # type: ignore[attr-defined]
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert [e["_to"] for e in store.edges.values()] == ["instruments/bwbr0020368"]
+
+
+def test_an_act_of_another_dossier_is_still_amended() -> None:
+    bill = _make_pub("bill", "Wijziging van het Wetboek van Strafrecht")
+    bill["props"]["dossier_numbers"] = ["36999"]
+    store = _amends_store()
+    store._pub_docs = [bill]
+    store.acts = {"36001": {"instruments/bwbr0001854"}}  # type: ignore[attr-defined]
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert [e["_to"] for e in store.edges.values()] == ["instruments/bwbr0001854"]
 
 
 def test_a_case_never_produces_an_edge() -> None:
