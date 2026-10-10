@@ -170,14 +170,23 @@ class SeatStretchDTO(BaseModel):
 
     from_date: str
     to_date: str
-    coalition: int = Field(..., description="The seats of the coalition.")
-    opposition: int
+    coalition: int = Field(
+        ...,
+        description="The seats of the coalition's parties, their vacant ones included (a "
+        "vacant seat of a faction, FractieZetelVacature, is still its faction's): what "
+        "a majority is counted in.",
+    )
+    opposition: int = Field(
+        ..., description="The seats of the other parties, their vacant ones included."
+    )
     vacant: int = Field(
         0,
-        description="Seats that neither a member nor a vacancy of a faction accounts for; a "
-        "vacant seat of a faction (FractieZetelVacature) counts among its seats, and for "
-        "the coalition or the opposition. `coalition`, `opposition` and `vacant` add up to "
-        "the Kamer.",
+        description="Every seat no member held: the vacant seats of the factions and any "
+        "seat neither a member nor a vacancy accounts for. The seats held are the Kamer's "
+        "but these.",
+    )
+    coalition_vacant: int = Field(
+        0, description="Of `coalition`, the seats no member held (Tweede Kamer)."
     )
     factions: list[CoalitionFactionSeatsDTO] = Field(
         default_factory=list, description="The coalition first, then by seats."

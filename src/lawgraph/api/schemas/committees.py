@@ -71,6 +71,11 @@ class MemberVotesResponse(BaseModel):
     member_id: str = Field(..., description="Arango _id of the member.")
     count: int = Field(..., description="Votes returned; may be fewer than the total.")
     votes: list[MemberVoteDTO]
+    next_offset: int | None = Field(
+        None,
+        description="The ``offset`` of the next page; null when this page was not full "
+        "(the last one).",
+    )
 
 
 class TouchedInstrumentDTO(BaseModel):

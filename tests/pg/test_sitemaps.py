@@ -4,7 +4,6 @@ too old, left out."""
 
 from __future__ import annotations
 
-import gzip
 import json
 from pathlib import Path
 from typing import Any
@@ -356,8 +355,8 @@ def test_the_command_writes_the_index_and_its_parts(
         shell.forget()
     assert result.updated == 11
     listed = (out / "sitemap.xml").read_text()
-    assert "<loc>https://concordans.nl/sitemap-moties.xml.gz</loc>" in listed
+    assert "<loc>https://concordans.nl/sitemap-moties.xml</loc>" in listed
     assert "<lastmod>2026-09-15</lastmod>" in listed
-    pages = gzip.decompress((out / "sitemap-paginas.xml.gz").read_bytes()).decode()
+    pages = (out / "sitemap-paginas.xml").read_text(encoding="utf-8")
     assert "<loc>https://concordans.nl/actueel</loc>" in pages
     assert "gemarkeerd" not in pages

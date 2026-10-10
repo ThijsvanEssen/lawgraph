@@ -140,3 +140,84 @@ def test_the_page_of_a_member_reads_the_table_not_the_edges(store: GraphStore) -
         return found
 
     assert "edges" not in relations(plan[0]["Plan"])
+
+
+def _dated(store: GraphStore, member: str) -> dict[str, tuple[Any, Any]]:
+    return {
+        r["document_id"]: (r["date"], r["capacity"])
+        for r in store.query(
+            "SELECT document_id, date, capacity FROM lg_authored"
+            " WHERE member_id = %(m)s",
+            {"m": member},
+        )
+    }
+
+
+def test_a_signature_is_kept_with_the_date_of_its_paper(store: GraphStore) -> None:
+    """The date of the paper or the case signed and the capacity of the signature, with the
+    signature; again when the paper or the case is written later or its date changes."""
+    g = Graph(store)
+    g.node("members", "m1", name="Anna")
+    g.node("documents", "doc1", date="2024-01-01")
+    g.node("cases", "k1", date="2023-05-05")
+    signed = {"role": "Eerste ondertekenaar", "capacity": "bewindspersoon"}
+    g.edge("members/m1", RELATION_AUTHORED, "documents/doc1", **signed)
+    g.edge("members/m1", RELATION_AUTHORED, "cases/k1", **signed)
+    # signed before the paper is written
+    g.edge("members/m1", RELATION_AUTHORED, "documents/doc2", role="Mede ondertekenaar")
+    g.write()
+    assert _dated(store, "members/m1") == {
+        "documents/doc1": ("2024-01-01", "bewindspersoon"),
+        "cases/k1": ("2023-05-05", "bewindspersoon"),
+        "documents/doc2": (None, None),
+    }
+    g.node("documents", "doc2", date="2024-03-03")
+    g.node("documents", "doc1", date="2024-02-02")
+    g.node("cases", "k1", date="2023-06-06")
+    g.write()
+    assert _dated(store, "members/m1") == {
+        "documents/doc1": ("2024-02-02", "bewindspersoon"),
+        "cases/k1": ("2023-06-06", "bewindspersoon"),
+        "documents/doc2": ("2024-03-03", None),
+    }
+
+
+def test_the_dates_are_kept_in_slices_then_marked(store: GraphStore) -> None:
+    """Signatures kept before the dates were (no date, no capacity): kept a slice of members
+    at a time, each slice saying where the next goes on; the last notes the table dated."""
+    _signatures(store)
+    member_authored.fill_authored(store)
+    kept = {
+        m: _dated(store, m)
+        for m in store.query("SELECT DISTINCT member_id FROM lg_authored")
+    }
+    store.execute("UPDATE lg_authored SET date = NULL, capacity = NULL")
+    store.execute("DELETE FROM lg_authored_dated")
+    assert not member_authored.is_dated(store)
+    after, slices = "", 0
+    while True:
+        after, _ = member_authored.date_authored(store, after=after, limit=1)
+        slices += 1
+        if after is None:
+            break
+        assert not member_authored.is_dated(store)
+    assert slices == len(kept) + 1
+    assert member_authored.is_dated(store)
+    assert {m: _dated(store, m) for m in kept} == kept
+
+
+def test_a_table_filled_from_new_is_dated_and_one_filled_before_is_not(
+    store: GraphStore,
+) -> None:
+    """On a new database (a rebuild) the table had its dates from its first row, so the
+    first fill notes it dated as well, without the pass of ``--authored-dates``; on one
+    filled before the dates (prod), the fill leaves that to the pass."""
+    _signatures(store)
+    assert not member_authored.is_filled(store)
+    member_authored.fill_authored(store)
+    assert member_authored.is_filled(store) and member_authored.is_dated(store)
+
+    # filled before its dates were kept: the fill again does not note them
+    store.execute("DELETE FROM lg_authored_dated")
+    member_authored.fill_authored(store)
+    assert member_authored.is_filled(store) and not member_authored.is_dated(store)

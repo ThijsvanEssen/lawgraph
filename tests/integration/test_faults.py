@@ -14,7 +14,9 @@ from tests.integration.conftest import ROOT, TEST_SERVER
 from tests.integration.seed import seed
 from tests.integration.test_chain import _counts, _edge_keys
 
-DOCUMENTS = 20_000
+# NodeWriter commits the documents per 500: between the quarter (1,000) and all (4,000) the
+# count holds six batches, each far longer (about 0.3 s) than the 50 ms poll.
+DOCUMENTS = 4_000
 
 
 def _start(database: str, payload_store: str, *args: str) -> subprocess.Popen[str]:

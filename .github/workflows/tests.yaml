@@ -81,9 +81,15 @@ jobs:
         run: pytest
 
   # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
-  # postgres-test of docker-compose.test.yml. The suites run in three shards side by side
-  # (tests/integration split by file name: a-l, and every other file), each spread over the
-  # cores of its runner; every test makes a database of its own, so the tests do not meet.
+  # postgres-test of docker-compose.test.yml. The suites run in six shards side by side, made of
+  # files by the first letter of their name (every letter in one shard) so that the measured
+  # durations (--durations) of each add up to about the same, a sixth of the whole. Each is
+  # spread test by test over the cores of its runner (worksteal): every test makes a database
+  # of its own, so the tests do not meet, and a long file does not keep one core busy while the
+  # others wait. The shards with tests/pg/test_query_plans.py, the busy days of
+  # tests/pg/test_feed_queries.py and tests/integration/test_series_end_to_end.py run
+  # loadgroup instead: worksteal ignores the xdist_group that keeps their tests on the one
+  # worker that built their database.
   database-shard:
     needs: reuse
     if: ${{ !cancelled() && needs.reuse.outputs.tested != 'true' }}
@@ -93,12 +99,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: pg
-            tests: tests/pg
-          - shard: integration-a-l
-            tests: tests/integration/test_[a-l]*.py
-          - shard: integration-rest
-            tests: tests/integration --ignore-glob=tests/integration/test_[a-l]*.py
+          - shard: 1
+            tests: tests/pg/test_[a-ej-r]*.py
+            dist: loadgroup
+          - shard: 2
+            tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-m]*.py
+            dist: loadgroup
+          - shard: 3
+            tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
+          - shard: 4
+            tests: tests/integration/test_[a-ct]*.py
+          - shard: 5
+            tests: tests/integration/test_[d-i]*.py
+          - shard: 6
+            tests: tests/integration/test_[jp-qsu]*.py
+            dist: loadgroup
 
     env:
       ALLOW_DB_TESTS: '1'
@@ -111,8 +126,9 @@ jobs:
       # synchronous_commit and full_page_writes off). JIT off, as on postgres-test. The
       # official image from the ECR Public mirror of Docker Hub (the same digest): a runner
       # pulling from Docker Hub without login hits its rate limit. ECR Public throttles a
-      # burst of pulls too (the three shards at once: "toomanyrequests"), so the pull is
-      # tried 5 times, 10, 20, 30 and 40 s apart.
+      # burst of pulls too (the shards at once: "toomanyrequests"), so the pull is tried 5
+      # times, 10, 20, 30 and 40 s apart. It starts while Python is installed; the step before
+      # the tests waits until it answers.
       - name: Start PostgreSQL
         env:
           IMAGE: public.ecr.aws/docker/library/postgres:18
@@ -129,10 +145,6 @@ jobs:
             "$IMAGE" \
             -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
             -c jit=off -c max_connections=300
-          for _ in $(seq 1 60); do
-            docker exec postgres pg_isready -U lawgraph -h localhost && break
-            sleep 1
-          done
 
       - uses: actions/setup-python@v5
         with:
@@ -146,8 +158,16 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -e ".[dev]"
 
+      - name: Wait for PostgreSQL
+        run: |
+          for _ in $(seq 1 60); do
+            docker exec postgres pg_isready -U lawgraph -h localhost && exit 0
+            sleep 1
+          done
+          exit 1
+
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist loadfile
+        run: pytest ${{ matrix.tests }} -n auto --dist ${{ matrix.dist || 'worksteal' }} --durations=20
 
   # The one check of the database tests the merge gate reads: green when every shard is, or
   # when the same files passed on develop.

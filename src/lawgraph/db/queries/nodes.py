@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
@@ -16,7 +17,13 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
-from lawgraph.db.version_cache import lasting
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
+from lawgraph.db.version_cache import lasting, stale_wait
 
 
 class NodeNotFoundError(ValueError):
@@ -133,12 +140,17 @@ class NeighborBucket:
     # of an article: per lid its edges cite, how many of the whole bucket do ("" no lid);
     # None where no edge of the bucket names a lid
     lid_counts: dict[str, int] | None = None
+    # of a member's AUTHORED: per capacity they signed in, how many of the whole bucket
+    # ("" none); None for every other bucket
+    capacity_counts: dict[str, int] | None = None
 
 
 @dataclass
 class NodeGraphData:
     node: dict[str, Any]
     buckets: list[NeighborBucket]
+    # of an article asked without waiting for its lid counts: they are being counted
+    lid_counts_pending: bool = False
 
 
 def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
@@ -150,6 +162,31 @@ def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     return node
 
 
+def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:
+    """Per collection a member signed papers of (documents, cases, commitments): how many
+    they signed in each capacity (``meta.capacity`` of AUTHORED: kamerlid, bewindspersoon,
+    overig; "" none), every signature, from ``lg_authored`` through its index of members.
+    Empty until the table is whole and dated (``member_authored``): the page then counts
+    only what it holds."""
+    from lawgraph.db.queries import member_authored
+
+    if not (member_authored.is_filled(store) and member_authored.is_dated(store)):
+        return {}
+    counts: dict[str, dict[str, int]] = {}
+    for row in store.query(
+        """
+        SELECT split_part(a.document_id, '/', 1) AS collection,
+               coalesce(a.capacity, '') AS capacity, count(*)::int AS n
+        FROM lg_authored a
+        WHERE a.member_id = %(member)s
+        GROUP BY 1, 2
+        """,
+        {"member": member_id},
+    ):
+        counts.setdefault(row["collection"], {})[row["capacity"]] = row["n"]
+    return counts
+
+
 def get_node_with_neighbors(
     store: GraphStore,
     collection: str,
@@ -159,19 +196,25 @@ def get_node_with_neighbors(
     limit: int = DEFAULT_BUCKET_LIMIT,
     offset: int = 0,
     canvas: bool = False,
+    wait_for_lids: bool = True,
 ) -> NodeGraphData:
     """A node with its neighbours, in buckets of one relation, direction and collection.
 
     ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
     and where its next page starts. With *canvas* a neighbour has only the props and the
-    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``).
+    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``). Without
+    *wait_for_lids* an article's lid counts that are not kept yet are left out
+    (``lid_counts_pending``) and counted on in the background, for the next request.
     """
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
     pages = _read_pages(store, node["_id"], filters, facets, limit, offset, canvas)
-    lids = (
-        _kept_lids(store, node["_id"], filters, _leden(node))
-        if collection == "articles"
+    lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
+    if collection == "articles":
+        lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
+    capacities = (
+        _capacity_counts(store, node["_id"])
+        if collection == COLLECTION_MEMBERS and filters.status is None
         else {}
     )
     end = offset + limit
@@ -180,11 +223,18 @@ def get_node_with_neighbors(
             facet=facet,
             next_offset=end if end < facet.count else None,
             entries=pages.get((facet.relation, facet.direction, facet.collection), []),
-            lid_counts=lids.get((facet.relation, facet.direction, facet.collection)),
+            lid_counts=(lids or {}).get(
+                (facet.relation, facet.direction, facet.collection)
+            ),
+            capacity_counts=(
+                capacities.get(facet.collection)
+                if (facet.relation, facet.direction) == (RELATION_AUTHORED, "outbound")
+                else None
+            ),
         )
         for facet in facets
     ]
-    return NodeGraphData(node=node, buckets=buckets)
+    return NodeGraphData(node=node, buckets=buckets, lid_counts_pending=lids is None)
 
 
 def _count_facets(
@@ -268,24 +318,46 @@ def _kept_lids(
     node_id: str,
     filters: NeighborFilter,
     leden: list[str] | None,
-) -> dict[tuple[str | None, str, str], dict[str, int]]:
+    wait: bool = True,
+) -> dict[tuple[str | None, str, str], dict[str, int]] | None:
     """``_count_lids``, kept ``LIDS_MAX_AGE`` whatever the data does: it reads the ``meta``
     of every edge of the article (of 6:162 BW, 9,000: half a second warm, seconds cold),
     and every poll writes edges, so kept per version of them it was read again cold after
     each (6–9 s on prod, 2026-10-09); a poll moves the counts of a much cited article by a
-    handful."""
+    handful. Without *wait* (a light node, ``limit=1``) an earlier count at once, and a
+    new one waited for ``LIGHT_LIDS_WAIT`` at most: None past it, the count going on in the
+    background (7.0 s for the light node of 6:162 BW after a deploy, 10 Oct)."""
     leden_key = None if leden is None else tuple(leden)
-    return lasting(
-        store,
-        ("lid-counts", node_id, filters, leden_key),
-        lambda: _count_lids(store, node_id, filters, leden),
-        LIDS_MAX_AGE,
+
+    def kept() -> dict[tuple[str | None, str, str], dict[str, int]]:
+        return lasting(
+            store,
+            ("lid-counts", node_id, filters, leden_key),
+            lambda: _count_lids(store, node_id, filters, leden),
+            LIDS_MAX_AGE,
+        )
+
+    if wait:
+        return kept()
+    left = read_time_left()
+    token = set_read_deadline(
+        LIGHT_LIDS_WAIT if left is None else min(LIGHT_LIDS_WAIT, left)
     )
+    try:
+        with stale_wait(0.0):
+            return kept()
+    except ReadTimedOut:
+        return None
+    finally:
+        reset_read_deadline(token)
 
 
 # How long the lid counts of an article are kept (seconds); a newer count is made in the
 # background after that, while the kept one is served.
 LIDS_MAX_AGE = 3600.0
+# How long a light node waits for lid counts not kept yet (seconds): those of an article
+# with few citations come in time, those of a much cited one are counted on.
+LIGHT_LIDS_WAIT = 0.5
 
 
 def _count_lids(
@@ -527,4 +599,69 @@ def get_node_neighborhood(
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
         "edges": [light_edge_doc(row) for row in edges],
+        "buckets": _buckets(store, focal["_id"], filters, {row["id"] for row in nodes}),
     }
+
+
+# Per collection, the neighbours of a node along the edges a walk follows (``lg_walk``'s
+# first level): from the edges alone, through their covering indexes (a neighbour that is
+# gone counts too).
+_BUCKETS = """
+SELECT split_part(x.id, '/', 1) AS collection, count(*)::int AS total,
+       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{}') AS ids
+FROM (
+    SELECT e.to_id AS id FROM edges e
+    WHERE %(outbound)s AND e.from_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+    UNION
+    SELECT e.from_id FROM edges e
+    WHERE %(inbound)s AND e.to_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+) x
+WHERE x.id <> %(focal)s
+GROUP BY 1
+ORDER BY 1 ASC NULLS LAST
+"""
+
+
+def _buckets(
+    store: GraphStore, focal_id: str, filters: NeighborFilter, kept: set[str]
+) -> list[dict[str, Any]]:
+    """Per collection of the node's own neighbours (the first level of its neighbourhood),
+    by name: ``total``, its neighbours there along the edges walked, of the types asked for,
+    and ``kept``, those the walk kept under its cap."""
+    found = []
+    for row in store.query(_BUCKETS, _walk_params(focal_id, 1, 1, filters)):
+        collection = row["collection"]
+        if collection not in _ALLOWED_NODE_COLLECTIONS or (
+            filters.collections is not None and collection not in filters.collections
+        ):
+            continue
+        found.append(
+            {
+                "collection": collection,
+                "total": row["total"],
+                "kept": sum(1 for node_id in row["ids"] if node_id in kept),
+            }
+        )
+    return found
+
+
+def version_law_name(store: GraphStore, bwb_id: str) -> str | None:
+    """The citation title of the law of an instrument version (its props do not hold it):
+    from the columns of ``instruments`` and ``lg_instrument_names``, as the canvas reads it."""
+    return next(
+        iter(
+            store.query(
+                """
+                SELECT coalesce(nullif(i.citation_title, ''), nullif(t.title, ''))
+                FROM instruments i LEFT JOIN lg_instrument_names t ON t.id = i.id
+                WHERE i.bwb_id = %(bwb_id)s ORDER BY i.key LIMIT 1
+                """,
+                {"bwb_id": bwb_id},
+            )
+        ),
+        None,
+    )

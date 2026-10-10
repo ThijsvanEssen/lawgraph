@@ -323,14 +323,27 @@ def list_member_votes(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[
+        int, Query(ge=0, le=100_000, description="Skip the newest that many votes.")
+    ] = 0,
+    in_office: Annotated[
+        bool,
+        Query(
+            description="Only the votes cast while the member held a post of the "
+            "government (``in_office`` not empty), before the page is cut."
+        ),
+    ] = False,
 ) -> MemberVotesResponse:
     node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
     member_id = node.node_id or ""
-    votes = get_member_votes(store, member_id, limit=limit)
+    votes = get_member_votes(
+        store, member_id, limit=limit, offset=offset, in_office=in_office
+    )
     return MemberVotesResponse(
         member_id=member_id,
         count=len(votes),
         votes=[MemberVoteDTO(**v) for v in votes],
+        next_offset=offset + limit if len(votes) == limit else None,
     )
 
 

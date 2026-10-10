@@ -165,6 +165,24 @@ LEFT JOIN dossiers d ON d.id = signed.dossier_id
 """
 
 
+# The same, once ``lg_authored`` is dated: per member the range of its index by capacity and
+# date within the period, each signature with its dossiers, from the index alone; no paper
+# or case read for its date (a minister of many cabinets signed tens of thousands: 23 s cold
+# for rutte_iv with a probe each).
+_SIGNED_DATED = f"""
+SELECT count(*)::int AS dossiers,
+       (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s))::int AS bills
+FROM (
+    SELECT DISTINCT x.dossier_id
+    FROM lg_authored a
+    CROSS JOIN LATERAL unnest(a.dossiers) AS x(dossier_id)
+    WHERE a.member_id = m.id AND a.capacity = %(government)s
+      AND a.date >= coalesce(c.period_start, '') AND a.date <= c.period_end
+) signed
+LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
+"""
+
+
 # How long the page of a cabinet is kept (seconds), whatever the data does: its counts read
 # every paper its members signed (a minute for the newest cabinets together, from disk), and a
 # poll of other sources (an hour of judgments) changes none of them; a newly signed paper
@@ -189,7 +207,12 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
 
 
 def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
-    signed_sql = _SIGNED_LIGHT if member_authored.is_filled(store) else _SIGNED
+    if member_authored.is_dated(store):
+        signed_sql = _SIGNED_DATED
+    elif member_authored.is_filled(store):
+        signed_sql = _SIGNED_LIGHT
+    else:
+        signed_sql = _SIGNED
     rows = store.query(
         f"""
         SELECT c.id, c.key, c.type, c.labels, c.props,

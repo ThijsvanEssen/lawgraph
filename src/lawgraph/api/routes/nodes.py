@@ -12,6 +12,7 @@ from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NeighborBucketDTO,
     NeighborDTO,
+    NeighborhoodCollectionDTO,
     NodeGraphResponse,
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
@@ -34,6 +35,7 @@ from lawgraph.db.queries.nodes import (
     UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
+    version_law_name,
 )
 from lawgraph.db.queries.overlay import (
     HEAT_MAX_LIMIT,
@@ -250,6 +252,8 @@ def get_node_graph(
             limit=limit,
             offset=offset,
             canvas=props == "canvas",
+            # the light node (one per bucket) does not wait for an article's lid counts
+            wait_for_lids=limit > 1,
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -268,6 +272,7 @@ def get_node_graph(
             total=bucket.facet.count,
             next_offset=bucket.next_offset,
             lid_counts=bucket.lid_counts,
+            capacity_counts=bucket.capacity_counts,
             items=[
                 NeighborDTO.from_entry(
                     doc=entry.doc,
@@ -282,6 +287,10 @@ def get_node_graph(
         for bucket in data.buckets
     ]
     node_props = data.node.get("props") or {}
+    if collection == "instrument_versions" and node_props.get("bwb_id"):
+        # the name of its law for its title (one row of ``instruments`` by its bwb_id)
+        law = version_law_name(store, str(node_props["bwb_id"]))
+        node_props = {**node_props, "instrument_citation_title": law}
     title, description = title_of(data.node["_id"], node_props)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
@@ -293,6 +302,7 @@ def get_node_graph(
         title=title,
         description=description,
         path=path_of(data.node["_id"], node_props),
+        lid_counts_pending=data.lid_counts_pending,
     )
 
 
@@ -370,4 +380,9 @@ def get_node_neighborhood_route(
         )
         for e in data["edges"]
     ]
-    return NodeNeighborhoodResponse(focal_id=focal["_id"], nodes=nodes, edges=edges)
+    return NodeNeighborhoodResponse(
+        focal_id=focal["_id"],
+        nodes=nodes,
+        edges=edges,
+        buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
+    )

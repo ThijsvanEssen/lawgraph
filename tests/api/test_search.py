@@ -90,6 +90,89 @@ def hit(**fields: Any) -> dict[str, Any]:
         ("dilan yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_PREFIX),
         ("cooperatie", hit(extra={"heading": "Coöperatie"}), SCORE_TITLE),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
+        # The name of an article's law is not its name: every article of the Wet
+        # conflictenrecht onrechtmatige daad would hold the words; art. 6:162 BW holds them
+        # in the title of its division. The whole name, or its start, is still the article.
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 5 Wet conflictenrecht onrechtmatige daad",
+                extra={"instrument_title": "Wet conflictenrecht onrechtmatige daad"},
+            ),
+            SCORE_WORDS,
+        ),
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 162 Burgerlijk Wetboek Boek 6",
+                extra={"division_titles": ["Titel 3. Onrechtmatige daad"]},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "wet conflictenrecht onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 5 Wet conflictenrecht onrechtmatige daad",
+                extra={"instrument_title": "Wet conflictenrecht onrechtmatige daad"},
+            ),
+            SCORE_TITLE,
+        ),
+        # a judgment's case number is no name: the type code of the case is not a word of it
+        (
+            "huur",
+            hit(
+                collection="judgments",
+                display_name="Rechtbank Amsterdam 2009-07-08 / AWB 08/5197 HUUR",
+            ),
+            SCORE_WORDS,
+        ),
+        (
+            "urgenda",
+            hit(
+                collection="judgments",
+                display_name="Hoge Raad 2019-12-20 / 19/00135",
+                extra={"names": ["Staat/Urgenda"]},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "rechtbank amsterdam",
+            hit(
+                collection="judgments",
+                display_name="Rechtbank Amsterdam 2009-07-08 / AWB 08/5197 HUUR",
+            ),
+            SCORE_PREFIX,
+        ),
+        # with the article's number, the name of its law names it ("art 2 klimaatfonds")
+        (
+            "art 2 klimaatfonds",
+            hit(
+                collection="articles",
+                display_name="Artikel 2 Tijdelijke wet Klimaatfonds",
+                extra={"article_number": "2"},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "art 2 klimaatfonds",
+            hit(
+                collection="articles",
+                display_name="Artikel 1 Tijdelijke wet Klimaatfonds",
+                extra={"article_number": "1"},
+            ),
+            SCORE_WORDS,
+        ),
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="instruments",
+                display_name="Wet conflictenrecht onrechtmatige daad",
+            ),
+            SCORE_CONTAINS,
+        ),
     ],
 )
 def test_score_is_the_rank_tier_of_the_best_match(

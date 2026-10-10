@@ -324,9 +324,12 @@ def test_what_its_members_signed_read_light_is_the_same(
     of each cabinet."""
     walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
     version_cache.clear()
-    # the triggers kept every signature as it was written; the fill notes it is whole
+    # the triggers kept every signature as it was written; the fill notes it is whole,
+    # here as on a database filled before the dates were kept (not dated)
     member_authored.fill_authored(government)
+    government.execute("DELETE FROM lg_authored_dated")
     assert member_authored.is_filled(government)
+    assert not member_authored.is_dated(government)
 
     light = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
 
@@ -372,9 +375,66 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
 
     # d4 through the case of 2026; the case of 2020 is before jetten
     assert dirk() == (1, 1)
+    # filled before the dates were kept: read light, each date from its case
     member_authored.fill_authored(government)
+    government.execute("DELETE FROM lg_authored_dated")
     assert member_authored.is_filled(government)
+    assert not member_authored.is_dated(government)
     assert dirk() == (1, 1)
+
+
+def test_what_its_members_signed_read_by_date_reads_no_paper(
+    government: GraphStore,
+) -> None:
+    """Once ``lg_authored`` is dated, the counts of a member are a range of its index by
+    capacity and date: the same answer, and no paper or case read for its date (a minister
+    of many cabinets signed tens of thousands, a probe each)."""
+    walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    member_authored.fill_authored(government)
+    after: str | None = ""
+    while after is not None:
+        after, _ = member_authored.date_authored(government, after=after, limit=100)
+    assert member_authored.is_dated(government)
+    version_cache.clear()
+
+    from lawgraph.db.store import _query
+
+    statements: list[tuple[Any, Any]] = []
+    query = government.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and "served_in" in params:
+            statements.append((statement, params))
+        return query(statement, params, **options)
+
+    government.query = recording  # type: ignore[method-assign]
+    try:
+        dated = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    finally:
+        government.query = query  # type: ignore[method-assign]
+    assert json.dumps(dated) == json.dumps(walked)
+
+    statement, params = statements[0]
+    with government.pool.connection() as conn:
+        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = conn.execute(explain, params).fetchone()[0]
+
+    def relations(node: Any) -> set[str]:
+        found = {node["Relation Name"]} if "Relation Name" in node else set()
+        for child in node.get("Plans", []):
+            found |= relations(child)
+        return found
+
+    assert not relations(plan[0]["Plan"]) & {"documents", "cases"}
+    # and the date is what is read: a signature dated before jetten leaves it
+    government.execute(
+        "UPDATE lg_authored SET date = '2000-01-01' WHERE member_id = 'members/m1'"
+    )
+    version_cache.clear()
+    jetten = get_cabinet(government, "jetten")
+    assert jetten is not None
+    (heinen,) = [m for m in jetten["members"] if m["member"]["key"] == "m1"]
+    assert (heinen["dossiers"], heinen["bills"]) == (0, 0)
 
 
 def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:

@@ -173,6 +173,16 @@ class NeighborBucketDTO(BaseModel):
             "null when none of them cites a lid."
         ),
     )
+    capacity_counts: dict[str, int] | None = Field(
+        None,
+        description=(
+            "Of a member's ``AUTHORED`` (outbound): per capacity they signed in "
+            "(``meta.capacity``: ``kamerlid``, ``bewindspersoon``, ``overig``; "
+            '"" for none), how many of the whole bucket, not only of its page. Null for '
+            "every other bucket, with a ``status`` filter, and before the signatures "
+            "are kept with their capacity."
+        ),
+    )
     items: list[NeighborDTO]
 
 
@@ -203,6 +213,12 @@ class NodeGraphResponse(BaseModel):
         description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
         "for a node without one.",
     )
+    lid_counts_pending: bool = Field(
+        False,
+        description="Of an article asked with ``limit=1``: its lid counts are being "
+        "counted, so every ``lid_counts`` is null; a request with a larger ``limit`` "
+        "waits for them and has them. False otherwise.",
+    )
 
 
 class NodeNeighborhoodEdge(BaseModel):
@@ -218,6 +234,21 @@ class NodeNeighborhoodEdge(BaseModel):
     status: str | None = None
 
 
+class NeighborhoodCollectionDTO(BaseModel):
+    """Of the focal node's own neighbours in one collection: how many, and how many the
+    neighbourhood holds under its cap."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    collection: str
+    total: int = Field(
+        ...,
+        description="Its neighbours there along the edges walked, of the types asked "
+        "(from the edges: one that is gone counts too).",
+    )
+    kept: int = Field(..., description="Of those, the ones in `nodes`.")
+
+
 class NodeNeighborhoodResponse(BaseModel):
     """One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."""
 
@@ -226,3 +257,9 @@ class NodeNeighborhoodResponse(BaseModel):
     focal_id: str
     nodes: list[BaseNodeDTO]
     edges: list[NodeNeighborhoodEdge]
+    buckets: list[NeighborhoodCollectionDTO] = Field(
+        default_factory=list,
+        description="Per collection of the focal node's own neighbours (the first level), "
+        "by name: `total` and `kept`; where `kept` is less, the cap left the rest out "
+        "(`GET /api/nodes/{collection}/{key}` lists them all).",
+    )

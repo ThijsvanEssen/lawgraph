@@ -771,3 +771,92 @@ def test_sorted_hits_give_the_page_the_index_order_gives(
     assert pages[0] == pages[1]
     assert [page["total"] for page in pages[0]] == [667] * 3
     assert [len(page["items"]) for page in pages[0]] == [50, 50, 17]
+
+
+def _page_and_statement(
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    filters: JudgmentFilters,
+    **page: Any,
+) -> tuple[list[Any], str, Any]:
+    """The items of a page of the list *filters*, and the statement that read them."""
+    seen: list[tuple[str, Any]] = []
+    query = store.query
+
+    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
+        seen.append((str(statement), params))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(store, "query", recorded)
+    found = get_judgments_list(store, filters, limit=50, facets=False, **page)
+    monkeypatch.setattr(store, "query", query)
+    ((statement, params),) = [(s, p) for s, p in seen if "row_number()" in s]
+    return found["items"], statement, params
+
+
+def _page_by_id(store: GraphStore, statement: str, params: Any) -> list[Any]:
+    """The page *statement* reads, its rows read again by their id: as the page was read
+    before its rows were read by their place (``ctid``)."""
+    by_id = statement.replace("j.ctid AS row_id", "j.id AS row_id").replace(
+        "ON j.ctid = page.row_id", "ON j.id = page.row_id"
+    )
+    assert by_id != statement
+    return list(store.query(by_id, params))
+
+
+@pytest.mark.parametrize("sort", ["date_desc", "date_asc", "citation_count"])
+@pytest.mark.parametrize("q", [None, "pacht"])
+def test_rows_read_by_their_place_are_the_rows_read_by_their_id(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, sort: str, q: str | None
+) -> None:
+    """The page in the order of an index and the page of sorted hits give the same items
+    whether their rows are read again by place or by id, at the start, in the middle and at
+    the end of the list."""
+    _words(store, rare=3)
+    filters = JudgmentFilters(q=q, source="rechtspraak")
+    for offset in (0, 50, 1950 if q is None else 650):
+        items, statement, params = _page_and_statement(
+            store, monkeypatch, filters, sort=sort, offset=offset
+        )
+        assert items
+        assert items == _page_by_id(store, statement, params)
+
+
+def _scans(store: GraphStore, statement: str, params: Any) -> list[str]:
+    """The scans of judgments in the plan of *statement*: node type and index."""
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
+    assert row is not None
+    found: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("Relation Name") == "judgments":
+                found.append(
+                    f"{node['Node Type']} {node.get('Index Name', '')}".strip()
+                )
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(row[0])
+    return found
+
+
+@pytest.mark.parametrize("q", [None, "pacht"])
+def test_the_rows_of_a_page_are_read_by_their_place(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, q: str | None
+) -> None:
+    """The rows of the page are built into items from their place (a ``Tid Scan``), not
+    looked up again by their id (``judgments_pkey``): four reads a row, the most of a cold
+    page (2.1 s on prod for 100 judgments, 10 Oct)."""
+    _words(store, rare=400)
+    statement, params = _items_statement(
+        store, monkeypatch, JudgmentFilters(q=q, source="rechtspraak")
+    )
+    scans = _scans(store, statement, params)
+    assert "Tid Scan" in scans
+    assert not any("judgments_pkey" in scan for scan in scans)

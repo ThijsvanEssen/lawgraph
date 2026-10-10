@@ -216,6 +216,9 @@ def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> N
             "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
         },
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_replacements", lambda store, ids: {}
+    )
     listed = client.get("/api/dossiers/36000/documents").json()["items"]
     assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
         ("TK", "tk", True),
@@ -675,6 +678,13 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
         return {"vvd": 33}
 
     monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    # one seat of the faction no member held that day
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.vacancies_between",
+        lambda store, start, end: [
+            {"faction_key": "vvd", "from_date": "2010-10-01", "to_date": "2010-10-12"}
+        ],
+    )
     monkeypatch.setattr(
         "lawgraph.api.routes.parliament.coalition_of_day",
         lambda store, day: Coalition(cabinet=None),
@@ -683,7 +693,10 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
     assert body["cabinet"] is None and body["factions"][0]["coalition"] is None
     assert asked == ["2010-10-10"]
     assert body["as_of"] == "2010-10-10"
-    assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
+    assert [(f["key"], f["seats"], f["vacant"]) for f in body["factions"]] == [
+        ("vvd", 33, 1)
+    ]
+    # the seats held: the vacant one is no member's
     assert body["assigned_seats"] == 33
     assert client.get("/api/parliament/seats?date=gisteren").status_code == 422
 

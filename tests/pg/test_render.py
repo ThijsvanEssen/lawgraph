@@ -214,7 +214,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
     assert response.status_code == 200
     page = _head(response.text)
-    assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
+    assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
     # the text alone, the same before and after its judgments are kept (no count)
     assert "uitspraken" not in page["description"]
@@ -231,7 +231,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     assert [i["name"] for i in graph[1]["itemListElement"]] == [
         "Concordans",
         "Burgerlijk Wetboek Boek 6 (BW 6)",
-        "Artikel 6:162 BW: onrechtmatige daad",
+        "Art. 6:162 BW, Onrechtmatige daad",
     ]
     # the shell's own head and body stay: the app starts over it
     assert 'import("/_app/immutable/entry/start.js")' in response.text
@@ -244,7 +244,7 @@ def test_an_article_of_a_law_without_books(client: TestClient) -> None:
     response = _get(client, "/wetten/BWBR0001854/artikel/287")
     assert response.status_code == 200
     page = _head(response.text)
-    assert page["title"].startswith("Artikel 287 Sr")
+    assert page["title"].startswith("Art. 287 Sr")
     assert page["description"].startswith("Hij die opzettelijk een ander")
     assert page["canonical"] == "https://concordans.nl/wetten/BWBR0001854/artikel/287"
     assert "Hij die opzettelijk een ander" in page["main"]
@@ -260,7 +260,7 @@ def test_an_article_whose_judgments_take_too_long_is_its_text(
     assert response.status_code == 200
     assert response.headers["cache-control"] != "no-store"
     page = _head(response.text)
-    assert page["title"] == "Artikel 6:162 BW: onrechtmatige daad, Concordans"
+    assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
     assert "Hij die jegens een ander" in page["main"]
     assert 'href="/wetten/BWBR0005289"' in page["main"]
@@ -330,7 +330,7 @@ def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> 
 def test_a_law_lists_its_articles(client: TestClient) -> None:
     page = _head(_get(client, "/wetten/BWBR0005289").text)
     assert page["title"] == "Burgerlijk Wetboek Boek 6 (BW 6), Concordans"
-    assert "geldend sinds 01-01-1992" in page["description"]
+    assert "geldend sinds 1 januari 1992" in page["description"]
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert 'href="/wetten/BWBR0005289/artikel/6:163"' in page["main"]
     assert page["data"]["@graph"][0]["legislationIdentifier"] == "BWBR0005289"
@@ -341,7 +341,7 @@ def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
     page = _head(response.text)
     assert (
         page["title"]
-        == "ECLI:NL:HR:2019:2006, Hoge Raad 20-12-2019 (Urgenda), Concordans"
+        == "HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006, Concordans"
     )
     assert page["description"].startswith("Klimaatzaak.")
     assert "De hele tekst" not in response.text
@@ -352,8 +352,10 @@ def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
 
 def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     page = _head(_get(client, "/kamerstukken/36496/71").text)
-    assert page["title"].startswith("Motie Bolhuis over een AI-killswitch (36496-71)")
-    assert "aangenomen" in page["title"]
+    # its number first, its whole subject; the outcome, which a vote changes, in the
+    # description alone (the title is the same in the API, which reads no vote)
+    assert page["title"] == "Motie 36496-71 Bolhuis over een AI-killswitch, Concordans"
+    assert "aangenomen" not in page["title"] and "aangenomen" in page["description"]
     assert "Ingediend door Bolhuis" in page["description"]
     assert "voor: VVD" in page["description"]
     assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
@@ -363,10 +365,7 @@ def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
 
 def test_a_dossier_lists_its_papers(client: TestClient) -> None:
     page = _head(_get(client, "/dossiers/36496").text)
-    assert (
-        page["title"]
-        == "36496 Wet AI-toezicht: dossier, moties en stemmingen, Concordans"
-    )
+    assert page["title"] == "36496 Wet AI-toezicht, Concordans"
     assert "1 stukken" in page["description"]
     assert 'href="/kamerstukken/36496/71"' in page["main"]
 
@@ -436,20 +435,24 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
     client: TestClient,
 ) -> None:
     """``title``, ``description`` and ``path`` of ``/api/nodes``: the SPA shows the same
-    title when it opens a node, from the same templates."""
+    title when it opens a node, from the same templates, and the server HTML of its page has
+    it whole (one source: the tab does not change when the app takes over)."""
     for node, title, path in (
-        ("articles/bwbr0005289_162", "Artikel 6:162 BW: onrechtmatige daad",
+        ("articles/bwbr0005289_162", "Art. 6:162 BW, Onrechtmatige daad",
          "/wetten/BWBR0005289/artikel/6:162"),
+        ("documents/kst_36496_71", "Motie 36496-71 Bolhuis over een AI-killswitch",
+         "/kamerstukken/36496/71"),
         ("judgments/ecli_nl_hr_2019_2006",
-         "ECLI:NL:HR:2019:2006, Hoge Raad 20-12-2019 (Urgenda)",
+         "HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006",
          "/uitspraken/ECLI:NL:HR:2019:2006"),
-        ("dossiers/36496", "36496 Wet AI-toezicht: dossier, moties en stemmingen",
+        ("dossiers/36496", "36496 Wet AI-toezicht",
          "/dossiers/36496"),
-        ("decisions/s_1", "Stemming, 08-09-2026: aangenomen", "/stemmingen/s_1"),
+        ("decisions/s_1", "Stemming, 8 september 2026: aangenomen", "/stemmingen/s_1"),
     ):  # fmt: skip
         body = client.get(f"/api/nodes/{node}").json()
         assert (body["title"], body["path"]) == (title, path), node
         assert body["description"]
+        assert _head(_get(client, path).text)["title"] == f"{title}, Concordans", node
 
 
 def test_a_decision_has_its_page(client: TestClient) -> None:
@@ -693,7 +696,7 @@ def test_a_faction_lists_its_members_now(client: TestClient, store: GraphStore) 
     assert page["title"] == "D66, fractie in de Tweede Kamer, Concordans"
     # its name and its years: no seats, nothing that changes with a day of the data
     assert page["description"] == (
-        "Democraten 66 (D66), fractie in de Tweede Kamer, actief sinds 30-11-2006"
+        "Democraten 66 (D66), fractie in de Tweede Kamer, actief sinds 30 november 2006"
     )
     assert 'href="/leden/jan-paternotte"' in page["main"]
     assert "Fractievoorzitter" in page["main"]
@@ -715,7 +718,7 @@ def test_a_cabinet_has_its_bewindspersonen_and_parties(
     page = _head(_get(client, "/kabinetten/jetten").text)
     assert page["title"] == "Kabinet-Jetten (2026–), Concordans"
     assert page["description"] == (
-        "Kabinet-Jetten, sinds 23-02-2026, D66, minister-president Rob Jetten"
+        "Kabinet-Jetten, sinds 23 februari 2026, D66, minister-president Rob Jetten"
     )
     assert 'href="/leden/rob-jetten"' in page["main"]
     assert "Minister-president; Minister van Algemene Zaken" in page["main"]
@@ -735,7 +738,7 @@ def test_a_committee_lists_its_members_with_their_role(
         "Vaste commissie voor Sociale Zaken en Werkgelegenheid (SZW), Concordans"
     )
     assert "Tweede Kamer" in page["description"]
-    assert "actief sinds 17-06-2010" in page["description"]
+    assert "actief sinds 17 juni 2010" in page["description"]
     assert 'href="/leden/jan-paternotte"' in page["main"]
     assert "Voorzitter" in page["main"]
     assert "/leden/alexander-pechtold" not in page["main"]
@@ -840,7 +843,7 @@ def test_a_publication_has_its_title_and_what_it_changes(
     assert page["title"] == (
         "Stb. 2025, 263: Besluit tot wijziging van het Mediabesluit 2008, Concordans"
     )
-    assert "gepubliceerd 02-09-2025" in page["description"]
+    assert "gepubliceerd 2 september 2025" in page["description"]
     assert "over Burgerlijk Wetboek Boek 6" in page["description"]
     assert page["robots"] is None
     assert 'href="/wetten/BWBR0005289"' in page["main"]
@@ -894,7 +897,7 @@ def test_a_commitment_has_its_text_minister_and_the_letter_that_fulfils_it(
 def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> None:
     response = _get(client, "/stemmingen/s_1")
     page = _head(response.text)
-    assert page["title"] == "Stemming, 08-09-2026: aangenomen, Concordans"
+    assert page["title"] == "Stemming, 8 september 2026: aangenomen, Concordans"
     assert page["description"].endswith("voor: VVD; tegen: PVV")
     assert page["canonical"] == "https://concordans.nl/stemmingen/s_1"
     assert page["robots"] == "noindex"
@@ -1071,7 +1074,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert page["title"] == (
         "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"
     )
-    assert "gestart 01-08-2025" in page["description"]
+    assert "gestart 1 augustus 2025" in page["description"]
     assert "dossier 36496" in page["description"]
     assert "aangenomen" in page["description"]
     assert page["canonical"] == "https://concordans.nl/zaken/2025Z15468"
@@ -1102,3 +1105,43 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert motion["robots"] == "noindex"
     assert len(motion["data"]["@graph"][1]["itemListElement"]) == 2
     assert _get(client, "/zaken/2025Z99999").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("path", "focus", "title"),
+    [
+        ("/zaken/2025Z15468", "cases/",
+         "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"),
+        # of an annex the props hold no name of its law (the whole page joins it)
+        ("/wetten/BWBR0001941/bijlage/II", "annexes/bwbr0001941_annex_ii",
+         "Bijlage II: lijst II, Concordans"),
+    ],
+)  # fmt: skip
+def test_a_page_whose_reads_take_too_long_keeps_its_title(
+    client: TestClient,
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    focus: str,
+    title: str,
+) -> None:
+    """Past the render budget (a zaak with many votes, cold on prod: 10 Oct) the page is not
+    the shell titled "Concordans": its own title and description from its node, its node
+    as focus, without its content, not kept (the next request may have it whole)."""
+    from lawgraph.api.routes import render
+    from lawgraph.db.store import ReadTimedOut
+
+    _seed_annex_and_case(store)
+
+    def slow(*args: Any, **kwargs: Any) -> Any:
+        raise ReadTimedOut("past the budget")
+
+    monkeypatch.setattr(render, "_source_page", slow)
+    response = _get(client, path)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    page = _head(response.text)
+    assert page["title"] == title
+    assert page["description"]
+    assert page["main"] is None
+    assert f'<meta name="focus" content="{focus}' in response.text

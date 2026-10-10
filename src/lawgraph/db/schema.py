@@ -295,11 +295,14 @@ $$;
 
 -- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
 -- one statement: a level is read whole (the neighbours along the edges of the relations
--- and status asked for, in the directions asked for, not seen before) and kept in id order
--- until the cap; a node that is gone is not one; a node outside w_collections (when given)
--- is seen but neither kept nor walked through. Whether a neighbour is there is asked of
--- its own table only (w_tables), w_chunk at a time in id order, so a capped walk does not
--- look up the neighbours it will never keep.
+-- and status asked for, in the directions asked for, not seen before) and the room the cap
+-- leaves is shared among its collections: in rounds, each collection with neighbours left
+-- takes up to an equal share of the room, in id order, so a collection with fewer than its
+-- share is kept whole and what it leaves goes to the others (not every case of a minister
+-- before any of his papers, as id order would). A node that is gone is not one; a node
+-- outside w_collections (when given) or w_tables is neither kept nor walked through.
+-- Whether a neighbour is there is asked of its own table only, w_chunk at a time, so a
+-- capped walk does not look up the neighbours it will never keep.
 CREATE OR REPLACE FUNCTION lg_walk(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
     w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
@@ -314,9 +317,16 @@ DECLARE
     chunk text[];
     present text[];
     level text[];
-    reads text;
-    node text;
-    start int;
+    -- per collection of a level: its name, and the run of ``reached`` that is its (ids
+    -- begin with their collection, so a collection's neighbours are one run of them)
+    b_coll text[];
+    b_pos int[];
+    b_end int[];
+    room int;
+    n_open int;
+    share int;
+    took int;
+    n int;
 BEGIN
     FOR step IN 1..w_depth LOOP
         reached := ARRAY(
@@ -336,31 +346,43 @@ BEGIN
             ORDER BY f.id
         );
         level := '{}';
-        start := 1;
-        WHILE start <= coalesce(array_length(reached, 1), 0) LOOP
-            chunk := reached[start:start + w_chunk - 1];
-            start := start + w_chunk;
-            SELECT string_agg(
-                format('SELECT id FROM public.%I WHERE id = ANY($1)', c), ' UNION ALL '
-            ) INTO reads
-            FROM (
-                SELECT DISTINCT split_part(x, '/', 1) AS c FROM unnest(chunk) x
-            ) cs
-            WHERE c = ANY(w_tables);
-            IF reads IS NULL THEN
-                CONTINUE;
-            END IF;
-            EXECUTE 'SELECT coalesce(array_agg(id ORDER BY id), ''{}'') FROM ('
-                || reads || ') t' INTO present USING chunk;
-            seen := seen || present;
-            FOREACH node IN ARRAY present LOOP
-                IF w_collections IS NULL OR split_part(node, '/', 1) = ANY(w_collections) THEN
-                    level := level || node;
+        SELECT coalesce(array_agg(b.c ORDER BY b.c ASC NULLS LAST), '{}'),
+               coalesce(array_agg(b.lo ORDER BY b.c ASC NULLS LAST), '{}'),
+               coalesce(array_agg(b.hi ORDER BY b.c ASC NULLS LAST), '{}')
+        INTO b_coll, b_pos, b_end
+        FROM (
+            SELECT split_part(r.x, '/', 1) AS c, min(r.i)::int AS lo, max(r.i)::int AS hi
+            FROM unnest(reached) WITH ORDINALITY AS r(x, i)
+            GROUP BY 1
+        ) b
+        WHERE b.c = ANY(w_tables) AND (w_collections IS NULL OR b.c = ANY(w_collections));
+        LOOP
+            room := w_cap - coalesce(array_length(kept, 1), 0)
+                - coalesce(array_length(level, 1), 0);
+            SELECT count(*) INTO n_open
+            FROM generate_subscripts(b_coll, 1) AS g(i) WHERE b_pos[g.i] <= b_end[g.i];
+            EXIT WHEN n_open = 0;
+            share := ceil(room::numeric / n_open)::int;
+            FOR i IN 1..coalesce(array_length(b_coll, 1), 0) LOOP
+                CONTINUE WHEN b_pos[i] > b_end[i];
+                took := 0;
+                WHILE took < share AND b_pos[i] <= b_end[i] LOOP
+                    n := least(w_chunk, share - took, b_end[i] - b_pos[i] + 1);
+                    chunk := reached[b_pos[i]:b_pos[i] + n - 1];
+                    b_pos[i] := b_pos[i] + n;
+                    EXECUTE format(
+                        'SELECT coalesce(array_agg(id ORDER BY id), ''{}'')'
+                        ' FROM public.%I WHERE id = ANY($1)', b_coll[i]
+                    ) INTO present USING chunk;
+                    seen := seen || present;
+                    level := level || present;
+                    took := took + coalesce(array_length(present, 1), 0);
                     IF coalesce(array_length(kept, 1), 0)
-                       + array_length(level, 1) = w_cap THEN
-                        RETURN kept || level;
+                       + coalesce(array_length(level, 1), 0) >= w_cap THEN
+                        RETURN kept
+                            || level[1:w_cap - coalesce(array_length(kept, 1), 0)];
                     END IF;
-                END IF;
+                END LOOP;
             END LOOP;
         END LOOP;
         kept := kept || level;
@@ -1498,10 +1520,15 @@ END $$""",
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
 # they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
-# Kept by triggers on every write of ``edges`` (the signatures, and the papers placed in a
-# dossier or a case, and the cases in a dossier); ``semantic graph-light`` fills it once and
-# notes that in ``lg_authored_state``, before which the page walks the edges. Not a table of
-# the graph: writing it raises no data version.
+# With the date of the paper or case and the capacity of the signature, so that what a
+# member signed within a cabinet is a range of an index, not a probe of every paper they
+# ever signed for its date (``queries/cabinets``). Kept by triggers on every write of
+# ``edges`` (the signatures, and the papers placed in a dossier or a case, and the cases in
+# a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
+# fills it once and notes that in ``lg_authored_state``, before which the page walks the
+# edges, and keeps the dates of the signatures kept before them in slices
+# (``--authored-dates``), noted in ``lg_authored_dated``. Not a table of the graph: writing
+# it raises no data version.
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
     statements = [
@@ -1510,14 +1537,41 @@ def member_authored() -> list[str]:
     member_id text NOT NULL,
     document_id text NOT NULL,
     meta json NOT NULL,
-    dossiers text[] NOT NULL
+    dossiers text[] NOT NULL,
+    date text,
+    capacity text
 )""",
+        # the table as it was kept before its dates
+        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS date text",
+        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS capacity text",
         "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
         "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
+        # what a member signed in a capacity within a period, from the index alone; on a
+        # large database built beforehand with CREATE INDEX CONCURRENTLY
+        "CREATE INDEX IF NOT EXISTS lg_authored_member_date"
+        " ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
         """CREATE TABLE IF NOT EXISTS lg_authored_state (
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     filled_at timestamptz NOT NULL
 )""",
+        """CREATE TABLE IF NOT EXISTS lg_authored_dated (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    dated_at timestamptz NOT NULL
+)""",
+        # the date of a paper, a case or another node signed (plpgsql: the view of every
+        # node it reads for another node is made after this)
+        f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
+LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
+BEGIN
+    RETURN CASE
+        WHEN starts_with(paper, '{COLLECTION_DOCUMENTS}/') THEN
+            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = paper)
+        WHEN starts_with(paper, '{COLLECTION_CASES}/') THEN
+            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+             WHERE k.id = paper)
+        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n WHERE n.id = paper)
+    END;
+END $$""",
         # the dossiers of a paper (or a case): directly, and through the cases it is part of
         f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
@@ -1542,12 +1596,14 @@ BEGIN
           AND c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}';
     END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
-        INSERT INTO public.lg_authored (edge_key, member_id, document_id, meta, dossiers)
+        INSERT INTO public.lg_authored
+            (edge_key, member_id, document_id, meta, dossiers, date, capacity)
         SELECT c.key, c.from_id, c.to_id,
                json_build_object('role', c.doc -> 'meta' -> 'role',
                                  'function', c.doc -> 'meta' -> 'function',
                                  'capacity', c.doc -> 'meta' -> 'capacity'),
-               public.lg_dossiers_of(c.to_id)
+               public.lg_dossiers_of(c.to_id), public.lg_signed_date(c.to_id),
+               public.lg_str(c.doc -> 'meta' -> 'capacity')
         FROM changed c
         WHERE c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}'
         ON CONFLICT (edge_key) DO NOTHING;
@@ -1577,6 +1633,28 @@ END $$""",
             f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
             " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored()"
         )
+    # a paper or a case written after its signature, or its date changed: the signatures of
+    # it take the date again
+    for table, date in (
+        (COLLECTION_DOCUMENTS, "c.date"),
+        (COLLECTION_CASES, "public.lg_str(c.props -> 'date')"),
+    ):
+        statements.append(
+            f"""CREATE OR REPLACE FUNCTION lg_keep_authored_{table}_date() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE public.lg_authored a SET date = {date}
+    FROM changed c
+    WHERE a.document_id = c.id AND a.date IS DISTINCT FROM {date};
+    RETURN NULL;
+END $$"""
+        )
+        for event in ("INSERT", "UPDATE"):
+            statements.append(
+                f"CREATE OR REPLACE TRIGGER {table}_authored_date_{event.lower()}"
+                f" AFTER {event} ON {table} REFERENCING NEW TABLE AS changed"
+                f" FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored_{table}_date()"
+            )
     return statements
 
 
@@ -1776,6 +1854,20 @@ def nodes_view() -> str:
         for c in NODE_COLLECTIONS
     )
     return f"CREATE OR REPLACE VIEW nodes AS\n{parts}"
+
+
+def node_of(id_sql: str, collection_sql: str) -> str:
+    """SQL: ``LATERAL (...)``, the node *id_sql* names (the columns of the view ``nodes``)
+    from its own table, *collection_sql* (``e.from_collection``, or ``split_part(id, '/',
+    1)``). A join of the view on its id alone looked in every table of it, an index probe
+    each per row (``tests/test_nodes_view_joins.py`` keeps that from coming back): here
+    each table's part is gated on its name, so only the node's own table is read."""
+    parts = "\n        UNION ALL\n        ".join(
+        f"SELECT x.id, x.key, '{c}'::text AS collection, x.type, x.labels, x.props"
+        f" FROM {c} x WHERE {collection_sql} = '{c}' AND x.id = {id_sql}"
+        for c in NODE_COLLECTIONS
+    )
+    return f"LATERAL (\n        {parts}\n    )"
 
 
 def statements() -> list[str]:

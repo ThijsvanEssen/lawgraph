@@ -1167,3 +1167,208 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     assert set(estimate) == {"N"}
     # once computed (in the background), the statistics are kept and taken
     assert "display_name/text" in _bm25._stats(graph, "articles")
+
+
+def test_an_article_number_is_found_where_all_its_words_are(store: GraphStore) -> None:
+    """``7:669`` is the words 7 and 669 (``lg_tokens``): a judgment or article holds them
+    both, not one of them (every summary with a 7); a word of one stem finds what it found
+    before, and a token of no word nothing."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("j_ontslag", "judgment", ecli="ECLI:NL:HR:2026:1", source="rechtspraak",
+                  summary="Ontslag op staande voet, artikel 7:669 BW."),
+            _node("j_zeven", "judgment", ecli="ECLI:NL:HR:2026:2", source="rechtspraak",
+                  summary="Zeven punten: punt 7 over de huur."),
+            _node("j_669", "judgment", ecli="ECLI:NL:HR:2026:3", source="rechtspraak",
+                  summary="Een bedrag van 669 euro."),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bw7_669", "article", article_number="669",
+                  display_name="Artikel 7:669 Burgerlijk Wetboek",
+                  text="De werkgever kan de arbeidsovereenkomst opzeggen."),
+            _node("bw7_7", "article", article_number="7",
+                  display_name="Artikel 7:7 Burgerlijk Wetboek",
+                  text="Een koop van 7 zaken."),
+        ],
+    )  # fmt: skip
+
+    def found(q: str, table: str) -> list[str]:
+        return sorted(_ids(search_queries.search_all(store, q=q, types=[table])[table]))
+
+    assert found("7:669", "judgments") == ["judgments/j_ontslag"]
+    assert found("7:669", "articles") == ["articles/bw7_669"]
+    assert found("huur", "judgments") == ["judgments/j_zeven"]
+    assert found("--", "judgments") == []
+
+
+def test_the_words_of_a_token_are_found_through_their_index(store: GraphStore) -> None:
+    """All the words of a token, as one of each form: the GIN index of the field's words
+    answers it (a ``Bitmap Index Scan`` on ``…_t``), not a test of every row."""
+    from lawgraph.db.queries.search import build_search_clause
+
+    clause, params = build_search_clause("judgments", ["7:669"], ["summary"], "j")
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        (plan,) = conn.execute(
+            f"EXPLAIN (FORMAT JSON) SELECT j.id FROM judgments j WHERE {clause}", params
+        ).fetchone()
+    assert "judgments_s_summary_t" in str(plan)
+
+
+def test_an_article_is_ranked_by_its_own_name_and_its_case_law(
+    store: GraphStore,
+) -> None:
+    """ "onrechtmatige daad" finds art. 6:162 BW, in the title "Onrechtmatige daad" and
+    cited by thousands of judgments, before the articles of the Wet conflictenrecht
+    onrechtmatige daad, whose law alone holds the words; of two articles that hold them
+    alike, the one cited more first. The law itself is found among the instruments."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("bwbr0005289", "instrument", bwb_id="BWBR0005289",
+                  title="Burgerlijk Wetboek Boek 6", citation_title="Burgerlijk Wetboek Boek 6"),
+            _node("bwbr0012408", "instrument", bwb_id="BWBR0012408",
+                  title="Wet conflictenrecht onrechtmatige daad",
+                  citation_title="Wet conflictenrecht onrechtmatige daad"),
+        ],
+    )  # fmt: skip
+    title = [{"title": "Titel 3. Onrechtmatige daad"}]
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbr0005289_162", "article", bwb_id="BWBR0005289", article_number="162",
+                  display_name="Artikel 162 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Hij die jegens een ander een onrechtmatige daad pleegt, die hem kan"
+                  " worden toegerekend, is verplicht de schade te vergoeden.",
+                  inbound_citation_count=5000),
+            _node("bwbr0005289_163", "article", bwb_id="BWBR0005289", article_number="163",
+                  display_name="Artikel 163 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Geen verplichting tot schadevergoeding bestaat, wanneer de"
+                  " geschonden norm niet strekt tot bescherming tegen de schade.",
+                  inbound_citation_count=40),
+            _node("bwbr0005289_164", "article", bwb_id="BWBR0005289", article_number="164",
+                  display_name="Artikel 164 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Een gedraging van een kind dat de leeftijd van veertien jaren nog"
+                  " niet heeft bereikt, kan hem niet als een onrechtmatige daad worden"
+                  " toegerekend.",
+                  inbound_citation_count=2),
+            *(
+                _node(f"bwbr0012408_{n}", "article", bwb_id="BWBR0012408",
+                      article_number=str(n),
+                      display_name=f"Artikel {n} Wet conflictenrecht onrechtmatige daad",
+                      text="Verbintenissen uit onrechtmatige daad worden beheerst door het"
+                      " recht van de staat op wiens grondgebied de daad plaatsvindt.")
+                for n in (1, 2, 3)
+            ),
+        ],
+    )  # fmt: skip
+
+    def found(q: str, table: str) -> list[str]:
+        return [
+            h["key"]
+            for h in search_queries.search_all(store, q=q, types=[table])[table]
+        ]
+
+    articles = found("onrechtmatige daad", "articles")
+    assert articles[0] == "bwbr0005289_162"
+    # the articles of the title before those of the law that only its name joins
+    assert set(articles[:3]) == {
+        "bwbr0005289_162",
+        "bwbr0005289_163",
+        "bwbr0005289_164",
+    }
+    assert set(articles[3:]) == {"bwbr0012408_1", "bwbr0012408_2", "bwbr0012408_3"}
+    assert (
+        found("wet conflictenrecht onrechtmatige daad", "instruments")[0]
+        == "bwbr0012408"
+    )
+
+
+def test_of_two_articles_alike_the_one_cited_more_comes_first(
+    store: GraphStore,
+) -> None:
+    """Two articles whose words weigh the same: the one more judgments cite comes first,
+    though the key would put the other first."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(f"bwbr0005289_{key}", "article", bwb_id="BWBR0005289",
+                  article_number=key, display_name=f"Artikel {key} Burgerlijk Wetboek Boek 6",
+                  text="Een verbintenis tot schadevergoeding wegens een tekortkoming.",
+                  inbound_citation_count=cites)
+            for key, cites in (("74", 1), ("75", 300))
+        ],
+    )  # fmt: skip
+    hits = search_queries.search_all(store, q="tekortkoming", types=["articles"])
+    assert [h["key"] for h in hits["articles"]] == ["bwbr0005289_75", "bwbr0005289_74"]
+
+
+def test_a_common_word_ranks_its_most_cited_hits(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Of a word with more hits than ``RANK_CANDIDATES`` only the first in the order of
+    their columns are ranked (the most cited, then the newest): a judgment whose words weigh
+    most but that nothing cites is left out; with fewer hits than that every hit is ranked
+    and it comes first."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}", source="rechtspraak",
+                  summary="Een geschil over belasting.", inbound_citation_count=10 * n,
+                  date_eff=f"2026-01-{n + 1:02d}")
+            for n in range(1, 6)
+        ]
+        + [
+            # its summary holds the word most often; no name holds it (a name is found
+            # apart from the rank)
+            _node("j_woorden", "judgment", ecli="ECLI:NL:HR:2026:99", source="rechtspraak",
+                  summary="Belasting, belasting en nog eens belasting.",
+                  inbound_citation_count=0, date_eff="2020-01-01"),
+        ],
+    )  # fmt: skip
+
+    def found() -> list[str]:
+        version_cache.clear()
+        hits = search_queries.search_all(store, q="belasting", types=["judgments"])
+        return [h["key"] for h in hits["judgments"]]
+
+    assert found()[0] == "j_woorden"  # every hit ranked: the one whose words weigh most
+    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 3)
+    assert sorted(found()) == ["j_3", "j_4", "j_5"]  # the three most cited
+
+
+def test_a_search_does_not_wait_for_the_frequency_of_a_word(store: GraphStore) -> None:
+    """In a request a frequency not counted yet is estimated (the count is made in the
+    background); outside one (the warm-up) it is counted."""
+    from lawgraph.db.queries import _bm25
+    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}", source="rechtspraak",
+                  summary="Een geschil over pacht." if n < 3 else "Een geschil over huur.")
+            for n in range(1, 6)
+        ],
+    )  # fmt: skip
+    terms = [_bm25._Term("summary", "text", "_w", 1.0)]
+    params = {"_w": "pacht"}
+    token = set_read_deadline(5.0)
+    try:
+        (estimate,) = _bm25._frequencies(store, "judgments", terms, params, 5.0)
+    finally:
+        reset_read_deadline(token)
+    # an estimate, without waiting: the table is not analyzed, so no frequency is kept of
+    # any element, and the least it can be is one row (the count, made after, is two)
+    assert estimate == 1.0
+    version_cache.clear()
+    assert _bm25._frequencies(store, "judgments", terms, params, 5.0) == [2.0]

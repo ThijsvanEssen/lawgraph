@@ -197,6 +197,9 @@ class ArticleProps(_CommonProps):
     heading: str | None = (
         None  # the title of its kop ("Definities"), when the BWB has one
     )
+    # what it is about for its title: the deepest division title only one division of its law
+    # has ("Onrechtmatige daad" for 6:162 BW; ``semantic bwb-captions``)
+    caption: str | None = None
     position: int | None = None  # its place in the current toestand: the order of lists
     title: str | None = None
     text: str | None = None
@@ -842,6 +845,10 @@ class AnnexProps(_CommonProps):
     description: str | None = None
     entries: list[AnnexEntry] | None = None
     instrument_id: str | None = None
+    # the name of its law, which its title cites (``Bijlage 1 Awb``): its citation title and
+    # abbreviation, as an article keeps them
+    instrument_citation_title: str | None = None
+    instrument_abbreviation: str | None = None
 
 
 # ---------------------------------------------------------------------------

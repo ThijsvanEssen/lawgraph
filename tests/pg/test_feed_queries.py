@@ -6,6 +6,7 @@ filter, the facets under the other filters, pages that neither repeat nor skip),
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, cast
 from xml.etree import ElementTree
 
@@ -34,6 +35,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
+from lawgraph.core.readable_paths import path_of
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed import (
     FeedFilters,
@@ -41,6 +43,8 @@ from lawgraph.db.queries.feed import (
     get_feed,
     get_feed_summary,
 )
+from tests.databases import fresh_database
+from tests.pg.conftest import TEST_URL, opened_store
 
 # TK GUIDs: a member's key is its GUID made a node key.
 AALDERS = "11111111-1111-1111-1111-111111111111"
@@ -1414,13 +1418,50 @@ def _walk(
     raise AssertionError("the pages do not end")
 
 
+@contextmanager
+def _module_store(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Iterator[GraphStore]:
+    """A store on a database of its own, for the tests of a module that share one graph."""
+    payloads = tmp_path_factory.mktemp("payloads")
+    with (
+        fresh_database(TEST_URL) as name,
+        pytest.MonkeyPatch.context() as monkeypatch,
+        opened_store(
+            f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
+        ) as store,
+    ):
+        yield store
+
+
+@pytest.fixture(scope="module")
+def busy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The busy day among other days (``_busy``), once for the tests that only read it."""
+    with _module_store(tmp_path_factory) as store:
+        _busy(store)
+        yield store
+
+
+@pytest.fixture(scope="module")
+def crowded(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The busy day, the crowd of the days before (``_crowd``) and the papers, votes and
+    judgments of the words (``_words``), once for the tests that only plan on it."""
+    with _module_store(tmp_path_factory) as store:
+        _busy(store)
+        _crowd(store)
+        _words(store)
+        store.vacuum_analyze()
+        yield store
+
+
+@pytest.mark.xdist_group("feed_busy")
 @pytest.mark.parametrize("facets", [True, False])
 def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
-    store: GraphStore, facets: bool
+    busy: GraphStore, facets: bool
 ) -> None:
     """The cursor ``["2026-09-29", "Motie", "documents/…"]`` of the request that hung on
     ArangoDB: the pages after it hold every later event once, in the order of the feed."""
-    _busy(store)
+    store = busy
     everything = _walk(store, None, facets, limit=1000)
     assert len(everything) == len(set(everything)) == 300 + 40 + 20
     # by day, then a vote before a commitment before a motion, then by id
@@ -1475,16 +1516,16 @@ def _limit_over_index(plan: dict[str, Any], table: str) -> bool:
     )
 
 
+@pytest.mark.xdist_group("feed_busy")
 @pytest.mark.parametrize("facets", [False, True])
 def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
-    store: GraphStore, facets: bool
+    crowded: GraphStore, facets: bool
 ) -> None:
     """The planner as it is (no ``enable_seqscan`` off). Without facets (the Atom feed,
     ``facets=false``) no large table is read whole: each kind reads its page in the order
     of an index on its date and stops (``Limit`` above the scan). With facets every event
     is read for the counts; its dossier and signatures are looked up by index."""
-    _busy(store)
-    _crowd(store)
+    store = crowded
     cursor = FeedCursor(date=BUSY_DAY, kind="Motie", id=f"documents/{_uuid_key(120)}")
     sql, bind = feed_query(FeedFilters(), cursor=cursor, limit=50, facets=facets)
     plan = _plan(store, sql, bind)
@@ -1795,14 +1836,12 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     assert by_index.get("facets") == every.get("facets")
 
 
-def test_words_are_found_by_index_not_by_reading_every_day(store: GraphStore) -> None:
+@pytest.mark.xdist_group("feed_busy")
+def test_words_are_found_by_index_not_by_reading_every_day(crowded: GraphStore) -> None:
     """Many papers, votes and judgments over the years and a word few of them hold: each
     kind reads the rows its trigram index finds (and the dossiers whose title holds the
     word), not every row in date order; no large table is read whole."""
-    _busy(store)
-    _crowd(store)
-    _words(store)
-    store.vacuum_analyze()
+    store = crowded
     sql, bind = feed_query(
         FeedFilters(q=("toezichthouder",), kinds=("Motie", "stemming", "uitspraak")),
         limit=50,
@@ -1890,3 +1929,82 @@ def test_several_words_find_the_events_that_hold_any_of_them(
 def test_too_many_or_too_long_words_are_422(client: TestClient) -> None:
     assert client.get("/api/feed", params={"q": ["w"] * 11}).status_code == 422
     assert client.get("/api/feed", params={"q": ["w" * 201]}).status_code == 422
+
+
+def test_every_numbered_paper_and_commitment_has_its_readable_path(
+    store: GraphStore,
+) -> None:
+    """A paper of every kind the feed lists has the address its render page has
+    (``core.readable_paths.path_of``), from its own dossier number and suffix and its
+    number in the dossier, so the feed links it directly instead of through
+    ``/explore?focus`` and a 301; a commitment by its number. A paper the Kamer has not
+    numbered yet has none."""
+    _seed(store)
+    numbered = {
+        "motion_101": ("Motie", "37001", "VII", 12, "/kamerstukken/37001-VII/12"),
+        "letter_102": ("Brief regering", "37000", None, 3, "/kamerstukken/37000/3"),
+        "note_103": ("Nota van wijziging", "37000", None, 7, "/kamerstukken/37000/7"),
+        "amendment_104": ("Amendement", "37022", None, 13, "/kamerstukken/37022/13"),
+        "bill_105": ("Voorstel van wet", "37023", None, 2, "/kamerstukken/37023/2"),
+    }
+    nodes = [
+        _document(
+            key,
+            kind,
+            "2026-09-01",
+            f"{number}-{suffix}" if suffix else number,
+            dossier_number=number,
+            **({"dossier_suffix": suffix} if suffix else {}),
+            sequence=sequence,
+        )
+        for key, (kind, number, suffix, sequence, _) in numbered.items()
+    ]
+    # not numbered yet: no number, no dossier (as the source gives a fresh paper)
+    nodes.append(
+        _node(
+            COLLECTION_DOCUMENTS,
+            NodeType.DOCUMENT,
+            "fresh_106",
+            kind="Nota van wijziging",
+            date="2026-09-02",
+            document_number="2026D50328",
+        )
+    )
+    nodes.append(
+        _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "commitment_107",
+            text="De minister stuurt een brief.",
+            made_on="2026-09-03",
+            status="Openstaand",
+            number="TZ202609-130",
+        )
+    )
+    with NodeWriter(store) as writer:
+        writer.add_all(nodes)
+    _serve(store)
+    try:
+        answer = _feed(_test_client(), limit=200)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    paths = {item["id"]: item["path"] for item in answer["items"]}
+    for key, (_, _, _, _, path) in numbered.items():
+        assert paths[f"{COLLECTION_DOCUMENTS}/{key}"] == path, key
+    assert paths[f"{COLLECTION_DOCUMENTS}/fresh_106"] is None
+    assert (
+        paths[f"{COLLECTION_COMMITMENTS}/commitment_107"]
+        == "/toezeggingen/TZ202609-130"
+    )
+    # every one the render page of its address knows (the same function)
+    for node_id, path in paths.items():
+        if path and node_id.startswith((COLLECTION_DOCUMENTS, COLLECTION_COMMITMENTS)):
+            assert path_of(node_id, _props_of(store, node_id)) == path, node_id
+
+
+def _props_of(store: GraphStore, node_id: str) -> dict[str, Any]:
+    table, _, _ = node_id.partition("/")
+    (props,) = store.query(
+        f"SELECT props FROM {table} WHERE id = %(id)s", {"id": node_id}
+    )
+    return props

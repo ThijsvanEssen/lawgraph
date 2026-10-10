@@ -167,9 +167,12 @@ def test_a_seat_between_two_members_is_vacant_so_the_kamer_adds_up() -> None:
     seats += [_seat(f"left{n}", "d66", "2025-11-12", "2026-02-22") for n in range(11)]
     seats += [_seat(f"new{n}", "d66", "2026-02-25") for n in range(11)]
     timeline = seat_timeline(posts, seats, "2026-02-23", "2026-03-01")
-    assert [(s["from_date"], s["coalition"], s["vacant"]) for s in timeline] == [
-        ("2026-02-23", 139, 11),
-        ("2026-02-25", 150, 0),
+    assert [
+        (s["from_date"], s["coalition"], s["vacant"], s["coalition_vacant"])
+        for s in timeline
+    ] == [
+        ("2026-02-23", 139, 11, 0),
+        ("2026-02-25", 150, 0, 0),
     ]
     assert all(s["coalition"] + s["opposition"] + s["vacant"] == 150 for s in timeline)
 
@@ -185,9 +188,13 @@ def test_a_vacant_seat_counts_for_its_faction() -> None:
         for _ in range(11)
     ]
     timeline = seat_timeline(posts, seats, "2026-02-23", "2026-03-01", vacancies)
-    assert [(s["from_date"], s["coalition"], s["vacant"]) for s in timeline] == [
-        ("2026-02-23", 150, 0),
-        ("2026-02-25", 150, 0),
+    # the seats no member held are vacant, the coalition's among them
+    assert [
+        (s["from_date"], s["coalition"], s["vacant"], s["coalition_vacant"])
+        for s in timeline
+    ] == [
+        ("2026-02-23", 150, 11, 11),
+        ("2026-02-25", 150, 0, 0),
     ]
     assert timeline[0]["factions"] == [
         {"key": "d66", "seats": 150, "vacant": 11, "coalition": True}
@@ -226,12 +233,17 @@ def test_schoof_keeps_its_88_seats_on_its_first_day() -> None:
         first["coalition"],
         first["opposition"],
         first["vacant"],
+        first["coalition_vacant"],
     ) == (
         "2024-07-02",
         88,
         62,
-        0,
+        14,
+        14,
     )
+    # the seats held: every seat but the vacant ones
+    held_seats = sum(f["seats"] - f["vacant"] for f in first["factions"])
+    assert held_seats == 150 - first["vacant"] == 136
     assert {f["key"]: (f["seats"], f["vacant"]) for f in first["factions"]} == {
         "pvv": (37, 4),
         "vvd": (24, 4),

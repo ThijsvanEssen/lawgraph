@@ -139,15 +139,25 @@ NO_PERIOD = Period()
 # ── the condition of a search ─────────────────────────────────────────────────
 
 
-def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
+def _field_condition(
+    table: str, field: str, word: str, row: str, forms: list[str]
+) -> list[str]:
     """How *field* of *table* (the row *row*) matches the word in the parameter *word*,
-    one condition per analyzer it was indexed with."""
+    one condition per analyzer it was indexed with; *forms* the parameters of the forms of
+    the word that stem apart (``word_forms``)."""
     analyzers = SEARCH_FIELDS[table][field]
-    parts = []
+    parts: list[str] = []
     if "text" in analyzers:
-        # its forms that stem apart too ("huurprijs" and "huurprijzen": ``word_forms``)
-        forms = word.replace("_tok_", "_forms_")
-        parts.append(f"{row}.{search_column(field, 'text')} && lg_tokens(%({forms})s)")
+        # every word of one of its forms ("huurprijs" or "huurprijzen"): a token the words
+        # of a field split ("7:669" is 7 and 669) is found where all its words are, not
+        # wherever one of them is (every judgment that holds a 7), as the live search of
+        # papers does; a form of no word ("--") finds nothing, not every row
+        column = f"{row}.{search_column(field, 'text')}"
+        parts.extend(
+            f"(cardinality(lg_tokens(%({form})s)) > 0"
+            f" AND {column} @> lg_tokens(%({form})s))"
+            for form in forms
+        )
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
     if "identity" in analyzers:
         # from three characters, as a part of a value: the start of a value of two (``hu``,
@@ -180,8 +190,9 @@ def build_search_clause(
     Returns ``(condition, params)``; the parameters are ``_tok_0``, ``_tok_1``, … so they
     do not collide with those of the caller. A token is taken as typed (lower case, from
     ``tokenize_search_query``): its stems for the words of a field, as is for a prefix of
-    its value or a part of it, folded for a whole folded value. ``_forms_0``, … hold the
-    forms of each that stem apart (``word_forms``). *termed* holds per token the rows
+    its value or a part of it, folded for a whole folded value. ``_form_0_0``, … hold the
+    forms of each that stem apart (``word_forms``), each of which matches with all its
+    words. *termed* holds per token the rows
     that have it as a term (``_termed``: an article by what its case law calls it), each
     found by its key as well.
     """
@@ -192,8 +203,13 @@ def build_search_clause(
     for i, token in enumerate(tokens):
         word = f"_tok_{i}"
         params[word] = token
-        params[f"_forms_{i}"] = word_forms(token)
-        per_field = [c for f in fields for c in _field_condition(table, f, word, row)]
+        forms = []
+        for j, form in enumerate(word_forms(token).split()):
+            forms.append(f"_form_{i}_{j}")
+            params[forms[-1]] = form
+        per_field = [
+            c for f in fields for c in _field_condition(table, f, word, row, forms)
+        ]
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"{row}.id = ANY(%(_termed_{i})s::text[])")
@@ -368,15 +384,24 @@ def _text_query(
             f"(doc.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
         )
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
+    if table == "articles":
+        rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce(doc.inbound_citation_count, 0)))"
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
     # The matches are found first, on their own (OFFSET 0 keeps the planner from walking
-    # the key index for them when every rank is the same).
+    # the key index for them when every rank is the same); of a common word only the
+    # ``RANK_CANDIDATES`` first in the order of their columns are ranked.
+    candidates = (
+        f"ORDER BY {_CANDIDATE_ORDER[table]} LIMIT {RANK_CANDIDATES}"
+        if table in _CANDIDATE_ORDER
+        else "OFFSET 0"
+    )
     statement = f"""
         SELECT {hit}
         FROM (
             SELECT doc.id, {rank} AS rank
-            FROM (SELECT * FROM {table} doc WHERE {clause} {where} OFFSET 0) doc {lateral}
+            FROM (SELECT * FROM {table} doc WHERE {clause} {where} {candidates}) doc
+            {lateral}
             ORDER BY rank DESC, doc.key
             LIMIT %(limit)s
         ) top
@@ -447,6 +472,25 @@ _ARTICLE_HIT = f"""
 # much higher as a word in its heading would (BM25 of a rare word, boosted); at most
 # ``TERMED`` of them per word, the first by id.
 TERM_WEIGHT = 10.0
+# The most hits of a word that are ranked by it. Ranking reads the words of each hit (its
+# search columns, kept apart from the row: half a millisecond a judgment from disk), so a
+# common word ranked all of its hits ("belasting": 16,080 judgments, 8.5 s on prod); past
+# this many hits only the first in the order of their columns are ranked
+# (``_CANDIDATE_ORDER``): the most cited, else the newest. Fewer hits are ranked whole.
+RANK_CANDIDATES = 1000
+# The order of a type's hits by its columns alone, read without its search columns.
+_CANDIDATE_ORDER = {
+    "judgments": "doc.inbound_citation_count DESC NULLS LAST, doc.date_eff DESC NULLS LAST,"
+    " doc.key",
+    "articles": "doc.inbound_citation_count DESC NULLS LAST, doc.key",
+    "documents": "doc.date DESC NULLS LAST, doc.key",
+}
+# How much the case law that cites an article weighs in its rank: per e-fold of its citing
+# judgments (``inbound_citation_count``), at most some 4 for the most cited (art. 6:162 BW,
+# thousands). It settles hits whose words weigh about the same (a few points apart; a rank
+# runs to some 30, a term ``TERM_WEIGHT``), and never lifts one past a better tier
+# (``score_hit``), which orders first.
+CITATION_PRIOR = 0.5
 TERMED = 1_000
 
 _TERMED_SQL = """
@@ -1043,7 +1087,10 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
 
     Pure: compares the query with the key, the identifiers and the names the hit carries
     (its display name, citation title, heading and aliases). A query that is part of the
-    title of a division an article stands in counts as part of its name.
+    title of a division an article stands in counts as part of its name; the name of its
+    law only with its number ("art 2 klimaatfonds"): every article of the Wet
+    conflictenrecht onrechtmatige daad would hold "onrechtmatige daad", where art. 6:162 BW
+    holds it in its title (the law itself is a hit of the instruments, by its name).
     """
     wanted = _folded(query)
     if not wanted:
@@ -1067,7 +1114,21 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
         return SCORE_PREFIX
     words = wanted.split()
     context = _folded_list(extra, _CONTEXT_LIST_FIELDS)
-    if any(all(w in n for w in words) for n in names + context):
+    own = names
+    if hit.get("collection") == "articles" and _folded(
+        extra.get("article_number")
+    ) not in set(words):
+        # without its number the words are the law's, not the article's
+        own = [_folded(extra.get("heading"))]
+    if hit.get("collection") == "judgments":
+        # a judgment's case number is no name: "Rechtbank Amsterdam 2009-07-08 / AWB
+        # 08/5197 HUUR" is named by its court and day, the type code of the case is none
+        # of its words (``compose_display_name``)
+        own = [
+            _folded(str(hit.get("display_name") or "").split(" / ", 1)[0]),
+            *(_folded(name) for name in extra.get("names") or []),
+        ]
+    if any(all(w in n for w in words) for n in own + context if n):
         return SCORE_CONTAINS
     return SCORE_WORDS
 

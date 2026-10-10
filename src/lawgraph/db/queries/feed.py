@@ -87,6 +87,12 @@ _ITEM_PROPS = (
     "display_name",
     "document_number",
     "sequence",
+    # with ``sequence``, what the readable address of a paper or a commitment is made of
+    # (``core.readable_paths.path_of``): its own dossier, and the letter of an Eerste Kamer
+    # paper or the number of a commitment
+    "dossier_number",
+    "dossier_suffix",
+    "number",
     "status",
     "expected_resolution",
     "minister_name",

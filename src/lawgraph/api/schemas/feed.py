@@ -12,7 +12,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
 from lawgraph.api.schemas.stats import DataAsOfDTO
-from lawgraph.config.constants import CHAMBER_TK
+from lawgraph.config.constants import (
+    CHAMBER_TK,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_DOCUMENTS,
+)
 from lawgraph.core.documents import paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
@@ -324,6 +328,7 @@ class FeedItemDTO(WithPath):
         short, basis = _dossier_short_title(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
+            path_props=_path_props(collection, props),
             kind=kind,
             date=row["date"],
             title=title,
@@ -364,6 +369,19 @@ class FeedItemDTO(WithPath):
             commencement=_commencement(row) if kind == EVENT_COMMENCEMENT else None,
             judgment=_judgment(props) if kind == EVENT_JUDGMENT else None,
         )
+
+
+# The props a paper's or a commitment's readable address is made of (``path_of``): its own
+# dossier number and suffix and its number in the dossier, or the number of a commitment.
+# The fields of the item do not say them (``number`` is the nr. alone, ``dossier`` the
+# first dossier by its label).
+_PATH_PROPS = ("dossier_number", "dossier_suffix", "sequence", "number")
+
+
+def _path_props(collection: str, props: dict[str, Any]) -> dict[str, Any] | None:
+    if collection not in (COLLECTION_DOCUMENTS, COLLECTION_COMMITMENTS):
+        return None
+    return {field: props[field] for field in _PATH_PROPS if field in props}
 
 
 def _title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:

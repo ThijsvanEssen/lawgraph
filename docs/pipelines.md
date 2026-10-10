@@ -10,7 +10,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
-| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
+| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
@@ -980,6 +980,15 @@ definition before it); and a sentence that defines one term. Per definition `ter
 `hoofdstuk`, `paragraaf`, …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that
 part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+
+**Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
+Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
+text), and every article keeps `caption`, the deepest title of the divisions it stands in that
+only one division of its law has (`core/article_caption.py`; a division is its whole path, so
+the "Afdeling 1 Algemene bepalingen" that opens nearly every titel of Boek 6 is no caption, its
+titel "Onrechtmatige daad" is). A caption that did not change is not written. `--since`: the
+regulations whose toestand was fetched since then (the daily run); without it every one, also
+in slices (`--after BWB-ID`, `--limit N`; the log names the last one read).
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
 `Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
