@@ -1366,7 +1366,10 @@ def get_feed(
         COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
     )
     try:
-        return {**shown, **feed_counts(store, filters)}
+        return {
+            **shown,
+            **(_counts_of_words(store, filters) or feed_counts(store, filters)),
+        }
     except ReadTimedOut:
         # counted on for the next request (``lasting``); this one shows the page now
         return {**shown, "total": None, "facets": None, "partial": True}
@@ -1465,6 +1468,18 @@ COUNTS_MAX_AGE = 3600.0
 # How long a request waits for them (seconds): under a filter not counted yet (a minute or
 # more, cold) it answers its page without them, ``partial``, and they are counted on.
 COUNTS_BUDGET = 3.0
+
+
+def _counts_of_words(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:
+    """Under words, ``total`` and ``facets`` from ``lg_feed_events`` (by the index on their
+    words, not a read of every event); None without words or where that table cannot tell:
+    then ``feed_counts``."""
+    if not filters.q:
+        return None
+    # it reads the events as this module does
+    from lawgraph.db.queries import feed_events
+
+    return feed_events.get_counts(store, filters, COUNTS_MAX_AGE)
 
 
 def feed_counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
