@@ -489,6 +489,29 @@ def test_a_dossier_with_a_suffix_by_its_label(
     assert node["path"] == "/dossiers/36600-VIII"
 
 
+def test_a_paper_of_a_dossier_with_a_suffix_links_its_dossier(
+    client: TestClient, store: GraphStore
+) -> None:
+    """A paper of 36600-VIII has its dossier in the breadcrumb and the page, as a paper of a
+    dossier of figures alone does."""
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("kst_36600_viii_2", "document", kind="Memorie van toelichting",
+               date="2024-09-17", dossier_number="36600", dossier_suffix="VIII",
+               dossier_numbers=["36600-VIII"], sequence=2,
+               title="Vaststelling van de begrotingsstaten van Onderwijs")],
+    )  # fmt: skip
+    page = _head(_get(client, "/kamerstukken/36600-VIII/2").text)
+    assert page["canonical"] == "https://concordans.nl/kamerstukken/36600-VIII/2"
+    assert 'href="/dossiers/36600-VIII"' in page["main"]
+    crumbs = next(
+        item for item in page["data"]["@graph"] if item["@type"] == "BreadcrumbList"
+    )["itemListElement"]
+    # after the home of the site, the dossier, then the paper
+    assert [c["name"] for c in crumbs][:2] == ["Concordans", "Dossier 36600-VIII"]
+    assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36600-VIII"
+
+
 def _seed_people(store: GraphStore) -> None:
     """A minister-president, a former member, someone the Kamer never seated, a faction
     of each chamber, a cabinet and a committee of each chamber."""
