@@ -173,24 +173,36 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     return {**row, "judgments": _light(store, ids)}
 
 
+def _law(bwb_id: str) -> str:
+    """SQL: the law of the BWB id *bwb_id* (SQL) as an annex names it: its citation and
+    short title."""
+    return f"""(SELECT json_build_object(
+                           'bwb_id', i.bwb_id, 'citation_title', i.citation_title,
+                           'short_title', lg_str(i.props -> 'short_title'),
+                           'title', lg_str(i.props -> 'title'))
+                FROM {COLLECTION_INSTRUMENTS} i
+                WHERE i.bwb_id = {bwb_id} ORDER BY i.key LIMIT 1)"""
+
+
 def annex(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An annex: its props (its entries are the page) and its law (citation and short
     title)."""
     return _first(
         store,
         f"""
-        SELECT x.id, x.key, x.props,
-               (SELECT json_build_object(
-                           'bwb_id', i.bwb_id, 'citation_title', i.citation_title,
-                           'short_title', lg_str(i.props -> 'short_title'),
-                           'title', lg_str(i.props -> 'title'))
-                FROM {COLLECTION_INSTRUMENTS} i
-                WHERE i.bwb_id = x.bwb_id ORDER BY i.key LIMIT 1) AS law
+        SELECT x.id, x.key, x.props, {_law("x.bwb_id")} AS law
         FROM {COLLECTION_ANNEXES} x
         WHERE x.id = %(id)s
         """,
         {"id": node_id},
     )
+
+
+def law_of(store: GraphStore, bwb_id: str) -> dict[str, Any] | None:
+    """The law of *bwb_id* as an annex's page names it (``annex``): for the title the API
+    gives an annex, the same as its page's."""
+    row = _first(store, f"SELECT {_law('%(bwb_id)s')} AS law", {"bwb_id": bwb_id})
+    return (row or {}).get("law")
 
 
 def _within_budget(read: Callable[[], T], instead: T) -> T:

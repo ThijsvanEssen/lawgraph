@@ -86,3 +86,46 @@ def test_two_articles_with_one_caption_have_their_own_titles() -> None:
         version_title(version)
         == "Grondwet, geldend van 21 maart 2002 tot 8 februari 2005"
     )
+
+
+def test_a_zaak_is_titled_by_its_title_not_its_category() -> None:
+    """The kind of a zaak is the source's category (``Brief van lid/fractie/commissie``),
+    which the reader leaves out: only a zaak without a title is named by it."""
+    from lawgraph.api.seo.pages import case_title
+
+    letter = {
+        "number": "2025Z15468",
+        "kind": "Brief van lid/fractie/commissie",
+        "title": "Brief van de tijdelijke commissie Grondrechten",
+    }
+    assert case_title(letter, "k") == (
+        "Brief van de tijdelijke commissie Grondrechten (2025Z15468)"
+    )
+    assert case_title({**letter, "title": None}, "k") == (
+        "Brief van lid/fractie/commissie (2025Z15468)"
+    )
+
+
+def test_a_faction_named_after_the_member_is_left_out_of_their_title() -> None:
+    """``Lid Keijzer`` says the name again (as the explorer's ``eigenFractie``)."""
+    from lawgraph.api.seo.pages import member_title
+
+    def member(faction: str) -> dict[str, object]:
+        return {
+            "name": "Mona Keijzer",
+            "faction_memberships": [{"abbreviation": faction, "to_date": None}],
+        }
+
+    assert member_title(member("Lid Keijzer")) == "Mona Keijzer, Tweede Kamerlid"
+    assert member_title(member("BBB")) == "Mona Keijzer, Tweede Kamerlid (BBB)"
+
+
+def test_an_annex_is_titled_by_the_law_its_page_reads() -> None:
+    """The API title of an annex and its page name the law alike: from the instrument
+    (``seo.law_of``), whatever its own props hold yet."""
+    from lawgraph.api.seo.pages import annex_title, title_of
+
+    props = {"bwb_id": "BWBR0002741", "label": "II", "description": "Vervallen"}
+    law = {"bwb_id": "BWBR0002741", "short_title": "Bds 1970", "citation_title": "x"}
+    title, _ = title_of("annexes/bwbr0002741_annex_ii", props, law)
+    assert title == annex_title(props, law) == "Bijlage II Bds 1970"

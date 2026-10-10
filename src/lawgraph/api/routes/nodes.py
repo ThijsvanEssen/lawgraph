@@ -26,6 +26,7 @@ from lawgraph.core.models import NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
@@ -297,7 +298,11 @@ def get_node_graph(
         # the name of its law for its title (one row of ``instruments`` by its bwb_id)
         law = version_law_name(store, str(node_props["bwb_id"]))
         node_props = {**node_props, "instrument_citation_title": law}
-    title, description = title_of(data.node["_id"], node_props)
+    annex_law = None
+    if collection == "annexes" and node_props.get("bwb_id"):
+        # its law as its page names it (one row of ``instruments`` by its bwb_id)
+        annex_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
+    title, description = title_of(data.node["_id"], node_props, annex_law)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
             data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
