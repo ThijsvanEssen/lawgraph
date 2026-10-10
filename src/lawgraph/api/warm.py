@@ -145,6 +145,11 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "documents": (COLLECTION_DOCUMENTS,),
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
+    "instrument names": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
@@ -168,6 +173,11 @@ def warm_up(store: GraphStore) -> None:
         "cabinets": lambda: _warm_cabinets(store),
         "instruments": lambda: get_instruments_list(
             store, article_count_min=1, limit=20
+        ),
+        # the names of the 200 largest laws the explorer asks once per visit, when idle
+        # (``primeInstrumentNames``: ``?sort=article_count&limit=200``)
+        "instrument names": lambda: get_instruments_list(
+            store, sort="article_count", limit=200
         ),
         "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
         "search notation": lambda: load_notation_parser(store),
