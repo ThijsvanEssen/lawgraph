@@ -263,6 +263,28 @@ def get_committee_detail(
     committee = _committee(store, slug)
     if committee is None:
         return None
+    total, dossiers = cached(
+        store,
+        ("committee-dossiers", committee["_id"], status, limit, offset),
+        lambda: _led_dossiers(store, committee["_id"], status, limit, offset),
+        tables=(COLLECTION_EDGES, COLLECTION_DOSSIERS),
+    )
+    return {
+        **committee,
+        "members": _committee_members(
+            store, committee["_id"], current_only=current_only
+        ),
+        "dossiers": dossiers,
+        "dossier_total": total,
+    }
+
+
+def _led_dossiers(
+    store: GraphStore, committee_id: str, status: str | None, limit: int, offset: int
+) -> tuple[int, list[dict[str, Any]]]:
+    """The dossiers the activities and cases of a committee are about: how many, and a
+    page of them, newest opened first. Every edge the committee leads and every subject of
+    each is read (6 s for Financiën on prod), so kept per data version."""
     # A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
     # ``/dossiers?status=open``).
     by_status = {
@@ -286,7 +308,7 @@ def get_committee_detail(
         {_page("matching", "opened_on DESC NULLS LAST", "key ASC")}
         """,
         {
-            "committee_id": committee["_id"],
+            "committee_id": committee_id,
             "led_by": RELATION_LED_BY,
             "about": RELATION_ABOUT,
             "limit": limit,
@@ -298,14 +320,7 @@ def get_committee_detail(
         total = row["total"]
         if row["id"] is not None:
             dossiers.append(node_doc(row))
-    return {
-        **committee,
-        "members": _committee_members(
-            store, committee["_id"], current_only=current_only
-        ),
-        "dossiers": dossiers,
-        "dossier_total": total,
-    }
+    return total, dossiers
 
 
 def get_committee_activities(
@@ -318,6 +333,20 @@ def get_committee_activities(
     committee = _committee(store, slug)
     if committee is None:
         return None
+    return cached(
+        store,
+        ("committee-activities", committee["_id"], limit, offset),
+        lambda: _led_activities(store, committee["_id"], limit, offset),
+        tables=(COLLECTION_EDGES, COLLECTION_ACTIVITIES),
+    )
+
+
+def _led_activities(
+    store: GraphStore, committee_id: str, limit: int, offset: int
+) -> dict[str, Any]:
+    """``{total, items}``: a page of the activities a committee leads, newest first. Every
+    activity of it is read and sorted for the page (2.6 s for Financiën on prod), so kept
+    per data version."""
     rows = store.query(
         f"""
         WITH led AS (
@@ -342,7 +371,7 @@ def get_committee_activities(
         ORDER BY listed.date DESC NULLS LAST, listed.key ASC
         """,
         {
-            "committee_id": committee["_id"],
+            "committee_id": committee_id,
             "led_by": RELATION_LED_BY,
             "limit": limit,
             "offset": offset,

@@ -1297,6 +1297,36 @@ def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
     )
 
 
+def test_a_committee_page_is_read_once_per_data_version(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dossiers and the activities a committee leads walk every edge of it (6 s and
+    2.6 s for Financiën on prod): kept until the data changes."""
+    from lawgraph.db.queries import committees
+
+    _committee_graph(store)
+    read: list[str] = []
+    for name in ("_led_dossiers", "_led_activities"):
+        real = getattr(committees, name)
+
+        def counted(*args: Any, _real: Any = real, _name: str = name, **kw: Any) -> Any:
+            read.append(_name)
+            return _real(*args, **kw)
+
+        monkeypatch.setattr(committees, name, counted)
+    first = get_committee_detail(store, "b")
+    assert get_committee_detail(store, "b") == first
+    activities = get_committee_activities(store, "b")
+    assert get_committee_activities(store, "b") == activities
+    assert read == ["_led_dossiers", "_led_activities"]
+    # a write raises the data version: read again
+    more = Graph(store)
+    more.edge("activities/a1", RELATION_ABOUT, "dossiers/d3")
+    more.write()
+    get_committee_detail(store, "b")
+    assert read[-1] == "_led_dossiers"
+
+
 # ── the routes ───────────────────────────────────────────────────────────────
 
 
