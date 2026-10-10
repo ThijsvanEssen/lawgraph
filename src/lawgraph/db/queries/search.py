@@ -388,19 +388,24 @@ def _text_query(
         rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce(doc.inbound_citation_count, 0)))"
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
-    # The matches are found first, on their own (OFFSET 0 keeps the planner from walking
-    # the key index for them when every rank is the same); of a common word only the
-    # ``RANK_CANDIDATES`` first in the order of their columns are ranked.
+    # The matches are found first, on their own, from the indexes of the words (OFFSET 0
+    # keeps the planner from walking the key index for them when every rank is the same,
+    # or the index in the order of the candidates: that tests the words of row after row,
+    # 60,000 judgments for "belasting"); of a common word only the ``RANK_CANDIDATES``
+    # first in the order of their columns are ranked.
     candidates = (
         f"ORDER BY {_CANDIDATE_ORDER[table]} LIMIT {RANK_CANDIDATES}"
         if table in _CANDIDATE_ORDER
-        else "OFFSET 0"
+        else ""
     )
     statement = f"""
         SELECT {hit}
         FROM (
             SELECT doc.id, {rank} AS rank
-            FROM (SELECT * FROM {table} doc WHERE {clause} {where} {candidates}) doc
+            FROM (
+                SELECT * FROM (SELECT * FROM {table} doc WHERE {clause} {where} OFFSET 0) doc
+                {candidates}
+            ) doc
             {lateral}
             ORDER BY rank DESC, doc.key
             LIMIT %(limit)s
