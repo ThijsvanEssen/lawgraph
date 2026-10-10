@@ -55,6 +55,43 @@ _stale_wait: contextvars.ContextVar[float | None] = contextvars.ContextVar(
 )
 
 
+class _StaleBudget:
+    """What one request may still wait for new answers while it has old ones: one
+    ``STALE_WAIT`` for the request, from its first such wait on, not one per answer it asks
+    (a list with its counts asks ten side by side, partly one after another: ten waits of
+    two seconds when its kept counts had all expired, 11 s on prod on 10 Oct)."""
+
+    def __init__(self) -> None:
+        self.until: float | None = None
+        self.lock = threading.Lock()
+
+    def wait(self, limit: float) -> float:
+        """How long the next wait may last: the budget starts at the first."""
+        with self.lock:
+            now = time.monotonic()
+            if self.until is None:
+                self.until = now + limit
+            return max(0.0, self.until - now)
+
+
+# The budget of the request (``request_stale_budget``): one object, shared by every part of
+# the request run side by side (each runs in a copy of the context, which holds this object).
+_stale_budget: contextvars.ContextVar[_StaleBudget | None] = contextvars.ContextVar(
+    "lawgraph_stale_budget", default=None
+)
+
+
+@contextlib.contextmanager
+def request_stale_budget() -> Iterator[None]:
+    """Within it the waits of a request for new answers share one ``STALE_WAIT`` (the API
+    sets it per request, as its read deadline)."""
+    token = _stale_budget.set(_StaleBudget())
+    try:
+        yield
+    finally:
+        _stale_budget.reset(token)
+
+
 @contextlib.contextmanager
 def stale_wait(seconds: float) -> Iterator[None]:
     """Within it a request that has the answer of an earlier version waits *seconds* at
@@ -402,7 +439,9 @@ def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) ->
     if last is not _NONE and wait is not None:
         # only a request takes an old answer; the warm-up waits for the new one
         limit = _stale_wait.get()
-        wait = min(wait, STALE_WAIT if limit is None else limit)
+        limit = STALE_WAIT if limit is None else limit
+        budget = _stale_budget.get()
+        wait = min(wait, limit if budget is None else budget.wait(limit))
     try:
         return future.result(timeout=wait)
     except concurrent.futures.TimeoutError as exc:

@@ -3,6 +3,8 @@ data version it is done (``/api/health`` ``warm``)."""
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from lawgraph.api import warm
@@ -215,3 +217,34 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     )
     warm.warm_up(store)
     assert "instruments" in ran and "coverage" not in ran
+
+
+def test_the_list_of_every_judgment_is_warmed(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The judgments of every source (the list once its source is cleared) have their
+    total and facets kept by the warm-up: a request reads its page alone (its counts over
+    every judgment took 20 s cold on prod on 10 Oct)."""
+    from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            {"_key": f"j{n}", "type": "judgment", "labels": [],
+             "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
+                       "date_eff": "2020-01-01", "tier": "hoogste"}}
+            for n in range(5)
+        ],
+    )  # fmt: skip
+    warm.warm_up(store)
+    seen: list[str] = []
+    query = store.query
+
+    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
+        seen.append(str(statement))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(store, "query", recorded)
+    found = get_judgments_list(store, JudgmentFilters(), limit=20)
+    assert found["total"] == 5 and found["facets"]
+    assert not [s for s in seen if "GROUP BY" in s or "count(*)" in s]
