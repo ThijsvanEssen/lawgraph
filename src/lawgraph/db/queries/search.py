@@ -389,12 +389,19 @@ def _text_query(
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
     # The matches are found first, on their own (OFFSET 0 keeps the planner from walking
-    # the key index for them when every rank is the same).
+    # the key index for them when every rank is the same); of a common word only the
+    # ``RANK_CANDIDATES`` first in the order of their columns are ranked.
+    candidates = (
+        f"ORDER BY {_CANDIDATE_ORDER[table]} LIMIT {RANK_CANDIDATES}"
+        if table in _CANDIDATE_ORDER
+        else "OFFSET 0"
+    )
     statement = f"""
         SELECT {hit}
         FROM (
             SELECT doc.id, {rank} AS rank
-            FROM (SELECT * FROM {table} doc WHERE {clause} {where} OFFSET 0) doc {lateral}
+            FROM (SELECT * FROM {table} doc WHERE {clause} {where} {candidates}) doc
+            {lateral}
             ORDER BY rank DESC, doc.key
             LIMIT %(limit)s
         ) top
@@ -465,6 +472,19 @@ _ARTICLE_HIT = f"""
 # much higher as a word in its heading would (BM25 of a rare word, boosted); at most
 # ``TERMED`` of them per word, the first by id.
 TERM_WEIGHT = 10.0
+# The most hits of a word that are ranked by it. Ranking reads the words of each hit (its
+# search columns, kept apart from the row: half a millisecond a judgment from disk), so a
+# common word ranked all of its hits ("belasting": 16,080 judgments, 8.5 s on prod); past
+# this many hits only the first in the order of their columns are ranked
+# (``_CANDIDATE_ORDER``): the most cited, else the newest. Fewer hits are ranked whole.
+RANK_CANDIDATES = 1000
+# The order of a type's hits by its columns alone, read without its search columns.
+_CANDIDATE_ORDER = {
+    "judgments": "doc.inbound_citation_count DESC NULLS LAST, doc.date_eff DESC NULLS LAST,"
+    " doc.key",
+    "articles": "doc.inbound_citation_count DESC NULLS LAST, doc.key",
+    "documents": "doc.date DESC NULLS LAST, doc.key",
+}
 # How much the case law that cites an article weighs in its rank: per e-fold of its citing
 # judgments (``inbound_citation_count``), at most some 4 for the most cited (art. 6:162 BW,
 # thousands). It settles hits whose words weigh about the same (a few points apart; a rank

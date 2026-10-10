@@ -35,6 +35,7 @@ from lawgraph.db.queries.nodes import (
     UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
+    version_law_name,
 )
 from lawgraph.db.queries.overlay import (
     HEAT_MAX_LIMIT,
@@ -285,6 +286,10 @@ def get_node_graph(
         for bucket in data.buckets
     ]
     node_props = data.node.get("props") or {}
+    if collection == "instrument_versions" and node_props.get("bwb_id"):
+        # the name of its law for its title (one row of ``instruments`` by its bwb_id)
+        law = version_law_name(store, str(node_props["bwb_id"]))
+        node_props = {**node_props, "instrument_citation_title": law}
     title, description = title_of(data.node["_id"], node_props)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(
