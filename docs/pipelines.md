@@ -51,8 +51,10 @@ A code split over books (`data/code_families.json`, `core/code_families.CODE_FAM
 Burgerlijk Wetboek, books 1–8, 7A and 10, each its own BWB id) resolves through the book in the
 article number: `artikel 6:162 BW` cites article `162` of book 6 (`BWBR0005289`, key
 `bwbr0005289_162`), whichever books are loaded, so a citation of a book that is not loaded
-becomes a stub of that book. Without a book (`artikel 162 BW`) or with an unknown one there is
-no hit, and the family code (`BW`) is never a short title. A law that numbers
+becomes a stub of that book. The family's full name does the same (`artikel 7:669 van het
+Burgerlijk Wetboek`): it is the name its books share in the graph (`Burgerlijk Wetboek Boek 7`
+less `Boek 7`), unless that is a law's own name. Without a book (`artikel 162 BW`) or with an
+unknown one there is no hit, and the family code (`BW`) is never a short title. A law that numbers
 `Hoofdstuk:artikel` in one regulation (the Awb: `8:54`) is no family; its articles keep the
 colon. How the families are built: see BWB.
 
