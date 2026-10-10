@@ -272,6 +272,7 @@ def get_node_graph(
             total=bucket.facet.count,
             next_offset=bucket.next_offset,
             lid_counts=bucket.lid_counts,
+            capacity_counts=bucket.capacity_counts,
             items=[
                 NeighborDTO.from_entry(
                     doc=entry.doc,
