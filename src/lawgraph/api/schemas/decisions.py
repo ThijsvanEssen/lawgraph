@@ -103,6 +103,22 @@ class CoalitionVoteDTO(BaseModel):
     )
 
 
+class CoalitionFactionDTO(BaseModel):
+    """A faction of the coalition on a vote: how its seats went."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    short: str | None = Field(None, description="Its abbreviation, else its name.")
+    choice: Literal["Voor", "Tegen"] | None = Field(
+        None,
+        description="``Voor`` or ``Tegen``; null when its seats went both ways (a "
+        "roll call).",
+    )
+    seats_for: int
+    seats_against: int
+
+
 class DecisionDTO(WithPath):
     """One decision with every vote cast on it.
 
