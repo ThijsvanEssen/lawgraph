@@ -151,7 +151,7 @@ def list_decisions(
     raw = get_decisions(store, filters, limit=limit, offset=offset)
     names = load_dossier_names(store)
     return DecisionListResponse(
-        total=int(raw.get("total") or 0),
+        total=raw.get("total"),
         items=[
             DecisionSummaryDTO(
                 **row,
