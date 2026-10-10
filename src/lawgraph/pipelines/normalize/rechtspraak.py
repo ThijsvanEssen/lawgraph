@@ -21,8 +21,8 @@ from lawgraph.core.judgments import (
     derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
-    extract_sections,
     is_english,
+    judgment_text,
     kop_lines,
     parse_judgment,
     published_on,
@@ -43,8 +43,22 @@ RAW_BATCH_SIZE = 200
 class RechtspraakNormalizePipeline(NormalizePipelineBase):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
-    def __init__(self, *, store: GraphStore) -> None:
+    def __init__(
+        self, *, store: GraphStore, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that record key, so many
+        judgments; the log names the last one read."""
         super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self.last_record_read: str | None = None
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = super().run(since=since)
+        if self.after or self.limit is not None:
+            last = self.last_record_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
+        return result
 
     def fetch_raw(
         self,
@@ -56,14 +70,20 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         A judgment is tens of KB of XML and a run holds tens of thousands: the records are
         read as they are normalized, not loaded first.
         """
-        return {
-            "content": self._iter_raw_sources(
-                source=SOURCE_RECHTSPRAAK,
-                kinds=[RAW_KIND_RS_CONTENT],
-                since=since,
-                batch_size=RAW_BATCH_SIZE,
-            )
-        }
+        return {"content": self._remembering_last(since)}
+
+    def _remembering_last(self, since: dt.datetime | None) -> Iterator[dict[str, Any]]:
+        """The content records (of the slice), the key of each kept as the last read."""
+        for record in self._iter_raw_sources(
+            source=SOURCE_RECHTSPRAAK,
+            kinds=[RAW_KIND_RS_CONTENT],
+            since=since,
+            batch_size=RAW_BATCH_SIZE,
+            after=self.after,
+            limit=self.limit,
+        ):
+            self.last_record_read = record.get("_key") or self.last_record_read
+            yield record
 
     def _build_content_node(
         self, raw_entry: dict[str, Any]
@@ -114,9 +134,11 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         if subjects:
             props["subjects"] = subjects
 
-        sections = extract_sections(root)
+        sections, footnotes = judgment_text(root)
         if sections:
             props["paragraphs"] = sections
+        # what a court cites in a footnote (``semantic rechtspraak`` reads it too)
+        props["footnotes"] = footnotes or None
         kop = kop_lines(root)
         props["parties"] = read_parties(kop, subjects)
 

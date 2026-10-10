@@ -337,7 +337,7 @@ A Rechtspraak judgment carries:
   description; null without the document. A column, the date of the feed;
 - `source` (`rechtspraak`, or `echr` for an ECHR judgment), a column of the indexes of the
   judgment list;
-- `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`; a conclusion also
+- `summary`, `text`, `paragraphs`, `footnotes`, `parties`, `decision_kind` and `names`; a conclusion also
   `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
@@ -409,6 +409,12 @@ the next number or heading (absent otherwise). The first paragraph is the kop, a
 its lines with a blank line between: court, case number, date and parties, however the court
 sets them; a judgment may have none. How the kop, the headings, a table of contents and a
 signature are told apart: [pipelines](pipelines.md#judgment-paragraphs).
+
+`footnotes` are the `<footnote>`s of that text, which are no paragraph: `{label, paragraph_id,
+text}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
+none does); absent without footnotes. `semantic rechtspraak` reads them too: a citation in a
+footnote counts for that paragraph, its mention with the footnote's `label` (`footnote`) and its
+offsets in the text of the footnote, so it is no citation span of the paragraph.
 
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. `number` is the number as printed without
