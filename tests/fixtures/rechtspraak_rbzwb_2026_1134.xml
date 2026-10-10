@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBZWB:2026:1134</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-04-23T09:49:46</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-02-23</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Zeeland-West-Brabant" scheme="overheid.RechterlijkeMacht">Rechtbank Zeeland-West-Brabant</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-02-18</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">C/02/444429 FA RK 26-446</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#rekestprocedure">Rekestprocedure</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Breda</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht_personenEnFamilierecht">Civiel recht; Personen- en familierecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBZWB:2026:1134">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBZWB:2026:1134</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-04-23T09:49:27</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-04-23</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBZWB:2026:1134 Rechtbank Zeeland-West-Brabant , 18-02-2026 / C/02/444429 FA RK 26-446</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBZWB:2026:1134:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Gemeenschappelijk verzoek echtscheiding</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBZWB:2026:1134:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <bridgehead role="bold">RECHTBANK ZEELAND-WEST-BRABANT</bridgehead>
+    <para />
+    <parablock>
+      <para>Familie- en Jeugdrecht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Locatie Breda</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Zaaknummer: C/02/444429 / FA RK 26-446</para>
+      <para>Datum uitspraak: 18 februari 2026</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Beschikking echtscheiding</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>in de zaak van</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">
+          [de vrouw]
+        </emphasis>,</para>
+      <para>hierna te noemen de vrouw,</para>
+      <para>wonend in [woonplaats 1] ,</para>
+      <para>advocaat mr. M.M.H.B. Stoffels uit Zevenbergen,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>en</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">
+          [de man]
+        </emphasis>,</para>
+      <para>hierna te noemen de man,</para>
+      <para>wonend in [woonplaats 2] ,</para>
+      <para>advocaat mr. M.M.H.B. Stoffels uit Zevenbergen.</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>Het verloop van de procedure</title>
+    <para />
+    <paragroup>
+      <nr>1.1.</nr>
+      <parablock>
+        <para>De rechtbank neemt mee in de beoordeling:</para>
+        <para>- het verzoekschrift van partijen met bijlage(n), ontvangen op 23 januari 2026.</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>1.2.</nr>
+      <para>Een zitting heeft niet plaatsgevonden.</para>
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>Wat vaststaat</title>
+    <para />
+    <paragroup>
+      <nr>2.1.</nr>
+      <para>Partijen zijn met elkaar gehuwd op [datum] 1982 op Curaçao. In de Basisregistratie personen (Brp) staat bij de vrouw vermeld dat zij op 10 oktober 1982 is gehuwd met de man. Op grond van de ingediende huwelijksakte en de Brp-gegevens van de man gaat de rechtbank uit van [datum] 1982 als huwelijksdatum.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.2.</nr>
+      <para>Partijen hebben de Nederlandse nationaliteit.</para>
+      <para />
+    </paragroup>
+  </section>
+  <section role="overwegingen">
+    <title>
+      <nr>3</nr>De beoordeling</title>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="italic">De bevoegdheid van de rechtbank en het recht dat van toepassing is</emphasis>
+      </para>
+    </parablock>
+    <paragroup>
+      <nr>3.1.</nr>
+      <para>De rechtbank is bevoegd te beslissen op de verzoeken van partijen en Nederlands recht is van toepassing.<footnote-ref linkend="_da97bca1-3e52-4401-b7f6-4bfc5c0f0a6e" /></para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Echtscheiding</emphasis>
+        </para>
+      </parablock>
+    </paragroup>
+    <paragroup>
+      <nr>3.2.</nr>
+      <para>De rechtbank spreekt de echtscheiding tussen partijen uit zoals verzocht, omdat partijen vinden dat hun huwelijk duurzaam is ontwricht. Dat betekent dat zij niet samen verder kunnen als echtgenoten.<?linebreak?><emphasis role="italic">Opname convenant</emphasis></para>
+    </paragroup>
+    <paragroup>
+      <nr>3.3.</nr>
+      <para>Partijen hebben onderling een regeling getroffen die is vermeld in het convenant. De rechtbank zal, conform het verzoek, bepalen dat het convenant deel uitmaakt van deze beschikking.<?linebreak?><emphasis role="italic">Uitvoerbaar bij voorraad</emphasis></para>
+    </paragroup>
+    <paragroup>
+      <nr>3.4.</nr>
+      <para>Partijen verzoeken de rechtbank de beschikking voor zover mogelijk uitvoerbaar bij voorraad te verklaren. Dat betekent dat deze blijft gelden, ook als iemand het er niet mee eens is en in hoger beroep gaat. De rechtbank wijst dit verzoek toe, behalve voor de echtscheiding. De echtscheiding kan de rechtbank niet uitvoerbaar bij voorraad verklaren, omdat het huwelijk pas eindigt op het moment dat deze beschikking wordt ingeschreven in de registers van de burgerlijke stand.</para>
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>4</nr>De beslissing</title>
+    <para />
+    <parablock>
+      <para>De rechtbank:</para>
+    </parablock>
+    <para />
+    <paragroup>
+      <nr>4.1.</nr>
+      <para>spreekt de echtscheiding uit tussen partijen, gehuwd op [datum] 1982 op Curaçao;<?linebreak?></para>
+    </paragroup>
+    <paragroup>
+      <nr>4.2.</nr>
+      <para>bepaalt dat de onderling getroffen regeling in het convenant als in de beschikking opgenomen moet worden beschouwd onder verwijzing naar de als bijlage ingevoegde scan van het convenant;<?linebreak?></para>
+    </paragroup>
+    <paragroup>
+      <nr>4.3.</nr>
+      <para>verklaart deze beschikking uitvoerbaar bij voorraad, behalve de beslissing onder 4.1.;<?linebreak?></para>
+    </paragroup>
+    <paragroup>
+      <nr>4.4.</nr>
+      <para>wijst af het meer of anders verzochte.</para>
+      <para />
+      <informaltable>
+        <tgroup cols="3">
+          <colspec colname="colA" />
+          <colspec colname="colB" />
+          <colspec colname="colC" />
+          <tbody>
+            <row>
+              <entry namest="colA" nameend="colC">
+                <para>Deze beschikking is gegeven door mr. Haerkens-Wouters, rechter en in het openbaar uitgesproken in aanwezigheid van Block, griffier op 18 februari 2026.</para>
+                <para />
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+            </row>
+            <row>
+              <entry namest="colA" nameend="colC">
+                <para />
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+              <entry>
+                <para />
+              </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+      <para />
+      <parablock>
+        <para>Tegen de eindbeslissingen in deze beschikking is hoger beroep mogelijk bij het gerechtshof ‘s-Hertogenbosch. Hiervoor is een advocaat nodig. Wie kunnen hoger beroep instellen:</para>
+      </parablock>
+      <para>- de verschenen partij(en), binnen drie maanden na de dag van de uitspraak;</para>
+      <para>- de niet verschenen partij(en), binnen drie maanden na de betekening van de beschikking aan hem/haar in persoon of binnen drie maanden nadat deze op een andere manier is betekend en openbaar is gemaakt door het plaatsen van een uittreksel van de beschikking in de Staatscourant.</para>
+      <para />
+    </paragroup>
+  </section>
+  <footnote id="_da97bca1-3e52-4401-b7f6-4bfc5c0f0a6e" label="1">
+    <para> Echtscheiding: art. 3 Brussel II-ter en art. 10:56 BW.</para>
+  </footnote>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="ddd40ff9-087e-42c0-b6d4-7cd16db8bc52" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="704e21e3-0a16-48bb-ac38-cdc40c5530c3" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="a95fe76d-527c-4935-8b95-1fd55cbed5f8" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="31b4b5ee-4c40-4eb9-97bb-3c9561675a8e" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="0d110331-b5e0-44ca-86d8-d373795f0c5e" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="6237fb4d-94c3-4237-b002-b346d573a5bb" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+  <para>
+    <inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="7363d6be-da73-4cde-b72f-a5208bcf13ea" depth="1" width="1" format="image/png" />
+      </imageobject>
+    </inlinemediaobject>
+  </para>
+</uitspraak>
+</open-rechtspraak>

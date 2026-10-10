@@ -60,7 +60,14 @@ def test_the_acts_are_streamed_twenty_at_a_time(
         ("count", acts),
         (
             "records",
-            {**acts, "since_iso": None, "batch_size": 20, "chronological": False},
+            {
+                **acts,
+                "since_iso": None,
+                "batch_size": 20,
+                "chronological": False,
+                "after": None,
+                "limit": None,
+            },
         ),
     ]
 

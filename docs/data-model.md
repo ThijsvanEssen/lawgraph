@@ -42,7 +42,8 @@ and advocate-general), kept by triggers on every write of `judgments` and filled
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
 dossier numbers, case kinds, sequence, a motion's dictum) and `has_text`, whether its text is
 in the data (which a row of the feed opens on), without its text, kept and filled the same way
-from `documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
+from `documents`; indexed by dossier number, suffix and sequence, which `/api/lookup` finds a
+paper by. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
 (`''` for none), which the laws a dossier title names are found by besides the column
 `citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
@@ -337,7 +338,7 @@ A Rechtspraak judgment carries:
   description; null without the document. A column, the date of the feed;
 - `source` (`rechtspraak`, or `echr` for an ECHR judgment), a column of the indexes of the
   judgment list;
-- `summary`, `text`, `paragraphs`, `parties`, `decision_kind` and `names`; a conclusion also
+- `summary`, `text`, `paragraphs`, `footnotes`, `parties`, `decision_kind` and `names`; a conclusion also
   `advocate_general` and `advocate_general_role`.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
@@ -409,6 +410,12 @@ the next number or heading (absent otherwise). The first paragraph is the kop, a
 its lines with a blank line between: court, case number, date and parties, however the court
 sets them; a judgment may have none. How the kop, the headings, a table of contents and a
 signature are told apart: [pipelines](pipelines.md#judgment-paragraphs).
+
+`footnotes` are the `<footnote>`s of that text, which are no paragraph: `{label, paragraph_id,
+text}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
+none does); absent without footnotes. `semantic rechtspraak` reads them too: a citation in a
+footnote counts for that paragraph, its mention with the footnote's `label` (`footnote`) and its
+offsets in the text of the footnote, so it is no citation span of the paragraph.
 
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. `number` is the number as printed without
@@ -825,7 +832,7 @@ lists filter and sort on, and for `/api/judgments` one index per filter that hol
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
-publications), the documents newest first, and the member lists in name order. The judgments citing a law or an article dated and filtered from an index alone (`judgments_citing`: `id` with `date_eff`, `ecli`, `court_code`, `tier` and `inbound_citation_count`; a row of `judgments` holds its text). A member by their slug (`members_slug`) and a committee by its slug or its key (`committees_slug`, `committees_lower_key`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
+publications), the documents newest first, and the member lists in name order. The judgments citing a law or an article dated and filtered from an index alone (`judgments_citing`: `id` with `date_eff`, `ecli`, `court_code`, `tier` and `inbound_citation_count`; a row of `judgments` holds its text). A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) and a zaak by its number (`cases_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
 `(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
 with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
 `/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours

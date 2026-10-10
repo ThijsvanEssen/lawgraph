@@ -397,6 +397,43 @@ def test_a_connected_case_carries_the_sentence_that_names_it(
     assert [j["_id"] for j in data.related_to] == [_jid(HR10), _jid(RB)]
 
 
+def test_its_conclusions_named_as_their_light_nodes_name_them(
+    detail: GraphStore,
+) -> None:
+    """``conclusions``: per ECLI of ``conclusion_eclis``, in its order, the A-G (or P-G)
+    and the date its light node gives (``lg_judgment_light``), as the front end names the
+    conclusion; one the graph lacks is its ECLI alone."""
+    phr = "ECLI:NL:PHR:2019:887"
+    gone = "ECLI:NL:PHR:2019:999"
+    detail.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment(
+                phr,
+                ecli=phr,
+                date="2019-09-13",
+                advocate_general="Langemeijer en Wissink",
+                advocate_general_role="procureur-generaal",
+                text="De conclusie, die niet gelezen wordt.",
+            ),
+            _judgment(HR10, ecli=HR10, conclusion_eclis=[gone, phr]),
+        ],
+    )
+
+    data = judgment_queries.get_judgment_with_relations(detail, HR10)
+
+    assert data.conclusions == [
+        {"ecli": gone, "author": None, "role": None, "date": None},
+        {
+            "ecli": phr,
+            "author": "Langemeijer en Wissink",
+            "role": "procureur-generaal",
+            "date": "2019-09-13",
+        },
+    ]
+    assert judgment_queries.get_judgment_with_relations(detail, HR1).conclusions == []
+
+
 def test_the_series_by_ecli_number(detail: GraphStore) -> None:
     detail.bulk_insert_or_update_nodes(
         "judgments",
@@ -631,3 +668,106 @@ def test_without_facets_the_page_and_the_total_alone(
     assert without["total"] == with_facets["total"]
     assert without["facets"] is None
     assert not [s for s in statements if "GROUP BY" in s]
+
+
+def _words(store: GraphStore, rare: int) -> None:
+    """2,000 judgments of 2000 to 2019, all with ``huur`` in their summary and one in
+    every *rare* with ``pacht``."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_judgment(f"ECLI:NL:RBAMS:{2000 + n % 20}:{n}",
+                   ecli=f"ECLI:NL:RBAMS:{2000 + n % 20}:{n}",
+                   date_eff=f"{2000 + n % 20}-01-{1 + n % 28:02d}",
+                   source="rechtspraak", stub=False, inbound_citation_count=n % 7,
+                   summary="huur pacht" if n % rare == 0 else "huur woning")
+         for n in range(2000)],
+    )  # fmt: skip
+    with store.pool.connection() as conn:
+        conn.execute("ANALYZE judgments")
+
+
+def _items_statement(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, filters: JudgmentFilters
+) -> tuple[str, Any]:
+    """The statement (and its parameters) that reads the page of the list *filters*."""
+    seen: list[tuple[str, Any]] = []
+    query = store.query
+
+    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
+        seen.append((str(statement), params))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(store, "query", recorded)
+    get_judgments_list(store, filters, limit=100, facets=False)
+    monkeypatch.setattr(store, "query", query)
+    (found,) = [(s, p) for s, p in seen if "row_number()" in s]
+    return found
+
+
+def _ordered_scans(store: GraphStore, statement: str, params: Any) -> list[str]:
+    """The indexes the plan of *statement* reads judgments in the order of, testing each
+    row for the words of the search (``s_summary_t``, a ``Filter``). Planned as
+    ``tests/pg/test_query_plans.py`` does, without sorts and table scans where the
+    statement can do without, so that the few rows seeded here plan as a million do."""
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_sort = off")
+        conn.execute("SET LOCAL enable_seqscan = off")
+        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
+    assert row is not None
+    found: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if (
+                node.get("Relation Name") == "judgments"
+                and node.get("Node Type") == "Index Scan"
+                and "s_summary_t" in node.get("Filter", "")
+            ):
+                found.append(node["Index Name"])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(row[0])
+    return found
+
+
+def test_a_rare_word_finds_its_hits_before_it_sorts_them(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A word few judgments hold is found by its index, and its hits sorted: in the order
+    of the date index the planner tests every judgment of the list for it (``pacht``,
+    317 of a million on 2026-10-10: past the 30 s of a request, a 503)."""
+    _words(store, rare=400)
+    filters = JudgmentFilters(q="pacht", source="rechtspraak")
+    statement, params = _items_statement(store, monkeypatch, filters)
+    assert "hits AS MATERIALIZED" in statement
+    assert _ordered_scans(store, statement, params) == []
+    # what it replaces: the date index read in order, every row tested for the word
+    monkeypatch.setattr(judgment_queries, "SORTED_HITS_MAX", -1)
+    statement, params = _items_statement(store, monkeypatch, filters)
+    assert _ordered_scans(store, statement, params)
+
+
+@pytest.mark.parametrize("sort", ["date_desc", "date_asc", "citation_count"])
+def test_sorted_hits_give_the_page_the_index_order_gives(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, sort: str
+) -> None:
+    _words(store, rare=3)
+    filters = JudgmentFilters(q="pacht", source="rechtspraak")
+    pages = []
+    for most in (judgment_queries.SORTED_HITS_MAX, -1):
+        monkeypatch.setattr(judgment_queries, "SORTED_HITS_MAX", most)
+        pages.append(
+            [
+                get_judgments_list(
+                    store, filters, sort=sort, limit=50, offset=offset, facets=False
+                )
+                for offset in (0, 50, 650)
+            ]
+        )
+    assert pages[0] == pages[1]
+    assert [page["total"] for page in pages[0]] == [667] * 3
+    assert [len(page["items"]) for page in pages[0]] == [50, 50, 17]

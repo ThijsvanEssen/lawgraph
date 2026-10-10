@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
@@ -15,6 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.judgments import case_number_keys
+from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
@@ -42,6 +44,8 @@ class JudgmentDetailData:
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
+    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date}`` each
+    conclusions: list[dict[str, Any]] = field(default_factory=list)
 
 
 def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailData:
@@ -110,7 +114,38 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         ]
         if series_id
         else [],
+        conclusions=_conclusions(
+            store, (judgment_doc.get("props") or {}).get("conclusion_eclis")
+        ),
     )
+
+
+def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
+    """``{ecli, author, role, date}`` of each conclusion a judgment names, in its order: the
+    A-G or P-G and the date its light node gives (``lg_judgment_light``, never its text);
+    a conclusion the graph lacks is its ECLI alone."""
+    named = [str(e) for e in eclis or [] if e]
+    if not named:
+        return []
+    ids = {f"{COLLECTION_JUDGMENTS}/{make_node_key(ecli)}": ecli for ecli in named}
+    light = {
+        row["id"]: row["light"] or {}
+        for row in store.query(
+            "SELECT id, props AS light FROM lg_judgment_light"
+            " WHERE id = ANY(%(ids)s::text[])",
+            {"ids": list(ids)},
+        )
+    }
+    found = {ecli: light.get(node_id, {}) for node_id, ecli in ids.items()}
+    return [
+        {
+            "ecli": ecli,
+            "author": found[ecli].get("advocate_general"),
+            "role": found[ecli].get("advocate_general_role"),
+            "date": found[ecli].get("date"),
+        }
+        for ecli in named
+    ]
 
 
 def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
@@ -426,24 +461,6 @@ def get_judgments_list(
         conditions = [_CLAUSES[n] for n in names if n not in leave_out] + search
         return f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-    def items() -> list[Any]:
-        return list(
-            store.query(
-                f"""
-                SELECT {_ITEM}
-                FROM (
-                    SELECT j.id, row_number() OVER (ORDER BY {order}) AS n
-                    FROM judgments j {where()}
-                    ORDER BY {order}
-                    LIMIT %(limit)s OFFSET %(offset)s
-                ) page
-                JOIN judgments j ON j.id = page.id
-                ORDER BY page.n
-                """,
-                params,
-            )
-        )
-
     def facet(name: str) -> Callable[[], list[Any]]:
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
@@ -479,6 +496,15 @@ def get_judgments_list(
         )
 
     filtered = [*names, *(["search"] if search else [])]
+    # A search that finds few judgments sorts its hits; one that finds many reads the
+    # list in the order of an index (``_page``). The total (kept) tells which.
+    hits_first = bool(search) and (
+        _total(store, filtered, where(), params) <= SORTED_HITS_MAX
+    )
+
+    def items() -> list[Any]:
+        return _page(store, order, where(), params, hits_first=hits_first)
+
     if not facets:
         page, total = run_together(
             items, lambda: _total(store, filtered, where(), params)
@@ -498,6 +524,52 @@ def get_judgments_list(
         "facets": counted,
     }
     return result
+
+
+# The most hits of a search that are found first and then sorted (``_page``). Past them
+# they are at least one in twenty judgments, and a page in the order of an index finds
+# its rows by testing twenty for each.
+SORTED_HITS_MAX = 50_000
+
+
+def _page(
+    store: GraphStore,
+    order: str,
+    where: str,
+    params: dict[str, Any],
+    *,
+    hits_first: bool,
+) -> list[Any]:
+    """A page of the judgments *where* lets through, in *order*. With *hits_first* the
+    rows are found by the indexes of *where* (the words of a search) and then sorted:
+    in the order of an index the planner would test every judgment of the list for the
+    words of a rare one, and finds the page only after reading nearly the whole table
+    (``pacht``: 317 of a million)."""
+    source = "judgments"
+    hits = ""
+    if hits_first:
+        hits = f"""WITH hits AS MATERIALIZED (
+            SELECT j.id, j.key, j.date_eff, j.inbound_citation_count
+            FROM judgments j {where}
+        )"""
+        source, where = "hits", ""
+    return list(
+        store.query(
+            f"""
+            {hits}
+            SELECT {_ITEM}
+            FROM (
+                SELECT j.id, row_number() OVER (ORDER BY {order}) AS n
+                FROM {source} j {where}
+                ORDER BY {order}
+                LIMIT %(limit)s OFFSET %(offset)s
+            ) page
+            JOIN judgments j ON j.id = page.id
+            ORDER BY page.n
+            """,
+            params,
+        )
+    )
 
 
 def _with_narrower(

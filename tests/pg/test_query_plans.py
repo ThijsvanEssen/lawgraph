@@ -62,6 +62,9 @@ URLS = [
     "/api/search?q=noodweer&types=articles&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
+    # a paper by its number: by the index on lg_document_light, not the props of every
+    # paper of the dossier (a budget dossier holds thousands)
+    "/api/lookup?kind=document&dossier=36000&number=3",
     "/api/judgments",
     "/api/judgments?sort=date_asc",
     "/api/judgments?sort=citation_count",

@@ -1,12 +1,15 @@
 name: pre-commit
 
+# As tests.yaml: on every pull request and on a push to develop or main; a newer push to a pull
+# request cancels its run still going.
 on:
   push:
-    branches:
-      - '**'
+    branches: [develop, main]
   pull_request:
-    branches:
-      - '**'
+
+concurrency:
+  group: pre-commit-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   pre-commit:
