@@ -10,7 +10,7 @@ read by ``core.eerstekamer_votes``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Container, Iterator
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EERSTEKAMER_SITE
@@ -93,13 +93,18 @@ class EerstekamerSiteClient(BaseClient):
                     yield from bills
                     next_path = following if older else None
 
-    def mutation_terms(self) -> Iterator[tuple[str, str, str]]:
+    def mutation_terms(
+        self, stored: Container[str] = ()
+    ) -> Iterator[tuple[str, str, str]]:
         """``(path, url, html)`` of the list of changes of the current term
-        (``/personele_mutaties``) and of each earlier term it links."""
+        (``/personele_mutaties``), and of each earlier term it links that is not in
+        *stored*: the list of a term that ended does not change."""
         url = self.url(ek_changes.MUTATIONS_PATH)
         current = self._page(url)
         yield ek_changes.MUTATIONS_PATH, url, current
         for path in ek_changes.term_page(current).terms:
+            if path in stored:
+                continue
             url = self.url(path)
             yield path, url, self._page(url)
 
