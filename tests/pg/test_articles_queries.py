@@ -1056,4 +1056,6 @@ def test_the_most_cited_articles(store: GraphStore) -> None:
           "props": {"inbound_citation_count": n}}
          for key, n in (("a", 5), ("b", 900), ("c", 0), ("d", 40))],
     )  # fmt: skip
-    assert [a["key"] for a in articles.most_cited_articles(store, 2)] == ["b", "d"]
+    assert [a["key"] for a in articles.most_cited_articles(store, 40)] == ["b", "d"]
+    # never an article without a citation
+    assert [a["key"] for a in articles.most_cited_articles(store, 0)] == ["b", "d", "a"]

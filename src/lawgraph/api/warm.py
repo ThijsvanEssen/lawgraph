@@ -116,18 +116,25 @@ def _warm_law_judgments(store: GraphStore) -> None:
         get_citing_judgments(store, bwb_id, limit=LAW_JUDGMENTS_SHOWN)
 
 
-# The articles with the most citations whose node and citing passages are warmed: the node
-# as it opens (its lid counts read every edge of it), and the passages as the front end asks
+# The articles whose node and citing passages are warmed: those cited so often that they
+# open in more than a second cold (on prod, 10 Oct: 6:162 BW, 8,988 citations, its lid counts
+# 6.6 s and its passages 3.8 s cold; 1,500 citations or more were 335 articles). The node as
+# it opens (its lid counts read every edge of it), and the passages as the front end asks
 # them, each kept per sort and page: Verbonden a page of 200 (the explorer's
 # ``CITED_BY_PAGE``) newest first or most cited first, the homepage's network the most cited
 # 6. A page the front end does not ask is never read from what was warmed (a page of 50 was
 # warmed while Verbonden asked 200: ~10 s cold for 6:162 BW on 10 Oct).
-WARM_ARTICLES = 20
+WARM_ARTICLE_CITATIONS = 1500
 ARTICLE_PASSAGES = (("date_desc", 200), ("citation_count", 200), ("citation_count", 6))
 
 
-def _warm_articles(store: GraphStore) -> None:
-    for article in most_cited_articles(store, WARM_ARTICLES):
+def _warm_articles(store: GraphStore, version: str) -> None:
+    """The most cited first; stopped when newer data arrives, whose warm-up follows (the
+    part takes minutes)."""
+    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
+        if version_cache.superseded(store, version):
+            logger.info("Warm-up of the articles stopped: the data changed.")
+            return
         get_node_with_neighbors(store, "articles", article["key"])
         for sort, limit in ARTICLE_PASSAGES:
             get_article_cited_by(store, article["id"], sort=sort, limit=limit)
@@ -214,7 +221,7 @@ def warm_up(store: GraphStore) -> None:
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
         "judgments by area of law": lambda: _warm_subject_areas(store),
         "judgments citing a law": lambda: _warm_law_judgments(store),
-        "most cited articles": lambda: _warm_articles(store),
+        "most cited articles": lambda: _warm_articles(store, version),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):

@@ -215,3 +215,35 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     )
     warm.warm_up(store)
     assert "instruments" in ran and "coverage" not in ran
+
+
+def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first;
+    the part takes minutes, so it stops between two articles when the data changes."""
+    at_least = warm.WARM_ARTICLE_CITATIONS
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"_key": key, "type": "article", "labels": [],
+          "props": {"inbound_citation_count": n}}
+         for key, n in (("low", at_least - 1), ("top", at_least * 9),
+                        ("next", at_least * 2), ("last", at_least))],
+    )  # fmt: skip
+    opened: list[str] = []
+
+    def node(store_: GraphStore, collection: str, key: str) -> None:
+        opened.append(key)
+        if key == "next":  # a pipeline writes while it is warmed
+            store_.bulk_insert_or_update_nodes(
+                "instruments",
+                [{"_key": "z", "type": "instrument", "labels": [], "props": {}}],
+            )
+
+    monkeypatch.setattr(warm, "get_node_with_neighbors", node)
+    monkeypatch.setattr(warm, "get_article_cited_by", lambda *a, **k: None)
+    warm._warm_articles(store, store.data_version())
+    assert opened == ["top", "next"]  # "last" not: the data changed
+    opened.clear()
+    warm._warm_articles(store, store.data_version())
+    assert opened == ["top", "next", "last"]
