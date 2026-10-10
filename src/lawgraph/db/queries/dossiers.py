@@ -427,8 +427,13 @@ def get_dossier_timeline(
         )
     )
     FROM page p CROSS JOIN closing
-    -- of a decision: what the coalition did on it (``tk-coalition-votes``)
-    LEFT JOIN lg_decision_coalition co ON p.type = 'decision' AND co.id = p.id
+    -- of a decision: what the coalition did on it (``tk-coalition-votes``), looked up by
+    -- its key for the rows of the page (a join read the whole table in index order)
+    LEFT JOIN LATERAL (
+        SELECT c.* FROM lg_decision_coalition c
+        WHERE p.type = 'decision' AND c.id = p.id
+        OFFSET 0
+    ) co ON true
     ORDER BY {_json_order("p.date", direction)}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
