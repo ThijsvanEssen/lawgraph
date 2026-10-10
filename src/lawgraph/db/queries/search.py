@@ -139,15 +139,25 @@ NO_PERIOD = Period()
 # ── the condition of a search ─────────────────────────────────────────────────
 
 
-def _field_condition(table: str, field: str, word: str, row: str) -> list[str]:
+def _field_condition(
+    table: str, field: str, word: str, row: str, forms: list[str]
+) -> list[str]:
     """How *field* of *table* (the row *row*) matches the word in the parameter *word*,
-    one condition per analyzer it was indexed with."""
+    one condition per analyzer it was indexed with; *forms* the parameters of the forms of
+    the word that stem apart (``word_forms``)."""
     analyzers = SEARCH_FIELDS[table][field]
-    parts = []
+    parts: list[str] = []
     if "text" in analyzers:
-        # its forms that stem apart too ("huurprijs" and "huurprijzen": ``word_forms``)
-        forms = word.replace("_tok_", "_forms_")
-        parts.append(f"{row}.{search_column(field, 'text')} && lg_tokens(%({forms})s)")
+        # every word of one of its forms ("huurprijs" or "huurprijzen"): a token the words
+        # of a field split ("7:669" is 7 and 669) is found where all its words are, not
+        # wherever one of them is (every judgment that holds a 7), as the live search of
+        # papers does; a form of no word ("--") finds nothing, not every row
+        column = f"{row}.{search_column(field, 'text')}"
+        parts.extend(
+            f"(cardinality(lg_tokens(%({form})s)) > 0"
+            f" AND {column} @> lg_tokens(%({form})s))"
+            for form in forms
+        )
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
     if "identity" in analyzers:
         # from three characters, as a part of a value: the start of a value of two (``hu``,
@@ -180,8 +190,9 @@ def build_search_clause(
     Returns ``(condition, params)``; the parameters are ``_tok_0``, ``_tok_1``, … so they
     do not collide with those of the caller. A token is taken as typed (lower case, from
     ``tokenize_search_query``): its stems for the words of a field, as is for a prefix of
-    its value or a part of it, folded for a whole folded value. ``_forms_0``, … hold the
-    forms of each that stem apart (``word_forms``). *termed* holds per token the rows
+    its value or a part of it, folded for a whole folded value. ``_form_0_0``, … hold the
+    forms of each that stem apart (``word_forms``), each of which matches with all its
+    words. *termed* holds per token the rows
     that have it as a term (``_termed``: an article by what its case law calls it), each
     found by its key as well.
     """
@@ -192,8 +203,13 @@ def build_search_clause(
     for i, token in enumerate(tokens):
         word = f"_tok_{i}"
         params[word] = token
-        params[f"_forms_{i}"] = word_forms(token)
-        per_field = [c for f in fields for c in _field_condition(table, f, word, row)]
+        forms = []
+        for j, form in enumerate(word_forms(token).split()):
+            forms.append(f"_form_{i}_{j}")
+            params[forms[-1]] = form
+        per_field = [
+            c for f in fields for c in _field_condition(table, f, word, row, forms)
+        ]
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"{row}.id = ANY(%(_termed_{i})s::text[])")

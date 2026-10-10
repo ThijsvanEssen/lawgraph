@@ -42,6 +42,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached, lasting
 
 
@@ -216,7 +217,7 @@ def get_article_citations(
         f"""
         SELECT e.key, e.from_id, e.to_id, e.doc,
                n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
-        FROM {COLLECTION_EDGES} e JOIN nodes n ON n.id = e.to_id
+        FROM {COLLECTION_EDGES} e CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
         WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
         ORDER BY {_json_order("e.doc -> 'meta' -> 'start'")}, e.key
         """,
@@ -303,7 +304,7 @@ SELECT
     s.props -> 'display_name' AS summary,
     s.id AS document_id
 FROM {COLLECTION_EDGES} e
-JOIN nodes s ON s.id = e.from_id
+CROSS JOIN {node_of("e.from_id", "e.from_collection")} s
 WHERE e.to_id = %(article_id)s AND e.relation = ANY(%(changes)s)
 -- The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
 ORDER BY e.key
