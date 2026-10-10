@@ -864,7 +864,9 @@ as words, whole and in parts, besides their `display_name`, `summary`, `ecli` an
 An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
 (`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,
 `BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
-of every book. Written by `normalize bwb`.
+of every book. Its `citation_titles` are every citation title its WTI gives, the earlier ones
+too (`Participatiewet`, `Wet werk en bijstand` until 2015): the linkers know a law by an earlier
+title where no law is called so now. Both written by `normalize bwb`.
 
 ## Known limits
 

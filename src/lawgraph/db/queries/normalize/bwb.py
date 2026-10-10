@@ -14,13 +14,15 @@ from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import differs_sql, nonempty_sql
 from lawgraph.db.store import _rounds
 
-# Per row: the short title (json, null when it has none) and the aliases when there are
-# any (else SQL NULL).
+# Per row: the short title (json, null when it has none), and the aliases and the citation
+# titles when there are any (else SQL NULL).
 _ABBREVIATION_ROWS = f"""
 SELECT u.value ->> 'key' AS key,
        u.value -> 'short_title' AS short_title,
        CASE WHEN {nonempty_sql("u.value -> 'aliases'")} THEN u.value -> 'aliases' END
-           AS aliases
+           AS aliases,
+       CASE WHEN {nonempty_sql("u.value -> 'citation_titles'")}
+            THEN u.value -> 'citation_titles' END AS citation_titles
 FROM json_array_elements(%(rows)s::json) AS u(value)
 """
 
@@ -28,17 +30,22 @@ FROM json_array_elements(%(rows)s::json) AS u(value)
 _ABBREVIATIONS_SQL = f"""
 UPDATE instruments t
 SET props = lg_unset(
-    lg_update(t.props, json_build_object('short_title', r.short_title, 'aliases', r.aliases)),
+    lg_update(t.props, json_build_object(
+        'short_title', r.short_title, 'aliases', r.aliases,
+        'citation_titles', r.citation_titles
+    )),
     array_remove(ARRAY[
         CASE WHEN coalesce(json_typeof(r.short_title), 'null') = 'null'
              THEN 'short_title' END,
-        CASE WHEN r.aliases IS NULL THEN 'aliases' END
+        CASE WHEN r.aliases IS NULL THEN 'aliases' END,
+        CASE WHEN r.citation_titles IS NULL THEN 'citation_titles' END
     ], NULL)
 )
 FROM ({_ABBREVIATION_ROWS}) r
 WHERE t.key = r.key
   AND ({differs_sql("t.props -> 'short_title'", "r.short_title")}
-       OR {differs_sql("t.props -> 'aliases'", "r.aliases")})
+       OR {differs_sql("t.props -> 'aliases'", "r.aliases")}
+       OR {differs_sql("t.props -> 'citation_titles'", "r.citation_titles")})
 RETURNING 1
 """
 
@@ -82,9 +89,9 @@ def update_subjects(store: Store, rows: list[dict[str, Any]]) -> int:
 
 
 def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``short_title`` and ``aliases`` on the instruments of *rows* (``{key,
-    short_title, aliases}``) where either differs; how many changed. A null short title or
-    an empty list of aliases removes the prop. A key twice in *rows* is written in rounds,
+    """Set ``short_title``, ``aliases`` and ``citation_titles`` on the instruments of *rows*
+    (``{key, short_title, aliases, citation_titles}``) where one differs; how many changed. A
+    null short title or an empty list removes the prop. A key twice in *rows* is written in rounds,
     in the order of *rows*."""
     changed = 0
     for round_ in _rounds(rows, "key"):

@@ -40,6 +40,10 @@ that has an abbreviation decides, and the abbreviation is a law's only when one 
 (`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's), or when the others are versions
 of it: their title is its title with a parenthesis after it (`Rv` is the Wetboek van Burgerlijke
 Rechtsvordering's, not that of its version "(geldt in geval van niet-digitaal procederen)").
+A text that names a law in full and gives it an abbreviation, in a citation or outside one ("de
+Werkloosheidswet (WW)", "de Wet werk en bijstand (hierna: WWB)"), uses that abbreviation for that
+law throughout: so an abbreviation several laws claim (WW: also the Woningwet and the Waterwet)
+names a law where the text says which. An abbreviation that is one law's keeps that law.
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees

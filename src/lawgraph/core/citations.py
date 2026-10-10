@@ -568,6 +568,8 @@ class DutchCitationExtractor:
             for alias, (law_id, beside) in self._context.items()
             if beside.search(text)
         }
+        # the names the text gives the laws it names: "de Werkloosheidswet (WW)"
+        local |= self._defined_names(text)
         unknown_local: dict[str, str] = {}  # "AW" -> "Aanbestedingswet"
         last: tuple[int, str] | None = None
 
@@ -592,6 +594,32 @@ class DutchCitationExtractor:
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
         return hits
+
+    def _defined_names(self, text: str) -> dict[str, str]:
+        """Abbreviation -> law id for every name *text* gives a law it names in full, also
+        outside a citation: "de Werkloosheidswet (WW)", "de Participatiewet (hierna: Pw)".
+        A text names its laws so where an abbreviation is ambiguous in the registry (WW is
+        also the Woningwet and the Waterwet), so it holds in the whole text; one that is a
+        code of the registry keeps its law."""
+        defined: dict[str, str] = {}
+        if not self._name_map:
+            return defined
+        for match in _HIERNA_RE.finditer(text):
+            law_id = self._name_before(text, match.start())
+            alias = _defined_alias(text, match.start()) if law_id else None
+            if law_id and alias and alias not in self._code_map:
+                defined.setdefault(alias, law_id)
+        return defined
+
+    def _name_before(self, text: str, end: int) -> str | None:
+        """The law whose known name ends at *end* in *text* (the longest run of words)."""
+        window = text[max(0, end - 300) : end]
+        words = list(re.finditer(r"\S+", window))[-_MAX_NAME_WORDS:]
+        for word in words:  # the longest run first
+            law_id = self._name_map.get(name_key(window[word.start() :]))
+            if law_id:
+                return law_id
+        return None
 
     @staticmethod
     def _unknown_hits(
