@@ -101,7 +101,7 @@ jobs:
         run: uv pip install --system -e ".[dev]"
 
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist loadfile
+        run: pytest ${{ matrix.tests }} -n auto --dist loadfile --durations=0 --durations-min=0.5
 
   # The one check of the database tests the merge gate reads: green when every shard is.
   database:
