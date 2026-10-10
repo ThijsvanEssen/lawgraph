@@ -412,3 +412,103 @@ def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> 
     for bwb_id, number in ((KLIMAATFONDS, "3"), (BUDGET_LAW, "2"), (NEW_LAW, "99")):
         body = explanations(bwb_id, number)
         assert {"total": body["total"], "items": body["items"]} == empty
+
+
+PROEF = "BWBR0099003"  # changed by dossier 36300, whose memorandum names onderdelen
+_BILL_36300 = """VOORSTEL VAN WET
+ARTIKEL I
+Het Wetboek van Proef wordt als volgt gewijzigd:
+A
+In artikel 10, eerste lid, wordt «twee» vervangen door: drie.
+B
+Na artikel 20 worden twee artikelen ingevoegd, luidende:
+Artikel 20a
+Hij die proeft, wordt gestraft.
+Artikel 20b
+Hij die niet proeft, ook.
+ARTIKEL II
+Deze wet treedt in werking met ingang van de dag na de uitgifte."""
+
+
+def _onderdelen_graph(store: GraphStore) -> dict[str, str]:
+    """36300: a bill that changes a code, explained per onderdeel; 20b was left out by an
+    amendment (no change edge)."""
+    ids: dict[str, str] = {}
+    _node(store, "dossiers", "36300", "dossier", number="36300")
+    _law(store, PROEF, "Wetboek van Proef")
+    publication = _node(
+        store, "instruments", "stb_2025_4", "instrument", display_name="Stb. 2025, 4"
+    )
+    _edge(store, publication, "dossiers/36300", RELATION_LEGISLATED_IN)
+    for number, relation in (("10", RELATION_AMENDS), ("20a", RELATION_INTRODUCES)):
+        article, version = _article(store, PROEF, number)
+        _edge(store, publication, article, relation, article_version=version)
+        ids[number] = f"article_versions/{version}"
+    ids["20b"], _ = _article(store, PROEF, "20b")
+    bill = _node(
+        store,
+        "documents",
+        "bill_36300",
+        "document",
+        kind="Voorstel van wet",
+        date="2025-01-01",
+        text=_BILL_36300,
+    )
+    _edge(store, bill, "dossiers/36300", RELATION_PART_OF)
+    text, sections = "", []
+    for heading, body in (
+        ("Artikel I, onderdeel A", "De boete gaat omhoog."),
+        ("Artikel I, onderdeel B", "Twee nieuwe delicten."),
+        ("Artikel II", "De inwerkingtreding."),
+    ):
+        start = len(text) + (1 if text else 0)
+        block = f"{heading}\n{body}"
+        text += ("\n" if text else "") + block
+        number = heading.split()[1].rstrip(",")
+        sections.append(
+            {
+                "id": f"s-{len(sections)}",
+                "heading": heading,
+                "level": 1,
+                "parent": None,
+                "kind": "article",
+                "number": number,
+                "number_scheme": "roman",
+                "article_refs": [{"number": number, "of": "self"}],
+                "law": None,
+                "char_start": start,
+                "char_end": start + len(block),
+            }
+        )
+    ids["doc"] = _memorandum(store, "mvt_36300", "36300", text, sections)
+    return ids
+
+
+def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    ids = _onderdelen_graph(store)
+
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+
+    edges = _by_target(store, ids["doc"])
+    for number, section in (("10", "s-0"), ("20a", "s-1")):
+        meta = edges[ids[number]]["meta"]
+        assert meta["section_anchor"] == section
+        assert meta["match_type"] == "bill_part"
+        assert meta["changed"] is True
+    # what the bill inserted and the dossier did not change, and the bill's own articles
+    assert ids["20b"] not in edges
+    assert set(edges) == {ids["10"], ids["20a"]}
+
+    # and the reader gets the onderdeel as the passage of the article
+    app.dependency_overrides[get_store] = lambda: store
+    body = TestClient(app).get(f"/api/articles/{PROEF}/20a/explanations").json()
+    (item,) = body["items"]
+    (passage,) = item["passages"]
+    assert (passage["heading"], passage["match_type"]) == (
+        "Artikel I, onderdeel B",
+        "bill_part",
+    )
+    assert passage["text"] == "Artikel I, onderdeel B\nTwee nieuwe delicten."

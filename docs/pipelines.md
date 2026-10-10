@@ -271,19 +271,25 @@ are read.
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
 | `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
 | `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.8 |
+| `bill_part` | the heading names an onderdeel of the bill and no article (`Artikel I, onderdeel B`, `Artikel I, onderdelen C tot en met E`, an `Onderdeel B` under `Artikel I`, an `Artikel III` without onderdelen), and the bill says which article it changes (`core/bill_parts.py`): the articles under its headings when it inserts them (`Na artikel 248c worden twee artikelen ingevoegd: Artikel 248d … Artikel 248e`), else those its instruction names before what it quotes; of the law its `ARTIKEL` says it changes (`Het Wetboek van Strafrecht wordt als volgt gewijzigd`), else the law the instruction names; the section has text of its own, and the dossier changed that article | 0.9 |
 
 The confidences (`core/mvt_articles.py`) are the share a hand check of 10 edges per kind in
-lawgraph_small found right. A change of the article by the dossier corroborates a match; a
+lawgraph_small found right; for `bill_part` 10 of 10 on the server's texts of 14 dossiers
+(lawgraph_small has no bill texts). The bill is the first `Voorstel van wet` of the
+memorandum's own dossier: the memorandum explains the bill as it was sent, so its onderdelen
+carry the bill's letters. A change of the article by the dossier corroborates a match; a
 heading that names an article the dossier did not change mostly names one of another law than
 the one it is taken for (the heading says `Wft`, the dossier changes Boek 2 BW). What a match
 rests on is `match_type`, `changed` (whether the dossier changed the article) and
 `explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
 wijzigt het artikel."). A heading with several numbers (`Artikelen 3 en
 4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
-nothing: attaching it to every article the dossier changed would only repeat the dossier-level
-edges. `heading_target` and `own_number` also point at the article of the law when the dossier
+what the bill says that onderdeel changes (`bill_part`), and nothing without the bill:
+attaching it to every article the dossier changed would only repeat the dossier-level edges.
+An `ARTIKEL I` over all the onderdelen of a law is the whole change of that law, and gives
+nothing either. `heading_target` and `own_number` also point at the article of the law when the dossier
 has no change edge for it (an article of a law that is new, or whose history is not loaded);
-the other two only at articles the dossier changed. Not detected: a new law whose numbering a
+the others only at articles the dossier changed. Not detected: a new law whose numbering a
 nota van wijziging shifted; articles of a treaty; a law the graph does not have or whose name
 two laws share.
 

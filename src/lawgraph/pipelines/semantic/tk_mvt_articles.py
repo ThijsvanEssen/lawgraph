@@ -3,7 +3,9 @@
 ``semantic tk-mvt`` links a memorandum to everything its dossier changed. The artikelsgewijs
 part of the memorandum says more: a heading and a toelichting per article (``props.sections``,
 written by ``normalize tk-content``). ``core/mvt_articles.py`` reads which article of which
-law a section is about; this pipeline matches that with what the dossier changed::
+law a section is about, with the bill of the dossier for a heading that names its onderdeel
+("Artikel I, onderdeel B", ``core/bill_parts.py``); this pipeline matches that with what the
+dossier changed::
 
     Document --PART_OF--> Dossier <--LEGISLATED_IN-- Instrument
     Instrument --AMENDS/INTRODUCES/REPEALS--> Article
@@ -30,6 +32,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_EXPLAINS,
 )
+from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -153,6 +156,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             row.get("sections") or [],
             _laws(row.get("laws") or [], own_bwb_id),
             own_bwb_id=own_bwb_id,
+            bill=bill_parts(row["bill"]) if row.get("bill") else None,
         )
         explained = explained_targets(references, changes, self._article_exists)
         for target, refs in explained.items():
