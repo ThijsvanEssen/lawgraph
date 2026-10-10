@@ -98,9 +98,10 @@ jobs:
       matrix:
         include:
           - shard: 1
-            tests: tests/pg/test_[a-ej-n]*.py
+            tests: tests/pg/test_[a-ej-r]*.py
+            dist: loadgroup
           - shard: 2
-            tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-mp-q]*.py
+            tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-m]*.py
           - shard: 3
             tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
           - shard: 4
@@ -108,8 +109,7 @@ jobs:
           - shard: 5
             tests: tests/integration/test_[d-i]*.py
           - shard: 6
-            tests: tests/pg/test_[o-r]*.py tests/integration/test_[jsu]*.py
-            dist: loadgroup
+            tests: tests/integration/test_[jp-qsu]*.py
 
     env:
       ALLOW_DB_TESTS: '1'
