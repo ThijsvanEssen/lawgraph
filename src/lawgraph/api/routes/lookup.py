@@ -21,6 +21,8 @@ _KIND_OF = {
     "documents": "document",
     "dossiers": "dossier",
     "articles": "article",
+    "annexes": "annex",
+    "cases": "case",
     "instruments": "instrument",
     "judgments": "judgment",
     "commitments": "commitment",
@@ -54,6 +56,12 @@ def _finder(
     if kind == "article":
         a = _need(law=p["law"], number=p["number"])
         return lambda: lookup.find_article(store, a["law"], a["number"])
+    if kind == "annex":
+        a = _need(law=p["law"], label=p["label"])
+        return lambda: lookup.find_annex(store, a["law"], a["label"])
+    if kind == "case":
+        a = _need(number=p["number"])
+        return lambda: lookup.find_case(store, a["number"])
     if kind == "judgment":
         a = _need(ecli=p["ecli"])
         return lambda: lookup.find_judgment(store, a["ecli"])
@@ -94,8 +102,10 @@ def _finder(
         "number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not "
         "there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` "
         "(`law` BWB id or CELEX, `number`: `6:162` and `162` under BW Boek 6 alike), "
-        "`law` (`id`), `judgment` (`ecli`; a judgment only cited is answered, with "
-        "`stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), "
+        "`annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its "
+        "`number`, `2025Z15468`), `law` (`id`), `judgment` (`ecli`; a judgment only "
+        "cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, "
+        "`year`, `number`), "
         "`official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), "
         "`commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` "
         "(its `slug`, `rob-jetten`) (`id`)."
@@ -108,6 +118,7 @@ def get_lookup(
     dossier: Annotated[str | None, Query()] = None,
     number: Annotated[str | None, Query()] = None,
     law: Annotated[str | None, Query()] = None,
+    label: Annotated[str | None, Query()] = None,
     ecli: Annotated[str | None, Query()] = None,
     series: Annotated[str | None, Query()] = None,
     year: Annotated[str | None, Query()] = None,
@@ -117,6 +128,7 @@ def get_lookup(
         "dossier": dossier,
         "number": number,
         "law": law,
+        "label": label,
         "ecli": ecli,
         "series": series,
         "year": year,

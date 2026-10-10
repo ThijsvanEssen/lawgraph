@@ -1137,6 +1137,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS members_slug"
         " ON members (public.lg_str(props -> 'slug'))",
     ),
+    # a zaak by its number (``/zaken/2025Z15468``)
+    COLLECTION_CASES: (
+        "CREATE INDEX IF NOT EXISTS cases_number"
+        " ON cases (public.lg_str(props -> 'number'))",
+    ),
     # a committee by its slug or its key (``/commissies/szw``)
     COLLECTION_COMMITTEES: (
         "CREATE INDEX IF NOT EXISTS committees_slug"

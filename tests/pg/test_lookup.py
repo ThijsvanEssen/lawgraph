@@ -105,6 +105,11 @@ def client(store: GraphStore) -> Iterator[TestClient]:
     put("factions", [_node("sp", "faction", name="SP")])
     put("committees", [_node("c1", "committee", slug="justitie-en-veiligheid")])
     put("cabinets", [_node("schoof", "cabinet", name="kabinet-Schoof")])
+    put(
+        "annexes",
+        [_node("bwbr0002741_annex_ii", "annex", bwb_id="BWBR0002741", label="II")],
+    )
+    put("cases", [_node("0a1b2c3d", "case", number="2025Z15468", kind="Motie")])
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -176,6 +181,13 @@ def client(store: GraphStore) -> Iterator[TestClient]:
             "committee",
         ),
         ({"kind": "cabinet", "id": "schoof"}, "cabinets/schoof", "cabinet"),
+        # an annex by its law and label, any case; a zaak by its number
+        (
+            {"kind": "annex", "law": "bwbr0002741", "label": "ii"},
+            "annexes/bwbr0002741_annex_ii",
+            "annex",
+        ),
+        ({"kind": "case", "number": "2025z15468"}, "cases/0a1b2c3d", "case"),
     ],
 )
 def test_each_kind_finds_its_node(
@@ -206,6 +218,18 @@ def test_the_answer_carries_what_the_url_is_built_back_from(client: TestClient) 
         "/api/lookup", params={"kind": "judgment", "ecli": "ECLI:NL:HR:2019:2006"}
     ).json()
     assert judgment["props"] == {"ecli": "ECLI:NL:HR:2019:2006"}  # never its text
+    annex = client.get(
+        "/api/lookup", params={"kind": "annex", "law": "BWBR0002741", "label": "II"}
+    ).json()
+    assert annex["props"] == {"bwb_id": "BWBR0002741", "label": "II"}
+    assert annex["path"] == "/wetten/BWBR0002741/bijlage/II"
+    case = client.get(
+        "/api/lookup", params={"kind": "case", "number": "2025Z15468"}
+    ).json()
+    assert (case["props"], case["path"]) == (
+        {"number": "2025Z15468"},
+        "/zaken/2025Z15468",
+    )
 
 
 def test_a_stub_and_a_replaced_judgment_are_answered(client: TestClient) -> None:
@@ -232,6 +256,9 @@ def test_a_stub_and_a_replaced_judgment_are_answered(client: TestClient) -> None
         {"kind": "judgment", "ecli": "ECLI:NL:HR:2000:1"},
         {"kind": "official", "id": "h-tk-20252026-12-3"},
         {"kind": "faction", "id": "nope"},
+        {"kind": "annex", "law": "BWBR0002741", "label": "IX"},
+        {"kind": "annex", "law": "xyz", "label": "II"},
+        {"kind": "case", "number": "2025Z99999"},
     ],
 )
 def test_what_is_not_in_the_data_is_404_not_in_data(
@@ -246,6 +273,8 @@ def test_what_is_not_in_the_data_is_404_not_in_data(
     [
         {"kind": "document", "dossier": "36799"},
         {"kind": "article", "law": "BWBR0005289"},
+        {"kind": "annex", "law": "BWBR0002741"},
+        {"kind": "case"},
         {"kind": "publication", "series": "xyz", "year": "2016", "number": "1"},
         {"kind": "nothing", "id": "x"},
     ],

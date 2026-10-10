@@ -944,3 +944,138 @@ def test_a_page_of_the_app_may_keep_out_of_the_index(client: TestClient) -> None
     assert own["robots"] == "noindex"
     # the others as ever
     assert _head(_get(client, "/actueel").text)["robots"] is None
+
+
+def _focus(html: str) -> str | None:
+    m = re.search(r'<meta name="focus" content="([^"]*)" data-seo />', html)
+    return m[1] if m else None
+
+
+def test_every_page_of_a_node_names_it_and_no_other_page_does(
+    client: TestClient,
+) -> None:
+    """``<meta name="focus">``: the node of the page, which the app opens without a lookup
+    (a 301 from ``/explore?focus=`` drops it); a page of the app and a 404 have none."""
+    for path, node in (
+        ("/wetten/BWBR0005289/artikel/6:162", "articles/bwbr0005289_162"),
+        ("/uitspraken/ECLI:NL:HR:2019:2006", "judgments/ecli_nl_hr_2019_2006"),
+        ("/stemmingen/s_1", "decisions/s_1"),
+    ):
+        assert _focus(_get(client, path).text) == node, path
+    assert _focus(_get(client, "/actueel").text) is None
+    assert _focus(_get(client, "/bestaat/niet").text) is None
+
+
+def _seed_annex_and_case(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("bwbr0001941", "instrument", bwb_id="BWBR0001941",
+               citation_title="Opiumwet", kind="wet")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "annexes",
+        [
+            _node("bwbr0001941_annex_ii", "annex", bwb_id="BWBR0001941", label="II",
+                  title="Lijst II", description="Middelen als bedoeld in artikel 3",
+                  entries=[{"index": 1, "name": "Cannabis", "description": "hennep"}]),
+            _node("bwbr0001941_annex_iii", "annex", bwb_id="BWBR0001941",
+                  label="III", stub=True),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [
+            _node("z_2", "case", number="2025Z15468", kind="Wetgeving",
+                  title="Regels over kunstmatige intelligentie", started_on="2025-08-01",
+                  dossier_numbers=["36496"]),
+            _node("z_3", "case", number="2025Z15469", kind="Motie",
+                  title="Motie van het lid Bolhuis over een AI-killswitch"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("p2", "documents/kst_36496_71", "cases/z_2", "PART_OF"),
+            _edge("a2", "decisions/s_1", "cases/z_2", "ABOUT"),
+        ]
+    )
+
+
+def test_an_annex_has_its_law_and_entries(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_annex_and_case(store)
+    response = _get(client, "/wetten/BWBR0001941/bijlage/II")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == "Bijlage II Opiumwet: lijst II, Concordans"
+    assert page["description"] == "Middelen als bedoeld in artikel 3"
+    assert page["canonical"] == "https://concordans.nl/wetten/BWBR0001941/bijlage/II"
+    assert page["robots"] is None
+    assert page["og_image"] == "https://concordans.nl/og/wet.png"
+    assert 'href="/wetten/BWBR0001941"' in page["main"]
+    assert "Cannabis" in page["main"] and "hennep" in page["main"]
+    graph = page["data"]["@graph"]
+    assert graph[0]["@type"] == "Legislation"
+    assert graph[0]["legislationIdentifier"] == "BWBR0001941 bijlage II"
+    assert graph[0]["isPartOf"]["legislationIdentifier"] == "BWBR0001941"
+    assert [i["name"] for i in graph[1]["itemListElement"]] == [
+        "Concordans",
+        "Opiumwet",
+        "Bijlage II Opiumwet: lijst II",
+    ]
+    assert _focus(response.text) == "annexes/bwbr0001941_annex_ii"
+    # another spelling, and the explorer of the annex, to its readable address
+    lower = _get(client, "/wetten/bwbr0001941/bijlage/ii")
+    assert (lower.status_code, lower.headers["location"]) == (
+        301,
+        "/wetten/BWBR0001941/bijlage/II",
+    )
+    focus = _get(client, "/explore?focus=annexes/bwbr0001941_annex_ii")
+    assert focus.headers["location"] == "/wetten/BWBR0001941/bijlage/II"
+    # an annex only cited (a stub) has nothing to read: not indexed
+    stub = _head(_get(client, "/wetten/BWBR0001941/bijlage/III").text)
+    assert stub["robots"] == "noindex"
+    assert _get(client, "/wetten/BWBR0001941/bijlage/IX").status_code == 404
+
+
+def test_a_zaak_has_its_dossier_papers_and_votes(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_annex_and_case(store)
+    response = _get(client, "/zaken/2025Z15468")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == (
+        "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"
+    )
+    assert "gestart 01-08-2025" in page["description"]
+    assert "dossier 36496" in page["description"]
+    assert "aangenomen" in page["description"]
+    assert page["canonical"] == "https://concordans.nl/zaken/2025Z15468"
+    assert page["robots"] is None
+    assert 'href="/dossiers/36496"' in page["main"]
+    assert 'href="/kamerstukken/36496/71"' in page["main"]
+    assert 'href="/stemmingen/s_1"' in page["main"]
+    graph = page["data"]["@graph"]
+    assert graph[0]["@type"] == "CreativeWork"
+    assert graph[0]["identifier"] == "2025Z15468"
+    crumbs = graph[1]["itemListElement"]
+    assert [i["name"] for i in crumbs] == [
+        "Concordans",
+        "Dossier 36496",
+        "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468)",
+    ]
+    assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36496"
+    assert _focus(response.text) == "cases/z_2"
+    lower = _get(client, "/zaken/2025z15468")
+    assert (lower.status_code, lower.headers["location"]) == (301, "/zaken/2025Z15468")
+    focus = _get(client, "/explore?focus=cases/z_2&lezen=1")
+    assert focus.headers["location"] == "/zaken/2025Z15468?lezen=1"
+    # a motion: its paper is the page to find; without a dossier, no crumb to one
+    motion = _head(_get(client, "/zaken/2025Z15469").text)
+    assert motion["title"].startswith(
+        "Motie Bolhuis over een AI-killswitch (2025Z15469)"
+    )
+    assert motion["robots"] == "noindex"
+    assert len(motion["data"]["@graph"][1]["itemListElement"]) == 2
+    assert _get(client, "/zaken/2025Z99999").status_code == 404

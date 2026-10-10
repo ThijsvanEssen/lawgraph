@@ -123,6 +123,8 @@ def _head(page: Page, base: str) -> str:
     ]
     if page.path:
         tags.append(f'<link rel="canonical" href="{escape(url)}" data-seo />')
+    if page.focus:
+        tags.append(f'<meta name="focus" content="{escape(page.focus)}" data-seo />')
     if not page.index:
         tags.append('<meta name="robots" content="noindex" data-seo />')
     tags += [

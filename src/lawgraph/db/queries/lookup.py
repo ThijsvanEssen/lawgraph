@@ -13,7 +13,9 @@ from typing import Any
 from psycopg import sql
 
 from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
     COLLECTION_CABINETS,
+    COLLECTION_CASES,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
@@ -45,6 +47,7 @@ ANSWER_PROPS = (
     "replaced_by",
     "same_as",
     "slug",
+    "label",
 )
 
 # "36600-VIII", "36455-(R2188)", "36799": the number of a dossier and its suffix.
@@ -138,6 +141,26 @@ def find_article(store: GraphStore, law: str, number: str) -> str | None:
         LIMIT 1
         """,
         {"law": law, "number": native.strip()},
+    )
+
+
+def find_annex(store: GraphStore, law: str, label: str) -> str | None:
+    """The annex *label* (``II``, ``2``, ``A``) of the law of the BWB id *law*; its key is
+    made of both (``core/annex_xml.annex_node_key``), whatever their case."""
+    law, label = law.strip(), label.strip()
+    if not is_bwb_id(law.upper()) or not label:
+        return None
+    return _exists(store, COLLECTION_ANNEXES, make_node_key(law, "annex", label))
+
+
+def find_case(store: GraphStore, number: str) -> str | None:
+    """The zaak of the Tweede Kamer numbered *number* (``2025Z15468``)."""
+    return _one(
+        store,
+        f"SELECT c.id FROM {COLLECTION_CASES} c"
+        " WHERE lg_str(c.props -> 'number') = %(number)s"
+        " ORDER BY c.key LIMIT 1",
+        {"number": number.strip().upper()},
     )
 
 

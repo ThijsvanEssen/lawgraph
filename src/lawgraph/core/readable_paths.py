@@ -3,9 +3,11 @@
     /uitspraken/ECLI:NL:HR:2019:2006     a judgment, by its ECLI (as rechtspraak.nl)
     /wetten/BWBR0005289                  a law, by its BWB id
     /wetten/BWBR0005289/artikel/6:162    an article, by its law and number
+    /wetten/BWBR0002741/bijlage/II       an annex, by its law and label
     /dossiers/36600-VIII                 a dossier, by its number
     /kamerstukken/36799/31               a Kamerstuk, by its dossier and number
     /kamerstukken/36600-VIII/AB          one of the Eerste Kamer, by its letter
+    /zaken/2025Z15468                    a zaak of the Tweede Kamer, by its number
     /stb/2026/94                         a publication, by series, year and number
     /leden/rob-jetten                    a lid or bewindspersoon, by its slug
     /kabinetten/rutte_iv                 a cabinet, by its key
@@ -39,6 +41,10 @@ SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 COMMITMENT_NUMBER = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
 # The number of a stuk: a figure in the Tweede Kamer, letters in the Eerste (A, AB).
 STUK = re.compile(r"^(\d+|[A-Z]{1,3})$", re.IGNORECASE)
+# The number of a zaak of the Tweede Kamer: ``2025Z15468``.
+CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
+# The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
+ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
 _JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9.]+$")
 _PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
@@ -63,8 +69,9 @@ _BOOK_OF = {bwb: book.upper() for book, bwb in BW_BOOKS.items()}
 @dataclass(frozen=True)
 class Pad:
     """A readable address: its kind (``soort``) and its parts, as the front end has them.
-    ``a``, ``b`` and ``c`` are, per kind: an ECLI; a law; a law and a number; a dossier;
-    a dossier and a number; a series, a year and a number; a slug or key; a number."""
+    ``a``, ``b`` and ``c`` are, per kind: an ECLI; a law; a law and a number; a law and
+    the label of an annex; a dossier; a dossier and a number; a series, a year and a
+    number; a slug or key; a number."""
 
     soort: str
     a: str
@@ -78,6 +85,22 @@ def book_number(bwb_id: str | None, number: str) -> str:
     return f"{book}:{number}" if book and ":" not in number else number
 
 
+# The addresses of one segment after their prefix: the kind, the pattern of the segment
+# and whether it is written in capitals (an ECLI, a BWB id, a number).
+_ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
+    "uitspraken": ("uitspraak", ECLI, True),
+    "wetten": ("wet", BWB, True),
+    "dossiers": ("dossier", DOSSIER, True),
+    "leden": ("lid", SLUG, False),
+    "kabinetten": ("kabinet", SLEUTEL, False),
+    "fracties": ("fractie", SLEUTEL, False),
+    "commissies": ("commissie", SLEUTEL, False),
+    "stemmingen": ("stemming", SLEUTEL, False),
+    "toezeggingen": ("toezegging", COMMITMENT_NUMBER, True),
+    "zaken": ("zaak", CASE_NUMBER, True),
+}
+
+
 def parse_path(pathname: str) -> Pad | None:
     """The readable address in a path, or None for any other page."""
     try:
@@ -86,26 +109,13 @@ def parse_path(pathname: str) -> Pad | None:
         return None
     first, a, b, c = (parts + ["", "", "", ""])[:4]
     n = len(parts)
-    if first == "uitspraken" and n == 2 and ECLI.match(a):
-        return Pad("uitspraak", a.upper())
-    if first == "wetten" and n == 2 and BWB.match(a):
-        return Pad("wet", a.upper())
+    if n == 2 and first in _ONE_PART:
+        soort, pattern, upper = _ONE_PART[first]
+        return Pad(soort, a.upper() if upper else a) if pattern.match(a) else None
     if first == "wetten" and n == 4 and b == "artikel" and a and c:
         return Pad("artikel", a.upper(), c)
-    if first == "dossiers" and n == 2 and DOSSIER.match(a):
-        return Pad("dossier", a.upper())
-    if first == "leden" and n == 2 and SLUG.match(a):
-        return Pad("lid", a)
-    if first == "kabinetten" and n == 2 and SLEUTEL.match(a):
-        return Pad("kabinet", a)
-    if first == "fracties" and n == 2 and SLEUTEL.match(a):
-        return Pad("fractie", a)
-    if first == "commissies" and n == 2 and SLEUTEL.match(a):
-        return Pad("commissie", a)
-    if first == "stemmingen" and n == 2 and SLEUTEL.match(a):
-        return Pad("stemming", a)
-    if first == "toezeggingen" and n == 2 and COMMITMENT_NUMBER.match(a):
-        return Pad("toezegging", a.upper())
+    if first == "wetten" and n == 4 and b == "bijlage" and BWB.match(a):
+        return Pad("bijlage", a.upper(), c.upper()) if ANNEX_LABEL.match(c) else None
     if (
         first in REEKSEN
         and n == 3
@@ -135,6 +145,8 @@ def pad_href(pad: Pad) -> str:
         return f"/uitspraken/{_keep(pad.a)}"
     if s == "artikel":
         return f"/wetten/{_e(pad.a)}/artikel/{_keep(pad.b)}"
+    if s == "bijlage":
+        return f"/wetten/{_e(pad.a)}/bijlage/{_e(pad.b)}"
     if s == "wet":
         return f"/wetten/{_e(pad.a)}"
     if s == "dossier":
@@ -150,6 +162,7 @@ def pad_href(pad: Pad) -> str:
         "commissie": "commissies",
         "toezegging": "toezeggingen",
         "stemming": "stemmingen",
+        "zaak": "zaken",
     }[s]
     return f"/{prefix}/{pad.a}"
 
@@ -249,6 +262,22 @@ def _commitment(key: str, props: dict[str, Any]) -> str | None:
     return pad_href(Pad("toezegging", number.upper()))
 
 
+def _annex(key: str, props: dict[str, Any]) -> str | None:
+    # The one annex of a regulation, without a label, has no address of its own.
+    law = _text(props.get("bwb_id"))
+    label = _text(props.get("label"))
+    if not law or not BWB.match(law) or not label or not ANNEX_LABEL.match(label):
+        return None
+    return pad_href(Pad("bijlage", law.upper(), label.upper()))
+
+
+def _case(key: str, props: dict[str, Any]) -> str | None:
+    number = _text(props.get("number"))
+    if not number or not CASE_NUMBER.match(number):
+        return None
+    return pad_href(Pad("zaak", number.upper()))
+
+
 def _paper(key: str, props: dict[str, Any]) -> str | None:
     # Dossier and number as the stuk is cited: 36600-VIII, and 31 in the Tweede Kamer or
     # AB in the Eerste (``number``, the letter).
@@ -279,12 +308,14 @@ _PATHS: dict[str, Any] = {
     "decisions": _by_key("stemming"),
     "commitments": _commitment,
     "documents": _paper,
+    "annexes": _annex,
+    "cases": _case,
 }
 
 
 def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
     """The readable address of a node, from its key or the props of its node; None
-    where it has none (an activity, an annex: still /explore)."""
+    where it has none (an activity, an annex without a label: still /explore)."""
     collection, _, key = node_id.partition("/")
     build = _PATHS.get(collection)
     return build(key, props or {}) if key and build else None
