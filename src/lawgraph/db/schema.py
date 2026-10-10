@@ -40,6 +40,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
+    RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 
@@ -1378,6 +1379,86 @@ END $$""",
     return statements
 
 
+# Every vote of a faction (a ``VOTED`` edge from ``factions``) with the date, key and kind of
+# vote of its decision: what the page of a member's votes reads of the faction's periods, a
+# range of an index per period instead of a walk over the decisions with a probe of the edges
+# per decision (``queries/committees.get_member_votes``). Kept by triggers on every write of
+# ``edges`` and ``decisions``; ``semantic graph-light`` fills it once and notes that in
+# ``lg_faction_votes_state``, before which the page walks the decisions. Not a table of the
+# graph: writing it raises no data version.
+def faction_votes() -> list[str]:
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_faction_votes (
+    edge_key text PRIMARY KEY,
+    faction_id text NOT NULL,
+    decision_id text NOT NULL,
+    date text,
+    decision_key text NOT NULL,
+    vote_kind text
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_faction_votes_period ON lg_faction_votes"
+        " (faction_id, date DESC, decision_key ASC)",
+        "CREATE INDEX IF NOT EXISTS lg_faction_votes_decision ON lg_faction_votes"
+        " (decision_id)",
+        """CREATE TABLE IF NOT EXISTS lg_faction_votes_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    filled_at timestamptz NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_faction_votes_of_edges() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP IN ('DELETE', 'UPDATE') THEN
+        DELETE FROM public.lg_faction_votes v USING changed c WHERE v.edge_key = c.key;
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        INSERT INTO public.lg_faction_votes
+            (edge_key, faction_id, decision_id, date, decision_key, vote_kind)
+        SELECT c.key, c.from_id, c.to_id, d.date, d.key, public.lg_str(d.props -> 'vote_kind')
+        FROM changed c JOIN public.decisions d ON d.id = c.to_id
+        WHERE c.relation = '{RELATION_VOTED}' AND c.from_collection = '{COLLECTION_FACTIONS}'
+        ON CONFLICT (edge_key) DO UPDATE SET
+            faction_id = EXCLUDED.faction_id, decision_id = EXCLUDED.decision_id,
+            date = EXCLUDED.date, decision_key = EXCLUDED.decision_key,
+            vote_kind = EXCLUDED.vote_kind;
+    END IF;
+    RETURN NULL;
+END $$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_faction_votes_of_decisions() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_faction_votes v USING changed c WHERE v.decision_id = c.id;
+    ELSE
+        -- a vote written before its decision, and a decision whose date or kind changed
+        INSERT INTO public.lg_faction_votes
+            (edge_key, faction_id, decision_id, date, decision_key, vote_kind)
+        SELECT e.key, e.from_id, e.to_id, c.date, c.key, public.lg_str(c.props -> 'vote_kind')
+        FROM changed c
+        JOIN public.edges e
+          ON e.to_id = c.id AND e.relation = '{RELATION_VOTED}'
+         AND e.from_collection = '{COLLECTION_FACTIONS}'
+        ON CONFLICT (edge_key) DO UPDATE SET
+            date = EXCLUDED.date, decision_key = EXCLUDED.decision_key,
+            vote_kind = EXCLUDED.vote_kind;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for table, function in (
+        ("edges", "lg_keep_faction_votes_of_edges"),
+        ("decisions", "lg_keep_faction_votes_of_decisions"),
+    ):
+        for event, transition in (
+            ("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")
+        ):  # fmt: skip
+            statements.append(
+                f"CREATE OR REPLACE TRIGGER {table}_faction_votes_{event.lower()}"
+                f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
+                f" FOR EACH STATEMENT EXECUTE FUNCTION {function}()"
+            )
+    return statements
+
+
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
 # it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
 # the number of light summaries each stem is in, which the terms are weighed against.
@@ -1590,6 +1671,7 @@ def statements() -> list[str]:
         *judgment_light(),
         *document_light(),
         *instrument_names(),
+        *faction_votes(),
         ARTICLE_TERMS,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
