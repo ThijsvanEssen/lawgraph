@@ -643,10 +643,14 @@ def get_member_votes(
     party votes tens of thousands of times), and more when the roll-calls among those
     leave less than a page.
     """
+    # the faction's votes from ``lg_faction_votes`` once it is filled, else by the walk
+    from lawgraph.db.queries import faction_votes
+
+    statement = _MEMBER_VOTES_LIGHT if faction_votes.is_filled(store) else _MEMBER_VOTES
     candidates = max(limit, 1) * VOTE_CANDIDATES
     while True:
         (row,) = store.query(
-            _MEMBER_VOTES, _member_votes_params(member_id, limit, candidates)
+            statement, _member_votes_params(member_id, limit, candidates)
         )
         if row["complete"]:
             return list(row["votes"])
@@ -663,22 +667,9 @@ def _member_votes_params(member_id: str, limit: int, candidates: int) -> dict[st
     }
 
 
-_MEMBER_VOTES = f"""
-    WITH member AS (
-        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
-    ),
-    periods AS (
-        SELECT f.period, f.n
-        FROM member
-        CROSS JOIN LATERAL json_array_elements(
-            {_array("member.props -> 'faction_memberships'")}
-        ) WITH ORDINALITY AS f(period, n)
-    ),
-    -- per period the newest votes of the faction: the decisions of the period newest first
-    -- (their index of the dates), each with the faction's vote on it; a faction votes on
-    -- nearly every decision while it is seated, so few are read past the page (from the
-    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
-    -- member of seven periods)
+# The candidates of the votes of a member's faction periods: walked over the decisions (while
+# ``lg_faction_votes`` is not filled yet), or read from it.
+_WALK_CANDIDATES = f"""
     candidates AS (
         SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
         FROM periods p
@@ -713,6 +704,46 @@ _MEMBER_VOTES = f"""
             LIMIT %(candidates)s
         ) c
     ),
+"""
+_LIGHT_CANDIDATES = f"""
+    candidates AS (
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
+        FROM periods p
+        CROSS JOIN LATERAL (
+            -- the faction's votes of the period, newest first, from ``lg_faction_votes``:
+            -- a range of its index, not a walk over the decisions with a probe of the
+            -- edges per decision (5.7 s cold on prod for 9 periods)
+            SELECT d.edge_key, d.decision_id, d.date, d.decision_key AS key, d.vote_kind
+            FROM lg_faction_votes d
+            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+            WHERE d.faction_id = p.period ->> 'faction_id'
+              AND ROW(d.date, d.decision_key)
+                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
+              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
+              AND {_IN_MEMBERSHIP}
+            ORDER BY d.date DESC NULLS FIRST, d.decision_key ASC
+            LIMIT %(candidates)s
+        ) c
+    ),
+"""
+
+_MEMBER_VOTES_TEMPLATE = f"""
+    WITH member AS (
+        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+    ),
+    periods AS (
+        SELECT f.period, f.n
+        FROM member
+        CROSS JOIN LATERAL json_array_elements(
+            {_array("member.props -> 'faction_memberships'")}
+        ) WITH ORDINALITY AS f(period, n)
+    ),
+    -- per period the newest votes of the faction: the decisions of the period newest first
+    -- (their index of the dates), each with the faction's vote on it; a faction votes on
+    -- nearly every decision while it is seated, so few are read past the page (from the
+    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
+    -- member of seven periods)
+    -- CANDIDATES --
     -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
@@ -772,6 +803,12 @@ _MEMBER_VOTES = f"""
             FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
         ), '[]'::json) AS votes
 """
+_MEMBER_VOTES = _MEMBER_VOTES_TEMPLATE.replace(
+    "    -- CANDIDATES --\n", _WALK_CANDIDATES
+)
+_MEMBER_VOTES_LIGHT = _MEMBER_VOTES_TEMPLATE.replace(
+    "    -- CANDIDATES --\n", _LIGHT_CANDIDATES
+)
 
 
 def get_actor_touched_instruments(
