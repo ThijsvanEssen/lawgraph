@@ -32,6 +32,7 @@ from lawgraph.core.parties import (
     party_color,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.coalition import Coalition, coalition_of_day
 from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
@@ -68,17 +69,16 @@ def get_seats(
     chamber: Annotated[
         Literal["TK", "EK"],
         Query(
-            description="``EK``: the seats of the Eerste Kamer as eerstekamer.nl shows "
-            "them on the day it was last read, in the order of their size (no plan); "
-            "without ``date``."
+            description="``EK``: the seats of the Eerste Kamer, in the order of their "
+            "size (no plan): without ``date`` as eerstekamer.nl shows them on the day it "
+            "was last read; with it, those of that day as walked from the Kiesraad's "
+            "result through the changes the Kamer's pages tell (404 before 2003)."
         ),
     ] = "TK",
 ) -> ParliamentSeatsResponse:
     if chamber == "EK":
         if date is not None:
-            raise HTTPException(
-                status_code=422, detail="The Eerste Kamer has no seats per day."
-            )
+            return _ek_seats_on(store, date.isoformat())
         return _ek_seats(store)
     if date is None:
         factions = get_factions(store, active=True)
@@ -129,6 +129,7 @@ def get_seats(
         ),
         source=None,
         hall=None,
+        checked=None,
     )
 
 
@@ -197,6 +198,61 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             attribution=EK_ATTRIBUTION,
         ),
         hall=_hall(store),
+        checked=None,
+    )
+
+
+def _ek_seats_on(store: GraphStore, day: str) -> ParliamentSeatsResponse:
+    """The seats of the Eerste Kamer on *day*, from its stretch (``lg_ek_seats``): by size;
+    a faction of the past has no key."""
+    stretch = ek_seats.stretch_on(store, day)
+    if stretch is None:
+        raise HTTPException(
+            status_code=404, detail=f"No seats of the Eerste Kamer are known on {day}."
+        )
+    keys = {
+        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc
+        for doc in get_factions(store, chamber="EK")
+    }
+    coalition = coalition_of_day(store, day)
+    ranked = sorted(
+        ((name, n) for name, n in (stretch["seats"] or {}).items() if n > 0),
+        key=lambda r: (-r[1], r[0]),
+    )
+    items = []
+    for order, (name, n) in enumerate(ranked):
+        doc = keys.get(name.upper())
+        props = (doc or {}).get("props") or {}
+        items.append(
+            FactionSeatsDTO(
+                id=doc["_id"] if doc else None,
+                key=doc["_key"] if doc else None,
+                abbreviation=name,
+                name=props.get("name") or name,
+                seats=n,
+                **_colors("EK", name, props.get("name")),
+                order=order,
+                coalition=_of_coalition(coalition, doc["_key"] if doc else "", name),
+            )
+        )
+    kiesraad = (stretch.get("source") or {}).get("kiesraad") or {}
+    return ParliamentSeatsResponse(
+        chamber="EK",
+        cabinet=coalition.cabinet,
+        total_seats=TOTAL_SENATE_SEATS,
+        assigned_seats=sum(item.seats for item in items),
+        as_of=day,
+        factions=items,
+        seating_plan=None,
+        source=EkSourceDTO(
+            url=EERSTEKAMER_SITE.rstrip("/") + "/personele_mutaties",
+            retrieved_on=kiesraad.get("read_on"),
+            composition_date=stretch["from_date"],
+            data_since=None,
+            attribution=EK_ATTRIBUTION,
+        ),
+        hall=None,
+        checked=bool(stretch["checked"]),
     )
 
 

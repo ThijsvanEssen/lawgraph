@@ -156,6 +156,7 @@ SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_TOOI = "tooi"
+SOURCE_KIESRAAD = "kiesraad"
 # The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
@@ -236,6 +237,13 @@ RAW_KIND_EK_BILL = "ek-bill-html"
 # committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
 RAW_KIND_EK_PLENARY = "ek-plenary-html"
 RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
+# A term of the list of changes in the composition of the Eerste Kamer (``/personele_mutaties``,
+# external id its path) and the page of one change, a news item (external id its path).
+RAW_KIND_EK_MUTATIONS = "ek-mutations-html"
+RAW_KIND_EK_MUTATION = "ek-mutation-html"
+# The page of an election of the Eerste Kamer in the Kiesraad's databank (external id its
+# code, ``EK20230530``): the seats each list won.
+RAW_KIND_KIESRAAD_EK_RESULT = "kiesraad-ek-result-html"
 RAW_KIND_VERDRAG = "verdrag-json"
 # the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
 RAW_KIND_VERDRAG_XML = "verdrag-xml"
@@ -288,10 +296,13 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_BILL,
         RAW_KIND_EK_PLENARY,
         RAW_KIND_EK_COMMITTEE_DAY,
+        RAW_KIND_EK_MUTATIONS,
+        RAW_KIND_EK_MUTATION,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
+    SOURCE_KIESRAAD: (RAW_KIND_KIESRAAD_EK_RESULT,),
 }
 
 # ── Semantic pipeline limits ──────────────────────────────────────────────────
@@ -321,6 +332,8 @@ HOST_MIN_INTERVAL: dict[str, float] = {
     "www.rijksoverheid.nl": 2.0,
     # the lists of eerstekamer.nl: 106 pages of votes, read seldom
     "www.eerstekamer.nl": 2.0,
+    # six pages of the Kiesraad's databank, read once
+    "www.verkiezingsuitslagen.nl": 2.0,
 }
 
 # ── Rechtspraak courts ────────────────────────────────────────────────────────

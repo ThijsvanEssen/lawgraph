@@ -14,7 +14,12 @@ from collections.abc import Iterator
 
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EERSTEKAMER_SITE
-from lawgraph.core import eerstekamer_bills, eerstekamer_composition, eerstekamer_votes
+from lawgraph.core import (
+    eerstekamer_bills,
+    eerstekamer_composition,
+    eerstekamer_votes,
+    ek_changes,
+)
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -87,6 +92,16 @@ class EerstekamerSiteClient(BaseClient):
                     )
                     yield from bills
                     next_path = following if older else None
+
+    def mutation_terms(self) -> Iterator[tuple[str, str, str]]:
+        """``(path, url, html)`` of the list of changes of the current term
+        (``/personele_mutaties``) and of each earlier term it links."""
+        url = self.url(ek_changes.MUTATIONS_PATH)
+        current = self._page(url)
+        yield ek_changes.MUTATIONS_PATH, url, current
+        for path in ek_changes.term_page(current).terms:
+            url = self.url(path)
+            yield path, url, self._page(url)
 
     def bill_page(self, path: str) -> tuple[str, str]:
         """``(url, html)`` of the page of a bill."""
