@@ -265,6 +265,7 @@ def cached(
     compute: Callable[[], T],
     *,
     tables: tuple[str, ...] | None = None,
+    inline: bool = False,
 ) -> T:
     """The answer for *key* of the current data version of *store*: kept, or computed once
     in the background while this request waits for it no longer than its deadline
@@ -274,7 +275,12 @@ def cached(
     With *tables*, the tables the computation reads, the answer is kept while those tables
     stand still, whatever is written to others, and ``MAX_AGE`` at most;
     ``tests/pg/test_cached_tables.py`` checks every such declaration against the tables
-    the plans of its statements read."""
+    the plans of its statements read.
+
+    *inline*: an answer not kept is computed in the caller's thread, under its deadline,
+    and kept: for a cheap one a request needs (a search's frequencies of its words), which
+    must not wait behind the slow computations of the pool (a warm-up, the counts of the
+    feed)."""
     version = _version(store, tables)
     if version is None:
         return compute()
@@ -283,6 +289,9 @@ def cached(
         if entry_key in _values and not _too_old(entry_key, tables):
             _values.move_to_end(entry_key)
             return _values[entry_key]  # type: ignore[no-any-return]
+    if inline:
+        return _keep(entry_key, compute())
+    with _lock:
         nested = _in_cache_worker()
         future = _running.get(entry_key)
         if future is None and not nested:
@@ -304,11 +313,18 @@ def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
     return time.monotonic() - _computed_at.get(entry_key, 0.0) > MAX_AGE
 
 
-def lasting(store: Any, key: Hashable, compute: Callable[[], T], max_age: float) -> T:
+def lasting(
+    store: Any,
+    key: Hashable,
+    compute: Callable[[], T],
+    max_age: float,
+    *,
+    inline: bool = False,
+) -> T:
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     Once older, it is computed again in the background, and a request waits for that
-    ``STALE_WAIT`` at most, then takes the one it had."""
+    ``STALE_WAIT`` at most, then takes the one it had; *inline* as ``cached``."""
     if getattr(store, "data_version", None) is None:
         return compute()
     entry_key = ((str(getattr(store, "name", "")), "lasting"), key)
@@ -316,6 +332,12 @@ def lasting(store: Any, key: Hashable, compute: Callable[[], T], max_age: float)
         kept = _lasting.get(entry_key)
         if kept is not None and time.monotonic() - kept[1] < max_age:
             return kept[0]  # type: ignore[no-any-return]
+    if inline:
+        value = compute()
+        with _lock:
+            _lasting[entry_key] = (value, time.monotonic())
+        return value
+    with _lock:
         nested = _in_cache_worker()
         future = _running.get(entry_key)
         if future is None and not nested:
@@ -438,6 +460,11 @@ def _compute(
         with _lock:
             _running.pop(entry_key, None)
         raise
+    return _keep(entry_key, value)
+
+
+def _keep(entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
+    """Keep *value* as the answer of *entry_key*, and as the latest of its key."""
     (database, _), key = entry_key
     with _lock:
         _values[entry_key] = value

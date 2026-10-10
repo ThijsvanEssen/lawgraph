@@ -15,6 +15,22 @@ from lawgraph.config.constants import (
 from lawgraph.db.counting import Store
 
 
+def voted_motion_urls(store: Store) -> list[str]:
+    """The pages of the motions the list of votes of the Eerste Kamer named (``motion_url``
+    of its decisions on a motion), in order."""
+    return list(
+        store.query(
+            f"""
+            SELECT DISTINCT lg_str(d.props -> 'motion_url') AS url
+            FROM {COLLECTION_DECISIONS} d
+            WHERE lg_str(d.props -> 'kind') = 'Motie'
+              AND lg_str(d.props -> 'motion_url') IS NOT NULL
+            ORDER BY 1 ASC NULLS FIRST
+            """
+        )
+    )
+
+
 def voted_bill_urls(store: Store, since: str | None) -> Iterator[str]:
     """The pages of the bills the list of votes of the Eerste Kamer named (``bill_url`` of
     its decisions), of votes on or after *since* (every one without)."""
@@ -133,3 +149,18 @@ def members_by_ek_path(store: Store, paths: list[str]) -> dict[str, str]:
         {"paths": paths},
     )
     return {row["path"]: row["key"] for row in rows}
+
+
+def member_external_ids(store: Store, keys: list[str]) -> list[dict[str, Any]]:
+    """``{key, external_id}`` of the members *keys*: the Tweede Kamer's id of the person."""
+    return list(
+        store.query(
+            f"""
+            SELECT m.key, lg_str(m.props -> 'external_id') AS external_id
+            FROM {COLLECTION_MEMBERS} m
+            WHERE m.key = ANY(%(keys)s::text[])
+            ORDER BY m.key
+            """,
+            {"keys": keys},
+        )
+    )

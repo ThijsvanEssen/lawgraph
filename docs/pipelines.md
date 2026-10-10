@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
@@ -1223,6 +1223,25 @@ with those of the Tweede Kamer. Each period's start and end are checked against 
 of `normalize eerstekamer-mutations` of that member and the first days of the terms (within
 a week): those no change dates are counted and named in the log, not changed.
 
+**Retrieve `eerstekamer-motions`.** The page of every motion of the Eerste Kamer the list of
+votes named (`/motiedossier/…`, the `motion_url` of its decisions on a motion; record
+`ek-motion-html`, external id the path), each once: a motion's page does not change after its
+vote. `--limit` caps the pages of one run; the log says how many are left after it.
+
+**Normalize `eerstekamer-motions`.** `core/ek_motions.py` reads the page by its structure: the
+sentence that says what the motion asks ("In deze motie wordt de regering verzocht …"), the link
+to its PDF, and its key data (`nummer`: the number of its dossier and its letter, `37.020, M`;
+`ingediend`; `bij`; `behandelstatus`; `indiener(s)` and `mede ondertekend door`, each a link to
+the page of the person with their name and faction). It writes on the motion's Kamerstuk of the
+Eerste Kamer (the paper with that letter in its dossier, `Kamerstuk I 37020, M`): `summary`,
+`submitted_on`, `debate`, `status`, `motion_url`, `pdf_url`, and `actors` as the Tweede Kamer
+gives the signatures of a motion (`name`, `faction`, `role` `Eerste ondertekenaar` or `Mede
+ondertekenaar`, `person_id` the Tweede Kamer's id of their member), so a motion of either
+chamber names its signers alike; and `AUTHORED` from each member. A signer is the member of
+their page as `normalize eerstekamer-persons` matches a page (`members_of_pages`); one whose
+page is not stored, or of no member, is a name without a member, counted in the log. A motion
+whose Kamerstuk is not in the graph is counted, and nothing is written of it.
+
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
@@ -1608,6 +1627,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
 | normalize `eerstekamer-persons` | `normalize eerstekamer-composition` (the members and factions of the Eerste Kamer) and `normalize eerstekamer-mutations` (the changes its periods are checked against) |
+| normalize `eerstekamer-motions` | `normalize eerstekamer` (the Kamerstukken of the Eerste Kamer it writes on) and `normalize eerstekamer-persons` (a page of a person matched to a member as there) |
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |

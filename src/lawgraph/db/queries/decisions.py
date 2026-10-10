@@ -501,7 +501,26 @@ def decision_counts(store: GraphStore, filters: DecisionFilters) -> dict[str, An
     """``total`` and ``facets`` under *filters*, of every page alike, kept per filter and
     version of the decisions (``lasting``, ``COUNTS_MAX_AGE``): one computation per filter
     at a time, in the background, the same for every visitor."""
+    return _kept_counts(store, filters, store.data_version((COLLECTION_DECISIONS,)))
+
+
+def counted_total(store: GraphStore, filters: DecisionFilters) -> int | None:
+    """The ``total`` under *filters* as ``decision_counts`` keeps it, without waiting for
+    it: None while it is not counted for this version of the decisions (it is counted on,
+    in the background)."""
     version = store.data_version((COLLECTION_DECISIONS,))
+    token = set_read_deadline(0.0)
+    try:
+        return _kept_counts(store, filters, version)["total"]  # type: ignore[no-any-return]
+    except ReadTimedOut:
+        return None
+    finally:
+        reset_read_deadline(token)
+
+
+def _kept_counts(
+    store: GraphStore, filters: DecisionFilters, version: str
+) -> dict[str, Any]:
     return lasting(
         store,
         ("decision counts", filters, version),
