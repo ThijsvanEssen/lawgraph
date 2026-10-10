@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-dictum` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -40,6 +40,10 @@ that has an abbreviation decides, and the abbreviation is a law's only when one 
 (`WvSr` is the Wetboek van Strafrecht's, `BW` no single book's), or when the others are versions
 of it: their title is its title with a parenthesis after it (`Rv` is the Wetboek van Burgerlijke
 Rechtsvordering's, not that of its version "(geldt in geval van niet-digitaal procederen)").
+A text that names a law in full and gives it an abbreviation, in a citation or outside one ("de
+Werkloosheidswet (WW)", "de Wet werk en bijstand (hierna: WWB)"), uses that abbreviation for that
+law throughout: so an abbreviation several laws claim (WW: also the Woningwet and the Waterwet)
+names a law where the text says which. An abbreviation that is one law's keeps that law.
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
@@ -51,8 +55,10 @@ A code split over books (`data/code_families.json`, `core/code_families.CODE_FAM
 Burgerlijk Wetboek, books 1–8, 7A and 10, each its own BWB id) resolves through the book in the
 article number: `artikel 6:162 BW` cites article `162` of book 6 (`BWBR0005289`, key
 `bwbr0005289_162`), whichever books are loaded, so a citation of a book that is not loaded
-becomes a stub of that book. Without a book (`artikel 162 BW`) or with an unknown one there is
-no hit, and the family code (`BW`) is never a short title. A law that numbers
+becomes a stub of that book. The family's full name does the same (`artikel 7:669 van het
+Burgerlijk Wetboek`): it is the name its books share in the graph (`Burgerlijk Wetboek Boek 7`
+less `Boek 7`), unless that is a law's own name. Without a book (`artikel 162 BW`) or with an
+unknown one there is no hit, and the family code (`BW`) is never a short title. A law that numbers
 `Hoofdstuk:artikel` in one regulation (the Awb: `8:54`) is no family; its articles keep the
 colon. How the families are built: see BWB.
 
@@ -112,8 +118,10 @@ Client quirks:
   `tk-kamerstuk-xml` under that identifier (`meta.document` is the key of the Document). The
   papers it fetches are those without such a record and without a `-missing` record that is
   still to wait (`lawgraph gaps` lists them). A paper the repository has no XML for (404)
-  becomes a `-missing` record: for 30 days, or for 3 when the paper is a week old or younger
-  (new papers are published as a PDF first and their XML follows within days). Error pages that
+  becomes a `-missing` record: for 30 days, or for 1 when the paper is 14 days old or younger
+  (new papers are published as a PDF first and their XML follows within days, now and then a
+  week or more later). A paper the Tweede Kamer has not numbered yet (`Volgnummer` -1, no
+  dossier) has no address in the repository and waits until it is. Error pages that
   answer 200 are not stored; 25 failures in a row fail the step. XML exists for papers from
   December 1994 on.
 
@@ -202,7 +210,11 @@ over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every st
 person, so the member's timeline is made of all their seats, and takes the member and the faction
 from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
 them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
-successor takes the seat; a record that ends before it begins is left out.
+successor takes the seat; a record that ends before it begins is left out. A seat is held or
+vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
+FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
+(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -365,6 +377,13 @@ dossiers. For those it comes to what a run over all would. Of the touched dossie
 one that keeps none (`first_signed`), or of which a paper the window touched is dated on or
 before the one kept, or is it; found in one pass, however many dossiers the window touched. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
+
+**Semantic `tk-person-duplicates`.** `SAME_AS` from a bare `Persoon` of the Tweede Kamer to the
+member with a role (`core/member_role.py`) who is the same person: the same birth date, surname and
+initials (letters alone), all three given. The Kamer keeps some people twice, a record with their
+seats and a bare one it made for their seat in the Eerste Kamer. A bare member that matches two
+members with a role is left alone. The page of the bare member is a 301 to the other. Derived in
+full each run.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
 (`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
@@ -598,7 +617,10 @@ has the shape of one (Dutch: a number or an LJN). What the text shows is repaire
 digits it sets apart (`BH 2815`, `BH:4033`), NL and the court swapped, a range (`2018:2374-2375`)
 as its members, a word or the next ECLI glued to the number, a zero or one typed for a letter of
 an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
-malformed ECLI for any step. The citations of a judgment are derived in full each time it is
+malformed ECLI for any step. An LJN named on its own (`LJN BK9271`, `LJN: BK9271`, `LJN-nummer
+BK 9271`), the way a decision was cited before 2013, cites the judgment in the graph whose ECLI has
+it for its number (`ECLI:NL:CRVB:2010:BK9271`; `core/ecli.cited_ljns`, `ljn_of`), with its
+paragraphs as for an ECLI; an LJN no judgment has, or two have, cites nothing and makes no stub. The citations of a judgment are derived in full each time it is
 read: an edge of this step its text no longer names is removed, and then every stub judgment no
 edge reaches or leaves. No `REFERS_TO` is written between two judgments that `APPEAL_OF`,
 `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that
@@ -1658,6 +1680,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
+| semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |

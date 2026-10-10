@@ -171,6 +171,9 @@ ARTICLE_NUMBER_PATTERN = r"\d+(?-i:[a-z])?(?:[.:]\d+)*(?-i:[a-z]{0,3})"
 # A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
 # a citation names, the book comes from the article number (``artikel 6:162 BW``).
 _BOOK_CODE_RE = re.compile(r"^(?P<family>[A-Z]{2,})(?P<book>\d{1,2}[A-Z]?)$")
+# The name of a book of a family, as compared (``burgerlijk wetboek boek 7``): the name of the
+# family and the book.
+_BOOK_NAME_RE = re.compile(r"^(?P<family>.+?)\s+boek\s+(?P<book>\d{1,2}[a-z]?)$")
 
 # Ordinal words used in "lid" qualifiers
 _ORDINALS_PAT = (
@@ -352,13 +355,14 @@ class DutchCitationExtractor:
     - ``artikel 3.26, eerste lid, van de Wet ruimtelijke ordening`` — dotted number, full name
     - ``artikel 3 van de Wwft``                         — "van de" + code
     - ``artikel 6:162 BW``                              — family code, book in the number
+    - ``artikel 7:669 van het Burgerlijk Wetboek``      — family name, book in the number
     - ``artikel 8:54 van de Algemene wet bestuursrecht (hierna: de Awb)`` and later
       ``artikel 8:55 van de Awb``                       — a name the text defines itself
     - ``artikel 8:54 van die wet``                      — the law named last
 
     A law is named by a code (``Sr``), by its full name (found by the longest run of words
     that is a known name, so any number of names costs nothing per citation), by a family
-    code, or by a word that points back at the law named last.
+    code or name, or by a word that points back at the law named last.
 
     A family code (``CODE_FAMILIES``: ``BW``) never stands for one regulation: a citation
     of the family resolves through the book in front of the colon (``6`` → the BWB id of
@@ -388,6 +392,7 @@ class DutchCitationExtractor:
             if k and v and len(name_key(k)) >= _MIN_NAME_LENGTH
         }
         self._books: dict[str, dict[str, str]] = self._group_books()
+        self._family_names: dict[str, str] = self._name_families()
         # "EP" -> (law id, a pattern of the words a text must also name: "EVRM", ...)
         self._context: dict[str, tuple[str, re.Pattern[str]]] = {
             alias.strip().upper(): (
@@ -436,6 +441,19 @@ class DutchCitationExtractor:
         for family, known in CODE_FAMILIES.items():
             books.setdefault(family, {}).update(known)
         return books
+
+    def _name_families(self) -> dict[str, str]:
+        """``{"burgerlijk wetboek": "BW"}``: the name of a family, from the names of its books
+        (``Burgerlijk Wetboek Boek 7`` is book 7 of ``BW``), unless it is a law's own name."""
+        names: dict[str, str] = {}
+        for name, law_id in self._name_map.items():
+            match = _BOOK_NAME_RE.match(name)
+            if not match or match["family"] in self._name_map:
+                continue
+            for family, books in self._books.items():
+                if books.get(match["book"].upper()) == law_id:
+                    names[match["family"]] = family
+        return names
 
     # ── which law ─────────────────────────────────────────────────────────────
 
@@ -491,7 +509,8 @@ class DutchCitationExtractor:
         return _Law(registry[key], match.end(), CONFIDENCE_DIRECT)
 
     def _match_name(self, text: str, pos: int) -> _Law | None:
-        """The longest run of words from *pos* that is the name of a known law."""
+        """The longest run of words from *pos* that is the name of a known law, or of a
+        family (``Burgerlijk Wetboek``: the book is in the article number)."""
         if not self._name_map:
             return None
         words = list(
@@ -502,10 +521,14 @@ class DutchCitationExtractor:
         for count in range(len(words), 0, -1):
             end = words[count - 1].end()
             name = text[pos : pos + end]
+            # the punctuation that ends the sentence is not part of the citation
+            name_end = pos + len(name.rstrip(".,;:"))
             law_id = self._name_map.get(name_key(name))
             if law_id:
-                # the punctuation that ends the sentence is not part of the citation
-                return _Law(law_id, pos + len(name.rstrip(".,;:")), CONFIDENCE_DIRECT)
+                return _Law(law_id, name_end, CONFIDENCE_DIRECT)
+            family = self._family_names.get(name_key(name))
+            if family:
+                return _Law("", name_end, CONFIDENCE_DIRECT, family=family)
         return None
 
     def _apply_family(self, law: _Law, article_number: str) -> tuple[str | None, str]:
@@ -545,6 +568,8 @@ class DutchCitationExtractor:
             for alias, (law_id, beside) in self._context.items()
             if beside.search(text)
         }
+        # the names the text gives the laws it names: "de Werkloosheidswet (WW)"
+        local |= self._defined_names(text)
         unknown_local: dict[str, str] = {}  # "AW" -> "Aanbestedingswet"
         last: tuple[int, str] | None = None
 
@@ -569,6 +594,32 @@ class DutchCitationExtractor:
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
         return hits
+
+    def _defined_names(self, text: str) -> dict[str, str]:
+        """Abbreviation -> law id for every name *text* gives a law it names in full, also
+        outside a citation: "de Werkloosheidswet (WW)", "de Participatiewet (hierna: Pw)".
+        A text names its laws so where an abbreviation is ambiguous in the registry (WW is
+        also the Woningwet and the Waterwet), so it holds in the whole text; one that is a
+        code of the registry keeps its law."""
+        defined: dict[str, str] = {}
+        if not self._name_map:
+            return defined
+        for match in _HIERNA_RE.finditer(text):
+            law_id = self._name_before(text, match.start())
+            alias = _defined_alias(text, match.start()) if law_id else None
+            if law_id and alias and alias not in self._code_map:
+                defined.setdefault(alias, law_id)
+        return defined
+
+    def _name_before(self, text: str, end: int) -> str | None:
+        """The law whose known name ends at *end* in *text* (the longest run of words)."""
+        window = text[max(0, end - 300) : end]
+        words = list(re.finditer(r"\S+", window))[-_MAX_NAME_WORDS:]
+        for word in words:  # the longest run first
+            law_id = self._name_map.get(name_key(window[word.start() :]))
+            if law_id:
+                return law_id
+        return None
 
     @staticmethod
     def _unknown_hits(

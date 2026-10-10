@@ -87,3 +87,38 @@ def test_a_book_that_is_not_loaded_still_has_its_own_regulation() -> None:
 def test_the_tk_detector_resolves_the_family() -> None:
     hits = detect_tk_citations("op grond van artikel 6:162 BW", CODES, {})
     assert (BW6, "162") in {(h.bwb_id, h.article_number) for h in hits}
+
+
+# The names of the books, as the graph has them (the citation titles in the BWB).
+BOOK_NAMES = {
+    "Burgerlijk Wetboek Boek 6": BW6,
+    "Burgerlijk Wetboek Boek 7": BW7,
+    "Wetboek van Strafrecht": "BWBR0001854",
+}
+
+
+def _named(text: str) -> list[tuple[str | None, str | None]]:
+    hits = DutchCitationExtractor(code_aliases=CODES, name_aliases=BOOK_NAMES).extract(
+        text
+    )
+    return [(h.bwb_id, h.article_number) for h in hits]
+
+
+def test_the_name_of_the_family_from_the_names_of_its_books() -> None:
+    # ECLI:NL:RBZWB:2026:1012 and :1100, which made no edge
+    assert _named(
+        "Artikel 7:669 lid 3 van het Burgerlijk Wetboek (hierna: BW) bepaalt dat"
+    ) == [(BW7, "669")]
+    assert _named("artikelen 7:17 en 7:18 van het Burgerlijk Wetboek (BW)") == [
+        (BW7, "17"),
+        (BW7, "18"),
+    ]
+    assert _named("artikel 6:162 Burgerlijk Wetboek.") == [(BW6, "162")]
+
+
+def test_the_name_of_a_book_still_names_the_book() -> None:
+    assert _named("artikel 669 Burgerlijk Wetboek Boek 7") == [(BW7, "669")]
+
+
+def test_the_name_of_the_family_without_a_book_in_the_number_is_not_a_hit() -> None:
+    assert _named("artikel 162 van het Burgerlijk Wetboek") == []

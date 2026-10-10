@@ -168,6 +168,9 @@ from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_person_duplicates import (
+    TKPersonDuplicatesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 
 Phase = Literal["retrieve", "normalize", "semantic"]
@@ -963,6 +966,11 @@ SEMANTIC: list[Pipeline] = [
         TKCoalitionVotesSemanticPipeline,
         "What the coalition did on each vote of the Tweede Kamer: together, split or a "
         "wisselmeerderheid, and whether it carried or decided it.",
+    ),
+    _pipeline(
+        TKPersonDuplicatesSemanticPipeline,
+        "SAME_AS from a bare Persoon of the Tweede Kamer to the member with a role who is "
+        "the same person (birth date, surname and initials).",
     ),
     _pipeline(
         tk_dictum.main,

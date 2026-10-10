@@ -1073,7 +1073,8 @@ _CHANGED_ARTICLES = f"""CASE WHEN pg.kind = {_lit(EVENT_COMMENCEMENT)} THEN (
             ) ELSE 0 END"""
 
 # The page (``page``), read in full: the node's props, its first dossier, the cabinet on its
-# date, the signatures with their factions, and what a kind adds (who made a commitment, the
+# date, the signatures with their factions, of a paper whether it has its text and its
+# dictum (``lg_document_light``), and what a kind adds (who made a commitment, the
 # laws a publication changes, the law and the articles a new version puts in force). The
 # props as KEEP gave them: in the byte order of their names, as MERGE (``lg_merge``).
 _ITEMS = f"""(
@@ -1090,6 +1091,8 @@ _ITEMS = f"""(
                 WHERE k.key = ANY(%(item_props)s)
             ),
             'text', CASE WHEN pg.kind = {_lit(EVENT_COMMITMENT)} THEN n.props -> 'text' END,
+            'has_text', light.props -> 'has_text',
+            'dictum', light.props -> 'dictum',
             'persons', persons.value,
             'instrument', instrument.value,
             'changed_articles', {_CHANGED_ARTICLES},
@@ -1097,6 +1100,8 @@ _ITEMS = f"""(
         ) ORDER BY {_PAGE_ORDER}), {_EMPTY})
         FROM page pg
         {_node_of("pg")}
+        -- of a paper: whether its text is in the data and a motion's dictum, kept light
+        LEFT JOIN lg_document_light light ON light.id = pg.id
         LEFT JOIN LATERAL (
             SELECT json_build_object(
                 'key', d.key,

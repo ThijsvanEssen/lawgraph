@@ -51,9 +51,12 @@ DEFAULT_KINDS = (
 )
 
 # A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
-# two working days. A paper this young that the repository has no XML for yet is asked for
-# again soon, not after the month of a document that was never there.
-_FRESH_FOR_DAYS = 7
+# two working days, now and then a week or more later (prod, Oct 2026: 41 of 105 papers of a
+# day still had none after three days). A paper this young that the repository has no XML
+# for yet is asked for again the next night, not after the month of a document that was
+# never there.
+_FRESH_FOR_DAYS = 14
+_FRESH_RETRY_DAYS = 1
 
 
 class TKContentRetrievePipeline(RetrievePipelineBase):
@@ -129,7 +132,7 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
                 SOURCE_TK,
                 RAW_KIND_TK_KAMERSTUK_XML,
                 identifier,
-                listed=_is_fresh(paper.get("date")),
+                days=_FRESH_RETRY_DAYS if _is_fresh(paper.get("date")) else None,
             )
         try:
             ET.fromstring(xml.lstrip("﻿"))

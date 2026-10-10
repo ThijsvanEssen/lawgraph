@@ -15,6 +15,7 @@ from lawgraph.core.bwb_wti import (
     instrument_aliases,
     label_concepts,
     parse_abbreviations,
+    parse_citation_titles,
     parse_subjects,
     thesaurus_concepts,
     with_concepts,
@@ -258,3 +259,17 @@ def test_without_the_thesaurus_the_labels_make_the_concepts() -> None:
     )
     assert concepts["algemeen"] == {"id": None, "uri": None, "slug": "algemeen"}
     assert concepts["bestuursrecht"]["slug"] == "bestuursrecht"
+
+
+def test_every_citation_title_the_regulation_has_had() -> None:
+    general_info = (
+        '<algemene-informatie><citeertitel status="officieel">Participatiewet</citeertitel>'
+        '<citeertitels><citeertitel geldig-tot="2015-01-01" geldig-van="2004-01-01">'
+        'Wet werk en bijstand</citeertitel><citeertitel geldig-van="2015-01-01">'
+        "Participatiewet</citeertitel></citeertitels></algemene-informatie>"
+    )
+    assert parse_citation_titles(general_info) == [
+        "Participatiewet",
+        "Wet werk en bijstand",
+    ]
+    assert parse_citation_titles(BW1_GENERAL) == ["Burgerlijk Wetboek Boek 1"]

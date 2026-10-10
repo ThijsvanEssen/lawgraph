@@ -69,12 +69,13 @@ def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{bwb_id, celex, title, citation_title}`` of the instruments with a BWB id or a
-    CELEX number, in the order of their keys."""
+    """``{bwb_id, celex, title, citation_title, citation_titles}`` of the instruments with a
+    BWB id or a CELEX number, in the order of their keys."""
     return store.query(
         """
         SELECT props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
-               props -> 'title' AS title, props -> 'citation_title' AS citation_title
+               props -> 'title' AS title, props -> 'citation_title' AS citation_title,
+               props -> 'citation_titles' AS citation_titles
         FROM instruments
         WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
         ORDER BY key

@@ -750,6 +750,9 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
 
     version_cache.clear()
     _live_judgments(store)
+    # what the warm-up keeps: else the first search ranks on an estimate (``_stats_now``)
+    for table in SEARCH_FIELDS:
+        _bm25._stats(store, table)
     hits, partial = search_queries.search_full(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
@@ -1143,3 +1146,24 @@ def test_a_search_does_not_wait_for_a_parser_of_citations_not_yet_kept(
     assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
     assert took < 0.5
     assert search_queries.kept_notation_parser(graph, 5.0) is not None
+
+
+def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
+    graph: GraphStore,
+) -> None:
+    # after a start, before the warm-up: the parser kept, no statistics of any table
+    search_queries.load_notation_parser(graph)
+    with _pool_busy():
+        hits, partial, took = _searched(graph, search_queries.search_full, "voorzien")
+        token = set_read_deadline(30)
+        try:
+            estimate = _bm25._stats_now(graph, "articles")
+        finally:
+            reset_read_deadline(token)
+    # ranked on the rows the planner counts, no length weighed, without waiting
+    assert partial == set()
+    assert _ids(hits["articles"]) == ["articles/bwbr0001903_1"]
+    assert took < 0.5
+    assert set(estimate) == {"N"}
+    # once computed (in the background), the statistics are kept and taken
+    assert "display_name/text" in _bm25._stats(graph, "articles")

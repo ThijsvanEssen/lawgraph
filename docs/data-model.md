@@ -40,8 +40,9 @@ summary to 401 characters, date, court, case number, source, jurisdiction, stub,
 and advocate-general), kept by triggers on every write of `judgments` and filled once by
 `semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
-dossier numbers, case kinds, sequence), without its text, kept and filled the same way from
-`documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
+dossier numbers, case kinds, sequence, a motion's dictum) and `has_text`, whether its text is
+in the data (which a row of the feed opens on), without its text, kept and filled the same way
+from `documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
 (`''` for none), which the laws a dossier title names are found by besides the column
 `citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
@@ -107,7 +108,7 @@ they are out of date. Do not edit inside the markers.
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
 | `ANSWERS` | Judgment / Document | Judgment / Commitment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). |
-| `SAME_AS` | Judgment / Instrument / Document | Judgment / Instrument | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. |
+| `SAME_AS` | Judgment / Instrument / Document / Member | Judgment / Instrument / Member | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede Kamer → the member with a role who is the same person: the same birth date, surname and initials (`tk-person-duplicates`). |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity / Case | Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
@@ -612,7 +613,7 @@ A post in `government_functions` (`normalize rijksoverheid`, [pipelines](pipelin
 |------|---------|
 | `name`, `abbreviation`, `aliases` | the key is the abbreviation, else the name (`vvd`, `d66`) |
 | `seats`, `seats_changed_on` | `AantalZetels` (0 once the faction has ended); the day one of its seats last changed (`FractieZetel.GewijzigdOp`) |
-| `vacancies` | the periods a seat of it was held by no member (`FractieZetelVacature`): `from_date`, `to_date`, both inclusive; the last day is the one before the successor took the seat. `/api/cabinets/{key}/seats` counts them among its seats |
+| `vacancies` | the periods a seat of it was held by no member (`FractieZetelVacature`): `from_date`, `to_date`, both inclusive; the last day is the one before the successor took the seat; only the days no member held that seat (a seat is held or vacant, never both). `/api/cabinets/{key}/seats` counts them among its seats |
 | `active`, `active_from`, `active_until` | the first and last day its seats were held, where the seats date it (from 30 November 2006); else the Fractie record's |
 | `external_id`, `external_ids` | the current Fractie record, and every Fractie record of the faction: a faction that returns gets a new record (50PLUS 2012-2021 and from 2025), and votes and seats name either |
 | Eerste Kamer | key `ek_<slug>`: `chamber` `EK`, `name` (the heading of its page, `D66-fractie`), `abbreviation`, `seats` (as `/fracties` lists them), `active`, `board` (`function`, `name`, `member`, `since`), `url`, `retrieved_on`, `observed_from`, `observed_until`, `data_since` |
@@ -850,7 +851,9 @@ read the table for every edge of a hub), `relation`,
 
 GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` columns. A hit is
 ranked by BM25 over the words it matches (`queries/_bm25.py`, with the weights of
-`search_tsv`). The columns are written with the row, so a fresh
+`search_tsv`); until the statistics of a table are kept (after a start, before the warm-up
+computed them) a search does not wait for them: it ranks on the rows the planner counts and
+weighs no length. The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names
 (`search_names`, a trigram index); `cabinets` by their name, `commitments` by their text and
 number, and `decisions` by their subject and kind, each through a trigram index on those
@@ -863,7 +866,9 @@ as words, whole and in parts, besides their `display_name`, `summary`, `ecli` an
 An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
 (`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,
 `BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
-of every book. Written by `normalize bwb`.
+of every book. Its `citation_titles` are every citation title its WTI gives, the earlier ones
+too (`Participatiewet`, `Wet werk en bijstand` until 2015): the linkers know a law by an earlier
+title where no law is called so now. Both written by `normalize bwb`.
 
 ## Known limits
 

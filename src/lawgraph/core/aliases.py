@@ -120,10 +120,15 @@ def instrument_names(rows: Iterable[Mapping[str, Any]]) -> InstrumentAliasMap:
     in ("Vreemdelingenwet" for the Vreemdelingenwet 2000), as texts cite it. A name that
     two instruments share is left out: it would link to whichever came first; a name
     without its year only stands when no instrument is called so and no other has that name
-    with another year."""
+    with another year.
+
+    The earlier citation titles of a regulation (``citation_titles``: the Participatiewet was
+    the Wet werk en bijstand) come after: such a name stands when no instrument is called so
+    now, and no other was called so before."""
     index: InstrumentAliasMap = {}
     ambiguous: set[str] = set()
     without_year: dict[str, set[tuple[str | None, str | None]]] = {}
+    earlier: dict[str, set[tuple[str | None, str | None]]] = {}
     for row in rows:
         pair = (
             normalize_instrument_id(row.get("bwb_id")),
@@ -138,7 +143,13 @@ def instrument_names(rows: Iterable[Mapping[str, Any]]) -> InstrumentAliasMap:
                 ambiguous.add(label)
             if match := _WITH_YEAR.match(label):
                 without_year.setdefault(match["name"], set()).add(pair)
+        for title in row.get("citation_titles") or ():
+            if label := str(title or "").strip():
+                earlier.setdefault(label, set()).add(pair)
     for name, pairs in without_year.items():
+        if len(pairs) == 1 and name not in index and name not in ambiguous:
+            index[name] = next(iter(pairs))
+    for name, pairs in earlier.items():
         if len(pairs) == 1 and name not in index and name not in ambiguous:
             index[name] = next(iter(pairs))
     return index

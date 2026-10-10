@@ -146,3 +146,24 @@ def test_well_formed_eclis_pass_unchanged_once_each() -> None:
         "ECLI:EU:C:2021:7",
     ]
     assert cited_eclis(None) == [] and cited_eclis("") == []
+
+
+def test_an_ljn_named_on_its_own() -> None:
+    from lawgraph.core.ecli import cited_ljns
+
+    text = (
+        "Zie CRvB 12 januari 2010, LJN BK9271, en (LJN: bh 2815); vergelijk het "
+        "LJN-nummer AW4578 en nogmaals LJN BK9271."
+    )
+    assert cited_ljns(text) == ["BK9271", "BH2815", "AW4578"]
+    assert cited_ljns("Zaaknummer BK9271, zonder het woord.") == []
+    assert cited_ljns(None) == []
+
+
+def test_the_ljn_that_is_the_number_of_an_ecli() -> None:
+    from lawgraph.core.ecli import ljn_of
+
+    assert ljn_of("ECLI:NL:CRVB:2010:BK9271") == "BK9271"
+    assert ljn_of("ecli:nl:hr:2009:bh2815") == "BH2815"
+    assert ljn_of("ECLI:NL:HR:2019:1278") is None
+    assert ljn_of("ECLI:EU:C:2010:AB1234") is None

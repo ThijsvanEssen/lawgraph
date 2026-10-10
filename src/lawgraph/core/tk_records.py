@@ -560,6 +560,61 @@ def seat_vacancy(payload: Payload) -> tuple[str, dict[str, Any]] | None:
     return faction_id, {"from_date": start, "to_date": end}
 
 
+def vacancy_seat(payload: Payload) -> str | None:
+    """The FractieZetel a FractieZetelVacature record is a vacancy of."""
+    seat = next(_dicts(payload.get("FractieZetel")), {})
+    return str(seat.get("Id") or payload.get("FractieZetel_Id") or "") or None
+
+
+def holding_of_seat(payload: Payload) -> tuple[str, dict[str, Any]] | None:
+    """``(FractieZetel_Id, period)`` of a FractieZetelPersoon record: the days a person held
+    the seat, both inclusive; None when deleted or without a seat."""
+    if is_deleted(payload):
+        return None
+    seat = next(_dicts(payload.get("FractieZetel")), {})
+    seat_id = str(payload.get("FractieZetel_Id") or seat.get("Id") or "")
+    start = iso_date(payload.get("Van"))
+    if not seat_id or not start:
+        return None
+    return seat_id, {"from_date": start, "to_date": iso_date(payload.get("TotEnMet"))}
+
+
+def _day(value: str, days: int) -> str:
+    return (dt.date.fromisoformat(value) + dt.timedelta(days=days)).isoformat()
+
+
+def vacant_periods(
+    vacancy: dict[str, Any], held: Iterable[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The days of *vacancy* (``seat_vacancy``) its seat was held by no one: a seat is held
+    or vacant, never both, and a vacancy ends at the latest the day before the seat is taken
+    again (*held*: the periods of the seat's holdings, ``holding_of_seat``). The source
+    holds vacancies that begin on the predecessor's last day, and some it never closed."""
+    start, end = str(vacancy["from_date"]), vacancy.get("to_date")
+    periods = sorted(
+        (str(h["from_date"]), h.get("to_date")) for h in held if h.get("from_date")
+    )
+    for begins, _ends in periods:
+        if begins > start and (end is None or begins <= end):
+            end = _day(begins, -1)
+            break
+    free: list[dict[str, Any]] = []
+    day = start
+    for begins, ends in periods:
+        if end is not None and begins > end:
+            break
+        if ends is not None and ends < day:
+            continue
+        if begins > day:
+            free.append({"from_date": day, "to_date": _day(begins, -1)})
+        if ends is None:
+            return free
+        day = _day(ends, 1)
+    if end is None or day <= end:
+        free.append({"from_date": day, "to_date": end})
+    return free
+
+
 def seat_changed_on(payload: Payload) -> str | None:
     """The day the FractieZetel of a FractieZetelPersoon record last changed (its
     ``GewijzigdOp``): when a seat goes to another faction, the seating of the plenary hall

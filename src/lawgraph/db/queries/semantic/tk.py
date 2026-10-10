@@ -31,6 +31,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REPEALS,
     RELATION_REVISES,
+    RELATION_SAME_AS,
     RELATION_SECOND_READING_OF,
     SOURCE_EERSTEKAMER,
 )
@@ -822,3 +823,58 @@ def activity_numbers(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY a.key
         """
     return store.query(sql)
+
+
+# The initials of a member as letters alone, upper-case: ``P.J.H.M.`` and ``PJHM`` alike.
+_INITIALS = "upper(regexp_replace(coalesce({m}.props ->> 'initials', ''), '[^[:alpha:]]', '', 'g'))"
+
+
+def person_duplicate_candidates(store: Store, source: str) -> list[str]:
+    """The ids of the members a run of *source* reads: those without a role (``member_role``),
+    who could be a duplicate, and those it made a ``SAME_AS`` from before (one that has a role
+    now loses it)."""
+    from lawgraph.db.queries import member_role
+
+    return list(
+        store.query(
+            f"""
+            SELECT m.id FROM members m WHERE NOT {member_role.has_role("m")}
+            UNION
+            SELECT e.from_id FROM edges e
+            WHERE e.relation = %(relation)s AND e.source = %(source)s
+              AND e.from_collection = 'members'
+            ORDER BY 1
+            """,
+            {"relation": RELATION_SAME_AS, "source": source},
+        )
+    )
+
+
+def person_duplicates(store: Store) -> list[dict[str, Any]]:
+    """``{from_id, to_id}``: a member without a role and the one member with a role of the same
+    birth date, surname and initials (all three given and equal; the initials as letters
+    alone), the same person under a second ``Persoon`` of the Tweede Kamer. A member without a
+    role that matches two members with one is in none."""
+    from lawgraph.db.queries import member_role
+
+    bare, kept = _INITIALS.format(m="b"), _INITIALS.format(m="k")
+    return list(
+        store.query(
+            f"""
+            SELECT b.id AS from_id, min(k.id) AS to_id
+            FROM members b
+            JOIN members k
+              ON k.props ->> 'birth_date' = b.props ->> 'birth_date'
+             AND k.props ->> 'family_name' = b.props ->> 'family_name'
+             AND {kept} = {bare}
+             AND k.id <> b.id
+            WHERE NOT {member_role.has_role("b")} AND {member_role.has_role("k")}
+              AND b.props ->> 'birth_date' IS NOT NULL
+              AND b.props ->> 'family_name' IS NOT NULL
+              AND {bare} <> ''
+            GROUP BY b.id
+            HAVING count(*) = 1
+            ORDER BY b.id
+            """
+        )
+    )

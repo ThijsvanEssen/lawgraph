@@ -97,3 +97,42 @@ def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> N
     cli("semantic", "rechtspraak-citations")
 
     assert _cited(store) == {(RULING, CITED)}
+
+
+# Before 2013 a decision is cited by its LJN, the number of its ECLI.
+LJN_CITING = "ECLI:NL:CRVB:2011:BP0671"
+LJN_CITED = "ECLI:NL:CRVB:2009:BG6197"
+
+
+def test_an_ljn_cites_the_judgment_whose_ecli_has_it(database: str, cli: Any) -> None:
+    store = GraphStore()
+    judgments = {
+        LJN_CITING: _xml(
+            LJN_CITING,
+            "Centrale Raad van Beroep",
+            "2011-02-01",
+            "09/1234 WWB",
+            text="De Raad verwijst naar zijn uitspraak van 3 februari 2009, LJN BG6197, "
+            "en naar LJN ZZ9999, die niet geladen is.",
+        ),
+        LJN_CITED: _xml(
+            LJN_CITED, "Centrale Raad van Beroep", "2009-02-03", "07/1 WWB"
+        ),
+    }
+    with RawSourceWriter(store) as writer:
+        for ecli, xml in judgments.items():
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=xml,
+                    meta={"ecli": ecli},
+                )
+            )
+    cli("normalize", "rechtspraak")
+
+    cli("semantic", "rechtspraak-citations")
+
+    # the LJN no judgment has makes no stub
+    assert _cited(store) == {(LJN_CITING, LJN_CITED)}
