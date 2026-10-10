@@ -1157,7 +1157,8 @@ only, so every run reads it all: a snapshot.
 
 **Retrieve `eerstekamer-mutations`.** The lists of `/personele_mutaties`, the changes in the
 composition per term (`ek-mutations-html`, external id the path: the current term and each
-earlier term it links), read on every run, and the page of each change they list
+earlier term it links), the current term's on every run and that of a term that ended once (it
+does not change), and the page of each change they list
 (`ek-mutation-html`, external id the path, `meta.date` and `meta.headline` as the list gives
 them), once.
 
