@@ -1068,9 +1068,9 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     Pure: compares the query with the key, the identifiers and the names the hit carries
     (its display name, citation title, heading and aliases). A query that is part of the
     title of a division an article stands in counts as part of its name; the name of its
-    law does not: every article of the Wet conflictenrecht onrechtmatige daad would hold
-    "onrechtmatige daad", where art. 6:162 BW holds it in its title (the law itself is a
-    hit of the instruments, by its name).
+    law only with its number ("art 2 klimaatfonds"): every article of the Wet
+    conflictenrecht onrechtmatige daad would hold "onrechtmatige daad", where art. 6:162 BW
+    holds it in its title (the law itself is a hit of the instruments, by its name).
     """
     wanted = _folded(query)
     if not wanted:
@@ -1094,11 +1094,12 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
         return SCORE_PREFIX
     words = wanted.split()
     context = _folded_list(extra, _CONTEXT_LIST_FIELDS)
-    own = (
-        [_folded(extra.get("heading"))]
-        if hit.get("collection") == "articles"
-        else names
-    )
+    own = names
+    if hit.get("collection") == "articles" and _folded(
+        extra.get("article_number")
+    ) not in set(words):
+        # without its number the words are the law's, not the article's
+        own = [_folded(extra.get("heading"))]
     if any(all(w in n for w in words) for n in own + context if n):
         return SCORE_CONTAINS
     return SCORE_WORDS

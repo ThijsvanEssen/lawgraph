@@ -120,6 +120,25 @@ def hit(**fields: Any) -> dict[str, Any]:
             ),
             SCORE_TITLE,
         ),
+        # with the article's number, the name of its law names it ("art 2 klimaatfonds")
+        (
+            "art 2 klimaatfonds",
+            hit(
+                collection="articles",
+                display_name="Artikel 2 Tijdelijke wet Klimaatfonds",
+                extra={"article_number": "2"},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "art 2 klimaatfonds",
+            hit(
+                collection="articles",
+                display_name="Artikel 1 Tijdelijke wet Klimaatfonds",
+                extra={"article_number": "1"},
+            ),
+            SCORE_WORDS,
+        ),
         (
             "onrechtmatige daad",
             hit(
