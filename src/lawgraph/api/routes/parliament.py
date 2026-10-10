@@ -20,6 +20,7 @@ from lawgraph.api.schemas.parliament import (
     SeatingPlanDTO,
 )
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
+from lawgraph.core.coalition import vacant_on
 from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
 from lawgraph.core.parties import (
     CHAMBER_COLOR_SOURCES,
@@ -33,7 +34,11 @@ from lawgraph.core.parties import (
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import ek_seats
-from lawgraph.db.queries.coalition import Coalition, coalition_of_day
+from lawgraph.db.queries.coalition import (
+    Coalition,
+    coalition_of_day,
+    vacancies_between,
+)
 from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
 
 router = APIRouter()
@@ -80,6 +85,7 @@ def get_seats(
         if date is not None:
             return _ek_seats_on(store, date.isoformat())
         return _ek_seats(store)
+    vacant: dict[str, int] = {}
     if date is None:
         factions = get_factions(store, active=True)
         seats = {
@@ -87,8 +93,16 @@ def get_seats(
             for doc in factions
         }
     else:
-        seats = get_seats_on(store, date.isoformat())
-        factions = [doc for doc in get_factions(store) if doc["_key"] in seats]
+        day = date.isoformat()
+        seats = get_seats_on(store, day)
+        # the seats of a faction no member held that day: with those it holds, its seats
+        # as the stretches of a cabinet count them (``/api/cabinets/{key}/seats``)
+        vacant = vacant_on(vacancies_between(store, day, day), day)
+        factions = [
+            doc
+            for doc in get_factions(store)
+            if doc["_key"] in seats or doc["_key"] in vacant
+        ]
 
     as_of = (date or dt.date.today()).isoformat()
     coalition = coalition_of_day(store, as_of)
@@ -97,7 +111,7 @@ def get_seats(
     for doc in factions:
         props = doc.get("props") or {}
         key = doc["_key"]
-        if seats[key] <= 0:
+        if seats.get(key, 0) + vacant.get(key, 0) <= 0:
             continue
         if key in _ORDER:
             order = _ORDER[key]
@@ -110,7 +124,8 @@ def get_seats(
                 key=key,
                 abbreviation=props.get("abbreviation"),
                 name=props.get("name"),
-                seats=seats[key],
+                seats=seats.get(key, 0),
+                vacant=vacant.get(key, 0),
                 **_colors("TK", props.get("abbreviation"), props.get("name")),
                 order=order,
                 coalition=_of_coalition(coalition, key, props.get("abbreviation")),

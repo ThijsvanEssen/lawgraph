@@ -200,7 +200,18 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         app.dependency_overrides.pop(get_store, None)
     assert seats["tk"]
     for stretch in seats["tk"]:
-        assert stretch["coalition"] + stretch["opposition"] + stretch["vacant"] == 150
+        # a seat is held or vacant, never both: the seats held and the vacant ones, and
+        # the parties' seats (their vacant ones among them) with those of no faction, are
+        # each the Kamer
+        held = sum(f["seats"] - f["vacant"] for f in stretch["factions"])
+        of_factions = sum(f["vacant"] for f in stretch["factions"])
+        assert held + stretch["vacant"] == 150
+        assert (
+            stretch["coalition"]
+            + stretch["opposition"]
+            + (stretch["vacant"] - of_factions)
+            == 150
+        )
         (bbb,) = [f for f in stretch["factions"] if f["key"] == "bbb"]
         assert bbb["seats"] == 2, stretch["from_date"]
     vacant = [(s["from_date"], s["to_date"]) for s in seats["tk"]
