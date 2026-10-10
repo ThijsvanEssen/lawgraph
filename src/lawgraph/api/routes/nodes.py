@@ -21,12 +21,11 @@ from lawgraph.api.schemas.nodes import (
 )
 from lawgraph.api.seo.pages import title_of
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
-from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
@@ -50,14 +49,6 @@ from lawgraph.db.queries.overlay import (
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-# In-memory TTL cache for the bulk overlay endpoints. Heat/in-flux are
-# slow-moving signals (recompute on every page load is wasteful) and the
-# AQL pass takes ~400 ms uncached. A 60 s TTL caps the lag at one slow
-# request per minute regardless of concurrent viewers. maxsize=128 covers
-# all realistic (months, min_count) combinations with a bounded footprint.
-_overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
-
 
 # The two overlays answer raw JSON: validating a map of 40,000 keys through a response
 # model took about 200 ms a request. The schema says what the map is.
@@ -92,12 +83,12 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
 def bulk_in_flux(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JSONResponse:
-    """Return all nodes that have at least one VOORGESTELD edge, with counts."""
-    cached = _overlay_cache.get("in_flux")
-    if cached is _MISSING:
-        cached = get_in_flux_counts(store)
-        _overlay_cache.set("in_flux", cached)
-    return JSONResponse(cached)
+    """Return all nodes that have at least one VOORGESTELD edge, with counts (kept while
+    the edges stand still, ``get_in_flux_counts``). After a poll that wrote edges, the
+    count of the edges before is answered at once while the new one computes: a signal
+    that hardly moves is not worth a wait."""
+    with version_cache.stale_wait(0.0):
+        return JSONResponse(get_in_flux_counts(store))
 
 
 # The nodes a request may name, and how many the map of the whole graph keeps.
