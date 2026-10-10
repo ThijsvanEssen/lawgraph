@@ -1071,9 +1071,17 @@ filter), `kind`, `number`, `title`, `subject` (dossier title), `session_year`, `
 separately), `dossier_numbers` (the label of every dossier the paper names, the first first:
 `36600-VII`; a value without a leading number, `CXIX`, is left out; a record stored before the
 client kept them all gives only its one number). A Roman numeral instead of a number (the own
-dossiers of the Eerste Kamer, 525 papers) sets neither. No edges here.
+dossiers of the Eerste Kamer, 525 papers) sets neither. A dossier no node holds (the Tweede
+Kamer's OData has none before about 2005: thousands of the papers of 1995-2006 name one) is
+written from its papers: `dossiers/<label>`, labels `EK`, `number`, `suffix`, `label`,
+`title` (the dossier title its papers give most; of equal counts, that of the newest paper;
+`title_source` `eerstekamer`), `source` `eerstekamer`, and no kind, phases or opening day (the
+stage backfill runs over the Tweede Kamer's dossiers only). A dossier the Tweede Kamer has is
+never written here; one it delivers later takes the node over (its props, `source` `tk`). No
+edges here.
 
-**Semantic `eerstekamer`.** `PART_OF` from the paper to the Tweede Kamer dossier with the same
+**Semantic `eerstekamer`.** `PART_OF` from the paper to the dossier (of the Tweede Kamer, else
+the one written from the papers) with the same
 number and addition, and to each other dossier of `dossier_numbers` by its `label`, 0.95,
 `meta.chamber = EK`.
 

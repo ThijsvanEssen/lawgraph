@@ -155,6 +155,10 @@ class _NodeStore:
         self.upserted.append(node)
         return node, True
 
+    def existing_keys(self, collection, keys):
+        # the dossiers of the Tweede Kamer: none here
+        return set()
+
 
 def _normalize(papers: list[dict[str, Any]]):
     store = _NodeStore()
@@ -162,9 +166,11 @@ def _normalize(papers: list[dict[str, Any]]):
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
     pipeline.normalize_nodes(raw, result)
+    # the papers; the dossiers written from them are tested on the database
     nodes = {
         doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
         for doc in store.upserted
+        if doc.get("type") == "document"
     }
     return nodes, result
 

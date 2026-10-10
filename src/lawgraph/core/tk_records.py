@@ -677,6 +677,9 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
         "title": title,
         "title_source": "dossier" if title else None,
         "display_name": dossier_display_name(number_str, suffix, title or ""),
+        # the Tweede Kamer's: takes over a dossier written from the papers of the Eerste
+        # Kamer before the Kamer delivered it (``normalize eerstekamer``)
+        "source": SOURCE_TK,
     }
 
     return make_node_key(label), label, props
