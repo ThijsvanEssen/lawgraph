@@ -169,8 +169,10 @@ def annex_node_key(bwb_id: str, label: str | None) -> str:
     return make_node_key(bwb_id, "annex", label)
 
 
-def annex_props(annex: AnnexXml, bwb_id: str) -> dict[str, Any]:
-    """Props of the Annex node."""
+def annex_props(
+    annex: AnnexXml, bwb_id: str, citation_title: str | None = None
+) -> dict[str, Any]:
+    """Props of the Annex node; *citation_title* that of its law, which its title cites."""
     display = annex.title or (f"Annex {annex.label}" if annex.label else "Annex")
     return {
         "source": SOURCE_BWB,
@@ -181,4 +183,5 @@ def annex_props(annex: AnnexXml, bwb_id: str) -> dict[str, Any]:
         "description": annex.description,
         "entries": list(annex.entries) or None,
         "instrument_id": f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}",
+        "instrument_citation_title": citation_title,
     }
