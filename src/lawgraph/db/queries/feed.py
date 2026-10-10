@@ -213,6 +213,8 @@ class FeedFilters:
     faction: str | None = None
     q: tuple[str, ...] = ()
     chamber: str | None = None  # TK, EK
+    # what the coalition did on a vote (``FEED_COALITION``); keeps votes alone
+    coalition: str | None = None
     # the tiers of the judgments; None: ``FEED_TIERS``. A tier keeps judgments alone.
     tiers: tuple[str, ...] | None = None
 
@@ -454,7 +456,7 @@ _NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT, EVENT_JUDGMENT)
 CHAMBER_EK = "EK"
 
 # The dimensions that are counted as facets; each is a filter on the rows too.
-_DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber")
+_DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber", "coalition")
 
 # What every request reads first: factions by the ids of their Fractie records (an id two
 # factions claim goes to the first by key) and the cabinets with a start; each read once
@@ -558,6 +560,9 @@ def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, 
     if filters.cabinet:
         clauses["cabinet"] = _IN_PERIOD.replace("{date}", "date")
         bind["cabinet"] = filters.cabinet
+    if filters.coalition:
+        clauses["coalition"] = "%(coalition)s = ANY(coalition)"
+        bind["coalition"] = filters.coalition
     return clauses
 
 
@@ -627,6 +632,8 @@ def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
         sources = [s for s in sources if s.kind != EVENT_COMMITMENT]
     if facets:  # every chamber is counted; ``chamber`` keeps the one asked for
         return sources
+    if filters.coalition:  # only a vote has a coalition
+        sources = [s for s in sources if s.kind == EVENT_VOTE]
     if filters.chamber == CHAMBER_EK:
         sources = [s for s in sources if s.kind == EVENT_VOTE]
     elif filters.chamber:
@@ -666,6 +673,10 @@ class _Plan:
         return self.facets or bool(self.filters.faction)
 
     @property
+    def needs_coalition(self) -> bool:
+        return self.facets or bool(self.filters.coalition)
+
+    @property
     def needs_persons(self) -> bool:
         return self.needs_factions or bool(self.filters.member)
 
@@ -695,7 +706,24 @@ _ROW_COLUMNS = (
     ("subkind", "text"),
     ("passed", "boolean"),
     ("margin", "float8"),
+    ("coalition", "text[]"),
 )
+
+
+def coalition_of(vote_id: str) -> str:
+    """SQL: what the coalition did on the vote *vote_id*, as ``FEED_COALITION`` names it:
+    its pattern, ``split`` for a ``wissel`` too, and ``decisive``; ``{}`` without a row of
+    ``lg_decision_coalition``. Read when asked, never kept with the events."""
+    return f"""ARRAY(
+                SELECT v FROM lg_decision_coalition c
+                CROSS JOIN LATERAL unnest(ARRAY[
+                    c.pattern,
+                    CASE WHEN c.pattern = 'wissel' THEN 'split' END,
+                    CASE WHEN c.decisive THEN 'decisive' END
+                ]) AS v
+                WHERE c.id = {vote_id} AND v IS NOT NULL
+            )"""
+
 
 # The order of the feed: newest day first, within a day by the rank of the kind
 # (``core.feed.DAY_ORDER``), then by id.
@@ -739,6 +767,12 @@ class _Kind:
     def factions(self) -> str:
         if self.plan.needs_factions and self.source.persons:
             return _FACTIONS
+        return "'{}'::text[]"
+
+    @property
+    def coalition(self) -> str:
+        if self.plan.needs_coalition and self.source.kind == EVENT_VOTE:
+            return coalition_of("n.id")
         return "'{}'::text[]"
 
     def laterals(self) -> str:
@@ -807,6 +841,7 @@ class _Kind:
             "lg_str(n.props -> 'kind')" if vote else "NULL",
             "n.passed" if vote else "NULL",
             _MARGIN if vote else "NULL",
+            self.coalition,
         )
         return ",\n            ".join(
             f"({value})::{sql_type} AS {name}"
@@ -814,12 +849,15 @@ class _Kind:
         )
 
     def page_filters(self) -> list[str]:
-        """Without facets, the filters on the ministry and the faction of a row."""
+        """Without facets, the filters on the ministry, the faction and the coalition of a
+        row."""
         clauses = []
         if self.plan.filters.ministry:
             clauses.append(f"({self.ministry}) = %(ministry)s")
         if self.plan.filters.faction:
             clauses.append(f"%(faction)s = ANY({self.factions})")
+        if self.plan.filters.coalition:
+            clauses.append(f"%(coalition)s = ANY({self.coalition})")
         return clauses
 
 
@@ -884,6 +922,7 @@ _PER_FACTION = (
     "events CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 0"
     " THEN factions ELSE ARRAY[NULL]::text[] END) AS fx(faction)"
 )
+_PER_COALITION = "events CROSS JOIN LATERAL unnest(coalition) AS cx(value)"
 
 
 def _facet(plan: _Plan, name: str) -> str:
@@ -905,6 +944,13 @@ def _facet(plan: _Plan, name: str) -> str:
         return f"""({_FACET_AGG} FROM (
             SELECT value, count(*)::int AS cnt
             FROM (SELECT DISTINCT fx.faction AS value, id FROM {_PER_FACTION}{where}) once
+            GROUP BY 1
+        ) counted)"""
+    if name == "coalition":
+        # a vote counts for each that holds; an event without one counts for none
+        return f"""({_FACET_AGG} FROM (
+            SELECT value, count(*)::int AS cnt
+            FROM {_PER_COALITION}{where}
             GROUP BY 1
         ) counted)"""
     return f"""({_FACET_AGG} FROM (
@@ -1624,6 +1670,10 @@ def _facet_per_set(name: str) -> str:
                 SELECT DISTINCT set_id, fx.faction AS value, id
                 FROM {_PER_FACTION.replace("events", "in_set")}
             ) once GROUP BY set_id, value"""
+    elif name == "coalition":
+        counted = f"""SELECT set_id, value, count(*)::int AS cnt
+            FROM {_PER_COALITION.replace("events", "in_set")}
+            GROUP BY set_id, value"""
     else:
         counted = f"""SELECT set_id, {name} AS value, count(*)::int AS cnt
             FROM in_set GROUP BY set_id, value"""

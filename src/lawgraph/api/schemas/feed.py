@@ -616,6 +616,12 @@ class FeedFacetsDTO(BaseModel):
         default_factory=list,
         description="``TK``, ``EK``; null for a publication or a commencement.",
     )
+    coalition: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="What the coalition did on the votes of the Tweede Kamer: "
+        "``together``, ``split`` (with ``wissel``), ``wissel``, ``decisive``; a vote "
+        "counts for each that holds, an event without a coalition vote for none.",
+    )
 
 
 class FeedResponse(BaseModel):

@@ -170,6 +170,10 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         everything = client.get("/api/decisions").json()
         detail = client.get("/api/decisions/wissel").json()
         feed = client.get("/api/feed", params={"kind": "stemming"}).json()
+        split = client.get("/api/feed", params={"coalition": "split"}).json()
+        together = client.get(
+            "/api/feed", params={"kind": "stemming", "coalition": "together"}
+        ).json()
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -236,6 +240,46 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
     assert [f["key"] for f in votes["roll_call"]["coalition_factions"]] == ["vvd"]
     assert votes["before"]["coalition"] is None
     assert votes["before"]["coalition_factions"] == []
+    # a vote counts for each thing the coalition did; split holds the wisselmeerderheid
+    counts = {"together": 2, "split": 1, "wissel": 1, "decisive": 2}
+    assert {f["value"]: f["count"] for f in feed["facets"]["coalition"]} == counts
+    assert [item["node"]["key"] for item in split["items"]] == ["wissel"]
+    assert {f["value"]: f["count"] for f in split["facets"]["coalition"]} == counts
+    assert [item["node"]["key"] for item in together["items"]] == [
+        "roll_call",
+        "together",
+    ]
+    assert together["total"] == 2
+
+    # the same from the events kept apart (``feed-events``): the counts under words and
+    # the periods
+    cli("feed-events")
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        words = client.get(
+            "/api/feed", params={"q": ["wissel", "together"], "kind": "stemming"}
+        ).json()
+        split_words = client.get(
+            "/api/feed", params={"q": "wissel", "coalition": "split"}
+        ).json()
+        periods = client.get(
+            "/api/feed/periods", params={"coalition": "together", "per": "month"}
+        ).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert {f["value"]: f["count"] for f in words["facets"]["coalition"]} == {
+        "together": 1,
+        "split": 1,
+        "wissel": 1,
+        "decisive": 1,
+    }
+    assert split_words["total"] == 1
+    assert [item["node"]["key"] for item in split_words["items"]] == ["wissel"]
+    assert {p["period"]: p["total"] for p in periods["periods"]} == {
+        "2025-03-01": 1,
+        "2025-07-01": 1,
+    }
 
     # a full run removes a row whose decision no longer has a coalition vote
     store.execute("DELETE FROM edges WHERE to_id = 'decisions/together'")
