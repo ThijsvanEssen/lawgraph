@@ -1422,6 +1422,27 @@ FEED_EVENTS_INDEXES = {
 }
 
 
+# The seats of the Eerste Kamer per term and per stretch (``normalize eerstekamer-mutations``):
+# each term from the Kiesraad's result of its election through the changes the Kamer's pages
+# tell (``core.ek_changes``), and whether it added up (``checked``). Not tables of the graph.
+EK_SEATS = """
+CREATE TABLE IF NOT EXISTS lg_ek_terms (
+    start text PRIMARY KEY,
+    election text NOT NULL,
+    source json NOT NULL,
+    checked boolean NOT NULL,
+    mismatches json NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lg_ek_seats (
+    from_date text PRIMARY KEY,
+    to_date text,
+    term text NOT NULL,
+    seats json NOT NULL,
+    events json NOT NULL
+)
+"""
+
+
 def feed_events() -> list[str]:
     statements = [
         f"CREATE TABLE IF NOT EXISTS {FEED_EVENTS_TABLE} ({FEED_EVENTS_COLUMNS})",
@@ -1535,6 +1556,7 @@ def statements() -> list[str]:
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
         *feed_events(),
+        EK_SEATS,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)

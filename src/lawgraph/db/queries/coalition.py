@@ -8,9 +8,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import CHAMBER_TK, RELATION_SERVED_IN, RELATION_VOTED
-from lawgraph.core.coalition import EK_SEATS, TK_SEATS_FROM, coalition_on, seat_timeline
+from lawgraph.core.coalition import (
+    EK_SEATS,
+    TK_SEATS_FROM,
+    coalition_on,
+    seat_timeline,
+    tk_events,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.cabinets import (
     cabinet_on,
     cabinet_posts,
@@ -54,9 +61,9 @@ def cabinet_seats(
 ) -> dict[str, Any]:
     """The seats of the cabinet's coalition in each Kamer over its period: ``tk``, the
     timeline of ``core.coalition.seat_timeline`` (None for a cabinet that began before every
-    seat of the Tweede Kamer is known, ``TK_SEATS_FROM``); ``ek``, one segment on the day
-    the composition of the Eerste Kamer was read when the cabinet was in office then (None
-    otherwise: the Eerste Kamer has no seats per day)."""
+    seat of the Tweede Kamer is known, ``TK_SEATS_FROM``), each with the events derived from
+    the seats (``core.coalition.tk_events``); ``ek``, the stretches of the Eerste Kamer
+    (``_ek_stretches``)."""
     props = cabinet.get("props") or {}
     start = str(props.get("from_date") or "")[:10]
     end = str(props.get("to_date") or "")[:10] or today
@@ -73,53 +80,88 @@ def cabinet_seats(
         abbreviations = faction_abbreviations(
             store, {f["key"] for segment in tk for f in segment["factions"]}
         )
+        memberships = memberships_between(store, start, end)
+        vacancies = vacancies_between(store, start, end)
+        previous: set[str] | None = None
         for segment in tk:
             for faction in segment["factions"]:
                 faction["abbreviation"] = abbreviations.get(faction["key"])
-    return {"tk": tk, "ek": _ek_segment(store, posts, start, end)}
+            now = {f["key"] for f in segment["factions"] if f["coalition"]}
+            segment["events"] = tk_events(
+                segment["from_date"], memberships, vacancies, previous, now
+            )
+            previous = now
+    return {"tk": tk, "ek": _ek_stretches(store, posts, start, end)}
 
 
-def _ek_segment(
+def _ek_stretches(
     store: GraphStore, posts: list[dict[str, Any]], start: str, end: str
 ) -> list[dict[str, Any]] | None:
-    factions = [
-        doc
-        for doc in get_factions(store, active=True, chamber="EK")
-        if int((doc.get("props") or {}).get("seats") or 0) > 0
-    ]
-    read_on = max(
-        (str((d.get("props") or {}).get("retrieved_on") or "") for d in factions),
-        default="",
-    )[:10]
-    if not read_on or not (start <= read_on <= end):
+    """The stretches of the Eerste Kamer in *start*..*end* (``lg_ek_seats``), clipped to it,
+    in the shape of the Tweede Kamer's: each faction with its seats and whether it is of the
+    coalition (by name, as ``Coalition.has`` matches the Eerste Kamer), the changes that
+    began the stretch (``events``, in the source's words) and whether its term added up
+    (``checked``); None when none is known."""
+    rows = ek_seats.stretches_between(store, start, end)
+    if not rows:
         return None
-    names = _names(store, posts, coalition_on(posts, read_on))
-    rows = sorted(
-        (
+    keys = {
+        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["_key"]
+        for doc in get_factions(store, chamber="EK")
+    }
+    stretches = []
+    for row in rows:
+        first = max(row["from_date"], start)
+        last = min(row["to_date"] or end, end)
+        names = _names(store, posts, coalition_on(posts, first))
+        ranked = sorted(
             (
-                doc["_key"],
-                (doc.get("props") or {}).get("abbreviation"),
-                int(doc["props"]["seats"]),
-                str((doc.get("props") or {}).get("abbreviation") or "").upper()
-                in names,
-            )
-            for doc in factions
-        ),
-        key=lambda r: (not r[3], -r[2], r[0]),
-    )
-    return [
-        {
-            "from_date": read_on,
-            "to_date": read_on,
-            "coalition": sum(r[2] for r in rows if r[3]),
-            "opposition": sum(r[2] for r in rows if not r[3]),
-            "vacant": max(EK_SEATS - sum(r[2] for r in rows), 0),
-            "factions": [
-                {"key": k, "abbreviation": a, "seats": n, "coalition": c}
-                for k, a, n, c in rows
-            ],
-        }
+                (name, n, name.upper() in names)
+                for name, n in (row["seats"] or {}).items()
+                if n > 0
+            ),
+            key=lambda r: (not r[2], -r[1], r[0]),
+        )
+        stretches.append(
+            {
+                "from_date": first,
+                "to_date": last,
+                "coalition": sum(n for _, n, c in ranked if c),
+                "opposition": sum(n for _, n, c in ranked if not c),
+                "vacant": max(EK_SEATS - sum(n for _, n, _c in ranked), 0),
+                "factions": [
+                    {
+                        "key": keys.get(name.upper()),
+                        "abbreviation": name,
+                        "seats": n,
+                        "coalition": c,
+                    }
+                    for name, n, c in ranked
+                ],  # fmt: skip
+                "events": [_ek_event(e) for e in row["events"] or []]
+                if row["from_date"] >= start
+                else [],
+                "checked": bool(row["checked"]),
+            }
+        )
+    return stretches
+
+
+def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
+    """A change of ``core.ek_changes`` as an event of a stretch."""
+    factions = [
+        f
+        for f in (change.get("source"), change.get("to"), *change.get("sources", []))
+        if f
     ]
+    return {
+        "kind": change["kind"],
+        "date": change["date"],
+        "words": change.get("words"),
+        "basis": change.get("basis"),
+        "factions": factions,
+        "members": [change["member"]] if change.get("member") else [],
+    }
 
 
 def _names(

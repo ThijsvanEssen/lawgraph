@@ -113,7 +113,11 @@ class CoalitionFactionSeatsDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    key: str
+    key: str | None = Field(
+        None,
+        description="The key of the faction; null for a faction of the Eerste Kamer of the "
+        "past, which only its name (``abbreviation``) is known by.",
+    )
     abbreviation: str | None = None
     seats: int = Field(..., description="Its seats, a vacant one among them.")
     vacant: int = Field(
@@ -125,6 +129,37 @@ class CoalitionFactionSeatsDTO(BaseModel):
         ...,
         description="Its party held a post in the cabinet that day; a faction split off a "
         "coalition party holds none: opposition.",
+    )
+
+
+class SeatEventDTO(BaseModel):
+    """What began a stretch: a change of the seats or of the coalition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(
+        ...,
+        description="Eerste Kamer, read from its own pages: ``beëdiging``, ``vertrek``, "
+        "``overstap``, ``afsplitsing``, ``hernoeming``, ``samenvoeging``. Tweede Kamer, "
+        "derived from the periods of its seats (it gives no reason): ``verkiezing``, "
+        "``afsplitsing``, ``overstap``, ``vacature``, ``opvolging``, ``coalitie``.",
+    )
+    date: str
+    words: str | None = Field(
+        None,
+        description="The source's own words (Eerste Kamer: the headline of its news item, or "
+        "the sentence of a faction's page), verbatim; null for the Tweede Kamer, whose kind "
+        "is derived.",
+    )
+    basis: str | None = Field(
+        None,
+        description="``tekst``: the kind is read from the source's words (show the words); "
+        "``afgeleid``: derived from the periods of the seats (show the kind as a label).",
+    )
+    factions: list[str] = Field(default_factory=list)
+    members: list[str] = Field(
+        default_factory=list,
+        description="Tweede Kamer: member keys; Eerste Kamer: the name the text gives.",
     )
 
 
@@ -146,6 +181,17 @@ class SeatStretchDTO(BaseModel):
     )
     factions: list[CoalitionFactionSeatsDTO] = Field(
         default_factory=list, description="The coalition first, then by seats."
+    )
+    events: list[SeatEventDTO] = Field(
+        default_factory=list,
+        description="What began the stretch (none for one that began before the cabinet).",
+    )
+    checked: bool | None = Field(
+        None,
+        description="Eerste Kamer: whether its term added up (every change's faction known, "
+        "no faction below zero, no more than 75 seats; the current term also equal to "
+        "today's composition); when false, show the stretch as uncertain. Null for the "
+        "Tweede Kamer, whose seats are the source's own.",
     )
 
 
@@ -169,8 +215,9 @@ class CabinetSeatsResponse(BaseModel):
     )
     ek: list[SeatStretchDTO] | None = Field(
         None,
-        description="The Eerste Kamer on the day its composition was read, when the "
-        "cabinet was in office then; null otherwise (it has no seats per day).",
+        description="The Eerste Kamer, a stretch per change, from the Kiesraad's result of "
+        "each election through the changes its own pages tell (``checked`` per term); null "
+        "when none of its stretches overlaps the cabinet.",
     )
 
 

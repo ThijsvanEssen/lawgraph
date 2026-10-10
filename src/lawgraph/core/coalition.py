@@ -202,3 +202,67 @@ def vote_pattern(
         "carried": passed and 2 * c_for > cast,
         "decisive": decisive,
     }
+
+
+# ── what starts a stretch of the Tweede Kamer ─────────────────────────────────
+
+# The Tweede Kamer gives no reason for a change of seats: the kind of an event is derived from
+# the periods of the seats (FractieZetelPersoon, FractieZetelVacature) and the posts, by these
+# rules (``basis`` ``afgeleid``, no ``words``).
+DERIVED = "afgeleid"
+# A day on which at least this many seats begin is the installation of a new Kamer.
+INSTALLATION_SEATS = 50
+
+
+def tk_events(
+    day: str,
+    memberships: Sequence[Mapping[str, Any]],
+    vacancies: Sequence[Mapping[str, Any]],
+    coalition_before: set[str] | None,
+    coalition_now: set[str],
+) -> list[dict[str, Any]]:
+    """The events that begin a stretch of the Tweede Kamer on *day*, each ``{kind, date,
+    words: None, basis: "afgeleid", factions, members}``:
+
+    - ``verkiezing``: at least ``INSTALLATION_SEATS`` seats begin (a new Kamer installed);
+    - ``afsplitsing``: a member's seat ends in one faction and begins the next day in a
+      faction no seat was held in before; ``overstap`` when it was;
+    - ``vacature``: a seat of a faction becomes vacant; ``opvolging``: a seat that a member
+      left, or that was vacant, is taken by another;
+    - ``coalitie``: the factions of the coalition change (a party joins or leaves).
+    """
+    before = (dt.date.fromisoformat(day) - dt.timedelta(days=1)).isoformat()
+    began = [m for m in memberships if m.get("from_date") == day]
+    ended = [m for m in memberships if m.get("to_date") == before]
+    events: list[dict[str, Any]] = []
+
+    def event(kind: str, factions: list[str], members: list[str]) -> None:
+        events.append(
+            {"kind": kind, "date": day, "words": None, "basis": DERIVED,
+             "factions": sorted(set(factions)), "members": sorted(set(members))}
+        )  # fmt: skip
+
+    if len(began) >= INSTALLATION_SEATS:
+        event("verkiezing", [str(m["faction_key"]) for m in began], [])
+        return events
+    held_before = {
+        m.get("faction_key") for m in memberships if (m.get("from_date") or "") < day
+    }
+    moved = {m["member"] for m in began} & {m["member"] for m in ended}
+    for member in sorted(moved):
+        old = next(m["faction_key"] for m in ended if m["member"] == member)
+        new = next(m["faction_key"] for m in began if m["member"] == member)
+        if old != new:
+            kind = "overstap" if new in held_before else "afsplitsing"
+            event(kind, [old, new], [member])
+    gone = [m for m in ended if m["member"] not in moved]
+    came = [m for m in began if m["member"] not in moved]
+    vacant_from = {v["faction_key"] for v in vacancies if v.get("from_date") == day}
+    for m in gone:
+        if m["faction_key"] in vacant_from:
+            event("vacature", [m["faction_key"]], [m["member"]])
+    for m in came:
+        event("opvolging", [m["faction_key"]], [m["member"]])
+    if coalition_before is not None and coalition_before != coalition_now:
+        event("coalitie", sorted(coalition_before ^ coalition_now), [])
+    return events
