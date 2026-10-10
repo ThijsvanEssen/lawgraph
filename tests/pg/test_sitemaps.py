@@ -150,6 +150,52 @@ def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
     ]
 
 
+def test_annexes_and_zaken(store: GraphStore) -> None:
+    """An annex with a label and something to read of a law that is no stub; a zaak
+    voted on since 2018 that is no motion or amendment (their papers are listed)."""
+    _seed(store)
+    store.bulk_insert_or_update_nodes(
+        "annexes",
+        [
+            _node("bwbr0005289_annex_ii", "annex", bwb_id="BWBR0005289", label="II",
+                  entries=[{"index": 1, "name": "Cannabis"}]),
+            _node("bwbr0005289_annex_a", "annex", bwb_id="BWBR0005289", label="A",
+                  description="Model"),
+            # only cited; without a label; nothing to read; of a stub law
+            _node("bwbr0005289_annex_iii", "annex", bwb_id="BWBR0005289", label="III",
+                  stub=True, description="x"),
+            _node("bwbr0005289_annex", "annex", bwb_id="BWBR0005289",
+                  description="x"),
+            _node("bwbr0005289_annex_iv", "annex", bwb_id="BWBR0005289", label="IV"),
+            _node("bwbr0099999_annex_i", "annex", bwb_id="BWBR0099999", label="I",
+                  description="x"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [
+            _node("z_6", "case", number="2026Z00006", kind="Wetgeving"),
+            _node("z_7", "case", number="2016Z00007", kind="Wetgeving"),
+            _node("z_8", "case", number="2026Z00008", kind="Motie"),
+            _node("z_9", "case", number="2026Z00009", kind="Brief regering"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("a6", "decisions/s_1", "cases/z_6", "ABOUT"),
+            _edge("a6b", "decisions/s_2", "cases/z_6", "ABOUT"),
+            _edge("a7", "decisions/s_3", "cases/z_7", "ABOUT"),
+            _edge("a8", "decisions/s_1", "cases/z_8", "ABOUT"),
+        ]
+    )
+    kinds = command.kinds(store)
+    assert _paths(kinds, "bijlagen") == [
+        ("/wetten/BWBR0005289/bijlage/A", "2025-07-01"),
+        ("/wetten/BWBR0005289/bijlage/II", "2025-07-01"),
+    ]
+    assert _paths(kinds, "zaken") == [("/zaken/2026Z00006", "2026-09-08")]
+
+
 def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "members",
