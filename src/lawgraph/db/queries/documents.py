@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
     RELATION_PART_OF,
+    RELATION_REVISES,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import make_node_key
@@ -289,3 +290,45 @@ def list_documents(
         "total": row["total"],
         "facets": {"kind": row["kind"], "chamber": row["chamber"]},
     }
+
+
+# The papers an amended amendment or motion replaces, and those that replace it: ``REVISES``
+# with the rule ``vervanging`` (``Zaak.VervangenVanuit``, ``semantic tk-dossier-relations``),
+# each other paper with its number (``sequence``) from ``lg_document_light``, never its props.
+_REPLACEMENTS_SQL = """
+SELECT 'replaces' AS side, e.from_id AS paper, e.to_id AS other,
+       lg_num(l.props -> 'sequence') AS sequence
+FROM edges e LEFT JOIN lg_document_light l ON l.id = e.to_id
+WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
+  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+UNION ALL
+SELECT 'replaced_by', e.to_id, e.from_id, lg_num(l.props -> 'sequence')
+FROM edges e LEFT JOIN lg_document_light l ON l.id = e.from_id
+WHERE e.to_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
+  AND e.from_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+ORDER BY 1, 2, 4 NULLS LAST, 3
+"""
+
+
+def get_replacements(
+    store: GraphStore, document_ids: list[str]
+) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    """Per paper of *document_ids* that has one: ``replaces`` (the papers it replaces, "ter
+    vervanging van nr. 8") and ``replaced_by`` (the papers that replace it), each
+    ``{id, key, sequence}``, by number."""
+    found: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    if not document_ids:
+        return found
+    for row in store.query(
+        _REPLACEMENTS_SQL, {"ids": document_ids, "revises": RELATION_REVISES}
+    ):
+        sides = found.setdefault(row["paper"], {"replaces": [], "replaced_by": []})
+        sequence = row["sequence"]
+        sides[row["side"]].append(
+            {
+                "id": row["other"],
+                "key": row["other"].split("/", 1)[1],
+                "sequence": int(sequence) if sequence is not None else None,
+            }
+        )
+    return found
