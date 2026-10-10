@@ -159,6 +159,39 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
     assert overlay.get_heat_counts(store, min_count=2) == {"articles/a": 2}
 
 
+def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
+    store: GraphStore,
+) -> None:
+    """Every proposed edge is read (5.9 s on prod): kept until the edges change, then
+    counted again, whatever is written to other tables."""
+    store.bulk_insert_or_update_edges(
+        [_edge("1", "articles/a", "AMENDS", status="voorgesteld")]
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+    calls = []
+    query = store.query
+
+    def counted(statement, params=None, **options):  # type: ignore[no-untyped-def]
+        if "%(proposed)s" in str(statement):  # the count, not a read of the version
+            calls.append(1)
+        return query(statement, params, **options)
+
+    store.query = counted  # type: ignore[method-assign]
+    try:
+        store.bulk_insert_or_update_nodes(
+            "instruments",
+            [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
+        )
+        assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+        assert calls == []  # kept: no edge changed
+        store.bulk_insert_or_update_edges(
+            [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
+        )
+        assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
+    finally:
+        store.query = query  # type: ignore[method-assign]
+
+
 def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
@@ -186,3 +219,34 @@ def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -
         "articles/b": 1,
         "dossiers/1": 2,
     }
+
+
+def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
+    store: GraphStore, monkeypatch: Any
+) -> None:
+    """A request does not wait ``STALE_WAIT`` for the new counts (2.2 s on 10 Oct): it
+    takes those of before while they compute; the warm-up waits for them."""
+    import time
+
+    from lawgraph.api.routes import stats as stats_route
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
+    assert stats_route.coverage_data(store) == ["old"]
+    store.bulk_insert_or_update_nodes(
+        "judgments", [{"_key": "j", "type": "judgment", "labels": [], "props": {}}]
+    )
+
+    def slow(s: Any) -> list[str]:
+        time.sleep(0.5)
+        return ["new"]
+
+    monkeypatch.setattr(stats_route, "get_judgment_coverage", slow)
+    token = store_module.set_read_deadline(5.0)
+    try:
+        started = time.monotonic()
+        assert stats_route.coverage_data(store) == ["old"]
+        assert time.monotonic() - started < 0.3
+    finally:
+        store_module.reset_read_deadline(token)
+    assert stats_route.coverage_data(store) == ["new"]  # the warm-up waits

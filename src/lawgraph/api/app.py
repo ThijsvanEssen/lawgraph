@@ -186,7 +186,9 @@ class _ReadDeadlineMiddleware:
             return
         token = set_read_deadline(API_REQUEST_TIMEOUT_MS / 1000)
         try:
-            await self._app(scope, receive, send)
+            # its waits for new answers share one STALE_WAIT (``version_cache``)
+            with version_cache.request_stale_budget():
+                await self._app(scope, receive, send)
         finally:
             reset_read_deadline(token)
 
@@ -316,7 +318,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.44",
+    version="0.79.45",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "

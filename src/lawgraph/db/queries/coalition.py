@@ -268,6 +268,7 @@ _COLUMNS = (
     "pattern",
     "carried",
     "decisive",
+    "factions",
 )
 
 

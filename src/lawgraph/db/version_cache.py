@@ -55,6 +55,43 @@ _stale_wait: contextvars.ContextVar[float | None] = contextvars.ContextVar(
 )
 
 
+class _StaleBudget:
+    """What one request may still wait for new answers while it has old ones: one
+    ``STALE_WAIT`` for the request, from its first such wait on, not one per answer it asks
+    (a list with its counts asks ten side by side, partly one after another: ten waits of
+    two seconds when its kept counts had all expired, 11 s on prod on 10 Oct)."""
+
+    def __init__(self) -> None:
+        self.until: float | None = None
+        self.lock = threading.Lock()
+
+    def wait(self, limit: float) -> float:
+        """How long the next wait may last: the budget starts at the first."""
+        with self.lock:
+            now = time.monotonic()
+            if self.until is None:
+                self.until = now + limit
+            return max(0.0, self.until - now)
+
+
+# The budget of the request (``request_stale_budget``): one object, shared by every part of
+# the request run side by side (each runs in a copy of the context, which holds this object).
+_stale_budget: contextvars.ContextVar[_StaleBudget | None] = contextvars.ContextVar(
+    "lawgraph_stale_budget", default=None
+)
+
+
+@contextlib.contextmanager
+def request_stale_budget() -> Iterator[None]:
+    """Within it the waits of a request for new answers share one ``STALE_WAIT`` (the API
+    sets it per request, as its read deadline)."""
+    token = _stale_budget.set(_StaleBudget())
+    try:
+        yield
+    finally:
+        _stale_budget.reset(token)
+
+
 @contextlib.contextmanager
 def stale_wait(seconds: float) -> Iterator[None]:
     """Within it a request that has the answer of an earlier version waits *seconds* at
@@ -67,8 +104,20 @@ def stale_wait(seconds: float) -> Iterator[None]:
         _stale_wait.reset(token)
 
 
+# From this part of its ``max_age`` on, an answer of ``lasting`` is computed again ahead of
+# time: a request takes the kept one at once and the new one computes in the background, so
+# that a visitor seldom finds it expired (and waits ``STALE_WAIT`` for it: 3.7 s for the feed
+# on 10 Oct); the warm-up, after every change of the data, waits for the new one.
+REFRESH_AHEAD = 0.75
+
+
 # Computations at the same time (each holds a connection of the pool while it reads).
 WORKERS = 3
+# A refresh ahead of time is started only while fewer computations than this run or wait in
+# the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
+# queue before what a request waits for. One left out is started by a later request, by the
+# warm-up, or computed at expiry as before.
+REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()
 # database -> (data version, the version of each table or None, read at)
@@ -324,14 +373,30 @@ def lasting(
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     Once older, it is computed again in the background, and a request waits for that
-    ``STALE_WAIT`` at most, then takes the one it had; *inline* as ``cached``."""
+    ``STALE_WAIT`` at most, then takes the one it had. From ``REFRESH_AHEAD`` of its age on
+    a request takes the kept one at once while the new one computes, and the warm-up (no
+    deadline) waits for the new one; *inline* as ``cached``."""
     if getattr(store, "data_version", None) is None:
         return compute()
     entry_key = ((str(getattr(store, "name", "")), "lasting"), key)
     with _lock:
         kept = _lasting.get(entry_key)
-        if kept is not None and time.monotonic() - kept[1] < max_age:
+        age = None if kept is None else time.monotonic() - kept[1]
+        if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
             return kept[0]  # type: ignore[no-any-return]
+        ahead = (
+            kept is not None
+            and age is not None
+            and age < max_age
+            and read_time_left() is not None
+        )
+        if ahead and not inline and not _in_cache_worker():
+            if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
+                _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)
+            return kept[0]  # type: ignore[index, no-any-return]
+        if ahead:
+            # computed here (inline, or in a worker of the pool): the kept one now
+            return kept[0]  # type: ignore[index, no-any-return]
     if inline:
         value = compute()
         with _lock:
@@ -374,7 +439,9 @@ def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) ->
     if last is not _NONE and wait is not None:
         # only a request takes an old answer; the warm-up waits for the new one
         limit = _stale_wait.get()
-        wait = min(wait, STALE_WAIT if limit is None else limit)
+        limit = STALE_WAIT if limit is None else limit
+        budget = _stale_budget.get()
+        wait = min(wait, limit if budget is None else budget.wait(limit))
     try:
         return future.result(timeout=wait)
     except concurrent.futures.TimeoutError as exc:
@@ -526,9 +593,28 @@ def lasting_rows(
     )
 
 
+# Per database and key: a state that was found to hold, which holds from then on.
+_true: set[tuple[str, Hashable]] = set()
+
+
+def once_true(store: Any, key: Hashable, check: Callable[[], bool]) -> bool:
+    """*check* of *store*, until it answers True, then True without asking again: for a
+    state that only ever comes to hold (a side table filled once, ``member_authored``), read
+    on every request. A False is not kept: it is asked again, until it holds."""
+    entry_key = (str(getattr(store, "name", "")), key)
+    if entry_key in _true:
+        return True
+    found = check()
+    if found:
+        with _lock:
+            _true.add(entry_key)
+    return found
+
+
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
+        _true.clear()
         _versions.clear()
         _values.clear()
         _computed_at.clear()

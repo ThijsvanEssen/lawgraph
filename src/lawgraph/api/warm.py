@@ -45,6 +45,7 @@ from lawgraph.db.queries.instruments import (
 )
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.nodes import get_node_with_neighbors
+from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search import (
     load_code_aliases,
     load_notation_parser,
@@ -92,6 +93,9 @@ WARM_SUBJECT_AREAS = 5
 # the instruments with articles and the papers of the Tweede Kamer. The facets and totals
 # are kept per filter, so the warm-up asks with the same filters.
 FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
+# The judgments of every source, as the list shows them once its source is cleared: its
+# counts over every judgment took 20 s cold on prod (10 Oct), kept but never warmed.
+EVERY_JUDGMENT = JudgmentFilters()
 
 
 def _warm_subject_areas(store: GraphStore) -> None:
@@ -116,18 +120,25 @@ def _warm_law_judgments(store: GraphStore) -> None:
         get_citing_judgments(store, bwb_id, limit=LAW_JUDGMENTS_SHOWN)
 
 
-# The articles with the most citations whose node and citing passages are warmed: the node
-# as it opens (its lid counts read every edge of it), and the passages as the front end asks
+# The articles whose node and citing passages are warmed: those cited so often that they
+# open in more than a second cold (on prod, 10 Oct: 6:162 BW, 8,988 citations, its lid counts
+# 6.6 s and its passages 3.8 s cold; 1,500 citations or more were 335 articles). The node as
+# it opens (its lid counts read every edge of it), and the passages as the front end asks
 # them, each kept per sort and page: Verbonden a page of 200 (the explorer's
 # ``CITED_BY_PAGE``) newest first or most cited first, the homepage's network the most cited
 # 6. A page the front end does not ask is never read from what was warmed (a page of 50 was
 # warmed while Verbonden asked 200: ~10 s cold for 6:162 BW on 10 Oct).
-WARM_ARTICLES = 20
+WARM_ARTICLE_CITATIONS = 1500
 ARTICLE_PASSAGES = (("date_desc", 200), ("citation_count", 200), ("citation_count", 6))
 
 
-def _warm_articles(store: GraphStore) -> None:
-    for article in most_cited_articles(store, WARM_ARTICLES):
+def _warm_articles(store: GraphStore, version: str) -> None:
+    """The most cited first; stopped when newer data arrives, whose warm-up follows (the
+    part takes minutes)."""
+    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
+        if version_cache.superseded(store, version):
+            logger.info("Warm-up of the articles stopped: the data changed.")
+            return
         get_node_with_neighbors(store, "articles", article["key"])
         for sort, limit in ARTICLE_PASSAGES:
             get_article_cited_by(store, article["id"], sort=sort, limit=limit)
@@ -161,6 +172,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
+    "in flux": (COLLECTION_EDGES,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -199,11 +211,16 @@ def warm_up(store: GraphStore) -> None:
         "dossier law names": lambda: load_law_names(store),
         "dossier names": lambda: load_dossier_names(store),
         "member slugs": lambda: load_member_slugs(store),
+        # the open proposed changes per node, which the explorer asks on every page
+        "in flux": lambda: get_in_flux_counts(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
         },
         "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
+        "judgments of every source": lambda: get_judgments_list(
+            store, EVERY_JUDGMENT, limit=20
+        ),
         # the total and facets of the list of decisions as the explorer opens it, of both
         # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
         "decision counts": lambda: [
@@ -214,7 +231,6 @@ def warm_up(store: GraphStore) -> None:
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
         "judgments by area of law": lambda: _warm_subject_areas(store),
         "judgments citing a law": lambda: _warm_law_judgments(store),
-        "most cited articles": lambda: _warm_articles(store),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):
@@ -234,6 +250,9 @@ def warm_up(store: GraphStore) -> None:
             _warmed_parts[(store.name, name)] = stamp
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
+    # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
+    # is asked far less than the lists above
+    _run("most cited articles", lambda: _warm_articles(store, version))
     if _search_terms_due(store.name):
         _run("search terms", lambda: _warm_search_terms(store))
 

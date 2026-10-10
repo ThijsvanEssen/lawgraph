@@ -22,7 +22,7 @@ from typing import Any
 import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
-from lawgraph.core.feed import FEED_KINDS
+from lawgraph.core.feed import EVENT_VOTE, FEED_KINDS
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.feed import (
@@ -40,6 +40,7 @@ from lawgraph.db.queries.feed import (
     _Plan,
     _text,
     _words_of,
+    coalition_of,
 )
 from lawgraph.db.schema import (
     FEED_EVENTS_COLUMNS,
@@ -75,6 +76,11 @@ _LABELS = (
     f"ARRAY(SELECT x.v #>> '{{}}' FROM {_elements('l.labels')}"
     " WHERE json_typeof(x.v) IN ('string', 'number', 'boolean'))"
 )
+
+
+# What the coalition did on a vote of the table (``feed.coalition_of``): read from
+# ``lg_decision_coalition`` when counted, so a new run of ``tk-coalition-votes`` counts at once.
+_COALITION = coalition_of("e.id")
 
 
 def _rows_of_kind(kind: _Kind) -> str:
@@ -315,6 +321,11 @@ def _matching(
     if filters.faction:
         where.append("e.factions @> ARRAY[%(faction)s]::text[]")
         bind["faction"] = filters.faction
+    if filters.coalition:
+        where.append(
+            f"e.kind = {_lit(EVENT_VOTE)} AND %(coalition)s = ANY({_COALITION})"
+        )
+        bind["coalition"] = filters.coalition
     if filters.dossier:
         where.append(
             "EXISTS (SELECT 1 FROM unnest(e.labels) AS label"
@@ -405,7 +416,13 @@ def counts_query(
     ``lg_feed_events``: as the feed counts them (``feed._facet``, each facet under every
     filter but its own) on rows that hold what the feed's ``events`` hold."""
     shared = replace(
-        filters, kinds=None, chamber=None, ministry=None, faction=None, cabinet=None
+        filters,
+        kinds=None,
+        chamber=None,
+        ministry=None,
+        faction=None,
+        cabinet=None,
+        coalition=None,
     )
     _, where, bind = _matching(shared, queries)
     dimensions = _dimension_filters(filters, bind)
@@ -420,7 +437,9 @@ def counts_query(
     return (
         f"""WITH {_PREAMBLE}{cabinet},
     events AS MATERIALIZED (
-        SELECT e.kind, e.id, e.date, e.chamber, e.ministry, e.factions
+        SELECT e.kind, e.id, e.date, e.chamber, e.ministry, e.factions,
+               CASE WHEN e.kind = {_lit(EVENT_VOTE)} THEN {_COALITION}
+                    ELSE '{{}}'::text[] END AS coalition
         FROM {FEED_EVENTS_TABLE} e
         WHERE {" AND ".join(f"({clause})" for clause in where)}
     )

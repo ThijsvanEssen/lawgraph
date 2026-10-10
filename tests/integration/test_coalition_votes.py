@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RELATION_SERVED_IN, RELATION_VOTED
+from lawgraph.config.constants import RELATION_ABOUT, RELATION_SERVED_IN, RELATION_VOTED
 from lawgraph.db import GraphStore, make_edge_doc
 
 
@@ -143,7 +143,20 @@ def _seed(store: GraphStore) -> None:
             _vote("members/kamerlid_gl", "roll_call", "Voor"),
             # no cabinet in the graph that day
             _vote("factions/gl", "before", "Voor", 20),
+            # the decisions are about one dossier, as its timeline shows them
+            *(
+                make_edge_doc(
+                    f"decisions/{key}",
+                    "dossiers/36000",
+                    RELATION_ABOUT,
+                    source="t",
+                )
+                for key in ("together", "wissel", "roll_call", "before")
+            ),
         ]
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("36000", "dossier", number="36000", title="Begroting")]
     )
 
 
@@ -169,6 +182,13 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         wissel = client.get("/api/decisions", params={"coalition": "wissel"}).json()
         everything = client.get("/api/decisions").json()
         detail = client.get("/api/decisions/wissel").json()
+        feed = client.get("/api/feed", params={"kind": "stemming"}).json()
+        member_votes = client.get("/api/members/kamerlid_vvd/votes").json()
+        timeline = client.get("/api/dossiers/36000/timeline").json()
+        split = client.get("/api/feed", params={"coalition": "split"}).json()
+        together = client.get(
+            "/api/feed", params={"kind": "stemming", "coalition": "together"}
+        ).json()
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -210,6 +230,90 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         "pattern": "wissel",
         "carried": False,
         "decisive": False,
+    }
+
+    # the feed gives each vote the same block and the choice of each coalition faction,
+    # most seats first
+    votes = {item["node"]["key"]: item["vote"] for item in feed["items"]}
+    assert votes["wissel"]["coalition"] == detail["coalition"]
+    assert votes["wissel"]["coalition_factions"] == [
+        {
+            "key": "pvv",
+            "short": "PVV",
+            "choice": "Tegen",
+            "seats_for": 0,
+            "seats_against": 37,
+        },
+        {
+            "key": "vvd",
+            "short": "VVD",
+            "choice": "Voor",
+            "seats_for": 24,
+            "seats_against": 0,
+        },
+    ]
+    assert [f["key"] for f in votes["roll_call"]["coalition_factions"]] == ["vvd"]
+    assert votes["before"]["coalition"] is None
+    assert votes["before"]["coalition_factions"] == []
+    # a member's votes and a dossier's timeline give the same fields as the feed
+    by_decision = {v["decision_key"]: v for v in member_votes["votes"]}
+    assert by_decision["roll_call"]["coalition"] == votes["roll_call"]["coalition"]
+    assert (
+        by_decision["roll_call"]["coalition_factions"]
+        == votes["roll_call"]["coalition_factions"]
+    )
+    decided = {
+        e["node_id"]: e["body"]
+        for e in timeline["entries"]
+        if e["node_type"] == "decision"
+    }
+    assert decided["decisions/wissel"]["coalition"] == detail["coalition"]
+    assert (
+        decided["decisions/wissel"]["coalition_factions"]
+        == votes["wissel"]["coalition_factions"]
+    )
+    assert decided["decisions/before"]["coalition"] is None
+    assert decided["decisions/before"]["coalition_factions"] == []
+
+    # a vote counts for each thing the coalition did; split holds the wisselmeerderheid
+    counts = {"together": 2, "split": 1, "wissel": 1, "decisive": 2}
+    assert {f["value"]: f["count"] for f in feed["facets"]["coalition"]} == counts
+    assert [item["node"]["key"] for item in split["items"]] == ["wissel"]
+    assert {f["value"]: f["count"] for f in split["facets"]["coalition"]} == counts
+    assert [item["node"]["key"] for item in together["items"]] == [
+        "roll_call",
+        "together",
+    ]
+    assert together["total"] == 2
+
+    # the same from the events kept apart (``feed-events``): the counts under words and
+    # the periods
+    cli("feed-events")
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        words = client.get(
+            "/api/feed", params={"q": ["wissel", "together"], "kind": "stemming"}
+        ).json()
+        split_words = client.get(
+            "/api/feed", params={"q": "wissel", "coalition": "split"}
+        ).json()
+        periods = client.get(
+            "/api/feed/periods", params={"coalition": "together", "per": "month"}
+        ).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert {f["value"]: f["count"] for f in words["facets"]["coalition"]} == {
+        "together": 1,
+        "split": 1,
+        "wissel": 1,
+        "decisive": 1,
+    }
+    assert split_words["total"] == 1
+    assert [item["node"]["key"] for item in split_words["items"]] == ["wissel"]
+    assert {p["period"]: p["total"] for p in periods["periods"]} == {
+        "2025-03-01": 1,
+        "2025-07-01": 1,
     }
 
     # a full run removes a row whose decision no longer has a coalition vote

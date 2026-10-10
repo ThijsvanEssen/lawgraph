@@ -21,15 +21,18 @@ from lawgraph.api.schemas.nodes import (
 )
 from lawgraph.api.seo.pages import title_of
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
-from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
+    CANVAS_BUCKET_LIMIT,
     DEFAULT_BUCKET_LIMIT,
+    FIRST_LEVEL_CAP,
+    FULL_BUCKET_LIMIT,
+    NEIGHBORHOOD_CAP,
     NeighborFilter,
     NodeNotFoundError,
     UnsupportedCollectionError,
@@ -46,14 +49,6 @@ from lawgraph.db.queries.overlay import (
 
 router = APIRouter()
 logger = get_logger(__name__)
-
-# In-memory TTL cache for the bulk overlay endpoints. Heat/in-flux are
-# slow-moving signals (recompute on every page load is wasteful) and the
-# AQL pass takes ~400 ms uncached. A 60 s TTL caps the lag at one slow
-# request per minute regardless of concurrent viewers. maxsize=128 covers
-# all realistic (months, min_count) combinations with a bounded footprint.
-_overlay_cache: TTLCache[str, Any] = TTLCache(maxsize=128)
-
 
 # The two overlays answer raw JSON: validating a map of 40,000 keys through a response
 # model took about 200 ms a request. The schema says what the map is.
@@ -88,12 +83,12 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
 def bulk_in_flux(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JSONResponse:
-    """Return all nodes that have at least one VOORGESTELD edge, with counts."""
-    cached = _overlay_cache.get("in_flux")
-    if cached is _MISSING:
-        cached = get_in_flux_counts(store)
-        _overlay_cache.set("in_flux", cached)
-    return JSONResponse(cached)
+    """Return all nodes that have at least one VOORGESTELD edge, with counts (kept while
+    the edges stand still, ``get_in_flux_counts``). After a poll that wrote edges, the
+    count of the edges before is answered at once while the new one computes: a signal
+    that hardly moves is not worth a wait."""
+    with version_cache.stale_wait(0.0):
+        return JSONResponse(get_in_flux_counts(store))
 
 
 # The nodes a request may name, and how many the map of the whole graph keeps.
@@ -223,8 +218,10 @@ def get_node_graph(
         int,
         Query(
             ge=1,
-            le=200,
-            description="Neighbors per bucket, not per response.",
+            le=CANVAS_BUCKET_LIMIT,
+            description="Neighbors per bucket, not per response: at most "
+            f"{FULL_BUCKET_LIMIT} with every prop, {CANVAS_BUCKET_LIMIT} with "
+            "``props=canvas``.",
         ),
     ] = DEFAULT_BUCKET_LIMIT,
     offset: Annotated[
@@ -243,6 +240,12 @@ def get_node_graph(
     ] = "full",
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
+    if props == "full" and limit > FULL_BUCKET_LIMIT:
+        raise HTTPException(
+            status_code=422,
+            detail=f"limit is at most {FULL_BUCKET_LIMIT} with every prop "
+            f"({CANVAS_BUCKET_LIMIT} with props=canvas)",
+        )
     try:
         data = get_node_with_neighbors(
             store,
@@ -252,8 +255,11 @@ def get_node_graph(
             limit=limit,
             offset=offset,
             canvas=props == "canvas",
-            # the light node (one per bucket) does not wait for an article's lid counts
-            wait_for_lids=limit > 1,
+            # an article's lid counts are waited for on the first page a reader opens
+            # alone: not by the light node (one per bucket), a further page or what the
+            # canvas loads, which draws none (the first page of 8:75 Awb took 13.8 s cold
+            # for them); kept an hour and counted on in the background
+            wait_for_lids=limit > 1 and offset == 0 and props == "full",
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -326,7 +332,16 @@ def get_node_neighborhood_route(
     store: Annotated[GraphStore, Depends(get_store)],
     filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
-    cap: Annotated[int, Query(ge=1, le=1000)] = 200,
+    cap: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=FIRST_LEVEL_CAP,
+            description=f"The nodes kept: at most {NEIGHBORHOOD_CAP}, and "
+            f'{FIRST_LEVEL_CAP} with ``depth=1`` (every direct neighbour, "alles '
+            'laden").',
+        ),
+    ] = 200,
     props: Annotated[
         Literal["full", "canvas"],
         Query(
@@ -338,6 +353,12 @@ def get_node_neighborhood_route(
         ),
     ] = "full",
 ) -> NodeNeighborhoodResponse:
+    if depth > 1 and cap > NEIGHBORHOOD_CAP:
+        raise HTTPException(
+            status_code=422,
+            detail=f"cap is at most {NEIGHBORHOOD_CAP} past the first level "
+            f"({FIRST_LEVEL_CAP} with depth=1)",
+        )
     try:
         data = get_node_neighborhood(
             store,

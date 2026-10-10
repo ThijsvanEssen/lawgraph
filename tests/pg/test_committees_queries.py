@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
-from lawgraph.db import GraphStore, NodeWriter, make_edge_doc
+from lawgraph.db import GraphStore, NodeWriter, make_edge_doc, version_cache
 from lawgraph.db.queries import committees as committee_queries
 from lawgraph.db.queries.committees import (
     _IN_MEMBERSHIP,
@@ -690,6 +690,9 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
             "faction_key": "d66",
             "vote_source": "faction",
             "in_office": [],
+            # no cabinet in the data: no coalition
+            "coalition": None,
+            "coalition_factions": [],
         }
     )
     # their own vote carries the party they sit for now; a faction's that of the day
@@ -915,6 +918,8 @@ def test_the_newest_votes_are_those_of_every_vote(
         new = get_member_votes(store, "members/m1", limit=limit)
         # the posts held that day came later (a member without any here)
         assert all(v.pop("in_office") == [] for v in new)
+        assert all(v.pop("coalition") is None for v in new)
+        assert all(v.pop("coalition_factions") == [] for v in new)
         assert new == _old_member_votes(store, "members/m1", limit), limit
         assert len(new) == limit
     # the roll-calls are the member's own, never the faction's
@@ -1297,6 +1302,36 @@ def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
     )
 
 
+def test_a_committee_page_is_read_once_per_data_version(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dossiers and the activities a committee leads walk every edge of it (6 s and
+    2.6 s for Financiën on prod): kept until the data changes."""
+    from lawgraph.db.queries import committees
+
+    _committee_graph(store)
+    read: list[str] = []
+    for name in ("_led_dossiers", "_led_activities"):
+        real = getattr(committees, name)
+
+        def counted(*args: Any, _real: Any = real, _name: str = name, **kw: Any) -> Any:
+            read.append(_name)
+            return _real(*args, **kw)
+
+        monkeypatch.setattr(committees, name, counted)
+    first = get_committee_detail(store, "b")
+    assert get_committee_detail(store, "b") == first
+    activities = get_committee_activities(store, "b")
+    assert get_committee_activities(store, "b") == activities
+    assert read == ["_led_dossiers", "_led_activities"]
+    # a write raises the data version: read again
+    more = Graph(store)
+    more.edge("activities/a1", RELATION_ABOUT, "dossiers/d3")
+    more.write()
+    get_committee_detail(store, "b")
+    assert read[-1] == "_led_dossiers"
+
+
 # ── the routes ───────────────────────────────────────────────────────────────
 
 
@@ -1540,3 +1575,43 @@ def test_the_page_of_votes_reads_the_edges_of_its_votes_alone(
         for n in nodes
         if n.get("Relation Name") == "decisions" and "vote_kind" in n.get("Filter", "")
     ]
+
+
+def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once ``lg_authored`` is filled a faction reads what its members signed from it (the
+    dossiers of each paper kept with it) instead of walking every signature's edges: D66
+    (tens of thousands of papers) gave a 503 after 30 s on 10 Oct. The page is the walk's,
+    while the signatures have no dates yet (``lg_signed_date``) and once they have."""
+    from lawgraph.db.queries import member_authored
+
+    _authorship_graph(store)
+    _signatures(store)
+    walked = {f: get_actor_dossiers(store, f) for f in ("factions/vvd", "factions/d66")}
+
+    member_authored.fill_authored(store, every=True)
+    store.execute("DELETE FROM lg_authored_dated")
+    store.execute("UPDATE lg_authored SET date = NULL")
+    version_cache.clear()
+
+    seen: list[str] = []
+    query = store.query
+
+    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
+        seen.append(str(statement))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(store, "query", recorded)
+    for dated in (False, True):
+        if dated:
+            after: str | None = ""
+            while after is not None:
+                after, _ = member_authored.date_authored(store, after=after)
+            version_cache.clear()
+        for faction, page in walked.items():
+            seen.clear()
+            assert get_actor_dossiers(store, faction) == page
+            (statement,) = [s for s in seen if "grouped AS" in s]
+            assert "lg_authored" in statement
+            assert "a.relation = %(authored)s" not in statement

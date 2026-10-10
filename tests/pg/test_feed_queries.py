@@ -503,6 +503,9 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         # how it was decided, as the Kamer writes it
         "method": None,
         "decision_kind": "Stemmen - aangenomen",
+        # no cabinet in the data: no coalition
+        "coalition": None,
+        "coalition_factions": [],
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -988,6 +991,8 @@ ITEM_KEYS = [
     "instrument",
     "changed_articles",
     "changed_instruments",
+    "coalition",
+    "coalition_factions",
 ]
 
 
@@ -996,7 +1001,14 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
     raw = get_feed(store, FeedFilters())
     assert list(raw) == ["items", "total", "facets"]
     assert isinstance(raw["total"], int) and raw["total"] == len(ALL)
-    assert list(raw["facets"]) == ["kind", "ministry", "faction", "cabinet", "chamber"]
+    assert list(raw["facets"]) == [
+        "kind",
+        "ministry",
+        "faction",
+        "cabinet",
+        "chamber",
+        "coalition",
+    ]
     for facet in raw["facets"].values():
         for row in facet:
             assert list(row) == ["value", "count"]
@@ -1094,6 +1106,7 @@ def test_an_empty_graph_has_no_events(store: GraphStore) -> None:
             "faction": [],
             "cabinet": [],
             "chamber": [],
+            "coalition": [],
         },
     }
     assert get_feed(store, FeedFilters(), facets=False) == {
