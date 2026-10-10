@@ -1226,7 +1226,7 @@ a week): those no change dates are counted and named in the log, not changed.
 **Retrieve `eerstekamer-motions`.** The page of every motion of the Eerste Kamer the list of
 votes named (`/motiedossier/…`, the `motion_url` of its decisions on a motion; record
 `ek-motion-html`, external id the path), each once: a motion's page does not change after its
-vote.
+vote. `--limit` caps the pages of one run; the log says how many are left after it.
 
 **Normalize `eerstekamer-motions`.** `core/ek_motions.py` reads the page by its structure: the
 sentence that says what the motion asks ("In deze motie wordt de regering verzocht …"), the link

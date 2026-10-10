@@ -181,3 +181,13 @@ def test_the_retrieve_wants_each_motion_voted_on_once(store: GraphStore) -> None
         )
     pipeline = EerstekamerMotionsRetrievePipeline(store, client=object())  # type: ignore[arg-type]
     assert pipeline.wanted() == ["/motiedossier/37020_j"]
+
+    class Client:
+        def bill_page(self, path: str) -> tuple[str, str]:
+            return site + path, "<main></main>"
+
+    # a run of at most none fetches nothing; one without a limit the page left
+    none = EerstekamerMotionsRetrievePipeline(store, client=Client(), limit=0)  # type: ignore[arg-type]
+    assert list(none.fetch()) == []
+    fetched = EerstekamerMotionsRetrievePipeline(store, client=Client())  # type: ignore[arg-type]
+    assert [r.external_id for r in fetched.fetch()] == ["/motiedossier/37020_j"]
