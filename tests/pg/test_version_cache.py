@@ -414,3 +414,29 @@ def test_a_lasting_answer_is_computed_again_before_it_expires(
     # without a deadline (the warm-up) the new answer is waited for
     time.sleep(max_age * version_cache.REFRESH_AHEAD)
     assert version_cache.lasting(store, ("ahead",), lambda: 3, max_age) == 3
+
+
+def test_a_refresh_ahead_waits_while_the_pool_is_busy(
+    store: GraphStore, monkeypatch
+) -> None:
+    """Many answers passing ``REFRESH_AHEAD`` at once do not queue before what requests
+    wait for: none is started while ``REFRESH_AHEAD_MAX_RUNNING`` computations run."""
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(version_cache, "REFRESH_AHEAD_MAX_RUNNING", 0)  # a busy pool
+    max_age = 0.4
+    assert version_cache.lasting(store, ("busy pool",), lambda: 1, max_age) == 1
+    time.sleep(max_age * version_cache.REFRESH_AHEAD)
+    asked: list[int] = []
+    token = store_module.set_read_deadline(5.0)
+    try:
+        assert (
+            version_cache.lasting(
+                store, ("busy pool",), lambda: asked.append(1) or 2, max_age
+            )
+            == 1
+        )
+        time.sleep(0.1)
+        assert asked == []  # not started: the pool was busy
+    finally:
+        store_module.reset_read_deadline(token)
