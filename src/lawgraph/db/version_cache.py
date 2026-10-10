@@ -526,9 +526,28 @@ def lasting_rows(
     )
 
 
+# Per database and key: a state that was found to hold, which holds from then on.
+_true: set[tuple[str, Hashable]] = set()
+
+
+def once_true(store: Any, key: Hashable, check: Callable[[], bool]) -> bool:
+    """*check* of *store*, until it answers True, then True without asking again: for a
+    state that only ever comes to hold (a side table filled once, ``member_authored``), read
+    on every request. A False is not kept: it is asked again, until it holds."""
+    entry_key = (str(getattr(store, "name", "")), key)
+    if entry_key in _true:
+        return True
+    found = check()
+    if found:
+        with _lock:
+            _true.add(entry_key)
+    return found
+
+
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
+        _true.clear()
         _versions.clear()
         _values.clear()
         _computed_at.clear()

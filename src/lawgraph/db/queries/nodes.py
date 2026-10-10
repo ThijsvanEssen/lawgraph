@@ -41,6 +41,14 @@ DIRECTIONS: tuple[Direction, ...] = ("outbound", "inbound")
 _ALLOWED_NODE_COLLECTIONS = frozenset(TYPE_OF_COLLECTION)
 
 DEFAULT_BUCKET_LIMIT = 30
+# The neighbours of a bucket a page holds at most: with every prop, and with the props the
+# canvas draws (what it loads when a reader asks for every direct neighbour).
+FULL_BUCKET_LIMIT = 200
+CANVAS_BUCKET_LIMIT = 500
+# The nodes a neighbourhood keeps at most, and of the first level alone (every direct
+# neighbour of a node, as the canvas loads them when asked: up to 2,000 in one request).
+NEIGHBORHOOD_CAP = 1000
+FIRST_LEVEL_CAP = 2000
 
 # The columns of an edge that hold the node itself and its neighbour, and the neighbour's
 # collection, per direction.
@@ -560,7 +568,7 @@ def get_node_neighborhood(
     focal = _load_node(store, collection, key)
     props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
-    cap = max(1, min(cap, 1000))
+    cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
     # One statement: the walk in the database (breadth first, D9: a level is kept in id
     # order until the cap; a node of a type the filter leaves out is seen but neither kept
     # nor walked through), the nodes it kept, and the edges between them and the focal
