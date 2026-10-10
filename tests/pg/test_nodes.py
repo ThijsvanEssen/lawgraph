@@ -679,8 +679,17 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
             "sections": [{"text": "lang"}], "external_id": "x", "tk_url": "https://x",
             "actors": [{"role": "minister", "name": "A", "faction": None, "person": "p1"}]}}],
     )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [{"_key": "v1", "type": "decision", "labels": [], "props": {
+            "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"],
+            "actors": [{"role": "indiener", "name": "B", "faction": "D66", "person": "p2"}]}}],
+    )  # fmt: skip
     store.bulk_insert_or_update_edges(
-        [_edge("e1", "documents/d1", "dossiers/36547", "PART_OF")]
+        [
+            _edge("e1", "documents/d1", "dossiers/36547", "PART_OF"),
+            _edge("e2", "decisions/v1", "dossiers/36547", "ABOUT"),
+        ]
     )
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -696,7 +705,15 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
         "kind": "Memorie van toelichting",
         "date": "2024-01-01",
         "actors": [{"role": "minister", "name": "A", "faction": None}],
+        # the name of its first dossier, as a neighbour of ``props=canvas`` has it
+        "dossier_short_title": None,
     }
+    # a vote on a motion: its first submitter labels it on the canvas
+    vote = next(n for n in canvas["nodes"] if n["id"] == "decisions/v1")
+    assert vote["props"]["actors"] == [
+        {"role": "indiener", "name": "B", "faction": "D66"}
+    ]
+    assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]
     whole = next(n for n in full["nodes"] if n["id"] == "documents/d1")
     assert whole["props"]["tk_url"] == "https://x"
     assert canvas["nodes"][0] == full["nodes"][0]  # the focal node

@@ -344,8 +344,11 @@ def get_node_neighborhood_route(
         raise HTTPException(status_code=404, detail=str(err)) from err
 
     focal = data["focal"]
+    # for the canvas a paper, an activity or a decision is described by its dossier's name,
+    # as a neighbour of ``props=canvas`` is
+    names = load_dossier_names(store) if props == "canvas" else None
     nodes = [
-        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
+        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH, names=names)
         for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.

@@ -142,7 +142,16 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "instrument_citation_title",
         "instrument_abbreviation",
     ),
-    "instruments": ("bwb_id", "celex", "title", "citation_title", "short_title"),
+    # ``official_id`` and a ``slug``, ``suffix`` or ``number``: the readable address of a
+    # node selected on the canvas before its own answer comes
+    "instruments": (
+        "bwb_id",
+        "celex",
+        "title",
+        "citation_title",
+        "short_title",
+        "official_id",
+    ),
     "judgments": (
         "ecli",
         "court",
@@ -151,6 +160,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "advocate_general",
         "advocate_general_role",
         "summary",
+        "translation_of",
     ),
     "documents": (
         "kind",
@@ -160,14 +170,23 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "title",
         "subject",
         "dossier_number",
+        "dossier_suffix",
         "dossier_numbers",
         "chamber",
         "actors",
     ),
-    "dossiers": ("label", "title", "name", "number", "subject"),
-    "members": ("name", "party"),
+    "dossiers": (
+        "label",
+        "title",
+        "short_title",
+        "name",
+        "number",
+        "suffix",
+        "subject",
+    ),
+    "members": ("name", "party", "slug"),
     "factions": ("name", "abbreviation"),
-    "committees": ("name", "abbreviation"),
+    "committees": ("name", "abbreviation", "slug"),
     "cabinets": ("name", "abbreviation"),
     "activities": (
         "kind",
@@ -177,7 +196,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "actors",
         "dossier_numbers",
     ),
-    "commitments": ("kind", "agenda_title", "title", "text", "actors"),
+    "commitments": ("kind", "agenda_title", "title", "text", "actors", "number"),
     "cases": ("kind", "agenda_title", "title", "text", "actors"),
     "decisions": (
         "subject",
@@ -187,6 +206,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "kind",
         "decision_kind",
         "dossier_numbers",
+        # its first submitter labels a vote on a motion or an amendment on the canvas
+        "actors",
     ),
 }
 # Of each of the ``actors`` of a paper, an activity, a commitment or a case.
