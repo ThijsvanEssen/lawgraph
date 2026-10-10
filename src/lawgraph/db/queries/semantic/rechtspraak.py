@@ -154,6 +154,14 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
     )
 
 
+def eclis_with_an_ljn(store: Store) -> Iterator[str]:
+    """The ECLIs of the judgments in the graph whose number is an LJN (published before
+    2013), from the index on ``ecli``."""
+    return store.query(
+        "SELECT ecli FROM judgments WHERE ecli ~ '^ECLI:NL:[A-Z]+:[0-9]{4}:[A-Z]{2}[0-9]{4}$'"
+    )
+
+
 def judgments_with_related_eclis(
     store: Store, *, eclis: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:

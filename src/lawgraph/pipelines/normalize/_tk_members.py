@@ -335,16 +335,30 @@ def _write_timelines(
 
 
 def keep_faction_vacancies(
-    store: Store, vacancy_raws: Iterable[dict[str, Any]], faction_nodes: dict[str, Node]
+    store: Store,
+    vacancy_raws: Iterable[dict[str, Any]],
+    holding_raws: Iterable[dict[str, Any]],
+    faction_nodes: dict[str, Node],
 ) -> None:
     """``vacancies`` on each faction: the periods a seat of it was held by no member
-    (``tk_records.seat_vacancy``), sorted; written when they changed, also to none."""
+    (``tk_records.seat_vacancy``), only the days no one held that seat
+    (``tk_records.vacant_periods`` over the FractieZetelPersoon records of the seat), sorted;
+    written when they changed, also to none."""
+    held: dict[str, list[dict[str, Any]]] = {}
+    for raw in holding_raws:
+        holding = tk_records.holding_of_seat(payload_json(raw))
+        if holding:
+            held.setdefault(holding[0], []).append(holding[1])
     found: dict[str, list[dict[str, Any]]] = {}
     for raw in vacancy_raws:
-        parsed = tk_records.seat_vacancy(payload_json(raw))
+        payload = payload_json(raw)
+        parsed = tk_records.seat_vacancy(payload)
         node = faction_nodes.get(parsed[0]) if parsed else None
         if parsed and node is not None and node.key:
-            found.setdefault(node.key, []).append(parsed[1])
+            seat = tk_records.vacancy_seat(payload)
+            found.setdefault(node.key, []).extend(
+                tk_records.vacant_periods(parsed[1], held.get(seat or "", []))
+            )
     updated = []
     for node in {n.key: n for n in faction_nodes.values() if n.key}.values():
         periods = sorted(

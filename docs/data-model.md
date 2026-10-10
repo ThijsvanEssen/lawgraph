@@ -613,7 +613,7 @@ A post in `government_functions` (`normalize rijksoverheid`, [pipelines](pipelin
 |------|---------|
 | `name`, `abbreviation`, `aliases` | the key is the abbreviation, else the name (`vvd`, `d66`) |
 | `seats`, `seats_changed_on` | `AantalZetels` (0 once the faction has ended); the day one of its seats last changed (`FractieZetel.GewijzigdOp`) |
-| `vacancies` | the periods a seat of it was held by no member (`FractieZetelVacature`): `from_date`, `to_date`, both inclusive; the last day is the one before the successor took the seat. `/api/cabinets/{key}/seats` counts them among its seats |
+| `vacancies` | the periods a seat of it was held by no member (`FractieZetelVacature`): `from_date`, `to_date`, both inclusive; the last day is the one before the successor took the seat; only the days no member held that seat (a seat is held or vacant, never both). `/api/cabinets/{key}/seats` counts them among its seats |
 | `active`, `active_from`, `active_until` | the first and last day its seats were held, where the seats date it (from 30 November 2006); else the Fractie record's |
 | `external_id`, `external_ids` | the current Fractie record, and every Fractie record of the faction: a faction that returns gets a new record (50PLUS 2012-2021 and from 2025), and votes and seats name either |
 | Eerste Kamer | key `ek_<slug>`: `chamber` `EK`, `name` (the heading of its page, `D66-fractie`), `abbreviation`, `seats` (as `/fracties` lists them), `active`, `board` (`function`, `name`, `member`, `since`), `url`, `retrieved_on`, `observed_from`, `observed_until`, `data_since` |

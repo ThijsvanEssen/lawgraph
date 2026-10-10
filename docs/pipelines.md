@@ -51,8 +51,10 @@ A code split over books (`data/code_families.json`, `core/code_families.CODE_FAM
 Burgerlijk Wetboek, books 1–8, 7A and 10, each its own BWB id) resolves through the book in the
 article number: `artikel 6:162 BW` cites article `162` of book 6 (`BWBR0005289`, key
 `bwbr0005289_162`), whichever books are loaded, so a citation of a book that is not loaded
-becomes a stub of that book. Without a book (`artikel 162 BW`) or with an unknown one there is
-no hit, and the family code (`BW`) is never a short title. A law that numbers
+becomes a stub of that book. The family's full name does the same (`artikel 7:669 van het
+Burgerlijk Wetboek`): it is the name its books share in the graph (`Burgerlijk Wetboek Boek 7`
+less `Boek 7`), unless that is a law's own name. Without a book (`artikel 162 BW`) or with an
+unknown one there is no hit, and the family code (`BW`) is never a short title. A law that numbers
 `Hoofdstuk:artikel` in one regulation (the Awb: `8:54`) is no family; its articles keep the
 colon. How the families are built: see BWB.
 
@@ -204,7 +206,11 @@ over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every st
 person, so the member's timeline is made of all their seats, and takes the member and the faction
 from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
 them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
-successor takes the seat; a record that ends before it begins is left out.
+successor takes the seat; a record that ends before it begins is left out. A seat is held or
+vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
+FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
+(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -607,7 +613,10 @@ has the shape of one (Dutch: a number or an LJN). What the text shows is repaire
 digits it sets apart (`BH 2815`, `BH:4033`), NL and the court swapped, a range (`2018:2374-2375`)
 as its members, a word or the next ECLI glued to the number, a zero or one typed for a letter of
 an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
-malformed ECLI for any step. The citations of a judgment are derived in full each time it is
+malformed ECLI for any step. An LJN named on its own (`LJN BK9271`, `LJN: BK9271`, `LJN-nummer
+BK 9271`), the way a decision was cited before 2013, cites the judgment in the graph whose ECLI has
+it for its number (`ECLI:NL:CRVB:2010:BK9271`; `core/ecli.cited_ljns`, `ljn_of`), with its
+paragraphs as for an ECLI; an LJN no judgment has, or two have, cites nothing and makes no stub. The citations of a judgment are derived in full each time it is
 read: an edge of this step its text no longer names is removed, and then every stub judgment no
 edge reaches or leaves. No `REFERS_TO` is written between two judgments that `APPEAL_OF`,
 `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that

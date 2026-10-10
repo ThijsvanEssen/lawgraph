@@ -1081,6 +1081,55 @@ def test_a_vacant_seat_ends_the_day_before_the_successor_takes_it() -> None:
     )
 
 
+def test_the_seat_of_a_vacancy_and_of_a_holding() -> None:
+    vacancy = {"Van": "2026-02-16T00:00:00+01:00", "FractieZetel": {"Id": "z1"}}
+    assert tk_records.vacancy_seat(vacancy) == "z1"
+    holding = {
+        "Van": "2025-11-12T00:00:00+01:00",
+        "TotEnMet": "2026-02-16T00:00:00+01:00",
+        "FractieZetel_Id": "z1",
+    }
+    assert tk_records.holding_of_seat(holding) == (
+        "z1",
+        {"from_date": "2025-11-12", "to_date": "2026-02-16"},
+    )
+    assert tk_records.holding_of_seat({**holding, "Verwijderd": True}) is None
+
+
+def _held(*periods: tuple[str, str | None]) -> list[dict[str, str | None]]:
+    return [{"from_date": a, "to_date": b} for a, b in periods]
+
+
+def test_a_vacancy_counts_only_the_days_its_seat_is_held_by_no_one() -> None:
+    """The source holds vacancies that overlap the seat's own members: the day the member
+    leaves (D66, 16 Feb 2026), and one never closed (BBB, from 5 Feb 2025, while Helder
+    sat until 4 March and Oostenbrink from 5 March). A seat is held or vacant, never both;
+    and a vacancy ends at the latest the day before the seat is taken again."""
+    vacancy = tk_records.vacant_periods
+    # D66: the predecessor's last day is no vacant day
+    assert vacancy(
+        {"from_date": "2026-02-16", "to_date": "2026-02-24"},
+        _held(("2025-11-12", "2026-02-16"), ("2026-02-25", None)),
+    ) == [{"from_date": "2026-02-17", "to_date": "2026-02-24"}]
+    # BBB: never vacant at all
+    assert (
+        vacancy(
+            {"from_date": "2025-02-05", "to_date": None},
+            _held(("2023-09-01", "2025-03-04"), ("2025-03-05", "2025-11-11")),
+        )
+        == []
+    )
+    # an open vacancy of a seat no one took again stays open
+    assert vacancy(
+        {"from_date": "2026-03-01", "to_date": None},
+        _held(("2025-11-12", "2026-02-28")),
+    ) == [{"from_date": "2026-03-01", "to_date": None}]
+    # a vacancy with no holdings of its seat known is as the source says
+    assert vacancy({"from_date": "2026-02-23", "to_date": "2026-02-24"}, []) == [
+        {"from_date": "2026-02-23", "to_date": "2026-02-24"}
+    ]
+
+
 @pytest.mark.parametrize(
     ("afgedaan", "done"), [(True, True), (False, False), (None, None)]
 )
