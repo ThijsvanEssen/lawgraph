@@ -50,6 +50,7 @@ def test_the_retrieves_that_read_normalized_nodes_say_so() -> None:
         "tk-content": [("tk-dossiers", "documents", "TK")],
         "eurlex": [("eurlex", "instruments", "EU")],
         "eerstekamer-bills": [("eerstekamer-votes", "decisions", "EK")],
+        "eerstekamer-motions": [("eerstekamer-votes", "decisions", "EK")],
     }
 
 
