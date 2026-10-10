@@ -137,6 +137,7 @@ class JudgmentDTO(BaseNodeDTO):
         doc: dict[str, Any],
         *,
         drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
+        names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
     ) -> JudgmentDTO:
         base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
         props = doc.get("props") or {}

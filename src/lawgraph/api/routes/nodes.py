@@ -317,10 +317,26 @@ def get_node_neighborhood_route(
     filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
     cap: Annotated[int, Query(ge=1, le=1000)] = 200,
+    props: Annotated[
+        Literal["full", "canvas"],
+        Query(
+            description=(
+                "`canvas`: of a node but the focal one only the props the canvas of the "
+                "explorer draws, per collection, as the neighbours of a node with "
+                "`props=canvas`; `full` (the default) every prop a neighbour carries"
+            )
+        ),
+    ] = "full",
 ) -> NodeNeighborhoodResponse:
     try:
         data = get_node_neighborhood(
-            store, collection, key, depth=depth, cap=cap, filters=filters
+            store,
+            collection,
+            key,
+            depth=depth,
+            cap=cap,
+            filters=filters,
+            canvas=props == "canvas",
         )
     except UnsupportedCollectionError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
@@ -328,8 +344,11 @@ def get_node_neighborhood_route(
         raise HTTPException(status_code=404, detail=str(err)) from err
 
     focal = data["focal"]
+    # for the canvas a paper, an activity or a decision is described by its dossier's name,
+    # as a neighbour of ``props=canvas`` is
+    names = load_dossier_names(store) if props == "canvas" else None
     nodes = [
-        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
+        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH, names=names)
         for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.
