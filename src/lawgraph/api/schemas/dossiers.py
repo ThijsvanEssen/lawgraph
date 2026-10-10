@@ -24,7 +24,8 @@ from lawgraph.core.tk_links import tk_url
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
 DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
-TitleSource = Literal["dossier", "document", "activiteit"]
+TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
+DossierSource = Literal["tk", "eerstekamer"]
 
 DossierOutcome = Literal["aangenomen", "verworpen"]
 
@@ -496,6 +497,14 @@ class DossierSummaryDTO(WithPath):
         "``Verzamelwet gegevensbescherming``; null when the title has none.",
     )
     title_source: TitleSource | None = None
+    source: DossierSource | None = Field(
+        None,
+        description="Where the dossier comes from: ``tk`` the Tweede Kamer's data, "
+        "``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede "
+        "Kamer's data has none (its OData begins about 2005), with the title they give "
+        "(``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede "
+        "Kamer; null as ``tk`` for a dossier not normalized since this field came.",
+    )
     kind: str | None = Field(
         None,
         description="``Zaak.Soort`` as the Kamer writes it: ``Wetgeving``, "
@@ -1036,6 +1045,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
+        "source": props.get("source"),
         "kind": props.get("kind"),
         "kind_basis": props.get("kind_basis"),
         "phases": props.get("phases"),
