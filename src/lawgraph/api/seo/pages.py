@@ -52,6 +52,8 @@ class Page:
     # whether ``title`` is the whole ``<title>`` already (a page of the app), without the
     # name of the site to add
     whole_title: bool = False
+    # the node of the page (``<collection>/<key>``): the app opens it without a lookup
+    focus: str = ""
 
 
 def _text(value: Any) -> str:
@@ -247,6 +249,69 @@ def article_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=bool(text) and not props.get("stub"),
+    )
+
+
+def annex_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
+    """``Bijlage II Opiumwet: lijst II``, with its title when it has one."""
+    label = _text(props.get("label"))
+    name = " ".join(p for p in ("Bijlage", label, _law_short(law)) if p)
+    title = _text(props.get("title"))
+    return f"{name}: {title[:1].lower()}{title[1:]}" if title else name
+
+
+def _entry(entry: Any) -> str:
+    if not isinstance(entry, dict):
+        return ""
+    name, description = _text(entry.get("name")), _text(entry.get("description"))
+    if name and description:
+        return f"<strong>{escape(name)}</strong>: {escape(description)}"
+    return escape(name or description)
+
+
+def annex_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    law = row.get("law") or {}
+    title = annex_title(props, law)
+    path = path_of(row["id"], props) or ""
+    bwb = _text(props.get("bwb_id")) or _text(law.get("bwb_id"))
+    law_path = path_of(f"instruments/{bwb.lower()}") if bwb else None
+    law_label = law_name(law) if law else ""
+    description = _text(props.get("description"))
+    entries = [e for e in (_entry(x) for x in props.get("entries") or []) if e]
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>{_link(law_path, law_label)}</p>" if law_label else "")
+        + (f"<p>{escape(description)}</p>" if description else "")
+        + _list(entries)
+    )
+    crumbs = ([(law_label, law_path)] if law_label and law_path else []) + [
+        (title, path)
+    ]
+    return Page(
+        title=title,
+        description=cut(description or title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=crumbs,
+        data={
+            "@type": "Legislation",
+            "name": title,
+            "legislationIdentifier": f"{bwb} bijlage {_text(props.get('label'))}",
+            "legislationJurisdiction": "NL",
+            **(
+                {
+                    "isPartOf": {
+                        "@type": "Legislation",
+                        "name": law_label,
+                        "legislationIdentifier": bwb,
+                    }
+                }
+                if law_label
+                else {}
+            ),
+        },
+        body=body,
+        index=bool(description or entries) and not props.get("stub"),
     )
 
 
@@ -509,6 +574,101 @@ def dossier_page(row: dict[str, Any]) -> Page:
             "identifier": _text(props.get("label")) or row["key"],
         },
         body=body,
+    )
+
+
+def case_title(props: dict[str, Any], key: str) -> str:
+    """``Motie Bolhuis over een AI-killswitch (2025Z15468)``; another zaak
+    ``<kind>: <title> (2025Z15468)``."""
+    number = _text(props.get("number")) or key
+    subject = _text(props.get("title")) or _text(props.get("citation_title"))
+    kind = _text(props.get("kind"))
+    if is_motion_or_amendment(kind):
+        head = _OF_MEMBERS.sub(lambda m: f"{m[1].capitalize()} ", subject) or kind
+    elif kind and subject and not subject.startswith(kind):
+        head = f"{kind}: {subject}"
+    else:
+        head = subject or kind or "Zaak"
+    return f"{head} ({number})"
+
+
+def case_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    number = _text(props.get("number")) or row["key"]
+    title = case_title(props, row["key"])
+    path = path_of(row["id"], props) or ""
+    kind = _text(props.get("kind"))
+    started = _day(props.get("started_on"))
+    dossier = row.get("dossier") or {}
+    label = _text(dossier.get("label"))
+    dossier_path = path_of(dossier["id"], {"label": label}) if label else None
+    decisions = [d.get("props") or {} for d in row.get("decisions") or []]
+    outcome = next(
+        (decision_outcome(d) for d in reversed(decisions) if decision_outcome(d)), ""
+    )
+    done = props.get("done")
+    description = ", ".join(
+        part
+        for part in (
+            _text(props.get("title")) or _text(props.get("citation_title")),
+            f"zaak {number}",
+            kind,
+            f"gestart {started}" if started else "",
+            f"dossier {label}" if label else "",
+            outcome,
+            "afgedaan" if done is True else "",
+        )
+        if part
+    )
+    papers = _list(
+        [
+            _link(
+                path_of(p["id"], p.get("light") or {}),
+                paper_title(p, p.get("light") or {}, []),
+            )
+            for p in row.get("papers") or []
+        ]
+    )
+    votes = _list(
+        [
+            _link(path_of(d["id"]), decision_title(d.get("props") or {}))
+            for d in row.get("decisions") or []
+        ]
+    )
+    dossier_name = " ".join(p for p in (label, _text(dossier.get("title"))) if p)
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (
+            f"<p>{escape(kind)}, gestart {escape(started)}</p>"
+            if kind and started
+            else ""
+        )
+        + (f"<p>Dossier {_link(dossier_path, dossier_name)}</p>" if label else "")
+        + _section("Stukken", papers)
+        + _section("Stemmingen", votes)
+    )
+    crumbs = ([(f"Dossier {label}", dossier_path)] if dossier_path else []) + [
+        (title, path)
+    ]
+    return Page(
+        title=title,
+        description=cut(description, DESCRIPTION_MAX),
+        path=path,
+        crumbs=crumbs,
+        data={
+            "@type": "CreativeWork",
+            "name": title,
+            "identifier": number,
+            **({"dateCreated": props["started_on"]} if props.get("started_on") else {}),
+            **(
+                {"isPartOf": {"@type": "CreativeWork", "name": dossier_name}}
+                if dossier_name
+                else {}
+            ),
+        },
+        body=body,
+        # of a motion or an amendment the page of its paper is the one to find
+        index=not is_motion_or_amendment(kind),
     )
 
 
@@ -1326,6 +1486,8 @@ PAGES = {
     "publicatie": publication_page,
     "toezegging": commitment_page,
     "stemming": decision_page,
+    "bijlage": annex_page,
+    "zaak": case_page,
 }
 
 
@@ -1348,6 +1510,16 @@ def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
         }
         title = article_title(props, law)
         return title, cut(_text(props.get("text")) or title, DESCRIPTION_MAX)
+    if collection == "annexes":
+        law = {
+            "bwb_id": props.get("bwb_id"),
+            "citation_title": props.get("instrument_citation_title"),
+        }
+        title = annex_title(props, law)
+        return title, cut(_text(props.get("description")) or title, DESCRIPTION_MAX)
+    if collection == "cases":
+        title = case_title(props, key)
+        return title, cut(title, DESCRIPTION_MAX)
     if collection == "judgments":
         light = {**props, "date": props.get("date") or props.get("date_eff")}
         title = judgment_title(light, node_id)

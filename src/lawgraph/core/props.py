@@ -337,6 +337,9 @@ class JudgmentProps(_CommonProps):
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
     paragraphs: list[JudgmentParagraphProps] | None = None
+    # its footnotes, which are no paragraph: {label, paragraph_id (the paragraph that refers
+    # to it, null when none does), text} (``core.judgments.judgment_text``)
+    footnotes: list[dict[str, Any]] | None = None
     # read from the kop; [] when it names none, absent when not read yet
     parties: list[JudgmentPartyProps] | None = None
     # a conclusion: the advocate-general who wrote it, as its kop names them

@@ -45,6 +45,9 @@ class Mention:
     parts: Qualifier  # what the qualifier names: leden, onderdelen, aanhef
     snippet: str
     confidence: float
+    # the label of the footnote that cites it, the referring paragraph its paragraph: start
+    # and end are then offsets into the text of the footnote
+    footnote: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The mention as stored in ``meta.mentions`` of the edge."""
@@ -61,6 +64,8 @@ class Mention:
             stored["paragraph_number"] = self.paragraph_number
         if self.qualifier:
             stored["qualifier"] = self.qualifier
+        if self.footnote:
+            stored["footnote"] = self.footnote
         return stored
 
     @classmethod
@@ -91,7 +96,31 @@ class Mention:
             parts=Qualifier.from_dict(stored),
             snippet=str(stored.get("snippet") or ""),
             confidence=float(confidence),
+            footnote=_text(stored.get("footnote")),
         )
+
+
+def footnote_paragraphs(
+    paragraphs: Sequence[Mapping[str, Any]], footnotes: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """The footnotes of a judgment (``core.judgments.judgment_text``) as paragraphs for
+    :func:`find_mentions`: a citation in a footnote counts for the paragraph that refers
+    to it (its id and number), with the footnote's label; one nothing refers to is a
+    paragraph ``fn-<label>`` of its own."""
+    numbers = {str(p.get("id")): p.get("number") for p in paragraphs}
+    found: list[dict[str, Any]] = []
+    for note in footnotes:
+        label = _text(note.get("label")) or str(len(found) + 1)
+        referring = _text(note.get("paragraph_id"))
+        found.append(
+            {
+                "id": referring or f"fn-{label}",
+                "number": numbers.get(referring) if referring else None,
+                "text": str(note.get("text") or ""),
+                "footnote": label,
+            }
+        )
+    return found
 
 
 def _text(value: Any) -> str | None:
@@ -154,7 +183,8 @@ def find_mentions(
 ) -> dict[MentionKey, ArticleMentions]:
     """The articles a judgment cites, each with the places that cite it.
 
-    *paragraphs* are the ``{id, number, text}`` of ``core.judgments.extract_sections``;
+    *paragraphs* are the ``{id, number, text}`` of ``core.judgments.extract_sections``, and
+    a footnote as one with its ``footnote`` label (``footnote_paragraphs``);
     *detect* reads a text and returns a hit for every citation, with its ``start`` and
     ``end`` (``detect_in_text(..., every_occurrence=True)``). The keys are
     ``(bwb_id, celex, article_number, unknown_law)``, in the order of first citation.
@@ -197,6 +227,7 @@ def find_mentions(
                 parts=parse_qualifier(hit.qualifier),
                 snippet=make_snippet(text, (start, end)),
                 confidence=hit.confidence,
+                footnote=_text(paragraph.get("footnote")),
             )
         )
     return found

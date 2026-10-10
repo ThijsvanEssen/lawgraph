@@ -764,3 +764,68 @@ def test_the_neighbours_of_a_bucket_are_looked_up_in_their_table_alone(
     read = set(re.findall(r"'Relation Name': '(\w+)'", plan))
     # the edges, and of the nodes: the papers of the PART_OF bucket, the dossier of the other
     assert read <= {"edges", "documents", "dossiers", "lg_judgment_light"}, read
+
+
+def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> None:
+    """``props=canvas``: an annex has its label and title, a version of a law the
+    citation title of its law (``instrument_citation_title``, which its props lack),
+    in the neighbourhood and as a neighbour alike."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "bwbr0001941", "type": "instrument", "labels": [], "props": {
+            "bwb_id": "BWBR0001941", "citation_title": "Opiumwet", "kind": "wet"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "annexes",
+        [{"_key": "bwbr0001941_annex_ii", "type": "annex", "labels": [], "props": {
+            "bwb_id": "BWBR0001941", "label": "II", "title": "Lijst II",
+            "description": "Middelen", "entries": [{"index": 1, "name": "Cannabis"}],
+            "source": "bwb"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instrument_versions",
+        [{"_key": "bwbr0001941_2025_01_01", "type": "instrument_version", "labels": [],
+          "props": {"bwb_id": "BWBR0001941", "valid_from": "2025-01-01",
+                    "current": True, "state_url": "https://x"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("e1", "annexes/bwbr0001941_annex_ii", "instruments/bwbr0001941",
+                  "PART_OF"),
+            _edge("e2", "instrument_versions/bwbr0001941_2025_01_01",
+                  "instruments/bwbr0001941", "VERSION_OF"),
+        ]
+    )  # fmt: skip
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        path = "/api/nodes/instruments/bwbr0001941"
+        around = client.get(f"{path}/neighborhood", params={"props": "canvas"}).json()
+        neighbours = client.get(path, params={"props": "canvas"}).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    by_id = {n["id"]: n["props"] for n in around["nodes"]}
+    assert by_id["annexes/bwbr0001941_annex_ii"] == {
+        "source": "bwb",
+        "bwb_id": "BWBR0001941",
+        "label": "II",
+        "title": "Lijst II",
+    }
+    assert by_id["instrument_versions/bwbr0001941_2025_01_01"] == {
+        "bwb_id": "BWBR0001941",
+        "valid_from": "2025-01-01",
+        "current": True,
+        "instrument_citation_title": "Opiumwet",
+    }
+    items = {
+        item["key"]: item["props"]
+        for bucket in neighbours["neighbors"]["buckets"]
+        for item in bucket["items"]
+    }
+    assert items["bwbr0001941_annex_ii"]["label"] == "II"
+    assert items["bwbr0001941_2025_01_01"]["instrument_citation_title"] == "Opiumwet"

@@ -10,11 +10,13 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
     COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -95,6 +97,8 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return lookup.find_law(store, pad.a)
     if s == "artikel":
         return lookup.find_article(store, pad.a, pad.b)
+    if s == "bijlage":
+        return lookup.find_annex(store, pad.a, pad.b)
     if s == "dossier":
         return lookup.find_dossier(store, pad.a)
     if s == "kamerstuk":
@@ -113,6 +117,8 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
     if s == "toezegging":
         return lookup.find_commitment(store, pad.a)
+    if s == "zaak":
+        return lookup.find_case(store, pad.a)
     return focus_of_pad(pad)
 
 
@@ -165,6 +171,26 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         return None
     ids: list[str] = _within_budget(lambda: cited(store, node_id), [])
     return {**row, "judgments": _light(store, ids)}
+
+
+def annex(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """An annex: its props (its entries are the page) and its law (citation and short
+    title)."""
+    return _first(
+        store,
+        f"""
+        SELECT x.id, x.key, x.props,
+               (SELECT json_build_object(
+                           'bwb_id', i.bwb_id, 'citation_title', i.citation_title,
+                           'short_title', lg_str(i.props -> 'short_title'),
+                           'title', lg_str(i.props -> 'title'))
+                FROM {COLLECTION_INSTRUMENTS} i
+                WHERE i.bwb_id = x.bwb_id ORDER BY i.key LIMIT 1) AS law
+        FROM {COLLECTION_ANNEXES} x
+        WHERE x.id = %(id)s
+        """,
+        {"id": node_id},
+    )
 
 
 def _within_budget(read: Callable[[], T], instead: T) -> T:
@@ -326,6 +352,84 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         {"label": label},
     )
     return {**row, "papers": papers, "total": total}
+
+
+def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A zaak of the Tweede Kamer: the props its page shows, its first dossier that the
+    graph has (label and title), its papers (``PART_OF`` it), oldest first, light, and
+    the decisions taken on it (``ABOUT`` it), oldest first."""
+    row = _first(
+        store,
+        f"""
+        SELECT c.id, c.key, json_build_object(
+                   'number', lg_str(c.props -> 'number'),
+                   'title', lg_str(c.props -> 'title'),
+                   'citation_title', lg_str(c.props -> 'citation_title'),
+                   'kind', lg_str(c.props -> 'kind'),
+                   'started_on', lg_str(c.props -> 'started_on'),
+                   'done', c.props -> 'done',
+                   'dossier_numbers', c.props -> 'dossier_numbers') AS props
+        FROM {COLLECTION_CASES} c
+        WHERE c.id = %(id)s
+        """,
+        {"id": node_id},
+    )
+    if row is None:
+        return None
+    labels = [
+        n
+        for n in (row["props"] or {}).get("dossier_numbers") or []
+        if isinstance(n, str)
+    ]
+    dossier = (
+        _first(
+            store,
+            f"""
+            SELECT d.id, d.label, lg_str(d.props -> 'title') AS title
+            FROM {COLLECTION_DOSSIERS} d
+            WHERE d.label = ANY(%(labels)s::text[])
+            ORDER BY array_position(%(labels)s::text[], d.label), d.key
+            LIMIT 1
+            """,
+            {"labels": labels},
+        )
+        if labels
+        else None
+    )
+    papers = list(
+        store.query(
+            f"""
+            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            FROM edges e
+            JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+            LEFT JOIN lg_document_light l ON l.id = d.id
+            WHERE e.to_id = %(id)s AND e.relation = %(part_of)s
+              AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+            ORDER BY d.date ASC NULLS LAST, d.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "part_of": RELATION_PART_OF, "limit": LINKS},
+        )
+    )
+    decisions = list(
+        store.query(
+            f"""
+            SELECT dec.id, json_build_object(
+                       'subject', lg_str(dec.props -> 'subject'),
+                       'date', dec.date, 'passed', dec.passed,
+                       'result', lg_str(dec.props -> 'result'),
+                       'decision_kind', lg_str(dec.props -> 'decision_kind')) AS props
+            FROM edges e
+            JOIN {COLLECTION_DECISIONS} dec ON dec.id = e.from_id
+            WHERE e.to_id = %(id)s AND e.relation = %(about)s
+              AND e.from_collection = '{COLLECTION_DECISIONS}'
+            ORDER BY dec.date ASC NULLS LAST, dec.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "about": RELATION_ABOUT, "limit": LINKS},
+        )
+    )
+    return {**row, "dossier": dossier, "papers": papers, "decisions": decisions}
 
 
 # ── people and bodies of the chambers and the government ──────────────────────
@@ -769,4 +873,6 @@ READS = {
     "publicatie": publication,
     "toezegging": commitment,
     "stemming": decision,
+    "bijlage": annex,
+    "zaak": case,
 }

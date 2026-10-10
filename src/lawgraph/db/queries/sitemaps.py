@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
@@ -88,6 +89,51 @@ def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]
         ORDER BY a.bwb_id, a.position, a.id
         """,
         {"top": top},
+    )
+
+
+def annexes(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """The annexes with a label and something to read (a description or entries) of the
+    laws that are no stub, with the day the version in force of their law began."""
+    yield from store.query(
+        f"""
+        SELECT x.id,
+               json_build_object('bwb_id', x.bwb_id, 'label', lg_str(x.props -> 'label'))
+                   AS props,
+               v.valid_from AS lastmod
+        FROM {COLLECTION_ANNEXES} x
+        JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = x.bwb_id AND i.stub IS NOT TRUE
+        LEFT JOIN ({_IN_FORCE}) v ON v.bwb_id = x.bwb_id
+        WHERE lg_str(x.props -> 'label') IS NOT NULL
+          AND lg_bool(x.props -> 'stub') IS NOT TRUE
+          AND (lg_str(x.props -> 'description') IS NOT NULL
+               OR json_typeof(x.props -> 'entries') = 'array')
+        ORDER BY x.id
+        """
+    )
+
+
+def decided_cases(
+    store: GraphStore, since: str = DECIDED_SINCE
+) -> Iterator[dict[str, Any]]:
+    """The zaken voted on since *since* (a decision with an outcome ABOUT them) but
+    motions and amendments, whose papers are listed: a bill, a treaty, a budget. The last
+    day one was taken on it is its lastmod."""
+    yield from store.query(
+        f"""
+        SELECT c.id, json_build_object('number', lg_str(c.props -> 'number')) AS props,
+               max(dec.date) AS lastmod
+        FROM {COLLECTION_DECISIONS} dec
+        JOIN edges a ON a.from_id = dec.id AND a.relation = %(about)s
+            AND a.to_collection = '{COLLECTION_CASES}'
+        JOIN {COLLECTION_CASES} c ON c.id = a.to_id
+        WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
+          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), 'Motie')
+          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), 'Amendement')
+        GROUP BY c.id
+        ORDER BY c.id
+        """,
+        {"about": RELATION_ABOUT, "since": since},
     )
 
 

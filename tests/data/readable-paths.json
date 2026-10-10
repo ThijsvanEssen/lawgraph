@@ -133,6 +133,21 @@
       "focus": "decisions/ek_2026_07_07_36915_iib_1",
       "props": {},
       "path": "/stemmingen/ek_2026_07_07_36915_iib_1"
+    },
+    {
+      "focus": "annexes/bwbr0002741_annex_ii",
+      "props": {
+        "bwb_id": "BWBR0002741",
+        "label": "II"
+      },
+      "path": "/wetten/BWBR0002741/bijlage/II"
+    },
+    {
+      "focus": "cases/0a1b2c3d",
+      "props": {
+        "number": "2025Z15468"
+      },
+      "path": "/zaken/2025Z15468"
     }
   ],
   "none": [
@@ -163,6 +178,16 @@
     },
     {
       "focus": "dossiers/36600_viii",
+      "props": {}
+    },
+    {
+      "focus": "annexes/bwbr0002741_annex",
+      "props": {
+        "bwb_id": "BWBR0002741"
+      }
+    },
+    {
+      "focus": "cases/c2",
       "props": {}
     }
   ],
@@ -218,6 +243,23 @@
         "a": "TZ202609-124"
       },
       "canonical": "/toezeggingen/TZ202609-124"
+    },
+    {
+      "path": "/wetten/bwbr0002741/bijlage/ii",
+      "pad": {
+        "soort": "bijlage",
+        "a": "BWBR0002741",
+        "b": "II"
+      },
+      "canonical": "/wetten/BWBR0002741/bijlage/II"
+    },
+    {
+      "path": "/zaken/2025z15468",
+      "pad": {
+        "soort": "zaak",
+        "a": "2025Z15468"
+      },
+      "canonical": "/zaken/2025Z15468"
     }
   ],
   "invalid": [
@@ -235,6 +277,10 @@
     "/stb/26/94",
     "/uitspraken/%E0%A4%A",
     "/stemmingen/Decision_X",
-    "/stemmingen/a/b"
+    "/stemmingen/a/b",
+    "/wetten/BWBR0002741/bijlage/a b",
+    "/wetten/xyz/bijlage/II",
+    "/zaken/15468",
+    "/zaken/2025Z15468/x"
   ]
 }

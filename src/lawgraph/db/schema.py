@@ -1137,6 +1137,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS members_slug"
         " ON members (public.lg_str(props -> 'slug'))",
     ),
+    # a zaak by its number (``/zaken/2025Z15468``)
+    COLLECTION_CASES: (
+        "CREATE INDEX IF NOT EXISTS cases_number"
+        " ON cases (public.lg_str(props -> 'number'))",
+    ),
     # a committee by its slug or its key (``/commissies/szw``)
     COLLECTION_COMMITTEES: (
         "CREATE INDEX IF NOT EXISTS committees_slug"
@@ -1359,6 +1364,14 @@ END $$""",
             f" AFTER {event} ON documents REFERENCING {transition} TABLE AS changed"
             " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_document_light()"
         )
+    # a paper by its dossier and number (``queries/lookup.find_document``): one index probe,
+    # where the props of every paper of a budget dossier were read for it
+    statements.append(
+        "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light"
+        " (lg_str(props -> 'dossier_number'),"
+        " upper(coalesce(lg_str(props -> 'dossier_suffix'), '')),"
+        " lg_num(props -> 'sequence'))"
+    )
     return statements
 
 

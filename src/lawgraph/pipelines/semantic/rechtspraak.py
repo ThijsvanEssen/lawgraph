@@ -11,7 +11,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
-from lawgraph.core.mentions import ArticleMentions, find_mentions
+from lawgraph.core.mentions import ArticleMentions, find_mentions, footnote_paragraphs
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
@@ -40,10 +40,12 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
     One edge per judgment and article; ``meta.mentions`` has every place in the judgment that
     cites the article (``core.mentions``): the paragraph, the span in its text, the lid or
-    onderdeel it names. The edges of a judgment are derived in full each time it is read:
-    one its text no longer makes (an earlier rule, an earlier text) goes. A citation of a law
-    that is not in the graph (``artikel 392 Rv``) has no article to point at: the judgment
-    keeps it in ``props.unresolved_citations``, written only when it changed.
+    onderdeel it names. A citation in a footnote (``props.footnotes``) counts for the
+    paragraph that refers to the footnote, with its label (``footnote``). The edges of a
+    judgment are derived in full each time it is read: one its text no longer makes (an
+    earlier rule, an earlier text) goes. A citation of a law that is not in the graph
+    (``artikel 392 Rv``) has no article to point at: the judgment keeps it in
+    ``props.unresolved_citations``, written only when it changed.
     """
 
     def __init__(
@@ -86,7 +88,10 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
             ):
                 read.append(str(judgment.node_id))
                 unresolved: list[dict[str, Any]] = []
-                for cited in find_mentions(paragraphs, detect).values():
+                notes = footnote_paragraphs(
+                    paragraphs, judgment.props.get("footnotes") or []
+                )
+                for cited in find_mentions([*paragraphs, *notes], detect).values():
                     if cited.unknown_law:
                         unresolved.append(cited.unresolved())
                         continue
