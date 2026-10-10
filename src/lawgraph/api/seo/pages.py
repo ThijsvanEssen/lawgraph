@@ -20,15 +20,16 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, key_ecli, path_of
+from lawgraph.core.time import long_date
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
 
 SITE = "Concordans"
 # The length a title is cut to before ", Concordans": what a search result shows.
-TITLE_MAX = 65
 DESCRIPTION_MAX = 155
 _BW = set(BW_BOOKS.values())
 
@@ -70,14 +71,15 @@ def cut(text: str, length: int) -> str:
 
 
 def full_title(title: str) -> str:
-    """The ``<title>`` of a page: its title cut to ``TITLE_MAX``, then the site."""
-    return f"{cut(title, TITLE_MAX)}, {SITE}" if title else SITE
+    """The ``<title>`` of a page: its title whole, then the site. Not cut: it is the title
+    the app shows in its tab (``title`` of ``/api/nodes``), and a motion is found by every
+    word of its subject (a search engine cuts what it shows itself)."""
+    return f"{title}, {SITE}" if title else SITE
 
 
 def _day(iso: Any) -> str:
-    """``2019-12-20`` as the Dutch write it: ``20-12-2019``."""
-    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", _text(iso))
-    return f"{m[3]}-{m[2]}-{m[1]}" if m else ""
+    """``2019-12-20`` as the explorer writes a day: ``20 december 2019``."""
+    return long_date(iso)
 
 
 def _link(path: str | None, label: str) -> str:
@@ -183,15 +185,18 @@ def law_page(row: dict[str, Any]) -> Page:
 
 
 def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
-    """``Artikel 6:162 BW: onrechtmatige daad``, with its heading when it has one."""
+    """``Art. 6:162 BW, Onrechtmatige daad``: as an article is cited, with what it is
+    about, its heading or else its ``caption`` (the title of the division it stands in,
+    ``semantic bwb-captions``)."""
     number = _text(props.get("article_number"))
     name = (
-        article_name(_text(props.get("bwb_id")) or None, number, _law_short(law))
+        f"Art. {book_number(_text(props.get('bwb_id')) or None, number)} "
+        f"{_law_short(law)}".strip()
         if number
         else _text(props.get("display_name"))
     )
-    heading = _text(props.get("heading"))
-    return f"{name}: {heading[:1].lower()}{heading[1:]}" if heading else name
+    about = _text(props.get("heading")) or _text(props.get("caption"))
+    return f"{name}, {about[:1].upper()}{about[1:]}" if about else name
 
 
 def article_page(row: dict[str, Any]) -> Page:
@@ -324,16 +329,23 @@ def _judgment_label(row: dict[str, Any]) -> str:
 
 
 def judgment_title(light: dict[str, Any], node_id: str = "") -> str:
-    """``ECLI:NL:HR:2019:2006, Hoge Raad 20-12-2019``, with its name (``Urgenda``)."""
+    """``HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006``: as a lawyer cites it
+    (``core.judgment_cite``), with the names it is known by, a translation said so."""
     ecli = _text(light.get("ecli")) or key_ecli(node_id.partition("/")[2]) or ""
-    court = _text(light.get("court"))
-    day = _day(light.get("date"))
-    names = light.get("names") or []
-    name = _text(names[0]) if isinstance(names, list) and names else ""
-    head = ", ".join(
-        part for part in (ecli, " ".join(p for p in (court, day) if p)) if part
+    if not ecli:
+        return _text(light.get("display_name"))
+    cite = judgment_cite(
+        ecli,
+        _text(light.get("date")),
+        _text(light.get("court")),
+        author_cite(_text(light.get("advocate_general"))),
     )
-    return f"{head} ({name})" if name else head or _text(light.get("display_name"))
+    names = [
+        n.strip() for n in light.get("names") or [] if isinstance(n, str) and n.strip()
+    ]
+    head = f"{cite} ({', '.join(names)})" if names else cite
+    translation = ", vertaling" if _text(light.get("translation_of")) else ""
+    return f"{head}{translation}, {ecli.upper()}"
 
 
 def judgment_page(row: dict[str, Any]) -> Page:
@@ -397,9 +409,12 @@ def judgment_page(row: dict[str, Any]) -> Page:
 
 # "Motie van het lid Bolhuis over …", "Amendement van de leden A en B ter …": the
 # indieners after the kind, without "van het lid" / "van de leden".
-_OF_MEMBERS = re.compile(
-    r"^(Motie|Amendement)\s+van\s+(?:het\s+lid|de\s+leden)\s+", re.I
+# The kind a subject opens with ("Gewijzigde motie", "Nader gewijzigd amendement") and the
+# "van het lid" / "van de leden" after it.
+_PAPER_KIND = re.compile(
+    r"^(?:(?:nader\s+)?gewijzigde?\s+)?(?:motie|amendement)\b", re.I
 )
+_OF_MEMBERS_AFTER = re.compile(r"^\s*van\s+(?:het\s+lid|de\s+leden)\s+", re.I)
 
 
 def _outcome(decisions: list[dict[str, Any]]) -> str | None:
@@ -414,8 +429,9 @@ def _outcome(decisions: list[dict[str, Any]]) -> str | None:
 def paper_title(
     row: dict[str, Any], light: dict[str, Any], decisions: list[dict[str, Any]]
 ) -> str:
-    """``Motie Bolhuis over een AI-killswitch (36496-71), aangenomen``; another paper
-    ``<kind>: <subject> (36496-71)``."""
+    """``Motie 36496-71 Bolhuis over een AI-killswitch``: a motion or an amendment by its
+    kind and number, then its submitters and its subject (its outcome, which a vote
+    changes, is in the description); another paper ``<kind>: <subject> (36496-71)``."""
     dossier = _text(light.get("dossier_number"))
     suffix = _text(light.get("dossier_suffix"))
     number = light.get("sequence") or light.get("number")
@@ -427,11 +443,12 @@ def paper_title(
     subject = _text(row.get("subject")) or _text(light.get("title"))
     kind = _text(row.get("kind")) or _text(light.get("kind"))
     if is_motion_or_amendment(kind):
-        title = _OF_MEMBERS.sub(lambda m: f"{m[1].capitalize()} ", subject) or kind
-        outcome = _outcome(decisions)
-        return (
-            title + (f" ({cite})" if cite else "") + (f", {outcome}" if outcome else "")
-        )
+        match = _PAPER_KIND.match(subject)
+        if not match:
+            return f"{kind} {cite}".strip() + (f" {subject}" if subject else "")
+        rest = _OF_MEMBERS_AFTER.sub("", subject[match.end() :]).strip()
+        named = f"{match[0].strip().capitalize()} {cite}".strip()
+        return f"{named} {rest}".strip()
     head = (
         f"{kind}: {subject}"
         if kind and subject and not subject.startswith(kind)
@@ -525,13 +542,12 @@ def paper_page(row: dict[str, Any]) -> Page:
 
 
 def dossier_title(props: dict[str, Any], key: str) -> str:
-    """``36496 Wet betaalbare huur: dossier, moties en stemmingen``."""
+    """``36496 Wet betaalbare huur``, ``36600-VII Begroting Binnenlandse Zaken en
+    Koninkrijksrelaties 2025``: its number and the name it goes by."""
     label = _text(props.get("label")) or key
     title = _text(props.get("title"))
     name = short_title(title) or title
-    return (
-        f"{label} {name}: dossier, moties en stemmingen" if name else f"Dossier {label}"
-    )
+    return f"{label} {name}" if name else f"Dossier {label}"
 
 
 def dossier_page(row: dict[str, Any]) -> Page:
@@ -587,7 +603,13 @@ def case_title(props: dict[str, Any], key: str) -> str:
     subject = _text(props.get("title")) or _text(props.get("citation_title"))
     kind = _text(props.get("kind"))
     if is_motion_or_amendment(kind):
-        head = _OF_MEMBERS.sub(lambda m: f"{m[1].capitalize()} ", subject) or kind
+        match = _PAPER_KIND.match(subject)
+        rest = _OF_MEMBERS_AFTER.sub("", subject[match.end() :]) if match else ""
+        head = (
+            f"{match[0].strip().capitalize()} {rest.strip()}".strip()
+            if match
+            else subject or kind
+        )
     elif kind and subject and not subject.startswith(kind):
         head = f"{kind}: {subject}"
     else:
