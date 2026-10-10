@@ -126,6 +126,17 @@ def heading_parts(heading: str) -> tuple[str, tuple[str, ...]] | None:
     return match["article"], part_letters(match["parts"])
 
 
+def heading_law(heading: str) -> str | None:
+    """What a heading of an article of a bill says after its number and onderdelen: the
+    law it changes in "ARTIKEL II – WETBOEK VAN STRAFRECHT" or "Artikel III (Woningwet)";
+    None when it says nothing more."""
+    match = _HEADING_PARTS_RE.match(heading.strip())
+    if not match:
+        return None
+    rest = heading.strip()[match.end() :].strip(" \t–—-:,.()")
+    return rest or None
+
+
 def part_letters(listing: str) -> tuple[str, ...]:
     """The onderdelen of a list as a heading writes it: "H en I", "C, D en E",
     "CS tot en met CV" (CS, CT, CU, CV)."""
