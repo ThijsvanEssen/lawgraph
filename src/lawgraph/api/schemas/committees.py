@@ -49,12 +49,20 @@ class MemberVoteDTO(BaseModel):
     seats: int | None = Field(
         None, description="Seats behind this vote; 1 on a roll-call."
     )
-    party: str | None = None
-    faction_key: str | None = None
+    party: str | None = Field(
+        None,
+        description="The party of the faction they sat in on ``date``; of their own vote "
+        "on an undated decision the one they sit for now.",
+    )
+    faction_key: str | None = Field(
+        None,
+        description="The faction they sat in on ``date``, also of their own vote; null "
+        "where no period of theirs holds the day.",
+    )
     vote_source: Literal["member", "faction"] = Field(
         "member",
         description="``member``: their own vote, on a roll-call (hoofdelijke stemming); "
-        "``faction``: their faction's, cast while they belonged to it (``faction_key``).",
+        "``faction``: their faction's, cast while they belonged to it.",
     )
     in_office: list[VoteOfficeDTO] = Field(
         default_factory=list,

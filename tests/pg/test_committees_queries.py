@@ -668,11 +668,12 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
     votes = get_member_votes(store, "members/m1")
     # newest first; one day settled by key, then the member's own vote before the
     # faction's; the undated last
+    # an own vote under the faction the member sat in that day; the undated under none
     assert [(v["decision_key"], v["faction_key"], v["vote_source"]) for v in votes] == [
-        ("s0", None, "member"),
+        ("s0", "d66", "member"),
         ("s0", "d66", "faction"),
         ("s1", "d66", "faction"),
-        ("s3", None, "member"),
+        ("s3", "d66", "member"),
         ("s2", "vvd", "faction"),
         ("s4", None, "member"),
     ]
@@ -695,8 +696,9 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
             "coalition_factions": [],
         }
     )
-    # their own vote carries the party they sit for now; a faction's that of the day
+    # every vote carries the party of the day; an undated own vote the one they sit for now
     assert votes[0]["party"] == "D66" and votes[4]["party"] == "VVD"
+    assert votes[5]["party"] == "D66"
     assert votes[2]["external_id"] == "b1" and type(votes[2]["seats"]) is int
     assert len(get_member_votes(store, "members/m1", limit=2)) == 2
     assert get_member_votes(store, "members/nobody") == []
@@ -804,6 +806,33 @@ def test_the_votes_of_a_member_page_by_offset_and_by_being_in_office(
     assert first["next_offset"] == 2
     assert [v["decision_key"] for v in office["votes"]] == ["v1"]
     assert office["next_offset"] is None
+
+
+def test_an_own_vote_of_before_carries_the_faction_of_its_day(
+    store: GraphStore,
+) -> None:
+    """A roll-call of the years the member sat for another faction (Mona Keijzer's of the
+    CDA, now "Lid Keijzer"): the faction and party of that day, as a faction's vote has,
+    not the party they sit for now, and never no faction at all."""
+    g = Graph(store)
+    g.node("members", "m1", name="Mona", party="Lid Keijzer", faction_memberships=[
+        {**VVD, "faction_key": "cda", "faction_id": "factions/cda", "abbreviation": "CDA",
+         "from_date": "2012-09-20", "to_date": "2017-10-25"},
+        {**D66, "faction_key": "lid_keijzer", "faction_id": "factions/lid_keijzer",
+         "abbreviation": "Lid Keijzer", "from_date": "2026-02-24", "to_date": None},
+    ])  # fmt: skip
+    g.node("decisions", "old", date="2015-06-01", vote_kind=VOTE_KIND_MEMBER)
+    g.node("decisions", "new", date="2026-10-08", vote_kind=VOTE_KIND_MEMBER)
+    g.edge("members/m1", RELATION_VOTED, "decisions/old", choice="Voor", seats=1)
+    g.edge("members/m1", RELATION_VOTED, "decisions/new", choice="Tegen", seats=1)
+    g.write()
+    votes = {v["decision_key"]: v for v in get_member_votes(store, "members/m1")}
+    assert (votes["old"]["faction_key"], votes["old"]["party"]) == ("cda", "CDA")
+    assert (votes["new"]["faction_key"], votes["new"]["party"]) == (
+        "lid_keijzer",
+        "Lid Keijzer",
+    )
+    assert {v["vote_source"] for v in votes.values()} == {"member"}
 
 
 # The statement of ``get_member_votes`` before it read the newest votes of a period first:
@@ -920,7 +949,13 @@ def test_the_newest_votes_are_those_of_every_vote(
         assert all(v.pop("in_office") == [] for v in new)
         assert all(v.pop("coalition") is None for v in new)
         assert all(v.pop("coalition_factions") == [] for v in new)
-        assert new == _old_member_votes(store, "members/m1", limit), limit
+        # an own vote took the party of now there, and no faction: the day's here
+        old = _old_member_votes(store, "members/m1", limit)
+        for votes_ in (new, old):
+            for v in votes_:
+                if v["vote_source"] == "member":
+                    v.pop("party"), v.pop("faction_key")
+        assert new == old, limit
         assert len(new) == limit
     # the roll-calls are the member's own, never the faction's
     votes = get_member_votes(store, "members/m1", limit=300)
