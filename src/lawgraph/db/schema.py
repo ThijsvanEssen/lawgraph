@@ -1498,10 +1498,15 @@ END $$""",
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
 # they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
-# Kept by triggers on every write of ``edges`` (the signatures, and the papers placed in a
-# dossier or a case, and the cases in a dossier); ``semantic graph-light`` fills it once and
-# notes that in ``lg_authored_state``, before which the page walks the edges. Not a table of
-# the graph: writing it raises no data version.
+# With the date of the paper or case and the capacity of the signature, so that what a
+# member signed within a cabinet is a range of an index, not a probe of every paper they
+# ever signed for its date (``queries/cabinets``). Kept by triggers on every write of
+# ``edges`` (the signatures, and the papers placed in a dossier or a case, and the cases in
+# a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
+# fills it once and notes that in ``lg_authored_state``, before which the page walks the
+# edges, and keeps the dates of the signatures kept before them in slices
+# (``--authored-dates``), noted in ``lg_authored_dated``. Not a table of the graph: writing
+# it raises no data version.
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
     statements = [
@@ -1510,14 +1515,41 @@ def member_authored() -> list[str]:
     member_id text NOT NULL,
     document_id text NOT NULL,
     meta json NOT NULL,
-    dossiers text[] NOT NULL
+    dossiers text[] NOT NULL,
+    date text,
+    capacity text
 )""",
+        # the table as it was kept before its dates
+        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS date text",
+        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS capacity text",
         "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
         "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
+        # what a member signed in a capacity within a period, from the index alone; on a
+        # large database built beforehand with CREATE INDEX CONCURRENTLY
+        "CREATE INDEX IF NOT EXISTS lg_authored_member_date"
+        " ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
         """CREATE TABLE IF NOT EXISTS lg_authored_state (
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     filled_at timestamptz NOT NULL
 )""",
+        """CREATE TABLE IF NOT EXISTS lg_authored_dated (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    dated_at timestamptz NOT NULL
+)""",
+        # the date of a paper, a case or another node signed (plpgsql: the view of every
+        # node it reads for another node is made after this)
+        f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
+LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
+BEGIN
+    RETURN CASE
+        WHEN starts_with(paper, '{COLLECTION_DOCUMENTS}/') THEN
+            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = paper)
+        WHEN starts_with(paper, '{COLLECTION_CASES}/') THEN
+            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+             WHERE k.id = paper)
+        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n WHERE n.id = paper)
+    END;
+END $$""",
         # the dossiers of a paper (or a case): directly, and through the cases it is part of
         f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
@@ -1542,12 +1574,14 @@ BEGIN
           AND c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}';
     END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
-        INSERT INTO public.lg_authored (edge_key, member_id, document_id, meta, dossiers)
+        INSERT INTO public.lg_authored
+            (edge_key, member_id, document_id, meta, dossiers, date, capacity)
         SELECT c.key, c.from_id, c.to_id,
                json_build_object('role', c.doc -> 'meta' -> 'role',
                                  'function', c.doc -> 'meta' -> 'function',
                                  'capacity', c.doc -> 'meta' -> 'capacity'),
-               public.lg_dossiers_of(c.to_id)
+               public.lg_dossiers_of(c.to_id), public.lg_signed_date(c.to_id),
+               public.lg_str(c.doc -> 'meta' -> 'capacity')
         FROM changed c
         WHERE c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}'
         ON CONFLICT (edge_key) DO NOTHING;
@@ -1577,6 +1611,28 @@ END $$""",
             f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
             " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored()"
         )
+    # a paper or a case written after its signature, or its date changed: the signatures of
+    # it take the date again
+    for table, date in (
+        (COLLECTION_DOCUMENTS, "c.date"),
+        (COLLECTION_CASES, "public.lg_str(c.props -> 'date')"),
+    ):
+        statements.append(
+            f"""CREATE OR REPLACE FUNCTION lg_keep_authored_{table}_date() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE public.lg_authored a SET date = {date}
+    FROM changed c
+    WHERE a.document_id = c.id AND a.date IS DISTINCT FROM {date};
+    RETURN NULL;
+END $$"""
+        )
+        for event in ("INSERT", "UPDATE"):
+            statements.append(
+                f"CREATE OR REPLACE TRIGGER {table}_authored_date_{event.lower()}"
+                f" AFTER {event} ON {table} REFERENCING NEW TABLE AS changed"
+                f" FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored_{table}_date()"
+            )
     return statements
 
 
