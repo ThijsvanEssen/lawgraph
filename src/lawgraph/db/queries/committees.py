@@ -676,7 +676,12 @@ VOTE_CANDIDATES = 2
 
 
 def get_member_votes(
-    store: GraphStore, member_id: str, *, limit: int = 100
+    store: GraphStore,
+    member_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+    in_office: bool = False,
 ) -> list[dict[str, Any]]:
     """How a member voted, newest first.
 
@@ -690,29 +695,58 @@ def get_member_votes(
     period only the newest ``VOTE_CANDIDATES`` times the page are read for it (a large
     party votes tens of thousands of times), and more when the roll-calls among those
     leave less than a page.
+
+    ``offset`` skips the newest that many; with *in_office* only the votes cast while the
+    member held a post of ``government_functions`` count, before the page is cut.
     """
     # the faction's votes from ``lg_faction_votes`` once it is filled, else by the walk
     from lawgraph.db.queries import faction_votes
 
     statement = _MEMBER_VOTES_LIGHT if faction_votes.is_filled(store) else _MEMBER_VOTES
-    candidates = max(limit, 1) * VOTE_CANDIDATES
+    candidates = max(limit + offset, 1) * VOTE_CANDIDATES
     while True:
         (row,) = store.query(
-            statement, _member_votes_params(member_id, limit, candidates)
+            statement,
+            _member_votes_params(member_id, limit, candidates, offset, in_office),
         )
         if row["complete"]:
             return list(row["votes"])
         candidates *= 4
 
 
-def _member_votes_params(member_id: str, limit: int, candidates: int) -> dict[str, Any]:
+def _member_votes_params(
+    member_id: str,
+    limit: int,
+    candidates: int,
+    offset: int = 0,
+    in_office: bool = False,
+) -> dict[str, Any]:
     return {
         "member_id": member_id,
         "limit": limit,
+        "offset": offset,
+        "page_end": limit + offset,
+        "in_office": in_office,
         "candidates": candidates,
         "voted": RELATION_VOTED,
         "roll_call": VOTE_KIND_MEMBER,
     }
+
+
+# With ``in_office``: a vote on a day the member held a post of ``government_functions``
+# (both days included); without it every vote. ``{date}`` is the day of the vote.
+def _in_office_on(date: str) -> str:
+    """SQL: whether *date* falls in a post of the member's ``government_functions``,
+    when ``in_office`` asks it; true without it."""
+    return f"""(%(in_office)s IS NOT TRUE OR EXISTS (
+    SELECT 1 FROM {COLLECTION_MEMBERS} om
+    CROSS JOIN LATERAL json_array_elements(
+        {_array("om.props -> 'government_functions'")}
+    ) AS g(post)
+    WHERE om.id = %(member_id)s
+      AND ({_is_null("g.post -> 'from_date'")} OR lg_str(g.post -> 'from_date') <= {date})
+      AND ({_is_null("g.post -> 'to_date'")} OR lg_str(g.post -> 'to_date') >= {date})
+))"""
 
 
 # The candidates of the votes of a member's faction periods: walked over the decisions (while
@@ -746,6 +780,7 @@ _WALK_CANDIDATES = f"""
                   >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
               AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
               AND {_IN_MEMBERSHIP}
+              AND {_in_office_on("d.date")}
             -- NULLS FIRST as the index of the dates walked backward gives it (no date is
             -- null here): the walk stops after the candidates instead of a sort of them all
             ORDER BY d.date DESC NULLS FIRST, d.key ASC
@@ -769,6 +804,7 @@ _LIGHT_CANDIDATES = f"""
                   >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
               AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
               AND {_IN_MEMBERSHIP}
+              AND {_in_office_on("d.date")}
             ORDER BY d.date DESC NULLS FIRST, d.decision_key ASC
             LIMIT %(candidates)s
         ) c
@@ -828,6 +864,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
         JOIN {COLLECTION_EDGES} e
           ON e.from_id = %(member_id)s AND e.relation = %(voted)s
         JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
+        WHERE {_in_office_on("d.date")}
         UNION ALL
         SELECT k.decision_id, k.edge_key, k.key, k.date,
                CASE WHEN {_is_null("k.period -> 'abbreviation'")}
@@ -839,7 +876,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
     chosen AS (
         SELECT * FROM voted
         ORDER BY date DESC NULLS LAST, key ASC, faction_order ASC NULLS FIRST
-        LIMIT %(limit)s
+        LIMIT %(limit)s OFFSET %(offset)s
     ),
     page AS (
         SELECT c.*, e.doc -> 'meta' AS meta
@@ -851,7 +888,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
         NOT EXISTS (
             SELECT 1 FROM periods p
             WHERE (SELECT count(*) FROM candidates c WHERE c.n = p.n) = %(candidates)s
-              AND (SELECT count(*) FROM kept k WHERE k.n = p.n) < %(limit)s
+              AND (SELECT count(*) FROM kept k WHERE k.n = p.n) < %(page_end)s
         ) AS complete,
         coalesce((
             SELECT json_agg(json_build_object(
