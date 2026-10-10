@@ -14,6 +14,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RELATION_SERVED_IN
 from lawgraph.db import GraphStore, make_edge_doc
+from lawgraph.db.queries import ek_seats
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -116,9 +117,28 @@ def _seed(store: GraphStore) -> None:
     )
 
 
+def _seed_ek(store: GraphStore) -> None:
+    """A term of the Eerste Kamer: 10 VVD and 3 SP from 2023, one VVD seat gone in 2025."""
+    gone = {"kind": "vertrek", "date": "2025-03-01", "source": "VVD", "to": None,
+            "words": "Senator X verlaat Eerste Kamer", "member": "X", "sources": [],
+            "basis": "tekst"}  # fmt: skip
+    ek_seats.write(
+        store,
+        [{"start": "2023-06-13", "election": "EK20230530", "source": {}, "checked": True,
+          "mismatches": []}],
+        [
+            {"from_date": "2023-06-13", "to_date": "2025-02-28", "term": "2023-06-13",
+             "seats": {"VVD": 10, "SP": 3}, "events": []},
+            {"from_date": "2025-03-01", "to_date": None, "term": "2023-06-13",
+             "seats": {"VVD": 9, "SP": 3}, "events": [gone]},
+        ],
+    )  # fmt: skip
+
+
 def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
     store = GraphStore()
     _seed(store)
+    _seed_ek(store)
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
@@ -139,7 +159,25 @@ def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
         ("2025-02-01", 2, 2),
         ("2025-06-04", 1, 3),
     ]
-    assert seats["ek"][0]["coalition"] == 10 and seats["ek"][0]["opposition"] == 3
+    # the Eerste Kamer from the cabinet's first day, a stretch per change, in its words
+    ek_stretches = [
+        (s["from_date"], s["coalition"], s["opposition"], s["checked"])
+        for s in seats["ek"]
+    ]
+    assert ek_stretches == [("2024-07-02", 10, 3, True), ("2025-03-01", 9, 3, True)]
+    assert seats["ek"][0]["events"] == []  # it began before the cabinet
+    (event,) = seats["ek"][1]["events"]
+    assert (event["kind"], event["basis"], event["words"]) == (
+        "vertrek",
+        "tekst",
+        "Senator X verlaat Eerste Kamer",
+    )
+    assert {f["key"] for f in seats["ek"][0]["factions"]} == {"ek_vvd", "ek_sp"}
+    # the Tweede Kamer's events are derived from the seats: the split on 1 February
+    split = next(s for s in seats["tk"] if s["from_date"] == "2025-02-01")
+    assert [(e["kind"], e["basis"], e["words"]) for e in split["events"]] == [
+        ("afsplitsing", "afgeleid", None)
+    ]
     # a cabinet that began before every seat is known: no Tweede Kamer bar
     assert old["tk"] is None
 

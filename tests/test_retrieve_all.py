@@ -317,9 +317,10 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["eerstekamer-composition"]
         == lanes["eerstekamer-bills"]
         == lanes["eerstekamer-agenda"]
+        == lanes["eerstekamer-mutations"]
     )
     assert len(set(lanes.values())) == (
-        len(lanes) - 3 - 1 - 1 - 1 - 3 - (len(koop) - 1)
+        len(lanes) - 3 - 1 - 1 - 1 - 4 - (len(koop) - 1)
     )
 
 
@@ -352,6 +353,8 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("eerstekamer", koop, ()),
         ("eerstekamer-votes", registry.LANE_EERSTEKAMER_SITE, ()),
         ("eerstekamer-composition", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-mutations", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("kiesraad", "kiesraad", ()),
         ("eerstekamer-agenda", registry.LANE_EERSTEKAMER_SITE, ()),
         ("eerstekamer-bills", registry.LANE_EERSTEKAMER_SITE, ()),
         ("echr", "echr", ()),
@@ -434,7 +437,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
     lanes = {p.lane_id for p in registry.PIPELINES["retrieve"]}
-    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 9
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 10
 
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:
