@@ -56,6 +56,14 @@ _GLUED_ECLI = re.compile(r"(?<=[A-Z0-9.:])(?=ECLI:)", re.IGNORECASE)
 _LJN_DIGITS = re.compile(r"(?:\s{1,3}|:)(?P<digits>\d{1,4})\b")
 # The end of a range set apart: "992 - 995".
 _RANGE_END = re.compile(r"\s?[-–]\s?(?P<end>\d{1,6})\b")
+# An LJN a text names on its own, the way decisions before 2013 were cited: "LJN BK9271",
+# "LJN: BK9271", "LJN-nummer BK 9271".
+_CITED_LJN = re.compile(
+    r"\bLJN(?:-?nummer)?[:\s]*(?P<letters>[A-Z]{2})\s?(?P<digits>\d{4})\b",
+    re.IGNORECASE,
+)
+# A Dutch ECLI whose number is an LJN: a decision published before 2013.
+_LJN_ECLI = re.compile(r"^ECLI:NL:[A-Z]+:\d{4}:(?P<ljn>[A-Z]{2}\d{4})$")
 
 
 def is_valid_ecli(ecli: str, *, this_year: int | None = None) -> bool:
@@ -85,6 +93,22 @@ def cited_eclis(text: str | None) -> list[str]:
             if is_valid_ecli(ecli):
                 found.setdefault(ecli)
     return list(found)
+
+
+def cited_ljns(text: str | None) -> list[str]:
+    """The LJNs *text* names on its own ("LJN BK9271"), upper-cased and once each, in the
+    order of their first appearance."""
+    found: dict[str, None] = {}
+    for match in _CITED_LJN.finditer(text or ""):
+        found.setdefault((match["letters"] + match["digits"]).upper())
+    return list(found)
+
+
+def ljn_of(ecli: str) -> str | None:
+    """The LJN that is the number of *ecli* (``ECLI:NL:CRVB:2010:BK9271``: ``BK9271``), the
+    ECLI of a decision published before 2013; None for any other."""
+    match = _LJN_ECLI.match(ecli.strip().upper())
+    return match["ljn"] if match else None
 
 
 def _repaired(match: re.Match[str], after: str) -> Iterator[str]:
