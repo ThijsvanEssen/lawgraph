@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
+    JudgmentConclusionDTO,
     JudgmentDetailResponse,
     JudgmentDTO,
     JudgmentFacets,
@@ -209,6 +210,7 @@ def get_judgment_detail(
         same_as=[JudgmentSummaryDTO.from_document(doc) for doc in data.same_as],
         related_to=[RelatedJudgmentDTO.from_document(doc) for doc in data.related_to],
         series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
+        conclusions=[JudgmentConclusionDTO(**c) for c in data.conclusions],
         metadata=data.metadata or None,
     )
 
@@ -233,6 +235,8 @@ def _citations_by_paragraph(
             display_name=props.get("display_name"),
         )
         for mention in mentions_of(relation.meta):
+            if mention.footnote:
+                continue  # its offsets are in the text of the footnote, not the paragraph
             spans.setdefault(mention.paragraph_id, []).append(
                 ArticleCitationSpan(
                     start=mention.start,

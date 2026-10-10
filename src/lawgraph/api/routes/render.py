@@ -3,7 +3,8 @@ and no ``/api`` (Caddy rewrites it here):
 
 - a readable address of a source (``/wetten/BWBR0005289/artikel/6:162``): the shell of the
   front end with the title, description, canonical address, structured data and content
-  of the source (``api/seo``), so a crawler reads it without JavaScript;
+  of the source (``api/seo``), so a crawler reads it without JavaScript, and its node in
+  ``<meta name="focus">`` (``<collection>/<key>``), so the app opens it without a lookup;
 - the same address in another spelling (``/uitspraken/ecli:nl:…``), or
   ``/explore?focus=<collection>/<key>``: a 301 to the readable address;
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title;
@@ -57,6 +58,8 @@ IMAGES = {
     "uitspraak": "/og/uitspraak.png",
     "kamerstuk": "/og/kamerstuk.png",
     "dossier": "/og/dossier.png",
+    "bijlage": "/og/wet.png",
+    "zaak": "/og/dossier.png",
 }
 NOT_FOUND = Page(
     title="Niet gevonden",
@@ -113,13 +116,14 @@ def _app_page(path: str) -> Page | None:
 
 def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
     """The page of a source: its content where its kind has one (``PAGES``), else its
-    name as the API gives it."""
+    name as the API gives it; with its node (``focus``)."""
     build = PAGES.get(pad.soort)
     if build is not None:
         row = seo.READS[pad.soort](store, node_id)
         if row is not None:
             page = build(row)
             page.image = IMAGES.get(pad.soort, page.image)
+            page.focus = node_id
             return page
     props: dict[str, Any] = lookup.answer(store, node_id).get("props") or {}
     name = str(props.get("display_name") or "")
@@ -128,6 +132,7 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         description=cut(name, 155),
         path=pad_href(pad),
         index=bool(name) and not props.get("stub"),
+        focus=node_id,
     )
 
 

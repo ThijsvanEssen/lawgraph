@@ -7,7 +7,9 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 
 - ``wetten``: every law with a BWB id that is no stub;
 - ``artikelen``: the articles in force of the 150 laws whose articles are cited most;
+- ``bijlagen``: the annexes of the laws listed, with a label and something to read;
 - ``moties``, ``amendementen``: those with a decision since 2018;
+- ``zaken``: the zaken but motions and amendments with a decision since 2018;
 - ``dossiers``: every dossier;
 - ``leden``: the members who sat in a chamber or held a post in a cabinet;
 - ``fracties``, ``kabinetten``, ``commissies``: every one (a committee with a slug);
@@ -56,8 +58,10 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
     return {
         "wetten": entries(queries.laws(store)),
         "artikelen": entries(queries.articles(store)),
+        "bijlagen": entries(queries.annexes(store)),
         "moties": entries(queries.decided_papers(store, "Motie")),
         "amendementen": entries(queries.decided_papers(store, "Amendement")),
+        "zaken": entries(queries.decided_cases(store)),
         "dossiers": entries(queries.dossiers(store)),
         "leden": entries(queries.members(store)),
         "fracties": entries(queries.factions(store)),

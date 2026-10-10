@@ -8,7 +8,7 @@ import itertools
 import json
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -942,19 +942,38 @@ class _Sections:
         self.entries: list[dict[str, Any]] = []  # named once all are read (_name)
         self._kop = kop  # the elements read into the kop
 
-    def add(self, kind: str, number: str | None, text: str) -> None:
+    def add(
+        self,
+        kind: str,
+        number: str | None,
+        text: str,
+        source: Sequence[ET.Element] = (),
+    ) -> None:
+        """One paragraph; *source* the elements it is read from, whose footnote references
+        it keeps (``_REFS``)."""
         # "6.16." as a list prints it: the number is 6.16
         number = number.rstrip(".") if number else number
         if not text and not number:
             return
         if number and not _slug(number):
             number = None
-        self.entries.append({"number": number, "kind": kind, "text": text})
+        entry: dict[str, Any] = {"number": number, "kind": kind, "text": text}
+        refs = [
+            linkend
+            for element in source
+            for ref in iter_named(element, "footnote-ref")
+            if (linkend := ref.get("linkend"))
+        ]
+        if refs:
+            entry[_REFS] = refs
+        self.entries.append(entry)
 
-    def unnumbered(self, kind: str, text: str) -> None:
+    def unnumbered(
+        self, kind: str, text: str, source: Sequence[ET.Element] = ()
+    ) -> None:
         """A paragraph that may open with its number."""
         number, rest = _split_number(text)
-        self.add(kind, number, rest)
+        self.add(kind, number, rest, source)
 
     def walk(self, container: ET.Element, depth: int = 0) -> None:
         """Every child of an ``<uitspraak>``, a ``<section>`` or a ``<paragroup>``."""
@@ -971,18 +990,18 @@ class _Sections:
                 self.walk(child, depth)
             elif name == "bridgehead":
                 text = _flat(child)
-                self.add(_heading_kind(depth, text), None, text)
+                self.add(_heading_kind(depth, text), None, text, [child])
             elif _is_numbered_list(child):
                 self.numbered_list(child)
             elif name not in _NOT_TEXT:  # para, al and any other body element
                 text = _unit_text(child, self._kop)
                 if _may_be_heading(child, text):
-                    self.add(KIND_BODY, None, text)
+                    self.add(KIND_BODY, None, text, [child])
                     self.entries[-1][_CANDIDATE] = (
                         KIND_HEADING if depth == 0 else KIND_SUBHEADING
                     )
                 else:
-                    self.unnumbered(KIND_BODY, text)
+                    self.unnumbered(KIND_BODY, text, [child])
 
     def numbered_list(self, items: ET.Element) -> None:
         """A numbered list that stands on its own: each item a paragraph, its place in the
@@ -992,7 +1011,7 @@ class _Sections:
             if local_name(item.tag) != "listitem":
                 continue
             place += 1
-            self.add(KIND_BODY, str(place), _unit_text(item, self._kop))
+            self.add(KIND_BODY, str(place), _unit_text(item, self._kop), [item])
 
     def section(self, section: ET.Element, depth: int) -> None:
         title = next((c for c in section if local_name(c.tag) == "title"), None)
@@ -1003,7 +1022,10 @@ class _Sections:
                 text = text[len(number) :].strip()
             kind = _heading_kind(depth, text) if number is None else None
             self.add(
-                kind or (KIND_HEADING if depth == 0 else KIND_SUBHEADING), number, text
+                kind or (KIND_HEADING if depth == 0 else KIND_SUBHEADING),
+                number,
+                text,
+                [title],
             )
         self.walk(section, depth + 1)
 
@@ -1033,11 +1055,21 @@ class _Sections:
         own.clear()
         heading = None
         if len(texts) > 1 and _is_heading_line(texts[-1][0]):
-            heading = texts.pop()[1]
+            heading = texts.pop()
         if texts:
-            self.add(KIND_BODY, number, "\n\n".join(text for _, text in texts))
+            self.add(
+                KIND_BODY,
+                number,
+                "\n\n".join(text for _, text in texts),
+                [child for child, _ in texts],
+            )
         if heading:
-            self.add(KIND_HEADING if depth == 0 else KIND_SUBHEADING, None, heading)
+            self.add(
+                KIND_HEADING if depth == 0 else KIND_SUBHEADING,
+                None,
+                heading[1],
+                [heading[0]],
+            )
 
 
 # A heading a numbered unit ends with is no longer than this.
@@ -1075,6 +1107,8 @@ def _heading_kind(depth: int, text: str) -> str:
 # amount, no page of the case file ("Dossierpagina 100037"), no initials of a name
 # ("J.C. Kranenburg" under a judgment).
 _CANDIDATE = "_heading"
+# The footnotes a paragraph refers to (``<footnote-ref linkend>``), until they are named.
+_REFS = "_footnotes"
 _NOT_IN_A_HEADING = re.compile(
     r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
     r"|\b(?:[A-Z]{1,2}|IJ|Th|Chr|Ph)\.(?:[A-Z]{1,2}\.)*\s",
@@ -1299,9 +1333,19 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     that repeats one before it gets ``_<n>``, its occurrence (``rov-1_2``: the judgments of
     some courts number their procedure and their considerations from 1 each).
     """
+    return judgment_text(root)[0]
+
+
+def judgment_text(
+    root: ET.Element,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(paragraphs, footnotes)`` of the first ``<uitspraak>`` (or ``<conclusie>``): the
+    paragraphs as ``extract_sections`` gives them, and its footnotes, which are no
+    paragraph: ``{label, paragraph_id, text}`` each, in their order, ``paragraph_id`` the
+    paragraph whose ``<footnote-ref>`` points to it (the first), null when none does."""
     uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:
-        return []
+        return [], []
     lines, kop = _read_kop(uitspraak)
     sections = _Sections(kop)
     sections.add(KIND_SUBHEADING, None, "\n\n".join(lines))
@@ -1310,7 +1354,22 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     _mark_toc(sections.entries)
     _unquote_headings(sections.entries)
     _mark_signature(sections.entries)
-    return _name(sections.entries)
+    refs = [entry.pop(_REFS, []) for entry in sections.entries]
+    paragraphs = _name(sections.entries)
+    referred: dict[str, str] = {}
+    for paragraph, ids in zip(paragraphs, refs, strict=True):
+        for footnote_id in ids:
+            referred.setdefault(footnote_id, paragraph["id"])
+    footnotes = [
+        {
+            "label": note.get("label"),
+            "paragraph_id": referred.get(note.get("id") or ""),
+            "text": text,
+        }
+        for note in iter_named(uitspraak, "footnote")
+        if (text := collapse_ws(text_of(note, " ")))
+    ]
+    return paragraphs, footnotes
 
 
 # ── Atom index pages ─────────────────────────────────────────────────────────

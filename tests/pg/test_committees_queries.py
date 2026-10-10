@@ -689,6 +689,7 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
             "party": "D66",
             "faction_key": "d66",
             "vote_source": "faction",
+            "in_office": [],
         }
     )
     # their own vote carries the party they sit for now; a faction's that of the day
@@ -696,6 +697,62 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
     assert votes[2]["external_id"] == "b1" and type(votes[2]["seats"]) is int
     assert len(get_member_votes(store, "members/m1", limit=2)) == 2
     assert get_member_votes(store, "members/nobody") == []
+
+
+def test_a_vote_cast_in_office_names_the_posts_held_that_day(store: GraphStore) -> None:
+    """A Kamerlid who is also a (demissionary) bewindspersoon: each vote names the posts
+    of ``government_functions`` held on its date, both days included; none outside."""
+    g = Graph(store)
+    klimaat = {
+        "function": "Minister voor Klimaat en Energie",
+        "cabinet_key": "rutte_iv",
+        "cabinet": "kabinet-Rutte IV",
+        "from_date": "2022-01-10",
+        "to_date": "2024-07-02",
+    }
+    vice = {
+        **klimaat,
+        "function": "viceminister-president",
+        "from_date": "2024-01-12",
+    }
+    g.node(
+        "members",
+        "m1",
+        name="Rob",
+        party="D66",
+        faction_memberships=[{**D66, "from_date": "2023-12-06"}],
+        government_functions=[vice, klimaat],
+    )
+    g.node("factions", "d66", name="D66")
+    for key, date in (
+        ("v1", "2024-01-11"),
+        ("v2", "2024-01-12"),
+        ("v3", "2024-07-02"),
+        ("v4", "2024-07-03"),
+    ):
+        g.node("decisions", key, date=date)
+        g.edge("factions/d66", RELATION_VOTED, f"decisions/{key}", choice="Voor")
+    g.node("decisions", "r1", date="2024-03-01", vote_kind=VOTE_KIND_MEMBER)
+    g.edge("members/m1", RELATION_VOTED, "decisions/r1", choice="Tegen", seats=1)
+    g.write()
+
+    def posts(vote: dict[str, Any]) -> list[str]:
+        return [p["function"] for p in vote["in_office"]]
+
+    votes = {v["decision_key"]: v for v in get_member_votes(store, "members/m1")}
+    assert posts(votes["v4"]) == []
+    # the oldest post first
+    assert posts(votes["v3"]) == [klimaat["function"], vice["function"]]
+    assert posts(votes["r1"]) == [klimaat["function"], vice["function"]]
+    assert posts(votes["v2"]) == [klimaat["function"], vice["function"]]
+    assert posts(votes["v1"]) == [klimaat["function"]]
+    assert votes["v1"]["in_office"] == [
+        {
+            "function": "Minister voor Klimaat en Energie",
+            "cabinet_key": "rutte_iv",
+            "cabinet": "kabinet-Rutte IV",
+        }
+    ]
 
 
 # The statement of ``get_member_votes`` before it read the newest votes of a period first:
@@ -808,6 +865,8 @@ def test_the_newest_votes_are_those_of_every_vote(
     monkeypatch.setattr(committee_queries, "VOTE_CANDIDATES", candidates)
     for limit in (1, 7, 50, 100):
         new = get_member_votes(store, "members/m1", limit=limit)
+        # the posts held that day came later (a member without any here)
+        assert all(v.pop("in_office") == [] for v in new)
         assert new == _old_member_votes(store, "members/m1", limit), limit
         assert len(new) == limit
     # the roll-calls are the member's own, never the faction's

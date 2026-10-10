@@ -10,7 +10,8 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.cabinets import (
     cabinets_with_posts,
     get_cabinet,
@@ -312,6 +313,68 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
         ("m1", 1, 0),
     ]
     assert get_cabinet(government, "nope") is None
+
+
+def test_what_its_members_signed_read_light_is_the_same(
+    government: GraphStore,
+) -> None:
+    """Once ``lg_authored`` is filled, the counts of the members read a range of its index
+    per member instead of walking every paper they signed and its cases: the same answer,
+    the paper counted directly and through its case, the dossier that is gone, the period
+    of each cabinet."""
+    walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    version_cache.clear()
+    # the triggers kept every signature as it was written; the fill notes it is whole
+    member_authored.fill_authored(government)
+    assert member_authored.is_filled(government)
+
+    light = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+
+    assert json.dumps(light) == json.dumps(walked)
+    # and it is what is read: a paper kept with another dossier counts that one
+    government.execute(
+        "UPDATE lg_authored SET dossiers = ARRAY['dossiers/elsewhere']"
+        " WHERE member_id = 'members/m1'"
+    )
+    version_cache.clear()
+    jetten = get_cabinet(government, "jetten")
+    assert jetten is not None
+    (heinen,) = [m for m in jetten["members"] if m["member"]["key"] == "m1"]
+    assert (heinen["dossiers"], heinen["bills"]) == (1, 0)
+
+
+def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -> None:
+    """A bewindspersoon's AUTHORED edge to a case (most of an old minister's signatures)
+    counts its dossier when the case's own date falls within the cabinet, walked and read
+    light the same."""
+    government.bulk_insert_or_update_nodes(
+        "cases", [_node("c2", date="2026-03-05"), _node("c3", date="2020-01-01")]
+    )
+    government.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "a7", "members/m4", "cases/c2", "AUTHORED", capacity="bewindspersoon"
+            ),
+            _edge(
+                "a8", "members/m4", "cases/c3", "AUTHORED", capacity="bewindspersoon"
+            ),
+            _edge("p9", "cases/c2", "dossiers/d4", "PART_OF"),
+            _edge("p10", "cases/c3", "dossiers/d1", "PART_OF"),
+        ]
+    )
+
+    def dirk() -> tuple[int, int]:
+        version_cache.clear()
+        jetten = get_cabinet(government, "jetten")
+        assert jetten is not None
+        (m4,) = [m for m in jetten["members"] if m["member"]["key"] == "m4"]
+        return m4["dossiers"], m4["bills"]
+
+    # d4 through the case of 2026; the case of 2020 is before jetten
+    assert dirk() == (1, 1)
+    member_authored.fill_authored(government)
+    assert member_authored.is_filled(government)
+    assert dirk() == (1, 1)
 
 
 def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:

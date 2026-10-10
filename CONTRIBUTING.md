@@ -30,9 +30,11 @@ docker compose -f docker-compose.test.yml down
 `src/lawgraph`, so a statement it rejects fails there instead of in a real run. What `seed.py`
 can build, and at which scale: `docs/operations.md`, "Tests and CI".
 
-CI runs the unit suite and mypy on Python 3.11 and 3.14 for every push. For a pull request,
-and on `develop` and `main`, it also runs `tests/pg` and `tests/integration` against
-PostgreSQL 18. Fix every finding before you push.
+CI runs on every pull request and on a push to `develop` or `main`, not on a push to another
+branch: the unit suite and mypy on Python 3.11 and 3.14, and `tests/pg` and `tests/integration`
+against PostgreSQL 18. The release pull request (`main-X.Y.Z` into `main`) and its merge to
+`main` hold the files of a develop commit that already passed, so they check that run instead
+(`.github/scripts/tested-on-develop.sh`). Fix every finding before you push.
 
 When a real run shows a problem the unit suite could not catch, first reproduce it as a failing
 integration test on the test server, then fix it. Small data on a small server fails the way the

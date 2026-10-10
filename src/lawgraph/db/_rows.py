@@ -201,7 +201,17 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "dossier_numbers",
     ),
     "commitments": ("kind", "agenda_title", "title", "text", "actors", "number"),
-    "cases": ("kind", "agenda_title", "title", "text", "actors"),
+    "cases": ("kind", "agenda_title", "title", "text", "actors", "number"),
+    # its label and title name an annex (``Bijlage II``) and give its readable address
+    "annexes": ("bwb_id", "label", "title"),
+    # the law's citation title names a version (``CANVAS_VERSION_LAW``)
+    "instrument_versions": (
+        "bwb_id",
+        "valid_from",
+        "valid_until",
+        "current",
+        "instrument_citation_title",
+    ),
     "decisions": (
         "subject",
         "title",
@@ -234,13 +244,32 @@ CANVAS_EDGE_META = (
 )
 
 
+# The citation title of the law of an instrument version, which its props do not hold: from
+# the columns of ``instruments`` (its unique ``bwb_id``) and ``lg_instrument_names``, not
+# the props of the law.
+CANVAS_VERSION_LAW = "instrument_citation_title"
+
+
+def _version_law(alias: str) -> str:
+    """SQL: a row (key, value, n) with the citation title of the law of the instrument
+    version *alias*, after its own props; none for a node of another collection."""
+    return f"""SELECT '{CANVAS_VERSION_LAW}', to_json(coalesce(
+                   nullif(i.citation_title, ''), nullif(t.title, ''))), 1000000::bigint
+        FROM instruments i
+        LEFT JOIN lg_instrument_names t ON t.id = i.id
+        WHERE {alias}.collection = 'instrument_versions'
+          AND i.bwb_id = lg_str({alias}.props -> 'bwb_id')
+          AND coalesce(nullif(i.citation_title, ''), nullif(t.title, '')) IS NOT NULL"""
+
+
 def _text_array(values: tuple[str, ...]) -> str:
     return "ARRAY[" + ", ".join(f"'{v}'" for v in values) + "]::text[]"
 
 
 def canvas_props(alias: str) -> str:
     """SQL: of the row *alias* of the view ``nodes``, the props of ``light_props`` the canvas
-    reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction."""
+    reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction; of
+    an instrument version the citation title of its law."""
     cases = " ".join(
         f"WHEN '{collection}' THEN {_text_array(CANVAS_PROPS_EVERY + keys)}"
         for collection, keys in CANVAS_PROPS.items()
@@ -256,9 +285,13 @@ def canvas_props(alias: str) -> str:
                  ELSE p.value END
             ORDER BY p.n), '{{}}'::json)
         FROM (SELECT {light_props(alias)} AS v) AS light
-        CROSS JOIN LATERAL json_each(
-            CASE WHEN json_typeof(light.v) = 'object' THEN light.v END
-        ) WITH ORDINALITY AS p(key, value, n)
+        CROSS JOIN LATERAL (
+            SELECT * FROM json_each(
+                CASE WHEN json_typeof(light.v) = 'object' THEN light.v END
+            ) WITH ORDINALITY
+            UNION ALL
+            {_version_law(alias)}
+        ) AS p(key, value, n)
         WHERE p.key = ANY({keys}))"""
 
 

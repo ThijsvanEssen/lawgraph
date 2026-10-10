@@ -775,6 +775,23 @@ _LIGHT_CANDIDATES = f"""
     ),
 """
 
+# The posts of the member's ``government_functions`` held on the day ``d.date`` of a vote,
+# oldest first: a Kamerlid who is also a (demissionary) bewindspersoon; read from the
+# member's own props, no other table.
+_IN_OFFICE = f"""(
+    SELECT coalesce(json_agg(json_build_object(
+               'function', g.post -> 'function',
+               'cabinet_key', g.post -> 'cabinet_key',
+               'cabinet', g.post -> 'cabinet'
+           ) ORDER BY lg_str(g.post -> 'from_date') ASC NULLS FIRST, g.n ASC), '[]'::json)
+    FROM member
+    CROSS JOIN LATERAL json_array_elements(
+        {_array("member.props -> 'government_functions'")}
+    ) WITH ORDINALITY AS g(post, n)
+    WHERE ({_is_null("g.post -> 'from_date'")} OR lg_str(g.post -> 'from_date') <= d.date)
+      AND ({_is_null("g.post -> 'to_date'")} OR lg_str(g.post -> 'to_date') >= d.date)
+)"""
+
 _MEMBER_VOTES_TEMPLATE = f"""
     WITH member AS (
         SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
@@ -848,7 +865,8 @@ _MEMBER_VOTES_TEMPLATE = f"""
                 'seats', page.meta -> 'seats',
                 'party', page.party,
                 'faction_key', page.faction_key,
-                'vote_source', page.vote_source
+                'vote_source', page.vote_source,
+                'in_office', {_IN_OFFICE}
             ) ORDER BY page.date DESC NULLS LAST, page.key ASC,
                        page.faction_order ASC NULLS FIRST)
             FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id

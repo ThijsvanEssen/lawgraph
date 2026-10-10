@@ -428,6 +428,16 @@ def _slice_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _record_slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every stored judgment record in slices."""
+    parser.add_argument(
+        "--after", help="Start past this record key: the next slice of a run over all."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many judgments (a slice)."
+    )
+
+
 def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return {"after": args.after, "limit": args.limit}
 
@@ -717,8 +727,15 @@ NORMALIZE: list[Pipeline] = [
         after=("tk-dossiers",),  # it writes on the documents
     ),
     _pipeline(
-        RechtspraakNormalizePipeline,
-        "Judgment nodes from the stored judgment XML (court, date, summary, text, related ECLIs).",
+        PipelineCommand(
+            RechtspraakNormalizePipeline,
+            "Judgment nodes from the stored judgment XML (court, date, summary, text, "
+            "footnotes, related ECLIs).",
+            add_args=_record_slice_add_args,
+            make_extra_kwargs=_slice_kwargs,
+        ),
+        "Judgment nodes from the stored judgment XML (court, date, summary, text, "
+        "footnotes, related ECLIs).",
     ),
     _pipeline(
         EurlexNormalizePipeline,

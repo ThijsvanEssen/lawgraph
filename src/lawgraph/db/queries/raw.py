@@ -59,16 +59,27 @@ def iter_raw_records(
     since_iso: str | None,
     batch_size: int,
     chronological: bool = False,
+    after: str | None = None,
+    limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     """The records of *kinds*, those fetched at or after *since_iso* when it is given;
-    *chronological*: the toestanden of each law in the order of their start."""
+    *chronological*: the toestanden of each law in the order of their start. A slice (in
+    key order): past the record key *after*, *limit* of them."""
+    past = "AND key > %(after)s" if after else ""
     rows = store.query(
         f"""
         SELECT key, doc FROM raw_sources
-        WHERE source = %(source)s AND kind = ANY(%(kinds)s) AND {_SINCE}
+        WHERE source = %(source)s AND kind = ANY(%(kinds)s) AND {_SINCE} {past}
         {_CHRONOLOGICAL if chronological else _ORDER}
+        LIMIT %(limit)s
         """,
-        {"source": source, "kinds": kinds, "since": since_iso},
+        {
+            "source": source,
+            "kinds": kinds,
+            "since": since_iso,
+            "after": after,
+            "limit": limit,
+        },
         batch_size=batch_size,
     )
     return _records(rows)

@@ -109,6 +109,26 @@ def test_get_judgment_detail_names_its_series(monkeypatch):
     assert [j["ecli"] for j in payload["series"]] == ["ECLI:NL:HR:2020:122"]
 
 
+def test_the_detail_names_its_conclusions(monkeypatch):
+    """``conclusions``: the conclusion by its A-G and date, as its light node names it."""
+    conclusion = {
+        "ecli": "ECLI:NL:PHR:2019:887",
+        "author": "Langemeijer en Wissink",
+        "role": "procureur-generaal",
+        "date": "2019-09-13",
+    }
+    monkeypatch.setattr(
+        "lawgraph.api.routes.judgments.get_judgment_with_relations",
+        lambda store, ecli: JudgmentDetailData(
+            judgment=_JUDGMENT_DOC, articles=[], conclusions=[conclusion]
+        ),
+    )
+
+    payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
+
+    assert payload["conclusions"] == [conclusion]
+
+
 # ── the passages of the judgment that cite an article ───────────────────────
 
 _MENTIONS = [
