@@ -16,10 +16,12 @@ place of the old one, or (``since``) those dated from a day on, in place.
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 from typing import Any
 
 import psycopg
 
+from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import FEED_KINDS
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
@@ -117,6 +119,82 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 """
 
 
+# The chains of the amendments, as the front end's timetable of a dossier draws them
+# (``dienstregeling``, ``kiesBesluit`` in lawgraph-explorer): written again whole with the
+# events.
+# - an amendment is a paper whose case is one (``case_kinds`` holds ``Amendement``);
+# - a paper REVISES the one it replaces; a chain ends at a paper no other replaces, and
+#   holds every paper that one replaces, the papers it replaced, and so on: chains that
+#   meet in one last paper are one amendment (merged);
+# - its day is that of its oldest paper (by date, then number);
+# - its outcome that of its last paper: of its cases in their order the first with a
+#   decision that singles it out (``primary_case_id``), of those the latest with an outcome
+#   (``passed``), else the latest; ``aangenomen``, ``verworpen``, else ``other``
+#   (withdrawn, held, postponed, lapsed, not voted yet).
+CHAINS = """
+WITH RECURSIVE papers AS (
+    SELECT l.id, lg_str(l.props -> 'date') AS date, lg_num(l.props -> 'sequence') AS number
+    FROM lg_document_light l
+    WHERE json_typeof(l.props -> 'case_kinds') = 'array'
+      AND EXISTS (SELECT 1 FROM json_array_elements_text(l.props -> 'case_kinds') k
+                  WHERE k = 'Amendement')
+),
+revises AS (
+    SELECT DISTINCT e.from_id AS newer, e.to_id AS older
+    FROM edges e
+    JOIN papers n ON n.id = e.from_id
+    JOIN papers o ON o.id = e.to_id
+    WHERE e.relation = %(revises)s
+),
+chain (chain_id, paper_id) AS (
+    SELECT p.id, p.id FROM papers p
+    WHERE NOT EXISTS (SELECT 1 FROM revises r WHERE r.older = p.id)
+    UNION
+    SELECT c.chain_id, r.older FROM chain c JOIN revises r ON r.newer = c.paper_id
+),
+first AS (
+    SELECT c.chain_id,
+           (array_agg(p.date ORDER BY p.date ASC NULLS LAST, p.number ASC NULLS LAST))[1]
+               AS first_date
+    FROM chain c JOIN papers p ON p.id = c.paper_id
+    GROUP BY c.chain_id
+),
+chosen AS (
+    SELECT DISTINCT ON (lg_str(d.props -> 'primary_case_id'))
+           lg_str(d.props -> 'primary_case_id') AS case_id, d.passed
+    FROM decisions d
+    WHERE lg_str(d.props -> 'primary_case_id') IS NOT NULL
+    ORDER BY lg_str(d.props -> 'primary_case_id') ASC NULLS LAST,
+             (d.passed IS NOT NULL) DESC, d.date DESC NULLS LAST, d.key DESC
+),
+outcome AS (
+    SELECT DISTINCT ON (f.chain_id) f.chain_id,
+           CASE ch.passed WHEN true THEN 'aangenomen' WHEN false THEN 'verworpen'
+                ELSE 'other' END AS outcome
+    FROM first f
+    JOIN documents doc ON doc.id = f.chain_id
+    CROSS JOIN LATERAL json_array_elements_text(
+        CASE WHEN json_typeof(doc.props -> 'case_ids') = 'array'
+             THEN doc.props -> 'case_ids' ELSE '[]' END) WITH ORDINALITY AS k(case_id, n)
+    JOIN chosen ch ON ch.case_id = k.case_id
+    ORDER BY f.chain_id ASC NULLS LAST, k.n ASC
+)
+INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)
+SELECT c.chain_id, c.paper_id, f.first_date, coalesce(o.outcome, 'other')
+FROM chain c
+JOIN first f ON f.chain_id = c.chain_id
+LEFT JOIN outcome o ON o.chain_id = c.chain_id
+"""
+
+
+def _write_chains(conn: psycopg.Connection) -> int:
+    """Write the chains of the amendments again, whole."""
+    conn.execute("DELETE FROM lg_amendment_chains")
+    written = _execute(conn, CHAINS, {"revises": RELATION_REVISES})
+    conn.execute("ANALYZE lg_amendment_chains")
+    return written
+
+
 def write_all(store: GraphStore) -> int:
     """Write every event into a new table with its indexes, which then takes the place of
     the old one in one transaction: a reader sees the old rows or the new, never none."""
@@ -132,6 +210,7 @@ def write_all(store: GraphStore) -> int:
         for name in FEED_EVENTS_INDEXES:
             conn.execute(f"ALTER INDEX {name}_new RENAME TO {name}")
         conn.execute(f"ANALYZE {FEED_EVENTS_TABLE}")
+        _write_chains(conn)
         conn.execute(_STATE, {"since": None})
     return written
 
@@ -144,6 +223,7 @@ def write_since(store: GraphStore, since: str) -> int:
             f"DELETE FROM {FEED_EVENTS_TABLE} WHERE date >= %(since)s", {"since": since}
         )
         written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
+        _write_chains(conn)
         conn.execute(_STATE, {"since": since})
     return written
 
@@ -340,20 +420,79 @@ def get_periods(store: GraphStore, filters: FeedFilters, per: str) -> dict[str, 
 
 
 def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, Any]]:
-    statement, bind = periods_query(filters, per, word_queries(store, filters))
+    queries = word_queries(store, filters)
+    statement, bind = periods_query(filters, per, queries)
     rows = list(store.query(statement, bind))
     by_period: dict[str, dict[str, int]] = {}
     for row in rows:
         by_period.setdefault(row["period"], {})[row["kind"]] = row["n"]
+    chains = (
+        _count_chains(store, filters, per, queries)
+        if not filters.kinds or AMENDMENT in filters.kinds
+        else None
+    )
     order = {kind: n for n, kind in enumerate(FEED_KINDS)}
+    periods = sorted(set(by_period) | set(chains or {}))
     return [
         {
             "period": period,
-            "total": sum(counts.values()),
-            "counts": dict(sorted(counts.items(), key=lambda kv: order.get(kv[0], 99))),
+            "total": sum(by_period.get(period, {}).values()),
+            "counts": dict(
+                sorted(
+                    by_period.get(period, {}).items(),
+                    key=lambda kv: order.get(kv[0], 99),
+                )
+            ),
+            **(
+                {"amendment_chains": chains.get(period) or _no_chains()}
+                if chains is not None
+                else {}
+            ),
         }
-        for period, counts in by_period.items()
+        for period in periods
     ]
+
+
+# The kind of event of an amendment (``core.feed``): its chains are counted beside it.
+AMENDMENT = "Amendement"
+OUTCOMES = ("aangenomen", "verworpen", "other")
+
+
+def _no_chains() -> dict[str, int]:
+    return {"count": 0, **dict.fromkeys(OUTCOMES, 0)}
+
+
+def _count_chains(
+    store: GraphStore, filters: FeedFilters, per: str, queries: list[str | None]
+) -> dict[str, dict[str, int]]:
+    """Per period the chains of the amendments (``lg_amendment_chains``) of which any paper
+    is an event under *filters* (of whatever day), each once, in the period of its first
+    paper and by its outcome."""
+    ctes, where, bind = _matching(
+        replace(filters, kinds=(AMENDMENT,), since=None, until=None), queries
+    )
+    bind["since"] = filters.since or "0"
+    period = _period(per).replace("e.date", "c.first_date")
+    days = ["c.first_date >= %(since)s"]
+    if filters.until:
+        days.append("c.first_date <= %(until)s")
+        bind["until"] = filters.until
+    condition = " AND ".join(f"({clause})" for clause in where)
+    rows = store.query(
+        f"""{ctes}
+        SELECT {period} AS period, c.outcome, count(DISTINCT c.chain_id)::int AS n
+        FROM lg_amendment_chains c
+        WHERE c.paper_id IN (SELECT e.id FROM {FEED_EVENTS_TABLE} e WHERE {condition})
+          AND {" AND ".join(days)}
+        GROUP BY 1, 2""",
+        bind,
+    )
+    found: dict[str, dict[str, int]] = {}
+    for row in rows:
+        counts = found.setdefault(row["period"], _no_chains())
+        counts[row["outcome"]] += row["n"]
+        counts["count"] += row["n"]
+    return found
 
 
 def unsupported(filters: FeedFilters) -> list[str]:

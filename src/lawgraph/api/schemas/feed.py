@@ -793,6 +793,20 @@ def atom_feed(
     return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
 
 
+class AmendmentChainsDTO(BaseModel):
+    """The amendments of a period as the Kamer handles them: each chain of papers that
+    replace each other once, by its outcome."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int
+    aangenomen: int = 0
+    verworpen: int = 0
+    other: int = Field(
+        0, description="Withdrawn, held, postponed, lapsed, or not voted yet."
+    )
+
+
 class FeedPeriodDTO(BaseModel):
     """The events of one month or day."""
 
@@ -803,6 +817,13 @@ class FeedPeriodDTO(BaseModel):
     counts: dict[str, int] = Field(
         default_factory=dict,
         description="Per kind of event (as ``kind`` of ``GET /api/feed``), those it has.",
+    )
+    amendment_chains: AmendmentChainsDTO | None = Field(
+        None,
+        description="The chains of amendment papers (REVISES) of which any paper is an "
+        "event under the filters, each once in the period of its first paper, by the "
+        "outcome of its last (the latest decision with an outcome on its case, else the "
+        "latest); null when ``kind`` leaves the amendments out.",
     )
 
 
