@@ -14,6 +14,8 @@ from lawgraph.api.schemas.articles import (
     ArticleExplanationsResponse,
     ArticleHistoryResponse,
     ArticleLegislativeHistoryResponse,
+    ArticlePassagesDTO,
+    ArticlePassagesResponse,
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
@@ -36,6 +38,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
     get_article_cited_by,
+    get_article_explanation_passages,
     get_article_explanations,
     get_article_history,
     get_article_legislative_history,
@@ -336,6 +339,37 @@ def get_explained_by(
         article_id=article_id,
         total=page["total"],
         items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/explanations",
+    response_model=ArticlePassagesResponse,
+    summary="Passages that explain an article",
+    description=(
+        "The papers that explain this article in a passage, each with the text of "
+        "its passages: the sections `semantic tk-mvt-articles` linked to the article "
+        "or to one of its versions (of `scope` `article` in `explained-by`). Per "
+        "paper the version it explains; the newest version first, the article itself "
+        "(no version) last; of one version the memoranda before the amendments. A "
+        "section is listed once, with its surest match, in the order of the paper. "
+        "An explanation of a whole dossier has no passage and is not listed "
+        "(`explained-by` lists it). Empty for an unknown article — never a 404."
+    ),
+    tags=["articles"],
+)
+def get_explanations(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> ArticlePassagesResponse:
+    article_number = native_article_number(bwb_id, article_number)
+    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    rows = get_article_explanation_passages(store, bwb_id, article_number)
+    return ArticlePassagesResponse(
+        article_id=article_id,
+        total=len(rows),
+        items=[ArticlePassagesDTO.from_row(row) for row in rows],
     )
 
 
