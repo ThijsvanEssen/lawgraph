@@ -85,7 +85,7 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ),
     ("db/queries/articles.py", "ds.label"): "filtered on IS NOT NULL",
     ("db/queries/articles.py", "h.edge"): "the key of an edge",
-    ("db/queries/instruments.py", "g.cited_count DESC"): "a count",
+    ("db/queries/instruments.py", "k.cited_count DESC"): "a count",
     ("db/queries/instruments.py", "r.outbound_count + r.inbound_count DESC"): (
         "a sum of counts"
     ),

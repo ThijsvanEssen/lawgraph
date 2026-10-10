@@ -732,6 +732,10 @@ def _seed_publications(store: GraphStore) -> None:
             _node("stb_stb_2024_7", "document", identifier="stb-2024-7",
                   kind="Nota van toelichting", year="2024", number="7",
                   title="Staatsblad 2024/7", text="…"),
+            # normalized before the ``DC.title`` was read: the masthead as its title
+            _node("stb_stb_2026_94", "document", identifier="stb-2026-94",
+                  kind="Nota van toelichting", year="2026", number="94",
+                  title="Staatsblad", text="…"),
             _node("kst_36496_80", "document", kind="Brief regering",
                   dossier_number="36496", sequence=80, date="2026-10-01",
                   subject="Nakoming van de toezegging over AI-toezicht"),
@@ -746,10 +750,16 @@ def _seed_publications(store: GraphStore) -> None:
                status="Openstaand", expected_resolution="0001-01-01",
                member_key="m_jetten", cabinet="jetten")],
     )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        # an article whose key does not start with its law's id: its law read from it
+        [_node("sr_288_oud", "article", bwb_id="BWBR0001854", article_number="288")],
+    )
     store.bulk_insert_or_update_edges(
         [
             _edge("am1", "instruments/stb_2025_263", "articles/bwbr0005289_162",
                   "AMENDS"),
+            _edge("am2", "instruments/stb_2025_263", "articles/sr_288_oud", "REPEALS"),
             _edge("ab1", "commitments/tz_1", "dossiers/36496", "ABOUT"),
             _edge("an1", "documents/kst_36496_80", "commitments/tz_1", "ANSWERS"),
         ]
@@ -771,6 +781,8 @@ def test_a_publication_has_its_title_and_what_it_changes(
     assert page["robots"] is None
     assert 'href="/wetten/BWBR0005289"' in page["main"]
     assert "(wijzigt)" in page["main"]
+    assert 'href="/wetten/BWBR0001854"' in page["main"]
+    assert "(trekt in)" in page["main"]
     assert 'href="/dossiers/36496"' in page["main"]
     assert "zoek.officielebekendmakingen.nl/stb-2025-263" in page["main"]
     assert "Nota van toelichting. Nota" not in response.text  # its text is not read
@@ -784,6 +796,15 @@ def test_a_publication_without_a_title_or_a_change_is_not_indexed(
     page = _head(_get(client, "/stb/2024/7").text)
     assert page["title"] == "Stb. 2024, 7, Concordans"
     assert page["canonical"] == "https://concordans.nl/stb/2024/7"
+    assert page["robots"] == "noindex"
+
+
+def test_the_name_of_the_series_is_no_title_of_its_own(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_publications(store)
+    page = _head(_get(client, "/stb/2026/94").text)
+    assert page["title"] == "Stb. 2026, 94, Concordans"
     assert page["robots"] == "noindex"
 
 
@@ -815,3 +836,61 @@ def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> N
     assert page["robots"] == "noindex"
     assert 'href="/kamerstukken/36496/71"' in page["main"]
     assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
+
+
+def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
+    store: GraphStore,
+) -> None:
+    """The law of an article keyed by it (``bwbr0005289_162``) comes from its key: a code
+    amended in a hundred articles is not a hundred reads of them (Stb. 2026, 94: 0.13 s
+    cold)."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("bwbr0005289", "instrument", bwb_id="BWBR0005289",
+               citation_title="Burgerlijk Wetboek Boek 6"),
+         _node("stb_2026_94", "instrument", kind="publicatie",
+               official_id="stb-2026-94")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node(f"bwbr0005289_{n}", "article", bwb_id="BWBR0005289",
+               article_number=str(n)) for n in range(1, 41)],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge(f"c{n}", "instruments/stb_2026_94", f"articles/bwbr0005289_{n}",
+               "AMENDS") for n in range(1, 41)]
+    )  # fmt: skip
+    seen: list[tuple[str, Any]] = []
+    stream = store._stream
+
+    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
+        seen.append((statement, params))
+        return stream(statement, params, *a, **k)
+
+    store._stream = recorded  # type: ignore[method-assign]
+    try:
+        laws = seo._changed(store, ["instruments/stb_2026_94"])
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    assert [(law["name"], law["relations"]) for law in laws] == [
+        ("Burgerlijk Wetboek Boek 6", ["AMENDS"])
+    ]
+    ((statement, params),) = seen
+    with store.pool.connection() as conn:
+        plan = conn.execute(
+            "EXPLAIN (ANALYZE, FORMAT JSON) " + str(statement), params
+        ).fetchone()[0]
+    ran: list[tuple[str, int]] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("Relation Name") == "articles":
+                ran.append((node["Node Type"], node.get("Actual Loops", 0)))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(plan)
+    assert all(loops == 0 for _, loops in ran), ran

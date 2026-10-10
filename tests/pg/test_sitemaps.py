@@ -226,6 +226,7 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             publication("stb-2025-300", "2025-10-01"),  # changes a regulation
             publication("trb-2024-12", "2024-03-05"),  # changes a regulation
             publication("stb-2025-301", "2025-10-02"),  # neither: no page to find
+            publication("stb-2026-94", "2026-03-01"),  # the masthead as its title
             publication("stb-2017-5", "2017-01-10"),  # before 2018
             publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289", kind="wet"),
@@ -238,6 +239,8 @@ def test_publications_and_commitments(store: GraphStore) -> None:
                   title="Besluit tot wijziging van het Mediabesluit 2008"),
             _node("stb_stb_2025_301", "document", identifier="stb-2025-301",
                   title="Staatsblad 2025/301"),
+            _node("stb_stb_2026_94", "document", identifier="stb-2026-94",
+                  title="Staatsblad"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(

@@ -776,6 +776,14 @@ generated columns `source`, `kind`, `external_id` and `fetched_at` and the index
 `(source, kind, key)` and `(source, fetched_at)`. The view `nodes` unions the node tables for a
 lookup by id.
 
+`lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
+`ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
+with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
+feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it.
+Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
+superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
+when it was written. Not tables of the graph: writing them raises no data version.
+
 `lg_data_version` holds a counter per table of the graph. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. The API's `ETag` is made from these counters
@@ -800,7 +808,7 @@ lists filter and sort on, and for `/api/judgments` one index per filter that hol
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
-publications), the documents newest first, and the member lists in name order. A member by their slug (`members_slug`) and a committee by its slug or its key (`committees_slug`, `committees_lower_key`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
+publications), the documents newest first, and the member lists in name order. The judgments citing a law or an article dated and filtered from an index alone (`judgments_citing`: `id` with `date_eff`, `ecli`, `court_code`, `tier` and `inbound_citation_count`; a row of `judgments` holds its text). A member by their slug (`members_slug`) and a committee by its slug or its key (`committees_slug`, `committees_lower_key`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
 `(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
 with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
 `/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours

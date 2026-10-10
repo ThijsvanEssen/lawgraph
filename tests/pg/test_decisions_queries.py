@@ -231,8 +231,9 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
             "voters": {"Voor": 3, "Tegen": 2},
             # no cabinet in office: no coalition
             "coalition": None,
-            # of the motion it decided on, its dictum: none here
+            # of the motion it decided on, its dictum and its paper: none here
             "dictum": None,
+            "motion": None,
         }
     )
     # an empty chamber is no chamber: the first label of TK and EK; no tally is {}

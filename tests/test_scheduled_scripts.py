@@ -74,6 +74,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_aft
         "retrieve all --since last",
         "normalize all --since last",
         "semantic all --since last",
+        "feed-events",
         "check --skip-edges",
         "search-stats prune",  # the counts of the terms searched, older than a week
         "sitemaps",
@@ -136,7 +137,8 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
 ) -> None:
     done = _run(checkout, "daily.sh", fail_on="normalize all")
     assert done.returncode == 1
-    assert len(_calls(checkout)) == 6  # semantic, check, the prune and sitemaps ran too
+    # semantic, the events of the feed, check, the prune and sitemaps ran too
+    assert len(_calls(checkout)) == 7
     runs = (checkout / "logs" / "runs.log").read_text()
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
 
@@ -158,13 +160,16 @@ def test_a_poll_reaches_back_past_the_poll_before_it(
 ) -> None:
     done = _run(checkout, "poll.sh", args=[chain])
     assert done.returncode == 0, done.stderr
-    assert _calls(checkout) == [f"poll {chain} --since {window}"]
+    assert _calls(checkout) == [
+        f"poll {chain} --since {window}",
+        "feed-events --days 14",
+    ]
     assert "poll.sh: ok" in (checkout / "logs" / "runs.log").read_text()
 
 
 def test_a_poll_takes_another_window_and_refuses_another_chain(checkout: Path) -> None:
     assert _run(checkout, "poll.sh", args=["tk", "90m"]).returncode == 0
-    assert _calls(checkout) == ["poll tk --since 90m"]
+    assert _calls(checkout) == ["poll tk --since 90m", "feed-events --days 14"]
     refused = _run(checkout, "poll.sh", args=["bwb"])
     assert refused.returncode == 2 and "usage" in refused.stderr
     assert not (checkout / "lawgraph-scheduled.lock").exists()
