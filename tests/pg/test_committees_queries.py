@@ -755,6 +755,54 @@ def test_a_vote_cast_in_office_names_the_posts_held_that_day(store: GraphStore) 
     ]
 
 
+def test_the_votes_of_a_member_page_by_offset_and_by_being_in_office(
+    store: GraphStore,
+) -> None:
+    """``offset`` pages the votes (it was ignored: every page was the first), and
+    ``in_office`` keeps the votes cast in office alone, before the page is cut (the
+    explorer counted those of the first 50: "20 stemmen" for Rutte, who has many more)."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    test_a_vote_cast_in_office_names_the_posts_held_that_day(store)
+
+    def keys(**params: Any) -> list[str]:
+        return [
+            v["decision_key"] for v in get_member_votes(store, "members/m1", **params)
+        ]
+
+    # newest first: v4 (out of office), v3, r1 (a roll-call), v2, v1
+    assert keys(limit=2) == ["v4", "v3"]
+    assert keys(limit=2, offset=2) == ["r1", "v2"]
+    assert keys(limit=2, offset=4) == ["v1"]
+    assert keys(limit=3, in_office=True) == ["v3", "r1", "v2"]
+    assert keys(limit=3, offset=3, in_office=True) == ["v1"]
+    # the same from ``lg_faction_votes`` once it is filled (prod reads it)
+    from lawgraph.db.queries.faction_votes import fill_faction_votes, is_filled
+
+    fill_faction_votes(store, every=True)
+    assert is_filled(store)
+    assert keys(limit=2, offset=2) == ["r1", "v2"]
+    assert keys(limit=3, in_office=True) == ["v3", "r1", "v2"]
+    assert keys(limit=3, offset=3, in_office=True) == ["v1"]
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        first = client.get("/api/members/m1/votes", params={"limit": 2}).json()
+        office = client.get(
+            "/api/members/m1/votes",
+            params={"limit": 3, "offset": 3, "in_office": "true"},
+        ).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [v["decision_key"] for v in first["votes"]] == ["v4", "v3"]
+    assert first["next_offset"] == 2
+    assert [v["decision_key"] for v in office["votes"]] == ["v1"]
+    assert office["next_offset"] is None
+
+
 # The statement of ``get_member_votes`` before it read the newest votes of a period first:
 # what it answers must not change.
 _OLD_MEMBER_VOTES = f"""
