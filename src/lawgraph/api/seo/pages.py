@@ -482,7 +482,10 @@ def paper_page(row: dict[str, Any]) -> Page:
         )
         if p
     )
-    dossier_path = path_of(f"dossiers/{dossier_label}") if dossier_label else None
+    # by its label (36600-VIII): the key of a dossier with a suffix is no label
+    dossier_path = (
+        path_of("dossiers/x", {"label": dossier_label}) if dossier_label else None
+    )
     dictum = _text(light.get("dictum"))
     votes = _list([f"Voor: {escape(', '.join(voor))}"] if voor else []) + _list(
         [f"Tegen: {escape(', '.join(tegen))}"] if tegen else []
