@@ -67,7 +67,7 @@ from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
-from lawgraph.db.queries.coalition import coalition_factions, coalition_object
+from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.schema import INSTRUMENT_DOSSIER_NUMBERS, feed_title, search_words
 from lawgraph.db.store import (
     ReadTimedOut,

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
+from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.member_role import has_role
@@ -60,6 +61,17 @@ class MemberVoteDTO(BaseModel):
         description="The posts in a cabinet (``government_functions``) the member held "
         "on ``date``, oldest first: a vote as (demissionary) bewindspersoon and Kamerlid; "
         "empty when none.",
+    )
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="Of the Tweede Kamer: what the coalition of the cabinet in office did, "
+        "as ``GET /api/decisions/{key}`` gives it; null without a cabinet or a coalition "
+        "vote, and of the Eerste Kamer.",
+    )
+    coalition_factions: list[CoalitionFactionDTO] = Field(
+        default_factory=list,
+        description="Each coalition faction that cast a seat, with its choice, most seats "
+        "first (as on the feed); empty where ``coalition`` is null.",
     )
 
 

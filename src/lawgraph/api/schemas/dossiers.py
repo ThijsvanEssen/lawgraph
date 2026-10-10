@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
+from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.documents import (
     _REPLACED_BY,
     _REPLACES,
@@ -294,6 +295,17 @@ class TimelineDecisionBody(BaseModel):
         "a bill itself, ``Amendement`` or ``Motie`` on the others.",
     )
     document: TimelineDocumentSummaryDTO | None = None
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="Of the Tweede Kamer: what the coalition of the cabinet in office did, "
+        "as ``GET /api/decisions/{key}`` gives it; null without a cabinet or a coalition "
+        "vote, and of the Eerste Kamer.",
+    )
+    coalition_factions: list[CoalitionFactionDTO] = Field(
+        default_factory=list,
+        description="Each coalition faction that cast a seat, with its choice, most seats "
+        "first (as on the feed); empty where ``coalition`` is null.",
+    )
 
 
 class TimelineCommitmentBody(BaseModel):
@@ -411,6 +423,8 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
             "external_id": body.get("decision_id"),
             "primary_case_kind": body.get("primary_case_kind"),
             "document": body.get("document"),
+            "coalition": row.get("coalition"),
+            "coalition_factions": row.get("coalition_factions") or [],
         }
     else:
         common["body"] = body
