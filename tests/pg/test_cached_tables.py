@@ -22,7 +22,7 @@ from lawgraph.db import GraphStore, version_cache
 
 # imported before ``kept`` patches the modules that hold ``cached``: run alone, this file
 # would otherwise import the nodes queries only after, unpatched
-from lawgraph.db.queries import _bm25, articles, nodes, seo
+from lawgraph.db.queries import _bm25, articles, instruments, nodes, seo
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import _text
 
@@ -177,8 +177,8 @@ def _caller() -> str:
 def _exercise(store: GraphStore) -> None:
     """Everything that keeps an answer per table: the warm-up, the search counts, the
     lids an article's edges cite, the judgments that cite it on its page, the papers
-    on the page of a member, what a publication changes and the passages that explain
-    an article."""
+    on the page of a member, what a publication changes, the passages that explain
+    an article and the laws a law's articles refer to and are referred to by."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -192,6 +192,7 @@ def _exercise(store: GraphStore) -> None:
         "articles", [_node("bwbr0001_1", bwb_id="BWBR0001", article_number="1")]
     )
     articles.get_article_explanation_passages(store, "BWBR0001", "1")
+    instruments.get_instrument_related_instruments(store, "BWBR0001")
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(

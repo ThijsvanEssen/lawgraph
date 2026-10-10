@@ -1287,3 +1287,64 @@ def test_without_facets_the_page_and_the_total_alone(
     assert without["items"] == with_facets["items"]
     assert without["total"] == with_facets["total"]
     assert without["facets"] is None
+
+
+def test_related_instruments_read_only_the_references_between_articles(
+    store: GraphStore,
+) -> None:
+    """The Awb has hundreds of thousands of citations from judgments into its articles: the
+    references to other laws are read from the edges between articles alone, a range of the
+    covering index by relation and the other end's collection, not every citation probed
+    for an article (7.2 s on prod)."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _doc("f1", "article", bwb_id=BWB),
+            _doc("x1", "article", bwb_id="BWBR0000002"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_doc("bwbr0000002", "instrument", bwb_id="BWBR0000002")]
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge("articles/f1", "articles/x1", "REFERS_TO")]
+        + [_edge(f"judgments/j{n}", "articles/f1", "REFERS_TO") for n in range(300)]
+    )
+    store.vacuum_analyze()  # planned on statistics, as the real tables are
+    seen: list[tuple[Any, Any]] = []
+    stream = store._stream
+
+    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
+        seen.append((statement, params))
+        return stream(statement, params, *a, **k)
+
+    store._stream = recorded  # type: ignore[method-assign]
+    try:
+        items, total = instruments.get_instrument_related_instruments(store, BWB)
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    assert total == 1 and items[0]["outbound_count"] == 1
+    # the statement of the answer, not the read of the data version it is kept under
+    ((statement, params),) = [(s, p) for s, p in seen if "focal" in str(s)]
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        plan = conn.execute(
+            "EXPLAIN (FORMAT JSON) " + str(statement), params
+        ).fetchone()[0]
+    edge_scans: list[dict[str, Any]] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("Relation Name") == "edges":
+                edge_scans.append(node)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(plan)
+    assert edge_scans
+    for scan in edge_scans:
+        condition = scan.get("Index Cond") or ""
+        assert "from_collection" in condition or "to_collection" in condition, scan

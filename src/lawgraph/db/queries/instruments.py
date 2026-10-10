@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
@@ -28,7 +29,7 @@ from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_ti
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
-from lawgraph.db.version_cache import cached_rows, lasting
+from lawgraph.db.version_cache import cached, cached_rows, lasting
 
 # Edges from an amending instrument to the articles it changes.
 _MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
@@ -516,13 +517,26 @@ def get_instrument_amended_by(
 
 def _reference_bucket(identity: str, own: str, other: str) -> str:
     """REFERS_TO edges between an article of the focal instrument (*own* end) and an
-    article outside it (*other* end), counted per *identity* of the other article."""
+    article outside it (*other* end), counted per *identity* of the other article. Only the
+    edges whose other end is an article: a range of the covering index of the own end by
+    relation and the other end's collection (``edges_from_cover``, ``edges_to_cover``), not
+    every citation of the law's articles by a judgment (hundreds of thousands of the Awb's,
+    7.2 s cold on prod) probed for an article."""
+    other_collection = f"{other.split('_')[0]}_collection"
     return f"""
         SELECT {identity} AS b, count(*)::int AS n
-        FROM edges e JOIN articles x ON x.id = e.{other}
-        WHERE e.relation = %(refers_to)s
-          AND e.{own} IN (SELECT id FROM focal)
-          AND e.{other} NOT IN (SELECT id FROM focal)
+        FROM focal f
+        -- per article of the law its own edges: a probe of the covering index by its id,
+        -- the relation and the other end's collection (OFFSET 0 keeps it a probe, never a
+        -- scan of every edge of the relation joined afterwards)
+        CROSS JOIN LATERAL (
+            SELECT e.{other} AS other_id FROM edges e
+            WHERE e.{own} = f.id AND e.relation = %(refers_to)s
+              AND e.{other_collection} = '{COLLECTION_ARTICLES}'
+            OFFSET 0
+        ) e
+        JOIN articles x ON x.id = e.other_id
+        WHERE e.other_id NOT IN (SELECT id FROM focal)
         GROUP BY 1
     """
 
@@ -535,8 +549,20 @@ def get_instrument_related_instruments(
     Returns ``{instrument, outbound_count, inbound_count}`` per related
     instrument, sorted by total reference count descending. The counterpart of a
     BWB regulation is a BWB regulation; the counterpart of an EU act is a BWB
-    regulation or another EU act.
+    regulation or another EU act. Kept per data version of what it reads (a law's
+    Verbonden asks it on every visit).
     """
+    return cached(
+        store,
+        ("related-instruments", identifier, limit),
+        lambda: _related_instruments(store, identifier, limit),
+        tables=(COLLECTION_EDGES, COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS),
+    )
+
+
+def _related_instruments(
+    store: GraphStore, identifier: str, limit: int
+) -> tuple[list[dict[str, Any]], int]:
     scope = scope_of(identifier)
     # The identity of the counterpart article of an edge, and how its instrument is found
     # again: by the indexed bwb_id / celex of the instruments, the first by key.
