@@ -39,8 +39,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # amendments (lg_amendment_chains), and the seats of the Eerste Kamer per term and
     # stretch (lg_ek_terms, lg_ek_seats), and the names of the instruments
     # (lg_instrument_names), and the votes of the factions with when they were filled
-    # (lg_faction_votes, lg_faction_votes_state)
-    assert tables == len(NODE_COLLECTIONS) + 20
+    # (lg_faction_votes, lg_faction_votes_state), and the papers members signed with when
+    # they were filled (lg_authored, lg_authored_state)
+    assert tables == len(NODE_COLLECTIONS) + 22
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:

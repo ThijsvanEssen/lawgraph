@@ -1051,9 +1051,9 @@ def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
     assert get_actor_dossiers(store, "members/nobody") == {"total": 0, "items": []}
 
 
-def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
-    store: GraphStore,
-) -> None:
+def _signatures(store: GraphStore) -> None:
+    """Two members who signed papers and cases of three dossiers (one through a case, one
+    gone from the graph), with roles, functions and capacities empty and missing."""
     g = Graph(store)
     g.node("members", "m1", name="Anna")
     g.node(
@@ -1092,6 +1092,12 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
     g.edge("members/m2", RELATION_AUTHORED, "documents/doc1", role=FIRST)
     g.edge("members/m2", RELATION_AUTHORED, "cases/k2", role=FIRST)
     g.write()
+
+
+def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
+    store: GraphStore,
+) -> None:
+    _signatures(store)
 
     result = get_actor_dossiers(store, "members/m1")
     assert list(result) == ["total", "items"] and result["total"] == 3

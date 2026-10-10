@@ -902,25 +902,9 @@ def _distinct(field: str, condition: str) -> str:
     )
 
 
-def get_actor_dossiers(
-    store: GraphStore,
-    actor_id: str,
-    *,
-    limit: int = 100,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """A page of the dossiers a member or a faction authored documents in.
-
-    Walks member -> ``AUTHORED`` -> document (or case) -> ``PART_OF`` -> dossier, directly
-    or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
-    documents its members signed while they belonged to it (``faction_memberships``, as
-    for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
-    of documents; newest opened first. Returns ``{total, items}``.
-    """
-    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
-    rows = store.query(
-        f"""
-        WITH authored AS ({_FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+# The dossiers of the papers of ``authored`` (``document_id``, ``meta``): directly, or through
+# a case.
+_WALKED_FOUND = f"""
         found AS (
             SELECT ids.dossier_id, a.document_id, a.meta
             FROM authored a
@@ -939,7 +923,44 @@ def get_actor_dossiers(
                   AND p1.to_collection = '{COLLECTION_CASES}'
             ) ids
         ),
-        grouped AS (
+"""
+# The same, of a member, from ``lg_authored``: a range of its index.
+_AUTHORED_FOUND = """
+        found AS (
+            SELECT d.dossier_id, a.document_id, a.meta
+            FROM lg_authored a
+            CROSS JOIN LATERAL unnest(a.dossiers) AS d(dossier_id)
+            WHERE a.member_id = %(actor_id)s
+        ),
+"""
+
+
+def get_actor_dossiers(
+    store: GraphStore,
+    actor_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """A page of the dossiers a member or a faction authored documents in.
+
+    Walks member -> ``AUTHORED`` -> document (or case) -> ``PART_OF`` -> dossier, directly
+    or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
+    documents its members signed while they belonged to it (``faction_memberships``, as
+    for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
+    of documents; newest opened first. Returns ``{total, items}``.
+    """
+    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
+    # a member's papers and their dossiers from ``lg_authored`` once it is filled, else by
+    # the walk over the edges (a faction walks always: its papers count by their dates)
+    from lawgraph.db.queries import member_authored
+
+    light = not is_faction and member_authored.is_filled(store)
+    found = _AUTHORED_FOUND if light else _WALKED_FOUND
+    rows = store.query(
+        f"""
+        WITH authored AS ({"SELECT 1" if light else _FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+{found}        grouped AS (
             SELECT {_NODE.format(t="d")}, d.opened_on,
                    {_distinct("role", "<> ''")} AS roles,
                    {_distinct("function", "<> ''")} AS functions,
