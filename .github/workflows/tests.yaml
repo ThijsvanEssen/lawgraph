@@ -97,19 +97,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: pg-a-f
-            tests: tests/pg/test_[a-f]*.py
-          - shard: pg-g-r+it-k-m
+          - shard: 1
+            tests: tests/pg/test_[abef]*.py
+          - shard: 2
             tests: tests/pg/test_[g-r]*.py tests/integration/test_[k-m]*.py
             dist: loadgroup
-          - shard: pg-s-z+it-n-o-r-v-z
+          - shard: 3
             tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
-          - shard: it-a-c+t
-            tests: tests/integration/test_[a-ct]*.py
-          - shard: it-d-i+p-q
-            tests: tests/integration/test_[d-ip-q]*.py
-          - shard: it-j+s+u
-            tests: tests/integration/test_[jsu]*.py
+          - shard: 4
+            tests: tests/pg/test_c*.py tests/integration/test_[a-cp-qt]*.py
+          - shard: 5
+            tests: tests/integration/test_[d-i]*.py
+          - shard: 6
+            tests: tests/pg/test_d*.py tests/integration/test_[jsu]*.py
 
     env:
       ALLOW_DB_TESTS: '1'
