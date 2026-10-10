@@ -901,3 +901,31 @@ def test_a_capped_neighbourhood_shares_the_cap_among_its_collections(
         "cases": 6,
         "documents": 6,
     }
+
+
+def test_the_first_level_alone_keeps_up_to_2000(store: GraphStore) -> None:
+    """Every direct neighbour of a node (``depth=1``, "alles laden"): past the cap of a
+    deeper walk (1,000), up to 2,000; a deeper walk keeps 1,000 at most."""
+    store.bulk_insert_or_update_nodes("dossiers", [_node("dossiers", "1")[1]])
+    store.execute(
+        "INSERT INTO documents (id, type, props)"
+        " SELECT 'documents/d' || n, 'document', '{}'::json"
+        " FROM generate_series(1, 1200) n"
+    )
+    store.execute(
+        "INSERT INTO edges (key, from_id, to_id, doc)"
+        " SELECT 'p' || n, 'documents/d' || n, 'dossiers/1',"
+        " json_build_object('relation', 'PART_OF', 'status', 'canoniek')"
+        " FROM generate_series(1, 1200) n"
+    )
+    first = node_queries.get_node_neighborhood(
+        store, "dossiers", "1", depth=1, cap=1500
+    )
+    assert len(first["nodes"]) == 1200
+    assert first["buckets"] == [
+        {"collection": "documents", "total": 1200, "kept": 1200}
+    ]
+    deeper = node_queries.get_node_neighborhood(
+        store, "dossiers", "1", depth=2, cap=1500
+    )
+    assert len(deeper["nodes"]) == node_queries.NEIGHBORHOOD_CAP == 1000
