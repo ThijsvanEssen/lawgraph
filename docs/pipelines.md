@@ -271,11 +271,24 @@ are read.
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
 | `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
 | `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names (an enclosing one, or the heading of the article of the bill before it under the same heading: `ARTIKEL II – WETBOEK VAN STRAFRECHT`, or `Artikel II, onderdeel D` through the bill's ARTIKEL II), else of the only law the dossier changes; the dossier changed that article | 0.8 |
+| `amendment` | an adopted amendment (below) changes the article, and its `Toelichting` section is the passage | 0.9 |
 | `bill_part` | the heading names an onderdeel of the bill and no article (`Artikel I, onderdeel B`, `Artikel I, onderdelen C tot en met E`, an `Onderdeel B` under `Artikel I`, an `Artikel III` without onderdelen), and the bill says which article it changes (`core/bill_parts.py`): the articles under its headings when it inserts them (`Na artikel 248c worden twee artikelen ingevoegd: Artikel 248d … Artikel 248e`), else those its instruction names before what it quotes; of the law its `ARTIKEL` says it changes (`Het Wetboek van Strafrecht wordt als volgt gewijzigd`), else the law the instruction names; the section has text of its own, and the dossier changed that article | 0.9 |
 
 The confidences (`core/mvt_articles.py`) are the share a hand check of 10 edges per kind in
 lawgraph_small found right; for `bill_part` 10 of 10 on the server's texts of 14 dossiers
-(lawgraph_small has no bill texts). The bill is the first `Voorstel van wet` of the
+(lawgraph_small has no bill texts); for `amendment` 8 of 8, every adopted amendment with a
+link in 15 dossiers on the server.
+
+An adopted amendment explains what it changed too: the article 126ffa Sv came in by
+amendment 34372 nr. 14, which the memorandum never names. Adopted is the last paper of its
+chain (no paper `REVISES` it) whose case was last decided with `passed`. What it changes is
+read from its text before the `Toelichting` (`core/bill_parts.amendment_changes`): the articles
+under its headings when it inserts them (`Artikel 126ffa`), else those its instructions name
+before what they quote (`In artikel II, onderdeel G, wordt in artikel 126nba …`). The law is
+the one the article of the bill it names changes (`In artikel II` and the bill's ARTIKEL II),
+else the one its instructions name, else the one law of the dossier that changed that number;
+an amendment that changes two laws through two articles of the bill gets the first. The
+passage is its `Toelichting`, and the dossier must have changed the article. The bill is the first `Voorstel van wet` of the
 memorandum's own dossier: the memorandum explains the bill as it was sent, so its onderdelen
 carry the bill's letters. A change of the article by the dossier corroborates a match; a
 heading that names an article the dossier did not change mostly names one of another law than
@@ -305,9 +318,10 @@ its `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
 number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to. A run of
-`tk-mvt-articles` reads every memorandum and replaces its own edges of them: a section edge it
-no longer finds (an earlier code, a renumbered article) becomes the dossier-level edge again
-at once when the dossier changed the article, and goes when it did not.
+`tk-mvt-articles` reads every memorandum and adopted amendment and replaces its own edges of
+them: a section edge it no longer finds (an earlier code, a renumbered article) becomes the
+dossier-level edge of a memorandum again at once when the dossier changed the article, and
+goes otherwise.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:

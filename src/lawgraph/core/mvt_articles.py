@@ -24,7 +24,13 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_INTRODUCES,
 )
-from lawgraph.core.bill_parts import BillPart, heading_law, heading_parts, part_letters
+from lawgraph.core.bill_parts import (
+    BillPart,
+    amendment_changes,
+    heading_law,
+    heading_parts,
+    part_letters,
+)
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     DutchCitationExtractor,
@@ -68,6 +74,10 @@ MATCH_INFERRED_LAW = "inferred_law"
 # must be one the dossier changed. 10 of 10 right on the server's texts of 14 dossiers
 # (2026-10-10; lawgraph_small has no bill texts).
 MATCH_BILL_PART = "bill_part"
+# ``amendment``: an adopted amendment changes the article, and its Toelichting says why; the
+# article must be one the dossier changed. 8 of 8 right: every adopted amendment with a link
+# in 15 dossiers on the server (2026-10-10).
+MATCH_AMENDMENT = "amendment"
 
 # The confidence of each kind of match where the dossier changed the article.
 CONFIDENCE_OF_MATCH = {
@@ -76,6 +86,7 @@ CONFIDENCE_OF_MATCH = {
     MATCH_BODY_NAMED_LAW: 0.65,
     MATCH_INFERRED_LAW: 0.8,
     MATCH_BILL_PART: 0.9,
+    MATCH_AMENDMENT: 0.9,
 }
 # ... and where it did not: only a stated match points at an article the dossier left alone.
 CONFIDENCE_UNCHANGED = {
@@ -85,6 +96,7 @@ CONFIDENCE_UNCHANGED = {
 
 # What a match rests on, in words.
 _RESTS_ON = {
+    MATCH_AMENDMENT: "het aangenomen amendement wijzigt het artikel; dit is zijn toelichting",
     MATCH_BILL_PART: (
         "de kop '{heading}' noemt een onderdeel van het wetsvoorstel, en dat wijzigt het "
         "artikel"
@@ -308,14 +320,22 @@ class _Outline:
         if law:
             return law
         article = heading_parts(text)
-        for (number, _), part in self.bill.items():
-            if article is None or number != article[0]:
-                continue
-            if part.law:
-                return registry.resolve(part.law)
-            hits = registry.extractor.extract(part.instruction)
-            return next((hit.bwb_id for hit in hits if hit.bwb_id), None)
-        return None
+        return _bill_article_law(article[0], self.bill, registry) if article else None
+
+
+def _bill_article_law(
+    article: str, bill: Mapping[tuple[str, str], BillPart], registry: _Registry
+) -> str | None:
+    """The law an article of the bill changes: the one it says it changes ("Het Wetboek van
+    Strafvordering wordt als volgt gewijzigd"), else the one its instruction names."""
+    for (number, _), part in bill.items():
+        if number != article:
+            continue
+        if part.law:
+            return registry.resolve(part.law)
+        hits = registry.extractor.extract(part.instruction)
+        return next((hit.bwb_id for hit in hits if hit.bwb_id), None)
+    return None
 
 
 def _span(
@@ -521,6 +541,82 @@ def find_references(
                     known, match_type=match_type, last=span[1]
                 )
     return list(best.values())
+
+
+# ── adopted amendments ───────────────────────────────────────────────────────
+
+
+def _toelichting(sections: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """The section that explains an amendment: the one headed "Toelichting"."""
+    for section in sections:
+        if str(section["heading"]).strip(" .:").lower() == "toelichting":
+            return section
+    return None
+
+
+def _amendment_law(
+    instructions: Sequence[str],
+    bill_articles: Sequence[str],
+    registry: _Registry,
+    bill: Mapping[tuple[str, str], BillPart],
+) -> str | None:
+    """The law an amendment changes: through the article of the bill it names ("In artikel
+    II"), else the law its instructions name."""
+    for article in bill_articles:
+        law = _bill_article_law(article, bill, registry)
+        if law:
+            return law
+    for instruction in instructions:
+        for hit in registry.extractor.extract(instruction):
+            if hit.bwb_id:
+                return hit.bwb_id
+    return None
+
+
+def amendment_references(
+    text: str,
+    sections: Sequence[Mapping[str, Any]],
+    laws: Sequence[Law],
+    changes: Sequence[Change],
+    bill: Mapping[tuple[str, str], BillPart],
+) -> list[Reference]:
+    """The articles an adopted amendment changes, each explained by its Toelichting.
+
+    What it changes is read from the text before the Toelichting (``amendment_changes``);
+    the law through the article of the bill it names, else from its instructions, else it
+    is the one law of the dossier that changed that number. Without a Toelichting the
+    amendment explains nothing."""
+    toelichting = _toelichting(sections)
+    if toelichting is None:
+        return []
+    start, end = int(toelichting["char_start"]), int(toelichting["char_end"])
+    changed = amendment_changes(text[:start])
+    registry = _Registry(laws)
+    law = _amendment_law(changed.instructions, changed.bill_articles, registry, bill)
+    references = []
+    for number in changed.numbers:
+        bwb_id = law or _only_law_that_changed(number, changes)
+        if bwb_id is None:
+            continue
+        references.append(
+            Reference(
+                section_id=str(toelichting["id"]),
+                heading=str(toelichting["heading"]),
+                level=toelichting.get("level"),
+                char_start=start,
+                char_end=end,
+                bwb_id=bwb_id,
+                number=number_key(number),
+                match_type=MATCH_AMENDMENT,
+            )
+        )
+    return references
+
+
+def _only_law_that_changed(number: str, changes: Sequence[Change]) -> str | None:
+    """The law of the dossier that changed an article of this number, when only one did."""
+    laws = {c.bwb_id for c in changes if number_key(c.number) == number_key(number)}
+    return next(iter(laws)) if len(laws) == 1 else None
 
 
 # ── from what a section names to what the graph has ──────────────────────────

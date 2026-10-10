@@ -501,6 +501,88 @@ def test_the_bill_of_a_memorandum_is_the_first_of_its_own_dossiers(
     assert row["bill"] == "eerst"
 
 
+def test_the_adopted_amendments_are_the_last_of_their_chain_and_passed(
+    store: GraphStore,
+) -> None:
+    """An amendment explains what it changed when it was adopted: the last paper of its
+    chain (no paper REVISES it), whose case was last decided with ``passed``."""
+    _graph(store)
+    amendment = "Amendement"
+    _seed(
+        store,
+        COLLECTION_DOCUMENTS,
+        *[
+            _node(key, "document", ["TK"], kind=kind, text=f"tekst {key}",
+                  sections=[{"heading": "Toelichting"}])
+            for key, kind in (
+                ("adopted", amendment),
+                ("rejected", amendment),
+                ("replaced", amendment),
+                (
+                    "replacing",
+                    "Amendement (gewijzigd/nader/vervangend)",
+                ),
+                ("undecided", amendment),
+                ("overturned", amendment),
+            )
+        ],
+    )  # fmt: skip
+    _seed(
+        store,
+        "decisions",
+        _node("d_adopted", "decision", date="2025-01-02", passed=True),
+        _node("d_rejected", "decision", date="2025-01-02", passed=False),
+        _node("d_replaced", "decision", date="2025-01-02", passed=True),
+        _node("d_replacing", "decision", date="2025-01-03", passed=True),
+        _node("d_undecided", "decision", date="2025-01-03"),
+        _node("d_first", "decision", date="2025-01-02", passed=True),
+        _node("d_later", "decision", date="2025-02-01", passed=False),
+    )
+    edges = []
+    for key in (
+        "adopted",
+        "rejected",
+        "replaced",
+        "replacing",
+        "undecided",
+        "overturned",
+    ):
+        edges.append(_edge(f"documents/{key}", "dossiers/36001", "PART_OF", f"p_{key}"))
+        edges.append(_edge(f"documents/{key}", f"cases/c_{key}", "PART_OF", f"c_{key}"))
+    for decision, case in (
+        ("d_adopted", "adopted"),
+        ("d_rejected", "rejected"),
+        ("d_replaced", "replaced"),
+        ("d_replacing", "replacing"),
+        ("d_undecided", "undecided"),
+        ("d_first", "overturned"),
+        ("d_later", "overturned"),  # the latest decision counts
+    ):
+        edges.append(
+            _edge(f"decisions/{decision}", f"cases/c_{case}", "ABOUT", decision)
+        )
+    edges.append(_edge("documents/replacing", "documents/replaced", "REVISES", "r1"))
+    _edges(store, *edges)
+
+    rows = list(semantic_tk.adopted_amendments_with_sections(store, batch_size=2))
+
+    assert [row["document"] for row in rows] == [
+        "documents/adopted",
+        "documents/replacing",
+    ]
+    assert list(rows[0]) == [
+        "document",
+        "text",
+        "sections",
+        "own",
+        "changes",
+        "laws",
+        "bill",
+    ]
+    # the laws its dossier legislated, as for a memorandum
+    assert set(rows[0]["own"]) == {"BWBR1", 7}
+
+
 def test_memoranda_with_sections_change_once_where_first_seen(
     store: GraphStore,
 ) -> None:

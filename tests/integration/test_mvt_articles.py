@@ -550,3 +550,57 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
     assert ids["new_1"] not in edges
     # what it still derives stays as it was
     assert edges[ids["klimaat_2"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+
+
+def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
+    database: str, cli: Any
+) -> None:
+    """34372: 126ffa came in by amendment nr. 14; its Toelichting is what the reader shows.
+    A rejected amendment explains nothing."""
+    store = GraphStore()
+    ids = _onderdelen_graph(store)
+    article, version = _article(store, PROEF, "30a")
+    publication = "instruments/stb_2025_4"
+    _edge(store, publication, article, RELATION_INTRODUCES, article_version=version)
+    text = (
+        "AMENDEMENT VAN DE LEDEN A EN B\n"
+        "De ondergetekenden stellen het volgende amendement voor:\n"
+        "In artikel I wordt na onderdeel B een onderdeel ingevoegd, luidende:\n"
+        "Ba\nNa artikel 30 wordt een artikel ingevoegd, luidende:\nArtikel 30a\n"
+        "De officier van justitie kan bevelen.\n"
+        "Toelichting\nDit amendement regelt een machtiging."
+    )
+    start = text.index("Toelichting")
+    sections = [
+        {"id": "s-1", "heading": "Toelichting", "level": 1, "parent": None,
+         "kind": "other", "number": None, "number_scheme": None, "article_refs": [],
+         "law": None, "char_start": start, "char_end": len(text)}
+    ]  # fmt: skip
+    for key, passed in (("amendment_adopted", True), ("amendment_rejected", False)):
+        paper = _node(
+            store, "documents", key, "document", kind="Amendement", text=text,
+            sections=sections, date="2025-02-01",
+        )  # fmt: skip
+        _edge(store, paper, "dossiers/36300", RELATION_PART_OF)
+        _edge(store, paper, f"cases/{key}", RELATION_PART_OF)
+        decision = _node(
+            store, "decisions", f"d_{key}", "decision", date="2025-02-02", passed=passed
+        )
+        _edge(store, decision, f"cases/{key}", "ABOUT")
+
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+
+    adopted = _by_target(store, "documents/amendment_adopted")
+    assert set(adopted) == {f"article_versions/{version}"}
+    meta = adopted[f"article_versions/{version}"]["meta"]
+    assert (meta["match_type"], meta["heading"]) == ("amendment", "Toelichting")
+    assert _by_target(store, "documents/amendment_rejected") == {}
+
+    # the reader: the memorandum names no 30a; the amendment explains it
+    app.dependency_overrides[get_store] = lambda: store
+    body = TestClient(app).get(f"/api/articles/{PROEF}/30a/explanations").json()
+    (item,) = body["items"]
+    assert item["document"]["kind"] == "Amendement"
+    (passage,) = item["passages"]
+    assert passage["text"] == "Toelichting\nDit amendement regelt een machtiging."
+    assert ids["doc"] not in [i["document"]["id"] for i in body["items"]]
