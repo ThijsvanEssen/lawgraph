@@ -187,3 +187,17 @@ def test_the_parts_of_an_article_of_an_annex_cover_its_text(client: TestClient) 
     assert re.fullmatch(r"(\s|\w{1,3}°?\.)*", rest), rest[:200]
     tekst = [p for p in parts if p["kind"] == "tekst"]
     assert any(p["text"].startswith("Energiewet, met inbegrip van") for p in tekst)
+
+
+def test_an_annex_names_its_law_in_its_title_as_its_page_does(
+    client: TestClient,
+) -> None:
+    """Its props keep the name of its law (``normalize bwb``), so the title of the API is
+    the title of its server page (one source: the tab does not change)."""
+    import re
+
+    node = _get(client, "/api/nodes/annexes/bwbr0005537_annex_2?limit=1")
+    assert "Algemene wet bestuursrecht" in node["title"]
+    html = client.get(f"/render{node['path']}").text
+    title = re.search(r"<title[^>]*>([^<]*)</title>", html)
+    assert title and title[1] == f"{node['title']}, Concordans"

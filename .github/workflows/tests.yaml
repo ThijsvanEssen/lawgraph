@@ -86,9 +86,10 @@ jobs:
   # durations (--durations) of each add up to about the same, a sixth of the whole. Each is
   # spread test by test over the cores of its runner (worksteal): every test makes a database
   # of its own, so the tests do not meet, and a long file does not keep one core busy while the
-  # others wait. The shards with tests/pg/test_query_plans.py and with
-  # tests/integration/test_series_end_to_end.py run loadgroup instead: worksteal ignores the
-  # xdist_group that keeps their tests on the one worker that built their database.
+  # others wait. The shards with tests/pg/test_query_plans.py, the busy days of
+  # tests/pg/test_feed_queries.py and tests/integration/test_series_end_to_end.py run
+  # loadgroup instead: worksteal ignores the xdist_group that keeps their tests on the one
+  # worker that built their database.
   database-shard:
     needs: reuse
     if: ${{ !cancelled() && needs.reuse.outputs.tested != 'true' }}
@@ -103,6 +104,7 @@ jobs:
             dist: loadgroup
           - shard: 2
             tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-m]*.py
+            dist: loadgroup
           - shard: 3
             tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
           - shard: 4

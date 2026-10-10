@@ -129,15 +129,35 @@ articles_set AS (
     WHERE (a.bwb_id = i.bwb_id OR a.celex = i.celex)
       AND {differs_sql("a.props -> 'instrument_abbreviation'", "r.abbreviation")}
     RETURNING 1
+),
+-- of an annex the name of its law too, which its title cites (``Bijlage 1 Awb``)
+annexes_set AS (
+    UPDATE annexes x
+    SET props = lg_update(x.props, json_build_object(
+        'instrument_abbreviation', r.abbreviation,
+        'instrument_citation_title', to_json(nullif(i.citation_title, ''))
+    ))
+    FROM r JOIN instruments i ON i.key = r.key
+    WHERE x.bwb_id = i.bwb_id
+      AND ({differs_sql("x.props -> 'instrument_abbreviation'", "r.abbreviation")}
+           OR {
+    differs_sql(
+        "x.props -> 'instrument_citation_title'",
+        "to_json(nullif(i.citation_title, ''))",
+    )
+})
+    RETURNING 1
 )
 SELECT (SELECT count(*) FROM instruments_set)::int + (SELECT count(*) FROM articles_set)::int
+       + (SELECT count(*) FROM annexes_set)::int
 """
 
 
 def update_instrument_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``abbreviation`` on the instruments of *rows* (``{key, abbreviation}``) and
-    ``instrument_abbreviation`` on their articles where it differs; how many nodes changed.
-    A null abbreviation removes both props."""
+    """Set ``abbreviation`` on the instruments of *rows* (``{key, abbreviation}``),
+    ``instrument_abbreviation`` on their articles and their annexes, and
+    ``instrument_citation_title`` on their annexes, where it differs; how many nodes
+    changed. A null abbreviation removes the props."""
     return int(next(store.query(_ABBREVIATION_SQL, {"rows": Json(rows)}), 0))
 
 

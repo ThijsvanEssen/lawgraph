@@ -176,6 +176,7 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
         "total",
         "next_offset",
         "lid_counts",
+        "capacity_counts",
         "items",
     }
 

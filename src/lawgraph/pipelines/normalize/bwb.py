@@ -122,7 +122,9 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                             type=NodeType.ANNEX,
                             key=key,
                             labels=["BWB", "Annex"],
-                            props=annex_props(annex, bwb_id),
+                            props=annex_props(
+                                annex, bwb_id, instrument.props.get("citation_title")
+                            ),
                         )
                     )
                     annexes_by_bwb.setdefault(bwb_id, []).append(key)

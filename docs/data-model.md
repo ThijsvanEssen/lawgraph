@@ -58,7 +58,7 @@ from when the dossiers of a member are read from it (`get_actor_dossiers`), befo
 walk the edges. Each row also holds the `date` of its paper or case (`lg_signed_date`, kept by
 triggers on `documents` and `cases` as well) and the `capacity` of the signature, with an index
 on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
-every row had them (`semantic graph-light --authored-dates`), from when the counts of a
+every row had them (the first fill of a new table, as in a rebuild; on one filled before, `semantic graph-light --authored-dates`), from when the counts of a
 cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
 every paper the member signed. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
@@ -318,8 +318,9 @@ renumbering; each version has a `versie-id`.
 - `inbound_citation_count` of an article (`semantic graph-list-stats`): its `REFERS_TO` and
   `EXPLAINS` edges in.
 - An annex (`annexes`, `normalize bwb`, `PART_OF` its instrument) has `bwb_id`, `label` (`I`,
-  `2`, `A`: as cited in article text), `title`, `description`, `instrument_id` and `entries`,
-  its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
+  `2`, `A`: as cited in article text), `title`, `description`, `instrument_id`,
+  `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
+  cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
   introduces a list, `parent_index` the entry it is nested in).
 - `references` holds every `extref`/`intref` of the text that names a regulation:
   `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
