@@ -34,7 +34,7 @@ and gives `counts <block> <before|after> <file.sql>` (a read-only query from her
 A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europe/Amsterdam (`NOT_BEFORE`,
 `NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
 sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `tk-members.sh` (#410),
-`ek-seats.sh` (#453) and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
+`ek-seats.sh` (#453), `ek-persons.sh` and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
 `out/bwb-definitions.after`).
 
 A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.

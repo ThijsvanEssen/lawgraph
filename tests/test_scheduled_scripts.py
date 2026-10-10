@@ -90,6 +90,9 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         # the members and their seats and vacancies, which the daily run skips
         "retrieve tk-dossiers --since 1d --skip-decisions --skip-documents",
         "normalize tk-dossiers --since 1d",
+        # the pages of the sitting members of the Eerste Kamer and their periods
+        "retrieve eerstekamer-persons --sitting",
+        "normalize eerstekamer-persons",
         "semantic all --list",
         "semantic tk",
         # the article citations in slices, until one reads nothing
@@ -104,7 +107,7 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
     ]
     # each step took the lock on its own and let it go: a poll can run in between
     runs = (checkout / "logs" / "runs.log").read_text()
-    assert runs.count("step.sh: ok") == 10
+    assert runs.count("step.sh: ok") == 12
     assert runs.count("weekly.sh: ok") == 1
     assert not (checkout / "lawgraph-scheduled.lock").exists()
 

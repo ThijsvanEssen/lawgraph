@@ -734,9 +734,12 @@ _MEMBER_VOTES_TEMPLATE = f"""
     periods AS (
         SELECT f.period, f.n
         FROM member
-        CROSS JOIN LATERAL json_array_elements(
-            {_array("member.props -> 'faction_memberships'")}
-        ) WITH ORDINALITY AS f(period, n)
+        -- the periods in the factions of the Tweede Kamer and of the Eerste Kamer
+        -- (``normalize eerstekamer-persons``), numbered as one list
+        CROSS JOIN LATERAL json_array_elements((
+            {_array("member.props -> 'faction_memberships'")}::jsonb
+            || {_array("member.props -> 'ek_faction_memberships'")}::jsonb
+        )::json) WITH ORDINALITY AS f(period, n)
     ),
     -- per period the newest votes of the faction: the decisions of the period newest first
     -- (their index of the dates), each with the faction's vote on it; a faction votes on

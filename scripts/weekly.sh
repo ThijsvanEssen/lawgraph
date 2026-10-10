@@ -51,6 +51,11 @@ slices() {  # slices <semantic step> <size>: its run over all, slice by slice, u
 # (`--skip-members`): a new seat or vacancy shows within a week. A short step.
 run retrieve tk-dossiers --since 1d --skip-decisions --skip-documents
 run normalize tk-dossiers --since 1d
+# The pages of the sitting members of the Eerste Kamer again, and their periods in its
+# factions (a change the daily run fetches names the members it is about; a page can change
+# without one). Minutes.
+run retrieve eerstekamer-persons --sitting
+run normalize eerstekamer-persons
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;
