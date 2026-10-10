@@ -142,6 +142,13 @@ def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     return lookup.answer(store, node_id).get("props") or {}
 
 
+def _same_person_path(store: GraphStore, member_id: str) -> str | None:
+    """The readable address of the member a bare member is the same person as."""
+    other = seo.same_person(store, member_id)
+    props = _props_of(store, other) if other else None
+    return path_of(other, props) if other and props is not None else None
+
+
 # HEAD as GET (Caddy, crawlers and uptime checks ask it): the server leaves out the body.
 @router.api_route(
     "/render/{path:path}", methods=["GET", "HEAD"], include_in_schema=False
@@ -174,6 +181,8 @@ def render_page(
         node_id = seo.node_of(store, pad)
         if node_id is None:
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
+        if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
+            return _redirect(same + _query(request))
         page = _source_page(store, pad, node_id)
         stamp = store.data_version()
     except RequestCancelled:
