@@ -75,9 +75,15 @@ class _FakeStore(_BaseFakeStore):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
         self.rows = rows
+        self.executed: list[dict[str, Any]] = []
 
     def get_node(self, collection: str, key: str) -> dict | None:
         return None
+
+    def execute(self, statement: str, params: Any = None) -> list[Any]:
+        """The removal of the section edges no longer found: recorded, none to remove."""
+        self.executed.append(params)
+        return []
 
 
 @pytest.fixture(autouse=True)
@@ -155,3 +161,17 @@ def test_a_row_that_cannot_be_read_does_not_stop_the_others() -> None:
 
 def test_the_dossier_level_confidence_claims_less_than_any_section() -> None:
     assert DOSSIER_CONFIDENCE < min(CONFIDENCE_OF_MATCH.values())
+
+
+def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None:
+    """A full run replaces its section edges: the removal names every memorandum read,
+    with the keys of the edges it wrote; a memorandum that could not be read keeps its own."""
+    store = _FakeStore([ROW, {"document": "documents/broken"}])
+
+    TKMvtArticlesSemanticPipeline(store=store).run()
+
+    (params,) = store.executed
+    assert params["ids"] == ["documents/mvt-1"]
+    assert params["source"] == SEMANTIC_SOURCE_SECTIONS
+    (edge,) = store.edges.values()
+    assert params["keep"].obj == {"documents/mvt-1": [edge["_key"]]}

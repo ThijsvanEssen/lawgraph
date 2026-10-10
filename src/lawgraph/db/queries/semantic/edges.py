@@ -42,27 +42,39 @@ def remove_edges_from(
     """Remove the edges of *relation* made by *source* from any of *from_ids* whose key is
     not in *keep* (per node id): a pipeline that derives the edges of a node in full removes
     those it no longer derives. How many went."""
+    return len(removed_edges_from(store, relation, source, from_ids, keep, chunk=chunk))
+
+
+def removed_edges_from(
+    store: Store,
+    relation: str,
+    source: str,
+    from_ids: list[str],
+    keep: dict[str, set[str]],
+    *,
+    chunk: int = 5000,
+) -> list[tuple[str, str]]:
+    """``remove_edges_from``, answering ``(from_id, to_id)`` of every edge that went."""
     statement = f"""
         DELETE FROM edges e
         WHERE e.from_id = ANY(%(ids)s::text[])
           AND e.relation = %(relation)s AND e.source = %(source)s
           AND {_NOT_KEPT.format(end="from_id")}
-        RETURNING 1
+        RETURNING e.from_id, e.to_id
     """
-    removed = 0
+    removed: list[tuple[str, str]] = []
     for start in range(0, len(from_ids), chunk):
         ids = from_ids[start : start + chunk]
-        removed += len(
-            store.execute(
-                statement,
-                {
-                    "ids": ids,
-                    "relation": relation,
-                    "source": source,
-                    "keep": Jsonb({i: sorted(keep[i]) for i in ids if i in keep}),
-                },
-            )
+        rows = store.execute(
+            statement,
+            {
+                "ids": ids,
+                "relation": relation,
+                "source": source,
+                "keep": Jsonb({i: sorted(keep[i]) for i in ids if i in keep}),
+            },
         )
+        removed += [(row["from_id"], row["to_id"]) for row in rows]
     return removed
 
 

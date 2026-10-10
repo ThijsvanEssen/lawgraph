@@ -512,3 +512,41 @@ def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
         "bill_part",
     )
     assert passage["text"] == "Artikel I, onderdeel B\nTwee nieuwe delicten."
+
+
+def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
+    database: str, cli: Any
+) -> None:
+    """A full run replaces what it wrote before: a section edge it no longer finds becomes
+    the dossier-level edge again when the dossier changed the article, and goes when not."""
+    store = GraphStore()
+    ids = _graph(store)
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+    stale = {
+        "section_anchor": "s-1",
+        "sections": [{"section_anchor": "s-1", "heading": "Artikel I"}],
+        "match_type": "body_named_law",
+    }
+    # what an earlier code wrote: 3 of the Klimaatfonds (changed, no section names it), and
+    # an article of another dossier's law
+    for target in (ids["klimaat_3"], ids["new_1"]):
+        doc = make_edge_doc(
+            ids["klimaat_doc"],
+            target,
+            "EXPLAINS",
+            source=SEMANTIC_SOURCE_SECTIONS,
+            confidence=0.65,
+            meta=stale,
+        )
+        store.bulk_insert_or_update_edges([doc])
+    assert ids["new_1"] in _by_target(store, ids["klimaat_doc"])
+
+    _run(cli, "tk-mvt-articles")
+
+    edges = _by_target(store, ids["klimaat_doc"])
+    back = edges[ids["klimaat_3"]]
+    assert (back["source"], back["confidence"]) == (SEMANTIC_SOURCE, DOSSIER_CONFIDENCE)
+    assert not (back["meta"] or {}).get("sections")
+    assert ids["new_1"] not in edges
+    # what it still derives stays as it was
+    assert edges[ids["klimaat_2"]]["source"] == SEMANTIC_SOURCE_SECTIONS
