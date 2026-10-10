@@ -38,6 +38,7 @@ from lawgraph.db.queries.committees import (
     _IN_MEMBERSHIP,
     _array,
     _is_null,
+    count_members,
     get_actor_dossiers,
     get_actor_touched_instruments,
     get_committee_activities,
@@ -436,6 +437,9 @@ def test_members_who_held_a_seat_by_name_then_key(store: GraphStore) -> None:
     page = get_members(store, include_all=True, limit=3, offset=2)
     assert _keys(page) == ["Zz", "m3", "m4"]
     assert get_members(store, include_all=True, offset=100) == []
+    assert count_members(store) == 5
+    assert count_members(store, include_all=True) == len(everyone)
+    assert count_members(store, government=True) == 2
 
 
 def test_members_by_surname_then_tussenvoegsel(store: GraphStore) -> None:

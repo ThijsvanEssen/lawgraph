@@ -28,9 +28,14 @@ def test_get_stats_returns_200(monkeypatch) -> None:
             "tk": {"retrieved_at": "2026-09-24T20:51:42Z", "newest": "2026-09-24"}
         },
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.stats.list_totals",
+        lambda store: {"judgments": 50, "decisions": None},
+    )
     response = client.get("/api/stats")
     assert response.status_code == 200
     body = response.json()
+    assert body["lists"] == {"judgments": 50, "decisions": None}
     assert "nodes" in body
     assert "edges" in body
     assert body["stubs"] == {"judgments": 70}
