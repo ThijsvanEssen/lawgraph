@@ -1105,3 +1105,43 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert motion["robots"] == "noindex"
     assert len(motion["data"]["@graph"][1]["itemListElement"]) == 2
     assert _get(client, "/zaken/2025Z99999").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("path", "focus", "title"),
+    [
+        ("/zaken/2025Z15468", "cases/",
+         "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"),
+        # of an annex the props hold no name of its law (the whole page joins it)
+        ("/wetten/BWBR0001941/bijlage/II", "annexes/bwbr0001941_annex_ii",
+         "Bijlage II: lijst II, Concordans"),
+    ],
+)  # fmt: skip
+def test_a_page_whose_reads_take_too_long_keeps_its_title(
+    client: TestClient,
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    focus: str,
+    title: str,
+) -> None:
+    """Past the render budget (a zaak with many votes, cold on prod: 10 Oct) the page is not
+    the shell titled "Concordans": its own title and description from its node, its node
+    as focus, without its content, not kept (the next request may have it whole)."""
+    from lawgraph.api.routes import render
+    from lawgraph.db.store import ReadTimedOut
+
+    _seed_annex_and_case(store)
+
+    def slow(*args: Any, **kwargs: Any) -> Any:
+        raise ReadTimedOut("past the budget")
+
+    monkeypatch.setattr(render, "_source_page", slow)
+    response = _get(client, path)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    page = _head(response.text)
+    assert page["title"] == title
+    assert page["description"]
+    assert page["main"] is None
+    assert f'<meta name="focus" content="{focus}' in response.text
