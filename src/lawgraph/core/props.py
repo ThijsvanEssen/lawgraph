@@ -704,6 +704,9 @@ class MemberProps(_CommonProps):
     initials: str | None = None  # Persoon.Initialen: "S.Th.M."
     party: str | None = None
     faction_memberships: list | None = None
+    # the periods in the factions of the Eerste Kamer, as their page says them
+    # (``normalize eerstekamer-persons``)
+    ek_faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
     number: str | None = None  # Persoon.Nummer

@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
@@ -1161,6 +1161,12 @@ earlier term it links), read on every run, and the page of each change they list
 (`ek-mutation-html`, external id the path, `meta.date` and `meta.headline` as the list gives
 them), once.
 
+**Retrieve `eerstekamer-persons`.** The page of each member of the Eerste Kamer
+(`/persoon/<slug>`, `ek-person-html`, external id the path): those the stored composition
+lists and every person a stored change of `retrieve eerstekamer-mutations` links (every term
+since 2003). A page not stored is fetched, and one again when a change that links the person
+was fetched after it; with `--sitting` (`weekly.sh`) every sitting member's.
+
 **Retrieve `kiesraad`.** The page of each election of the Eerste Kamer since 2003 in the
 Kiesraad's databank (`kiesraad-ek-result-html`, external id the code, `EK20230530`), once:
 the seats each list won (`core/kiesraad.py` reads the data in the page).
@@ -1191,6 +1197,22 @@ is `checked` when every change's faction is known, no faction goes below zero an
 more than 75 seats; a past term also when it ends on 75, the current term when its last
 stretch is today's composition, per faction. What does not add up is listed in
 `mismatches`.
+
+**Normalize `eerstekamer-persons`.** `core/ek_persons.py` reads a member's page: their
+periods in the factions of the Eerste Kamer, the current first, as its opening says them ("is
+vanaf 11 juni 2019 lid van de D66-fractie", "was van 28 juli 2019 tot 13 juni 2023 lid en
+voorzitter van de Fractie-Otten", "Eerder was hij van … tot …"; the last day the one before
+its "tot", the day the next began), and their birth date (a sitting member's page only). A
+page is the member's the composition gave it (`ek.path`), else the member of the Tweede
+Kamer born that day whose surname ends its name, when exactly one is; else none (a former
+member who never sat in the Tweede Kamer has no member), counted in the log. The periods go
+to `ek_faction_memberships` of the member, as `faction_memberships`: `faction_id`,
+`faction_key` (the faction of the Eerste Kamer of that abbreviation or name observed on the
+first day, as the votes match it; null for one gone before the composition was first read),
+`abbreviation`, `name`, `from_date`, `to_date`, `chamber` `EK`. A member's votes read them
+with those of the Tweede Kamer. Each period's start and end are checked against the changes
+of `normalize eerstekamer-mutations` of that member and the first days of the terms (within
+a week): those no change dates are counted and named in the log, not changed.
 
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
@@ -1576,6 +1598,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
+| normalize `eerstekamer-persons` | `normalize eerstekamer-composition` (the members and factions of the Eerste Kamer) and `normalize eerstekamer-mutations` (the changes its periods are checked against) |
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |

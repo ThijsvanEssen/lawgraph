@@ -241,6 +241,7 @@ RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
 # external id its path) and the page of one change, a news item (external id its path).
 RAW_KIND_EK_MUTATIONS = "ek-mutations-html"
 RAW_KIND_EK_MUTATION = "ek-mutation-html"
+RAW_KIND_EK_PERSON = "ek-person-html"
 # The page of an election of the Eerste Kamer in the Kiesraad's databank (external id its
 # code, ``EK20230530``): the seats each list won.
 RAW_KIND_KIESRAAD_EK_RESULT = "kiesraad-ek-result-html"
@@ -298,6 +299,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EK_COMMITTEE_DAY,
         RAW_KIND_EK_MUTATIONS,
         RAW_KIND_EK_MUTATION,
+        RAW_KIND_EK_PERSON,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
