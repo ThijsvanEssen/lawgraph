@@ -17,6 +17,7 @@ from lawgraph.db.queries.resolve import resolve as resolve_query
 from lawgraph.db.queries.search import (
     LIVE_STALE_WAIT,
     Period,
+    kept_notation_parser,
     search_full,
     search_live,
 )
@@ -152,9 +153,12 @@ def search(
 def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
     """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``).
     While typing (``live``) it takes the parser of citations of the version before at once,
-    as the search does (``LIVE_STALE_WAIT``)."""
+    as the search does (``LIVE_STALE_WAIT``); without one yet (after a start) no citation."""
     if len(q) > RESOLVE_MAX_LENGTH:
         return ResolveResponse(q=q, **NO_MATCH)
     wait = LIVE_STALE_WAIT if mode == "live" else STALE_WAIT
+    if kept_notation_parser(store, wait) is None:
+        # not there yet (after a start): no citation for now, the search has the words
+        return ResolveResponse(q=q, **NO_MATCH)
     with stale_wait(wait):
         return ResolveResponse(q=q, **resolve_query(store, q))
