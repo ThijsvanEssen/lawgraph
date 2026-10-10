@@ -159,6 +159,39 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
     assert overlay.get_heat_counts(store, min_count=2) == {"articles/a": 2}
 
 
+def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
+    store: GraphStore,
+) -> None:
+    """Every proposed edge is read (5.9 s on prod): kept until the edges change, then
+    counted again, whatever is written to other tables."""
+    store.bulk_insert_or_update_edges(
+        [_edge("1", "articles/a", "AMENDS", status="voorgesteld")]
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+    calls = []
+    query = store.query
+
+    def counted(statement, params=None, **options):  # type: ignore[no-untyped-def]
+        if "%(proposed)s" in str(statement):  # the count, not a read of the version
+            calls.append(1)
+        return query(statement, params, **options)
+
+    store.query = counted  # type: ignore[method-assign]
+    try:
+        store.bulk_insert_or_update_nodes(
+            "instruments",
+            [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
+        )
+        assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+        assert calls == []  # kept: no edge changed
+        store.bulk_insert_or_update_edges(
+            [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
+        )
+        assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
+    finally:
+        store.query = query  # type: ignore[method-assign]
+
+
 def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [

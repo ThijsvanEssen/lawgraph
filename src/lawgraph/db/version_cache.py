@@ -113,6 +113,11 @@ REFRESH_AHEAD = 0.75
 
 # Computations at the same time (each holds a connection of the pool while it reads).
 WORKERS = 3
+# A refresh ahead of time is started only while fewer computations than this run or wait in
+# the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
+# queue before what a request waits for. One left out is started by a later request, by the
+# warm-up, or computed at expiry as before.
+REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()
 # database -> (data version, the version of each table or None, read at)
@@ -386,7 +391,7 @@ def lasting(
             and read_time_left() is not None
         )
         if ahead and not inline and not _in_cache_worker():
-            if entry_key not in _running:
+            if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
                 _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)
             return kept[0]  # type: ignore[index, no-any-return]
         if ahead:

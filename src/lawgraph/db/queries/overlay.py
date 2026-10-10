@@ -5,13 +5,14 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 
 
 def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
@@ -19,17 +20,24 @@ def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
 
     The map is empty when the graph holds no proposed edges yet (e.g. before the
     amendment scanner has run) — that is the truth, not a bug.
+
+    It reads every proposed edge (5.9 s on prod, 10 Oct): kept while the edges stand still
+    and warmed after a change of them, so a request finds it computed.
     """
-    rows = store.query(
-        """
-        SELECT to_id AS id, count(*)::int AS count FROM edges
-        WHERE status = %(proposed)s
-        GROUP BY to_id
-        ORDER BY to_id
-        """,
-        {"proposed": EDGE_STATUS_VOORGESTELD},
-    )
-    return {row["id"]: row["count"] for row in rows}
+
+    def count() -> dict[str, int]:
+        rows = store.query(
+            """
+            SELECT to_id AS id, count(*)::int AS count FROM edges
+            WHERE status = %(proposed)s
+            GROUP BY to_id
+            ORDER BY to_id
+            """,
+            {"proposed": EDGE_STATUS_VOORGESTELD},
+        )
+        return {row["id"]: row["count"] for row in rows}
+
+    return version_cache.cached(store, ("in flux",), count, tables=(COLLECTION_EDGES,))
 
 
 # Every article-level signal, whatever its timestamp: references and amendments. Those

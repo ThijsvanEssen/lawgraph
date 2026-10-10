@@ -45,6 +45,7 @@ from lawgraph.db.queries.instruments import (
 )
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.nodes import get_node_with_neighbors
+from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search import (
     load_code_aliases,
     load_notation_parser,
@@ -164,6 +165,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
+    "in flux": (COLLECTION_EDGES,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -202,6 +204,8 @@ def warm_up(store: GraphStore) -> None:
         "dossier law names": lambda: load_law_names(store),
         "dossier names": lambda: load_dossier_names(store),
         "member slugs": lambda: load_member_slugs(store),
+        # the open proposed changes per node, which the explorer asks on every page
+        "in flux": lambda: get_in_flux_counts(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
