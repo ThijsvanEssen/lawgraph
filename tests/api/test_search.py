@@ -234,6 +234,9 @@ def test_search_resolves_q_in_the_same_request_when_asked(
         "lawgraph.api.routes.search.search_full", lambda store, **kwargs: ({}, set())
     )
     monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
+    monkeypatch.setattr(
+        "lawgraph.api.routes.search.kept_notation_parser", lambda store, wait: object()
+    )
     client = TestClient(app)
 
     body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()

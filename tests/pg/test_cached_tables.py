@@ -149,10 +149,12 @@ def kept(
     calls: list[tuple[str, tuple[str, ...], Callable[[], Any]]] = []
     original = version_cache.cached
 
-    def cached(store_: Any, key: Any, compute: Any, *, tables: Any = None) -> Any:
+    def cached(
+        store_: Any, key: Any, compute: Any, *, tables: Any = None, **options: Any
+    ) -> Any:
         if tables is not None:
             calls.append((_caller(), tables, compute))
-        return original(store_, key, compute, tables=tables)
+        return original(store_, key, compute, tables=tables, **options)
 
     monkeypatch.setattr(version_cache, "cached", cached)
     for module in list(sys.modules.values()):
