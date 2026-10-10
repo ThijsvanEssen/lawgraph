@@ -4,6 +4,7 @@ decision with its votes, and the document a decision was about."""
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
 
@@ -760,3 +761,107 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     again = decision_queries.party_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
     assert not any("party votes" in part for part in warm.PART_TABLES)
+
+
+def test_the_page_first_and_the_counts_kept_per_filter(votes: GraphStore) -> None:
+    """The page is read on its own; the total and facets are read once per filter and
+    version of the decisions: a second request reads the page alone."""
+    from lawgraph.db import version_cache
+
+    version_cache.clear()
+    first = get_decisions(votes, EVERY)
+    statements: list[str] = []
+    query = votes.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append(str(statement))
+        return query(statement, params, **options)
+
+    votes.query = recording  # type: ignore[method-assign]
+    try:
+        again = get_decisions(votes, EVERY)
+    finally:
+        votes.query = query  # type: ignore[method-assign]
+    assert again == first
+    assert not [s for s in statements if "'facets'" in s]
+
+
+def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A filter not counted since the decisions changed: the page answers within
+    ``COUNTS_BUDGET``, whole, without its total and facets, ``partial``; they are counted
+    on, and the next request has them."""
+    import time
+
+    from lawgraph.db import version_cache
+    from lawgraph.db.queries import decisions as decision_queries
+
+    version_cache.clear()
+    expected = get_decisions(votes, EVERY)
+    version_cache.clear()
+    counts = decision_queries._counts
+
+    def slow(store: GraphStore, filters: Any) -> Any:
+        time.sleep(2)
+        return counts(store, filters)
+
+    monkeypatch.setattr(decision_queries, "_counts", slow)
+    monkeypatch.setattr(decision_queries, "COUNTS_BUDGET", 0.3)
+    started = time.monotonic()
+    first = get_decisions(votes, EVERY)
+    assert time.monotonic() - started < 1.5
+    assert first["partial"] is True and first["total"] is None
+    assert first["items"] == expected["items"]
+    time.sleep(2.5)
+    again = get_decisions(votes, EVERY)
+    assert "partial" not in again
+    assert (again["total"], again["facets"]) == (expected["total"], expected["facets"])
+
+
+def test_a_page_reads_the_decisions_in_its_order_as_far_as_it_goes(
+    store: GraphStore,
+) -> None:
+    """The page of the list is a range of the index in its order (``decisions_list_date``):
+    it stops after its limit instead of sorting every decision under the filters."""
+    from lawgraph.db.queries import decisions as decision_queries
+    from lawgraph.db.store import _query
+
+    store.execute(
+        "INSERT INTO decisions (id, type, labels, props)"
+        " SELECT 'decisions/s' || n, 'decision', ARRAY['TK'],"
+        " json_build_object('date', to_char(date '2015-01-01' + (n % 2000), 'YYYY-MM-DD'),"
+        " 'passed', n % 2 = 0) FROM generate_series(1, 20000) n"
+    )
+    store.execute("ANALYZE decisions")
+    statements: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        decision_queries._page(store, DecisionFilters(chamber="TK"), 50, 0)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    statement, params = statements[0]
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = conn.execute(explain, params).fetchone()[0]
+
+    def nodes(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        yield node
+        for child in node.get("Plans", []):
+            yield from nodes(child)
+
+    found = list(nodes(plan[0]["Plan"]))
+    assert any(n.get("Index Name") == "decisions_list_date" for n in found)
+    read = sum(
+        n["Actual Rows"] * n["Actual Loops"]
+        for n in found
+        if n.get("Relation Name") == "decisions"
+        and n.get("Index Name") == "decisions_list_date"
+    )
+    assert read <= 200, read
