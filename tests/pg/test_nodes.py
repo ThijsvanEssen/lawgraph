@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -730,3 +731,36 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
     assert whole["props"]["tk_url"] == "https://x"
     assert canvas["nodes"][0] == full["nodes"][0]  # the focal node
     assert canvas["edges"] == full["edges"]
+
+
+def test_the_neighbours_of_a_bucket_are_looked_up_in_their_table_alone(
+    graph: GraphStore,
+) -> None:
+    """The view ``nodes`` is every table of the graph: each neighbour was looked up in all
+    of them, 17 index probes for one (a budget dossier of 200 papers, 1.5 s cold)."""
+    from lawgraph.db.store import _query, _text
+
+    ran: list[tuple[Any, Any]] = []
+    stream = graph._stream
+
+    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
+        ran.append((statement, params))
+        return stream(statement, params, *a, **k)
+
+    graph._stream = recorded  # type: ignore[method-assign]
+    try:
+        node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
+    finally:
+        graph._stream = stream  # type: ignore[method-assign]
+    (statement, params) = next(
+        (s, p) for s, p in ran if "AS direction, b.collection" in _text(s)
+    )
+    with graph.pool.connection() as conn:
+        plan = str(
+            conn.execute(
+                b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn), params
+            ).fetchone()[0]
+        )
+    read = set(re.findall(r"'Relation Name': '(\w+)'", plan))
+    # the edges, and of the nodes: the papers of the PART_OF bucket, the dossier of the other
+    assert read <= {"edges", "documents", "dossiers", "lg_judgment_light"}, read
