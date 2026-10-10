@@ -16,8 +16,10 @@ concordans.nl {
 		file_server
 	}
 
-	# the sitemaps `lawgraph sitemaps` writes (daily.sh): sitemap.xml and its gzipped parts, #425
+	# the sitemaps `lawgraph sitemaps` writes (daily.sh): sitemap.xml and its parts, plain XML
+	# on disk, compressed on the way
 	handle /sitemap* {
+		encode zstd gzip
 		root * /srv/lawgraph/concordans/sitemaps
 		file_server
 	}
