@@ -1281,15 +1281,20 @@ def get_dossier_titles(
 # Of every instrument that is no stub: its key, BWB id and the names a dossier title may
 # give it, in lower case. Read whole, once per version of the instruments
 # (``load_law_names``): a name looked up in the table itself read every instrument per name
-# (4-5 s for the dossier of a bill that names its laws).
+# (4-5 s for the dossier of a bill that names its laws). The title and short title from
+# ``lg_instrument_names``, not the props (5 s cold on the full graph); of an instrument it
+# does not hold yet (before ``semantic graph-light`` filled it) from the props.
 _LAW_NAMES_SQL = f"""
-SELECT i.key, i.props -> 'bwb_id' AS bwb_id,
-       lower({_as_text("i.props -> 'citation_title'")}) AS citation_title,
-       lower({_as_text("i.props -> 'title'")}) AS title,
-       lower({_as_text("i.props -> 'short_title'")}) AS short_title
+SELECT i.key, to_json(i.bwb_id) AS bwb_id,
+       lower(coalesce(i.citation_title, '')) AS citation_title,
+       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'title'")}
+                  ELSE n.title END) AS title,
+       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'short_title'")}
+                  ELSE n.short_title END) AS short_title
 FROM {COLLECTION_INSTRUMENTS} i
+LEFT JOIN lg_instrument_names n ON n.id = i.id
 WHERE i.stub IS DISTINCT FROM TRUE
-ORDER BY i.key ASC
+ORDER BY i.key ASC NULLS LAST
 """
 
 

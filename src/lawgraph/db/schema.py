@@ -1341,6 +1341,43 @@ END $$""",
     return statements
 
 
+# The names of an instrument a dossier title may give it besides its citation title (a
+# column of ``instruments``), without its props, which a read of one prop would parse whole:
+# what ``queries/dossiers.load_law_names`` reads of every instrument. Kept by triggers on
+# every write of an instrument; ``semantic graph-light`` fills it once. Not a table of the
+# graph: writing it raises no data version.
+def instrument_names() -> list[str]:
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_instrument_names (
+    id text PRIMARY KEY,
+    title text NOT NULL,
+    short_title text NOT NULL
+)""",
+        """CREATE OR REPLACE FUNCTION lg_keep_instrument_names() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_instrument_names n USING changed c WHERE n.id = c.id;
+    ELSE
+        INSERT INTO public.lg_instrument_names (id, title, short_title)
+        SELECT c.id, coalesce(c.props -> 'title' #>> '{}', ''),
+               coalesce(c.props -> 'short_title' #>> '{}', '')
+        FROM changed c
+        ON CONFLICT (id) DO UPDATE
+            SET title = EXCLUDED.title, short_title = EXCLUDED.short_title;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER instruments_names_{event.lower()}"
+            f" AFTER {event} ON instruments REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_instrument_names()"
+        )
+    return statements
+
+
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
 # it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
 # the number of light summaries each stem is in, which the terms are weighed against.
@@ -1552,6 +1589,7 @@ def statements() -> list[str]:
         HEAT,
         *judgment_light(),
         *document_light(),
+        *instrument_names(),
         ARTICLE_TERMS,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
