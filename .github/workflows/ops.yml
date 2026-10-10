@@ -2,9 +2,11 @@ name: ops
 
 # Operations on the server without a personal SSH key, with the deploy key of deploy.yml. Started by
 # hand (Actions → ops → Run workflow, or `gh workflow run ops -f action=status`); every run is in
-# the Actions log. Six actions:
+# the Actions log. Seven actions:
 #   status  read only: health, timers, the last runs, running statements, disk, the ops jobs;
 #   log     read only: the tail of one ops job's log (`name`), or of runs.log without a name;
+#   run-log read only: the tail of one log of the scheduled runs in /srv/lawgraph/logs/ (`name`, e.g.
+#           daily-2026-10-09 or poll-tk-2026-10-09: the daily, weekly and poll logs and their `lawgraph check`);
 #   sql     read only: an `ops/<name>.sql` of this ref, in a read-only session with a timeout;
 #   run     an `ops/<name>.sh` of this ref (with the rest of ops/ beside it), started in the background on the server
 #           (/srv/lawgraph/ops/<name>.log); the run returns at once, `log` follows it;
@@ -19,10 +21,10 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: status, log, sql, run, config-check or config-apply
+        description: status, log, run-log, sql, run, config-check or config-apply
         required: true
         type: choice
-        options: [status, log, sql, run, config-check, config-apply]
+        options: [status, log, run-log, sql, run, config-check, config-apply]
         default: status
       name:
         description: For log, sql and run, the file name under ops/ without extension
@@ -72,6 +74,7 @@ jobs:
           case "$ACTION" in
             sql) [ -f "ops/$NAME.sql" ] || { echo "no ops/$NAME.sql on this ref"; exit 1; } ;;
             run) [ -f "ops/$NAME.sh" ] || { echo "no ops/$NAME.sh on this ref"; exit 1; } ;;
+            run-log) [ -n "$NAME" ] || { echo "run-log needs a name, e.g. daily-2026-10-09"; exit 1; } ;;
           esac
 
       - name: SSH key and host key
@@ -114,6 +117,22 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "DEPLOY_DIR=$DEPLOY_DIR OPS_DIR=$OPS_DIR NAME='$NAME' LINES='$LINES' sh -s" << 'EOF'
           if [ -n "$NAME" ]; then tail -n "$LINES" "$OPS_DIR/$NAME.log"; else tail -n "$LINES" "$DEPLOY_DIR/logs/runs.log"; fi
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          NAME: ${{ inputs.name }}
+          LINES: ${{ inputs.lines }}
+
+      # read only: a log of the scheduled runs by its name alone (no path: the name holds no /)
+      - name: Run log
+        if: inputs.action == 'run-log'
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_DIR=$DEPLOY_DIR NAME='$NAME' LINES='$LINES' sh -s" << 'EOF'
+          f="$DEPLOY_DIR/logs/$NAME.log"
+          [ -f "$f" ] || { echo "no $f; the logs there:"; ls "$DEPLOY_DIR/logs/"; exit 1; }
+          tail -n "$LINES" "$f"
           EOF
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
