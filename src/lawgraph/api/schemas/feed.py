@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
-from lawgraph.api.schemas.decisions import CoalitionVoteDTO
+from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import (
     CHAMBER_TK,
@@ -121,22 +121,6 @@ class FeedPersonDTO(WithPath):
     )
 
 
-class FeedCoalitionFactionDTO(BaseModel):
-    """A faction of the coalition on a vote: how its seats went."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    key: str
-    short: str | None = Field(None, description="Its abbreviation, else its name.")
-    choice: Literal["Voor", "Tegen"] | None = Field(
-        None,
-        description="``Voor`` or ``Tegen``; null when its seats went both ways (a "
-        "roll call).",
-    )
-    seats_for: int
-    seats_against: int
-
-
 class FeedVoteDTO(BaseModel):
     """The outcome of a ``stemming``."""
 
@@ -175,7 +159,7 @@ class FeedVoteDTO(BaseModel):
         "as ``GET /api/decisions/{key}`` gives it; null without a cabinet or a coalition "
         "vote, and of the Eerste Kamer.",
     )
-    coalition_factions: list[FeedCoalitionFactionDTO] = Field(
+    coalition_factions: list[CoalitionFactionDTO] = Field(
         default_factory=list,
         description="Of the Tweede Kamer: each coalition faction that cast a seat, with its "
         "choice, most seats first; empty where ``coalition`` is null.",

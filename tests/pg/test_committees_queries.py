@@ -690,6 +690,9 @@ def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
             "faction_key": "d66",
             "vote_source": "faction",
             "in_office": [],
+            # no cabinet in the data: no coalition
+            "coalition": None,
+            "coalition_factions": [],
         }
     )
     # their own vote carries the party they sit for now; a faction's that of the day
@@ -915,6 +918,8 @@ def test_the_newest_votes_are_those_of_every_vote(
         new = get_member_votes(store, "members/m1", limit=limit)
         # the posts held that day came later (a member without any here)
         assert all(v.pop("in_office") == [] for v in new)
+        assert all(v.pop("coalition") is None for v in new)
+        assert all(v.pop("coalition_factions") == [] for v in new)
         assert new == _old_member_votes(store, "members/m1", limit), limit
         assert len(new) == limit
     # the roll-calls are the member's own, never the faction's
