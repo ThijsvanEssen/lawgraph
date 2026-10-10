@@ -7,9 +7,11 @@ whole text; ``lg_instrument_names`` per instrument its title and short title, wh
 laws a dossier title names are found by; ``lg_faction_votes`` every vote of a faction with
 its decision's date, which the votes of a member are read from; ``lg_authored`` every paper a
 member signed with its dossiers and date, which the dossiers of a member and the counts of a
-cabinet are read from. Triggers on ``judgments``, ``documents``, ``cases``, ``instruments``,
-``edges`` and ``decisions`` keep them with every write: this step adds the rows written before
-them (once, after the deploy that brought a table), and with ``--all`` keeps every row again
+cabinet are read from; ``lg_led`` every activity and case a committee leads with its date
+and dossiers, which the pages of a committee are read from. Triggers on ``judgments``,
+``documents``, ``cases``, ``activities``, ``instruments``, ``edges`` and ``decisions`` keep
+them with every write: this step adds the rows written before them (once, after the deploy
+that brought a table), and with ``--all`` keeps every row again
 (after the props kept changed); ``--authored-dates`` keeps the dates of the signatures kept
 before them, a slice of members at a time. Writes no node or edge: the data version stays as
 it is.
@@ -20,6 +22,7 @@ from __future__ import annotations
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.committee_led import fill_led
 from lawgraph.db.queries.document_light import fill_document_light
 from lawgraph.db.queries.faction_votes import fill_faction_votes
 from lawgraph.db.queries.instrument_names import fill_instrument_names
@@ -81,7 +84,11 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     logger.info(
         "Kept %d papers members signed for the dossiers of their members.", signed
     )
-    return PipelineResult(updated=judgments + documents + instruments + votes + signed)
+    led = fill_led(store, every=args.all)
+    logger.info("Kept %d items committees lead for the pages of the committees.", led)
+    return PipelineResult(
+        updated=judgments + documents + instruments + votes + signed + led
+    )
 
 
 def _authored_dates(store: GraphStore, after: str, limit: int) -> PipelineResult:

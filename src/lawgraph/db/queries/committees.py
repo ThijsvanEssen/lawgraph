@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries import committee_led
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.version_cache import cached
 
@@ -264,10 +265,12 @@ def get_committee_detail(
     committee = _committee(store, slug)
     if committee is None:
         return None
+    # whether the table is filled is asked outside the answer kept: part of its key
+    led = committee_led.is_filled(store)
     total, dossiers = cached(
         store,
-        ("committee-dossiers", committee["_id"], status, limit, offset),
-        lambda: _led_dossiers(store, committee["_id"], status, limit, offset),
+        ("committee-dossiers", committee["_id"], status, limit, offset, led),
+        lambda: _led_dossiers(store, committee["_id"], status, limit, offset, led),
         tables=(COLLECTION_EDGES, COLLECTION_DOSSIERS),
     )
     return {
@@ -280,8 +283,31 @@ def get_committee_detail(
     }
 
 
+# The dossiers the items a committee leads are about: walked over its edges and their
+# subjects (a probe of the edges per item: 17,920 for Financiën, 8.2 s cold on prod), or,
+# once ``lg_led`` is filled, those kept with its items, a range of its index.
+_WALKED_DOSSIERS = f"""
+    SELECT subject.to_id
+    FROM {COLLECTION_EDGES} led
+    JOIN {COLLECTION_EDGES} subject ON subject.from_id = led.from_id
+    WHERE led.to_id = %(committee_id)s AND led.relation = %(led_by)s
+      AND subject.relation = %(about)s
+      AND subject.to_collection = '{COLLECTION_DOSSIERS}'
+"""
+_LED_DOSSIERS = """
+    SELECT x.dossier_id
+    FROM lg_led l CROSS JOIN LATERAL unnest(l.dossiers) AS x(dossier_id)
+    WHERE l.committee_id = %(committee_id)s
+"""
+
+
 def _led_dossiers(
-    store: GraphStore, committee_id: str, status: str | None, limit: int, offset: int
+    store: GraphStore,
+    committee_id: str,
+    status: str | None,
+    limit: int,
+    offset: int,
+    led: bool,
 ) -> tuple[int, list[dict[str, Any]]]:
     """The dossiers the activities and cases of a committee are about: how many, and a
     page of them, newest opened first. Every edge the committee leads and every subject of
@@ -292,19 +318,13 @@ def _led_dossiers(
         None: "",
         "closed": "AND d.closed IS TRUE",
     }.get(status, "AND d.closed IS NOT TRUE")
+    about = _LED_DOSSIERS if led else _WALKED_DOSSIERS
     rows = store.query(
         f"""
         WITH matching AS (
             SELECT {_NODE.format(t="d")}, d.opened_on
             FROM {COLLECTION_DOSSIERS} d
-            WHERE d.id IN (
-                SELECT subject.to_id
-                FROM {COLLECTION_EDGES} led
-                JOIN {COLLECTION_EDGES} subject ON subject.from_id = led.from_id
-                WHERE led.to_id = %(committee_id)s AND led.relation = %(led_by)s
-                  AND subject.relation = %(about)s
-                  AND subject.to_collection = '{COLLECTION_DOSSIERS}'
-            ) {by_status}
+            WHERE d.id IN ({about}) {by_status}
         )
         {_page("matching", "opened_on DESC NULLS LAST", "key ASC")}
         """,
@@ -334,30 +354,44 @@ def get_committee_activities(
     committee = _committee(store, slug)
     if committee is None:
         return None
+    led = committee_led.is_filled(store)
     return cached(
         store,
-        ("committee-activities", committee["_id"], limit, offset),
-        lambda: _led_activities(store, committee["_id"], limit, offset),
+        ("committee-activities", committee["_id"], limit, offset, led),
+        lambda: _led_activities(store, committee["_id"], limit, offset, led),
         tables=(COLLECTION_EDGES, COLLECTION_ACTIVITIES),
     )
 
 
+# The activities a committee leads with their dates: walked over its edges, each activity's
+# row read for its date (4,493 for Financiën, 2.6 s cold on prod), or, once ``lg_led`` is
+# filled, a range of its index in the order of their dates; the page's rows alone are read.
+_WALKED_ACTIVITIES = f"""
+    SELECT a.id, a.key, a.date
+    FROM {COLLECTION_EDGES} e
+    JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
+    WHERE e.to_id = %(committee_id)s AND e.relation = %(led_by)s
+      AND e.from_collection = '{COLLECTION_ACTIVITIES}'
+"""
+_LED_ACTIVITIES = f"""
+    SELECT l.item_id AS id, split_part(l.item_id, '/', 2) AS key, l.date
+    FROM lg_led l
+    WHERE l.committee_id = %(committee_id)s
+      AND l.item_collection = '{COLLECTION_ACTIVITIES}'
+"""
+
+
 def _led_activities(
-    store: GraphStore, committee_id: str, limit: int, offset: int
+    store: GraphStore, committee_id: str, limit: int, offset: int, led: bool
 ) -> dict[str, Any]:
     """``{total, items}``: a page of the activities a committee leads, newest first. Every
     activity of it is read and sorted for the page (2.6 s for Financiën on prod), so kept
     per data version."""
+    walk = _LED_ACTIVITIES if led else _WALKED_ACTIVITIES
     rows = store.query(
         f"""
-        WITH led AS (
-            SELECT a.id, a.key, a.date
-            FROM {COLLECTION_EDGES} e
-            JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
-            WHERE e.to_id = %(committee_id)s AND e.relation = %(led_by)s
-              AND e.from_collection = '{COLLECTION_ACTIVITIES}'
-        ),
-        listed AS ({_page("led", "date DESC NULLS LAST", "key ASC")})
+        WITH led AS ({walk}),
+        listed AS ({_page("led", "date DESC NULLS LAST", "id ASC")})
         SELECT listed.total, a.id, json_build_object(
             'id', a.id,
             'key', a.key,
