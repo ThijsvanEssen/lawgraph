@@ -18,12 +18,16 @@ from psycopg import sql
 
 from lawgraph.db import GraphStore
 from lawgraph.db.store import _query, _text
+from tests.pg import test_query_plans
 from tests.pg.test_query_plans import _seed
 
 LARGE = ("judgments", "articles", "documents", "edges")
-JUDGMENTS = 20_000
-DOCUMENTS = 20_000
-EDGES = 100_000
+JUDGMENTS = 6_000
+DOCUMENTS = 6_000
+EDGES = 30_000
+# The rows of every table that no statement asks for (``test_query_plans._fill``): enough
+# that the planner does not read a table whole for being small.
+FILLER = 3_000
 # A scan the planner expects to read this share of a large table reads it whole.
 WHOLE = 0.5
 
@@ -82,7 +86,7 @@ def _shaped_like_the_real(store: GraphStore) -> None:
     )
     store.execute(
         "INSERT INTO edges (key, from_id, to_id, doc)"
-        " SELECT 'real_' || n, 'judgments/real_' || (n % 20000 + 1),"
+        f" SELECT 'real_' || n, 'judgments/real_' || (n % {JUDGMENTS} + 1),"
         " 'articles/filler_' || (n % 9967 + 1),"
         " json_build_object('relation', 'REFERS_TO', 'created_at', now()::text)"
         f" FROM generate_series(1, {EDGES}) n"
@@ -143,8 +147,9 @@ def test_the_background_reads_no_large_table_whole(
     from lawgraph.api import warm
     from lawgraph.db.queries import _bm25
 
-    # the large tables sampled for the statistics of the search, as the real ones are
-    monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 2_000)
+    # the large tables sampled for the statistics of the search, as the real ones are (a
+    # table under five samples is counted whole)
+    monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 600)
     # terms searched often enough for the warm-up: one it searches, and one most judgments
     # hold, which it leaves, as its search would rank them all
     import datetime as dt
@@ -159,6 +164,7 @@ def test_the_background_reads_no_large_table_whole(
     )
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
 
+    monkeypatch.setattr(test_query_plans, "FILLER", FILLER)
     _seed(store)
     _shaped_like_the_real(store)
     store.vacuum_analyze()
