@@ -94,6 +94,7 @@ def missing_record(
     listed: bool = False,
     status: int = 404,
     spread: bool = False,
+    days: int | None = None,
 ) -> RetrieveRecord:
     """The record that remembers that *source* has no *kind* document for *external_id*.
 
@@ -101,9 +102,11 @@ def missing_record(
     for again after ``MISSING_LISTED_FOR_DAYS`` instead of ``MISSING_FOR_DAYS``. *status* is
     what the source answered (``status_of``). *spread*: as many days again at most, the same
     for the same *external_id* (``spread_days``), so thousands of documents found missing in
-    one run come due on many days, not on one.
+    one run come due on many days, not on one. *days*: the wait itself, for a source that
+    knows when the document is due (a new paper's XML).
     """
-    days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
+    if days is None:
+        days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
     if spread:
         days += spread_days(external_id, days)
     retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)

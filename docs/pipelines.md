@@ -112,8 +112,10 @@ Client quirks:
   `tk-kamerstuk-xml` under that identifier (`meta.document` is the key of the Document). The
   papers it fetches are those without such a record and without a `-missing` record that is
   still to wait (`lawgraph gaps` lists them). A paper the repository has no XML for (404)
-  becomes a `-missing` record: for 30 days, or for 3 when the paper is a week old or younger
-  (new papers are published as a PDF first and their XML follows within days). Error pages that
+  becomes a `-missing` record: for 30 days, or for 1 when the paper is 14 days old or younger
+  (new papers are published as a PDF first and their XML follows within days, now and then a
+  week or more later). A paper the Tweede Kamer has not numbered yet (`Volgnummer` -1, no
+  dossier) has no address in the repository and waits until it is. Error pages that
   answer 200 are not stored; 25 failures in a row fail the step. XML exists for papers from
   December 1994 on.
 
