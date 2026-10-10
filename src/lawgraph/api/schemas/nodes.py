@@ -77,13 +77,35 @@ class BaseNodeDTO(WithPath):
         doc: dict[str, Any],
         *,
         drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
+        names: dict[str, dict[str, Any]] | None = None,
     ) -> BaseNodeDTO:
+        """From a node document; with *names* a paper, an activity or a decision gets the
+        name of its first dossier (``with_dossier_short_title``)."""
         payload = _build_node_payload(doc, drop_props_keys=drop_props_keys)
+        if names is not None:
+            with_dossier_short_title(payload, names)
         return cls(**payload)
 
 
 # The neighbours that carry the short title of their first dossier (``NeighborDTO``).
 _NAMED_BY_DOSSIER = ("documents", "activities", "decisions")
+
+
+def with_dossier_short_title(
+    payload: dict[str, Any], names: dict[str, dict[str, Any]]
+) -> None:
+    """Of a paper, an activity or a decision, ``dossier_short_title`` in its props: the name
+    its first dossier goes by (by *names*, ``load_dossier_names``; null without one)."""
+    props = payload.get("props")
+    if payload.get("collection") not in _NAMED_BY_DOSSIER or not isinstance(
+        props, dict
+    ):
+        return
+    # a copy: the node may be one kept for every request
+    props = payload["props"] = dict(props)
+    numbers = props.get("dossier_numbers") or [props.get("dossier_number")]
+    first = str(numbers[0] or "") if isinstance(numbers, list) and numbers else ""
+    props["dossier_short_title"] = (names.get(first) or {}).get("short_title")
 
 
 class NeighborDTO(WithPath):
@@ -118,20 +140,8 @@ class NeighborDTO(WithPath):
         props ``dossier_short_title``, the name its first dossier goes by (by *names*,
         ``load_dossier_names``; null without one)."""
         payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
-        props = payload.get("props")
-        if names is not None and isinstance(props, dict):
-            if payload["collection"] in _NAMED_BY_DOSSIER:
-                # a copy: the neighbour may be one kept for every request
-                props = payload["props"] = dict(props)
-                numbers = props.get("dossier_numbers") or [props.get("dossier_number")]
-                first = (
-                    str(numbers[0] or "")
-                    if isinstance(numbers, list) and numbers
-                    else ""
-                )
-                props["dossier_short_title"] = (names.get(first) or {}).get(
-                    "short_title"
-                )
+        if names is not None:
+            with_dossier_short_title(payload, names)
         meta = edge.get("meta")
         return cls(
             **payload,
