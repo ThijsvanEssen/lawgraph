@@ -47,7 +47,13 @@ dossier numbers, case kinds, sequence), without its text, kept and filled the sa
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
 index on `(faction_id, date DESC, decision_key)`, kept by triggers on `edges` and `decisions`
 and filled once; `lg_faction_votes_state` notes when it was filled, from when the votes of a
-member are read from it (`get_member_votes`), before which they walk the decisions. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+member are read from it (`get_member_votes`), before which they walk the decisions. `lg_authored`
+holds every `AUTHORED` edge from a member with the `role`, `function` and `capacity` of the
+signature and the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`),
+with an index on `member_id`, kept by triggers on `edges` (a signature, and a paper or a case
+placed in or taken out of a dossier or a case) and filled once; `lg_authored_state` notes when,
+from when the dossiers of a member are read from it (`get_actor_dossiers`), before which they
+walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
