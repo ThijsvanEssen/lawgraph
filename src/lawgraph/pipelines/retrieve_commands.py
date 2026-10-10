@@ -29,11 +29,15 @@ from lawgraph.pipelines.retrieve.eerstekamer_bills import (
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.eerstekamer_mutations import (
+    EerstekamerMutationsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex_nim import EurlexNimRetrievePipeline
+from lawgraph.pipelines.retrieve.kiesraad import KiesraadRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
     RechtspraakInstantiesRetrievePipeline,
@@ -270,6 +274,23 @@ def retrieve_eerstekamer_composition(argv: list[str] | None = None) -> PipelineR
         "today (eerstekamer.nl): a snapshot of about 40 pages."
     ).parse_args(argv)
     return EerstekamerCompositionRetrievePipeline(GraphStore()).run()
+
+
+def retrieve_eerstekamer_mutations(argv: list[str] | None = None) -> PipelineResult:
+    command_parser(
+        description="Retrieve the changes in the composition of the Eerste Kamer "
+        "(eerstekamer.nl, /personele_mutaties): the list of every term and each change "
+        "not stored yet."
+    ).parse_args(argv)
+    return EerstekamerMutationsRetrievePipeline(GraphStore()).run()
+
+
+def retrieve_kiesraad(argv: list[str] | None = None) -> PipelineResult:
+    command_parser(
+        description="Retrieve the results of the elections of the Eerste Kamer from the "
+        "Kiesraad's databank (verkiezingsuitslagen.nl): each election not stored yet."
+    ).parse_args(argv)
+    return KiesraadRetrievePipeline(GraphStore()).run()
 
 
 def retrieve_eerstekamer_agenda(argv: list[str] | None = None) -> PipelineResult:

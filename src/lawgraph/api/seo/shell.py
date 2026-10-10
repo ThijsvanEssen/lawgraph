@@ -37,7 +37,7 @@ class Shell:
     html: str
     # what changes with a release of the front end: part of every ETag
     stamp: str
-    routes: dict[str, dict[str, str]]
+    routes: dict[str, dict[str, Any]]
 
 
 _lock = threading.Lock()
@@ -64,7 +64,7 @@ def shell() -> Shell:
         return fresh
 
 
-def _routes(index: Path) -> dict[str, dict[str, str]]:
+def _routes(index: Path) -> dict[str, dict[str, Any]]:
     """The pages of the app by path, from ``spa-routes.json`` beside the shell."""
     try:
         listed = json.loads((index.parent / "spa-routes.json").read_text("utf-8"))
@@ -164,9 +164,16 @@ def stamp() -> str:
     return shell().stamp
 
 
-def route_of(path: str) -> dict[str, str] | None:
+def route_of(path: str) -> dict[str, Any] | None:
     """The page of the app at *path* (``spa-routes.json``), or None."""
     return shell().routes.get(path.rstrip("/") or "/")
+
+
+def indexed(route: dict[str, Any]) -> bool:
+    """Whether a page of the app is for the search engines: all but those that say
+    ``"index": false`` (a page with nothing of its own to find, as a reader's own maps
+    kept in the browser)."""
+    return route.get("index") is not False
 
 
 def exists() -> bool:

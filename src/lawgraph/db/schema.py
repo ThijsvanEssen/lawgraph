@@ -40,6 +40,9 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
+    RELATION_AUTHORED,
+    RELATION_PART_OF,
+    RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 
@@ -1341,6 +1344,211 @@ END $$""",
     return statements
 
 
+# The names of an instrument a dossier title may give it besides its citation title (a
+# column of ``instruments``), without its props, which a read of one prop would parse whole:
+# what ``queries/dossiers.load_law_names`` reads of every instrument. Kept by triggers on
+# every write of an instrument; ``semantic graph-light`` fills it once. Not a table of the
+# graph: writing it raises no data version.
+def instrument_names() -> list[str]:
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_instrument_names (
+    id text PRIMARY KEY,
+    title text NOT NULL,
+    short_title text NOT NULL
+)""",
+        """CREATE OR REPLACE FUNCTION lg_keep_instrument_names() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_instrument_names n USING changed c WHERE n.id = c.id;
+    ELSE
+        INSERT INTO public.lg_instrument_names (id, title, short_title)
+        SELECT c.id, coalesce(c.props -> 'title' #>> '{}', ''),
+               coalesce(c.props -> 'short_title' #>> '{}', '')
+        FROM changed c
+        ON CONFLICT (id) DO UPDATE
+            SET title = EXCLUDED.title, short_title = EXCLUDED.short_title;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER instruments_names_{event.lower()}"
+            f" AFTER {event} ON instruments REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_instrument_names()"
+        )
+    return statements
+
+
+# Every vote of a faction (a ``VOTED`` edge from ``factions``) with the date, key and kind of
+# vote of its decision: what the page of a member's votes reads of the faction's periods, a
+# range of an index per period instead of a walk over the decisions with a probe of the edges
+# per decision (``queries/committees.get_member_votes``). Kept by triggers on every write of
+# ``edges`` and ``decisions``; ``semantic graph-light`` fills it once and notes that in
+# ``lg_faction_votes_state``, before which the page walks the decisions. Not a table of the
+# graph: writing it raises no data version.
+def faction_votes() -> list[str]:
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_faction_votes (
+    edge_key text PRIMARY KEY,
+    faction_id text NOT NULL,
+    decision_id text NOT NULL,
+    date text,
+    decision_key text NOT NULL,
+    vote_kind text
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_faction_votes_period ON lg_faction_votes"
+        " (faction_id, date DESC, decision_key ASC)",
+        "CREATE INDEX IF NOT EXISTS lg_faction_votes_decision ON lg_faction_votes"
+        " (decision_id)",
+        """CREATE TABLE IF NOT EXISTS lg_faction_votes_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    filled_at timestamptz NOT NULL
+)""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_faction_votes_of_edges() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP IN ('DELETE', 'UPDATE') THEN
+        DELETE FROM public.lg_faction_votes v USING changed c
+        WHERE v.edge_key = c.key
+          AND c.relation = '{RELATION_VOTED}' AND c.from_collection = '{COLLECTION_FACTIONS}';
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        INSERT INTO public.lg_faction_votes
+            (edge_key, faction_id, decision_id, date, decision_key, vote_kind)
+        SELECT c.key, c.from_id, c.to_id, d.date, d.key, public.lg_str(d.props -> 'vote_kind')
+        FROM changed c JOIN public.decisions d ON d.id = c.to_id
+        WHERE c.relation = '{RELATION_VOTED}' AND c.from_collection = '{COLLECTION_FACTIONS}'
+        ON CONFLICT (edge_key) DO UPDATE SET
+            faction_id = EXCLUDED.faction_id, decision_id = EXCLUDED.decision_id,
+            date = EXCLUDED.date, decision_key = EXCLUDED.decision_key,
+            vote_kind = EXCLUDED.vote_kind;
+    END IF;
+    RETURN NULL;
+END $$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_faction_votes_of_decisions() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.lg_faction_votes v USING changed c WHERE v.decision_id = c.id;
+    ELSE
+        -- a vote written before its decision, and a decision whose date or kind changed
+        INSERT INTO public.lg_faction_votes
+            (edge_key, faction_id, decision_id, date, decision_key, vote_kind)
+        SELECT e.key, e.from_id, e.to_id, c.date, c.key, public.lg_str(c.props -> 'vote_kind')
+        FROM changed c
+        JOIN public.edges e
+          ON e.to_id = c.id AND e.relation = '{RELATION_VOTED}'
+         AND e.from_collection = '{COLLECTION_FACTIONS}'
+        ON CONFLICT (edge_key) DO UPDATE SET
+            date = EXCLUDED.date, decision_key = EXCLUDED.decision_key,
+            vote_kind = EXCLUDED.vote_kind;
+    END IF;
+    RETURN NULL;
+END $$""",
+    ]
+    for table, function in (
+        ("edges", "lg_keep_faction_votes_of_edges"),
+        ("decisions", "lg_keep_faction_votes_of_decisions"),
+    ):
+        for event, transition in (
+            ("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")
+        ):  # fmt: skip
+            statements.append(
+                f"CREATE OR REPLACE TRIGGER {table}_faction_votes_{event.lower()}"
+                f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
+                f" FOR EACH STATEMENT EXECUTE FUNCTION {function}()"
+            )
+    return statements
+
+
+# Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
+# of the signature and the dossiers of the paper, directly or through its case: what the
+# page of a member's dossiers reads, a range of an index instead of the edges of every paper
+# they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
+# Kept by triggers on every write of ``edges`` (the signatures, and the papers placed in a
+# dossier or a case, and the cases in a dossier); ``semantic graph-light`` fills it once and
+# notes that in ``lg_authored_state``, before which the page walks the edges. Not a table of
+# the graph: writing it raises no data version.
+def member_authored() -> list[str]:
+    part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_authored (
+    edge_key text PRIMARY KEY,
+    member_id text NOT NULL,
+    document_id text NOT NULL,
+    meta json NOT NULL,
+    dossiers text[] NOT NULL
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
+        "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
+        """CREATE TABLE IF NOT EXISTS lg_authored_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    filled_at timestamptz NOT NULL
+)""",
+        # the dossiers of a paper (or a case): directly, and through the cases it is part of
+        f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
+LANGUAGE sql STABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}') FROM (
+        SELECT p.to_id AS d FROM public.edges p
+        WHERE p.from_id = paper AND p.relation = '{part_of}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+        UNION
+        SELECT p2.to_id FROM public.edges p1
+        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
+         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
+        WHERE p1.from_id = paper AND p1.relation = '{part_of}'
+          AND p1.to_collection = '{COLLECTION_CASES}'
+    ) found
+$$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_authored() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP IN ('DELETE', 'UPDATE') THEN
+        DELETE FROM public.lg_authored a USING changed c
+        WHERE a.edge_key = c.key
+          AND c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}';
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        INSERT INTO public.lg_authored (edge_key, member_id, document_id, meta, dossiers)
+        SELECT c.key, c.from_id, c.to_id,
+               json_build_object('role', c.doc -> 'meta' -> 'role',
+                                 'function', c.doc -> 'meta' -> 'function',
+                                 'capacity', c.doc -> 'meta' -> 'capacity'),
+               public.lg_dossiers_of(c.to_id)
+        FROM changed c
+        WHERE c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}'
+        ON CONFLICT (edge_key) DO NOTHING;
+    END IF;
+    -- a paper placed in a dossier or a case, or a case in a dossier (or taken out): the
+    -- dossiers of the papers signed that it reaches again
+    WITH placed AS MATERIALIZED (
+        SELECT c.from_id, c.from_collection, c.to_collection FROM changed c
+        WHERE c.relation = '{part_of}'
+          AND c.to_collection IN ('{COLLECTION_DOSSIERS}', '{COLLECTION_CASES}')
+    )
+    UPDATE public.lg_authored a SET dossiers = public.lg_dossiers_of(a.document_id)
+    WHERE a.document_id IN (
+        SELECT p.from_id FROM placed p
+        UNION
+        SELECT e.from_id FROM placed p
+        JOIN public.edges e ON e.to_id = p.from_id AND e.relation = '{part_of}'
+        WHERE p.from_collection = '{COLLECTION_CASES}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+    );
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER edges_authored_{event.lower()}"
+            f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored()"
+        )
+    return statements
+
+
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
 # it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
 # the number of light summaries each stem is in, which the terms are weighed against.
@@ -1422,6 +1630,27 @@ FEED_EVENTS_INDEXES = {
 }
 
 
+# The seats of the Eerste Kamer per term and per stretch (``normalize eerstekamer-mutations``):
+# each term from the Kiesraad's result of its election through the changes the Kamer's pages
+# tell (``core.ek_changes``), and whether it added up (``checked``). Not tables of the graph.
+EK_SEATS = """
+CREATE TABLE IF NOT EXISTS lg_ek_terms (
+    start text PRIMARY KEY,
+    election text NOT NULL,
+    source json NOT NULL,
+    checked boolean NOT NULL,
+    mismatches json NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lg_ek_seats (
+    from_date text PRIMARY KEY,
+    to_date text,
+    term text NOT NULL,
+    seats json NOT NULL,
+    events json NOT NULL
+)
+"""
+
+
 def feed_events() -> list[str]:
     statements = [
         f"CREATE TABLE IF NOT EXISTS {FEED_EVENTS_TABLE} ({FEED_EVENTS_COLUMNS})",
@@ -1430,6 +1659,18 @@ def feed_events() -> list[str]:
     written_at timestamptz NOT NULL,
     since text
 )""",
+        # the amendments as the Kamer handles them (``queries/feed_events.CHAINS``): a row
+        # per chain of papers that replace each other (REVISES; the chain is named by its
+        # last paper) and paper of it, with the day of its first paper and its outcome
+        """CREATE TABLE IF NOT EXISTS lg_amendment_chains (
+    chain_id text NOT NULL,
+    paper_id text NOT NULL,
+    first_date text,
+    outcome text NOT NULL,
+    PRIMARY KEY (chain_id, paper_id)
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_amendment_chains_paper"
+        " ON lg_amendment_chains (paper_id)",
         # the tokens of letters and digits of a text, as the feed's pattern (``\m``, ``\M``)
         # tells a word: by the character classes of the database
         """CREATE OR REPLACE FUNCTION lg_alnum_tokens(t text) RETURNS tsvector
@@ -1519,10 +1760,14 @@ def statements() -> list[str]:
         HEAT,
         *judgment_light(),
         *document_light(),
+        *instrument_names(),
+        *faction_votes(),
+        *member_authored(),
         ARTICLE_TERMS,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
         *feed_events(),
+        EK_SEATS,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)

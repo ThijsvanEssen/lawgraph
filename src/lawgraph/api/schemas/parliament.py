@@ -16,8 +16,12 @@ class FactionSeatsDTO(WithPath):
     model_config = ConfigDict(extra="forbid")
     path_collection = "factions"
 
-    id: str
-    key: str
+    id: str | None = Field(
+        None,
+        description="Null for a faction of the Eerste Kamer of the past (``date``), which "
+        "only its name is known by.",
+    )
+    key: str | None = None
     abbreviation: str | None
     name: str | None
     seats: int
@@ -102,6 +106,12 @@ class ParliamentSeatsResponse(BaseModel):
         None,
         description="Of the Eerste Kamer: who sits where in its plenary hall; null for "
         "the Tweede Kamer, and when no plan was read.",
+    )
+    checked: bool | None = Field(
+        None,
+        description="Of the Eerste Kamer on a ``date``: whether the term of that day added "
+        "up (its seats walked from the Kiesraad's result through the changes the Kamer's "
+        "pages tell); when false, show the seats as uncertain. Null otherwise.",
     )
 
 

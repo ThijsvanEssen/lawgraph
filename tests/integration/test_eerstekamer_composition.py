@@ -221,7 +221,7 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: GraphStore) -> 
             client.get(
                 "/api/parliament/seats", params={"chamber": "EK", "date": "2026-01-01"}
             ).status_code
-            == 422
+            == 404  # no stretch of that day is known
         )
     finally:
         app.dependency_overrides.pop(get_store, None)

@@ -10,14 +10,15 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
-| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
+| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
+| Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
 | The graph itself (`graph`) | none | none | `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a base URL from `config/settings.py`, a 30 s timeout,
@@ -1042,6 +1043,13 @@ that of a post still held on every run. After `retrieve rijksoverheid`, on the K
 **Semantic `staatscourant`.** `EXPLAINS`: `bwb_id` match 0.92, title contains an instrument
 `citation_title` 0.65, a BWB id found in the text 0.75.
 
+**Semantic `bwb-publications`.** `SAME_AS` from a paper of the Staatsblad or the Staatscourant
+to the publication of the BWB of the same official id (`documents/stb_stb_2019_33` →
+`instruments/stb_2019_33`, `documents/stcrt_stcrt_2020_12345` → `instruments/stcrt_2020_12345`):
+the one publication, as its own source gives its text and as the BWB names what it introduced,
+amended or repealed (`semantic bwb-amendments`). By the keys alone, confidence 1.0,
+`meta.basis` `official_id`; every run derives them in full and removes those no longer derived.
+
 ## Eerste Kamer
 
 **Provides.** The Kamerstukken of the Eerste Kamer, about 38,000 from 1994 on, from the KOOP SRU
@@ -1146,6 +1154,43 @@ page gives it, and its papers with kind, date and number); never a sentence. The
 role), and `/wie_zit_waar` (the plan of the hall), about 40 pages, one record each
 (`ek-composition-html`, external id the path, `read_on`). The site gives today's composition
 only, so every run reads it all: a snapshot.
+
+**Retrieve `eerstekamer-mutations`.** The lists of `/personele_mutaties`, the changes in the
+composition per term (`ek-mutations-html`, external id the path: the current term and each
+earlier term it links), read on every run, and the page of each change they list
+(`ek-mutation-html`, external id the path, `meta.date` and `meta.headline` as the list gives
+them), once.
+
+**Retrieve `kiesraad`.** The page of each election of the Eerste Kamer since 2003 in the
+Kiesraad's databank (`kiesraad-ek-result-html`, external id the code, `EK20230530`), once:
+the seats each list won (`core/kiesraad.py` reads the data in the page).
+
+**Normalize `eerstekamer-mutations`.** The seats of the Eerste Kamer day by day
+(`lg_ek_terms`, `lg_ek_seats`, written whole). A term begins on the day the new Kamer was
+installed (the Tuesday two weeks after the week of the election, as every one since 2003)
+with the seats each list won. A faction is known by its names: today's factions by their
+abbreviation and the full name their page's path spells; each list of the term (its name,
+the abbreviation in brackets) as the faction of today it is one of, else as a faction of its
+own; and each name in full the items write with its abbreviation (`Onafhankelijke
+Senaatsfractie (OSF)`). A faction of the past goes by the name the items call it most. Then
+the changes (`core/ek_changes.py`), each read from a text by pattern (`basis` `tekst`, the
+headline or sentence as `words`):
+- of an item of `/personele_mutaties`: a member sworn in (and the one they succeed or follow
+  gone, when no item of their own says when, in the faction of the one sworn in), a member
+  gone (on the day the text names: `vertrekt per`, `treedt terug per`, `per … gestopt`, the
+  day after `tot en met`), from one faction to another or to a faction of their own
+  (`Fractie-<name>`), several together (two who join a faction, the members a new faction
+  lists, those who leave for the Tweede Kamer), a faction renamed (`tot voor kort de … geheten`);
+  where the text says no more, its headline; a member standing in for one on leave or ill
+  changes no seat, nor does a chair, a clerk or a debate; one sworn in within the term's
+  first 60 days with no seat open was elected and sworn in late;
+- of a faction's own page (`retrieve eerstekamer-composition`): two factions merged and a
+  faction renamed (`Van … tot … was de naam van de fractie …`).
+A member's faction is the one the text names, else the one the walk last saw them in. A term
+is `checked` when every change's faction is known, no faction goes below zero and no day has
+more than 75 seats; a past term also when it ends on 75, the current term when its last
+stretch is today's composition, per faction. What does not add up is listed in
+`mismatches`.
 
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
@@ -1523,12 +1568,14 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
+| semantic `bwb-publications` | `bwb-amendments` (the publications of the BWB) and `normalize staatsblad` and `staatscourant` (their papers) |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
+| normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |

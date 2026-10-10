@@ -64,13 +64,23 @@ jobs:
       # Test data only: the data directory in memory, and no waiting for the disk (fsync,
       # synchronous_commit and full_page_writes off). JIT off, as on postgres-test. The
       # official image from the ECR Public mirror of Docker Hub (the same digest): a runner
-      # pulling from Docker Hub without login hits its rate limit.
+      # pulling from Docker Hub without login hits its rate limit. ECR Public throttles a
+      # burst of pulls too (the three shards at once: "toomanyrequests"), so the pull is
+      # tried 5 times, 10, 20, 30 and 40 s apart.
       - name: Start PostgreSQL
+        env:
+          IMAGE: public.ecr.aws/docker/library/postgres:18
         run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$IMAGE" && break
+            [ "$i" -lt 5 ] || exit 1
+            echo "pull $i failed, again in $((i * 10)) s"
+            sleep $((i * 10))
+          done
           docker run -d --name postgres -p 5433:5432 \
             --tmpfs /var/lib/postgresql:rw,size=8g \
             -e POSTGRES_USER=lawgraph -e POSTGRES_PASSWORD=lawgraph-test \
-            public.ecr.aws/docker/library/postgres:18 \
+            "$IMAGE" \
             -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
             -c jit=off -c max_connections=300
           for _ in $(seq 1 60); do

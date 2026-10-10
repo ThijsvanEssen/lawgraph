@@ -1366,7 +1366,10 @@ def get_feed(
         COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
     )
     try:
-        return {**shown, **feed_counts(store, filters)}
+        return {
+            **shown,
+            **(_counts_of_words(store, filters) or feed_counts(store, filters)),
+        }
     except ReadTimedOut:
         # counted on for the next request (``lasting``); this one shows the page now
         return {**shown, "total": None, "facets": None, "partial": True}
@@ -1391,6 +1394,9 @@ def _page_items(
     before the first event, the first day it searched."""
     if not filters.q or filters.since:
         return _rows(store, filters, cursor, limit), None
+    bounded = _bounded_page(store, filters, cursor, limit)
+    if bounded is not None:
+        return bounded, None
     start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
     end = dt.date.fromisoformat(start)
     left = read_time_left()
@@ -1419,6 +1425,32 @@ def _page_items(
     return items, None
 
 
+def _bounded_page(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> list[dict[str, Any]] | None:
+    """The page under words without a first day, read once from the first day it reaches
+    back to (``feed_events.first_day_of_page``: by the index on the words of the events,
+    not window after window); None where that table cannot tell, or the page read from that
+    day is short of what it counted (an event gone since it was written): then the
+    windows."""
+    # it reads the events as this module does
+    from lawgraph.db.queries import feed_events
+
+    before = cursor.date[:10] if cursor else None
+    found = feed_events.first_day_of_page(
+        store, replace(filters, kinds=_kinds(filters)), limit, before
+    )
+    if found is None:
+        return None
+    first, whole_page = found
+    items = _rows(store, replace(filters, since=first), cursor, limit)
+    if len(items) > limit:
+        return items[: limit + 1]
+    # fewer than a page: the rest of the history, unless the table held a page the feed
+    # did not find
+    return None if whole_page else items
+
+
 def _rows(
     store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
 ) -> list[dict[str, Any]]:
@@ -1436,6 +1468,18 @@ COUNTS_MAX_AGE = 3600.0
 # How long a request waits for them (seconds): under a filter not counted yet (a minute or
 # more, cold) it answers its page without them, ``partial``, and they are counted on.
 COUNTS_BUDGET = 3.0
+
+
+def _counts_of_words(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:
+    """Under words, ``total`` and ``facets`` from ``lg_feed_events`` (by the index on their
+    words, not a read of every event); None without words or where that table cannot tell:
+    then ``feed_counts``."""
+    if not filters.q:
+        return None
+    # it reads the events as this module does
+    from lawgraph.db.queries import feed_events
+
+    return feed_events.get_counts(store, filters, COUNTS_MAX_AGE)
 
 
 def feed_counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:

@@ -643,10 +643,14 @@ def get_member_votes(
     party votes tens of thousands of times), and more when the roll-calls among those
     leave less than a page.
     """
+    # the faction's votes from ``lg_faction_votes`` once it is filled, else by the walk
+    from lawgraph.db.queries import faction_votes
+
+    statement = _MEMBER_VOTES_LIGHT if faction_votes.is_filled(store) else _MEMBER_VOTES
     candidates = max(limit, 1) * VOTE_CANDIDATES
     while True:
         (row,) = store.query(
-            _MEMBER_VOTES, _member_votes_params(member_id, limit, candidates)
+            statement, _member_votes_params(member_id, limit, candidates)
         )
         if row["complete"]:
             return list(row["votes"])
@@ -663,27 +667,17 @@ def _member_votes_params(member_id: str, limit: int, candidates: int) -> dict[st
     }
 
 
-_MEMBER_VOTES = f"""
-    WITH member AS (
-        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
-    ),
-    periods AS (
-        SELECT f.period, f.n
-        FROM member
-        CROSS JOIN LATERAL json_array_elements(
-            {_array("member.props -> 'faction_memberships'")}
-        ) WITH ORDINALITY AS f(period, n)
-    ),
-    -- per period the newest votes of the faction: the decisions of the period newest first
-    -- (their index of the dates), each with the faction's vote on it; a faction votes on
-    -- nearly every decision while it is seated, so few are read past the page (from the
-    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
-    -- member of seven periods)
+# The candidates of the votes of a member's faction periods: walked over the decisions (while
+# ``lg_faction_votes`` is not filled yet), or read from it.
+_WALK_CANDIDATES = f"""
     candidates AS (
-        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
         FROM periods p
         CROSS JOIN LATERAL (
-            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key
+            -- the kind of vote from the row the walk reads already (a join of the decisions
+            -- again for it was planned as a read of all of them)
+            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key,
+                   lg_str(d.props -> 'vote_kind') AS vote_kind
             FROM {COLLECTION_DECISIONS} d
             CROSS JOIN LATERAL (SELECT p.period) AS f(period)
             -- per decision (never joined whole: that reads every vote of the faction)
@@ -710,33 +704,78 @@ _MEMBER_VOTES = f"""
             LIMIT %(candidates)s
         ) c
     ),
+"""
+_LIGHT_CANDIDATES = f"""
+    candidates AS (
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
+        FROM periods p
+        CROSS JOIN LATERAL (
+            -- the faction's votes of the period, newest first, from ``lg_faction_votes``:
+            -- a range of its index, not a walk over the decisions with a probe of the
+            -- edges per decision (5.7 s cold on prod for 9 periods)
+            SELECT d.edge_key, d.decision_id, d.date, d.decision_key AS key, d.vote_kind
+            FROM lg_faction_votes d
+            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+            WHERE d.faction_id = p.period ->> 'faction_id'
+              AND ROW(d.date, d.decision_key)
+                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
+              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
+              AND {_IN_MEMBERSHIP}
+            ORDER BY d.date DESC NULLS FIRST, d.decision_key ASC
+            LIMIT %(candidates)s
+        ) c
+    ),
+"""
+
+_MEMBER_VOTES_TEMPLATE = f"""
+    WITH member AS (
+        SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
+    ),
+    periods AS (
+        SELECT f.period, f.n
+        FROM member
+        CROSS JOIN LATERAL json_array_elements(
+            {_array("member.props -> 'faction_memberships'")}
+        ) WITH ORDINALITY AS f(period, n)
+    ),
+    -- per period the newest votes of the faction: the decisions of the period newest first
+    -- (their index of the dates), each with the faction's vote on it; a faction votes on
+    -- nearly every decision while it is seated, so few are read past the page (from the
+    -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
+    -- member of seven periods)
+    -- CANDIDATES --
     -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
-        JOIN {COLLECTION_DECISIONS} d ON d.id = c.decision_id
-        WHERE lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+        WHERE c.vote_kind IS DISTINCT FROM %(roll_call)s
     ),
+    -- the votes without their edges' meta: the page is chosen first, and only the edges of
+    -- its votes are read (each of a faction's candidates read its edge: 1,800 for 100)
     voted AS (
-        SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+        SELECT e.to_id AS decision_id, e.key AS edge_key, d.key, d.date,
                member.props -> 'party' AS party,
                NULL::json AS faction_key, NULL::text AS faction_order,
                'member'::text AS vote_source
         FROM member
         JOIN {COLLECTION_EDGES} e
           ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+        JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
         UNION ALL
-        SELECT k.decision_id, e.doc -> 'meta',
+        SELECT k.decision_id, k.edge_key, k.key, k.date,
                CASE WHEN {_is_null("k.period -> 'abbreviation'")}
                     THEN k.period -> 'name' ELSE k.period -> 'abbreviation' END,
                k.period -> 'faction_key', k.period ->> 'faction_key',
                'faction'::text
-        FROM kept k JOIN {COLLECTION_EDGES} e ON e.key = k.edge_key
+        FROM kept k
+    ),
+    chosen AS (
+        SELECT * FROM voted
+        ORDER BY date DESC NULLS LAST, key ASC, faction_order ASC NULLS FIRST
+        LIMIT %(limit)s
     ),
     page AS (
-        SELECT v.*, d.key, d.date
-        FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
-        ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
-        LIMIT %(limit)s
+        SELECT c.*, e.doc -> 'meta' AS meta
+        FROM chosen c JOIN {COLLECTION_EDGES} e ON e.key = c.edge_key
     )
     SELECT
         -- a period cut at its candidates whose roll-calls left less than a page may lack
@@ -764,6 +803,12 @@ _MEMBER_VOTES = f"""
             FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
         ), '[]'::json) AS votes
 """
+_MEMBER_VOTES = _MEMBER_VOTES_TEMPLATE.replace(
+    "    -- CANDIDATES --\n", _WALK_CANDIDATES
+)
+_MEMBER_VOTES_LIGHT = _MEMBER_VOTES_TEMPLATE.replace(
+    "    -- CANDIDATES --\n", _LIGHT_CANDIDATES
+)
 
 
 def get_actor_touched_instruments(
@@ -857,25 +902,9 @@ def _distinct(field: str, condition: str) -> str:
     )
 
 
-def get_actor_dossiers(
-    store: GraphStore,
-    actor_id: str,
-    *,
-    limit: int = 100,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """A page of the dossiers a member or a faction authored documents in.
-
-    Walks member -> ``AUTHORED`` -> document (or case) -> ``PART_OF`` -> dossier, directly
-    or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
-    documents its members signed while they belonged to it (``faction_memberships``, as
-    for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
-    of documents; newest opened first. Returns ``{total, items}``.
-    """
-    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
-    rows = store.query(
-        f"""
-        WITH authored AS ({_FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+# The dossiers of the papers of ``authored`` (``document_id``, ``meta``): directly, or through
+# a case.
+_WALKED_FOUND = f"""
         found AS (
             SELECT ids.dossier_id, a.document_id, a.meta
             FROM authored a
@@ -894,7 +923,44 @@ def get_actor_dossiers(
                   AND p1.to_collection = '{COLLECTION_CASES}'
             ) ids
         ),
-        grouped AS (
+"""
+# The same, of a member, from ``lg_authored``: a range of its index.
+_AUTHORED_FOUND = """
+        found AS (
+            SELECT d.dossier_id, a.document_id, a.meta
+            FROM lg_authored a
+            CROSS JOIN LATERAL unnest(a.dossiers) AS d(dossier_id)
+            WHERE a.member_id = %(actor_id)s
+        ),
+"""
+
+
+def get_actor_dossiers(
+    store: GraphStore,
+    actor_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """A page of the dossiers a member or a faction authored documents in.
+
+    Walks member -> ``AUTHORED`` -> document (or case) -> ``PART_OF`` -> dossier, directly
+    or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
+    documents its members signed while they belonged to it (``faction_memberships``, as
+    for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
+    of documents; newest opened first. Returns ``{total, items}``.
+    """
+    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
+    # a member's papers and their dossiers from ``lg_authored`` once it is filled, else by
+    # the walk over the edges (a faction walks always: its papers count by their dates)
+    from lawgraph.db.queries import member_authored
+
+    light = not is_faction and member_authored.is_filled(store)
+    found = _AUTHORED_FOUND if light else _WALKED_FOUND
+    rows = store.query(
+        f"""
+        WITH authored AS ({"SELECT 1" if light else _FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+{found}        grouped AS (
             SELECT {_NODE.format(t="d")}, d.opened_on,
                    {_distinct("role", "<> ''")} AS roles,
                    {_distinct("function", "<> ''")} AS functions,

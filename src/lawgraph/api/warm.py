@@ -31,6 +31,7 @@ from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries._bm25 import _stats as search_statistics
+from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.documents import list_documents
@@ -42,6 +43,7 @@ from lawgraph.db.queries.instruments import (
     most_cited_laws,
 )
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+from lawgraph.db.queries.nodes import get_node_with_neighbors
 from lawgraph.db.queries.search import (
     load_code_aliases,
     load_notation_parser,
@@ -110,6 +112,20 @@ def _warm_law_judgments(store: GraphStore) -> None:
         get_citing_judgments(store, bwb_id, limit=LAW_JUDGMENTS_SHOWN)
 
 
+# The articles with the most citations whose node and citing passages are warmed: the node
+# as it opens (its lid counts read every edge of it), and the passages as the front end asks
+# them (the newest first, a page of 50; the most cited 6 for the homepage's network).
+WARM_ARTICLES = 20
+ARTICLE_PASSAGES = (("date_desc", 50), ("citation_count", 6))
+
+
+def _warm_articles(store: GraphStore) -> None:
+    for article in most_cited_articles(store, WARM_ARTICLES):
+        get_node_with_neighbors(store, "articles", article["key"])
+        for sort, limit in ARTICLE_PASSAGES:
+            get_article_cited_by(store, article["id"], sort=sort, limit=limit)
+
+
 # The tables a part of the warm-up reads, for the parts whose answers are kept per table
 # (``version_cache.cached(tables=...)``): such a part is left out while its tables stand
 # still, as a poll of judgments leaves the instruments. ``tests/pg/test_cached_tables.py``
@@ -166,6 +182,7 @@ def warm_up(store: GraphStore) -> None:
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
         "judgments by area of law": lambda: _warm_subject_areas(store),
         "judgments citing a law": lambda: _warm_law_judgments(store),
+        "most cited articles": lambda: _warm_articles(store),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):

@@ -8,6 +8,7 @@ ref its first step fails), so only what is merged here can be sent.
 gh workflow run ops -f action=status                       # health, timers, runs, statements, disk, ops jobs
 gh workflow run ops -f action=run -f name=<script>          # ops/<script>.sh, in the background on the server
 gh workflow run ops -f action=log -f name=<script>          # the tail of /srv/lawgraph/ops/<script>.log
+gh workflow run ops -f action=run-log -f name=daily-<date> # the tail of /srv/lawgraph/logs/daily-<date>.log
 gh workflow run ops -f action=sql -f name=<query>           # ops/<query>.sql in a read-only session (600 s)
 gh run view --log "$(gh run list -w ops -L 1 --json databaseId -q '.[0].databaseId')"   # the output
 ```
@@ -32,8 +33,8 @@ and gives `counts <block> <before|after> <file.sql>` (a read-only query from her
 
 A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europe/Amsterdam (`NOT_BEFORE`,
 `NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
-sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `tk-members.sh` (#410)
-and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
+sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `tk-members.sh` (#410),
+`ek-seats.sh` (#453) and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
 `out/bwb-definitions.after`).
 
 A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.

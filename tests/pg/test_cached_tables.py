@@ -2,7 +2,8 @@
 left out while its tables stand still (``warm.PART_TABLES``) must read those tables alone:
 one that reads a table it does not name keeps an old answer after that table changed, and
 nothing says so. So every statement they run is planned here (``EXPLAIN``), and every
-table its plan reads, or a function of ours it calls reads, must be named."""
+table its plan reads, or a function of ours it calls reads, must be named; a table a trigger
+keeps from a table of the graph counts as that table (``_kept_by``)."""
 
 from __future__ import annotations
 
@@ -94,6 +95,26 @@ def _tables(store: GraphStore) -> set[str]:
     )
 
 
+def _kept_by(store: GraphStore) -> dict[str, str]:
+    """Each table a trigger keeps from a table of the graph (``lg_judgment_light``,
+    ``lg_instrument_names``, …) to that table: by the bodies of the functions the triggers
+    run, the ``lg_`` tables they write. Such a table is that table's rows, light: reading
+    it is reading the table it is kept from, and changes with it."""
+    found: dict[str, str] = {}
+    for row in store.query(
+        "SELECT DISTINCT c.relname AS base, p.prosrc AS body"
+        " FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid"
+        " JOIN pg_proc p ON p.oid = t.tgfoid"
+        " WHERE NOT t.tgisinternal AND c.relnamespace = 'public'::regnamespace"
+    ):
+        for light in re.findall(
+            r"\b(?:INSERT INTO|DELETE FROM)\s+(?:public\.)?(lg_\w+)", row["body"]
+        ):
+            if not FREE.match(light):
+                found[light] = row["base"]
+    return found
+
+
 def _plan_relations(plan: Any, found: set[str]) -> None:
     if isinstance(plan, dict):
         if "Relation Name" in plan:
@@ -116,7 +137,8 @@ def _read(store: GraphStore, statements: list[tuple[str, Any]]) -> set[str]:
             _plan_relations(plan, found)
             for name in set(re.findall(r"\b(lg_\w+)\s*\(", text)) & set(functions):
                 found |= {t for t in tables if re.search(rf"\b{t}\b", functions[name])}
-    return {table for table in found if not FREE.match(table)}
+    kept_by = _kept_by(store)
+    return {kept_by.get(table, table) for table in found if not FREE.match(table)}
 
 
 @pytest.fixture

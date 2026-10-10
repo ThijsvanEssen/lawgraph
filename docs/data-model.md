@@ -41,7 +41,19 @@ and advocate-general), kept by triggers on every write of `judgments` and filled
 `semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
 dossier numbers, case kinds, sequence), without its text, kept and filled the same way from
-`documents`. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+`documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
+(`''` for none), which the laws a dossier title names are found by besides the column
+`citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
+every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
+index on `(faction_id, date DESC, decision_key)`, kept by triggers on `edges` and `decisions`
+and filled once; `lg_faction_votes_state` notes when it was filled, from when the votes of a
+member are read from it (`get_member_votes`), before which they walk the decisions. `lg_authored`
+holds every `AUTHORED` edge from a member with the `role`, `function` and `capacity` of the
+signature and the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`),
+with an index on `member_id`, kept by triggers on `edges` (a signature, and a paper or a case
+placed in or taken out of a dossier or a case) and filled once; `lg_authored_state` notes when,
+from when the dossiers of a member are read from it (`get_actor_dossiers`), before which they
+walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
@@ -95,7 +107,7 @@ they are out of date. Do not edit inside the markers.
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
 | `ANSWERS` | Judgment / Document | Judgment / Commitment | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). |
-| `SAME_AS` | Judgment / Instrument | Judgment / Instrument | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). |
+| `SAME_AS` | Judgment / Instrument / Document | Judgment / Instrument | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity / Case | Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
@@ -779,10 +791,11 @@ lookup by id.
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
 `ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
 with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
-feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it.
+feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
+/api/feed` under `q` its total and facets.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
-when it was written. Not tables of the graph: writing them raises no data version.
+when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
 `lg_data_version` holds a counter per table of the graph. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes

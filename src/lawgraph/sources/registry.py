@@ -44,6 +44,9 @@ from lawgraph.pipelines.normalize.eerstekamer_bills import (
 from lawgraph.pipelines.normalize.eerstekamer_composition import (
     EerstekamerCompositionNormalizePipeline,
 )
+from lawgraph.pipelines.normalize.eerstekamer_mutations import (
+    EerstekamerMutationsNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eerstekamer_votes import (
     EerstekamerVotesNormalizePipeline,
 )
@@ -68,9 +71,11 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_eerstekamer_agenda,
     retrieve_eerstekamer_bills,
     retrieve_eerstekamer_composition,
+    retrieve_eerstekamer_mutations,
     retrieve_eerstekamer_votes,
     retrieve_eurlex,
     retrieve_eurlex_nim,
+    retrieve_kiesraad,
     retrieve_rechtspraak,
     retrieve_rechtspraak_instanties,
     retrieve_rijksoverheid,
@@ -98,6 +103,7 @@ from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_publications import BWBPublicationsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_relation_types import (
     BWBRelationTypesSemanticPipeline,
 )
@@ -172,6 +178,7 @@ SOURCES: dict[str, str] = {
     "verdragenbank": "Verdragenbank",
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
     "tooi": "TOOI (standaarden.overheid.nl)",
+    "kiesraad": "Kiesraad (verkiezingsuitslagen.nl)",
     "graph": "The whole graph",
 }
 # How a source is spelled in a class name, where capitalising it is not enough.
@@ -579,6 +586,19 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_EERSTEKAMER_SITE,
     ),
     _pipeline(
+        retrieve_eerstekamer_mutations,
+        "The changes in the composition of the Eerste Kamer, term by term, as "
+        "eerstekamer.nl tells them (/personele_mutaties): the lists, and each change once.",
+        argv_for_all=_no_argv,
+        lane=LANE_EERSTEKAMER_SITE,
+    ),
+    _pipeline(
+        retrieve_kiesraad,
+        "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
+        "Kiesraad's databank: each election once.",
+        argv_for_all=_no_argv,
+    ),
+    _pipeline(
         retrieve_eerstekamer_agenda,
         "The agendas of the plenary sittings and committee meetings of the Eerste Kamer, "
         "from eerstekamer.nl: those planned and those of the window.",
@@ -699,6 +719,12 @@ NORMALIZE: list[Pipeline] = [
         after=("tk-dossiers",),  # the members it is matched to
     ),
     _pipeline(
+        EerstekamerMutationsNormalizePipeline,
+        "The seats of the Eerste Kamer day by day since 2003: each term from the Kiesraad's "
+        "result through the changes the Kamer's pages tell, checked.",
+        after=("eerstekamer-composition",),  # the factions of today and their history
+    ),
+    _pipeline(
         EerstekamerAgendaNormalizePipeline,
         "The agendas of the Eerste Kamer as activities: each block of a plenary sitting "
         "and each committee meeting, about the dossiers it names.",
@@ -774,6 +800,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         StaatscourantSemanticPipeline,
         "EXPLAINS: links Staatscourant regulations to instruments.",
+    ),
+    _pipeline(
+        BWBPublicationsSemanticPipeline,
+        "SAME_AS: a paper of the Staatsblad or the Staatscourant to the publication of the "
+        "BWB of the same official id, by their keys.",
     ),
     _pipeline(
         EerstekamerSemanticPipeline,

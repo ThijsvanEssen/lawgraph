@@ -15,8 +15,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_DOSSIERS
 from lawgraph.core.models import NodeType
 from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.feed import FeedFilters, _counts, get_feed
 from lawgraph.db.queries.feed_events import (
+    counts_query,
+    get_counts,
     get_periods,
     periods_query,
     word_queries,
@@ -55,7 +57,8 @@ def seeded(store: GraphStore) -> GraphStore:
 
 
 def _feed_kinds(store: GraphStore, filters: FeedFilters) -> dict[str, int]:
-    facets = get_feed(store, filters, limit=1)["facets"]
+    # the feed's own count of its rows (``get_feed`` takes them from the table under words)
+    facets = _counts(store, filters)["facets"]
     return {f["value"]: f["count"] for f in facets["kind"] if f["count"]}
 
 
@@ -91,6 +94,41 @@ def test_each_kind_counts_what_the_feed_counts(
     feed = _feed_kinds(seeded, filters)
     assert _period_kinds(seeded, filters, "month") == feed
     assert _period_kinds(seeded, filters, "day") == feed
+
+
+COUNTED = [
+    *(f for f in FILTERS if f.q),
+    FeedFilters(q=("ai",), kinds=("Motie",)),
+    FeedFilters(q=("ai",), faction="vvd"),
+    FeedFilters(q=("motie",), chamber="TK", faction="d66"),
+    FeedFilters(q=("brief",), ministry="fin"),
+    FeedFilters(q=("brief", "motie"), cabinet="jetten"),
+    FeedFilters(q=("motie",), dossier="37000", until="2026-09-30"),
+    FeedFilters(q=("nergens",)),
+]
+
+
+@pytest.mark.parametrize("filters", COUNTED, ids=[repr(f) for f in COUNTED])
+def test_the_total_and_facets_of_words_are_the_feeds_own(
+    seeded: GraphStore, filters: FeedFilters
+) -> None:
+    """Under words the feed takes its ``total`` and ``facets`` from the table: each facet
+    (kind, ministry, faction, cabinet, chamber) and the total equal its own count."""
+    from_table = get_counts(seeded, filters, 60.0)
+    assert from_table == _counts(seeded, filters)
+    assert get_feed(seeded, filters, limit=1)["facets"] == from_table["facets"]
+
+
+def test_the_feed_counts_its_own_rows_where_the_table_cannot_tell(
+    store: GraphStore,
+) -> None:
+    _seed(store)
+    _topics(store)
+    words = FeedFilters(q=("ai",))
+    assert get_counts(store, words, 60.0) is None  # never written
+    write_all(store)
+    assert get_counts(store, FeedFilters(q=("ai",), member="m1"), 60.0) is None
+    assert get_feed(store, words, limit=1)["total"] == _counts(store, words)["total"]
 
 
 def test_a_short_word_is_a_whole_word_and_a_topic_goes_by_its_dossier(
@@ -134,11 +172,18 @@ def test_the_days_since_are_written_again_in_place(seeded: GraphStore) -> None:
     )
 
 
-def test_the_words_are_found_by_index(seeded: GraphStore) -> None:
+@pytest.mark.parametrize("counted", ["periods", "counts"])
+def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
     """A word with a letter or digit is looked up in ``words`` (GIN), not tested on
-    every row of a table of many events."""
+    every row of a table of many events: for the periods and for the feed's total and
+    facets."""
     filters = FeedFilters(q=("ai", "AI-verordening"))
-    statement, bind = periods_query(filters, "month", word_queries(seeded, filters))
+    queries = word_queries(seeded, filters)
+    statement, bind = (
+        periods_query(filters, "month", queries)
+        if counted == "periods"
+        else counts_query(filters, queries)
+    )
     with seeded.pool.connection() as conn, conn.transaction():
         conn.execute(
             "INSERT INTO lg_feed_events (kind, id, date, factions, labels, title, words)"
@@ -203,3 +248,61 @@ def test_the_route(client: TestClient) -> None:
 )
 def test_what_the_route_does_not_count(client: TestClient, params: dict) -> None:
     assert client.get("/api/feed/periods", params=params).status_code == 422
+
+
+def _pages(store: GraphStore, filters: FeedFilters, limit: int) -> list[list[str]]:
+    """Every page of the feed under *filters*, by its cursor."""
+    from lawgraph.core.feed import FeedCursor
+
+    pages, cursor = [], None
+    while True:
+        items = get_feed(store, filters, cursor=cursor, limit=limit, facets=False)[
+            "items"
+        ]
+        pages.append([i["id"] for i in items[:limit]])
+        if len(items) <= limit:
+            return pages
+        last = items[limit - 1]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        FeedFilters(q=("ai",)),
+        FeedFilters(q=("AI-verordening", "grens")),
+        FeedFilters(q=("motie",), chamber="TK"),
+        FeedFilters(q=("voorbeeld",), until="2026-06-30"),
+        FeedFilters(q=("nergens",)),
+    ],
+    ids=repr,
+)
+def test_a_page_of_words_is_that_of_the_windows(
+    seeded: GraphStore, filters: FeedFilters, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Words without a first day: the page read from the day ``lg_feed_events`` says it
+    reaches back to is the page the windows find, page after page."""
+    from lawgraph.db.queries import feed_events
+
+    bounded = _pages(seeded, filters, limit=1)
+    monkeypatch.setattr(feed_events, "first_day_of_page", lambda *a, **k: None)
+    assert bounded == _pages(seeded, filters, limit=1)
+
+
+def test_a_page_of_words_reads_once_from_its_first_day(
+    seeded: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the events written, a page of words is one read from its first day, not the
+    windows back from today."""
+    from lawgraph.db.queries import feed
+
+    read: list[str | None] = []
+    rows = feed._rows
+
+    def recorded(store: Any, filters: FeedFilters, *a: Any, **k: Any) -> Any:
+        read.append(filters.since)
+        return rows(store, filters, *a, **k)
+
+    monkeypatch.setattr(feed, "_rows", recorded)
+    get_feed(seeded, FeedFilters(q=("ai",)), limit=1, facets=False)
+    assert len(read) == 1 and read[0] is not None
