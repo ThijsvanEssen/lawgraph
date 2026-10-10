@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 
@@ -860,3 +860,52 @@ def test_the_rows_of_a_page_are_read_by_their_place(
     scans = _scans(store, statement, params)
     assert "Tid Scan" in scans
     assert not any("judgments_pkey" in scan for scan in scans)
+
+
+def test_a_request_waits_once_for_counts_that_expired_together(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The counts of a list (its total and facets) are kept an hour, all computed by one
+    warm-up, so they expire together; a request then has ten of them to wait for, partly one
+    after another. It waits one ``STALE_WAIT`` in all and takes the kept counts, not one per
+    count (11.1 s on prod on 10 Oct for the judgments of Rechtspraak)."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            {"_key": f"j{n}", "type": "judgment", "labels": [],
+             "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
+                       "date_eff": "2020-01-01", "tier": "hoogste", "court_kind": "HR",
+                       "subjects": ["Civiel recht"]}}
+            for n in range(30)
+        ],
+    )  # fmt: skip
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        url = "/api/judgments?source=rechtspraak&limit=10&facets=true"
+        kept = client.get(url).json()["facets"]
+        # every kept count two hours old, and a new one slower than a request waits
+        with version_cache._lock:
+            for key, (value, at) in list(version_cache._lasting.items()):
+                version_cache._lasting[key] = (value, at - 7200)
+        computed = version_cache._compute_lasting
+
+        def slow(entry_key: Any, compute: Any) -> Any:
+            time.sleep(3)
+            return computed(entry_key, compute)
+
+        monkeypatch.setattr(version_cache, "_compute_lasting", slow)
+        started = time.perf_counter()
+        answer = client.get(url).json()
+        took = time.perf_counter() - started
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert answer["facets"] == kept  # the kept counts
+    assert took < version_cache.STALE_WAIT + 1.5, took  # one wait, not one per count
