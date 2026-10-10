@@ -41,6 +41,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.version_cache import lasting
 
 
 @dataclass
@@ -571,6 +572,38 @@ def _cited_by_sql(order: str) -> str:
     """
 
 
+# How long the list of the most cited articles is kept (seconds): it reads the citation
+# count of every article, and it changes with a weekly run.
+MOST_CITED_MAX_AGE = 86400.0
+
+
+def most_cited_articles(store: GraphStore, n: int) -> list[dict[str, Any]]:
+    """``{id, key}`` of the *n* articles with the most citations (``inbound_citation_count``),
+    kept ``MOST_CITED_MAX_AGE``."""
+    return lasting(
+        store,
+        ("most cited articles", n),
+        lambda: list(
+            store.query(
+                """
+                SELECT id, key FROM articles
+                WHERE inbound_citation_count > 0
+                ORDER BY inbound_citation_count DESC NULLS LAST, key
+                LIMIT %(n)s
+                """,
+                {"n": n},
+            )
+        ),
+        MOST_CITED_MAX_AGE,
+    )
+
+
+# How long the passages citing an article are kept per request (seconds), whatever the data
+# does: of a much cited article (6:162 BW, Awb 1:3) they are thousands, each edge's meta read;
+# a poll adds a handful. A newer answer computes in the background while the kept one is
+# served.
+CITED_BY_MAX_AGE = 3600.0
+
 # The orders of the passages: the newest judgment first, or the most cited one (a
 # standard judgment) first and then the newest.
 CITED_BY_SORTS: dict[str, str] = {
@@ -618,8 +651,14 @@ def get_article_cited_by(
         "limit": limit,
         "offset": offset,
     }
-    answer = (
-        next(iter(store.query(_cited_by_sql(CITED_BY_SORTS[sort]), bind)), None) or {}
+    answer = lasting(
+        store,
+        ("cited-by", sort, *sorted(bind.items())),
+        lambda: (
+            next(iter(store.query(_cited_by_sql(CITED_BY_SORTS[sort]), bind)), None)
+            or {}
+        ),
+        CITED_BY_MAX_AGE,
     )
     return CitedBy(
         rows=list(answer.get("items") or []),

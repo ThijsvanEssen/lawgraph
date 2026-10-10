@@ -287,7 +287,14 @@ def test_the_command_writes_the_index_and_its_parts(
     index.parent.mkdir()
     index.write_text("<!doctype html><html><head></head><body></body></html>")
     (index.parent / "spa-routes.json").write_text(
-        json.dumps([{"path": "/", "title": "Concordans"}, {"path": "/actueel"}])
+        json.dumps(
+            [
+                {"path": "/", "title": "Concordans"},
+                {"path": "/actueel"},
+                # a reader's own maps: no page for a search engine
+                {"path": "/gemarkeerd", "index": False},
+            ]
+        )
     )
     monkeypatch.setattr(settings, "SPA_INDEX", str(index))
     monkeypatch.setattr(command, "GraphStore", lambda: store)
@@ -303,3 +310,4 @@ def test_the_command_writes_the_index_and_its_parts(
     assert "<lastmod>2026-09-15</lastmod>" in listed
     pages = gzip.decompress((out / "sitemap-paginas.xml.gz").read_bytes()).decode()
     assert "<loc>https://concordans.nl/actueel</loc>" in pages
+    assert "gemarkeerd" not in pages

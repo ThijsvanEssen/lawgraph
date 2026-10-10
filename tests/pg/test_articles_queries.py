@@ -818,3 +818,47 @@ def test_the_most_cited_judgment_comes_first_when_asked(store: GraphStore) -> No
     assert (by_count.total, by_count.judgment_total) == (5, 4)
     newest = get_article_cited_by(store, CITED)  # the default stays newest first
     assert _snippets(newest.rows)[0] == ("j3", "d")
+
+
+def test_the_passages_citing_an_article_are_kept_per_request(store: GraphStore) -> None:
+    """The passages of a much cited article read the meta of every edge of it: a request
+    asked again is answered from what was kept (``CITED_BY_MAX_AGE``)."""
+    store.bulk_insert_or_update_nodes(
+        "articles", [{"_key": "w_1", "type": "article", "labels": [], "props": {}}]
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": "j1", "type": "judgment", "labels": [],
+          "props": {"ecli": "ECLI:NL:HR:2020:1", "date_eff": "2020-01-01"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [{"_key": "r1", "_from": "judgments/j1", "_to": "articles/w_1",
+          "relation": "REFERS_TO", "source": "t",
+          "meta": {"mentions": [{"leden": ["1"]}]}}]
+    )  # fmt: skip
+    first = get_article_cited_by(store, "articles/w_1")
+    calls = 0
+    stream = store._stream
+
+    def counted(*a: Any, **k: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return stream(*a, **k)
+
+    store._stream = counted  # type: ignore[method-assign]
+    try:
+        again = get_article_cited_by(store, "articles/w_1")
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    assert again == first and first.total == 1
+    assert calls == 0
+
+
+def test_the_most_cited_articles(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"_key": key, "type": "article", "labels": [],
+          "props": {"inbound_citation_count": n}}
+         for key, n in (("a", 5), ("b", 900), ("c", 0), ("d", 40))],
+    )  # fmt: skip
+    assert [a["key"] for a in articles.most_cited_articles(store, 2)] == ["b", "d"]
