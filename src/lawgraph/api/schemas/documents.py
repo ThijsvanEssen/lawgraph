@@ -167,6 +167,27 @@ class SubmitterDTO(WithPath):
     )
 
 
+class PaperRefDTO(BaseModel):
+    """Another paper, by its id and its number in its dossier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    sequence: int | None = None
+
+
+_REPLACES = (
+    'The papers this amended amendment or motion replaces ("ter vervanging van nr. 8", '
+    "``Zaak.VervangenVanuit``, ``REVISES`` with the rule ``vervanging``), by number; "
+    "empty for most."
+)
+_REPLACED_BY = (
+    "The papers that replace this one (an amended amendment or motion with a new number); "
+    "empty for most."
+)
+
+
 class DocumentTextResponse(DocumentOrigin):
     """One document with its text.
 
@@ -216,6 +237,10 @@ class DocumentTextResponse(DocumentOrigin):
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
     sections: list[SectionDTO] = Field(default_factory=list)
+    replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
+    replaced_by: list[PaperRefDTO] = Field(
+        default_factory=list, description=_REPLACED_BY
+    )
     decisions: list[DecisionDTO] = Field(
         default_factory=list,
         description="The votes taken on this document, oldest first, each with how every "
@@ -233,8 +258,10 @@ class DocumentTextResponse(DocumentOrigin):
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
         slugs: dict[str, str] | None = None,
+        replacements: dict[str, list[dict[str, Any]]] | None = None,
     ) -> DocumentTextResponse:
-        """From the stored document and what ``get_document_links`` found for it."""
+        """From the stored document and what ``get_document_links`` found for it;
+        *replacements* its own of ``get_replacements``."""
         from lawgraph.config.constants import SOURCE_TK
         from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
         from lawgraph.core.time import strip_time_component
@@ -275,6 +302,12 @@ class DocumentTextResponse(DocumentOrigin):
             dossier_numbers=list(links.get("dossier_numbers") or []),
             case_kinds=list(props.get("case_kinds") or []),
             explains=[ExplainedTargetDTO(**t) for t in links.get("explains") or []],
+            replaces=[
+                PaperRefDTO(**r) for r in (replacements or {}).get("replaces", [])
+            ],
+            replaced_by=[
+                PaperRefDTO(**r) for r in (replacements or {}).get("replaced_by", [])
+            ],
             decisions=[
                 DecisionDTO.from_document(d, names or {}, slugs)
                 for d in decisions or []

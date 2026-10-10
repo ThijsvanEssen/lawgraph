@@ -216,6 +216,9 @@ def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> N
             "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
         },
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.dossiers.get_replacements", lambda store, ids: {}
+    )
     listed = client.get("/api/dossiers/36000/documents").json()["items"]
     assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
         ("TK", "tk", True),

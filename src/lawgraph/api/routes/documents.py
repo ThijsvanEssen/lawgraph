@@ -29,6 +29,7 @@ from lawgraph.db.queries.documents import (
     get_document,
     get_document_links,
     get_document_passages,
+    get_replacements,
     list_documents,
 )
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -123,6 +124,7 @@ def get_document_text(
         get_document_decisions(store, doc["_id"]),
         load_dossier_names(store),
         load_member_slugs(store),
+        get_replacements(store, [doc["_id"]]).get(doc["_id"]),
     )
 
 
