@@ -17,7 +17,7 @@ counted and named in the log, not changed.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -30,6 +30,7 @@ from lawgraph.core.ek_changes import member_key
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import NodeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -63,7 +64,7 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
             for r in raw
             if (page := ek_persons.person_page(self._payload_text(r) or ""))
         }
-        members = self._members(pages)
+        members = members_of_pages(self.store, pages)
         factions = self._factions()
         events = _by_member(ek_seats.events(self.store))
         unmatched = sorted(path for path in pages if path not in members)
@@ -106,28 +107,6 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
     def build_edges(self, raw: Any, normalized: Any) -> None:
         return None
 
-    def _members(self, pages: dict[str, ek_persons.PersonPage]) -> dict[str, str]:
-        """The key of the member of each page that has one: by the composition's path, else
-        the one member of the Tweede Kamer born that day whose surname ends the name."""
-        found = normalize_ek.members_by_ek_path(self.store, sorted(pages))
-        dates = sorted({p.birth_date for p in pages.values() if p.birth_date})
-        born: dict[str, list[dict[str, Any]]] = {}
-        for row in normalize_tk.members_born_on(self.store, dates):
-            born.setdefault(str(row["birth_date"]), []).append(row)
-        for path, page in pages.items():
-            if path in found or not page.birth_date:
-                continue
-            name = page.name.rsplit("(", 1)[0].strip().casefold()
-            same = [
-                row
-                for row in born.get(page.birth_date, [])
-                if row.get("family_name")
-                and name.endswith(str(row["family_name"]).casefold())
-            ]
-            if len(same) == 1:
-                found[path] = str(same[0]["key"])
-        return found
-
     def _factions(self) -> dict[str, list[dict[str, Any]]]:
         """The factions of the Eerste Kamer by each name a page may give them."""
         factions: dict[str, list[dict[str, Any]]] = {}
@@ -135,6 +114,35 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
             for name in {row.get("abbreviation"), row.get("name")} - {None}:
                 factions.setdefault(str(name), []).append(row)
         return factions
+
+
+def members_of_pages(
+    store: Store, pages: Mapping[str, ek_persons.PersonPage | None]
+) -> dict[str, str]:
+    """The key of the member of each page of a person of the Eerste Kamer (by its path) that
+    has one: the member the composition gave the page (``ek.path``), else the one member of
+    the Tweede Kamer born on the day the page gives whose surname ends its name. Shared by
+    every step that names a person by their page (the periods here, the signers of a motion
+    in ``normalize eerstekamer-motions``). A path whose page is not stored (None) is matched
+    by the composition's path alone."""
+    found = normalize_ek.members_by_ek_path(store, sorted(pages))
+    dates = sorted({p.birth_date for p in pages.values() if p and p.birth_date})
+    born: dict[str, list[dict[str, Any]]] = {}
+    for row in normalize_tk.members_born_on(store, dates):
+        born.setdefault(str(row["birth_date"]), []).append(row)
+    for path, page in pages.items():
+        if path in found or page is None or not page.birth_date:
+            continue
+        name = page.name.rsplit("(", 1)[0].strip().casefold()
+        same = [
+            row
+            for row in born.get(page.birth_date, [])
+            if row.get("family_name")
+            and name.endswith(str(row["family_name"]).casefold())
+        ]
+        if len(same) == 1:
+            found[path] = str(same[0]["key"])
+    return found
 
 
 def _period(
