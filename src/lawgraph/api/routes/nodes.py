@@ -317,10 +317,26 @@ def get_node_neighborhood_route(
     filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
     cap: Annotated[int, Query(ge=1, le=1000)] = 200,
+    props: Annotated[
+        Literal["full", "canvas"],
+        Query(
+            description=(
+                "`canvas`: of a node but the focal one only the props the canvas of the "
+                "explorer draws, per collection, as the neighbours of a node with "
+                "`props=canvas`; `full` (the default) every prop a neighbour carries"
+            )
+        ),
+    ] = "full",
 ) -> NodeNeighborhoodResponse:
     try:
         data = get_node_neighborhood(
-            store, collection, key, depth=depth, cap=cap, filters=filters
+            store,
+            collection,
+            key,
+            depth=depth,
+            cap=cap,
+            filters=filters,
+            canvas=props == "canvas",
         )
     except UnsupportedCollectionError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
