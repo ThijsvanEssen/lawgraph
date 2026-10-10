@@ -55,6 +55,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached
 
 # Edges that put an article in flux, and the one that only explains it. The
@@ -853,7 +854,7 @@ def get_dossier_mutations(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     sql = f"""
     SELECT {_MUTATION_COLUMNS}
     FROM {COLLECTION_EDGES} e
-    LEFT JOIN nodes f ON f.id = e.from_id
+    LEFT JOIN {node_of("e.from_id", "e.from_collection")} f ON true
     LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
     WHERE e.from_id IN (
         SELECT m.from_id FROM {COLLECTION_EDGES} m

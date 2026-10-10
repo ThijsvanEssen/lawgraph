@@ -55,7 +55,12 @@ signature and the `dossiers` of its paper (directly, or through its case: `lg_do
 with an index on `member_id`, kept by triggers on `edges` (a signature, and a paper or a case
 placed in or taken out of a dossier or a case) and filled once; `lg_authored_state` notes when,
 from when the dossiers of a member are read from it (`get_actor_dossiers`), before which they
-walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+walk the edges. Each row also holds the `date` of its paper or case (`lg_signed_date`, kept by
+triggers on `documents` and `cases` as well) and the `capacity` of the signature, with an index
+on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
+every row had them (`semantic graph-light --authored-dates`), from when the counts of a
+cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
+every paper the member signed. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
@@ -797,7 +802,10 @@ order). `edges` holds `key`, `from_id`, `to_id` and the rest of the edge as `doc
 `raw_sources` and `pipeline_state` hold their documents as `doc`, `raw_sources` with the
 generated columns `source`, `kind`, `external_id` and `fetched_at` and the indexes
 `(source, kind, key)` and `(source, fetched_at)`. The view `nodes` unions the node tables for a
-lookup by id.
+lookup by id. A query never joins it on an id alone, which would look the id up in every table:
+it names the node's table (`n.collection = 'documents'`), or reads the node through
+`schema.node_of`, which reads from the table the id's collection names only
+(`tests/test_nodes_view_joins.py` keeps it so).
 
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
 `ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,

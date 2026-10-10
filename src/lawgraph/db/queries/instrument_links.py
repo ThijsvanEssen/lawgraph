@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
+from lawgraph.db.schema import node_of
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
 # BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
@@ -184,7 +185,7 @@ treaty_rows AS (
            {_edge_json("e", relation=False)} AS edge
     FROM {COLLECTION_EDGES} e
     JOIN {COLLECTION_ARTICLES} own_article ON own_article.id = e.from_id
-    JOIN nodes target ON target.id = e.to_id
+    CROSS JOIN {node_of("e.to_id", "e.to_collection")} target
     CROSS JOIN LATERAL (
         SELECT i.id, i.key, i.type, i.labels, i.props, i.kind, i.jurisdiction
         FROM {COLLECTION_INSTRUMENTS} i
