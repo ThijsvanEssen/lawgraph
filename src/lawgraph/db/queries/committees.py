@@ -680,10 +680,13 @@ _MEMBER_VOTES = f"""
     -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
     -- member of seven periods)
     candidates AS (
-        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key
+        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
         FROM periods p
         CROSS JOIN LATERAL (
-            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key
+            -- the kind of vote from the row the walk reads already (a join of the decisions
+            -- again for it was planned as a read of all of them)
+            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key,
+                   lg_str(d.props -> 'vote_kind') AS vote_kind
             FROM {COLLECTION_DECISIONS} d
             CROSS JOIN LATERAL (SELECT p.period) AS f(period)
             -- per decision (never joined whole: that reads every vote of the faction)
@@ -713,30 +716,35 @@ _MEMBER_VOTES = f"""
     -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
-        JOIN {COLLECTION_DECISIONS} d ON d.id = c.decision_id
-        WHERE lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
+        WHERE c.vote_kind IS DISTINCT FROM %(roll_call)s
     ),
+    -- the votes without their edges' meta: the page is chosen first, and only the edges of
+    -- its votes are read (each of a faction's candidates read its edge: 1,800 for 100)
     voted AS (
-        SELECT e.to_id AS decision_id, e.doc -> 'meta' AS meta,
+        SELECT e.to_id AS decision_id, e.key AS edge_key, d.key, d.date,
                member.props -> 'party' AS party,
                NULL::json AS faction_key, NULL::text AS faction_order,
                'member'::text AS vote_source
         FROM member
         JOIN {COLLECTION_EDGES} e
           ON e.from_id = %(member_id)s AND e.relation = %(voted)s
+        JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
         UNION ALL
-        SELECT k.decision_id, e.doc -> 'meta',
+        SELECT k.decision_id, k.edge_key, k.key, k.date,
                CASE WHEN {_is_null("k.period -> 'abbreviation'")}
                     THEN k.period -> 'name' ELSE k.period -> 'abbreviation' END,
                k.period -> 'faction_key', k.period ->> 'faction_key',
                'faction'::text
-        FROM kept k JOIN {COLLECTION_EDGES} e ON e.key = k.edge_key
+        FROM kept k
+    ),
+    chosen AS (
+        SELECT * FROM voted
+        ORDER BY date DESC NULLS LAST, key ASC, faction_order ASC NULLS FIRST
+        LIMIT %(limit)s
     ),
     page AS (
-        SELECT v.*, d.key, d.date
-        FROM voted v JOIN {COLLECTION_DECISIONS} d ON d.id = v.decision_id
-        ORDER BY d.date DESC NULLS LAST, d.key ASC, v.faction_order ASC NULLS FIRST
-        LIMIT %(limit)s
+        SELECT c.*, e.doc -> 'meta' AS meta
+        FROM chosen c JOIN {COLLECTION_EDGES} e ON e.key = c.edge_key
     )
     SELECT
         -- a period cut at its candidates whose roll-calls left less than a page may lack
