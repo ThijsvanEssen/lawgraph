@@ -385,13 +385,20 @@ def _read_pages(
         # ``edges_from_cover``), its edges by their key after: read whole, a hub's every
         # edge was read and sorted for a page of them (the planner takes a bucket for one
         # edge)
-        for name, matched in (
-            ("named", [b for b in buckets if b.relation is not None]),
-            ("unnamed", [b for b in buckets if b.relation is None]),
+        # and per collection of the neighbours, named in the statement: the view ``nodes``
+        # then reads that table alone (a value from the bucket left every table of it to be
+        # probed for every neighbour, 17 index probes for one)
+        for name, collection, matched in (
+            (name, collection, [b for b in named if b.collection == collection])
+            for name, named in (
+                ("named", [b for b in buckets if b.relation is not None]),
+                ("unnamed", [b for b in buckets if b.relation is None]),
+            )
+            for collection in dict.fromkeys(b.collection for b in named)
         ):
-            if not matched:
-                continue
-            group = f"{direction}_{name}"
+            if collection not in _ALLOWED_NODE_COLLECTIONS:
+                continue  # an edge to a table the graph does not have: no neighbour
+            group = f"{direction}_{name}_{collection}"
             params[f"{group}_relations"] = [b.relation for b in matched]
             params[f"{group}_collections"] = [b.collection for b in matched]
             relation = (
@@ -416,7 +423,7 @@ def _read_pages(
                     ) page
                     JOIN edges e ON e.key = page.key
                 ) e
-                JOIN nodes n ON n.id = e.{other}
+                JOIN nodes n ON n.id = e.{other} AND n.collection = '{collection}'
                 """
             )
     statement = " UNION ALL ".join(parts) + " ORDER BY direction, ord, edge_key"
