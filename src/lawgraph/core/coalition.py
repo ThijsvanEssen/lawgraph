@@ -102,9 +102,13 @@ def seat_timeline(
 ) -> list[dict[str, Any]]:
     """The seats of the coalition and the opposition from *start* to *end*, one segment per
     stretch in which neither the coalition nor any faction's seats changed:
-    ``{from_date, to_date, coalition, opposition, vacant, factions: [{key, seats, coalition}]}``,
-    the factions by seats, the coalition first. A day on which the coalition or a seat
-    changes starts a segment."""
+    ``{from_date, to_date, coalition, opposition, vacant, coalition_vacant, factions: [{key,
+    seats, vacant, coalition}]}``, the factions by seats, the coalition first. A faction's
+    seats are its members' and its vacant ones (a vacant seat is still its faction's), so
+    ``coalition`` and ``opposition`` count their parties' seats; ``vacant`` is every seat no
+    member held, of a faction or of none, ``coalition_vacant`` the coalition's: the seats
+    held are the Kamer's but the vacant ones. A day on which the coalition or a seat changes
+    starts a segment."""
     periods = [
         p
         for row in [*posts, *memberships, *vacancies]
@@ -126,14 +130,15 @@ def seat_timeline(
             {"key": k, "seats": n, "vacant": vacant.get(k, 0), "coalition": c}
             for k, n, c in ranked
         ]
+        # a seat no member and no vacancy of a faction accounts for is vacant too
+        unaccounted = max(TK_SEATS - sum(n for _, n, _c in ranked), 0)
         segment = {
             "from_date": day,
             "to_date": end,
             "coalition": sum(n for _, n, c in ranked if c),
             "opposition": sum(n for _, n, c in ranked if not c),
-            # a seat no member and no vacancy of a faction accounts for, so the stretch
-            # adds up; a vacancy of a faction counts among its seats
-            "vacant": max(TK_SEATS - sum(n for _, n, _c in ranked), 0),
+            "vacant": sum(vacant.values()) + unaccounted,
+            "coalition_vacant": sum(vacant.get(k, 0) for k, _n, c in ranked if c),
             "factions": factions,
         }
         if segments and segments[-1]["factions"] == factions:
