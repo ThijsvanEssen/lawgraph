@@ -150,6 +150,11 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
         COLLECTION_INSTRUMENT_VERSIONS,
         COLLECTION_EDGES,
     ),
+    "instrument facets": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
@@ -181,6 +186,9 @@ def warm_up(store: GraphStore) -> None:
         "instrument names": lambda: get_instruments_list(
             store, sort="article_count", limit=200
         ),
+        # the facets of the list of laws without a filter, as Bladeren opens it
+        # (``?limit=1``, its page asked apart with ``facets=false``)
+        "instrument facets": lambda: get_instruments_list(store, limit=1),
         "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
         "search notation": lambda: load_notation_parser(store),
         "search codes": lambda: load_code_aliases(store),

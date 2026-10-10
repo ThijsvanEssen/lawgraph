@@ -169,7 +169,8 @@ def get_cabinet_seats(
         "`Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`). "
         "``overdue`` keeps the `Openstaand` ones whose expected date has passed. "
         "``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments "
-        "under the other filters."
+        "under the other filters; ``facets=false`` leaves them out (null): the pages after "
+        "the first need none."
     ),
     tags=["government"],
 )
@@ -206,6 +207,9 @@ def list_commitments(
     ] = "date",
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    facets: Annotated[
+        bool, Query(description="Count per status, cabinet and ministry.")
+    ] = True,
 ) -> CommitmentListResponse:
     raw = get_commitments(
         store,
@@ -222,12 +226,13 @@ def list_commitments(
         offset=offset,
         made_from=date_from.isoformat() if date_from else None,
         made_to=date_to.isoformat() if date_to else None,
+        facets=facets,
     )
     slugs = load_member_slugs(store)
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
         items=[CommitmentDTO.from_row(row, slugs) for row in raw.get("items") or []],
-        facets=CommitmentFacetsDTO(**(raw.get("facets") or {})),
+        facets=CommitmentFacetsDTO(**(raw.get("facets") or {})) if facets else None,
     )
 
 

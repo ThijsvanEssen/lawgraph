@@ -617,4 +617,5 @@ class CommitmentListResponse(BaseModel):
 
     total: int = Field(..., description="Matching commitments, whatever the page.")
     items: list[CommitmentDTO]
-    facets: CommitmentFacetsDTO = Field(default_factory=CommitmentFacetsDTO)
+    # null when asked for without them (``facets=false``)
+    facets: CommitmentFacetsDTO | None = Field(default_factory=CommitmentFacetsDTO)

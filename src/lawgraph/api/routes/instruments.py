@@ -100,7 +100,8 @@ router = APIRouter()
         "(`legal_area`, a main area includes its specific areas) and a government theme "
         "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
         "`facets` counts the instruments under the filters per legal area (a tree) and per "
-        "theme, each without its own filter."
+        "theme, each without its own filter. `facets=false` leaves them out (null): the "
+        "pages after the first need none."
     ),
     tags=["instruments"],
 )
@@ -108,6 +109,9 @@ def list_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    facets: Annotated[
+        bool, Query(description="Count per legal area, theme and kind.")
+    ] = True,
     q: Annotated[str | None, Query(description="Free-text match")] = None,
     jurisdiction: Annotated[
         Literal["nl", "eu", "int"] | None,
@@ -169,12 +173,13 @@ def list_instruments(
         in_force_to=_day(date_to),
         published_from=_day(published_from),
         published_to=_day(published_to),
+        facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(
         items=items,
         total=int(data.get("total", 0)),
-        facets=InstrumentFacets(**(data.get("facets") or {})),
+        facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
     )
 
 

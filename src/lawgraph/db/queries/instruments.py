@@ -701,8 +701,10 @@ def get_instruments_list(
     in_force_to: str | None = None,
     published_from: str | None = None,
     published_to: str | None = None,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """Paginated, filterable list of instruments with cheap aggregate stats.
+    """Paginated, filterable list of instruments with cheap aggregate stats
+    (``facets=False``: the page and the total alone, ``facets`` None).
 
     Performance strategy:
       * Free text (`q`) narrows the list by the search of ``queries/search.py``; the
@@ -803,32 +805,33 @@ def get_instruments_list(
     # The facets are the same on every page and for every visitor: kept per data version
     # under the filters alone.
     counted = {k: v for k, v in params.items() if k not in ("limit", "offset")}
-    rows, areas, domains, kinds = run_together(
-        lambda: list(store.query(_paged(matched, page), params)),
-        lambda: cached_rows(
+
+    def rows() -> list[Any]:
+        return list(store.query(_paged(matched, page), params))
+
+    counts = [
+        lambda sql=sql, leave_out=leave_out: cached_rows(
             store,
-            _LEGAL_AREA_FACET.format(where=f"WHERE {where('legal_area')}"),
+            sql.format(where=f"WHERE {where(leave_out)}"),
             counted,
             tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
-        ),
-        lambda: cached_rows(
-            store,
-            _POLICY_DOMAIN_FACET.format(where=f"WHERE {where('policy_domain')}"),
-            counted,
-            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
-        ),
-        lambda: cached_rows(
-            store,
-            _KIND_FACET.format(where=f"WHERE {where('kind')}"),
-            counted,
-            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
-        ),
-    )
-    items, total = _split_page(iter(rows))
+        )
+        for sql, leave_out in (
+            (_LEGAL_AREA_FACET, "legal_area"),
+            (_POLICY_DOMAIN_FACET, "policy_domain"),
+            (_KIND_FACET, "kind"),
+        )
+        if facets
+    ]
+    answers = run_together(rows, *counts)
+    items, total = _split_page(iter(answers[0]))
     listed = [_list_item(row) for row in items]
     coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
     for item in listed:
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
+    if not facets:
+        return {"total": total, "items": listed, "facets": None}
+    areas, domains, kinds = answers[1:]
     return {
         "total": total,
         "items": listed,

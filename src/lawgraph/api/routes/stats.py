@@ -89,7 +89,8 @@ LIST_TABLES: dict[str, tuple[str, ...]] = {
 def _list_total(store: GraphStore, name: str) -> int | None:
     """The total of the list *name* as its route answers it without a filter (its first
     page): the route itself is asked, so the number is the list's own."""
-    # the routes, each asked as a request without parameters would ask it
+    # the routes, each asked as a request without parameters would ask it (without the
+    # facets where the route can leave them out and still count the total)
     from lawgraph.api.routes import (
         committees,
         documents,
@@ -101,11 +102,11 @@ def _list_total(store: GraphStore, name: str) -> int | None:
     from lawgraph.db.queries.committees import count_members
 
     if name == "instruments":
-        return instruments.list_instruments(store=store, limit=1).total
+        return instruments.list_instruments(store=store, limit=1, facets=False).total
     if name == "judgments":
-        return judgments.list_judgments(store=store, limit=1).total
+        return judgments.list_judgments(store=store, limit=1, facets=False).total
     if name == "dossiers":
-        return dossiers._list(store, dossiers._ListParams(limit=1)).total
+        return dossiers._list(store, dossiers._ListParams(limit=1, facets=False)).total
     if name == "documents":
         return documents.list_chamber_documents(store=store, limit=1).total
     if name == "members":
@@ -119,7 +120,7 @@ def _list_total(store: GraphStore, name: str) -> int | None:
     if name == "cabinets":
         return len(government.list_cabinets(store=store))
     if name == "commitments":
-        return government.list_commitments(store=store, limit=1).total
+        return government.list_commitments(store=store, limit=1, facets=False).total
     raise KeyError(name)
 
 
