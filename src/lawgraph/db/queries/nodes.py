@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
 from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
@@ -139,6 +140,9 @@ class NeighborBucket:
     # of an article: per lid its edges cite, how many of the whole bucket do ("" no lid);
     # None where no edge of the bucket names a lid
     lid_counts: dict[str, int] | None = None
+    # of a member's AUTHORED: per capacity they signed in, how many of the whole bucket
+    # ("" none); None for every other bucket
+    capacity_counts: dict[str, int] | None = None
 
 
 @dataclass
@@ -156,6 +160,31 @@ def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if node is None:
         raise NodeNotFoundError("node not found")
     return node
+
+
+def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:
+    """Per collection a member signed papers of (documents, cases, commitments): how many
+    they signed in each capacity (``meta.capacity`` of AUTHORED: kamerlid, bewindspersoon,
+    overig; "" none), every signature, from ``lg_authored`` through its index of members.
+    Empty until the table is whole and dated (``member_authored``): the page then counts
+    only what it holds."""
+    from lawgraph.db.queries import member_authored
+
+    if not (member_authored.is_filled(store) and member_authored.is_dated(store)):
+        return {}
+    counts: dict[str, dict[str, int]] = {}
+    for row in store.query(
+        """
+        SELECT split_part(a.document_id, '/', 1) AS collection,
+               coalesce(a.capacity, '') AS capacity, count(*)::int AS n
+        FROM lg_authored a
+        WHERE a.member_id = %(member)s
+        GROUP BY 1, 2
+        """,
+        {"member": member_id},
+    ):
+        counts.setdefault(row["collection"], {})[row["capacity"]] = row["n"]
+    return counts
 
 
 def get_node_with_neighbors(
@@ -183,6 +212,11 @@ def get_node_with_neighbors(
     lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
     if collection == "articles":
         lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
+    capacities = (
+        _capacity_counts(store, node["_id"])
+        if collection == COLLECTION_MEMBERS and filters.status is None
+        else {}
+    )
     end = offset + limit
     buckets = [
         NeighborBucket(
@@ -191,6 +225,11 @@ def get_node_with_neighbors(
             entries=pages.get((facet.relation, facet.direction, facet.collection), []),
             lid_counts=(lids or {}).get(
                 (facet.relation, facet.direction, facet.collection)
+            ),
+            capacity_counts=(
+                capacities.get(facet.collection)
+                if (facet.relation, facet.direction) == (RELATION_AUTHORED, "outbound")
+                else None
             ),
         )
         for facet in facets

@@ -173,6 +173,16 @@ class NeighborBucketDTO(BaseModel):
             "null when none of them cites a lid."
         ),
     )
+    capacity_counts: dict[str, int] | None = Field(
+        None,
+        description=(
+            "Of a member's ``AUTHORED`` (outbound): per capacity they signed in "
+            "(``meta.capacity``: ``kamerlid``, ``bewindspersoon``, ``overig``; "
+            '"" for none), how many of the whole bucket, not only of its page. Null for '
+            "every other bucket, with a ``status`` filter, and before the signatures "
+            "are kept with their capacity."
+        ),
+    )
     items: list[NeighborDTO]
 
 
