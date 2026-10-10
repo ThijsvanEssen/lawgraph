@@ -1167,3 +1167,93 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     assert set(estimate) == {"N"}
     # once computed (in the background), the statistics are kept and taken
     assert "display_name/text" in _bm25._stats(graph, "articles")
+
+
+def test_an_article_is_ranked_by_its_own_name_and_its_case_law(
+    store: GraphStore,
+) -> None:
+    """ "onrechtmatige daad" finds art. 6:162 BW, in the title "Onrechtmatige daad" and
+    cited by thousands of judgments, before the articles of the Wet conflictenrecht
+    onrechtmatige daad, whose law alone holds the words; of two articles that hold them
+    alike, the one cited more first. The law itself is found among the instruments."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("bwbr0005289", "instrument", bwb_id="BWBR0005289",
+                  title="Burgerlijk Wetboek Boek 6", citation_title="Burgerlijk Wetboek Boek 6"),
+            _node("bwbr0012408", "instrument", bwb_id="BWBR0012408",
+                  title="Wet conflictenrecht onrechtmatige daad",
+                  citation_title="Wet conflictenrecht onrechtmatige daad"),
+        ],
+    )  # fmt: skip
+    title = [{"title": "Titel 3. Onrechtmatige daad"}]
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbr0005289_162", "article", bwb_id="BWBR0005289", article_number="162",
+                  display_name="Artikel 162 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Hij die jegens een ander een onrechtmatige daad pleegt, die hem kan"
+                  " worden toegerekend, is verplicht de schade te vergoeden.",
+                  inbound_citation_count=5000),
+            _node("bwbr0005289_163", "article", bwb_id="BWBR0005289", article_number="163",
+                  display_name="Artikel 163 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Geen verplichting tot schadevergoeding bestaat, wanneer de"
+                  " geschonden norm niet strekt tot bescherming tegen de schade.",
+                  inbound_citation_count=40),
+            _node("bwbr0005289_164", "article", bwb_id="BWBR0005289", article_number="164",
+                  display_name="Artikel 164 Burgerlijk Wetboek Boek 6", breadcrumb=title,
+                  text="Een gedraging van een kind dat de leeftijd van veertien jaren nog"
+                  " niet heeft bereikt, kan hem niet als een onrechtmatige daad worden"
+                  " toegerekend.",
+                  inbound_citation_count=2),
+            *(
+                _node(f"bwbr0012408_{n}", "article", bwb_id="BWBR0012408",
+                      article_number=str(n),
+                      display_name=f"Artikel {n} Wet conflictenrecht onrechtmatige daad",
+                      text="Verbintenissen uit onrechtmatige daad worden beheerst door het"
+                      " recht van de staat op wiens grondgebied de daad plaatsvindt.")
+                for n in (1, 2, 3)
+            ),
+        ],
+    )  # fmt: skip
+
+    def found(q: str, table: str) -> list[str]:
+        return [
+            h["key"]
+            for h in search_queries.search_all(store, q=q, types=[table])[table]
+        ]
+
+    articles = found("onrechtmatige daad", "articles")
+    assert articles[0] == "bwbr0005289_162"
+    # the articles of the title before those of the law that only its name joins
+    assert set(articles[:3]) == {
+        "bwbr0005289_162",
+        "bwbr0005289_163",
+        "bwbr0005289_164",
+    }
+    assert set(articles[3:]) == {"bwbr0012408_1", "bwbr0012408_2", "bwbr0012408_3"}
+    assert (
+        found("wet conflictenrecht onrechtmatige daad", "instruments")[0]
+        == "bwbr0012408"
+    )
+
+
+def test_of_two_articles_alike_the_one_cited_more_comes_first(
+    store: GraphStore,
+) -> None:
+    """Two articles whose words weigh the same: the one more judgments cite comes first,
+    though the key would put the other first."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(f"bwbr0005289_{key}", "article", bwb_id="BWBR0005289",
+                  article_number=key, display_name=f"Artikel {key} Burgerlijk Wetboek Boek 6",
+                  text="Een verbintenis tot schadevergoeding wegens een tekortkoming.",
+                  inbound_citation_count=cites)
+            for key, cites in (("74", 1), ("75", 300))
+        ],
+    )  # fmt: skip
+    hits = search_queries.search_all(store, q="tekortkoming", types=["articles"])
+    assert [h["key"] for h in hits["articles"]] == ["bwbr0005289_75", "bwbr0005289_74"]

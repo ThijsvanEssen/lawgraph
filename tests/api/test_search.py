@@ -90,6 +90,44 @@ def hit(**fields: Any) -> dict[str, Any]:
         ("dilan yesilgoz", hit(display_name="Dilan Yeşilgöz-Zegerius"), SCORE_PREFIX),
         ("cooperatie", hit(extra={"heading": "Coöperatie"}), SCORE_TITLE),
         ("", hit(display_name="Grondwet"), SCORE_WORDS),
+        # The name of an article's law is not its name: every article of the Wet
+        # conflictenrecht onrechtmatige daad would hold the words; art. 6:162 BW holds them
+        # in the title of its division. The whole name, or its start, is still the article.
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 5 Wet conflictenrecht onrechtmatige daad",
+                extra={"instrument_title": "Wet conflictenrecht onrechtmatige daad"},
+            ),
+            SCORE_WORDS,
+        ),
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 162 Burgerlijk Wetboek Boek 6",
+                extra={"division_titles": ["Titel 3. Onrechtmatige daad"]},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "wet conflictenrecht onrechtmatige daad",
+            hit(
+                collection="articles",
+                display_name="Artikel 5 Wet conflictenrecht onrechtmatige daad",
+                extra={"instrument_title": "Wet conflictenrecht onrechtmatige daad"},
+            ),
+            SCORE_TITLE,
+        ),
+        (
+            "onrechtmatige daad",
+            hit(
+                collection="instruments",
+                display_name="Wet conflictenrecht onrechtmatige daad",
+            ),
+            SCORE_CONTAINS,
+        ),
     ],
 )
 def test_score_is_the_rank_tier_of_the_best_match(
