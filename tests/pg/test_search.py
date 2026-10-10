@@ -1169,6 +1169,57 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     assert "display_name/text" in _bm25._stats(graph, "articles")
 
 
+def test_an_article_number_is_found_where_all_its_words_are(store: GraphStore) -> None:
+    """``7:669`` is the words 7 and 669 (``lg_tokens``): a judgment or article holds them
+    both, not one of them (every summary with a 7); a word of one stem finds what it found
+    before, and a token of no word nothing."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("j_ontslag", "judgment", ecli="ECLI:NL:HR:2026:1", source="rechtspraak",
+                  summary="Ontslag op staande voet, artikel 7:669 BW."),
+            _node("j_zeven", "judgment", ecli="ECLI:NL:HR:2026:2", source="rechtspraak",
+                  summary="Zeven punten: punt 7 over de huur."),
+            _node("j_669", "judgment", ecli="ECLI:NL:HR:2026:3", source="rechtspraak",
+                  summary="Een bedrag van 669 euro."),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bw7_669", "article", article_number="669",
+                  display_name="Artikel 7:669 Burgerlijk Wetboek",
+                  text="De werkgever kan de arbeidsovereenkomst opzeggen."),
+            _node("bw7_7", "article", article_number="7",
+                  display_name="Artikel 7:7 Burgerlijk Wetboek",
+                  text="Een koop van 7 zaken."),
+        ],
+    )  # fmt: skip
+
+    def found(q: str, table: str) -> list[str]:
+        return sorted(_ids(search_queries.search_all(store, q=q, types=[table])[table]))
+
+    assert found("7:669", "judgments") == ["judgments/j_ontslag"]
+    assert found("7:669", "articles") == ["articles/bw7_669"]
+    assert found("huur", "judgments") == ["judgments/j_zeven"]
+    assert found("--", "judgments") == []
+
+
+def test_the_words_of_a_token_are_found_through_their_index(store: GraphStore) -> None:
+    """All the words of a token, as one of each form: the GIN index of the field's words
+    answers it (a ``Bitmap Index Scan`` on ``…_t``), not a test of every row."""
+    from lawgraph.db.queries.search import build_search_clause
+
+    clause, params = build_search_clause("judgments", ["7:669"], ["summary"], "j")
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")
+        (plan,) = conn.execute(
+            f"EXPLAIN (FORMAT JSON) SELECT j.id FROM judgments j WHERE {clause}", params
+        ).fetchone()
+    assert "judgments_s_summary_t" in str(plan)
+
+
 def test_an_article_is_ranked_by_its_own_name_and_its_case_law(
     store: GraphStore,
 ) -> None:

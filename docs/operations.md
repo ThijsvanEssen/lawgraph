@@ -489,7 +489,7 @@ migrations that a release needs (a `normalize` or `semantic` step) are not part 
 on the server after the deploy. An index a release adds to a large table (`ensure_schema` creates
 what is missing at the start of the API, in one transaction that blocks the table) is built
 beforehand by hand with the same name: `CREATE INDEX CONCURRENTLY IF NOT EXISTS …` (for
-`edges_from_cover`, `edges_to_cover`, `documents_feed_title_g`, `instruments_dossier_numbers`, `instruments_date_in_force`, `instruments_list_date_published` and `lg_authored_member_date` as in `schema.py`); the start then finds it.
+`edges_from_cover`, `edges_to_cover`, `documents_feed_title_g`, `instruments_dossier_numbers`, `instruments_date_in_force`, `instruments_list_date_published`, `cases_number`, `lg_document_light_paper` and `lg_authored_member_date` as in `schema.py`); the start then finds it. Check afterwards that each is valid (`SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE indexrelid::regclass::text = '…'`): a CONCURRENTLY that failed leaves an invalid index of that name, which `IF NOT EXISTS` at the start then skips; drop it with `DROP INDEX CONCURRENTLY` and build it again.
 
 In front of both, Caddy serves a file of the front end's build that exists (`/_app/*`, `/og/*`, `robots.txt`), sends `/api/*` to the API, and rewrites every other path to `/render{uri}` of the API: the HTML of the page, a 301 or a real 404 (`docs/api.md`). When the API does not answer within 2 s or answers 502, 503 or 504, Caddy serves the build's `index.html` itself, so the site stays up without the API.
 
