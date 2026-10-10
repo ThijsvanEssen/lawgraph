@@ -142,6 +142,9 @@ and exits 1 when any of them failed.
 `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
 `eerstekamer`, `echr`, `verdragenbank`). Every `normalize <source>` accepts `--since DATE`: only raw records
 fetched since then.
+`normalize rechtspraak` also reads every stored judgment in slices: `--after KEY` starts past that record key,
+`--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` runs them at night, each
+under the lock on its own).
 
 ### semantic
 

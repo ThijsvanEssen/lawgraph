@@ -233,6 +233,8 @@ def _citations_by_paragraph(
             display_name=props.get("display_name"),
         )
         for mention in mentions_of(relation.meta):
+            if mention.footnote:
+                continue  # its offsets are in the text of the footnote, not the paragraph
             spans.setdefault(mention.paragraph_id, []).append(
                 ArticleCitationSpan(
                     start=mention.start,
