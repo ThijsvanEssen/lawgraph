@@ -440,6 +440,7 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         client = TestClient(app)
         canvas = client.get("/api/nodes/dossiers/36547", params={"props": "canvas"})
         full = client.get("/api/nodes/dossiers/36547")
+        paper = client.get("/api/nodes/documents/d1")
     finally:
         app.dependency_overrides.pop(get_store, None)
     items = {
@@ -469,7 +470,10 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         for bucket in full.json()["neighbors"]["buckets"]
         for item in bucket["items"]
     }
-    assert whole["d1"]["props"]["case_ids"] == ["c1"]
+    assert whole["d1"]["props"]["kind"] == "Memorie van toelichting"
+    # the rollup of its cases is left out of a neighbour, kept on the paper itself
+    assert "case_ids" not in whole["d1"]["props"]
+    assert paper.json()["node"]["props"]["case_ids"] == ["c1"]
     assert whole["m1"]["meta"] == {"record_ids": ["r"]}
 
 
@@ -615,3 +619,39 @@ def test_the_lids_of_an_article_are_counted_once_an_hour(
     monkeypatch.setattr(node_queries, "LIDS_MAX_AGE", 0.0)
     assert lids() == {"1": 1, "2": 1}
     assert len(counted) == 2
+
+
+def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
+    store: GraphStore,
+) -> None:
+    """A budget debate is about hundreds of cases: its ``case_ids`` and
+    ``case_kinds_by_dossier`` (what ``normalize tk-dossiers`` rolls up, which the canvas does
+    not read) are not in a neighbourhood; its other props are."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"_key": "36800_vii", "type": "dossier", "labels": [], "props": {}}],
+    )
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [{"_key": "a1", "type": "activity", "labels": [], "props": {
+            "kind": "Plenair debat", "title": "Begroting",
+            "case_ids": [f"cases/c{n}" for n in range(300)],
+            "case_kinds_by_dossier": {"36800-VII": ["Begroting"]}}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("e1", "activities/a1", "dossiers/36800_vii", "ABOUT")]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        found = TestClient(app).get("/api/nodes/dossiers/36800_vii/neighborhood").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    (activity,) = [n for n in found["nodes"] if n["id"] == "activities/a1"]
+    assert activity["props"]["kind"] == "Plenair debat"
+    assert "case_ids" not in activity["props"]
+    assert "case_kinds_by_dossier" not in activity["props"]

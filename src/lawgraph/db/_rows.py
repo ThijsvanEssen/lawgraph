@@ -28,8 +28,11 @@ GRAPH_PROPS_LEFT_OUT = (
 
 # And a neighbour, a node of a neighbourhood or of a path: the text of a paper (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
-# breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
-# text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
+# breadcrumb: three quarters of what the articles of a law weigh), and the rollups of an
+# activity that ``normalize tk-dossiers`` reads (its cases, hundreds for a budget debate, and
+# their kinds per dossier: 390 of the 677 kB of the neighbourhood of a budget dossier). A
+# neighbour is light; its text belongs to the node itself (``/api/nodes/{collection}/{key}``,
+# the readers).
 NEIGHBOUR_PROPS_LEFT_OUT = (
     *GRAPH_PROPS_LEFT_OUT,
     "sections",
@@ -37,6 +40,8 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
     "parts",
     "references",
     "breadcrumb",
+    "case_ids",
+    "case_kinds_by_dossier",
 )
 
 
