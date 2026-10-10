@@ -70,6 +70,21 @@ def test_a_day_is_a_day() -> None:
     assert sitemaps.day("2026-11-03", "2026-10-09") == "2026-10-09"
 
 
+def test_a_day_before_1970_is_no_lastmod() -> None:
+    # a search engine refuses a lastmod before 1970 (a law in force since 1821)
+    assert sitemaps.day("1821-08-01", "2026-10-09") is None
+    assert sitemaps.day("1969-12-31", "2026-10-09") is None
+    assert sitemaps.day("1970-01-01", "2026-10-09") == "1970-01-01"
+    rows = [
+        {"id": "dossiers/30000", "props": {"label": "30000"}, "lastmod": "1838-01-26"},
+        {"id": "dossiers/30001", "props": {"label": "30001"}, "lastmod": "2027-01-01"},
+    ]
+    xml = sitemaps.urlset(BASE, entries(rows, "2026-10-09")).decode()
+    assert "<url><loc>https://concordans.nl/dossiers/30000</loc></url>" in xml
+    assert "<lastmod>2026-10-09</lastmod>" in xml
+    assert "1838" not in xml and "2027" not in xml
+
+
 def test_the_entries_have_an_address_each_once() -> None:
     rows = [
         {"id": "dossiers/36600_viii", "props": {"label": "36600-VIII"},
