@@ -34,6 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
+from lawgraph.core.readable_paths import path_of
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed import (
     FeedFilters,
@@ -1890,3 +1891,82 @@ def test_several_words_find_the_events_that_hold_any_of_them(
 def test_too_many_or_too_long_words_are_422(client: TestClient) -> None:
     assert client.get("/api/feed", params={"q": ["w"] * 11}).status_code == 422
     assert client.get("/api/feed", params={"q": ["w" * 201]}).status_code == 422
+
+
+def test_every_numbered_paper_and_commitment_has_its_readable_path(
+    store: GraphStore,
+) -> None:
+    """A paper of every kind the feed lists has the address its render page has
+    (``core.readable_paths.path_of``), from its own dossier number and suffix and its
+    number in the dossier, so the feed links it directly instead of through
+    ``/explore?focus`` and a 301; a commitment by its number. A paper the Kamer has not
+    numbered yet has none."""
+    _seed(store)
+    numbered = {
+        "motion_101": ("Motie", "37001", "VII", 12, "/kamerstukken/37001-VII/12"),
+        "letter_102": ("Brief regering", "37000", None, 3, "/kamerstukken/37000/3"),
+        "note_103": ("Nota van wijziging", "37000", None, 7, "/kamerstukken/37000/7"),
+        "amendment_104": ("Amendement", "37022", None, 13, "/kamerstukken/37022/13"),
+        "bill_105": ("Voorstel van wet", "37023", None, 2, "/kamerstukken/37023/2"),
+    }
+    nodes = [
+        _document(
+            key,
+            kind,
+            "2026-09-01",
+            f"{number}-{suffix}" if suffix else number,
+            dossier_number=number,
+            **({"dossier_suffix": suffix} if suffix else {}),
+            sequence=sequence,
+        )
+        for key, (kind, number, suffix, sequence, _) in numbered.items()
+    ]
+    # not numbered yet: no number, no dossier (as the source gives a fresh paper)
+    nodes.append(
+        _node(
+            COLLECTION_DOCUMENTS,
+            NodeType.DOCUMENT,
+            "fresh_106",
+            kind="Nota van wijziging",
+            date="2026-09-02",
+            document_number="2026D50328",
+        )
+    )
+    nodes.append(
+        _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "commitment_107",
+            text="De minister stuurt een brief.",
+            made_on="2026-09-03",
+            status="Openstaand",
+            number="TZ202609-130",
+        )
+    )
+    with NodeWriter(store) as writer:
+        writer.add_all(nodes)
+    _serve(store)
+    try:
+        answer = _feed(_test_client(), limit=200)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    paths = {item["id"]: item["path"] for item in answer["items"]}
+    for key, (_, _, _, _, path) in numbered.items():
+        assert paths[f"{COLLECTION_DOCUMENTS}/{key}"] == path, key
+    assert paths[f"{COLLECTION_DOCUMENTS}/fresh_106"] is None
+    assert (
+        paths[f"{COLLECTION_COMMITMENTS}/commitment_107"]
+        == "/toezeggingen/TZ202609-130"
+    )
+    # every one the render page of its address knows (the same function)
+    for node_id, path in paths.items():
+        if path and node_id.startswith((COLLECTION_DOCUMENTS, COLLECTION_COMMITMENTS)):
+            assert path_of(node_id, _props_of(store, node_id)) == path, node_id
+
+
+def _props_of(store: GraphStore, node_id: str) -> dict[str, Any]:
+    table, _, _ = node_id.partition("/")
+    (props,) = store.query(
+        f"SELECT props FROM {table} WHERE id = %(id)s", {"id": node_id}
+    )
+    return props
