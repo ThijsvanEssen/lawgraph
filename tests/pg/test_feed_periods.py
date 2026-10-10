@@ -15,8 +15,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_DOSSIERS
 from lawgraph.core.models import NodeType
 from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.feed import FeedFilters, _counts, get_feed
 from lawgraph.db.queries.feed_events import (
+    counts_query,
+    get_counts,
     get_periods,
     periods_query,
     word_queries,
@@ -55,7 +57,8 @@ def seeded(store: GraphStore) -> GraphStore:
 
 
 def _feed_kinds(store: GraphStore, filters: FeedFilters) -> dict[str, int]:
-    facets = get_feed(store, filters, limit=1)["facets"]
+    # the feed's own count of its rows (``get_feed`` takes them from the table under words)
+    facets = _counts(store, filters)["facets"]
     return {f["value"]: f["count"] for f in facets["kind"] if f["count"]}
 
 
@@ -91,6 +94,41 @@ def test_each_kind_counts_what_the_feed_counts(
     feed = _feed_kinds(seeded, filters)
     assert _period_kinds(seeded, filters, "month") == feed
     assert _period_kinds(seeded, filters, "day") == feed
+
+
+COUNTED = [
+    *(f for f in FILTERS if f.q),
+    FeedFilters(q=("ai",), kinds=("Motie",)),
+    FeedFilters(q=("ai",), faction="vvd"),
+    FeedFilters(q=("motie",), chamber="TK", faction="d66"),
+    FeedFilters(q=("brief",), ministry="fin"),
+    FeedFilters(q=("brief", "motie"), cabinet="jetten"),
+    FeedFilters(q=("motie",), dossier="37000", until="2026-09-30"),
+    FeedFilters(q=("nergens",)),
+]
+
+
+@pytest.mark.parametrize("filters", COUNTED, ids=[repr(f) for f in COUNTED])
+def test_the_total_and_facets_of_words_are_the_feeds_own(
+    seeded: GraphStore, filters: FeedFilters
+) -> None:
+    """Under words the feed takes its ``total`` and ``facets`` from the table: each facet
+    (kind, ministry, faction, cabinet, chamber) and the total equal its own count."""
+    from_table = get_counts(seeded, filters, 60.0)
+    assert from_table == _counts(seeded, filters)
+    assert get_feed(seeded, filters, limit=1)["facets"] == from_table["facets"]
+
+
+def test_the_feed_counts_its_own_rows_where_the_table_cannot_tell(
+    store: GraphStore,
+) -> None:
+    _seed(store)
+    _topics(store)
+    words = FeedFilters(q=("ai",))
+    assert get_counts(store, words, 60.0) is None  # never written
+    write_all(store)
+    assert get_counts(store, FeedFilters(q=("ai",), member="m1"), 60.0) is None
+    assert get_feed(store, words, limit=1)["total"] == _counts(store, words)["total"]
 
 
 def test_a_short_word_is_a_whole_word_and_a_topic_goes_by_its_dossier(
@@ -134,11 +172,18 @@ def test_the_days_since_are_written_again_in_place(seeded: GraphStore) -> None:
     )
 
 
-def test_the_words_are_found_by_index(seeded: GraphStore) -> None:
+@pytest.mark.parametrize("counted", ["periods", "counts"])
+def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
     """A word with a letter or digit is looked up in ``words`` (GIN), not tested on
-    every row of a table of many events."""
+    every row of a table of many events: for the periods and for the feed's total and
+    facets."""
     filters = FeedFilters(q=("ai", "AI-verordening"))
-    statement, bind = periods_query(filters, "month", word_queries(seeded, filters))
+    queries = word_queries(seeded, filters)
+    statement, bind = (
+        periods_query(filters, "month", queries)
+        if counted == "periods"
+        else counts_query(filters, queries)
+    )
     with seeded.pool.connection() as conn, conn.transaction():
         conn.execute(
             "INSERT INTO lg_feed_events (kind, id, date, factions, labels, title, words)"
