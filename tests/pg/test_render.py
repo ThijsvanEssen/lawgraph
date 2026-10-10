@@ -625,7 +625,10 @@ def test_what_a_member_is_comes_from_the_source(
     client: TestClient, store: GraphStore, slug: str, title: str
 ) -> None:
     _seed_people(store)
-    assert _head(_get(client, f"/leden/{slug}").text)["title"] == f"{title}, Concordans"
+    page = _head(_get(client, f"/leden/{slug}").text)
+    assert page["title"] == f"{title}, Concordans"
+    # a person of the TK's records whose seat the data does not hold: not indexed
+    assert page["robots"] == ("noindex" if slug == "j-de-vries" else None)
 
 
 def test_a_faction_lists_its_members_now(client: TestClient, store: GraphStore) -> None:

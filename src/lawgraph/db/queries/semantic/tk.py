@@ -394,7 +394,8 @@ SELECT json_build_object(
     'sections', d.p -> 'sections',
     'own', own.own,
     'changes', ch.changes,
-    'laws', laws.laws
+    'laws', laws.laws,
+    'bill', bill.text
 )
 FROM (
     SELECT d.id, d.key, c.p
@@ -409,6 +410,19 @@ FROM (
       AND {present_sql("c.p -> 'text'")}
 ) d
 {_LEGISLATED}
+-- the bill the memorandum explains: the first Voorstel van wet of its own dossier (its
+-- letters are those of the headings "Artikel I, onderdeel B"); the text of that one only
+LEFT JOIN LATERAL (
+    SELECT b.props -> 'text' AS text
+    FROM unnest(o.own_dossiers) AS u(dossier)
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = u.dossier AND e.relation = %(part_of)s
+     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    JOIN {COLLECTION_DOCUMENTS} b ON b.id = e.from_id
+    WHERE starts_with(b.kind, 'Voorstel van wet')
+    ORDER BY b.date NULLS LAST, b.key
+    LIMIT 1
+) bill ON true
 CROSS JOIN LATERAL (
     SELECT coalesce(json_agg(x.bwb_id ORDER BY x.n), '[]'::json) AS own
     FROM (
@@ -484,8 +498,9 @@ def memoranda_with_sections(
 ) -> Iterator[dict[str, Any]]:
     """Per memorandum of a structure quality in *qualities*: its text and sections, the
     laws its dossier legislated (``own``), the articles they changed and the names of the
-    laws involved. The dossier of a first reading of a change in the Grondwet counts with
-    the dossier of its second reading, in which the change was made law."""
+    laws involved, and the text of the bill of its dossier (``bill``, null without one).
+    The dossier of a first reading of a change in the Grondwet counts with the dossier of
+    its second reading, in which the change was made law."""
     params: dict[str, Any] = {
         "qualities": qualities,
         "part_of": RELATION_PART_OF,

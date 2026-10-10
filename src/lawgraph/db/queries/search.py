@@ -29,6 +29,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
@@ -865,12 +866,14 @@ def _search_members(
             'display_name', doc.props -> 'name',
             'snippet', doc.props -> 'party',
             'extra', json_build_object(
-                'party', doc.props -> 'party', 'active', doc.props -> 'active'
+                'party', doc.props -> 'party', 'active', doc.props -> 'active',
+                'has_role', {member_role.has_role("doc")}
             )
         )
         FROM members doc
         WHERE {condition}
-        ORDER BY doc.active DESC NULLS LAST, doc.name NULLS FIRST, doc.key
+        ORDER BY {member_role.has_role("doc")} DESC, doc.active DESC NULLS LAST,
+                 doc.name NULLS FIRST, doc.key
         LIMIT %(limit)s
         """
     return list(store.query(statement, {**params, "limit": limit}))
@@ -1070,9 +1073,13 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
 
 
 def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """*hits* with a ``score`` each (a hit that has one keeps it), best first."""
+    """*hits* with a ``score`` each (a hit that has one keeps it), best first; a member
+    without a role (``member_role``) after every hit with one, whatever its score."""
     scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
-    return sorted(scored, key=lambda h: -h["score"])
+    return sorted(
+        scored,
+        key=lambda h: ((h.get("extra") or {}).get("has_role") is False, -h["score"]),
+    )
 
 
 # ── Main search dispatcher ────────────────────────────────────────────────────

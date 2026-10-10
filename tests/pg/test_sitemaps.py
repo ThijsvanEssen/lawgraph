@@ -159,6 +159,9 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
             _node("m_2", "member", slug="jan-paternotte",
                   faction_memberships=[{"faction_key": "d66"}]),
             _node("m_3", "member", slug="paul-van-meenen", ek={"faction": "ek_d66"}),
+            # a former senator: their periods from their page, no seat in the composition
+            _node("m_6", "member", slug="kim-putters",
+                  ek_faction_memberships=[{"faction": "PvdA"}]),
             # never seated, no post: no page worth a search engine
             _node("m_4", "member", slug="j-de-vries", faction_memberships=[]),
             _node("m_5", "member", name="Zonder slug",
@@ -195,6 +198,7 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
         ("/leden/rob-jetten", None),
         ("/leden/jan-paternotte", None),
         ("/leden/paul-van-meenen", None),
+        ("/leden/kim-putters", None),
     ]
     assert _paths(kinds, "fracties") == [
         ("/fracties/d66", "2026-03-01"),

@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_INTRODUCES
+from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
     CONFIDENCE_UNCHANGED,
+    MATCH_BILL_PART,
     MATCH_BODY_NAMED_LAW,
     MATCH_HEADING_TARGET,
     MATCH_INFERRED_LAW,
@@ -451,3 +453,124 @@ def test_a_law_is_new_when_the_dossier_changed_none_of_it_but_to_introduce_it() 
     assert is_introduction(own, WONINGWET)
     assert not is_introduction([*own, _change("3")], WONINGWET)
     assert is_introduction([_change("3")], "BWBR0000003")  # a change of another law
+
+
+# ── the onderdelen of the bill ───────────────────────────────────────────────
+
+SR = "BWBR0001854"
+SV = "BWBR0001903"
+UITLEVERINGSWET = "BWBR0001914"
+_LAWS_31810 = [
+    Law(SR, ("Wetboek van Strafrecht",), ("Sr",)),
+    Law(SV, ("Wetboek van Strafvordering",), ("Sv",)),
+    Law(UITLEVERINGSWET, ("Uitleveringswet",)),
+]
+# Kamerstukken II 2008/09, 31810, nr. 2, shortened.
+_BILL_31810 = """ARTIKEL I
+Het Wetboek van Strafrecht wordt als volgt gewijzigd:
+A
+In artikel 240b, eerste lid, wordt «verspreidt» vervangen door: verspreidt, aanbiedt.
+B
+Na artikel 248c worden twee artikelen ingevoegd, luidende:
+Artikel 248d
+Hij die een persoon ertoe beweegt, wordt gestraft.
+Artikel 248e
+Hij die een ontmoeting voorstelt, wordt gestraft.
+ARTIKEL II
+Het Wetboek van Strafvordering wordt als volgt gewijzigd:
+A
+In artikel 67, eerste lid, onderdeel b, wordt na «137g,» ingevoegd: 248d, 248e,.
+ARTIKEL III
+In artikel 51a, tweede lid, van de Uitleveringswet wordt een onderdeel toegevoegd.
+ARTIKEL IV
+Deze wet treedt in werking op een bij koninklijk besluit te bepalen tijdstip."""
+
+
+def _memorandum_31810() -> _Paper:
+    """The artikelsgewijs part of nr. 3: headings that name onderdelen and no article."""
+    paper = _Paper()
+    for heading, number, body in (
+        (
+            "Artikel I, onderdeel A",
+            "I",
+            "Dit onderdeel is in het algemeen deel toegelicht.",
+        ),
+        ("Artikel I, onderdeel B", "I", "Het voorgestelde delict corrumperen."),
+        ("Artikel II, onderdeel A", "II", "De delicten worden opgenomen in de lijst."),
+        ("Artikel III", "III", "Opneming van het Verdrag in de lijst."),
+        ("Artikel IV", "IV", "De wet treedt in werking bij koninklijk besluit."),
+    ):
+        paper.add(heading, body, number=number, scheme="roman", refs=[(number, "self")])
+    return paper
+
+
+def test_an_onderdeel_of_the_bill_names_the_articles_it_changes() -> None:
+    paper = _memorandum_31810()
+
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+
+    assert _found(refs) == [
+        ("s-0", SR, "240b", MATCH_BILL_PART),
+        ("s-1", SR, "248d", MATCH_BILL_PART),
+        ("s-1", SR, "248e", MATCH_BILL_PART),
+        ("s-2", SV, "67", MATCH_BILL_PART),
+        # an article of the bill without onderdelen: the law its instruction names
+        ("s-3", UITLEVERINGSWET, "51a", MATCH_BILL_PART),
+    ]
+    assert refs[1].explanation.startswith(
+        "De kop 'Artikel I, onderdeel B' noemt een onderdeel van het wetsvoorstel"
+    )
+    assert refs[1].confidence == CONFIDENCE_OF_MATCH[MATCH_BILL_PART]
+    # without the bill the headings name nothing
+    assert find_references(paper.text, paper.sections, _LAWS_31810) == []
+
+
+def test_an_onderdeel_under_an_article_of_the_bill_and_one_without_text() -> None:
+    paper = _Paper()
+    article = paper.add(
+        "Artikel I", "", number="I", scheme="roman", refs=[("I", "self")]
+    )
+    paper.add(
+        "Onderdeel B",
+        "De twee nieuwe delicten.",
+        kind="onderdeel",
+        number="B",
+        scheme="letter",
+        parent=article,
+    )
+    # a heading of an onderdeel followed by the article it changes (34372): the article
+    # explains, the onderdeel has no text of its own
+    paper.add(
+        "Artikel II, onderdeel A",
+        "",
+        number="II",
+        scheme="roman",
+        refs=[("II", "self")],
+    )
+
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+
+    assert _found(refs) == [
+        ("s-1", SR, "248d", MATCH_BILL_PART),
+        ("s-1", SR, "248e", MATCH_BILL_PART),
+    ]
+
+
+def test_an_onderdeel_points_only_at_what_the_dossier_changed() -> None:
+    paper = _memorandum_31810()
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+    changes = [
+        Change(SR, "248d", article_id(SR, "248d"), "v248d", RELATION_INTRODUCES),
+        Change(SV, "67", article_id(SV, "67"), None, RELATION_AMENDS),
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: True)
+
+    # 248e, 240b and 51a were not changed (renumbered, or left out by an amendment)
+    assert sorted(explained) == ["article_versions/v248d", article_id(SV, "67")]
