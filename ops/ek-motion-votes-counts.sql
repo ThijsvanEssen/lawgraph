@@ -6,6 +6,8 @@
 --     PGOPTIONS="-c default_transaction_read_only=on" psql "$DSN" -f ek-motion-votes-counts.sql
 -- Only SELECTs; every one through an index or over the EK decisions alone (a few thousand).
 
+SET default_transaction_read_only = on;
+
 \echo '== EK vote decisions per kind (null: on a bill; Motie: on a motion)'
 SELECT coalesce(lg_str(props -> 'kind'), '(bill)') AS kind, count(*)
 FROM decisions

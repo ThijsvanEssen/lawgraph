@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
+from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
@@ -41,7 +42,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
-from lawgraph.db.version_cache import lasting
+from lawgraph.db.version_cache import cached, lasting
 
 
 @dataclass
@@ -494,6 +495,146 @@ def get_article_explanations(
     )
     rows = list(store.query(_EXPLANATIONS_SQL.replace("{identity}", identity), bind))
     return rows[0] if rows else {"total": 0, "items": []}
+
+
+# Per document that explains the article in a passage (``meta.sections`` of its EXPLAINS
+# edges to the article or a version): the version it explains (the newest, as
+# ``_EXPLANATIONS_SQL`` picks it), and the sections of all those edges with their text.
+# The props of a document (its whole text) are read once, and only the passages leave.
+_PASSAGES_SQL = f"""
+WITH targets AS (
+    SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
+    UNION ALL
+    SELECT v.id, 0, v.valid_from
+    FROM {COLLECTION_ARTICLE_VERSIONS} v
+    WHERE {{identity}}
+),
+found AS (
+    SELECT e.from_id AS document_id, t.id AS target_id, t.rank, t.valid_from,
+           e.doc -> 'meta' -> 'sections' AS sections
+    FROM targets t
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = t.id AND e.relation = %(explains)s
+     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    WHERE json_typeof(e.doc -> 'meta' -> 'sections') = 'array'
+),
+picked AS (
+    SELECT DISTINCT ON (document_id) document_id, target_id, valid_from
+    FROM found
+    ORDER BY document_id, rank, valid_from DESC NULLS LAST, target_id
+)
+SELECT json_build_object(
+    'document_id', p.document_id,
+    'key', d.key,
+    'kind', to_json(d.kind),
+    'date', to_json(d.date),
+    'source', to_json(d.source),
+    'labels', to_json(d.labels),
+    -- what names the paper (DocumentEntryDTO), without its text
+    'props', (
+        SELECT coalesce(json_object_agg(j.key, j.value ORDER BY j.key), '{{}}'::json)
+        FROM json_each(c.p) j WHERE j.key NOT IN ('text', 'sections')
+    ),
+    'target_id', p.target_id,
+    'valid_from', to_json(p.valid_from),
+    'passages', (
+        SELECT coalesce(json_agg(json_build_object(
+            'section_anchor', s -> 'section_anchor',
+            'heading', s -> 'heading',
+            'level', (
+                SELECT x -> 'level' FROM json_array_elements(c.sections) x
+                WHERE x ->> 'id' = s ->> 'section_anchor' LIMIT 1
+            ),
+            'char_start', s -> 'char_start',
+            'char_end', s -> 'char_end',
+            'text', substr(c.text, (s ->> 'char_start')::int + 1,
+                           (s ->> 'char_end')::int - (s ->> 'char_start')::int),
+            'confidence', s -> 'confidence',
+            'match_type', s -> 'match_type',
+            'changed', s -> 'changed',
+            'explanation', s -> 'explanation'
+        )), '[]'::json)
+        FROM found f
+        CROSS JOIN LATERAL json_array_elements(f.sections) s
+        WHERE f.document_id = p.document_id
+          AND (s ->> 'char_end')::int <= length(c.text)
+    )
+)
+FROM picked p
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.document_id
+CROSS JOIN LATERAL (
+    SELECT k.p, k.p ->> 'text' AS text,
+           CASE WHEN json_typeof(k.p -> 'sections') = 'array' THEN k.p -> 'sections'
+                ELSE '[]'::json END AS sections
+    FROM (
+        SELECT json_object_agg(j.key, j.value) AS p
+        FROM json_each(d.props) j
+        WHERE j.key IN ('title', 'text', 'sections', 'dossier_number',
+                        'dossier_suffix', 'number', 'sequence', 'session_year',
+                        'document_number', 'actors')
+    ) k
+    OFFSET 0
+) c
+WHERE c.text IS NOT NULL
+"""
+
+
+def _surest_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One passage per section, the surest of its matches (the first of equal ones), in
+    the order of the text."""
+    best: dict[str, dict[str, Any]] = {}
+    for section in sections:
+        known = best.get(section["section_anchor"])
+        if known is None or section["confidence"] > known["confidence"]:
+            best[section["section_anchor"]] = section
+    return sorted(best.values(), key=lambda s: (s["char_start"], s["section_anchor"]))
+
+
+def _explanation_passages(
+    store: GraphStore, bwb_id: str, article_number: str
+) -> list[dict[str, Any]]:
+    article = _ensure_doc(
+        store.get_document(COLLECTION_ARTICLES, make_node_key(bwb_id, article_number))
+    )
+    if article is None:
+        return []
+    identity, bind = _version_identity(article, bwb_id, article_number)
+    bind.update({"article_id": article["_id"], "explains": RELATION_EXPLAINS})
+    rows = []
+    for row in store.query(_PASSAGES_SQL.replace("{identity}", identity), bind):
+        row["passages"] = _surest_sections(row["passages"])
+        if row["passages"]:
+            rows.append(row)
+    # of one version the memoranda before the amendments, then by date; the newest
+    # version first and the article itself (no version) last (both sorts keep order)
+    rows.sort(key=lambda r: (not is_explanatory(r["kind"]), r["date"] or "", r["key"]))
+    rows.sort(key=lambda r: r["valid_from"] or "", reverse=True)
+    return rows
+
+
+def get_article_explanation_passages(
+    store: GraphStore, bwb_id: str, article_number: str
+) -> list[dict[str, Any]]:
+    """The documents that explain an article in a passage, each with its passages: the
+    sections of its EXPLAINS edges to the article or one of its versions
+    (``meta.sections``, written by ``semantic tk-mvt-articles``), one per section, the
+    surest of its matches, in the order of the text, with their text. A section beyond
+    the end of the document's text is left out, and so is a document without passages;
+    an explanation of the whole dossier (no sections) is none. The newest version first
+    (the article itself, no version, last); of one version the memoranda before the
+    amendments. Kept per data version of the tables it reads; an unknown article has
+    none."""
+    return cached(
+        store,
+        ("article explanation passages", bwb_id, article_number),
+        lambda: _explanation_passages(store, bwb_id, article_number),
+        tables=(
+            COLLECTION_ARTICLES,
+            COLLECTION_ARTICLE_VERSIONS,
+            COLLECTION_EDGES,
+            COLLECTION_DOCUMENTS,
+        ),
+    )
 
 
 @dataclass(frozen=True)

@@ -23,17 +23,25 @@ from lawgraph.api.schemas.common import (
     address_of,
     semantic_fields,
 )
-from lawgraph.api.schemas.documents import DocumentOrigin, origin_fields
+from lawgraph.api.schemas.documents import (
+    DocumentOrigin,
+    PassageDTO,
+    origin_fields,
+    sender_of,
+)
+from lawgraph.api.schemas.dossiers import DocumentEntryDTO
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
+from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
+from lawgraph.core.tk_links import tk_url
 
 ExplanationTarget = Literal["article", "article_version"]
 ExplanationScope = Literal["dossier", "article"]
@@ -564,6 +572,91 @@ class ArticleExplanationsResponse(BaseModel):
         ..., description="All explanations, independent of ``limit`` and ``offset``."
     )
     items: list[ArticleExplanationDTO]
+
+
+class ArticlePassagesDTO(BaseModel):
+    """A paper that explains an article in a passage, and its passages."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document: DocumentEntryDTO
+    target: ExplanationTarget = Field(
+        ...,
+        description="What the paper explains: one of the versions of the article "
+        "('article_version'), or the article itself ('article').",
+    )
+    target_id: str
+    article_version_key: str | None = Field(
+        None, description="Null unless target is 'article_version'."
+    )
+    valid_from: str | None = Field(
+        None, description="From when the version applies; null for the article."
+    )
+    passages: list[PassageDTO] = Field(
+        ...,
+        description="The sections that explain the article, in the order of the paper, "
+        "each with its text.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ArticlePassagesDTO:
+        """Build from a row of ``get_article_explanation_passages``."""
+        collection, key = parse_node_id(row["target_id"])
+        target = _TARGET_OF_COLLECTION[collection]
+        return cls(
+            document=_entry(row),
+            target=target,
+            target_id=row["target_id"],
+            article_version_key=key if target == "article_version" else None,
+            valid_from=row.get("valid_from"),
+            passages=[
+                PassageDTO(
+                    section_id=p["section_anchor"],
+                    heading=p["heading"],
+                    level=p.get("level"),
+                    char_start=p["char_start"],
+                    char_end=p["char_end"],
+                    text=p["text"],
+                    confidence=p["confidence"],
+                    match_type=p["match_type"],
+                    changed=p.get("changed"),
+                    explanation=p.get("explanation"),
+                )
+                for p in row["passages"]
+            ],
+        )
+
+
+def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
+    """The paper of a row of ``get_article_explanation_passages``, as it is named."""
+    props = row["props"]
+    origin = origin_fields(row.get("labels"), row.get("source"), row.get("kind"))
+    return DocumentEntryDTO(
+        id=row["document_id"],
+        key=row["key"],
+        kind=row.get("kind"),
+        title=props.get("title"),
+        sequence=props.get("sequence"),
+        number=paper_number(origin["chamber"], props),
+        dossier_number=numbered_in(
+            props.get("dossier_number"), props.get("dossier_suffix")
+        ),
+        session_year=props.get("session_year"),
+        date=strip_time_component(row.get("date")),
+        tk_url=tk_url("document", props),
+        sender=sender_of(props),
+        **origin,
+    )
+
+
+class ArticlePassagesResponse(BaseModel):
+    """Response for GET /api/articles/{bwb_id}/{article_number}/explanations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    total: int
+    items: list[ArticlePassagesDTO]
 
 
 class ArticleVersionDTO(BaseModel):
