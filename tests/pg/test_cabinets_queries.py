@@ -324,9 +324,12 @@ def test_what_its_members_signed_read_light_is_the_same(
     of each cabinet."""
     walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
     version_cache.clear()
-    # the triggers kept every signature as it was written; the fill notes it is whole
+    # the triggers kept every signature as it was written; the fill notes it is whole,
+    # here as on a database filled before the dates were kept (not dated)
     member_authored.fill_authored(government)
+    government.execute("DELETE FROM lg_authored_dated")
     assert member_authored.is_filled(government)
+    assert not member_authored.is_dated(government)
 
     light = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
 
@@ -372,8 +375,11 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
 
     # d4 through the case of 2026; the case of 2020 is before jetten
     assert dirk() == (1, 1)
+    # filled before the dates were kept: read light, each date from its case
     member_authored.fill_authored(government)
+    government.execute("DELETE FROM lg_authored_dated")
     assert member_authored.is_filled(government)
+    assert not member_authored.is_dated(government)
     assert dirk() == (1, 1)
 
 

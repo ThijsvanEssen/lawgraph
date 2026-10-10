@@ -53,12 +53,18 @@ ON CONFLICT (id) DO UPDATE SET filled_at = EXCLUDED.filled_at
 
 def fill_authored(store: GraphStore, *, every: bool = False) -> int:
     """Keep every signature of a member the table lacks (with *every*: all of them again),
-    then note that it is whole; the signatures kept."""
+    then note that it is whole; the signatures kept. A table not filled before is one of a
+    new database (a rebuild): it had its dates from its first row, kept by the triggers and
+    by this fill, so it is noted dated too; one filled before the dates were kept (made
+    before them) waits for ``date_authored``."""
+    new = not is_filled(store)
     after, kept = "", 0
     while True:
         (row,) = store.execute(_FILL, {"after": after, "every": every, "batch": BATCH})
         if row["last"] is None:
             store.execute(_FILLED)
+            if new:
+                store.execute(_DATED)
             return kept
         after, kept = row["last"], kept + row["n"]
 

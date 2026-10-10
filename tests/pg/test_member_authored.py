@@ -204,3 +204,20 @@ def test_the_dates_are_kept_in_slices_then_marked(store: GraphStore) -> None:
     assert slices == len(kept) + 1
     assert member_authored.is_dated(store)
     assert {m: _dated(store, m) for m in kept} == kept
+
+
+def test_a_table_filled_from_new_is_dated_and_one_filled_before_is_not(
+    store: GraphStore,
+) -> None:
+    """On a new database (a rebuild) the table had its dates from its first row, so the
+    first fill notes it dated as well, without the pass of ``--authored-dates``; on one
+    filled before the dates (prod), the fill leaves that to the pass."""
+    _signatures(store)
+    assert not member_authored.is_filled(store)
+    member_authored.fill_authored(store)
+    assert member_authored.is_filled(store) and member_authored.is_dated(store)
+
+    # filled before its dates were kept: the fill again does not note them
+    store.execute("DELETE FROM lg_authored_dated")
+    member_authored.fill_authored(store)
+    assert member_authored.is_filled(store) and not member_authored.is_dated(store)
