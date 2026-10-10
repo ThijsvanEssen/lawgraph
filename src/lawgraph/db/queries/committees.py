@@ -886,14 +886,29 @@ _MEMBER_VOTES_TEMPLATE = f"""
     -- the votes without their edges' meta: the page is chosen first, and only the edges of
     -- its votes are read (each of a faction's candidates read its edge: 1,800 for 100)
     voted AS (
+        -- an own vote (a roll-call) under the faction the member sat in that day, as a
+        -- faction's vote: its party then, not the one of now (a roll-call of Mona
+        -- Keijzer's CDA years is the CDA's, not "Lid Keijzer"); the party of now only
+        -- where no period holds the day (an undated decision)
         SELECT e.to_id AS decision_id, e.key AS edge_key, d.key, d.date,
-               member.props -> 'party' AS party,
-               NULL::json AS faction_key, NULL::text AS faction_order,
+               CASE WHEN day.period IS NULL THEN member.props -> 'party'
+                    WHEN {_is_null("day.period -> 'abbreviation'")}
+                    THEN day.period -> 'name' ELSE day.period -> 'abbreviation'
+               END AS party,
+               day.period -> 'faction_key' AS faction_key, NULL::text AS faction_order,
                'member'::text AS vote_source
         FROM member
         JOIN {COLLECTION_EDGES} e
           ON e.from_id = %(member_id)s AND e.relation = %(voted)s
         JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
+        LEFT JOIN LATERAL (
+            SELECT f.period
+            FROM periods p
+            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
+            WHERE d.date IS NOT NULL AND {_IN_MEMBERSHIP}
+            ORDER BY p.n DESC
+            LIMIT 1
+        ) day ON true
         WHERE {_in_office_on("d.date")}
         UNION ALL
         SELECT k.decision_id, k.edge_key, k.key, k.date,
