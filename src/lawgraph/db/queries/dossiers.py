@@ -427,8 +427,13 @@ def get_dossier_timeline(
         )
     )
     FROM page p CROSS JOIN closing
-    -- of a decision: what the coalition did on it (``tk-coalition-votes``)
-    LEFT JOIN lg_decision_coalition co ON p.type = 'decision' AND co.id = p.id
+    -- of a decision: what the coalition did on it (``tk-coalition-votes``), looked up by
+    -- its key for the rows of the page (a join read the whole table in index order)
+    LEFT JOIN LATERAL (
+        SELECT c.* FROM lg_decision_coalition c
+        WHERE p.type = 'decision' AND c.id = p.id
+        OFFSET 0
+    ) co ON true
     ORDER BY {_json_order("p.date", direction)}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
@@ -443,7 +448,14 @@ def _attach_decision_documents(
     decisions = [row for row in rows if row.get("node_type") == "decision"]
     if not decisions:
         return
-    by_case = _documents_by_case(store, dossier_id)
+    cases = sorted(
+        {
+            str(c)
+            for row in decisions
+            if (c := (row.get("body") or {}).get("primary_case_id"))
+        }
+    )
+    by_case = _documents_by_case(store, cases)
     slugs = load_member_slugs(store)
     for row in decisions:
         body = row.get("body") or {}
@@ -454,25 +466,34 @@ def _attach_decision_documents(
         row["body"] = body
 
 
-def _documents_by_case(store: GraphStore, dossier_id: str) -> dict[str, dict[str, Any]]:
-    """Case id -> one document PART_OF it, for every document in this dossier."""
-    # The oldest document of a case is the one kept for it (the key settles a tie), as
-    # ``get_decision_document`` picks it.
+def _documents_by_case(
+    store: GraphStore, cases: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Case id -> the document of each case of *cases* (those the decisions of a page
+    singled out): the oldest document PART_OF it, the key settling a tie, as
+    ``get_decision_document`` picks it. Found by the case's edges: a large dossier has
+    thousands of papers, whose props a read of every one of them parsed (2.5 s for 33118)."""
+    if not cases:
+        return {}
     sql = f"""
     SELECT c.case_id, d.id, d.key, d.type, d.labels, d.props
-    FROM {COLLECTION_DOCUMENTS} d
-    CROSS JOIN LATERAL json_array_elements(
-        CASE WHEN json_typeof(d.props -> 'case_ids') = 'array'
-             THEN d.props -> 'case_ids' ELSE '[]'::json END
-    ) WITH ORDINALITY AS c(case_id, n)
-    WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
-    ORDER BY {_json_order("d.props -> 'date'", "ASC")}, d.key ASC, c.n
+    FROM unnest(%(cases)s::text[], %(case_ids)s::text[]) AS c(case_id, node_id)
+    CROSS JOIN LATERAL (
+        SELECT d.id, d.key, d.type, d.labels, d.props
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+        WHERE e.to_id = c.node_id AND e.relation = %(part_of)s
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+        ORDER BY d.date ASC NULLS FIRST, d.key ASC
+        LIMIT 1
+    ) d
     """
-    bind = {"dossier_id": dossier_id, "part_of": RELATION_PART_OF}
-    by_case: dict[str, dict[str, Any]] = {}
-    for row in store.query(sql, bind):
-        by_case.setdefault(str(row["case_id"]), node_doc(row))
-    return by_case
+    bind = {
+        "cases": cases,
+        "case_ids": [f"{COLLECTION_CASES}/{make_node_key(case)}" for case in cases],
+        "part_of": RELATION_PART_OF,
+    }
+    return {str(row["case_id"]): node_doc(row) for row in store.query(sql, bind)}
 
 
 def _document_summary(

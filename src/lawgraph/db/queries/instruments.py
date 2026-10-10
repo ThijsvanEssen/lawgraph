@@ -834,7 +834,12 @@ def get_instruments_list(
     counted = {k: v for k, v in params.items() if k not in ("limit", "offset")}
 
     def rows() -> list[Any]:
-        return list(store.query(_paged(matched, page), params))
+        return list(store.query(page, params))
+
+    # The total is the same for every page and visitor: kept per data version under the
+    # filters (every instrument tested for a SAME_AS edge: 2.7 s on prod, 10 Oct, when it
+    # was read per request), and warmed with the facets.
+    total_sql = f"SELECT count(*)::int AS total FROM {matched}"
 
     counts = [
         lambda sql=sql, leave_out=leave_out: cached_rows(
@@ -850,15 +855,25 @@ def get_instruments_list(
         )
         if facets
     ]
-    answers = run_together(rows, *counts)
-    items, total = _split_page(iter(answers[0]))
+    answers = run_together(
+        rows,
+        lambda: cached_rows(
+            store,
+            total_sql,
+            counted,
+            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
+        ),
+        *counts,
+    )
+    items = list(answers[0])
+    total = int(answers[1][0]) if answers[1] else 0  # one column: its value
     listed = [_list_item(row) for row in items]
     coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
     for item in listed:
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
     if not facets:
         return {"total": total, "items": listed, "facets": None}
-    areas, domains, kinds = answers[1:]
+    areas, domains, kinds = answers[2:]
     return {
         "total": total,
         "items": listed,

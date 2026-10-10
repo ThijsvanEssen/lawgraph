@@ -1158,8 +1158,11 @@ _ITEMS = f"""(
         -- of a paper: whether its text is in the data and a motion's dictum, kept light
         LEFT JOIN lg_document_light light ON light.id = pg.id
         -- of a vote of the Tweede Kamer: what the coalition did (``tk-coalition-votes``)
-        LEFT JOIN lg_decision_coalition co
-            ON pg.kind = {_lit(EVENT_VOTE)} AND co.id = pg.id
+        LEFT JOIN LATERAL (
+            SELECT c.* FROM lg_decision_coalition c
+            WHERE pg.kind = {_lit(EVENT_VOTE)} AND c.id = pg.id
+            OFFSET 0
+        ) co ON true
         LEFT JOIN LATERAL (
             SELECT json_build_object(
                 'key', d.key,

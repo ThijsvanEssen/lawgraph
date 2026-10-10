@@ -219,3 +219,34 @@ def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -
         "articles/b": 1,
         "dossiers/1": 2,
     }
+
+
+def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
+    store: GraphStore, monkeypatch: Any
+) -> None:
+    """A request does not wait ``STALE_WAIT`` for the new counts (2.2 s on 10 Oct): it
+    takes those of before while they compute; the warm-up waits for them."""
+    import time
+
+    from lawgraph.api.routes import stats as stats_route
+    from lawgraph.db import store as store_module
+
+    monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
+    assert stats_route.coverage_data(store) == ["old"]
+    store.bulk_insert_or_update_nodes(
+        "judgments", [{"_key": "j", "type": "judgment", "labels": [], "props": {}}]
+    )
+
+    def slow(s: Any) -> list[str]:
+        time.sleep(0.5)
+        return ["new"]
+
+    monkeypatch.setattr(stats_route, "get_judgment_coverage", slow)
+    token = store_module.set_read_deadline(5.0)
+    try:
+        started = time.monotonic()
+        assert stats_route.coverage_data(store) == ["old"]
+        assert time.monotonic() - started < 0.3
+    finally:
+        store_module.reset_read_deadline(token)
+    assert stats_route.coverage_data(store) == ["new"]  # the warm-up waits

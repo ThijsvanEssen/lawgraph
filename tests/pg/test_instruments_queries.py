@@ -1279,10 +1279,14 @@ def test_without_facets_the_page_and_the_total_alone(
     _seed_list(store)
     with_facets = instruments.get_instruments_list(store, kind="wet")
 
-    def no_count(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError("a facet was counted")
+    counted = instruments.cached_rows
 
-    monkeypatch.setattr(instruments, "cached_rows", no_count)
+    def no_facet(store_: Any, statement: Any, *args: Any, **kwargs: Any) -> Any:
+        if "AS total FROM" not in str(statement):  # the total is kept apart
+            raise AssertionError("a facet was counted")
+        return counted(store_, statement, *args, **kwargs)
+
+    monkeypatch.setattr(instruments, "cached_rows", no_facet)
     without = instruments.get_instruments_list(store, kind="wet", facets=False)
     assert without["items"] == with_facets["items"]
     assert without["total"] == with_facets["total"]
@@ -1348,3 +1352,27 @@ def test_related_instruments_read_only_the_references_between_articles(
     for scan in edge_scans:
         condition = scan.get("Index Cond") or ""
         assert "from_collection" in condition or "to_collection" in condition, scan
+
+
+def test_the_total_of_the_list_is_counted_once_for_every_page(
+    store: GraphStore,
+) -> None:
+    """The total tests every instrument for a SAME_AS edge (2.7 s on prod): kept under the
+    filters, the next page and another limit read their page alone."""
+    _seed_list(store)
+    totals = []
+    query = store.query
+
+    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
+        if "AS total FROM" in str(statement):
+            totals.append(1)
+        return query(statement, params, **options)
+
+    store.query = counting  # type: ignore[method-assign]
+    try:
+        first = instruments.get_instruments_list(store, limit=1)
+        second = instruments.get_instruments_list(store, limit=2, offset=1)
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    assert first["total"] == second["total"] > 1
+    assert totals == [1]
