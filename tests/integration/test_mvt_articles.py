@@ -364,3 +364,51 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
     document = client.get("/api/documents/mvt_36750").json()
     assert [s["kind"] for s in document["sections"]].count("article") == 2
     assert all(s["char_end"] <= len(document["text"]) for s in document["sections"])
+
+
+def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> None:
+    """``explanations``: per paper its passages with their text, for the article reader;
+    what explains only the dossier is not there."""
+    store = GraphStore()
+    ids = _graph(store)
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+    app.dependency_overrides[get_store] = lambda: store
+    client = TestClient(app)
+
+    def explanations(bwb_id: str, article: str) -> dict[str, Any]:
+        response = client.get(f"/api/articles/{bwb_id}/{article}/explanations")
+        assert response.status_code == 200
+        return response.json()
+
+    body = explanations(KLIMAATFONDS, "2")
+    assert body["article_id"] == f"articles/{make_node_key(KLIMAATFONDS, '2')}"
+    assert body["total"] == 1
+    (item,) = body["items"]
+    assert item["document"]["id"] == ids["klimaat_doc"]
+    assert item["document"]["kind"] == "Memorie van toelichting"
+    assert item["target"] == "article_version"
+    assert item["target_id"] == ids["klimaat_2"]
+    (passage,) = item["passages"]
+    assert passage["heading"] == "Artikel I"
+    assert passage["match_type"] == "body_named_law"
+    assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
+    # the same passage as the memorandum's own route gives
+    same = client.get(
+        f"/api/documents/{item['document']['key']}/passages",
+        params={"bwb_id": KLIMAATFONDS, "article": "2"},
+    ).json()["items"]
+    assert [item["passages"]] == [same]
+
+    # a new law: through the version, and the article without a change edge itself
+    for number, target in (("1", "article_version"), ("3", "article")):
+        (item,) = explanations(NEW_LAW, number)["items"]
+        assert item["target"] == target
+        assert [p["text"] for p in item["passages"]] == [
+            f"Artikel {number}\nToelichting op artikel {number}."
+        ]
+
+    # explained for the dossier only, a budget paper, and an unknown article: nothing
+    empty = {"total": 0, "items": []}
+    for bwb_id, number in ((KLIMAATFONDS, "3"), (BUDGET_LAW, "2"), (NEW_LAW, "99")):
+        body = explanations(bwb_id, number)
+        assert {"total": body["total"], "items": body["items"]} == empty
