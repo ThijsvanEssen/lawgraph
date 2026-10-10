@@ -332,3 +332,48 @@ def test_the_schema_works_without_a_search_path(conn: psycopg.Connection) -> Non
     }
     for call, expected in calls.items():
         assert _one(conn, f"SELECT {call}") == expected, call
+
+
+_COALITION_ROW = (
+    "INSERT INTO lg_decision_coalition (id, cabinet, coalition_for, coalition_against,"
+    " opposition_for, opposition_against, pattern, carried, decisive)"
+    " VALUES ('decisions/d', 'c', 1, 0, 0, 1, 'together', false, false)"
+)
+
+
+def test_a_version_with_the_coalition_factions_starts_without_their_column(
+    conn: psycopg.Connection,
+) -> None:
+    """0.79.45 keeps each coalition faction's choice (``lg_decision_coalition.factions``,
+    #546): on a database of 0.79.44, without it, the start adds the column (no step 0)."""
+    conn.execute("ALTER TABLE lg_decision_coalition DROP COLUMN factions")
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(_COALITION_ROW)
+    assert conn.execute(
+        "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
+    ).fetchone() == ("[]",)
+
+
+def test_a_version_without_the_coalition_factions_starts_with_their_column(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rolled back from 0.79.45 (with #547), a version whose schema lacks the column starts
+    on the database that has it, and writes its rows as it did: the column has a default."""
+    newer = schema.statements()
+
+    def older() -> list[str]:
+        return [
+            s.replace(",\n    factions json NOT NULL DEFAULT '[]'\n)", "\n)")
+            for s in newer
+            if "lg_decision_coalition ADD COLUMN" not in s
+        ]
+
+    monkeypatch.setattr(schema, "statements", older)
+    assert "factions" not in schema.expected_columns()["lg_decision_coalition"]
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(_COALITION_ROW)
+    assert conn.execute(
+        "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
+    ).fetchone() == ("[]",)
