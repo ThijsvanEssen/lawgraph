@@ -1030,6 +1030,35 @@ _WALKED_FOUND = f"""
             ) ids
         ),
 """
+# The same, of a faction, from ``lg_authored``: of each member who sat in it its periods in
+# it, read once, and the papers it signed within one of them, by the day of the paper (kept
+# with the signature once dated, else ``lg_signed_date``), each with its dossiers.
+_FACTION_FOUND = f"""
+        seats AS (
+            SELECT seat.from_id AS member_id, array_agg(f.period) AS periods
+            FROM {COLLECTION_EDGES} seat
+            JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
+            CROSS JOIN LATERAL json_array_elements(
+                {_array("m.props -> 'faction_memberships'")}
+            ) AS f(period)
+            WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
+              AND f.period ->> 'faction_id' = %(actor_id)s
+            GROUP BY seat.from_id
+        ),
+        found AS (
+            SELECT k.dossier_id, a.document_id, a.meta
+            FROM seats s
+            JOIN lg_authored a ON a.member_id = s.member_id
+            CROSS JOIN LATERAL (
+                SELECT coalesce(a.date, lg_signed_date(a.document_id)) AS date
+            ) d
+            CROSS JOIN LATERAL unnest(a.dossiers) AS k(dossier_id)
+            WHERE d.date IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM unnest(s.periods) AS f(period) WHERE {_IN_MEMBERSHIP}
+              )
+        ),
+"""
 # The same, of a member, from ``lg_authored``: a range of its index.
 _AUTHORED_FOUND = """
         found AS (
@@ -1057,12 +1086,16 @@ def get_actor_dossiers(
     of documents; newest opened first. Returns ``{total, items}``.
     """
     is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
-    # a member's papers and their dossiers from ``lg_authored`` once it is filled, else by
-    # the walk over the edges (a faction walks always: its papers count by their dates)
+    # the papers and their dossiers from ``lg_authored`` once it is filled (of a faction those
+    # its members signed within their periods in it, by the day of the paper), else by the
+    # walk over the edges
     from lawgraph.db.queries import member_authored
 
-    light = not is_faction and member_authored.is_filled(store)
-    found = _AUTHORED_FOUND if light else _WALKED_FOUND
+    light = member_authored.is_filled(store)
+    if light:
+        found = _FACTION_FOUND if is_faction else _AUTHORED_FOUND
+    else:
+        found = _WALKED_FOUND
     rows = store.query(
         f"""
         WITH authored AS ({"SELECT 1" if light else _FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
