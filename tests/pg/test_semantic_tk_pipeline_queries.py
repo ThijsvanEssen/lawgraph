@@ -431,8 +431,17 @@ def test_memoranda_with_sections(store: GraphStore) -> None:
     )
     assert [row["document"] for row in rows] == ["documents/mvt1"]
     row = rows[0]
-    assert list(row) == ["document", "text", "sections", "own", "changes", "laws"]
+    assert list(row) == [
+        "document",
+        "text",
+        "sections",
+        "own",
+        "changes",
+        "laws",
+        "bill",
+    ]
     assert row["text"] == "Zie de Eerste Lezing."
+    assert row["bill"] is None  # its dossiers have no bill
     assert row["sections"] == [{"heading": "Artikel 1"}]
     # bwbr1 (via 36000), num (via 36001); stb1 has no BWB id, gone no instrument
     assert row["own"] == ["BWBR1", 7]
@@ -459,6 +468,37 @@ def test_memoranda_with_sections(store: GraphStore) -> None:
         {"bwb_id": 7, "names": ["Numeriek", None], "codes": [None]},
     ]
     assert list(row["laws"][0]) == ["bwb_id", "names", "codes"]
+
+
+def test_the_bill_of_a_memorandum_is_the_first_of_its_own_dossiers(
+    store: GraphStore,
+) -> None:
+    """The memorandum explains the bill as it was sent: the first Voorstel van wet of a
+    dossier it is part of, not a changed one, nor one of another dossier."""
+    _graph(store)
+    bill = "Voorstel van wet"
+    _seed(
+        store,
+        COLLECTION_DOCUMENTS,
+        _node("bill_late", "document", ["TK"], kind=bill, date="2021-01-01", text="late"),
+        _node("bill_first", "document", ["TK"], kind=bill, date="2020-01-01", text="eerst"),
+        _node("changed", "document", ["TK"], kind=f"Gewijzigd {bill.lower()}",
+              date="2019-01-01", text="gewijzigd"),
+        _node("other", "document", ["TK"], kind=bill, date="2018-01-01", text="ander"),
+    )  # fmt: skip
+    _edges(
+        store,
+        _edge("documents/bill_late", "dossiers/36001", "PART_OF", "b1"),
+        _edge("documents/bill_first", "dossiers/36001", "PART_OF", "b2"),
+        _edge("documents/changed", "dossiers/36001", "PART_OF", "b3"),
+        _edge("documents/other", "dossiers/36002", "PART_OF", "b4"),
+    )
+
+    (row,) = semantic_tk.memoranda_with_sections(
+        store, qualities=["explicit", "implicit"], batch_size=1
+    )
+
+    assert row["bill"] == "eerst"
 
 
 def test_memoranda_with_sections_change_once_where_first_seen(

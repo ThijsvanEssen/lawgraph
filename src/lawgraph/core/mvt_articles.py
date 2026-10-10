@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_INTRODUCES,
 )
+from lawgraph.core.bill_parts import BillPart, heading_parts, part_letters
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     DutchCitationExtractor,
@@ -62,6 +63,11 @@ MATCH_BODY_NAMED_LAW = "body_named_law"
 # the enclosing heading names or of the only law the dossier changes; only the opening of the
 # text is read, and the article must be one the dossier changed: 8 of 10 right.
 MATCH_INFERRED_LAW = "inferred_law"
+# ``bill_part``: the heading names an onderdeel of the bill ("Artikel I, onderdeel B"), and
+# the bill says which article that onderdeel changes (``core/bill_parts.py``); the article
+# must be one the dossier changed. 10 of 10 right on the server's texts of 14 dossiers
+# (2026-10-10; lawgraph_small has no bill texts).
+MATCH_BILL_PART = "bill_part"
 
 # The confidence of each kind of match where the dossier changed the article.
 CONFIDENCE_OF_MATCH = {
@@ -69,6 +75,7 @@ CONFIDENCE_OF_MATCH = {
     MATCH_HEADING_TARGET: 0.95,
     MATCH_BODY_NAMED_LAW: 0.65,
     MATCH_INFERRED_LAW: 0.8,
+    MATCH_BILL_PART: 0.9,
 }
 # ... and where it did not: only a stated match points at an article the dossier left alone.
 CONFIDENCE_UNCHANGED = {
@@ -78,6 +85,10 @@ CONFIDENCE_UNCHANGED = {
 
 # What a match rests on, in words.
 _RESTS_ON = {
+    MATCH_BILL_PART: (
+        "de kop '{heading}' noemt een onderdeel van het wetsvoorstel, en dat wijzigt het "
+        "artikel"
+    ),
     MATCH_OWN_NUMBER: "de kop '{heading}' is een artikel van de nieuwe wet",
     MATCH_HEADING_TARGET: "de kop '{heading}' noemt het artikel",
     MATCH_BODY_NAMED_LAW: "de tekst onder de kop '{heading}' noemt het artikel met zijn wet",
@@ -337,17 +348,67 @@ def _body_targets(
     return found
 
 
+def _bill_targets(
+    section: Mapping[str, Any],
+    outline: _Outline,
+    registry: _Registry,
+    text: str,
+    bill: Mapping[tuple[str, str], BillPart],
+) -> list[tuple[str, str, str]]:
+    """``(bwb_id, number, match type)`` of the articles the onderdelen of the bill a section
+    explains change: those its heading names ("Artikel II, onderdeel D"), or, for an
+    onderdeel under the heading of an article of the bill, its own letters. A section
+    without text of its own explains nothing (the article under it does)."""
+    named = _bill_onderdelen(section, outline)
+    if not named or not _body(text, section, outline).strip():
+        return []
+    article, letters = named
+    found: list[tuple[str, str, str]] = []
+    for letter in letters:
+        part = bill.get((article, letter))
+        if part is None:
+            continue
+        if part.law:
+            law = registry.resolve(part.law)
+            if law:
+                found += [(law, number, MATCH_BILL_PART) for number in part.numbers]
+            continue
+        # an article of the bill without onderdelen names its law in its instruction
+        for hit in registry.extractor.extract(part.instruction):
+            if hit.bwb_id and hit.article_number:
+                found.append((hit.bwb_id, hit.article_number, MATCH_BILL_PART))
+    return found
+
+
+def _bill_onderdelen(
+    section: Mapping[str, Any], outline: _Outline
+) -> tuple[str, tuple[str, ...]] | None:
+    """The article of the bill and the onderdelen a section explains."""
+    if section["kind"] == KIND_ARTICLE:
+        return heading_parts(str(section["heading"]))
+    if section["kind"] != KIND_PART or not section.get("number"):
+        return None
+    parent = outline.by_id.get(str(section.get("parent")))
+    named = heading_parts(str(parent["heading"])) if parent else None
+    if named is None or named[1] != ("",):
+        return None
+    return named[0], part_letters(str(section["number"]))
+
+
 def find_references(
     text: str,
     sections: Sequence[Mapping[str, Any]],
     laws: Sequence[Law],
     *,
     own_bwb_id: str | None = None,
+    bill: Mapping[tuple[str, str], BillPart] | None = None,
 ) -> list[Reference]:
     """The articles the sections of a memorandum name, in the order of the document.
 
     *laws* are the laws the dossier changes; *own_bwb_id* is the law the bill makes when it
-    makes a new one. A section names an article once: the surest way it does so counts.
+    makes a new one; *bill* the onderdelen of the bill (``core.bill_parts``), which say what
+    a heading "Artikel I, onderdeel B" explains. A section names an article once: the
+    surest way it does so counts.
     """
     registry = _Registry(laws)
     outline = _Outline(sections)
@@ -357,6 +418,8 @@ def find_references(
             continue
         targets = _heading_targets(section, outline, registry, own_bwb_id)
         targets += _body_targets(text, section, outline, registry)
+        if bill:
+            targets += _bill_targets(section, outline, registry, text, bill)
         for bwb_id, number, match_type in targets:
             key = (str(section["id"]), bwb_id, number_key(number))
             known = best.get(key)
