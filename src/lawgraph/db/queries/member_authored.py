@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
 from lawgraph.db import GraphStore
+from lawgraph.db.version_cache import once_true
 
 # The members of one statement, with every paper they signed.
 BATCH = 200
@@ -71,9 +72,13 @@ def fill_authored(store: GraphStore, *, every: bool = False) -> int:
 
 def is_filled(store: GraphStore) -> bool:
     """Whether the table holds every signature of a member (filled once since the
-    triggers)."""
-    found = store.query("SELECT 1 FROM lg_authored_state WHERE id")
-    return next(iter(found), None) is not None
+    triggers); once it does, known without asking (``once_true``)."""
+
+    def check() -> bool:
+        found = store.query("SELECT 1 FROM lg_authored_state WHERE id")
+        return next(iter(found), None) is not None
+
+    return once_true(store, "lg_authored filled", check)
 
 
 # The members of one slice of ``date_authored``: the dates and capacities of every signature
@@ -119,6 +124,11 @@ def date_authored(
 
 
 def is_dated(store: GraphStore) -> bool:
-    """Whether every signature has its date and capacity (dated once since the triggers)."""
-    found = store.query("SELECT 1 FROM lg_authored_dated WHERE id")
-    return next(iter(found), None) is not None
+    """Whether every signature has its date and capacity (dated once since the
+    triggers); once it does, known without asking (``once_true``)."""
+
+    def check() -> bool:
+        found = store.query("SELECT 1 FROM lg_authored_dated WHERE id")
+        return next(iter(found), None) is not None
+
+    return once_true(store, "lg_authored dated", check)

@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_AUTHORED, RELATION_PART_OF
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.committees import get_actor_dossiers
 from tests.pg.test_committees_queries import Graph, _authorship_graph, _signatures
@@ -217,7 +217,26 @@ def test_a_table_filled_from_new_is_dated_and_one_filled_before_is_not(
     member_authored.fill_authored(store)
     assert member_authored.is_filled(store) and member_authored.is_dated(store)
 
-    # filled before its dates were kept: the fill again does not note them
+    # filled before its dates were kept: the fill again does not note them (another
+    # database, as a process that starts on it sees it: nothing known of it yet)
     store.execute("DELETE FROM lg_authored_dated")
+    version_cache.clear()
     member_authored.fill_authored(store)
     assert member_authored.is_filled(store) and not member_authored.is_dated(store)
+
+
+def test_once_filled_and_dated_the_table_is_known_without_asking(
+    store: GraphStore,
+) -> None:
+    """The readiness a request reads of ``lg_authored`` (``is_filled``, ``is_dated``) is
+    asked of the database until it holds, and then known: the state rows only come."""
+    assert member_authored.is_filled(store) is False
+    member_authored.fill_authored(store)
+    after: str | None = ""
+    while after is not None:
+        after, _ = member_authored.date_authored(store, after=after)
+    assert member_authored.is_filled(store) and member_authored.is_dated(store)
+    # known without asking: the rows the database would answer from are gone
+    store.execute("DELETE FROM lg_authored_state")
+    store.execute("DELETE FROM lg_authored_dated")
+    assert member_authored.is_filled(store) and member_authored.is_dated(store)
