@@ -498,6 +498,7 @@ def member(payload: Payload) -> Record | None:
         "name_prefix": _text(payload, "Tussenvoegsel") or None,
         "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
+        "death_date": iso_date(payload.get("Overlijdensdatum")),
         # Persoon.Nummer: what a namesake's slug ends in when the year does not tell
         "number": str(payload["Nummer"]) if payload.get("Nummer") else None,
     }
