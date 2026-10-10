@@ -104,7 +104,7 @@ def _list_total(store: GraphStore, name: str) -> int | None:
     if name == "instruments":
         return instruments.list_instruments(store=store, limit=1, facets=False).total
     if name == "judgments":
-        return judgments.list_judgments(store=store, limit=1).total
+        return judgments.list_judgments(store=store, limit=1, facets=False).total
     if name == "dossiers":
         return dossiers._list(store, dossiers._ListParams(limit=1, facets=False)).total
     if name == "documents":
