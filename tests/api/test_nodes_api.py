@@ -105,6 +105,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         "limit": 10,
         "offset": 20,
         "canvas": False,
+        "wait_for_lids": True,
     }
     node = payload["node"]
     assert node["id"].startswith("instruments")
@@ -144,6 +145,7 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
         "limit": 30,
         "offset": 0,
         "canvas": False,
+        "wait_for_lids": True,
     }
 
 

@@ -118,9 +118,12 @@ def _warm_law_judgments(store: GraphStore) -> None:
 
 # The articles with the most citations whose node and citing passages are warmed: the node
 # as it opens (its lid counts read every edge of it), and the passages as the front end asks
-# them (the newest first, a page of 50; the most cited 6 for the homepage's network).
+# them, each kept per sort and page: Verbonden a page of 200 (the explorer's
+# ``CITED_BY_PAGE``) newest first or most cited first, the homepage's network the most cited
+# 6. A page the front end does not ask is never read from what was warmed (a page of 50 was
+# warmed while Verbonden asked 200: ~10 s cold for 6:162 BW on 10 Oct).
 WARM_ARTICLES = 20
-ARTICLE_PASSAGES = (("date_desc", 50), ("citation_count", 6))
+ARTICLE_PASSAGES = (("date_desc", 200), ("citation_count", 200), ("citation_count", 6))
 
 
 def _warm_articles(store: GraphStore) -> None:

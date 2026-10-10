@@ -203,6 +203,12 @@ class NodeGraphResponse(BaseModel):
         description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
         "for a node without one.",
     )
+    lid_counts_pending: bool = Field(
+        False,
+        description="Of an article asked with ``limit=1``: its lid counts are being "
+        "counted, so every ``lid_counts`` is null; a request with a larger ``limit`` "
+        "waits for them and has them. False otherwise.",
+    )
 
 
 class NodeNeighborhoodEdge(BaseModel):

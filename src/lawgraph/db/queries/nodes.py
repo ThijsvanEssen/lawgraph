@@ -16,7 +16,13 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
-from lawgraph.db.version_cache import lasting
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
+from lawgraph.db.version_cache import lasting, stale_wait
 
 
 class NodeNotFoundError(ValueError):
@@ -139,6 +145,8 @@ class NeighborBucket:
 class NodeGraphData:
     node: dict[str, Any]
     buckets: list[NeighborBucket]
+    # of an article asked without waiting for its lid counts: they are being counted
+    lid_counts_pending: bool = False
 
 
 def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
@@ -159,32 +167,35 @@ def get_node_with_neighbors(
     limit: int = DEFAULT_BUCKET_LIMIT,
     offset: int = 0,
     canvas: bool = False,
+    wait_for_lids: bool = True,
 ) -> NodeGraphData:
     """A node with its neighbours, in buckets of one relation, direction and collection.
 
     ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
     and where its next page starts. With *canvas* a neighbour has only the props and the
-    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``).
+    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``). Without
+    *wait_for_lids* an article's lid counts that are not kept yet are left out
+    (``lid_counts_pending``) and counted on in the background, for the next request.
     """
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
     pages = _read_pages(store, node["_id"], filters, facets, limit, offset, canvas)
-    lids = (
-        _kept_lids(store, node["_id"], filters, _leden(node))
-        if collection == "articles"
-        else {}
-    )
+    lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
+    if collection == "articles":
+        lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
     end = offset + limit
     buckets = [
         NeighborBucket(
             facet=facet,
             next_offset=end if end < facet.count else None,
             entries=pages.get((facet.relation, facet.direction, facet.collection), []),
-            lid_counts=lids.get((facet.relation, facet.direction, facet.collection)),
+            lid_counts=(lids or {}).get(
+                (facet.relation, facet.direction, facet.collection)
+            ),
         )
         for facet in facets
     ]
-    return NodeGraphData(node=node, buckets=buckets)
+    return NodeGraphData(node=node, buckets=buckets, lid_counts_pending=lids is None)
 
 
 def _count_facets(
@@ -268,24 +279,46 @@ def _kept_lids(
     node_id: str,
     filters: NeighborFilter,
     leden: list[str] | None,
-) -> dict[tuple[str | None, str, str], dict[str, int]]:
+    wait: bool = True,
+) -> dict[tuple[str | None, str, str], dict[str, int]] | None:
     """``_count_lids``, kept ``LIDS_MAX_AGE`` whatever the data does: it reads the ``meta``
     of every edge of the article (of 6:162 BW, 9,000: half a second warm, seconds cold),
     and every poll writes edges, so kept per version of them it was read again cold after
     each (6–9 s on prod, 2026-10-09); a poll moves the counts of a much cited article by a
-    handful."""
+    handful. Without *wait* (a light node, ``limit=1``) an earlier count at once, and a
+    new one waited for ``LIGHT_LIDS_WAIT`` at most: None past it, the count going on in the
+    background (7.0 s for the light node of 6:162 BW after a deploy, 10 Oct)."""
     leden_key = None if leden is None else tuple(leden)
-    return lasting(
-        store,
-        ("lid-counts", node_id, filters, leden_key),
-        lambda: _count_lids(store, node_id, filters, leden),
-        LIDS_MAX_AGE,
+
+    def kept() -> dict[tuple[str | None, str, str], dict[str, int]]:
+        return lasting(
+            store,
+            ("lid-counts", node_id, filters, leden_key),
+            lambda: _count_lids(store, node_id, filters, leden),
+            LIDS_MAX_AGE,
+        )
+
+    if wait:
+        return kept()
+    left = read_time_left()
+    token = set_read_deadline(
+        LIGHT_LIDS_WAIT if left is None else min(LIGHT_LIDS_WAIT, left)
     )
+    try:
+        with stale_wait(0.0):
+            return kept()
+    except ReadTimedOut:
+        return None
+    finally:
+        reset_read_deadline(token)
 
 
 # How long the lid counts of an article are kept (seconds); a newer count is made in the
 # background after that, while the kept one is served.
 LIDS_MAX_AGE = 3600.0
+# How long a light node waits for lid counts not kept yet (seconds): those of an article
+# with few citations come in time, those of a much cited one are counted on.
+LIGHT_LIDS_WAIT = 0.5
 
 
 def _count_lids(
