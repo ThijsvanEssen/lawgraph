@@ -38,7 +38,7 @@ from lawgraph.db.queries.stats import (
     get_db_stats,
     get_judgment_coverage,
 )
-from lawgraph.db.version_cache import cached
+from lawgraph.db.version_cache import cached, stale_wait
 
 router = APIRouter()
 
@@ -142,13 +142,17 @@ def list_totals(store: GraphStore) -> dict[str, int | None]:
 
 
 def coverage_data(store: GraphStore) -> dict:
-    """The counts of ``/api/stats/coverage``: kept until the judgments change."""
-    return cached(
-        store,
-        ("coverage",),
-        lambda: get_judgment_coverage(store),
-        tables=(COLLECTION_JUDGMENTS,),
-    )
+    """The counts of ``/api/stats/coverage``: kept until the judgments change. After a poll
+    of judgments a request takes the counts of before at once while the new ones compute
+    (a poll moves them by a handful; it waited ``STALE_WAIT``, 2.2 s on 10 Oct); the
+    warm-up waits for them."""
+    with stale_wait(0.0):
+        return cached(
+            store,
+            ("coverage",),
+            lambda: get_judgment_coverage(store),
+            tables=(COLLECTION_JUDGMENTS,),
+        )
 
 
 @router.get(

@@ -119,6 +119,8 @@ URLS = [
     "/api/nodes/in-flux",
     "/api/annexes/a1",
     "/api/dossiers/36000",
+    # the documents behind the decisions of a page, by their cases (not every paper of it)
+    "/api/dossiers/36000/timeline",
     # the server HTML of a page (``/render``): a judgment, a dossier, a paper (the law of
     # this graph has no BWB id of seven figures, so no readable address)
     f"/render/uitspraken/{ECLI}",
