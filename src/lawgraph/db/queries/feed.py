@@ -1391,6 +1391,9 @@ def _page_items(
     before the first event, the first day it searched."""
     if not filters.q or filters.since:
         return _rows(store, filters, cursor, limit), None
+    bounded = _bounded_page(store, filters, cursor, limit)
+    if bounded is not None:
+        return bounded, None
     start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
     end = dt.date.fromisoformat(start)
     left = read_time_left()
@@ -1417,6 +1420,32 @@ def _page_items(
         searched_from = since
         until = (dt.date.fromisoformat(since) - dt.timedelta(days=1)).isoformat()
     return items, None
+
+
+def _bounded_page(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> list[dict[str, Any]] | None:
+    """The page under words without a first day, read once from the first day it reaches
+    back to (``feed_events.first_day_of_page``: by the index on the words of the events,
+    not window after window); None where that table cannot tell, or the page read from that
+    day is short of what it counted (an event gone since it was written): then the
+    windows."""
+    # it reads the events as this module does
+    from lawgraph.db.queries import feed_events
+
+    before = cursor.date[:10] if cursor else None
+    found = feed_events.first_day_of_page(
+        store, replace(filters, kinds=_kinds(filters)), limit, before
+    )
+    if found is None:
+        return None
+    first, whole_page = found
+    items = _rows(store, replace(filters, since=first), cursor, limit)
+    if len(items) > limit:
+        return items[: limit + 1]
+    # fewer than a page: the rest of the history, unless the table held a page the feed
+    # did not find
+    return None if whole_page else items
 
 
 def _rows(
