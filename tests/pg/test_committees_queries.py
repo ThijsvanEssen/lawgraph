@@ -1380,3 +1380,46 @@ def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
         # the decisions of 2022-2025 (2,000) are never read, so none is dropped
         dropped = scan.get("Rows Removed by Filter", 0) * scan["Actual Loops"]
         assert dropped < 50, dropped
+
+
+def test_the_page_of_votes_reads_the_edges_of_its_votes_alone(
+    store: GraphStore,
+) -> None:
+    """The page is chosen from the candidates by their dates before any edge's meta is read
+    (each candidate read its edge: 1,800 for a page of 100 on prod, 3.3 s cold), and the kind
+    of each vote comes from the decision the walk read (a second join of the decisions for
+    it was planned as a read of all 94,000)."""
+    _decisions_voted(store, [D66])
+    from lawgraph.db.store import _query
+
+    statements: list[tuple[Any, Any]] = []
+    query = store.query
+
+    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
+        if params and "candidates" in params:
+            statements.append((statement, params))
+        return query(statement, params, **options)
+
+    store.query = recording  # type: ignore[method-assign]
+    try:
+        assert len(get_member_votes(store, "members/m1", limit=10)) == 10
+    finally:
+        store.query = query  # type: ignore[method-assign]
+    statement, params = statements[0]
+    with store.pool.connection() as conn:
+        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
+        plan = conn.execute(explain, params).fetchone()[0]
+
+    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        yield node
+        for child in node.get("Plans", []):
+            yield from scans(child)
+
+    nodes = list(scans(plan[0]["Plan"]))
+    by_key = [n for n in nodes if n.get("Index Name") == "edges_pkey"]
+    assert sum(n["Actual Rows"] * n["Actual Loops"] for n in by_key) <= 10
+    assert not [
+        n
+        for n in nodes
+        if n.get("Relation Name") == "decisions" and "vote_kind" in n.get("Filter", "")
+    ]
