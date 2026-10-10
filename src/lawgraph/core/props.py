@@ -845,6 +845,10 @@ class AnnexProps(_CommonProps):
     description: str | None = None
     entries: list[AnnexEntry] | None = None
     instrument_id: str | None = None
+    # the name of its law, which its title cites (``Bijlage 1 Awb``): its citation title and
+    # abbreviation, as an article keeps them
+    instrument_citation_title: str | None = None
+    instrument_abbreviation: str | None = None
 
 
 # ---------------------------------------------------------------------------

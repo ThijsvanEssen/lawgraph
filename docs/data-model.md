@@ -318,8 +318,9 @@ renumbering; each version has a `versie-id`.
 - `inbound_citation_count` of an article (`semantic graph-list-stats`): its `REFERS_TO` and
   `EXPLAINS` edges in.
 - An annex (`annexes`, `normalize bwb`, `PART_OF` its instrument) has `bwb_id`, `label` (`I`,
-  `2`, `A`: as cited in article text), `title`, `description`, `instrument_id` and `entries`,
-  its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
+  `2`, `A`: as cited in article text), `title`, `description`, `instrument_id`,
+  `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
+  cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
   introduces a list, `parent_index` the entry it is nested in).
 - `references` holds every `extref`/`intref` of the text that names a regulation:
   `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
