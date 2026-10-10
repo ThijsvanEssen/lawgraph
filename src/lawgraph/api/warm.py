@@ -45,6 +45,7 @@ from lawgraph.db.queries.instruments import (
 )
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.nodes import get_node_with_neighbors
+from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search import (
     load_code_aliases,
     load_notation_parser,
@@ -92,6 +93,9 @@ WARM_SUBJECT_AREAS = 5
 # the instruments with articles and the papers of the Tweede Kamer. The facets and totals
 # are kept per filter, so the warm-up asks with the same filters.
 FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
+# The judgments of every source, as the list shows them once its source is cleared: its
+# counts over every judgment took 20 s cold on prod (10 Oct), kept but never warmed.
+EVERY_JUDGMENT = JudgmentFilters()
 
 
 def _warm_subject_areas(store: GraphStore) -> None:
@@ -168,6 +172,7 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
+    "in flux": (COLLECTION_EDGES,),
     **{f"search {table}": (table,) for table in SEARCH_FIELDS},
 }
 # The version of its tables each of those parts was last warmed for, per database, in this
@@ -206,11 +211,16 @@ def warm_up(store: GraphStore) -> None:
         "dossier law names": lambda: load_law_names(store),
         "dossier names": lambda: load_dossier_names(store),
         "member slugs": lambda: load_member_slugs(store),
+        # the open proposed changes per node, which the explorer asks on every page
+        "in flux": lambda: get_in_flux_counts(store),
         **{
             f"search {table}": partial(search_statistics, store, table)
             for table in SEARCH_FIELDS
         },
         "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
+        "judgments of every source": lambda: get_judgments_list(
+            store, EVERY_JUDGMENT, limit=20
+        ),
         # the total and facets of the list of decisions as the explorer opens it, of both
         # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
         "decision counts": lambda: [

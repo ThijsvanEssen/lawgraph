@@ -172,7 +172,11 @@ def vote_pattern(
     coalition with the opposition beat the rest of it). ``carried``: passed with the
     coalition's seats for alone more than half of those cast. ``decisive``: the opposition
     alone would have decided otherwise (a coalition with a majority could always turn a
-    vote, which says nothing)."""
+    vote, which says nothing). ``factions``: each coalition faction that cast a seat,
+    ``{key, choice, seats_for, seats_against}``, most seats first, then by key;
+    ``choice`` is ``Voor`` or ``Tegen``, null when its seats went both ways (a roll
+    call)."""
+    own: dict[str, list[int]] = {}
     seats = {
         (True, VOTE_FOR): 0,
         (True, VOTE_AGAINST): 0,
@@ -182,6 +186,10 @@ def vote_pattern(
     for faction, choice, n in votes:
         if choice in (VOTE_FOR, VOTE_AGAINST):
             seats[(faction in coalition, choice)] += max(int(n or 0), 0)
+            if faction in coalition:
+                own.setdefault(faction, [0, 0])[choice == VOTE_AGAINST] += max(
+                    int(n or 0), 0
+                )
     c_for, c_against = seats[(True, VOTE_FOR)], seats[(True, VOTE_AGAINST)]
     o_for, o_against = seats[(False, VOTE_FOR)], seats[(False, VOTE_AGAINST)]
     if c_for + c_against == 0:
@@ -206,6 +214,15 @@ def vote_pattern(
         else PATTERN_TOGETHER,
         "carried": passed and 2 * c_for > cast,
         "decisive": decisive,
+        "factions": [
+            {
+                "key": key,
+                "choice": None if f and a else VOTE_FOR if f else VOTE_AGAINST,
+                "seats_for": f,
+                "seats_against": a,
+            }
+            for key, (f, a) in sorted(own.items(), key=lambda kv: (-sum(kv[1]), kv[0]))
+        ],
     }
 
 

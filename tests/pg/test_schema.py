@@ -7,6 +7,7 @@ import json
 import psycopg
 import pytest
 
+from lawgraph.db import schema
 from lawgraph.db.schema import (
     NODE_COLLECTIONS,
     SchemaOutdated,
@@ -169,10 +170,92 @@ def test_a_column_the_table_lacks_stops_the_start(conn: psycopg.Connection) -> N
         ensure_schema(conn)
 
 
-def test_a_column_the_schema_lacks_stops_the_start(conn: psycopg.Connection) -> None:
-    conn.execute("ALTER TABLE edges ADD COLUMN weight int")
+def test_a_required_column_the_schema_lacks_stops_the_start(
+    conn: psycopg.Connection,
+) -> None:
+    """A column this version does not know and could not write (NOT NULL without a
+    default): its inserts would fail."""
+    conn.execute("ALTER TABLE edges ADD COLUMN weight int NOT NULL DEFAULT 0")
+    conn.execute("ALTER TABLE edges ALTER COLUMN weight DROP DEFAULT")
     with pytest.raises(SchemaOutdated, match=r"edges\.weight staat niet in het schema"):
         ensure_schema(conn)
+
+
+def test_a_nullable_column_the_schema_lacks_does_not_stop_the_start(
+    conn: psycopg.Connection,
+) -> None:
+    """A column of a later version, nullable: this version writes its rows without it."""
+    conn.execute("ALTER TABLE edges ADD COLUMN weight int")
+    ensure_schema(conn)
+    assert schema_drift(conn) == []
+
+
+def _older(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The schema of 0.79.43: ``lg_authored`` without its date and capacity, which 0.79.44
+    adds (#517)."""
+    newer = schema.statements()
+
+    def older() -> list[str]:
+        return [
+            s.replace(",\n    date text,\n    capacity text\n)", "\n)")
+            for s in newer
+            if "ADD COLUMN IF NOT EXISTS" not in s
+            and "lg_authored_member_date" not in s
+        ]
+
+    monkeypatch.setattr(schema, "statements", older)
+    assert "date" not in schema.expected_columns()["lg_authored"]
+
+
+def test_an_older_version_starts_on_a_database_the_next_one_prepared(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The step 0 of 0.79.44 added ``lg_authored.date`` and ``capacity`` before its deploy;
+    0.79.43, still running (its polls) or rolled back to, starts on that database and
+    writes its rows as it did, without the two columns."""
+    _older(monkeypatch)
+    ensure_schema(conn)
+    conn.execute(
+        "INSERT INTO lg_authored (edge_key, member_id, document_id, meta, dossiers)"
+        " VALUES ('e', 'members/m', 'documents/d', '{}', '{}')"
+    )
+    assert conn.execute(
+        "SELECT date, capacity FROM lg_authored WHERE edge_key = 'e'"
+    ).fetchone() == (None, None)
+
+
+def test_a_newer_version_adds_the_columns_its_schema_adds(
+    conn: psycopg.Connection,
+) -> None:
+    """Without that step 0, 0.79.44 adds the two columns at its start, as its schema says
+    (``ADD COLUMN IF NOT EXISTS``), instead of refusing the database."""
+    conn.execute("DROP INDEX lg_authored_member_date")
+    conn.execute("ALTER TABLE lg_authored DROP COLUMN date, DROP COLUMN capacity")
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    assert conn.execute(
+        "SELECT count(*) FROM information_schema.columns"
+        " WHERE table_name = 'lg_authored' AND column_name IN ('date', 'capacity')"
+    ).fetchone() == (2,)
+
+
+def test_a_column_the_schema_adds_as_generated_is_no_added_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stored generated column would rewrite its table at the start: missing, it stops
+    the start (a rebuild), however the schema would add it."""
+    newer = schema.statements()
+    monkeypatch.setattr(
+        schema,
+        "statements",
+        lambda: [
+            *newer,
+            "ALTER TABLE edges ADD COLUMN IF NOT EXISTS w int GENERATED ALWAYS AS (1) STORED",
+            "ALTER TABLE edges ADD COLUMN IF NOT EXISTS v text",
+        ],
+    )
+    added = schema.added_columns()
+    assert "v" in added["edges"] and "w" not in added["edges"]
 
 
 def test_an_index_the_schema_dropped_does_not_stop_the_start(
@@ -249,3 +332,48 @@ def test_the_schema_works_without_a_search_path(conn: psycopg.Connection) -> Non
     }
     for call, expected in calls.items():
         assert _one(conn, f"SELECT {call}") == expected, call
+
+
+_COALITION_ROW = (
+    "INSERT INTO lg_decision_coalition (id, cabinet, coalition_for, coalition_against,"
+    " opposition_for, opposition_against, pattern, carried, decisive)"
+    " VALUES ('decisions/d', 'c', 1, 0, 0, 1, 'together', false, false)"
+)
+
+
+def test_a_version_with_the_coalition_factions_starts_without_their_column(
+    conn: psycopg.Connection,
+) -> None:
+    """0.79.45 keeps each coalition faction's choice (``lg_decision_coalition.factions``,
+    #546): on a database of 0.79.44, without it, the start adds the column (no step 0)."""
+    conn.execute("ALTER TABLE lg_decision_coalition DROP COLUMN factions")
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(_COALITION_ROW)
+    assert conn.execute(
+        "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
+    ).fetchone() == ("[]",)
+
+
+def test_a_version_without_the_coalition_factions_starts_with_their_column(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rolled back from 0.79.45 (with #547), a version whose schema lacks the column starts
+    on the database that has it, and writes its rows as it did: the column has a default."""
+    newer = schema.statements()
+
+    def older() -> list[str]:
+        return [
+            s.replace(",\n    factions json NOT NULL DEFAULT '[]'\n)", "\n)")
+            for s in newer
+            if "lg_decision_coalition ADD COLUMN" not in s
+        ]
+
+    monkeypatch.setattr(schema, "statements", older)
+    assert "factions" not in schema.expected_columns()["lg_decision_coalition"]
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(_COALITION_ROW)
+    assert conn.execute(
+        "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
+    ).fetchone() == ("[]",)

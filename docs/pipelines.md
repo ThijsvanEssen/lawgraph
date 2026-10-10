@@ -387,7 +387,7 @@ full each run.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
 (`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
-and the detail of decisions read. The coalition on the day of a vote is the factions whose party
+and the detail of decisions and the feed read. The coalition on the day of a vote is the factions whose party
 held a post in the cabinet in office then (`meta.posts` of `SERVED_IN`): a party that leaves the
 cabinet leaves the coalition the day its last post ends; a faction split off a coalition party
 holds none and is opposition. A faction votes with its seats that day (`meta.seats`,
@@ -395,8 +395,8 @@ FractieGrootte); a roll call counts each member as one seat of the faction they 
 the seats `Voor` and `Tegen` of the coalition and of the opposition; `pattern` `together` (every
 coalition seat on one side), `split` (on both) or `wissel` (split, and the side with the most
 coalition seats lost: a wisselmeerderheid); `carried` (passed with the coalition's seats alone
-more than half of those cast) and `decisive` (the opposition alone would have decided
-otherwise). A tie is rejected, as the Kamer counts it. Not for a vote without a cabinet or
+more than half of those cast), `decisive` (the opposition alone would have decided
+otherwise) and `factions`, each coalition faction's seats `Voor` and `Tegen`. A tie is rejected, as the Kamer counts it. Not for a vote without a cabinet or
 without a coalition vote, nor for the Eerste Kamer (its seats per day are not known). With
 `--since` the decisions dated since then (the daily run); without it every one, and the rows
 of decisions that no longer have one go (weekly, which also follows a change of the posts).

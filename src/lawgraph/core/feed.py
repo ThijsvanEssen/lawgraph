@@ -76,6 +76,11 @@ FEED_TIERS: Final = (
     TIER_PARKET,
 )
 
+# What the coalition did on a vote of the Tweede Kamer, as the feed filters and counts it
+# (``lg_decision_coalition``): ``split`` holds ``wissel`` (a wisselmeerderheid is a split),
+# ``decisive`` is apart from the pattern. A vote counts for each that holds.
+FEED_COALITION: Final = ("together", "split", "wissel", "decisive")
+
 KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_ORDER)}
 
 # The kinds whose signatories are its submitters, a bewindspersoon too: a bill and a note
