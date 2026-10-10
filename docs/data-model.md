@@ -857,7 +857,9 @@ read the table for every edge of a hub), `relation`,
 
 GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` columns. A hit is
 ranked by BM25 over the words it matches (`queries/_bm25.py`, with the weights of
-`search_tsv`). The columns are written with the row, so a fresh
+`search_tsv`); until the statistics of a table are kept (after a start, before the warm-up
+computed them) a search does not wait for them: it ranks on the rows the planner counts and
+weighs no length. The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names
 (`search_names`, a trigram index); `cabinets` by their name, `commitments` by their text and
 number, and `decisions` by their subject and kind, each through a trigram index on those
@@ -870,7 +872,9 @@ as words, whole and in parts, besides their `display_name`, `summary`, `ecli` an
 An instrument's `aliases` are every name it is cited by: the official WTI abbreviations
 (`Sr`, `WvS`, `WvSr`) and, for a book of a code in `core/code_families.CODE_FAMILIES` (from the WTI), `Boek 6 BW`, `6 BW`,
 `BW 6`, `BW6`, `BW Boek 6` and `BW`. Unlike `short_title` an alias may be shared: `BW` is one
-of every book. Written by `normalize bwb`.
+of every book. Its `citation_titles` are every citation title its WTI gives, the earlier ones
+too (`Participatiewet`, `Wet werk en bijstand` until 2015): the linkers know a law by an earlier
+title where no law is called so now. Both written by `normalize bwb`.
 
 ## Known limits
 

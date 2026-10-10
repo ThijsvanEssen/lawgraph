@@ -199,6 +199,19 @@ def parse_abbreviations(general_info_xml: str) -> list[str]:
     return list(kept.values())
 
 
+def parse_citation_titles(general_info_xml: str) -> list[str]:
+    """Every ``<citeertitel>`` a regulation has had, in source order, without repeats: the
+    current one and the earlier ones (the Participatiewet was the Wet werk en bijstand
+    until 2015), as a text of their time cites it. Raises ``ET.ParseError`` on broken XML."""
+    root = ET.fromstring(general_info_xml)
+    kept: dict[str, str] = {}  # lower case -> the title
+    for element in iter_named(root, "citeertitel"):
+        title = collapse_ws(element.text)
+        if title:
+            kept.setdefault(title.lower(), title)
+    return list(kept.values())
+
+
 def _citation_form(abbreviation: str) -> bool:
     """Written as a citation writes it: a capital first, lower case in it (``Gw``, ``WvS``;
     not ``GW`` or ``bw``)."""

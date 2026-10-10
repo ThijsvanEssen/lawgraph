@@ -123,6 +123,25 @@ def _means(
     return float(row["n"] or 0), means, seen
 
 
+def _stats_now(store: Any, table: str) -> dict[str, float]:
+    """``_stats`` of *table* without waiting, in a request: the kept answer, an earlier one
+    while a newer is computed, or, when none is kept yet (after a start, before the warm-up
+    computed it, behind the slow computations of the pool), an estimate: ``N`` as the planner
+    counts the rows and no mean lengths, so the rank weighs no length (``bm25_sql``) until
+    the statistics are kept. Outside a request (the warm-up, a pipeline) it waits for them."""
+    if read_time_left() is None:
+        return _stats(store, table)
+    token = set_read_deadline(0.0)
+    try:
+        with stale_wait(0.0):
+            return _stats(store, table)
+    except ReadTimedOut:
+        pass  # computed on, for the next search
+    finally:
+        reset_read_deadline(token)
+    return {"N": max(_estimated_rows(store, table), 1.0)}
+
+
 def _estimated_rows(store: Any, table: str) -> float:
     """The rows of *table* as the planner counts them (-1 before its first ``ANALYZE``)."""
     return float(
@@ -336,9 +355,7 @@ def bm25_sql(
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
         return "0", "", params
-    # an earlier answer at once, while a newer one is computed (a sample of the table)
-    with stale_wait(0.0):
-        stats = _stats(store, table)
+    stats = _stats_now(store, table)
     frequencies = _frequencies(store, table, terms, params, stats["N"])
     columns, parts = [], []
     lengths: dict[tuple[str, str], str] = {}  # one length per field and analyzer
@@ -349,7 +366,9 @@ def bm25_sql(
         if term.analyzer == "identity":
             df = 1.0  # a value is mostly its own term
         weight = term.boost * math.log(1 + (stats["N"] - df + 0.5) / (df + 0.5))
-        avglen = stats[f"{term.field}/{term.analyzer}"]
+        avglen = stats.get(f"{term.field}/{term.analyzer}")
+        # without its mean length (an estimate, ``_stats_now``) no length is weighed: b = 0
+        b = B if avglen else 0.0
         length = lengths.get((term.field, term.analyzer))
         if length is None:
             length = lengths[(term.field, term.analyzer)] = f"l{len(lengths)}"
@@ -357,7 +376,7 @@ def bm25_sql(
         columns.append(f"{_tf(term)} AS t{n}")
         parts.append(
             f"CASE WHEN f.t{n} > 0 THEN {weight * (K1 + 1)} * f.t{n}"
-            f" / (f.t{n} + {K1 * (1 - B)} + {K1 * B / avglen} * f.{length}) ELSE 0 END"
+            f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.{length}) ELSE 0 END"
         )
     if not parts:
         return "0", "", params
