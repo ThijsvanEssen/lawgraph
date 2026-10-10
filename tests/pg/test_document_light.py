@@ -133,31 +133,34 @@ def test_the_signals_are_the_same_light_or_cut(store: GraphStore) -> None:
     assert json.dumps(light, sort_keys=True) == json.dumps(cut, sort_keys=True)
 
 
-def _buffers(store: GraphStore) -> int:
-    """The shared buffers (hit and read) the signals of the dossiers read, by their plan."""
-    with store.pool.connection() as conn:
-        plan = conn.execute(
-            "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) "
-            + normalize_tk._DOSSIER_SIGNALS_SQL,
+def _text_blocks(store: GraphStore) -> int:
+    """The blocks of the texts of the papers (the TOAST table of ``documents``) the signals of
+    the dossiers fetch, as this transaction counts them (``pg_stat_get_xact_blocks_fetched``:
+    hit or read, whatever the shared buffers hold, so it does not depend on what ran
+    before)."""
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute(
+            normalize_tk._DOSSIER_SIGNALS_SQL,
             normalize_tk.dossier_signals_bind(DOSSIERS),
-        ).fetchone()[0]
-    top = plan[0]["Plan"]
-    return int(top.get("Shared Hit Blocks", 0)) + int(top.get("Shared Read Blocks", 0))
+        ).fetchall()
+        row = conn.execute(
+            "SELECT pg_stat_get_xact_blocks_fetched(reltoastrelid) FROM pg_class"
+            " WHERE oid = 'documents'::regclass"
+        ).fetchone()
+    return int(row[0])
 
 
 def test_the_signals_do_not_read_the_text_of_a_paper(store: GraphStore) -> None:
     """With a text of 200 KB per paper (stored apart, in the TOAST table of documents), the
-    signals read from ``lg_document_light`` leave every page of those texts unread: reading
-    the props takes at least most of them more, and four times the buffers at least."""
+    signals read from ``lg_document_light`` fetch no block of those texts; reading the props
+    fetches most of them."""
     rng = random.Random(1)
     text = "".join(rng.choices(string.ascii_letters + " ", k=200_000))
     _dossiers_with_papers(store, text=text)
-    light = _buffers(store)
+    assert _text_blocks(store) == 0
     store.execute("DELETE FROM lg_document_light")
-    cut = _buffers(store)
     text_pages = 6 * 200_000 // 8192  # six papers
-    assert cut - light > 0.8 * text_pages, (light, cut, text_pages)
-    assert cut > 4 * light, (light, cut)
+    assert _text_blocks(store) > 0.8 * text_pages
 
 
 def test_the_step_keeps_judgments_and_papers(store: GraphStore) -> None:
