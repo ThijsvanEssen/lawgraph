@@ -712,6 +712,7 @@ class MemberProps(_CommonProps):
     number: str | None = None  # Persoon.Nummer
     slug: str | None = None  # a stable name for a readable URL (core.member_slugs)
     birth_date: str | None = None
+    death_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None
