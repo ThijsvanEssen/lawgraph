@@ -1270,3 +1270,20 @@ def test_the_judgments_citing_a_law_are_kept_per_request(store: GraphStore) -> N
         store._stream = stream  # type: ignore[method-assign]
     assert again == first
     assert calls == 0
+
+
+def test_without_facets_the_page_and_the_total_alone(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``facets=False``: the same page and total, ``facets`` None, and no facet counted."""
+    _seed_list(store)
+    with_facets = instruments.get_instruments_list(store, kind="wet")
+
+    def no_count(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("a facet was counted")
+
+    monkeypatch.setattr(instruments, "cached_rows", no_count)
+    without = instruments.get_instruments_list(store, kind="wet", facets=False)
+    assert without["items"] == with_facets["items"]
+    assert without["total"] == with_facets["total"]
+    assert without["facets"] is None

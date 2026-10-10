@@ -10,6 +10,7 @@ from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
 from lawgraph.config.settings import EK_ATTRIBUTION
+from lawgraph.core.member_role import has_role
 
 
 class MemberVoteDTO(BaseModel):
@@ -333,6 +334,27 @@ class FactionMembershipDTO(BaseModel):
     role: str | None = None
 
 
+class EkFactionMembershipDTO(BaseModel):
+    """One stretch of a member's membership of a faction of the Eerste Kamer, as their page
+    on eerstekamer.nl says it (``normalize eerstekamer-persons``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    faction_id: str | None = Field(
+        None,
+        description="Null for a faction gone before the composition was first read (no "
+        "node; its votes are not in the graph).",
+    )
+    faction_key: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    from_date: str
+    to_date: str | None = Field(
+        None, description="The last day, inclusive; null while they sit in it."
+    )
+    chamber: str = "EK"
+
+
 class PartyRefDTO(BaseModel):
     """A party as the source writes it (``VVD``, ``partijloos``), and its faction."""
 
@@ -482,6 +504,11 @@ class MemberDTO(WithPath):
     party: str | None = None
     active: bool = False
     faction_memberships: list[FactionMembershipDTO] = []
+    ek_faction_memberships: list[EkFactionMembershipDTO] = Field(
+        default_factory=list,
+        description="Their periods in the factions of the Eerste Kamer, the current first, "
+        "as their page on eerstekamer.nl says them; empty for none read.",
+    )
     government_functions: list[GovernmentFunctionDTO] = Field(
         default_factory=list,
         description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
@@ -535,6 +562,11 @@ class MemberDTO(WithPath):
             party=party or props.get("party"),
             active=bool(open_memberships),
             faction_memberships=memberships,
+            ek_faction_memberships=[
+                EkFactionMembershipDTO(**m)
+                for m in (props.get("ek_faction_memberships") or [])
+                if isinstance(m, dict)
+            ],
             government_functions=government_functions_of(props),
             ek=_ek(props.get("ek")),
             role=doc.get("role"),
@@ -633,6 +665,16 @@ class MemberDetailDTO(MemberDTO):
     """
 
     birth_date: str | None = None
+    death_date: str | None = Field(
+        None,
+        description="The day they died, as the TK gives it (``Overlijdensdatum``).",
+    )
+    has_role: bool = Field(
+        False,
+        description="Whether the sources give them a role: a seat in a faction of either "
+        "chamber or a post in a cabinet. False for a person of the TK's records whose seat "
+        "the data does not hold: their page is not indexed and search lists them last.",
+    )
     government_name: str | None = Field(
         None, description="The name as Rijksoverheid writes it: S.Th.M. Hermans."
     )
@@ -650,6 +692,8 @@ class MemberDetailDTO(MemberDTO):
         return cls(
             **MemberDTO.from_document(doc).model_dump(),
             birth_date=props.get("birth_date"),
+            death_date=props.get("death_date"),
+            has_role=has_role(props),
             government_name=props.get("government_name"),
             committees=[MemberCommitteeDTO.from_row(r) for r in committees or []],
         )

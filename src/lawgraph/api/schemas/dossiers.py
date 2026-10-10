@@ -24,7 +24,8 @@ from lawgraph.core.tk_links import tk_url
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
 DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
-TitleSource = Literal["dossier", "document", "activiteit"]
+TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
+DossierSource = Literal["tk", "eerstekamer"]
 
 DossierOutcome = Literal["aangenomen", "verworpen"]
 
@@ -496,6 +497,15 @@ class DossierSummaryDTO(WithPath):
         "``Verzamelwet gegevensbescherming``; null when the title has none.",
     )
     title_source: TitleSource | None = None
+    source: DossierSource = Field(
+        "tk",
+        description="Where the dossier comes from: ``tk`` the Tweede Kamer's data, "
+        "``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede "
+        "Kamer's data has none (its OData begins about 2005), with the title they give "
+        "(``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede "
+        "Kamer. A dossier without one in the graph (written before this field) is ``tk``: "
+        "only those of the Eerste Kamer's papers carry ``eerstekamer``.",
+    )
     kind: str | None = Field(
         None,
         description="``Zaak.Soort`` as the Kamer writes it: ``Wetgeving``, "
@@ -573,7 +583,8 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
-    facets: DossierFacetsDTO
+    # null when asked for without them (``facets=false``)
+    facets: DossierFacetsDTO | None
 
 
 class DossierFacetsDTO(BaseModel):
@@ -1036,6 +1047,8 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
+        # only a dossier written from the papers of the Eerste Kamer names its source
+        "source": props.get("source") or "tk",
         "kind": props.get("kind"),
         "kind_basis": props.get("kind_basis"),
         "phases": props.get("phases"),

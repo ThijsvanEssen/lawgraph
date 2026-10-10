@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -14,9 +15,24 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
-from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    CHAMBER_TK,
+    COLLECTION_ACTIVITIES,
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+)
 from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.decisions import DecisionFilters, counted_total
 from lawgraph.db.queries.stats import (
     cached_data_as_of,
     get_db_stats,
@@ -36,6 +52,93 @@ def stats_data(store: GraphStore) -> dict:
             store, ("stats", table), compute, tables=(table,)
         ),
     )
+
+
+# Per list of the explorer, the tables its first page reads: its total is kept until one of
+# them changes (``list_totals``).
+LIST_TABLES: dict[str, tuple[str, ...]] = {
+    "instruments": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
+    "judgments": (COLLECTION_JUDGMENTS, COLLECTION_EDGES),
+    "dossiers": (COLLECTION_DOSSIERS, COLLECTION_DOCUMENTS, COLLECTION_EDGES),
+    "documents": (COLLECTION_DOCUMENTS, COLLECTION_EDGES),
+    "members": (COLLECTION_MEMBERS,),
+    "bewindspersonen": (COLLECTION_MEMBERS,),
+    "factions": (COLLECTION_FACTIONS, COLLECTION_MEMBERS, COLLECTION_EDGES),
+    "committees": (COLLECTION_COMMITTEES, COLLECTION_EDGES),
+    "cabinets": (
+        COLLECTION_CABINETS,
+        COLLECTION_MEMBERS,
+        COLLECTION_COMMITMENTS,
+        COLLECTION_DOSSIERS,
+        COLLECTION_EDGES,
+    ),
+    "commitments": (
+        COLLECTION_COMMITMENTS,
+        COLLECTION_ACTIVITIES,
+        COLLECTION_DOSSIERS,
+        COLLECTION_MEMBERS,
+        COLLECTION_EDGES,
+    ),
+}
+
+
+def _list_total(store: GraphStore, name: str) -> int | None:
+    """The total of the list *name* as its route answers it without a filter (its first
+    page): the route itself is asked, so the number is the list's own."""
+    # the routes, each asked as a request without parameters would ask it (without the
+    # facets where the route can leave them out and still count the total)
+    from lawgraph.api.routes import (
+        committees,
+        documents,
+        dossiers,
+        government,
+        instruments,
+        judgments,
+    )
+    from lawgraph.db.queries.committees import count_members
+
+    if name == "instruments":
+        return instruments.list_instruments(store=store, limit=1, facets=False).total
+    if name == "judgments":
+        return judgments.list_judgments(store=store, limit=1, facets=False).total
+    if name == "dossiers":
+        return dossiers._list(store, dossiers._ListParams(limit=1, facets=False)).total
+    if name == "documents":
+        return documents.list_chamber_documents(store=store, limit=1).total
+    if name == "members":
+        return count_members(store)
+    if name == "bewindspersonen":
+        return count_members(store, government=True)
+    if name == "factions":
+        return len(committees.list_factions(store=store))
+    if name == "committees":
+        return len(committees.list_committees(store=store))
+    if name == "cabinets":
+        return len(government.list_cabinets(store=store))
+    if name == "commitments":
+        return government.list_commitments(store=store, limit=1, facets=False).total
+    raise KeyError(name)
+
+
+def list_totals(store: GraphStore) -> dict[str, int | None]:
+    """Per list of the explorer, the ``total`` it gives without a filter, each kept until
+    its tables change; ``decisions`` as the list opens (the Tweede Kamer), from its kept
+    count without waiting for it: null until it is counted (the warm-up counts it)."""
+    totals: dict[str, int | None] = {
+        name: cached(
+            store,
+            ("stats list", name),
+            partial(_list_total, store, name),
+            tables=tables,
+        )
+        for name, tables in LIST_TABLES.items()
+    }
+    totals["decisions"] = counted_total(store, DecisionFilters(chamber=CHAMBER_TK))
+    return totals
 
 
 def coverage_data(store: GraphStore) -> dict:
@@ -69,6 +172,7 @@ def get_stats(store: Annotated[GraphStore, Depends(get_store)]) -> StatsResponse
         edges=EdgeStatsDTO(**data["edges"]),
         by_source=data.get("by_source", {}),
         instruments=InstrumentStatsDTO(**data.get("instruments", {})),
+        lists=list_totals(store),
         data_as_of={
             source: DataAsOfDTO(**row)
             for source, row in cached_data_as_of(store).items()

@@ -303,7 +303,8 @@ class PassageDTO(BaseModel):
     match_type: str = Field(
         description=(
             "How the section names the article: `heading_target`, `body_named_law`, "
-            "`own_number` or `inferred_law`."
+            "`own_number`, `inferred_law`, `bill_part` (an onderdeel of the bill) or `amendment` "
+            "(the Toelichting of an adopted amendment)."
         )
     )
     changed: bool | None = Field(

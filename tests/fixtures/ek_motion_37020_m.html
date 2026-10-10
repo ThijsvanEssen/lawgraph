@@ -1,0 +1,246 @@
+<main class="cell small-12 medium-8 order-2">
+				<hr class="hide">
+				<div id="main_content_wrapper">
+					<div id="inhoud"></div>
+
+
+<div id="validationMsgs" class="flex-container flex-dir-column hide" aria-live="assertive" aria-relevant="additions removals">
+
+</div>
+<!--<div class="mtop">&nbsp;</div>-->
+<p class="mnone">In deze motie wordt de regering verzocht de regering volgens onze NAVO-afspraak de 1,5% van het BBP te bestemmen voor herstel, versterking en aanpassing van de Nederlandse strategische infrastructuur.</p>
+<br /><!--<div class="mtop">&nbsp;</div>-->
+
+<div class="behandeling">
+	<ul class="ladder">
+  <li class="grid-x nowr">
+
+
+		<div class="glyph fs1 leesverder"><div class="clearfix pbs"><svg class="driehoek-right icon" focusable="false" aria-hidden="true" width="8" height="9"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/9370220/v/svgs_external_file.svg?v=2#driehoek-right"></use></svg></div></div>
+		<div>
+
+
+  <a href="/behandeling/20261006/motie_van_het_lid_beukering_c_s_2/document3/f=/vn1ld5bklc6v.pdf" title="PDF-document">motie<span class="c_ico-bijlage"><svg class="ico_pdf icon"><title>PDF-document</title><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/9370220/v/svgs_external_file.svg#ico-pdf"></use></svg></span></a>
+
+
+
+
+
+
+
+	</div>
+
+
+
+</li>
+
+
+	</ul>
+</div>
+<!--<div class="mtop">&nbsp;</div>-->
+
+<div class="hr clear pre-partitel">
+<hr /></div>
+<div class="partitel grid-x nowr">
+
+	<div class="titel small-order-1">
+
+<h2><a id="p1"></a>Kerngegevens
+</h2>
+</div></div>
+<div class="fontwit_vert custom-scroll custom-scroll-y custom-scroll-x ">
+
+
+<script>
+
+window.addEventListener('load', showTblexpand);
+
+function showTblexpand() {
+
+	let vlucht = document.getElementById('vlucht');
+	let Wvlucht = vlucht.offsetWidth;
+	let main_wr = document.getElementById('main_content_wrapper');
+	let Wmain_wr = main_wr.offsetWidth;
+	let Hmain_wr = main_wr.offsetHeight;
+	let Wmain_wr_plus_Wvlucht = Wvlucht + Wmain_wr;
+	let tblwrapper = document.getElementsByClassName("tblwrapper")
+	var windowW = window.innerWidth;
+	//console.log(Wmain_wr );
+
+	if (document.getElementsByClassName("js-to_expand").length > 0) {
+		const tables = document.getElementsByClassName("js-tbl_to_expand");
+
+		for (let i = 0; i < tables.length; i++) {
+
+			let table = tables[i];
+			let Wtable = table.offsetWidth;
+			let Htable = table.offsetHeight;
+			//console.log([table, Wtable]);
+			let btnexpand_wr = table.closest('.tblwrapper');
+			let btnexpandContent= table.closest('.tblwrapper').querySelector('.js-expandmore');
+
+			let idcE = btnexpand_wr.querySelector('.idc-container');
+			//console.log(btnexpand_wr.innerHTML);
+			//console.log(idcE);
+
+			function toggleTabindex()  {
+				if(btnexpand_wr.classList.contains('uitgeklapt')	||
+						table.querySelectorAll('a, button, input').length
+					) {
+					if((Wtable <= Wmain_wr_plus_Wvlucht) ||
+						table.querySelectorAll('a, button, input').length) {
+						btnexpand_wr.setAttribute("tabindex", "-1");
+					}
+					else
+						btnexpand_wr.setAttribute("tabindex", "0");  // zie https://accessibilityinsights.io/info-examples/web/scrollable-region-focusable/
+					//console.log('b1');
+				}
+				else {
+					btnexpand_wr.setAttribute("tabindex", "0");
+					//idcE.setAttribute("tabindex", "-1");
+					//console.log('b0');
+				}
+			}
+
+			if(windowW < 568) {
+				btnexpandContent.style.display = "none";
+				btnexpandContent.setAttribute("aria-hidden", "true");
+			}
+			else {
+				//console.log([Wtable, Wmain_wr, Wtable > Wmain_wr]);
+				if(Wtable > Wmain_wr) {
+					toggleTabindex();
+					btnexpandContent.addEventListener('click', function handleClick() {
+						btnexpand_wr.classList.toggle("uitgeklapt");
+						toggleTabindex();
+ 					});
+					btnexpandContent.style.display = 'inline-block';
+					btnexpandContent.setAttribute("aria-hidden", "false");
+				}
+				else { // zie bv /toezegging/afschrift_brief
+					//btnexpand_wr.style.margin = "0";
+					btnexpand_wr.style.padding = "0";
+					btnexpandContent.style.display = "none";
+					btnexpandContent.setAttribute("aria-hidden", "true");
+					btnexpand_wr.setAttribute("tabindex", "-1");
+					btnexpandContent.addEventListener('click', function handleClick() {
+						btnexpand_wr.setAttribute("tabindex", "0");
+					});
+				}
+			}
+
+			if(Htable > Hmain_wr) {
+				btnexpandContent.setAttribute("aria-label", "metOverflow-y");
+			}
+
+		}
+	}
+}
+
+var delay = 250;
+var throttled = false
+
+window.addEventListener('resize', function() {
+  if (!throttled) {
+    showTblexpand();
+		console.log('we are throttled');
+    throttled = true;
+    setTimeout(function() {
+      throttled = false;
+    }, delay);
+  }
+});
+
+</script>
+<div class="tblwrapper tblwrapper_1 custom-scroll custom-scroll-y custom-scroll-x fontwit_hor">
+<div class="wrapper_inner">
+
+<div class="js-expandmore a_ico_expand tblexpand tblexpand_1 button small p-0" data-count="1" aria-hidden="true">
+<span>Tabel&nbsp;</span><span class="selecteertekst-default">uitklappen&nbsp;</span><span class="selecteertekst-toggled">inklappen&nbsp;</span>
+</div>
+
+<table class="js-to_expand js-tbl_to_expand  styletable">
+<tr class="bg">
+<th scope="row" class="fontwit">nummer</th>
+<td class="fontwit">37.020, M</td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">ingediend</th>
+<td class="fontwit">6 oktober 2026</td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">bij</th>
+<td class="fontwit">de Algemene Politieke Beschouwingen</td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">behandelstatus</th>
+<td class="fontwit">verworpen</td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">toelichting behandelstatus</th>
+<td class="fontwit">Op 6 oktober 2026 na stemming bij zitten en opstaan verworpen. SGP, PVV, BBB, Fractie-Van de Sanden, Fractie-Walenkamp, Fractie-Beukering stemden voor.</td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">indiener(s)</th>
+<td class="fontwit"><a href="/persoon/bgen_b_d_drs_a_j_a_beukering">A.J.A. Beukering (Beukering)</a></td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">mede ondertekend door</th>
+<td class="fontwit"><a href="/persoon/i_m_lagas_mdr_bbb">I.M. Lagas (BBB)</a><br><a href="/persoon/mr_c_a_h_van_de_sanden_ll_m">C.A.H. van de Sanden (Van de Sanden)</a><br><a href="/persoon/p_schalk_sgp">P. Schalk (SGP)</a><br><a href="/persoon/drs_p_v_a_walenkamp_ma_fractie">P.V.A. Walenkamp (Walenkamp)</a></td>
+
+</tr>
+
+<tr class="bg">
+<th scope="row" class="fontwit">dossier(s)</th>
+<td class="fontwit"><a href="/financiele_nota/37020_miljoenennota_2027">Miljoenennota 2027 (37.020) </a></td>
+
+</tr>
+</table>
+
+<a href="#" style="display:none;" class="tblexpand tblexpand_1 button small" data-count="1">
+
+Tabel uitklappen
+
+</a>
+
+</div>
+</div>
+
+<div class="tblplaceholder_1"></div>
+</div>
+<!--<div class="mtop">&nbsp;</div>-->
+<!--<div class="mtop">&nbsp;</div>-->
+<br /><!--<div class="mtop">&nbsp;</div>-->
+
+</div>
+
+<noscript><div class="main_extramarge2"></div></noscript>
+
+					<nav id="back-to-top" class="hide-for-print" aria-label="Navigeer naar boven">
+
+						<button type="button" id="btn-back-to-top" data-js-hook="back-to-top-button" class="btn btn-danger btn-floating btn-lg bg-transparent border-0 p-0">
+
+								<span class="visually-hidden">Terug naar boven</span>
+								<span class="clearfix pbs pt-1">
+									<svg class="icon" width="16" height="16" aria-hidden="true">
+										<use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/9370220/v/svgs_external_file.svg#icon-arrow-up"></use>
+									</svg>
+								</span>
+
+							</button>
+
+					</nav>
+
+				</main>

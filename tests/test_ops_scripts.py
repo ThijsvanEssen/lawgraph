@@ -29,6 +29,14 @@ def test_what_a_script_names_is_there(script: Path) -> None:
             assert (OPS / f"{step}.sh").is_file(), step
 
 
+@pytest.mark.parametrize("query", sorted(OPS.glob("*.sql")), ids=lambda p: p.name)
+def test_a_query_reads_only(query: Path) -> None:
+    """Its first statement makes the session read-only, also when run by hand."""
+    lines = query.read_text(encoding="utf-8").splitlines()
+    first = next(ln.strip() for ln in lines if ln.strip() and not ln.startswith("--"))
+    assert first == "SET default_transaction_read_only = on;"
+
+
 def test_the_backfill_steps_hand_on_their_moment() -> None:
     """Step 1 keeps the moment it began; step 2 normalizes since then, and refuses to run
     without it."""

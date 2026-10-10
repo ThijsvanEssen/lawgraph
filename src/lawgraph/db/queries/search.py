@@ -24,10 +24,12 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
@@ -44,7 +46,9 @@ from lawgraph.db.store import (
     reset_read_deadline,
     set_read_deadline,
 )
-from lawgraph.db.version_cache import cached, stale_wait
+from lawgraph.db.version_cache import STALE_WAIT, cached, stale_wait
+
+logger = get_logger(__name__)
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -270,6 +274,22 @@ def load_notation_parser(store: GraphStore) -> NotationParser:
         ),
         tables=(COLLECTION_INSTRUMENTS,),
     )
+
+
+def kept_notation_parser(store: GraphStore, wait: float) -> NotationParser | None:
+    """The parser of citations, waited for *wait* seconds at most (or what the request has
+    left): None when none is kept yet and it is not computed by then (after a start, before
+    the warm-up computed it, behind the slow computations of the pool). A search then goes
+    on without it, the query taken as words, instead of waiting."""
+    left = read_time_left()
+    token = set_read_deadline(wait if left is None else min(wait, left))
+    try:
+        return load_notation_parser(store)
+    except ReadTimedOut:
+        logger.info("No parser of citations within %s s: searched as words.", wait)
+        return None
+    finally:
+        reset_read_deadline(token)
 
 
 # ── Per-type search helpers ───────────────────────────────────────────────────
@@ -846,12 +866,14 @@ def _search_members(
             'display_name', doc.props -> 'name',
             'snippet', doc.props -> 'party',
             'extra', json_build_object(
-                'party', doc.props -> 'party', 'active', doc.props -> 'active'
+                'party', doc.props -> 'party', 'active', doc.props -> 'active',
+                'has_role', {member_role.has_role("doc")}
             )
         )
         FROM members doc
         WHERE {condition}
-        ORDER BY doc.active DESC NULLS LAST, doc.name NULLS FIRST, doc.key
+        ORDER BY {member_role.has_role("doc")} DESC, doc.active DESC NULLS LAST,
+                 doc.name NULLS FIRST, doc.key
         LIMIT %(limit)s
         """
     return list(store.query(statement, {**params, "limit": limit}))
@@ -1051,9 +1073,13 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
 
 
 def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """*hits* with a ``score`` each (a hit that has one keeps it), best first."""
+    """*hits* with a ``score`` each (a hit that has one keeps it), best first; a member
+    without a role (``member_role``) after every hit with one, whatever its score."""
     scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
-    return sorted(scored, key=lambda h: -h["score"])
+    return sorted(
+        scored,
+        key=lambda h: ((h.get("extra") or {}).get("has_role") is False, -h["score"]),
+    )
 
 
 # ── Main search dispatcher ────────────────────────────────────────────────────
@@ -1092,10 +1118,15 @@ def search_all(
 Searches = dict[str, Callable[[], list[dict[str, Any]]]]
 
 
-def _notation(store: GraphStore, q: str, types: list[str]) -> Notation | None:
-    """The citation *q* is, when articles or judgments are searched."""
-    wanted = {"articles", "judgments"} & set(types)
-    return load_notation_parser(store).parse(q) if wanted else None
+def _notation(
+    store: GraphStore, q: str, types: list[str], wait: float = STALE_WAIT
+) -> Notation | None:
+    """The citation *q* is, when articles or judgments are searched; None also when the
+    parser is not there within *wait* seconds (``kept_notation_parser``)."""
+    if not {"articles", "judgments"} & set(types):
+        return None
+    parser = kept_notation_parser(store, wait)
+    return parser.parse(q) if parser else None
 
 
 def _full_searches(
@@ -1279,7 +1310,13 @@ def _search_live(
     period: Period = NO_PERIOD,
 ) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
     searches = _live_searches(
-        store, q, tokens, _notation(store, q, types), kinds, limit, period
+        store,
+        q,
+        tokens,
+        _notation(store, q, types, LIVE_STALE_WAIT),
+        kinds,
+        limit,
+        period,
     )
     wanted = [t for t in types if t in searches]
     # one budget for them all: a type that waited for a thread (``side_by_side`` runs those

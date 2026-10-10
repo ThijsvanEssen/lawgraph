@@ -3,7 +3,9 @@
 ``semantic tk-mvt`` links a memorandum to everything its dossier changed. The artikelsgewijs
 part of the memorandum says more: a heading and a toelichting per article (``props.sections``,
 written by ``normalize tk-content``). ``core/mvt_articles.py`` reads which article of which
-law a section is about; this pipeline matches that with what the dossier changed::
+law a section is about, with the bill of the dossier for a heading that names its onderdeel
+("Artikel I, onderdeel B", ``core/bill_parts.py``); this pipeline matches that with what the
+dossier changed::
 
     Document --PART_OF--> Dossier <--LEGISLATED_IN-- Instrument
     Instrument --AMENDS/INTRODUCES/REPEALS--> Article
@@ -24,12 +26,14 @@ of the two ran first, because ``tk-mvt`` leaves an edge alone that this pipeline
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_EXPLAINS,
 )
+from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -37,15 +41,19 @@ from lawgraph.core.mvt_articles import (
     Change,
     Law,
     Reference,
+    amendment_references,
     explained_targets,
     find_references,
     is_introduction,
 )
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
-from .tk_mvt import SEMANTIC_SOURCE_SECTIONS
+from .tk_mvt import DOSSIER_CONFIDENCE, SEMANTIC_SOURCE_SECTIONS
+from .tk_mvt import SEMANTIC_SOURCE as SEMANTIC_SOURCE_DOSSIER
 
 logger = get_logger(__name__)
 
@@ -129,20 +137,112 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             qualities=[QUALITY_EXPLICIT, QUALITY_IMPLICIT],
             batch_size=_BATCH_SIZE,
         )
+        # per memorandum read: the keys of its edges, and what its dossier changed
+        kept: dict[str, set[str]] = {}
+        changed: dict[str, set[str]] = {}
         for row in self._track(papers, "explanatory memoranda"):
-            try:
-                written = self._explain(row, edges)
-            except (KeyError, TypeError, ValueError) as exc:
-                logger.warning("Memorandum %s skipped: %s", row.get("document"), exc)
-                result.skipped += 1
-                continue
-            if not written:
-                result.skipped += 1
+            self._read(row, self._explain, edges, kept, changed, result, dossier=True)
+        amendments = semantic_tk.adopted_amendments_with_sections(
+            self.store, batch_size=_BATCH_SIZE
+        )
+        for row in self._track(amendments, "adopted amendments"):
+            self._read(
+                row,
+                self._explain_amendment,
+                edges,
+                kept,
+                changed,
+                result,
+                dossier=False,
+            )
         edges.flush_into(result)
+        self._replace_what_is_no_longer_found(kept, changed, result)
         return result
 
-    def _explain(self, row: dict[str, Any], edges: EdgeWriter) -> int:
-        """Queue the edges of one memorandum; how many."""
+    def _replace_what_is_no_longer_found(
+        self,
+        kept: dict[str, set[str]],
+        changed: dict[str, set[str]],
+        result: PipelineResult,
+    ) -> None:
+        """A section edge of a memorandum read that this run no longer derives (an earlier
+        code, an article renumbered) goes; when the dossier changed its article it is the
+        edge ``semantic tk-mvt`` writes again, at once, not on its next run."""
+        removed = semantic_edges.removed_edges_from(
+            self.store, RELATION_EXPLAINS, SEMANTIC_SOURCE, sorted(kept), kept
+        )
+        dossier = EdgeWriter(self.store, what=None)
+        back = 0
+        for document, target in removed:
+            if target in changed.get(document, ()):
+                dossier.add(
+                    document,
+                    target,
+                    RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE_DOSSIER,
+                    confidence=DOSSIER_CONFIDENCE,
+                )
+                back += 1
+        dossier.flush_into(result)
+        if removed:
+            logger.info(
+                "%d section edges no longer found: %d back to their dossier, %d gone.",
+                len(removed),
+                back,
+                len(removed) - back,
+            )
+
+    @staticmethod
+    def _read(
+        row: dict[str, Any],
+        explain: Callable[[dict[str, Any]], dict[str, list[Reference]]],
+        edges: EdgeWriter,
+        kept: dict[str, set[str]],
+        changed: dict[str, set[str]],
+        result: PipelineResult,
+        *,
+        dossier: bool,
+    ) -> None:
+        """Queue the edges of one paper; its edge keys go into *kept* and, with *dossier*
+        (a memorandum, which ``tk-mvt`` links to its dossier), what its dossier changed
+        into *changed*. A paper that cannot be read is skipped and keeps its edges."""
+        try:
+            explained = explain(row)
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning("Paper %s skipped: %s", row.get("document"), exc)
+            result.skipped += 1
+            return
+        document = row["document"]
+        kept[document] = set()
+        for target, refs in explained.items():
+            kept[document].add(edge_key(document, RELATION_EXPLAINS, target))
+            edges.add(
+                document,
+                target,
+                RELATION_EXPLAINS,
+                source=SEMANTIC_SOURCE,
+                confidence=max(r.confidence for r in refs),
+                meta=edge_meta(refs),
+            )
+        if dossier:
+            changed[document] = {c.target for c in _changes(row.get("changes") or [])}
+        if not explained:
+            result.skipped += 1
+
+    def _explain_amendment(self, row: dict[str, Any]) -> dict[str, list[Reference]]:
+        """The articles an adopted amendment explains in its Toelichting."""
+        changes = _changes(row.get("changes") or [])
+        references = amendment_references(
+            row["text"],
+            row.get("sections") or [],
+            _laws(row.get("laws") or [], None),
+            changes,
+            bill_parts(row["bill"]) if row.get("bill") else {},
+        )
+        return explained_targets(references, changes, self._article_exists)
+
+    def _explain(self, row: dict[str, Any]) -> dict[str, list[Reference]]:
+        """The articles the sections of one memorandum explain."""
         changes = _changes(row.get("changes") or [])
         own = row.get("own") or []
         own_bwb_id = (
@@ -153,18 +253,9 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             row.get("sections") or [],
             _laws(row.get("laws") or [], own_bwb_id),
             own_bwb_id=own_bwb_id,
+            bill=bill_parts(row["bill"]) if row.get("bill") else None,
         )
-        explained = explained_targets(references, changes, self._article_exists)
-        for target, refs in explained.items():
-            edges.add(
-                row["document"],
-                target,
-                RELATION_EXPLAINS,
-                source=SEMANTIC_SOURCE,
-                confidence=max(r.confidence for r in refs),
-                meta=edge_meta(refs),
-            )
-        return len(explained)
+        return explained_targets(references, changes, self._article_exists)
 
     def _article_exists(self, article_id: str) -> bool:
         key = article_id.split("/", 1)[1]

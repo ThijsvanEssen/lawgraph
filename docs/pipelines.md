@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
@@ -267,23 +267,45 @@ are read.
 
 | `meta.match_type` | Section says | Confidence |
 |-------------------|--------------|-----------|
-| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
+| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`, `Artikel 11 Sr`, `Artikel 4, vijfde lid, Wahv`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
 | `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
-| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.8 |
+| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names (an enclosing one, or the heading of the article of the bill before it under the same heading: `ARTIKEL II – WETBOEK VAN STRAFRECHT`, or `Artikel II, onderdeel D` through the bill's ARTIKEL II), else of the only law the dossier changes; the dossier changed that article | 0.8 |
+| `amendment` | an adopted amendment (below) changes the article, and its `Toelichting` section is the passage | 0.9 |
+| `bill_part` | the heading names an onderdeel of the bill and no article (`Artikel I, onderdeel B`, `Artikel I, onderdelen C tot en met E`, an `Onderdeel B` under `Artikel I`, an `Artikel III` without onderdelen), and the bill says which article it changes (`core/bill_parts.py`): the articles under its headings when it inserts them (`Na artikel 248c worden twee artikelen ingevoegd: Artikel 248d … Artikel 248e`), else those its instruction names before what it quotes; of the law its `ARTIKEL` says it changes (`Het Wetboek van Strafrecht wordt als volgt gewijzigd`), else the law the instruction names; the section has text of its own, and the dossier changed that article | 0.9 |
 
 The confidences (`core/mvt_articles.py`) are the share a hand check of 10 edges per kind in
-lawgraph_small found right. A change of the article by the dossier corroborates a match; a
+lawgraph_small found right; for `bill_part` 10 of 10 on the server's texts of 14 dossiers
+(lawgraph_small has no bill texts); for `amendment` 8 of 8, every adopted amendment with a
+link in 15 dossiers on the server.
+
+An adopted amendment explains what it changed too: the article 126ffa Sv came in by
+amendment 34372 nr. 14, which the memorandum never names. Adopted is the last paper of its
+chain (no paper `REVISES` it) whose case was last decided with `passed`. What it changes is
+read from its text before the `Toelichting` (`core/bill_parts.amendment_changes`): the articles
+under its headings when it inserts them (`Artikel 126ffa`), else those its instructions name
+before what they quote (`In artikel II, onderdeel G, wordt in artikel 126nba …`). The law is
+the one the article of the bill it names changes (`In artikel II` and the bill's ARTIKEL II),
+else the one its instructions name, else the one law of the dossier that changed that number;
+an amendment that changes two laws through two articles of the bill gets the first. The
+passage is its `Toelichting`, and the dossier must have changed the article. The bill is the first `Voorstel van wet` of the
+memorandum's own dossier: the memorandum explains the bill as it was sent, so its onderdelen
+carry the bill's letters. A change of the article by the dossier corroborates a match; a
 heading that names an article the dossier did not change mostly names one of another law than
 the one it is taken for (the heading says `Wft`, the dossier changes Boek 2 BW). What a match
 rests on is `match_type`, `changed` (whether the dossier changed the article) and
 `explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
 wijzigt het artikel."). A heading with several numbers (`Artikelen 3 en
-4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
-nothing: attaching it to every article the dossier changed would only repeat the dossier-level
-edges. `heading_target` and `own_number` also point at the article of the law when the dossier
+4`) gives a reference per number; a range (`Artikelen 15 tot en met 15l Sr`) also the
+articles between its ends that the dossier changed of that law, in the order of their numbers.
+A reference may leave out the book of a code that the BWB stores per book (`artikel 7:658` is
+658 of Boek 7); a law numbered per chapter keeps it (Awb `11:2` is no `artikel 2`). An `Artikel I` / `Onderdeel B` that names no article gives
+what the bill says that onderdeel changes (`bill_part`), and nothing without the bill:
+attaching it to every article the dossier changed would only repeat the dossier-level edges.
+An `ARTIKEL I` over all the onderdelen of a law is the whole change of that law, and gives
+nothing either. `heading_target` and `own_number` also point at the article of the law when the dossier
 has no change edge for it (an article of a law that is new, or whose history is not loaded);
-the other two only at articles the dossier changed. Not detected: a new law whose numbering a
+the others only at articles the dossier changed. Not detected: a new law whose numbering a
 nota van wijziging shifted; articles of a treaty; a law the graph does not have or whose name
 two laws share.
 
@@ -295,7 +317,11 @@ holds `section_anchor`, `char_start`, `char_end`, `match_type`, `changed`, `expl
 its `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
-number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
+number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to. A run of
+`tk-mvt-articles` reads every memorandum and adopted amendment and replaces its own edges of
+them: a section edge it no longer finds (an earlier code, a renumbered article) becomes the
+dossier-level edge of a memorandum again at once when the dossier changed the article, and
+goes otherwise.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:
@@ -1071,9 +1097,17 @@ filter), `kind`, `number`, `title`, `subject` (dossier title), `session_year`, `
 separately), `dossier_numbers` (the label of every dossier the paper names, the first first:
 `36600-VII`; a value without a leading number, `CXIX`, is left out; a record stored before the
 client kept them all gives only its one number). A Roman numeral instead of a number (the own
-dossiers of the Eerste Kamer, 525 papers) sets neither. No edges here.
+dossiers of the Eerste Kamer, 525 papers) sets neither. A dossier no node holds (the Tweede
+Kamer's OData has none before about 2005: thousands of the papers of 1995-2006 name one) is
+written from its papers: `dossiers/<label>`, labels `EK`, `number`, `suffix`, `label`,
+`title` (the dossier title its papers give most; of equal counts, that of the newest paper;
+`title_source` `eerstekamer`), `source` `eerstekamer`, and no kind, phases or opening day (the
+stage backfill runs over the Tweede Kamer's dossiers only). A dossier the Tweede Kamer has is
+never written here; one it delivers later takes the node over (its props, `source` `tk`). No
+edges here.
 
-**Semantic `eerstekamer`.** `PART_OF` from the paper to the Tweede Kamer dossier with the same
+**Semantic `eerstekamer`.** `PART_OF` from the paper to the dossier (of the Tweede Kamer, else
+the one written from the papers) with the same
 number and addition, and to each other dossier of `dossier_numbers` by its `label`, 0.95,
 `meta.chamber = EK`.
 
@@ -1157,9 +1191,16 @@ only, so every run reads it all: a snapshot.
 
 **Retrieve `eerstekamer-mutations`.** The lists of `/personele_mutaties`, the changes in the
 composition per term (`ek-mutations-html`, external id the path: the current term and each
-earlier term it links), read on every run, and the page of each change they list
+earlier term it links), the current term's on every run and that of a term that ended once (it
+does not change), and the page of each change they list
 (`ek-mutation-html`, external id the path, `meta.date` and `meta.headline` as the list gives
 them), once.
+
+**Retrieve `eerstekamer-persons`.** The page of each member of the Eerste Kamer
+(`/persoon/<slug>`, `ek-person-html`, external id the path): those the stored composition
+lists and every person a stored change of `retrieve eerstekamer-mutations` links (every term
+since 2003). A page not stored is fetched, and one again when a change that links the person
+was fetched after it; with `--sitting` (`weekly.sh`) every sitting member's.
 
 **Retrieve `kiesraad`.** The page of each election of the Eerste Kamer since 2003 in the
 Kiesraad's databank (`kiesraad-ek-result-html`, external id the code, `EK20230530`), once:
@@ -1191,6 +1232,41 @@ is `checked` when every change's faction is known, no faction goes below zero an
 more than 75 seats; a past term also when it ends on 75, the current term when its last
 stretch is today's composition, per faction. What does not add up is listed in
 `mismatches`.
+
+**Normalize `eerstekamer-persons`.** `core/ek_persons.py` reads a member's page: their
+periods in the factions of the Eerste Kamer, the current first, as its opening says them ("is
+vanaf 11 juni 2019 lid van de D66-fractie", "was van 28 juli 2019 tot 13 juni 2023 lid en
+voorzitter van de Fractie-Otten", "Eerder was hij van … tot …"; the last day the one before
+its "tot", the day the next began), and their birth date (a sitting member's page only). A
+page is the member's the composition gave it (`ek.path`), else the member of the Tweede
+Kamer born that day whose surname ends its name, when exactly one is; else none (a former
+member who never sat in the Tweede Kamer has no member), counted in the log. The periods go
+to `ek_faction_memberships` of the member, as `faction_memberships`: `faction_id`,
+`faction_key` (the faction of the Eerste Kamer of that abbreviation or name observed on the
+first day, as the votes match it; null for one gone before the composition was first read),
+`abbreviation`, `name`, `from_date`, `to_date`, `chamber` `EK`. A member's votes read them
+with those of the Tweede Kamer. Each period's start and end are checked against the changes
+of `normalize eerstekamer-mutations` of that member and the first days of the terms (within
+a week): those no change dates are counted and named in the log, not changed.
+
+**Retrieve `eerstekamer-motions`.** The page of every motion of the Eerste Kamer the list of
+votes named (`/motiedossier/…`, the `motion_url` of its decisions on a motion; record
+`ek-motion-html`, external id the path), each once: a motion's page does not change after its
+vote. `--limit` caps the pages of one run; the log says how many are left after it.
+
+**Normalize `eerstekamer-motions`.** `core/ek_motions.py` reads the page by its structure: the
+sentence that says what the motion asks ("In deze motie wordt de regering verzocht …"), the link
+to its PDF, and its key data (`nummer`: the number of its dossier and its letter, `37.020, M`;
+`ingediend`; `bij`; `behandelstatus`; `indiener(s)` and `mede ondertekend door`, each a link to
+the page of the person with their name and faction). It writes on the motion's Kamerstuk of the
+Eerste Kamer (the paper with that letter in its dossier, `Kamerstuk I 37020, M`): `summary`,
+`submitted_on`, `debate`, `status`, `motion_url`, `pdf_url`, and `actors` as the Tweede Kamer
+gives the signatures of a motion (`name`, `faction`, `role` `Eerste ondertekenaar` or `Mede
+ondertekenaar`, `person_id` the Tweede Kamer's id of their member), so a motion of either
+chamber names its signers alike; and `AUTHORED` from each member. A signer is the member of
+their page as `normalize eerstekamer-persons` matches a page (`members_of_pages`); one whose
+page is not stored, or of no member, is a name without a member, counted in the log. A motion
+whose Kamerstuk is not in the graph is counted, and nothing is written of it.
 
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
@@ -1576,6 +1652,8 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
+| normalize `eerstekamer-persons` | `normalize eerstekamer-composition` (the members and factions of the Eerste Kamer) and `normalize eerstekamer-mutations` (the changes its periods are checked against) |
+| normalize `eerstekamer-motions` | `normalize eerstekamer` (the Kamerstukken of the Eerste Kamer it writes on) and `normalize eerstekamer-persons` (a page of a person matched to a member as there) |
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |

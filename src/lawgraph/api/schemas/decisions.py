@@ -407,11 +407,19 @@ class DecisionListResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    total: int = Field(..., description="Matching decisions, independent of ``limit``.")
+    total: int | None = Field(
+        ...,
+        description="Matching decisions, independent of ``limit``; null while they are "
+        "still being counted (``partial``) or not asked for (``facets=false``).",
+    )
     items: list[DecisionSummaryDTO]
-    facets: DecisionFacets = Field(default_factory=DecisionFacets)
+    # null when asked for without them (``facets=false``)
+    facets: DecisionFacets | None = Field(default_factory=DecisionFacets)
     partial: bool = Field(
         False,
-        description="``party_votes`` was asked for but is still being counted (every vote "
-        "on every decision: seconds, once per change of the data): ``[]`` now; ask again.",
+        description="Something is still being counted; ask again for it. ``total`` and "
+        "``facets``: a filter not counted since the decisions last changed (a request waits "
+        "3 s for them, then gets the page with ``total`` null and empty facets); "
+        "``party_votes``, when asked for (every vote on every decision): ``[]`` now. The "
+        "page itself is always whole.",
     )

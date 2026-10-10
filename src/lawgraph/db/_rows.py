@@ -38,19 +38,28 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
     "references",
     "breadcrumb",
 )
+# And of an activity the rollups ``normalize tk-dossiers`` reads: its cases (hundreds for a
+# budget debate) and their kinds per dossier, 390 of the 677 kB of the neighbourhood of a
+# budget dossier. Of an activity only: the cases of a paper (a handful) are what the
+# explorer's timetable of a dossier finds the vote on each amendment by.
+ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
 
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
-    ``NEIGHBOUR_PROPS_LEFT_OUT``, the others in their order; of a judgment those kept in
+    ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
+    in their order; of a judgment those kept in
     ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and
     their text, while it has them."""
     keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
+    rollups = ", ".join(f"'{key}'" for key in ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
+    activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
-        f" THEN coalesce({kept}, {unset}) ELSE {unset} END)"
+        f" THEN coalesce({kept}, {unset})"
+        f" WHEN {alias}.collection = 'activities' THEN {activity} ELSE {unset} END)"
     )
 
 
@@ -137,7 +146,16 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "instrument_citation_title",
         "instrument_abbreviation",
     ),
-    "instruments": ("bwb_id", "celex", "title", "citation_title", "short_title"),
+    # ``official_id`` and a ``slug``, ``suffix`` or ``number``: the readable address of a
+    # node selected on the canvas before its own answer comes
+    "instruments": (
+        "bwb_id",
+        "celex",
+        "title",
+        "citation_title",
+        "short_title",
+        "official_id",
+    ),
     "judgments": (
         "ecli",
         "court",
@@ -146,6 +164,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "advocate_general",
         "advocate_general_role",
         "summary",
+        "translation_of",
     ),
     "documents": (
         "kind",
@@ -155,14 +174,23 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "title",
         "subject",
         "dossier_number",
+        "dossier_suffix",
         "dossier_numbers",
         "chamber",
         "actors",
     ),
-    "dossiers": ("label", "title", "name", "number", "subject"),
-    "members": ("name", "party"),
+    "dossiers": (
+        "label",
+        "title",
+        "short_title",
+        "name",
+        "number",
+        "suffix",
+        "subject",
+    ),
+    "members": ("name", "party", "slug"),
     "factions": ("name", "abbreviation"),
-    "committees": ("name", "abbreviation"),
+    "committees": ("name", "abbreviation", "slug"),
     "cabinets": ("name", "abbreviation"),
     "activities": (
         "kind",
@@ -172,7 +200,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "actors",
         "dossier_numbers",
     ),
-    "commitments": ("kind", "agenda_title", "title", "text", "actors"),
+    "commitments": ("kind", "agenda_title", "title", "text", "actors", "number"),
     "cases": ("kind", "agenda_title", "title", "text", "actors"),
     "decisions": (
         "subject",
@@ -182,6 +210,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "kind",
         "decision_kind",
         "dossier_numbers",
+        # its first submitter labels a vote on a motion or an amendment on the canvas
+        "actors",
     ),
 }
 # Of each of the ``actors`` of a paper, an activity, a commitment or a case.

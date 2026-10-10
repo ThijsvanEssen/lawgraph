@@ -1,9 +1,10 @@
 """Retrieve pipeline for the changes in the composition of the Eerste Kamer (eerstekamer.nl).
 
 The lists of ``/personele_mutaties``, one per term (``ek-mutations-html``, external id its
-path), read again on every run: a new item stands first. The page of each item they list
-(``ek-mutation-html``, external id its path), once: a published item does not change. What
-they say is read by ``core.ek_changes``.
+path): the current term's read again on every run (a new item stands first), that of a term
+that ended once. The page of each item they list (``ek-mutation-html``, external id its
+path), once: a published item does not change. What they say is read by
+``core.ek_changes``.
 """
 
 from __future__ import annotations
@@ -35,7 +36,8 @@ class EerstekamerMutationsRetrievePipeline(RetrievePipelineBase):
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
         stored = set(self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATION))
-        for path, url, page in self.client.mutation_terms():
+        terms = set(self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATIONS))
+        for path, url, page in self.client.mutation_terms(terms):
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_MUTATIONS,

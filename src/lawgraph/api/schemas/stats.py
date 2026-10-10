@@ -62,6 +62,16 @@ class StatsResponse(BaseModel):
     edges: EdgeStatsDTO
     by_source: dict[str, dict[str, int]] = {}
     instruments: InstrumentStatsDTO = InstrumentStatsDTO()
+    lists: dict[str, int | None] = Field(
+        default_factory=dict,
+        description="Per list of the explorer the ``total`` its endpoint gives without a "
+        "filter, as its first page answers it (the count each row of Bronnen shows): "
+        "``instruments``, ``judgments``, ``dossiers``, ``documents``, ``members`` (who held "
+        "a seat), ``bewindspersonen`` (``/api/members?government=true``), ``factions``, "
+        "``committees``, ``cabinets``, ``commitments`` and ``decisions`` as the list opens "
+        "(``chamber=TK``). ``decisions`` is null while it is still being counted (after a "
+        "change of the decisions; the warm-up counts it): show nothing then, not 0.",
+    )
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, "

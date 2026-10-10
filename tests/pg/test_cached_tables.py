@@ -22,7 +22,7 @@ from lawgraph.db import GraphStore, version_cache
 
 # imported before ``kept`` patches the modules that hold ``cached``: run alone, this file
 # would otherwise import the nodes queries only after, unpatched
-from lawgraph.db.queries import _bm25, nodes, seo
+from lawgraph.db.queries import _bm25, articles, nodes, seo
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import _text
 
@@ -149,10 +149,12 @@ def kept(
     calls: list[tuple[str, tuple[str, ...], Callable[[], Any]]] = []
     original = version_cache.cached
 
-    def cached(store_: Any, key: Any, compute: Any, *, tables: Any = None) -> Any:
+    def cached(
+        store_: Any, key: Any, compute: Any, *, tables: Any = None, **options: Any
+    ) -> Any:
         if tables is not None:
             calls.append((_caller(), tables, compute))
-        return original(store_, key, compute, tables=tables)
+        return original(store_, key, compute, tables=tables, **options)
 
     monkeypatch.setattr(version_cache, "cached", cached)
     for module in list(sys.modules.values()):
@@ -175,7 +177,8 @@ def _caller() -> str:
 def _exercise(store: GraphStore) -> None:
     """Everything that keeps an answer per table: the warm-up, the search counts, the
     lids an article's edges cite, the judgments that cite it on its page, the papers
-    on the page of a member and what a publication changes."""
+    on the page of a member, what a publication changes and the passages that explain
+    an article."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -185,6 +188,10 @@ def _exercise(store: GraphStore) -> None:
     seo.cited(store, "articles/a1")
     seo.authored(store, "members/m1")
     seo.changed(store, ("instruments/stb_2025_1",))
+    store.bulk_insert_or_update_nodes(
+        "articles", [_node("bwbr0001_1", bwb_id="BWBR0001", article_number="1")]
+    )
+    articles.get_article_explanation_passages(store, "BWBR0001", "1")
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(

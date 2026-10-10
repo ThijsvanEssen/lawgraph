@@ -165,6 +165,10 @@ class _ListParams:
         ] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
+        facets: Annotated[
+            bool,
+            Query(description="Count per status, outcome, track, stage and ministry."),
+        ] = True,
     ) -> None:
         self.filters = DossierFilters(
             status=None if status == "all" else status,
@@ -183,6 +187,7 @@ class _ListParams:
         self.sort = sort or ("number" if number else "opened_on")
         self.limit = limit
         self.offset = offset
+        self.facets = facets
 
 
 def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
@@ -192,20 +197,22 @@ def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
         sort=params.sort,
         limit=params.limit,
         offset=params.offset,
+        facets=params.facets,
     )
     docs = raw.get("items") or []
     enrich_dossier_docs(store, docs)
     return DossierListResponse(
         total=int(raw.get("total") or 0),
         items=[DossierSummaryDTO.from_document(d) for d in docs],
-        facets=DossierFacetsDTO(**raw.get("facets") or {}),
+        facets=DossierFacetsDTO(**raw.get("facets") or {}) if params.facets else None,
     )
 
 
 _LIST_DESCRIPTION = (
     "``total`` is the absolute count, independent of ``limit``. ``facets`` counts the "
     "dossiers per status, outcome, track, current stage and ministry under the other "
-    "filters, each dimension without its own filter."
+    "filters, each dimension without its own filter; ``facets=false`` leaves them out "
+    "(null): the pages after the first need none."
 )
 
 

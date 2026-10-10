@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_INTRODUCES
+from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
     CONFIDENCE_UNCHANGED,
+    MATCH_AMENDMENT,
+    MATCH_BILL_PART,
     MATCH_BODY_NAMED_LAW,
     MATCH_HEADING_TARGET,
     MATCH_INFERRED_LAW,
@@ -17,6 +20,7 @@ from lawgraph.core.mvt_articles import (
     Change,
     Law,
     Reference,
+    amendment_references,
     article_id,
     explained_targets,
     find_references,
@@ -451,3 +455,359 @@ def test_a_law_is_new_when_the_dossier_changed_none_of_it_but_to_introduce_it() 
     assert is_introduction(own, WONINGWET)
     assert not is_introduction([*own, _change("3")], WONINGWET)
     assert is_introduction([_change("3")], "BWBR0000003")  # a change of another law
+
+
+# ── the onderdelen of the bill ───────────────────────────────────────────────
+
+SR = "BWBR0001854"
+SV = "BWBR0001903"
+UITLEVERINGSWET = "BWBR0001914"
+_LAWS_31810 = [
+    Law(SR, ("Wetboek van Strafrecht",), ("Sr",)),
+    Law(SV, ("Wetboek van Strafvordering",), ("Sv",)),
+    Law(UITLEVERINGSWET, ("Uitleveringswet",)),
+]
+# Kamerstukken II 2008/09, 31810, nr. 2, shortened.
+_BILL_31810 = """ARTIKEL I
+Het Wetboek van Strafrecht wordt als volgt gewijzigd:
+A
+In artikel 240b, eerste lid, wordt «verspreidt» vervangen door: verspreidt, aanbiedt.
+B
+Na artikel 248c worden twee artikelen ingevoegd, luidende:
+Artikel 248d
+Hij die een persoon ertoe beweegt, wordt gestraft.
+Artikel 248e
+Hij die een ontmoeting voorstelt, wordt gestraft.
+ARTIKEL II
+Het Wetboek van Strafvordering wordt als volgt gewijzigd:
+A
+In artikel 67, eerste lid, onderdeel b, wordt na «137g,» ingevoegd: 248d, 248e,.
+ARTIKEL III
+In artikel 51a, tweede lid, van de Uitleveringswet wordt een onderdeel toegevoegd.
+ARTIKEL IV
+Deze wet treedt in werking op een bij koninklijk besluit te bepalen tijdstip."""
+
+
+def _memorandum_31810() -> _Paper:
+    """The artikelsgewijs part of nr. 3: headings that name onderdelen and no article."""
+    paper = _Paper()
+    for heading, number, body in (
+        (
+            "Artikel I, onderdeel A",
+            "I",
+            "Dit onderdeel is in het algemeen deel toegelicht.",
+        ),
+        ("Artikel I, onderdeel B", "I", "Het voorgestelde delict corrumperen."),
+        ("Artikel II, onderdeel A", "II", "De delicten worden opgenomen in de lijst."),
+        ("Artikel III", "III", "Opneming van het Verdrag in de lijst."),
+        ("Artikel IV", "IV", "De wet treedt in werking bij koninklijk besluit."),
+    ):
+        paper.add(heading, body, number=number, scheme="roman", refs=[(number, "self")])
+    return paper
+
+
+def test_an_onderdeel_of_the_bill_names_the_articles_it_changes() -> None:
+    paper = _memorandum_31810()
+
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+
+    assert _found(refs) == [
+        ("s-0", SR, "240b", MATCH_BILL_PART),
+        ("s-1", SR, "248d", MATCH_BILL_PART),
+        ("s-1", SR, "248e", MATCH_BILL_PART),
+        ("s-2", SV, "67", MATCH_BILL_PART),
+        # an article of the bill without onderdelen: the law its instruction names
+        ("s-3", UITLEVERINGSWET, "51a", MATCH_BILL_PART),
+    ]
+    assert refs[1].explanation.startswith(
+        "De kop 'Artikel I, onderdeel B' noemt een onderdeel van het wetsvoorstel"
+    )
+    assert refs[1].confidence == CONFIDENCE_OF_MATCH[MATCH_BILL_PART]
+    # without the bill the headings name nothing
+    assert find_references(paper.text, paper.sections, _LAWS_31810) == []
+
+
+def test_an_onderdeel_under_an_article_of_the_bill_and_one_without_text() -> None:
+    paper = _Paper()
+    article = paper.add(
+        "Artikel I", "", number="I", scheme="roman", refs=[("I", "self")]
+    )
+    paper.add(
+        "Onderdeel B",
+        "De twee nieuwe delicten.",
+        kind="onderdeel",
+        number="B",
+        scheme="letter",
+        parent=article,
+    )
+    # a heading of an onderdeel followed by the article it changes (34372): the article
+    # explains, the onderdeel has no text of its own
+    paper.add(
+        "Artikel II, onderdeel A",
+        "",
+        number="II",
+        scheme="roman",
+        refs=[("II", "self")],
+    )
+
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+
+    assert _found(refs) == [
+        ("s-1", SR, "248d", MATCH_BILL_PART),
+        ("s-1", SR, "248e", MATCH_BILL_PART),
+    ]
+
+
+def test_an_onderdeel_points_only_at_what_the_dossier_changed() -> None:
+    paper = _memorandum_31810()
+    refs = find_references(
+        paper.text, paper.sections, _LAWS_31810, bill=bill_parts(_BILL_31810)
+    )
+    changes = [
+        Change(SR, "248d", article_id(SR, "248d"), "v248d", RELATION_INTRODUCES),
+        Change(SV, "67", article_id(SV, "67"), None, RELATION_AMENDS),
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: True)
+
+    # 248e, 240b and 51a were not changed (renumbered, or left out by an amendment)
+    assert sorted(explained) == ["article_versions/v248d", article_id(SV, "67")]
+
+
+# ── the law of an Arabic heading ─────────────────────────────────────────────
+
+WAHV = "BWBR0004627"
+_LAWS_HERZIENING = [
+    Law(SR, ("Wetboek van Strafrecht",), ("Sr",)),
+    Law(SV, ("Wetboek van Strafvordering",), ("Sv",)),
+    Law(
+        WAHV,
+        ("Wet administratiefrechtelijke handhaving verkeersvoorschriften",),
+        ("Wahv",),
+    ),
+]
+
+
+def _arabic(
+    paper: _Paper, heading: str, *numbers: str, parent: str | None = None
+) -> str:
+    return paper.add(
+        heading,
+        f"Toelichting bij {heading}.",
+        number=numbers[0],
+        scheme="arabic",
+        refs=[(n, "self") for n in numbers],
+        parent=parent,
+    )
+
+
+def _roman(paper: _Paper, heading: str, number: str, body: str = "") -> str:
+    return paper.add(
+        heading, body, number=number, scheme="roman", refs=[(number, "self")]
+    )
+
+
+def test_a_heading_that_names_its_law() -> None:
+    paper = _Paper()
+    _arabic(paper, "Artikel 11 Sr", "11")
+    _arabic(paper, "Artikel 4, vijfde lid, Wahv", "4")
+    _arabic(paper, "Artikel 12", "12")  # no law, and the dossier changes three
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+
+    assert _found(refs) == [
+        ("s-0", SR, "11", MATCH_HEADING_TARGET),
+        ("s-1", WAHV, "4", MATCH_HEADING_TARGET),
+    ]
+
+
+def test_the_heading_of_the_article_of_the_bill_before_it_names_the_law() -> None:
+    """``ARTIKEL II – WETBOEK VAN STRAFRECHT`` holds for the headings after it, up to the
+    next article of the bill (Herziening tenuitvoerlegging, 33745)."""
+    paper = _Paper()
+    _roman(paper, "ARTIKEL II – WETBOEK VAN STRAFRECHT", "II")
+    _arabic(paper, "Artikel 13", "13")
+    _arabic(paper, "Artikel 14f", "14f")
+    _roman(
+        paper,
+        "ARTIKEL III – WET ADMINISTRATIEFRECHTELIJKE HANDHAVING VERKEERSVOORSCHRIFTEN",
+        "III",
+    )
+    _arabic(paper, "Artikel 6", "6")
+    _roman(paper, "ARTIKEL IV – OVERGANGSRECHT", "IV")
+    _arabic(paper, "Artikel 7", "7")  # no law named before it
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+
+    assert _found(refs) == [
+        ("s-1", SR, "13", MATCH_INFERRED_LAW),
+        ("s-2", SR, "14f", MATCH_INFERRED_LAW),
+        ("s-4", WAHV, "6", MATCH_INFERRED_LAW),
+    ]
+
+
+def test_the_article_of_the_bill_before_it_names_the_law_through_the_bill() -> None:
+    """34372: "Artikel II, onderdeel D" (no text) and then "Artikel 125p", which explains:
+    ARTIKEL II of the bill changes the Wetboek van Strafvordering."""
+    bill = bill_parts(
+        "ARTIKEL I\nHet Wetboek van Strafrecht wordt als volgt gewijzigd:\nA\n"
+        "In artikel 138c wordt «a» vervangen door: b.\n"
+        "ARTIKEL II\nHet Wetboek van Strafvordering wordt als volgt gewijzigd:\nD\n"
+        "Na artikel 125o wordt een artikel ingevoegd, luidende:\nArtikel 125p\nTekst."
+    )
+    paper = _Paper()
+    _roman(paper, "Artikel I, onderdeel A", "I")
+    _arabic(paper, "Artikel 138c", "138c")
+    _roman(paper, "Artikel II, onderdeel D", "II")
+    _arabic(paper, "Artikel 125p", "125p")
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING, bill=bill)
+
+    assert _found(refs) == [
+        ("s-1", SR, "138c", MATCH_INFERRED_LAW),
+        ("s-3", SV, "125p", MATCH_INFERRED_LAW),
+    ]
+    # without the bill the onderdelen name no law
+    assert find_references(paper.text, paper.sections, _LAWS_HERZIENING) == []
+
+
+def test_a_range_in_a_heading_is_what_the_dossier_changed_in_it() -> None:
+    paper = _Paper()
+    _arabic(paper, "Artikelen 15 tot en met 15l Sr", "15", "15l")
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+    changes = [
+        Change(SR, n, article_id(SR, n), f"v{n}", RELATION_AMENDS)
+        for n in ("14l", "15", "15a", "15f", "15l", "16")
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: True)
+
+    assert sorted(explained) == [
+        "article_versions/v15",
+        "article_versions/v15a",
+        "article_versions/v15f",
+        "article_versions/v15l",
+    ]
+    (inner,) = explained["article_versions/v15f"]
+    assert inner.match_type == MATCH_HEADING_TARGET and inner.changed
+
+
+def test_a_book_is_left_out_of_a_reference_not_out_of_a_change() -> None:
+    """The BW stores 7:658 as 658 in Boek 7, so "artikel 7:658" is 658 there; the Awb
+    stores 11:2 as 11:2, so "artikel 2" (of an annex, Verzamelwet) is not Awb 11:2."""
+    bw7, awb = "BWBR0005290", "BWBR0005537"
+    paper = _Paper()
+    paper.add(
+        "Artikel 7:658",
+        "Toelichting.",
+        number="7:658",
+        scheme="book_article",
+        refs=[("7:658", "named_law")],
+        law="BW",
+    )
+    paper.add(
+        "Artikel II (Algemene wet bestuursrecht)",
+        "",
+        number="II",
+        scheme="roman",
+        refs=[("II", "self")],
+        law="Algemene wet bestuursrecht",
+    )
+    _arabic(paper, "Artikelen 1, 2 en 9", "1", "2", "9")
+    laws = [
+        Law(bw7, ("Burgerlijk Wetboek Boek 7",), ("BW",)),
+        Law(awb, ("Algemene wet bestuursrecht",), ("Awb",)),
+    ]
+    refs = find_references(paper.text, paper.sections, laws)
+    changes = [
+        Change(bw7, "658", article_id(bw7, "658"), "v658", RELATION_AMENDS),
+        Change(awb, "11:2", article_id(awb, "11:2"), "v11_2", RELATION_AMENDS),
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: False)
+
+    assert sorted(explained) == ["article_versions/v658"]
+
+
+# ── adopted amendments ───────────────────────────────────────────────────────
+
+_BILL_34372 = bill_parts(
+    "ARTIKEL I\nHet Wetboek van Strafrecht wordt als volgt gewijzigd:\nA\n"
+    "In artikel 138c wordt «a» vervangen door: b.\n"
+    "ARTIKEL II\nHet Wetboek van Strafvordering wordt als volgt gewijzigd:\nU\n"
+    "Na artikel 126ee wordt een artikel ingevoegd, luidende:\nArtikel 126ff\nTekst."
+)
+
+
+def _amendment(operative: str, toelichting: str) -> tuple[str, list[dict[str, Any]]]:
+    """An amendment as the parser reads it (34372 nr. 14): its article heading, and its
+    Toelichting under it."""
+    head = "AMENDEMENT VAN DE LEDEN RECOURT EN TELLEGEN\n"
+    text = f"{head}{operative}\nToelichting\n{toelichting}"
+    start = text.index("Toelichting\n")
+    article = text.find("Artikel 126ffa")
+    sections: list[dict[str, Any]] = []
+    if article != -1:
+        sections.append(
+            {"id": "s-2", "heading": "Artikel 126ffa", "level": 1, "parent": None,
+             "kind": "article", "number": "126ffa", "number_scheme": "arabic",
+             "article_refs": [{"number": "126ffa", "of": "self"}], "law": None,
+             "char_start": article, "char_end": len(text)}
+        )  # fmt: skip
+    sections.append(
+        {"id": "s-3", "heading": "Toelichting", "level": 2,
+         "parent": "s-2" if article != -1 else None, "kind": "other", "number": None,
+         "number_scheme": None, "article_refs": [], "law": None,
+         "char_start": start, "char_end": len(text)}
+    )  # fmt: skip
+    return text, sections
+
+
+_OPERATIVE_14 = (
+    "In artikel II wordt na onderdeel U een onderdeel ingevoegd, luidende:\nUa\n"
+    "Artikel 126ffa\n1.\nDe officier van justitie kan bevelen."
+)
+
+
+def test_an_adopted_amendment_explains_what_it_changes_in_its_toelichting() -> None:
+    text, sections = _amendment(_OPERATIVE_14, "Dit amendement regelt een machtiging.")
+
+    refs = amendment_references(text, sections, _LAWS_HERZIENING, [], _BILL_34372)
+
+    assert _found(refs) == [("s-3", SV, "126ffa", MATCH_AMENDMENT)]
+    (ref,) = refs
+    assert text[ref.char_start : ref.char_end] == (
+        "Toelichting\nDit amendement regelt een machtiging."
+    )
+    assert ref.explanation == (
+        "Het aangenomen amendement wijzigt het artikel; dit is zijn toelichting; "
+        "het dossier wijzigt het artikel."
+    )
+
+
+def test_the_law_of_an_amendment_without_the_bill() -> None:
+    """The law the instruction names, else the one law of the dossier that changed the
+    number; none when two did."""
+    text, sections = _amendment(
+        "In artikel 4, vijfde lid, van de Wet administratiefrechtelijke handhaving "
+        "verkeersvoorschriften wordt «a» vervangen door: b.",
+        "Een technische wijziging.",
+    )
+    named = amendment_references(text, sections, _LAWS_HERZIENING, [], {})
+    assert _found(named) == [("s-3", WAHV, "4", MATCH_AMENDMENT)]
+
+    text, sections = _amendment(_OPERATIVE_14, "Toelichting.")
+    one = [Change(SV, "126ffa", article_id(SV, "126ffa"), None, RELATION_INTRODUCES)]
+    found = amendment_references(text, sections, _LAWS_HERZIENING, one, {})
+    assert _found(found) == [("s-3", SV, "126ffa", MATCH_AMENDMENT)]
+    both = [*one, Change(SR, "126ffa", article_id(SR, "126ffa"), None, RELATION_AMENDS)]
+    assert amendment_references(text, sections, _LAWS_HERZIENING, both, {}) == []
+
+
+def test_an_amendment_without_a_toelichting_explains_nothing() -> None:
+    text = f"AMENDEMENT\n{_OPERATIVE_14}"
+    assert amendment_references(text, [], _LAWS_HERZIENING, [], _BILL_34372) == []

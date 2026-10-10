@@ -1163,11 +1163,13 @@ def get_dossiers(
     sort: str = "opened_on",
     limit: int = 100,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
     """A page of the dossiers *filters* keeps, in the order *sort* (``DOSSIER_SORTS``),
     with ``total`` and ``facets``: per ``status``, ``outcome``, ``track``, ``stage`` (the
     current one) and ``ministry`` the number of dossiers per value under the other filters,
-    each dimension counted without its own filter.
+    each dimension counted without its own filter (``facets=False``: the page and the
+    total alone, ``facets`` None).
 
     One read of the dossiers the shared filters keep (``base``) answers the page, the total
     and every facet; the committee filter resolves that committee's dossiers once as a set.
@@ -1179,14 +1181,15 @@ def get_dossiers(
     order = ", ".join(
         [f"b.s{i} {direction} {nulls}" for i in range(len(keys))] + ["b.key ASC"]
     )
+    counted = _DOSSIER_FACETS if facets else {}
     columns = ",\n               ".join(
         [f"{expression} AS s{i}" for i, expression in enumerate(keys)]
-        + [f"{expression} AS f_{name}" for name, expression in _DOSSIER_FACETS.items()]
+        + [f"{expression} AS f_{name}" for name, expression in counted.items()]
         + [f"({clause}) IS TRUE AS k_{name}" for name, clause in own.items()]
     )
     kept = " AND ".join(f"b.k_{name}" for name in own) or "TRUE"
-    facets = ",\n            ".join(
-        f"'{name}', {_facet(name, own)}" for name in _DOSSIER_FACETS
+    per_facet = ",\n            ".join(
+        f"'{name}', {_facet(name, own)}" for name in counted
     )
     committee = f"{_COMMITTEE_DOSSIERS}," if filters.committee_slug else ""
     where = " AND ".join(f"({c})" for c in shared) or "TRUE"
@@ -1219,9 +1222,7 @@ def get_dossiers(
             ) ORDER BY page.n), '[]'::json)
             FROM page JOIN {COLLECTION_DOSSIERS} ds ON ds.id = page.id
         ) AS items,
-        json_build_object(
-            {facets}
-        ) AS facets
+        {f"json_build_object({per_facet})" if facets else "NULL::json"} AS facets
     """
     rows = list(store.query(sql, bind))
     return rows[0] if rows else {"total": 0, "items": [], "facets": {}}

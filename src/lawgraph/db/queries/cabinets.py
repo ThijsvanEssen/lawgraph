@@ -346,10 +346,12 @@ def get_commitments(
     offset: int = 0,
     made_from: str | None = None,
     made_to: str | None = None,
+    facets: bool = True,
 ) -> dict[str, Any]:
     """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
     ``ministry`` the number of commitments per value under the other filters, each
-    dimension counted without its own filter. *dossier* is a number (``36600``) or the
+    dimension counted without its own filter (``facets=False``: the page and the total
+    alone, ``facets`` None). *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
     has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
     first, those without one last)."""
@@ -385,7 +387,7 @@ def get_commitments(
     def where(*clauses: str) -> str:
         return f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
-    facets = ",\n".join(
+    per_facet = ",\n".join(
         f"""'{name}', (
             SELECT coalesce(json_agg(
                 json_build_object('value', value, 'count', count)
@@ -416,7 +418,7 @@ def get_commitments(
             ) page
             JOIN commitments c ON c.id = page.id
         ),
-        'facets', json_build_object({facets})
+        'facets', {f"json_build_object({per_facet})" if facets else "NULL::json"}
     )
     """
     rows = list(store.query(statement, bind))

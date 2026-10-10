@@ -405,6 +405,14 @@ class DocumentProps(_CommonProps):
     raw: dict[str, Any] | None = None
     # what a motion asks or says, its dictum (``core/motion_dictum.py``)
     dictum: str | None = None
+    # of a motion of the Eerste Kamer, from its page (``normalize eerstekamer-motions``): what
+    # it asks, the day it was submitted, the debate, its status, its page and its PDF
+    summary: str | None = None
+    submitted_on: str | None = None
+    debate: str | None = None
+    status: str | None = None
+    motion_url: str | None = None
+    pdf_url: str | None = None
     title: str | None = None
     # a paper named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None
@@ -704,11 +712,15 @@ class MemberProps(_CommonProps):
     initials: str | None = None  # Persoon.Initialen: "S.Th.M."
     party: str | None = None
     faction_memberships: list | None = None
+    # the periods in the factions of the Eerste Kamer, as their page says them
+    # (``normalize eerstekamer-persons``)
+    ek_faction_memberships: list | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
     number: str | None = None  # Persoon.Nummer
     slug: str | None = None  # a stable name for a readable URL (core.member_slugs)
     birth_date: str | None = None
+    death_date: str | None = None
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None

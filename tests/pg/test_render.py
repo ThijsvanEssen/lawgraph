@@ -397,6 +397,7 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
 def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
     response = _get(client, path)
     assert response.status_code == 404
+    assert response.headers["cache-control"] == "no-cache"
     page = _head(response.text)
     assert page["title"] == "Niet gevonden, Concordans"
     assert page["robots"] == "noindex"
@@ -413,9 +414,11 @@ def test_a_page_of_the_app_has_its_own_title(client: TestClient) -> None:
 def test_a_page_is_asked_again_with_its_etag(client: TestClient) -> None:
     first = _get(client, "/wetten/BWBR0005289")
     etag = first.headers["etag"]
-    assert first.headers["cache-control"].startswith("public, max-age=3600")
+    assert first.headers["cache-control"] == "no-cache"
     again = _get(client, "/wetten/BWBR0005289", **{"If-None-Match": etag})
     assert again.status_code == 304
+    assert again.headers["etag"] == etag
+    assert again.headers["cache-control"] == "no-cache"
 
 
 def test_without_the_list_of_pages_every_other_path_is_the_shell(
@@ -622,7 +625,10 @@ def test_what_a_member_is_comes_from_the_source(
     client: TestClient, store: GraphStore, slug: str, title: str
 ) -> None:
     _seed_people(store)
-    assert _head(_get(client, f"/leden/{slug}").text)["title"] == f"{title}, Concordans"
+    page = _head(_get(client, f"/leden/{slug}").text)
+    assert page["title"] == f"{title}, Concordans"
+    # a person of the TK's records whose seat the data does not hold: not indexed
+    assert page["robots"] == ("noindex" if slug == "j-de-vries" else None)
 
 
 def test_a_faction_lists_its_members_now(client: TestClient, store: GraphStore) -> None:

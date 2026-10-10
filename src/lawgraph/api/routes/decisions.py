@@ -55,7 +55,9 @@ _VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
         "``facets`` counts the decisions under the filters: per ``kind`` (without the "
         "kind filter; with how many carried and did not), per outcome ``passed`` "
         "(without the passed filter), per day and per year (under all filters), and with "
-        "``party_votes`` how the factions asked voted on them."
+        "``party_votes`` how the factions asked voted on them. ``facets=false`` gives "
+        "null for ``total`` and ``facets`` and counts nothing: the pages after the first "
+        "need neither."
     ),
     tags=["decisions"],
 )
@@ -129,6 +131,9 @@ def list_decisions(
     ] = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    facets: Annotated[
+        bool, Query(description="Count the total and the facets.")
+    ] = True,
 ) -> DecisionListResponse:
     if vote is not None and not party:
         raise HTTPException(status_code=422, detail="`vote` needs a `party`.")
@@ -148,10 +153,10 @@ def list_decisions(
         coalition=coalition,
         unvoted=unvoted,
     )
-    raw = get_decisions(store, filters, limit=limit, offset=offset)
+    raw = get_decisions(store, filters, limit=limit, offset=offset, facets=facets)
     names = load_dossier_names(store)
     return DecisionListResponse(
-        total=int(raw.get("total") or 0),
+        total=raw.get("total"),
         items=[
             DecisionSummaryDTO(
                 **row,
@@ -159,7 +164,7 @@ def list_decisions(
             )
             for row in raw.get("items") or []
         ],
-        facets=DecisionFacets(**(raw.get("facets") or {})),
+        facets=DecisionFacets(**(raw.get("facets") or {})) if facets else None,
         partial=bool(raw.get("partial")),
     )
 

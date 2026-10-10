@@ -498,6 +498,7 @@ def member(payload: Payload) -> Record | None:
         "name_prefix": _text(payload, "Tussenvoegsel") or None,
         "initials": _text(payload, "Initialen") or None,
         "birth_date": iso_date(payload.get("Geboortedatum")),
+        "death_date": iso_date(payload.get("Overlijdensdatum")),
         # Persoon.Nummer: what a namesake's slug ends in when the year does not tell
         "number": str(payload["Nummer"]) if payload.get("Nummer") else None,
     }
@@ -677,6 +678,9 @@ def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:
         "title": title,
         "title_source": "dossier" if title else None,
         "display_name": dossier_display_name(number_str, suffix, title or ""),
+        # the Tweede Kamer's: takes over a dossier written from the papers of the Eerste
+        # Kamer before the Kamer delivered it (``normalize eerstekamer``)
+        "source": SOURCE_TK,
     }
 
     return make_node_key(label), label, props

@@ -165,7 +165,7 @@ tk-mvt-articles` (a section that is about the article; `source` `mvt-section-lin
 | Field | Meaning |
 |-------|---------|
 | `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
-| `match_type` | `heading_target`, `body_named_law`, `own_number` or `inferred_law` (`docs/pipelines.md`) |
+| `match_type` | `heading_target`, `body_named_law`, `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`) |
 | `changed` | whether the dossier changed the article, which corroborates the match |
 | `explanation` | what the match rests on, in Dutch |
 | `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
@@ -526,6 +526,7 @@ Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that 
 | `raw` | the record of the Tweede Kamer as it came |
 | `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
 | `identifier`, `year`, `bwb_id` | of a Staatsblad or Staatscourant publication |
+| `summary`, `submitted_on`, `debate`, `status`, `motion_url`, `pdf_url` | of a motion of the Eerste Kamer, from its page (`normalize eerstekamer-motions`): what it asks as the page opens ("In deze motie wordt de regering verzocht …"), the day it was submitted, the debate it was submitted at, its `behandelstatus` (`verworpen`, `aangenomen`, `aangehouden`, as the Kamer writes it), its page and its PDF; its signers are its `actors` (`Eerste ondertekenaar`, `Mede ondertekenaar`, with the `person_id` of their member) and `AUTHORED` from each member |
 
 ### Activity (`activities`)
 
@@ -582,12 +583,14 @@ them (`W.B. Buma`). A bewindspersoon without a `Persoon` is a member of their ow
 |------|---------|
 | `name`, `full_name`, `initials` | the name they go by (`Roepnaam` and surname), `Voornamen` and surname, `Initialen` |
 | `family_name`, `name_prefix` | `Achternaam` without the `Tussenvoegsel`, and the tussenvoegsel |
-| `number`, `birth_date` | `Persoon.Nummer`; the date of birth |
+| `number`, `birth_date`, `death_date` | `Persoon.Nummer`; the date of birth; the date of death (`Overlijdensdatum`) |
 | `slug` | the name as the API gives it, lower-case ASCII with hyphens (`core/member_slugs.py`). Given once by every pipeline that writes members and never changed; a later namesake gets the year they were born, else `number`, else a number of its own. `lawgraph check` fails on a slug two members share |
 | `party`, `faction_memberships` | the party, and every faction membership with its dates |
 | `government_name`, `known_as` | from Rijksoverheid: `S.Th.M. Hermans`, and `Sophie Hermans` (the first name the page gives; null when none) |
 | `government_functions` | every post in a cabinet since 1945, oldest first (below) |
 | `ek` | a member of the Eerste Kamer (`normalize eerstekamer-composition`): `name` as its page writes it, `path` and `url` of that page, `faction` (key) and `abbreviation`, `seniority_days` (`Anciënniteit`), `residence`, `observed_from`, `observed_until`, `retrieved_on`. It is the member of the Tweede Kamer born that day whose surname ends its name, when exactly one is; else a member of its own (`ek_<slug>`, label `EK`, with `name` and `birth_date` from the page) |
+
+A member has a role when the sources give them a seat or a post: `faction_memberships`, `government_functions` or `ek_faction_memberships` not empty, or `ek` set (`core/member_role.py`, in SQL `db/queries/member_role.py`; a column of its own when the database is built again). One without is a person of the Tweede Kamer's records (`Persoon`) whose seat the data does not hold: the sitemap leaves them out, their page is not indexed, and search lists them after the members with one.
 
 A post in `government_functions` (`normalize rijksoverheid`, [pipelines](pipelines.md#rijksoverheid)):
 

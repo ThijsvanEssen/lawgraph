@@ -467,10 +467,58 @@ def get_members(
     With a period (*active_from*, *active_to*) those who held a seat or a post in a cabinet
     in it.
     """
+    filters, bind = _member_filters(
+        party=party,
+        active=active,
+        q=q,
+        include_all=include_all,
+        government=government,
+        cabinet=cabinet,
+        slug=slug,
+        active_from=active_from,
+        active_to=active_to,
+    )
+    bind.update(limit=limit, offset=offset)
+    return _members_page(store, filters, bind, "m.seated", sort)
+
+
+def count_members(
+    store: GraphStore, *, include_all: bool = False, government: bool = False
+) -> int:
+    """How many members ``get_members`` lists with these filters, over every page: the
+    count of the list (``/api/stats`` ``lists``), by the same conditions."""
+    filters, bind = _member_filters(include_all=include_all, government=government)
+    rows = store.query(
+        f"""
+        SELECT count(*)::int
+        FROM {COLLECTION_MEMBERS} m
+        CROSS JOIN LATERAL (SELECT m.list_name AS name) n
+        WHERE {" AND ".join(f"({f})" for f in filters)}
+          AND (%(active)s::boolean IS NULL OR (m.seated) = %(active)s::boolean)
+        """,
+        bind,
+    )
+    return int(next(iter(rows), 0) or 0)
+
+
+def _member_filters(
+    *,
+    party: str | None = None,
+    active: bool | None = None,
+    q: str | None = None,
+    include_all: bool = False,
+    government: bool = False,
+    cabinet: str | None = None,
+    slug: str | None = None,
+    active_from: str | None = None,
+    active_to: str | None = None,
+) -> tuple[list[str], dict[str, Any]]:
+    """The conditions on ``m`` (and its name ``n.name``) of a list of members, and their
+    parameters (``get_members``)."""
     # ``list_name``, ``in_parliament`` and ``seated`` are columns of the members table:
     # with them a page of the list is read from an index in name order
     filters: list[str] = ["m.list_name <> ''"]
-    bind: dict[str, Any] = {"limit": limit, "offset": offset, "active": active}
+    bind: dict[str, Any] = {"active": active}
 
     if government:
         filters.append(_nonempty("m.props -> 'government_functions'"))
@@ -494,7 +542,7 @@ def get_members(
             f"{_a_period_overlaps('m.pj_faction_memberships')}"
             f" OR {_a_period_overlaps(_GOVERNMENT_FUNCTIONS)}"
         )
-    return _members_page(store, filters, bind, "m.seated", sort)
+    return filters, bind
 
 
 # The name a member has in the Eerste Kamer.
@@ -734,9 +782,12 @@ _MEMBER_VOTES_TEMPLATE = f"""
     periods AS (
         SELECT f.period, f.n
         FROM member
-        CROSS JOIN LATERAL json_array_elements(
-            {_array("member.props -> 'faction_memberships'")}
-        ) WITH ORDINALITY AS f(period, n)
+        -- the periods in the factions of the Tweede Kamer and of the Eerste Kamer
+        -- (``normalize eerstekamer-persons``), numbered as one list
+        CROSS JOIN LATERAL json_array_elements((
+            {_array("member.props -> 'faction_memberships'")}::jsonb
+            || {_array("member.props -> 'ek_faction_memberships'")}::jsonb
+        )::json) WITH ORDINALITY AS f(period, n)
     ),
     -- per period the newest votes of the faction: the decisions of the period newest first
     -- (their index of the dates), each with the faction's vote on it; a faction votes on

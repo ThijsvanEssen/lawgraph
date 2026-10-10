@@ -21,8 +21,13 @@ from typing import Any
 from lawgraph.core.logging import get_logger
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
-from lawgraph.db.store import ReadTimedOut, reset_read_deadline, set_read_deadline
-from lawgraph.db.version_cache import cached, lasting
+from lawgraph.db.store import (
+    ReadTimedOut,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
+from lawgraph.db.version_cache import cached, lasting, stale_wait
 
 logger = get_logger(__name__)
 
@@ -35,8 +40,8 @@ MIN_SAMPLED = 100
 # How long the statistics of a table are kept (seconds), whatever the data does.
 STATS_MAX_AGE = 6 * 3600.0
 # How long the counts of the document frequencies of one search of a table may take
-# together (seconds): every term and field in one statement, under this one deadline (it
-# runs in the background, for the next request too, ``_counted``).
+# together (seconds): every term and field in one statement, under this one deadline or
+# what the search has left, whichever ends first (``_counted``).
 DF_TIMEOUT = 5.0
 
 # The statistics of a table and the document frequencies of terms are kept per data version
@@ -189,7 +194,9 @@ def _frequencies(
     """The document frequency of each term, kept per data version. A word whose stem is one
     of the most common elements of its column (``_common_elements``) takes the frequency the
     planner keeps of it; every other term is counted, in one statement: for a common word
-    those counts were the slowest part of a search (2 s of 3 on the full graph)."""
+    those counts were the slowest part of a search (2 s of 3 on the full graph). Counted by
+    the search itself (``inline``): for a rare word a few index pages, which on the pool of
+    the cache waited behind a warm-up for the whole budget of the search."""
     if not terms:
         return []
     key = (
@@ -198,8 +205,6 @@ def _frequencies(
         tuple((t.field, t.analyzer, str(params[t.param])) for t in terms),
     )
 
-    # read here, not in the computation below: a computation of the cache does not wait
-    # for another one (they share a pool, whose workers would all wait for each other)
     common = {
         column: _common_elements(store, table, column)
         for column in {
@@ -219,7 +224,7 @@ def _frequencies(
             found.update(_counted(store, table, terms, params, counted, rows))
         return [found[n] for n in range(len(terms))]
 
-    return cached(store, key, count, tables=(table,))
+    return cached(store, key, count, tables=(table,), inline=True)
 
 
 def _counted(
@@ -233,17 +238,20 @@ def _counted(
     """The document frequencies of the terms *counted*, in one statement of index lookups,
     within ``DF_TIMEOUT`` seconds. A count that takes longer is of terms too common to tell
     apart: each takes *rows*, so it weighs next to nothing in the rank and still keeps the
-    rows that hold it (a short part of a word that half the rows start with)."""
+    rows that hold it (a short part of a word that half the rows start with). One cut off
+    by the end of the search instead is no frequency: ``ReadTimedOut``, and nothing kept."""
     counts = [f"{_df(table, terms[n])} AS d{n}" for n in counted]
+    # Counted from the indexes: a scan would detoast the search columns of every row.
+    # (one more column: a row of one column is its value, not a dict)
+    statement = f"SELECT 1 AS one, {', '.join(counts)}"
+    left = read_time_left()
+    if left is not None and left < DF_TIMEOUT:
+        # the search ends first: its ReadTimedOut goes up, and nothing is kept
+        row = next(store.query(statement, params, indexes_only=True))
+        return {n: float(row[f"d{n}"]) for n in counted}
     token = set_read_deadline(DF_TIMEOUT)
     try:
-        # Counted from the indexes: a scan would detoast the search columns of every row.
-        # (one more column: a row of one column is its value, not a dict)
-        row = next(
-            store.query(
-                f"SELECT 1 AS one, {', '.join(counts)}", params, indexes_only=True
-            )
-        )
+        row = next(store.query(statement, params, indexes_only=True))
     except ReadTimedOut:
         logger.info(
             "The frequencies of a search of %s took over %s s: taken as every row.",
@@ -283,7 +291,10 @@ def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
             for element, share in zip(row["elements"], row["shares"], strict=False)
         }
 
-    return lasting(store, ("bm25-common", table, column), read, STATS_MAX_AGE)
+    # read by the search itself (``inline``): one row of ``pg_stats``
+    return lasting(
+        store, ("bm25-common", table, column), read, STATS_MAX_AGE, inline=True
+    )
 
 
 def _terms(
@@ -325,7 +336,9 @@ def bm25_sql(
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
         return "0", "", params
-    stats = _stats(store, table)
+    # an earlier answer at once, while a newer one is computed (a sample of the table)
+    with stale_wait(0.0):
+        stats = _stats(store, table)
     frequencies = _frequencies(store, table, terms, params, stats["N"])
     columns, parts = [], []
     lengths: dict[tuple[str, str], str] = {}  # one length per field and analyzer

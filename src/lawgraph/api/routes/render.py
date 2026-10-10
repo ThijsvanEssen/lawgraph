@@ -45,10 +45,10 @@ router = APIRouter()
 # The seconds the reads of one page may take: past them the page is the shell with its
 # title (Caddy gives up on the API after 2 s and serves the static shell).
 RENDER_BUDGET = 1.0
-# How long a cache may keep a page, a redirect and a "not found".
-CACHE_PAGE = "public, max-age=3600, stale-while-revalidate=86400"
+# A page and a "not found" name the chunks of the current front end, gone after its next
+# deploy: a cache asks again every time (a 304 on the ETag). A redirect names none.
+CACHE_PAGE = "no-cache"
 CACHE_REDIRECT = "public, max-age=86400"
-CACHE_MISSING = "public, max-age=300"
 
 # The image of a page when it is shared, per kind (``static/og`` of the front end).
 IMAGES = {
@@ -161,7 +161,7 @@ def render_page(
     if pad is None:
         page = _app_page(pathname.rstrip("/") or "/")
         if page is None:
-            return _html(request, NOT_FOUND, 404, CACHE_MISSING, None)
+            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
         return _html(request, page, 200, CACHE_PAGE, "app")
     canonical = pad_href(pad)
     if unquote(canonical) != unquote(pathname):
@@ -173,7 +173,7 @@ def render_page(
     try:
         node_id = seo.node_of(store, pad)
         if node_id is None:
-            return _html(request, NOT_FOUND, 404, CACHE_MISSING, None)
+            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
         page = _source_page(store, pad, node_id)
         stamp = store.data_version()
     except RequestCancelled:

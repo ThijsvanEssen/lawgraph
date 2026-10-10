@@ -440,6 +440,7 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         client = TestClient(app)
         canvas = client.get("/api/nodes/dossiers/36547", params={"props": "canvas"})
         full = client.get("/api/nodes/dossiers/36547")
+        paper = client.get("/api/nodes/documents/d1")
     finally:
         app.dependency_overrides.pop(get_store, None)
     items = {
@@ -469,7 +470,11 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         for bucket in full.json()["neighbors"]["buckets"]
         for item in bucket["items"]
     }
+    assert whole["d1"]["props"]["kind"] == "Memorie van toelichting"
+    # the cases of a paper stay on a neighbour: the timetable of a dossier finds the vote on
+    # each amendment by them
     assert whole["d1"]["props"]["case_ids"] == ["c1"]
+    assert paper.json()["node"]["props"]["case_ids"] == ["c1"]
     assert whole["m1"]["meta"] == {"record_ids": ["r"]}
 
 
@@ -615,3 +620,113 @@ def test_the_lids_of_an_article_are_counted_once_an_hour(
     monkeypatch.setattr(node_queries, "LIDS_MAX_AGE", 0.0)
     assert lids() == {"1": 1, "2": 1}
     assert len(counted) == 2
+
+
+def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
+    store: GraphStore,
+) -> None:
+    """A budget debate is about hundreds of cases: its ``case_ids`` and
+    ``case_kinds_by_dossier`` (what ``normalize tk-dossiers`` rolls up, which the canvas does
+    not read) are not in a neighbourhood; its other props are. A paper keeps its cases: the
+    explorer's timetable of a dossier finds the vote on each amendment by them."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"_key": "36800_vii", "type": "dossier", "labels": [], "props": {}}],
+    )
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [{"_key": "a1", "type": "activity", "labels": [], "props": {
+            "kind": "Plenair debat", "title": "Begroting",
+            "case_ids": [f"cases/c{n}" for n in range(300)],
+            "case_kinds_by_dossier": {"36800-VII": ["Begroting"]}}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [{"_key": "am1", "type": "document", "labels": [], "props": {
+            "kind": "Amendement", "case_ids": ["cases/c7"]}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("e1", "activities/a1", "dossiers/36800_vii", "ABOUT"),
+            _edge("e2", "documents/am1", "dossiers/36800_vii", "PART_OF"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        found = TestClient(app).get("/api/nodes/dossiers/36800_vii/neighborhood").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    (activity,) = [n for n in found["nodes"] if n["id"] == "activities/a1"]
+    assert activity["props"]["kind"] == "Plenair debat"
+    assert "case_ids" not in activity["props"]
+    assert "case_kinds_by_dossier" not in activity["props"]
+    (amendment,) = [n for n in found["nodes"] if n["id"] == "documents/am1"]
+    assert amendment["props"]["case_ids"] == ["cases/c7"]
+
+
+def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
+    store: GraphStore,
+) -> None:
+    """``props=canvas``: a node of the neighbourhood carries the props the canvas reads of
+    its collection (of an actor its role, name and faction), as a neighbour of
+    ``props=canvas`` does; the focal node and the edges as without it."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"_key": "36547", "type": "dossier", "labels": [], "props": {"title": "Wet"}}],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [{"_key": "d1", "type": "document", "labels": [], "props": {
+            "title": "Memorie", "kind": "Memorie van toelichting", "date": "2024-01-01",
+            "sections": [{"text": "lang"}], "external_id": "x", "tk_url": "https://x",
+            "actors": [{"role": "minister", "name": "A", "faction": None, "person": "p1"}]}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [{"_key": "v1", "type": "decision", "labels": [], "props": {
+            "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"],
+            "actors": [{"role": "indiener", "name": "B", "faction": "D66", "person": "p2"}]}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("e1", "documents/d1", "dossiers/36547", "PART_OF"),
+            _edge("e2", "decisions/v1", "dossiers/36547", "ABOUT"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        path = "/api/nodes/dossiers/36547/neighborhood"
+        canvas = client.get(path, params={"props": "canvas"}).json()
+        full = client.get(path).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    paper = next(n for n in canvas["nodes"] if n["id"] == "documents/d1")
+    assert paper["props"] == {
+        "title": "Memorie",
+        "kind": "Memorie van toelichting",
+        "date": "2024-01-01",
+        "actors": [{"role": "minister", "name": "A", "faction": None}],
+        # the name of its first dossier, as a neighbour of ``props=canvas`` has it
+        "dossier_short_title": None,
+    }
+    # a vote on a motion: its first submitter labels it on the canvas
+    vote = next(n for n in canvas["nodes"] if n["id"] == "decisions/v1")
+    assert vote["props"]["actors"] == [
+        {"role": "indiener", "name": "B", "faction": "D66"}
+    ]
+    assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]
+    whole = next(n for n in full["nodes"] if n["id"] == "documents/d1")
+    assert whole["props"]["tk_url"] == "https://x"
+    assert canvas["nodes"][0] == full["nodes"][0]  # the focal node
+    assert canvas["edges"] == full["edges"]

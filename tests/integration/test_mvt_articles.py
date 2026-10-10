@@ -364,3 +364,243 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
     document = client.get("/api/documents/mvt_36750").json()
     assert [s["kind"] for s in document["sections"]].count("article") == 2
     assert all(s["char_end"] <= len(document["text"]) for s in document["sections"])
+
+
+def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> None:
+    """``explanations``: per paper its passages with their text, for the article reader;
+    what explains only the dossier is not there."""
+    store = GraphStore()
+    ids = _graph(store)
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+    app.dependency_overrides[get_store] = lambda: store
+    client = TestClient(app)
+
+    def explanations(bwb_id: str, article: str) -> dict[str, Any]:
+        response = client.get(f"/api/articles/{bwb_id}/{article}/explanations")
+        assert response.status_code == 200
+        return response.json()
+
+    body = explanations(KLIMAATFONDS, "2")
+    assert body["article_id"] == f"articles/{make_node_key(KLIMAATFONDS, '2')}"
+    assert body["total"] == 1
+    (item,) = body["items"]
+    assert item["document"]["id"] == ids["klimaat_doc"]
+    assert item["document"]["kind"] == "Memorie van toelichting"
+    assert item["target"] == "article_version"
+    assert item["target_id"] == ids["klimaat_2"]
+    (passage,) = item["passages"]
+    assert passage["heading"] == "Artikel I"
+    assert passage["match_type"] == "body_named_law"
+    assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
+    # the same passage as the memorandum's own route gives
+    same = client.get(
+        f"/api/documents/{item['document']['key']}/passages",
+        params={"bwb_id": KLIMAATFONDS, "article": "2"},
+    ).json()["items"]
+    assert [item["passages"]] == [same]
+
+    # a new law: through the version, and the article without a change edge itself
+    for number, target in (("1", "article_version"), ("3", "article")):
+        (item,) = explanations(NEW_LAW, number)["items"]
+        assert item["target"] == target
+        assert [p["text"] for p in item["passages"]] == [
+            f"Artikel {number}\nToelichting op artikel {number}."
+        ]
+
+    # explained for the dossier only, a budget paper, and an unknown article: nothing
+    empty = {"total": 0, "items": []}
+    for bwb_id, number in ((KLIMAATFONDS, "3"), (BUDGET_LAW, "2"), (NEW_LAW, "99")):
+        body = explanations(bwb_id, number)
+        assert {"total": body["total"], "items": body["items"]} == empty
+
+
+PROEF = "BWBR0099003"  # changed by dossier 36300, whose memorandum names onderdelen
+_BILL_36300 = """VOORSTEL VAN WET
+ARTIKEL I
+Het Wetboek van Proef wordt als volgt gewijzigd:
+A
+In artikel 10, eerste lid, wordt «twee» vervangen door: drie.
+B
+Na artikel 20 worden twee artikelen ingevoegd, luidende:
+Artikel 20a
+Hij die proeft, wordt gestraft.
+Artikel 20b
+Hij die niet proeft, ook.
+ARTIKEL II
+Deze wet treedt in werking met ingang van de dag na de uitgifte."""
+
+
+def _onderdelen_graph(store: GraphStore) -> dict[str, str]:
+    """36300: a bill that changes a code, explained per onderdeel; 20b was left out by an
+    amendment (no change edge)."""
+    ids: dict[str, str] = {}
+    _node(store, "dossiers", "36300", "dossier", number="36300")
+    _law(store, PROEF, "Wetboek van Proef")
+    publication = _node(
+        store, "instruments", "stb_2025_4", "instrument", display_name="Stb. 2025, 4"
+    )
+    _edge(store, publication, "dossiers/36300", RELATION_LEGISLATED_IN)
+    for number, relation in (("10", RELATION_AMENDS), ("20a", RELATION_INTRODUCES)):
+        article, version = _article(store, PROEF, number)
+        _edge(store, publication, article, relation, article_version=version)
+        ids[number] = f"article_versions/{version}"
+    ids["20b"], _ = _article(store, PROEF, "20b")
+    bill = _node(
+        store,
+        "documents",
+        "bill_36300",
+        "document",
+        kind="Voorstel van wet",
+        date="2025-01-01",
+        text=_BILL_36300,
+    )
+    _edge(store, bill, "dossiers/36300", RELATION_PART_OF)
+    text, sections = "", []
+    for heading, body in (
+        ("Artikel I, onderdeel A", "De boete gaat omhoog."),
+        ("Artikel I, onderdeel B", "Twee nieuwe delicten."),
+        ("Artikel II", "De inwerkingtreding."),
+    ):
+        start = len(text) + (1 if text else 0)
+        block = f"{heading}\n{body}"
+        text += ("\n" if text else "") + block
+        number = heading.split()[1].rstrip(",")
+        sections.append(
+            {
+                "id": f"s-{len(sections)}",
+                "heading": heading,
+                "level": 1,
+                "parent": None,
+                "kind": "article",
+                "number": number,
+                "number_scheme": "roman",
+                "article_refs": [{"number": number, "of": "self"}],
+                "law": None,
+                "char_start": start,
+                "char_end": start + len(block),
+            }
+        )
+    ids["doc"] = _memorandum(store, "mvt_36300", "36300", text, sections)
+    return ids
+
+
+def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    ids = _onderdelen_graph(store)
+
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+
+    edges = _by_target(store, ids["doc"])
+    for number, section in (("10", "s-0"), ("20a", "s-1")):
+        meta = edges[ids[number]]["meta"]
+        assert meta["section_anchor"] == section
+        assert meta["match_type"] == "bill_part"
+        assert meta["changed"] is True
+    # what the bill inserted and the dossier did not change, and the bill's own articles
+    assert ids["20b"] not in edges
+    assert set(edges) == {ids["10"], ids["20a"]}
+
+    # and the reader gets the onderdeel as the passage of the article
+    app.dependency_overrides[get_store] = lambda: store
+    body = TestClient(app).get(f"/api/articles/{PROEF}/20a/explanations").json()
+    (item,) = body["items"]
+    (passage,) = item["passages"]
+    assert (passage["heading"], passage["match_type"]) == (
+        "Artikel I, onderdeel B",
+        "bill_part",
+    )
+    assert passage["text"] == "Artikel I, onderdeel B\nTwee nieuwe delicten."
+
+
+def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
+    database: str, cli: Any
+) -> None:
+    """A full run replaces what it wrote before: a section edge it no longer finds becomes
+    the dossier-level edge again when the dossier changed the article, and goes when not."""
+    store = GraphStore()
+    ids = _graph(store)
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+    stale = {
+        "section_anchor": "s-1",
+        "sections": [{"section_anchor": "s-1", "heading": "Artikel I"}],
+        "match_type": "body_named_law",
+    }
+    # what an earlier code wrote: 3 of the Klimaatfonds (changed, no section names it), and
+    # an article of another dossier's law
+    for target in (ids["klimaat_3"], ids["new_1"]):
+        doc = make_edge_doc(
+            ids["klimaat_doc"],
+            target,
+            "EXPLAINS",
+            source=SEMANTIC_SOURCE_SECTIONS,
+            confidence=0.65,
+            meta=stale,
+        )
+        store.bulk_insert_or_update_edges([doc])
+    assert ids["new_1"] in _by_target(store, ids["klimaat_doc"])
+
+    _run(cli, "tk-mvt-articles")
+
+    edges = _by_target(store, ids["klimaat_doc"])
+    back = edges[ids["klimaat_3"]]
+    assert (back["source"], back["confidence"]) == (SEMANTIC_SOURCE, DOSSIER_CONFIDENCE)
+    assert not (back["meta"] or {}).get("sections")
+    assert ids["new_1"] not in edges
+    # what it still derives stays as it was
+    assert edges[ids["klimaat_2"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+
+
+def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
+    database: str, cli: Any
+) -> None:
+    """34372: 126ffa came in by amendment nr. 14; its Toelichting is what the reader shows.
+    A rejected amendment explains nothing."""
+    store = GraphStore()
+    ids = _onderdelen_graph(store)
+    article, version = _article(store, PROEF, "30a")
+    publication = "instruments/stb_2025_4"
+    _edge(store, publication, article, RELATION_INTRODUCES, article_version=version)
+    text = (
+        "AMENDEMENT VAN DE LEDEN A EN B\n"
+        "De ondergetekenden stellen het volgende amendement voor:\n"
+        "In artikel I wordt na onderdeel B een onderdeel ingevoegd, luidende:\n"
+        "Ba\nNa artikel 30 wordt een artikel ingevoegd, luidende:\nArtikel 30a\n"
+        "De officier van justitie kan bevelen.\n"
+        "Toelichting\nDit amendement regelt een machtiging."
+    )
+    start = text.index("Toelichting")
+    sections = [
+        {"id": "s-1", "heading": "Toelichting", "level": 1, "parent": None,
+         "kind": "other", "number": None, "number_scheme": None, "article_refs": [],
+         "law": None, "char_start": start, "char_end": len(text)}
+    ]  # fmt: skip
+    for key, passed in (("amendment_adopted", True), ("amendment_rejected", False)):
+        paper = _node(
+            store, "documents", key, "document", kind="Amendement", text=text,
+            sections=sections, date="2025-02-01",
+        )  # fmt: skip
+        _edge(store, paper, "dossiers/36300", RELATION_PART_OF)
+        _edge(store, paper, f"cases/{key}", RELATION_PART_OF)
+        decision = _node(
+            store, "decisions", f"d_{key}", "decision", date="2025-02-02", passed=passed
+        )
+        _edge(store, decision, f"cases/{key}", "ABOUT")
+
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+
+    adopted = _by_target(store, "documents/amendment_adopted")
+    assert set(adopted) == {f"article_versions/{version}"}
+    meta = adopted[f"article_versions/{version}"]["meta"]
+    assert (meta["match_type"], meta["heading"]) == ("amendment", "Toelichting")
+    assert _by_target(store, "documents/amendment_rejected") == {}
+
+    # the reader: the memorandum names no 30a; the amendment explains it
+    app.dependency_overrides[get_store] = lambda: store
+    body = TestClient(app).get(f"/api/articles/{PROEF}/30a/explanations").json()
+    (item,) = body["items"]
+    assert item["document"]["kind"] == "Amendement"
+    (passage,) = item["passages"]
+    assert passage["text"] == "Toelichting\nDit amendement regelt een machtiging."
+    assert ids["doc"] not in [i["document"]["id"] for i in body["items"]]

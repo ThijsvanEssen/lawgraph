@@ -10,8 +10,25 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
+    COLLECTION_MEMBERS,
 )
 from lawgraph.db.counting import Store
+
+
+def voted_motion_urls(store: Store) -> list[str]:
+    """The pages of the motions the list of votes of the Eerste Kamer named (``motion_url``
+    of its decisions on a motion), in order."""
+    return list(
+        store.query(
+            f"""
+            SELECT DISTINCT lg_str(d.props -> 'motion_url') AS url
+            FROM {COLLECTION_DECISIONS} d
+            WHERE lg_str(d.props -> 'kind') = 'Motie'
+              AND lg_str(d.props -> 'motion_url') IS NOT NULL
+            ORDER BY 1 ASC NULLS FIRST
+            """
+        )
+    )
 
 
 def voted_bill_urls(store: Store, since: str | None) -> Iterator[str]:
@@ -100,3 +117,50 @@ def ek_papers_by_letter(store: Store, numbers: list[str]) -> dict[tuple[str, str
             if row["letter"]:
                 found.setdefault((label, row["letter"]), row["id"])
     return found
+
+
+def ek_factions_named(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, abbreviation, name, seats, observed_from, observed_until}`` of every
+    faction of the Eerste Kamer: what the page of a member names a faction by."""
+    return store.query(
+        f"""
+        SELECT f.id, f.key, lg_str(f.props -> 'abbreviation') AS abbreviation,
+               lg_str(f.props -> 'name') AS name,
+               lg_num(f.props -> 'seats')::int AS seats,
+               lg_str(f.props -> 'observed_from') AS observed_from,
+               lg_str(f.props -> 'observed_until') AS observed_until
+        FROM {COLLECTION_FACTIONS} f
+        WHERE lg_str(f.props -> 'chamber') = 'EK'
+        ORDER BY f.key ASC NULLS FIRST
+        """
+    )
+
+
+def members_by_ek_path(store: Store, paths: list[str]) -> dict[str, str]:
+    """The key of the member whose page of the Eerste Kamer is each of *paths*, as the
+    composition gave them (``ek.path``)."""
+    rows = store.query(
+        f"""
+        SELECT lg_str(m.props -> 'ek' -> 'path') AS path, m.key
+        FROM {COLLECTION_MEMBERS} m
+        WHERE lg_str(m.props -> 'ek' -> 'path') = ANY(%(paths)s::text[])
+        ORDER BY m.key ASC NULLS LAST
+        """,
+        {"paths": paths},
+    )
+    return {row["path"]: row["key"] for row in rows}
+
+
+def member_external_ids(store: Store, keys: list[str]) -> list[dict[str, Any]]:
+    """``{key, external_id}`` of the members *keys*: the Tweede Kamer's id of the person."""
+    return list(
+        store.query(
+            f"""
+            SELECT m.key, lg_str(m.props -> 'external_id') AS external_id
+            FROM {COLLECTION_MEMBERS} m
+            WHERE m.key = ANY(%(keys)s::text[])
+            ORDER BY m.key
+            """,
+            {"keys": keys},
+        )
+    )

@@ -29,8 +29,14 @@ from lawgraph.pipelines.retrieve.eerstekamer_bills import (
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.eerstekamer_motions import (
+    EerstekamerMotionsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_mutations import (
     EerstekamerMutationsRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.eerstekamer_persons import (
+    EerstekamerPersonsRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
@@ -283,6 +289,36 @@ def retrieve_eerstekamer_mutations(argv: list[str] | None = None) -> PipelineRes
         "not stored yet."
     ).parse_args(argv)
     return EerstekamerMutationsRetrievePipeline(GraphStore()).run()
+
+
+def retrieve_eerstekamer_persons(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the page of every member of the Eerste Kamer (eerstekamer.nl, "
+        "/persoon): those the composition lists and every person a stored change links; "
+        "each page not stored, or linked by a change fetched after it."
+    )
+    parser.add_argument(
+        "--sitting",
+        action="store_true",
+        help="Fetch the page of every sitting member again (the weekly run).",
+    )
+    args = parser.parse_args(argv)
+    return EerstekamerPersonsRetrievePipeline(GraphStore(), sitting=args.sitting).run()
+
+
+def retrieve_eerstekamer_motions(argv: list[str] | None = None) -> PipelineResult:
+    parser = command_parser(
+        description="Retrieve the page of every motion of the Eerste Kamer voted on "
+        "(eerstekamer.nl, /motiedossier): each page not stored yet."
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="At most this many pages in this run (the rest in the next).",
+    )
+    args = parser.parse_args(argv)
+    return EerstekamerMotionsRetrievePipeline(GraphStore(), limit=args.limit).run()
 
 
 def retrieve_kiesraad(argv: list[str] | None = None) -> PipelineResult:

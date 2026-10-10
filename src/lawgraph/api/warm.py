@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from functools import partial
 
-from lawgraph.api.routes.stats import coverage_data, stats_data
+from lawgraph.api.routes.stats import coverage_data, list_totals, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
@@ -34,6 +34,7 @@ from lawgraph.db.queries._bm25 import _stats as search_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.committees import load_member_slugs
+from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
 from lawgraph.db.queries.feed import FeedFilters, get_feed
@@ -69,6 +70,9 @@ def is_warm(store: GraphStore) -> bool:
     """Whether the warm-up is done for the data as it is now."""
     return _warmed is not None and _warmed == store.data_version()
 
+
+# The lists of decisions the explorer opens: of both Kamers and of the Tweede Kamer.
+FIRST_DECISIONS = (DecisionFilters(), DecisionFilters(chamber="TK"))
 
 # The newest cabinets, whose pages are warmed (each reads every paper its members signed).
 WARM_CABINETS = 4
@@ -141,6 +145,16 @@ PART_TABLES: dict[str, tuple[str, ...]] = {
     "documents": (COLLECTION_DOCUMENTS,),
     "search notation": (COLLECTION_INSTRUMENTS,),
     "search codes": (COLLECTION_INSTRUMENTS,),
+    "instrument names": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
+    "instrument facets": (
+        COLLECTION_INSTRUMENTS,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        COLLECTION_EDGES,
+    ),
     "dossier law names": (COLLECTION_INSTRUMENTS,),
     "dossier names": (COLLECTION_DOSSIERS,),
     "member slugs": (COLLECTION_MEMBERS,),
@@ -160,11 +174,21 @@ def warm_up(store: GraphStore) -> None:
     parts: dict[str, Callable[[], object]] = {
         # cheap and asked most first, so that a deploy is warm for them within a minute
         "stats": lambda: stats_data(store),
+        # the totals of the lists without a filter (``lists``; each kept per its tables)
+        "list totals": lambda: list_totals(store),
         "coverage": lambda: coverage_data(store),
         "cabinets": lambda: _warm_cabinets(store),
         "instruments": lambda: get_instruments_list(
             store, article_count_min=1, limit=20
         ),
+        # the names of the 200 largest laws the explorer asks once per visit, when idle
+        # (``primeInstrumentNames``: ``?sort=article_count&limit=200``)
+        "instrument names": lambda: get_instruments_list(
+            store, sort="article_count", limit=200
+        ),
+        # the facets of the list of laws without a filter, as Bladeren opens it
+        # (``?limit=1``, its page asked apart with ``facets=false``)
+        "instrument facets": lambda: get_instruments_list(store, limit=1),
         "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
         "search notation": lambda: load_notation_parser(store),
         "search codes": lambda: load_code_aliases(store),
@@ -177,6 +201,11 @@ def warm_up(store: GraphStore) -> None:
             for table in SEARCH_FIELDS
         },
         "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
+        # the total and facets of the list of decisions as the explorer opens it, of both
+        # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
+        "decision counts": lambda: [
+            decision_counts(store, filters) for filters in FIRST_DECISIONS
+        ],
         # the slow ones last: the feed and every kind of it in one reading of the events
         # (``feed_counts``), then the largest areas of law
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),

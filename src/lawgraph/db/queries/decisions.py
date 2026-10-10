@@ -414,26 +414,132 @@ def get_decisions(
     *,
     limit: int = 50,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """A page of decisions, newest first, with the seat tally per row, and the facets.
+    """A page of decisions, newest first, with the seat tally per row, and the facets
+    (``facets=False``: the page alone, ``total`` and ``facets`` None, nothing counted).
 
-    The tally and the kind are stored on the decision, so a list page costs no
-    traversal; filtering by party reads the VOTED edges of that party.
-
-    ``facets`` counts the decisions under the filters: ``kind`` without the kind filter
-    (and per kind how many carried and how many did not), ``passed`` without the outcome
-    filter, ``days`` (per date, how many and how many passed) and ``years`` (per year, how
-    many, carried, not) under all of them. There is one decision per Besluit, so the
-    filtered ones are read once, three fields each, and every count is made from that.
-    ``party_votes`` (with ``filters.party_votes``) reads the votes of factions on the
-    decisions under all filters (``_PARTY_VOTES``).
+    The page is read first and alone: the decisions under the filters in date order, as
+    far as the page goes. ``total`` and ``facets`` (``decision_counts``) read every decision
+    under the filters, and are kept per filter and version of the decisions; a request
+    waits for them ``COUNTS_BUDGET`` at most, then answers ``total`` null, empty facets and
+    ``partial``, and a request after the count has them. ``party_votes`` (with
+    ``filters.party_votes``) as before (``_add_party_votes``).
     """
     filters = filters or DecisionFilters()
+    items = _page(store, filters, limit, offset)
+    _add_motions(store, items)
+    if not facets:
+        return {"total": None, "items": items, "facets": None}
+    left = read_time_left()
+    token = set_read_deadline(
+        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
+    )
+    page: dict[str, Any]
+    try:
+        counts = decision_counts(store, filters)
+        page = {"total": counts["total"], "items": items, "facets": counts["facets"]}
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        # counted on for the next request (``lasting``); this one shows the page now
+        page = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
+        page["partial"] = True
+    finally:
+        reset_read_deadline(token)
+    if filters.party_votes:
+        _add_party_votes(store, filters, page)
+    return page
+
+
+# The seconds a request waits for the total and facets of a filter not counted before:
+# past them the page comes without them, ``partial``, and they are counted on for a later
+# request.
+COUNTS_BUDGET = 3.0
+# How long the total and facets under a filter are kept for one version of the decisions
+# (seconds): a new version (a poll) counts again; the coalition of a vote and the votes of
+# a party, which raise no version of the decisions, follow within it.
+COUNTS_MAX_AGE = 3600.0
+
+
+def _page(
+    store: GraphStore, filters: DecisionFilters, limit: int, offset: int
+) -> list[dict[str, Any]]:
+    """The decisions of one page under *filters*, newest first: their order and filters on
+    their columns, a decision's props read for those of the page alone (all of them, the
+    props of each for its kind, was the cost of a page with its counts)."""
     bind: dict[str, Any] = {
         "limit": limit,
         "offset": offset,
         "chambers": [CHAMBER_TK, CHAMBER_EK],
     }
+    common = _common_filters(filters, bind)
+    rest = (
+        _kind_filter(filters, bind)
+        + _passed_filter(filters, bind)
+        + _coalition_filter(filters, bind)
+    )
+    statement = f"""
+    WITH r AS (
+        SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind, d.passed,
+               c.pattern AS coalition_pattern, c.carried AS coalition_carried,
+               c.decisive AS coalition_decisive
+        FROM decisions d
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
+    )
+    SELECT coalesce(json_agg({_ITEM} ORDER BY page.n), '[]'::json) AS items
+    FROM (
+        SELECT r.id, row_number() OVER (ORDER BY {_ORDER}) AS n
+        FROM r {_where(rest)}
+        ORDER BY {_ORDER}
+        LIMIT %(limit)s OFFSET %(offset)s
+    ) page
+    JOIN decisions d ON d.id = page.id
+    LEFT JOIN lg_decision_coalition c ON c.id = d.id
+    """
+    rows = list(store.query(statement, bind))
+    return list(rows[0]) if rows and rows[0] else []
+
+
+def decision_counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
+    """``total`` and ``facets`` under *filters*, of every page alike, kept per filter and
+    version of the decisions (``lasting``, ``COUNTS_MAX_AGE``): one computation per filter
+    at a time, in the background, the same for every visitor."""
+    return _kept_counts(store, filters, store.data_version((COLLECTION_DECISIONS,)))
+
+
+def counted_total(store: GraphStore, filters: DecisionFilters) -> int | None:
+    """The ``total`` under *filters* as ``decision_counts`` keeps it, without waiting for
+    it: None while it is not counted for this version of the decisions (it is counted on,
+    in the background)."""
+    version = store.data_version((COLLECTION_DECISIONS,))
+    token = set_read_deadline(0.0)
+    try:
+        return _kept_counts(store, filters, version)["total"]  # type: ignore[no-any-return]
+    except ReadTimedOut:
+        return None
+    finally:
+        reset_read_deadline(token)
+
+
+def _kept_counts(
+    store: GraphStore, filters: DecisionFilters, version: str
+) -> dict[str, Any]:
+    return lasting(
+        store,
+        ("decision counts", filters, version),
+        lambda: _counts(store, filters),
+        COUNTS_MAX_AGE,
+    )
+
+
+def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
+    """``total`` and ``facets`` under *filters*: ``kind`` without the kind filter (and per
+    kind how many carried and how many did not), ``passed`` without the outcome filter,
+    ``days`` (per date, how many and how many passed) and ``years`` (per year, how many,
+    carried, not) under all of them. There is one decision per Besluit, so the filtered ones
+    are read once, three fields each, and every count is made from that."""
+    bind: dict[str, Any] = {"chambers": [CHAMBER_TK, CHAMBER_EK]}
     kind = _kind_filter(filters, bind)
     passed = _passed_filter(filters, bind)
     coalition = _coalition_filter(filters, bind)
@@ -441,17 +547,6 @@ def get_decisions(
     {_matching(filters, bind)}
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
-        'items', (
-            SELECT coalesce(json_agg({_ITEM} ORDER BY page.n), '[]'::json)
-            FROM (
-                SELECT r.id, row_number() OVER (ORDER BY {_ORDER}) AS n
-                FROM matching r
-                ORDER BY {_ORDER}
-                LIMIT %(limit)s OFFSET %(offset)s
-            ) page
-            JOIN decisions d ON d.id = page.id
-            LEFT JOIN lg_decision_coalition c ON c.id = d.id
-        ),
         'facets', json_build_object(
             'kind', {_kind_facet(passed + coalition)},
             'passed', {_facet("r.passed", "filtered", kind + coalition)},
@@ -488,13 +583,7 @@ def get_decisions(
     )
     """
     rows = list(store.query(statement, bind))
-    page: dict[str, Any] = (
-        rows[0] if rows else {"total": 0, "items": [], "facets": dict(EMPTY_FACETS)}
-    )
-    _add_motions(store, page["items"])
-    if filters.party_votes:
-        _add_party_votes(store, filters, page)
-    return page
+    return rows[0] if rows else {"total": 0, "facets": dict(EMPTY_FACETS)}
 
 
 # The paper a decision was taken on: the oldest paper of each case (as

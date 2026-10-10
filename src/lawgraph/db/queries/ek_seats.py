@@ -79,3 +79,17 @@ def stretch_on(store: GraphStore, day: str) -> dict[str, Any] | None:
         ),
         None,
     )
+
+
+def events(store: Any) -> list[dict[str, Any]]:
+    """Every change of the stretches (``kind``, ``date``, ``member``) and the first day of
+    every term: what the periods of a member's page are checked against."""
+    rows = store.query(
+        """
+        SELECT e ->> 'kind' AS kind, e ->> 'date' AS date, e ->> 'member' AS member
+        FROM lg_ek_seats s, json_array_elements(s.events) AS e
+        UNION ALL
+        SELECT 'term', t.start, NULL FROM lg_ek_terms t
+        """
+    )
+    return list(rows)
