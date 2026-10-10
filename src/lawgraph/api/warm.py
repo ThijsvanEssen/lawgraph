@@ -92,6 +92,9 @@ WARM_SUBJECT_AREAS = 5
 # the instruments with articles and the papers of the Tweede Kamer. The facets and totals
 # are kept per filter, so the warm-up asks with the same filters.
 FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
+# The judgments of every source, as the list shows them once its source is cleared: its
+# counts over every judgment took 20 s cold on prod (10 Oct), kept but never warmed.
+EVERY_JUDGMENT = JudgmentFilters()
 
 
 def _warm_subject_areas(store: GraphStore) -> None:
@@ -204,6 +207,9 @@ def warm_up(store: GraphStore) -> None:
             for table in SEARCH_FIELDS
         },
         "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
+        "judgments of every source": lambda: get_judgments_list(
+            store, EVERY_JUDGMENT, limit=20
+        ),
         # the total and facets of the list of decisions as the explorer opens it, of both
         # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
         "decision counts": lambda: [
