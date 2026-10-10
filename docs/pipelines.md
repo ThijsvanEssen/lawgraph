@@ -206,7 +206,11 @@ over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every st
 person, so the member's timeline is made of all their seats, and takes the member and the faction
 from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
 them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
-successor takes the seat; a record that ends before it begins is left out.
+successor takes the seat; a record that ends before it begins is left out. A seat is held or
+vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
+FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
+(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
