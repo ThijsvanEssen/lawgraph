@@ -27,10 +27,13 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.feed import (
     _CABINET_PERIOD,
+    _DIMENSIONS,
     _IN_PERIOD,
     _PREAMBLE,
     FeedFilters,
+    _dimension_filters,
     _elements,
+    _facet,
     _Kind,
     _kinds_to_read,
     _lit,
@@ -393,6 +396,62 @@ def first_day_of_page(
     recent = (dt.date.today() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     day = min(str(found)[:10], recent) if found else recent
     return day, row.get("nth") is not None
+
+
+def counts_query(
+    filters: FeedFilters, queries: list[str | None] | None = None
+) -> tuple[str, dict[str, Any]]:
+    """SQL and parameters: the ``total`` and ``facets`` of the feed under *filters*, from
+    ``lg_feed_events``: as the feed counts them (``feed._facet``, each facet under every
+    filter but its own) on rows that hold what the feed's ``events`` hold."""
+    shared = replace(
+        filters, kinds=None, chamber=None, ministry=None, faction=None, cabinet=None
+    )
+    _, where, bind = _matching(shared, queries)
+    dimensions = _dimension_filters(filters, bind)
+    plan = _Plan(
+        filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
+    )
+    cabinet = _CABINET_PERIOD if filters.cabinet else ""
+    every = " AND ".join(f"({clause})" for clause in dimensions.values()) or "TRUE"
+    facets = ",\n            ".join(
+        f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
+    )
+    return (
+        f"""WITH {_PREAMBLE}{cabinet},
+    events AS MATERIALIZED (
+        SELECT e.kind, e.id, e.date, e.chamber, e.ministry, e.factions
+        FROM {FEED_EVENTS_TABLE} e
+        WHERE {" AND ".join(f"({clause})" for clause in where)}
+    )
+    SELECT (SELECT count(*)::int FROM events WHERE {every}) AS total,
+        json_build_object(
+            {facets}
+        ) AS facets""",
+        bind,
+    )
+
+
+def get_counts(
+    store: GraphStore, filters: FeedFilters, max_age: float
+) -> dict[str, Any] | None:
+    """``total`` and ``facets`` of the feed under *filters* from ``lg_feed_events``, kept
+    per filter and writing (``lasting``, *max_age*); None where the table cannot tell:
+    never written, or a filter it does not keep (the feed then counts its own rows)."""
+    if unsupported(filters):
+        return None
+    written = next(
+        iter(store.query("SELECT written_at FROM lg_feed_events_state WHERE id")), None
+    )
+    if written is None:
+        return None
+
+    def count() -> dict[str, Any]:
+        statement, bind = counts_query(filters, word_queries(store, filters))
+        row = next(iter(store.query(statement, bind)), None) or {}
+        return {"total": row.get("total"), "facets": row.get("facets")}
+
+    return lasting(store, ("feed counts", filters, written), count, max_age)
 
 
 # How long the periods under a filter are kept (seconds). They are kept per writing of the

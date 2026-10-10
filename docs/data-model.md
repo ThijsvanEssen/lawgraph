@@ -781,7 +781,8 @@ lookup by id.
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
 `ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
 with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
-feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it.
+feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
+/api/feed` under `q` its total and facets.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
