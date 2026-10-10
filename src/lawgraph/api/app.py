@@ -186,7 +186,9 @@ class _ReadDeadlineMiddleware:
             return
         token = set_read_deadline(API_REQUEST_TIMEOUT_MS / 1000)
         try:
-            await self._app(scope, receive, send)
+            # its waits for new answers share one STALE_WAIT (``version_cache``)
+            with version_cache.request_stale_budget():
+                await self._app(scope, receive, send)
         finally:
             reset_read_deadline(token)
 
