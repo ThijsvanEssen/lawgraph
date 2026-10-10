@@ -791,7 +791,8 @@ it (an index, an SRU listing: its file is probably on its way); `pipelines/retri
 ## Tables, indexes and search
 
 Defined in `db/schema.py` and created when the store starts (`ensure_schema`). The store refuses
-a database whose tables differ from the schema (`SchemaOutdated`), and one that does not sort
+a database whose tables this version cannot run on (`SchemaOutdated`: a column of the schema the
+table lacks and the schema does not add itself, or a required column it does not know), and one that does not sort
 strings by the ICU collation `und-u-kf-upper` of `create_database_sql` (`CollationMismatch`): the
 queries compare and sort strings by it. Either is built again.
 

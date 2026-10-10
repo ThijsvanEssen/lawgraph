@@ -45,6 +45,9 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # The collation of the database: how ArangoDB sorts and compares strings (probe P2).
 COLLATION = "und-u-kf-upper"
@@ -1986,6 +1989,25 @@ def expected_columns() -> dict[str, set[str]]:
     return _columns(generated=False)
 
 
+# A column the schema adds to a table that may be older than it (``lg_authored.date``).
+_ADDED = re.compile(
+    r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)([^;]*)", re.IGNORECASE
+)
+
+
+def added_columns() -> dict[str, set[str]]:
+    """table -> the columns the schema adds itself (``ALTER TABLE … ADD COLUMN IF NOT
+    EXISTS``) to a table built before them, but a generated one: PostgreSQL adds a column
+    without a default, or with a constant one, without rewriting the table, so a start adds
+    it at once; a stored generated column would rewrite a large table at the start."""
+    found: dict[str, set[str]] = {}
+    for statement in statements():
+        for table, column, rest in _ADDED.findall(_COMMENT.sub("", statement)):
+            if "GENERATED" not in rest.upper():
+                found.setdefault(table, set()).add(column)
+    return found
+
+
 def expected_generated() -> dict[str, set[str]]:
     """table -> the names of its generated columns. The derived columns of a node table are
     no generated columns: its trigger fills them (``_derive``)."""
@@ -1993,15 +2015,25 @@ def expected_generated() -> dict[str, set[str]]:
 
 
 def schema_drift(conn: psycopg.Connection) -> list[str]:
-    """What differs between the tables of the database and those of the schema: a column
-    the schema has and the table lacks, or the other way round, and a column that is
-    generated in one and not in the other. A table that is not there yet differs in
-    nothing."""
-    expected, generated = expected_columns(), expected_generated()
+    """What differs between the tables of the database and those of the schema, so far that
+    this version cannot run on it: a column the schema has and the table lacks, but one the
+    schema adds itself (``added_columns``); a column the table has and the schema does not,
+    but one that is nullable or has a default (a later version's, added before its deploy:
+    this version writes its rows without it, and starts after that version's step 0 or on a
+    rollback); and a column that is generated in one and not in the other. A table that is
+    not there yet differs in nothing. A column of the table the schema does not know is
+    logged."""
+    expected, generated, added = (
+        expected_columns(),
+        expected_generated(),
+        added_columns(),
+    )
     actual: dict[str, set[str]] = {}
     actual_generated: dict[str, set[str]] = {}
-    for table, column, is_generated in conn.execute(
-        "SELECT table_name, column_name, is_generated = 'ALWAYS'"
+    required: dict[str, set[str]] = {}  # NOT NULL without a default
+    for table, column, is_generated, is_required in conn.execute(
+        "SELECT table_name, column_name, is_generated = 'ALWAYS',"
+        " is_nullable = 'NO' AND column_default IS NULL AND is_generated <> 'ALWAYS'"
         " FROM information_schema.columns"
         " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
         (list(expected),),
@@ -2009,15 +2041,27 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         actual.setdefault(table, set()).add(column)
         if is_generated:
             actual_generated.setdefault(table, set()).add(column)
+        if is_required:
+            required.setdefault(table, set()).add(column)
     differences = []
     for table, columns in sorted(expected.items()):
         present = actual.get(table)
         if present is None:
             continue  # not there yet: it is created as the schema says
-        differences += [f"{table}.{c} ontbreekt" for c in sorted(columns - present)]
+        missing = columns - present - added.get(table, set())
+        differences += [f"{table}.{c} ontbreekt" for c in sorted(missing)]
+        extra = present - columns
         differences += [
-            f"{table}.{c} staat niet in het schema" for c in sorted(present - columns)
+            f"{table}.{c} staat niet in het schema en is verplicht (NOT NULL zonder default)"
+            for c in sorted(extra & required.get(table, set()))
         ]
+        for column in sorted(extra - required.get(table, set())):
+            logger.warning(
+                "%s.%s is not in the schema of this version (one of a later version?): "
+                "left alone, written as null.",
+                table,
+                column,
+            )
         was, wanted = actual_generated.get(table, set()), generated.get(table, set())
         differences += [
             f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
@@ -2034,11 +2078,14 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
     that holds a lock, so two processes that start together do not race.
 
     A table that exists keeps its columns: ``CREATE TABLE IF NOT EXISTS`` adds none. When
-    they are not those of the schema any more (a column added to or dropped from the schema
-    since the database was built), this stops with ``SchemaOutdated`` before anything is
-    created, instead of letting queries fail later: the database is built again, there is
-    no migration (clean slate). A changed expression is not seen: of a generated column, nor
-    of a derived column of a node table (its trigger is replaced here, but rows written
+    this version cannot run on them (a column of its schema the table lacks and the schema
+    does not add itself, a required column it does not know: ``schema_drift``), this stops
+    with ``SchemaOutdated`` before anything is created, instead of letting queries fail
+    later: the database is built again, there is no migration (clean slate). A column the
+    schema adds with ``ADD COLUMN IF NOT EXISTS`` is added here; a nullable column of a
+    later version is left alone, so an older version starts on a database a step 0 of the
+    next one prepared, and on a rollback. A changed expression is not seen: of a generated
+    column, nor of a derived column of a node table (its trigger is replaced here, but rows written
     before keep what the old one computed). A database that does not sort by ``COLLATION``
     is refused first (``check_collation``), unless it is *allowed_collation*."""
     with conn.transaction():
