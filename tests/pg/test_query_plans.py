@@ -33,6 +33,12 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import _query, _text
+from tests.databases import fresh_database
+from tests.pg.conftest import TEST_URL, opened_store
+
+# The graph is seeded and every route run once for the whole module (``planned``), and
+# its tests run on one worker (``--dist loadgroup`` in CI): the seed is the slow part.
+pytestmark = pytest.mark.xdist_group("query_plans")
 
 BWB = "BWBR0001"
 FILLER = 10_000
@@ -432,10 +438,26 @@ def _fill(store: GraphStore) -> None:
         store.execute(statement)
 
 
-@pytest.fixture()
-def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
+@pytest.fixture(scope="module")
+def planned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The store on a database of its own with the seeded graph, for every test here: they
+    only plan statements on it, and set what they change for their own transaction."""
+    payloads = tmp_path_factory.mktemp("payloads")
+    with (
+        fresh_database(TEST_URL) as name,
+        pytest.MonkeyPatch.context() as monkeypatch,
+        opened_store(
+            f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
+        ) as store,
+    ):
+        _seed(store)
+        yield store
+
+
+@pytest.fixture(scope="module")
+def statements(planned: GraphStore) -> list[tuple[str, Any, Any]]:
     """``(url, statement, params)`` of every read the routes run."""
-    _seed(store)
+    store = planned
     # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
     store_heat(store, HEAT_MAX_LIMIT)
     captured: list[tuple[str, Any, Any]] = []
@@ -456,9 +478,10 @@ def statements(store: GraphStore) -> Iterator[list[tuple[str, Any, Any]]]:
             current["url"] = url
             response = client.get(url)
             assert response.status_code == 200, (url, response.text[:300])
-        yield captured
     finally:
         app.dependency_overrides.pop(get_store, None)
+        store.query = query  # type: ignore[method-assign]
+    return captured
 
 
 def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
@@ -547,15 +570,16 @@ def _outline(node: dict[str, Any], depth: int = 0) -> list[str]:
 
 
 def test_the_routes_read_through_indexes(
-    store: GraphStore, statements: list[tuple[str, Any, Any]]
+    planned: GraphStore, statements: list[tuple[str, Any, Any]]
 ) -> None:
     assert len(statements) > 60  # the routes ran their queries
     faults = []
-    with store.pool.connection() as conn:
+    with planned.pool.connection() as conn:
         # Joins by hash or merge read both sides whole: off too, so that what a nested
-        # loop over an index can join is joined that way.
+        # loop over an index can join is joined that way. For this transaction only: the
+        # connection goes back to the pool the next test plans with.
         for setting in ("seqscan", "hashjoin", "mergejoin"):
-            conn.execute(f"SET enable_{setting} = off")
+            conn.execute(f"SET LOCAL enable_{setting} = off")
         partial = frozenset(
             name
             for (name,) in conn.execute(
@@ -643,14 +667,14 @@ def _shape(node: dict[str, Any]) -> list[str]:
 
 
 def test_a_cursor_is_planned_as_the_query_it_reads(
-    store: GraphStore, statements: list[tuple[str, Any, Any]]
+    planned: GraphStore, statements: list[tuple[str, Any, Any]]
 ) -> None:
     """``store.query`` reads every statement through a server-side cursor; planned for its
     first tenth (the default ``cursor_tuple_fraction``), a statement with ``ORDER BY …
     LIMIT`` may walk a table in index order. The connections of the pool plan a cursor
     for all its rows: as the statement itself."""
     differ = []
-    with store.pool.connection() as conn:
+    with planned.pool.connection() as conn:
         assert conn.execute("SHOW cursor_tuple_fraction").fetchone() == ("1",)
         for url, statement, params in statements:
             query = _query(statement)

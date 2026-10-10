@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
@@ -67,19 +68,26 @@ def conn(database_url: str) -> Iterator[psycopg.Connection]:
         yield connection
 
 
-@pytest.fixture()
-def store(
-    database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@contextmanager
+def opened_store(
+    database_url: str, payloads: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[GraphStore]:
-    """The store on a fresh database, with a payload store of its own."""
+    """The store on the database of *database_url*, with its payloads in *payloads*."""
     server, name = database_url.rsplit("/", 1)
     monkeypatch.setattr(store_module, "DB_URL", server)
     monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(
-        store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
-    )
+    monkeypatch.setattr(store_module, "PAYLOAD_STORE", f"file://{payloads}")
     opened = GraphStore()
     try:
         yield opened
     finally:
         opened.close()
+
+
+@pytest.fixture()
+def store(
+    database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[GraphStore]:
+    """The store on a fresh database, with a payload store of its own."""
+    with opened_store(database_url, tmp_path / "payloads", monkeypatch) as opened:
+        yield opened

@@ -1,7 +1,7 @@
 """The Staatsblad and Staatscourant publications matched to an instrument by title, on a real
 PostgreSQL: the pieces of a title find the same instrument as testing every title against
-every publication, and on thousands of publications and tens of thousands of instruments
-test only a small share of those pairs, in one statement per source."""
+every publication, and on a thousand publications and ten thousand instruments test only a
+small share of those pairs, in one statement per source."""
 
 from __future__ import annotations
 
@@ -124,8 +124,11 @@ def _tested_pairs(node: dict[str, Any]) -> float:
     return tested + sum(_tested_pairs(child) for child in node.get("Plans", ()))
 
 
-def test_thousands_of_publications_test_few_of_the_pairs(store: GraphStore) -> None:
-    pubs, instruments = 3_000, 30_000
+def test_a_thousand_publications_test_few_of_the_pairs(store: GraphStore) -> None:
+    # The share of the pairs tested does not shrink with the scale: the words come from a
+    # fixed stock, so each piece is shared by a fixed share of the titles (staatsblad 7.5%
+    # and staatscourant 1.0% of the pairs on 3,000 x 30,000, 7.6% and 1.0% here).
+    pubs, instruments = 1_000, 10_000
     _graph(store, random.Random(11), pubs=pubs, instruments=instruments)
 
     # one statement per source and kind of match, never one per publication
@@ -140,7 +143,7 @@ def test_thousands_of_publications_test_few_of_the_pairs(store: GraphStore) -> N
     rows = semantic_bwb.staatsblad_instrument_matches(store)
     rows += semantic_bwb.staatscourant_instrument_matches(store, None)
     store.query = query  # type: ignore[method-assign]
-    assert len(rows) > 2_000
+    assert len(rows) > 2 * pubs // 3
     assert len(statements) == 4
 
     # Every title against every publication tests each pair: the pieces test a few in a

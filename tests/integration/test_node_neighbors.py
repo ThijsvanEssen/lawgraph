@@ -560,8 +560,11 @@ def test_the_neighbourhood_response_follows_the_filters(
 # ── a hub ───────────────────────────────────────────────────────────────────────────────
 
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
-HUB_ARTICLES = 60_000
-HUB_JUDGMENTS = 20_000
+# Many pages of 100 per bucket and many chunks of the walk (``_NEIGHBOUR_CHUNK``, 500) for
+# each relation: what the counts, the pages and the cap rest on. More edges change no plan
+# the tests check, only the time the seed takes.
+HUB_ARTICLES = 6_000
+HUB_JUDGMENTS = 2_000
 
 
 def _seed_hub(store: GraphStore) -> None:
@@ -588,11 +591,11 @@ def _seed_hub(store: GraphStore) -> None:
     _write(store, "edges", edges)
 
 
-def test_a_hub_with_tens_of_thousands_of_edges_is_counted_and_paged_in_the_database(
+def test_a_hub_with_thousands_of_edges_is_counted_and_paged_in_the_database(
     store: GraphStore,
 ) -> None:
     """The edges of a hub (an instrument with all its articles, a faction with its votes) are
-    counted by the server and paged from the edge index: 80,000 edges of 700 bytes."""
+    counted by the server and paged from the edge index: 8,000 edges of 700 bytes."""
     _seed_hub(store)
 
     facets = _facets(store, "hub")
