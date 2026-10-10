@@ -314,6 +314,20 @@ def test_the_feed_title_and_page_say_the_filters() -> None:
         "dossier": "36600",
         "fractie": "d66",
     }
+    split = FeedFilters(kinds=("stemming",), coalition="split")
+    assert feed_title(split, page) == "Concordans: stemmingen, coalitie verdeeld"
+    assert site_query(split) == {"soort": "stemming", "coalitie": "split"}
+
+
+def test_the_coalition_filter_of_the_route_takes_the_values_the_feed_counts() -> None:
+    from typing import get_args, get_type_hints
+
+    from lawgraph.api.routes.feed import scope_filters
+    from lawgraph.core.feed import FEED_COALITION
+
+    hint = get_type_hints(scope_filters, include_extras=True)["coalition"]
+    literal = get_args(get_args(hint)[0])[0]
+    assert get_args(literal) == FEED_COALITION
 
 
 @pytest.mark.parametrize(

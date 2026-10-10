@@ -128,6 +128,16 @@ def scope_filters(
             "commencements belong to neither."
         ),
     ] = None,
+    coalition: Annotated[
+        Literal["together", "split", "wissel", "decisive"] | None,
+        Query(
+            description="What the coalition did on a vote of the Tweede Kamer: "
+            "``together`` (every coalition seat on one side), ``split`` (on both, a "
+            "wisselmeerderheid too), ``wissel`` (split, and the side with the most "
+            "coalition seats lost), ``decisive`` (the opposition alone would have decided "
+            "otherwise). Keeps votes alone."
+        ),
+    ] = None,
     tier: Annotated[
         str | None,
         Query(
@@ -148,6 +158,7 @@ def scope_filters(
         q=_words(q),
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
+        coalition=coalition,
     )
 
 
@@ -303,6 +314,13 @@ _SITE_PARAMETERS = {
     "q": "q",
     "chamber": "kamer",
     "tiers": "instantie",
+    "coalition": "coalitie",
+}
+_COALITION_WORDS = {
+    "together": "coalitie eensgezind",
+    "split": "coalitie verdeeld",
+    "wissel": "wisselmeerderheid",
+    "decisive": "coalitie doorslaggevend",
 }
 
 
@@ -352,6 +370,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(_person_name(page, filters.member))
     if filters.faction:
         parts.append(_faction_name(page, filters.faction))
+    if filters.coalition:
+        parts.append(_COALITION_WORDS[filters.coalition])
     if filters.q:
         parts.append(" of ".join(f"‘{word}’" for word in filters.q))
     if filters.since:

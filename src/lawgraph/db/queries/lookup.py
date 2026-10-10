@@ -163,12 +163,19 @@ def find_annex(store: GraphStore, law: str, label: str) -> str | None:
 
 
 def find_case(store: GraphStore, number: str) -> str | None:
-    """The zaak of the Tweede Kamer numbered *number* (``2025Z15468``)."""
+    """The zaak of the Tweede Kamer numbered *number* (``2025Z15468``). Those of the
+    number are found first, by ``cases_number``, and only they are ordered: with ``ORDER BY
+    key LIMIT 1`` beside the condition the planner may walk ``cases_key`` until a row
+    holds it (prod, 1.4 s, while the expression had no statistics)."""
     return _one(
         store,
-        f"SELECT c.id FROM {COLLECTION_CASES} c"
-        " WHERE lg_str(c.props -> 'number') = %(number)s"
-        " ORDER BY c.key LIMIT 1",
+        f"""
+        WITH numbered AS MATERIALIZED (
+            SELECT c.id, c.key FROM {COLLECTION_CASES} c
+            WHERE lg_str(c.props -> 'number') = %(number)s
+        )
+        SELECT id FROM numbered ORDER BY key LIMIT 1
+        """,
         {"number": number.strip().upper()},
     )
 
@@ -223,12 +230,17 @@ def find_committee(store: GraphStore, slug: str) -> str | None:
 
 
 def find_member(store: GraphStore, slug: str) -> str | None:
-    """The member of *slug* (``rob-jetten``, ``jan-de-vries-1971``)."""
+    """The member of *slug* (``rob-jetten``, ``jan-de-vries-1971``): by ``members_slug``,
+    as ``find_case`` finds a zaak."""
     return _one(
         store,
-        f"SELECT m.id FROM {COLLECTION_MEMBERS} m"
-        " WHERE lg_str(m.props -> 'slug') = %(slug)s"
-        " ORDER BY m.key ASC NULLS FIRST LIMIT 1",
+        f"""
+        WITH slugged AS MATERIALIZED (
+            SELECT m.id, m.key FROM {COLLECTION_MEMBERS} m
+            WHERE lg_str(m.props -> 'slug') = %(slug)s
+        )
+        SELECT id FROM slugged ORDER BY key ASC NULLS FIRST LIMIT 1
+        """,
         {"slug": slug.strip().lower()},
     )
 
