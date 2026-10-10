@@ -116,6 +116,16 @@ def test_a_dossier_of_the_papers_and_the_tweede_kamer_takes_it_over(
         "Begroting 1999",
     )
     assert page["kind"] is None and not page["phases"]
+    # a dossier of the Tweede Kamer written before ``source`` came is ``tk``, not null
+    store.execute(
+        "UPDATE dossiers SET props = (props::jsonb - 'source')::json WHERE key = '30300'"
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        older = TestClient(app).get("/api/dossiers/30300").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert older["source"] == "tk"
 
     # the Tweede Kamer delivers the dossier later: it takes the node over, the papers stay
     with NodeWriter(store) as writer:

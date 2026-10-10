@@ -497,13 +497,14 @@ class DossierSummaryDTO(WithPath):
         "``Verzamelwet gegevensbescherming``; null when the title has none.",
     )
     title_source: TitleSource | None = None
-    source: DossierSource | None = Field(
-        None,
+    source: DossierSource = Field(
+        "tk",
         description="Where the dossier comes from: ``tk`` the Tweede Kamer's data, "
         "``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede "
         "Kamer's data has none (its OData begins about 2005), with the title they give "
         "(``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede "
-        "Kamer; null as ``tk`` for a dossier not normalized since this field came.",
+        "Kamer. A dossier without one in the graph (written before this field) is ``tk``: "
+        "only those of the Eerste Kamer's papers carry ``eerstekamer``.",
     )
     kind: str | None = Field(
         None,
@@ -1045,7 +1046,8 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": short_title(props.get("title")),
         "title_source": props.get("title_source"),
-        "source": props.get("source"),
+        # only a dossier written from the papers of the Eerste Kamer names its source
+        "source": props.get("source") or "tk",
         "kind": props.get("kind"),
         "kind_basis": props.get("kind_basis"),
         "phases": props.get("phases"),
