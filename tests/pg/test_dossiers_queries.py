@@ -1173,6 +1173,8 @@ def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
         "planned",
         "title",
         "after_closure",
+        "coalition",
+        "coalition_factions",
         "committee",
     ]
     assert row["labels"] == ["TK"] and row["title"] is None

@@ -53,6 +53,7 @@ from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.schema import node_of
@@ -409,6 +410,8 @@ def get_dossier_timeline(
                     > left({_as_text("closing.closed_on")}, 10),
                 false
             ),
+            'coalition', {coalition_object("co")},
+            'coalition_factions', {coalition_factions("co")},
             'committee', CASE WHEN p.type = 'activity' THEN (
                 SELECT json_build_object(
                     'key', c.key,
@@ -424,6 +427,8 @@ def get_dossier_timeline(
         )
     )
     FROM page p CROSS JOIN closing
+    -- of a decision: what the coalition did on it (``tk-coalition-votes``)
+    LEFT JOIN lg_decision_coalition co ON p.type = 'decision' AND co.id = p.id
     ORDER BY {_json_order("p.date", direction)}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
