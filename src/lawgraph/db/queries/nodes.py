@@ -466,6 +466,7 @@ def get_node_neighborhood(
     depth: int = 3,
     cap: int = 200,
     filters: NeighborFilter = NO_FILTER,
+    canvas: bool = False,
 ) -> dict[str, Any]:
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
@@ -473,9 +474,12 @@ def get_node_neighborhood(
     shape the walk itself: it follows only edges of the given relations and status, in the
     given direction, and goes through nodes of the given types (the focal node is always
     kept). The result also carries every other edge of those relations and that status
-    between two of the nodes kept, so the frontend can render the full subgraph.
+    between two of the nodes kept, so the frontend can render the full subgraph. With
+    *canvas* a node carries only the props the canvas of the explorer draws
+    (``_rows.CANVAS_PROPS``), as a neighbour of ``props=canvas`` does.
     """
     focal = _load_node(store, collection, key)
+    props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, 1000))
     # One statement: the walk in the database (breadth first, D9: a level is kept in id
@@ -492,7 +496,7 @@ def get_node_neighborhood(
             )
             SELECT
                 (SELECT coalesce(json_agg(json_build_array(
-                     n.id, n.key, n.type, n.labels, {light_props("n")}) ORDER BY n.id), '[]')
+                     n.id, n.key, n.type, n.labels, {props}) ORDER BY n.id), '[]')
                  FROM walked w, nodes n
                  WHERE n.id = ANY(w.ids)
                    -- only the tables of the collections walked to are asked

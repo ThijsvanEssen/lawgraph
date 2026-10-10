@@ -667,3 +667,66 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
     assert "case_kinds_by_dossier" not in activity["props"]
     (amendment,) = [n for n in found["nodes"] if n["id"] == "documents/am1"]
     assert amendment["props"]["case_ids"] == ["cases/c7"]
+
+
+def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
+    store: GraphStore,
+) -> None:
+    """``props=canvas``: a node of the neighbourhood carries the props the canvas reads of
+    its collection (of an actor its role, name and faction), as a neighbour of
+    ``props=canvas`` does; the focal node and the edges as without it."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"_key": "36547", "type": "dossier", "labels": [], "props": {"title": "Wet"}}],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [{"_key": "d1", "type": "document", "labels": [], "props": {
+            "title": "Memorie", "kind": "Memorie van toelichting", "date": "2024-01-01",
+            "sections": [{"text": "lang"}], "external_id": "x", "tk_url": "https://x",
+            "actors": [{"role": "minister", "name": "A", "faction": None, "person": "p1"}]}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [{"_key": "v1", "type": "decision", "labels": [], "props": {
+            "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"],
+            "actors": [{"role": "indiener", "name": "B", "faction": "D66", "person": "p2"}]}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("e1", "documents/d1", "dossiers/36547", "PART_OF"),
+            _edge("e2", "decisions/v1", "dossiers/36547", "ABOUT"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        path = "/api/nodes/dossiers/36547/neighborhood"
+        canvas = client.get(path, params={"props": "canvas"}).json()
+        full = client.get(path).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    paper = next(n for n in canvas["nodes"] if n["id"] == "documents/d1")
+    assert paper["props"] == {
+        "title": "Memorie",
+        "kind": "Memorie van toelichting",
+        "date": "2024-01-01",
+        "actors": [{"role": "minister", "name": "A", "faction": None}],
+        # the name of its first dossier, as a neighbour of ``props=canvas`` has it
+        "dossier_short_title": None,
+    }
+    # a vote on a motion: its first submitter labels it on the canvas
+    vote = next(n for n in canvas["nodes"] if n["id"] == "decisions/v1")
+    assert vote["props"]["actors"] == [
+        {"role": "indiener", "name": "B", "faction": "D66"}
+    ]
+    assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]
+    whole = next(n for n in full["nodes"] if n["id"] == "documents/d1")
+    assert whole["props"]["tk_url"] == "https://x"
+    assert canvas["nodes"][0] == full["nodes"][0]  # the focal node
+    assert canvas["edges"] == full["edges"]

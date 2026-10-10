@@ -162,7 +162,7 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
     filters = {"relations", "node_types", "direction", "status"}
     node = "/api/nodes/{collection}/{key}"
     assert _parameters(node) == filters | {"limit", "offset", "props"}
-    assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap"}
+    assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap", "props"}
 
     schemas = SPEC["components"]["schemas"]
     assert {"edge_id", "status", "meta", "confidence"} <= set(
