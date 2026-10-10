@@ -304,7 +304,10 @@ holds `section_anchor`, `char_start`, `char_end`, `match_type`, `changed`, `expl
 its `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
-number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
+number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to. A run of
+`tk-mvt-articles` reads every memorandum and replaces its own edges of them: a section edge it
+no longer finds (an earlier code, a renumbered article) becomes the dossier-level edge again
+at once when the dossier changed the article, and goes when it did not.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:

@@ -9,6 +9,7 @@ import pytest
 from lawgraph.config.constants import RELATION_AMENDS, RELATION_EXPLAINS
 from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH, MATCH_BODY_NAMED_LAW
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
@@ -75,25 +76,28 @@ class _FakeStore(_BaseFakeStore):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__()
         self.rows = rows
-        self.executed: list[dict[str, Any]] = []
+        self.removals: list[tuple[list[str], dict[str, set[str]]]] = []
 
     def get_node(self, collection: str, key: str) -> dict | None:
         return None
 
-    def execute(self, statement: str, params: Any = None) -> list[Any]:
-        """The removal of the section edges no longer found: recorded, none to remove."""
-        self.executed.append(params)
-        return []
-
 
 @pytest.fixture(autouse=True)
 def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``memoranda_with_sections`` answers with the rows of the store."""
+    """``memoranda_with_sections`` answers with the rows of the store; the removal of the
+    section edges no longer found is recorded on it and removes none."""
     monkeypatch.setattr(
         semantic_tk,
         "memoranda_with_sections",
         lambda store, **_: iter(list(store.rows)),
     )
+
+    def removed(store: Any, relation: str, source: str, ids: Any, keep: Any) -> list:
+        assert (relation, source) == (RELATION_EXPLAINS, SEMANTIC_SOURCE_SECTIONS)
+        store.removals.append((ids, keep))
+        return []
+
+    monkeypatch.setattr(semantic_edges, "removed_edges_from", removed)
 
 
 def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
@@ -170,8 +174,7 @@ def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 
-    (params,) = store.executed
-    assert params["ids"] == ["documents/mvt-1"]
-    assert params["source"] == SEMANTIC_SOURCE_SECTIONS
+    ((ids, keep),) = store.removals
+    assert ids == ["documents/mvt-1"]
     (edge,) = store.edges.values()
-    assert params["keep"].obj == {"documents/mvt-1": [edge["_key"]]}
+    assert keep == {"documents/mvt-1": {edge["_key"]}}
