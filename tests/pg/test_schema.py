@@ -37,8 +37,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # the regulations (lg_instrument_definitions), and the events of the feed with when
     # they were written (lg_feed_events, lg_feed_events_state), and the chains of the
     # amendments (lg_amendment_chains), and the seats of the Eerste Kamer per term and
-    # stretch (lg_ek_terms, lg_ek_seats)
-    assert tables == len(NODE_COLLECTIONS) + 17
+    # stretch (lg_ek_terms, lg_ek_seats), and the names of the instruments
+    # (lg_instrument_names)
+    assert tables == len(NODE_COLLECTIONS) + 18
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:
