@@ -29,7 +29,11 @@ from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
+    CANVAS_BUCKET_LIMIT,
     DEFAULT_BUCKET_LIMIT,
+    FIRST_LEVEL_CAP,
+    FULL_BUCKET_LIMIT,
+    NEIGHBORHOOD_CAP,
     NeighborFilter,
     NodeNotFoundError,
     UnsupportedCollectionError,
@@ -223,8 +227,10 @@ def get_node_graph(
         int,
         Query(
             ge=1,
-            le=200,
-            description="Neighbors per bucket, not per response.",
+            le=CANVAS_BUCKET_LIMIT,
+            description="Neighbors per bucket, not per response: at most "
+            f"{FULL_BUCKET_LIMIT} with every prop, {CANVAS_BUCKET_LIMIT} with "
+            "``props=canvas``.",
         ),
     ] = DEFAULT_BUCKET_LIMIT,
     offset: Annotated[
@@ -243,6 +249,12 @@ def get_node_graph(
     ] = "full",
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
+    if props == "full" and limit > FULL_BUCKET_LIMIT:
+        raise HTTPException(
+            status_code=422,
+            detail=f"limit is at most {FULL_BUCKET_LIMIT} with every prop "
+            f"({CANVAS_BUCKET_LIMIT} with props=canvas)",
+        )
     try:
         data = get_node_with_neighbors(
             store,
@@ -252,8 +264,11 @@ def get_node_graph(
             limit=limit,
             offset=offset,
             canvas=props == "canvas",
-            # the light node (one per bucket) does not wait for an article's lid counts
-            wait_for_lids=limit > 1,
+            # an article's lid counts are waited for on the first page a reader opens
+            # alone: not by the light node (one per bucket), a further page or what the
+            # canvas loads, which draws none (the first page of 8:75 Awb took 13.8 s cold
+            # for them); kept an hour and counted on in the background
+            wait_for_lids=limit > 1 and offset == 0 and props == "full",
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -326,7 +341,16 @@ def get_node_neighborhood_route(
     store: Annotated[GraphStore, Depends(get_store)],
     filters: NeighborFilterParams,
     depth: Annotated[int, Query(ge=1, le=4)] = 3,
-    cap: Annotated[int, Query(ge=1, le=1000)] = 200,
+    cap: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=FIRST_LEVEL_CAP,
+            description=f"The nodes kept: at most {NEIGHBORHOOD_CAP}, and "
+            f'{FIRST_LEVEL_CAP} with ``depth=1`` (every direct neighbour, "alles '
+            'laden").',
+        ),
+    ] = 200,
     props: Annotated[
         Literal["full", "canvas"],
         Query(
@@ -338,6 +362,12 @@ def get_node_neighborhood_route(
         ),
     ] = "full",
 ) -> NodeNeighborhoodResponse:
+    if depth > 1 and cap > NEIGHBORHOOD_CAP:
+        raise HTTPException(
+            status_code=422,
+            detail=f"cap is at most {NEIGHBORHOOD_CAP} past the first level "
+            f"({FIRST_LEVEL_CAP} with depth=1)",
+        )
     try:
         data = get_node_neighborhood(
             store,
