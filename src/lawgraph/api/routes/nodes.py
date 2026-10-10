@@ -250,6 +250,8 @@ def get_node_graph(
             limit=limit,
             offset=offset,
             canvas=props == "canvas",
+            # the light node (one per bucket) does not wait for an article's lid counts
+            wait_for_lids=limit > 1,
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -293,6 +295,7 @@ def get_node_graph(
         title=title,
         description=description,
         path=path_of(data.node["_id"], node_props),
+        lid_counts_pending=data.lid_counts_pending,
     )
 
 
