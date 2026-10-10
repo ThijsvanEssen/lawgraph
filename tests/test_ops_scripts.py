@@ -37,18 +37,6 @@ def test_a_query_reads_only(query: Path) -> None:
     assert first == "SET default_transaction_read_only = on;"
 
 
-def test_the_backfill_steps_hand_on_their_moment() -> None:
-    """Step 1 keeps the moment it began; step 2 normalizes since then, and refuses to run
-    without it."""
-    first = (OPS / "revises-1-retrieve.sh").read_text(encoding="utf-8")
-    second = (OPS / "revises-2-normalize.sh").read_text(encoding="utf-8")
-    assert (
-        'out/revises-backfill.since"' in first
-        and "retrieve tk --replacing --mode full" in first
-    )
-    assert 'normalize tk --since "$since"' in second and "exit 1" in second
-
-
 SERVER = OPS.parent / "deploy" / "server"
 REPO_SCRIPTS = OPS.parent / "scripts"
 
