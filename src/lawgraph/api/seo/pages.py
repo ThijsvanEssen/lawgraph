@@ -129,6 +129,17 @@ def article_name(bwb_id: str | None, number: str, law: str) -> str:
     return f"Artikel {cited} {law}".strip()
 
 
+def version_title(props: dict[str, Any]) -> str:
+    """``Grondwet, geldend van 21 maart 2002 tot 8 februari 2005``: a version of a law by the
+    citation title of its law (``instrument_citation_title``, which the node route adds) and
+    the days it held; ``geldend vanaf`` for the current one."""
+    name = _text(props.get("instrument_citation_title")) or _text(props.get("bwb_id"))
+    since, until = _day(props.get("valid_from")), _day(props.get("valid_until"))
+    if since and until:
+        return f"{name}, geldend van {since} tot {until}"
+    return f"{name}, geldend vanaf {since}" if since else name
+
+
 def law_page(row: dict[str, Any]) -> Page:
     props = row["props"] or {}
     bwb = _text(props.get("bwb_id")) or row["key"].upper()
@@ -1535,6 +1546,9 @@ def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
         }
         title = article_title(props, law)
         return title, cut(_text(props.get("text")) or title, DESCRIPTION_MAX)
+    if collection == "instrument_versions":
+        title = version_title(props)
+        return title, cut(title, DESCRIPTION_MAX)
     if collection == "annexes":
         law = {
             "bwb_id": props.get("bwb_id"),

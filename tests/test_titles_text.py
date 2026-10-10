@@ -62,3 +62,27 @@ def test_an_article_is_about_the_deepest_title_its_law_has_once() -> None:
         "a6": "Pluraliteit van schuldenaren",
         "flat": None,
     }
+
+
+def test_two_articles_with_one_caption_have_their_own_titles() -> None:
+    from lawgraph.api.seo.pages import article_title, version_title
+
+    law = {"bwb_id": "BWBR0005289", "short_title": "BW6"}
+    one = {
+        "bwb_id": "BWBR0005289",
+        "article_number": "162",
+        "caption": "Onrechtmatige daad",
+    }
+    two = {**one, "article_number": "163"}
+    assert article_title(one, law) == "Art. 6:162 BW, Onrechtmatige daad"
+    assert article_title(two, law) == "Art. 6:163 BW, Onrechtmatige daad"
+    version = {
+        "bwb_id": "BWBR0001840",
+        "instrument_citation_title": "Grondwet",
+        "valid_from": "2002-03-21",
+        "valid_until": "2005-02-08",
+    }
+    assert (
+        version_title(version)
+        == "Grondwet, geldend van 21 maart 2002 tot 8 februari 2005"
+    )
