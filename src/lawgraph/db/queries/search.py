@@ -384,6 +384,8 @@ def _text_query(
             f"(doc.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
         )
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
+    if table == "articles":
+        rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce(doc.inbound_citation_count, 0)))"
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
     # The matches are found first, on their own (OFFSET 0 keeps the planner from walking
@@ -463,6 +465,12 @@ _ARTICLE_HIT = f"""
 # much higher as a word in its heading would (BM25 of a rare word, boosted); at most
 # ``TERMED`` of them per word, the first by id.
 TERM_WEIGHT = 10.0
+# How much the case law that cites an article weighs in its rank: per e-fold of its citing
+# judgments (``inbound_citation_count``), at most some 4 for the most cited (art. 6:162 BW,
+# thousands). It settles hits whose words weigh about the same (a few points apart; a rank
+# runs to some 30, a term ``TERM_WEIGHT``), and never lifts one past a better tier
+# (``score_hit``), which orders first.
+CITATION_PRIOR = 0.5
 TERMED = 1_000
 
 _TERMED_SQL = """
@@ -1059,7 +1067,10 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
 
     Pure: compares the query with the key, the identifiers and the names the hit carries
     (its display name, citation title, heading and aliases). A query that is part of the
-    title of a division an article stands in counts as part of its name.
+    title of a division an article stands in counts as part of its name; the name of its
+    law only with its number ("art 2 klimaatfonds"): every article of the Wet
+    conflictenrecht onrechtmatige daad would hold "onrechtmatige daad", where art. 6:162 BW
+    holds it in its title (the law itself is a hit of the instruments, by its name).
     """
     wanted = _folded(query)
     if not wanted:
@@ -1083,7 +1094,13 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
         return SCORE_PREFIX
     words = wanted.split()
     context = _folded_list(extra, _CONTEXT_LIST_FIELDS)
-    if any(all(w in n for w in words) for n in names + context):
+    own = names
+    if hit.get("collection") == "articles" and _folded(
+        extra.get("article_number")
+    ) not in set(words):
+        # without its number the words are the law's, not the article's
+        own = [_folded(extra.get("heading"))]
+    if any(all(w in n for w in words) for n in own + context if n):
         return SCORE_CONTAINS
     return SCORE_WORDS
 
