@@ -688,3 +688,44 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
                 differ.append(f"{url}: {' '.join(_text(statement).split())[:200]}")
             conn.rollback()
     assert not differ, "\n".join(sorted(set(differ)))
+
+
+def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
+    planned: GraphStore,
+) -> None:
+    """An expression index made after the last ANALYZE has no statistics: the planner then
+    guesses many rows per number, and with ``ORDER BY key LIMIT 1`` beside the condition it
+    walks the key index until a row holds it (prod, 1.4 s on 258,638 zaken). The lookups
+    find the rows by the expression index whatever the statistics."""
+    from lawgraph.db.queries import lookup
+
+    found = []
+    original = planned.query
+
+    def explained(statement: Any, params: Any = None, **options: Any) -> Any:
+        with planned.pool.connection() as conn:
+            for index, table, expression in (
+                ("cases_number", "cases", "public.lg_str(props -> 'number')"),
+                ("members_slug", "members", "public.lg_str(props -> 'slug')"),
+            ):
+                # made again in this transaction: no statistics, as a new index has
+                conn.execute(f"DROP INDEX {index}")
+                conn.execute(f"CREATE INDEX {index} ON {table} ({expression})")
+            query = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
+            (plan,) = conn.execute(query, params).fetchone()  # type: ignore[misc]
+            found.append(_shape(plan[0]["Plan"]))
+            conn.rollback()
+        return original(statement, params, **options)
+
+    planned.query = explained  # type: ignore[method-assign]
+    try:
+        lookup.find_case(planned, "2025Z15468")
+        lookup.find_member(planned, "a-lid")
+    finally:
+        planned.query = original  # type: ignore[method-assign]
+    case, member = found
+    assert any("cases_number" in line for line in case), case
+    assert any("members_slug" in line for line in member), member
+    assert not any(
+        line.endswith(("cases_key", "members_key")) for line in case + member
+    )
