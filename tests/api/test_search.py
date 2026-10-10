@@ -120,6 +120,32 @@ def hit(**fields: Any) -> dict[str, Any]:
             ),
             SCORE_TITLE,
         ),
+        # a judgment's case number is no name: the type code of the case is not a word of it
+        (
+            "huur",
+            hit(
+                collection="judgments",
+                display_name="Rechtbank Amsterdam 2009-07-08 / AWB 08/5197 HUUR",
+            ),
+            SCORE_WORDS,
+        ),
+        (
+            "urgenda",
+            hit(
+                collection="judgments",
+                display_name="Hoge Raad 2019-12-20 / 19/00135",
+                extra={"names": ["Staat/Urgenda"]},
+            ),
+            SCORE_CONTAINS,
+        ),
+        (
+            "rechtbank amsterdam",
+            hit(
+                collection="judgments",
+                display_name="Rechtbank Amsterdam 2009-07-08 / AWB 08/5197 HUUR",
+            ),
+            SCORE_PREFIX,
+        ),
         # with the article's number, the name of its law names it ("art 2 klimaatfonds")
         (
             "art 2 klimaatfonds",
