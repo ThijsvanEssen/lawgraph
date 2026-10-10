@@ -405,6 +405,22 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
         )
 
 
+class JudgmentConclusionDTO(BaseModel):
+    """A conclusion a judgment names (``conclusion_eclis``), as its light node names it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ecli: str
+    author: str | None = Field(
+        None, description="The advocaat-generaal or procureur-generaal, as written."
+    )
+    role: str | None = Field(
+        None,
+        description="``advocaat-generaal`` or ``procureur-generaal``; null unknown.",
+    )
+    date: str | None = None
+
+
 class JudgmentDetailResponse(BaseModel):
     """Response for GET /api/judgments/{ecli}."""
 
@@ -433,6 +449,12 @@ class JudgmentDetailResponse(BaseModel):
         'those its summary names ("Samenhang met 24/03860 E", "Zie ook: ECLI:…") and those '
         "whose summary names it, each found by its exact ECLI or case number, with the "
         "sentence that names it (`links`). Empty for most.",
+    )
+    conclusions: list[JudgmentConclusionDTO] = Field(
+        default_factory=list,
+        description="The conclusions its metadata names (``conclusion_eclis``), in that "
+        "order, each with the A-G or P-G and the date its light node gives; one the "
+        "graph lacks is its ECLI alone.",
     )
     series: list[JudgmentSummaryDTO] = Field(
         default_factory=list,

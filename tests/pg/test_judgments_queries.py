@@ -397,6 +397,43 @@ def test_a_connected_case_carries_the_sentence_that_names_it(
     assert [j["_id"] for j in data.related_to] == [_jid(HR10), _jid(RB)]
 
 
+def test_its_conclusions_named_as_their_light_nodes_name_them(
+    detail: GraphStore,
+) -> None:
+    """``conclusions``: per ECLI of ``conclusion_eclis``, in its order, the A-G (or P-G)
+    and the date its light node gives (``lg_judgment_light``), as the front end names the
+    conclusion; one the graph lacks is its ECLI alone."""
+    phr = "ECLI:NL:PHR:2019:887"
+    gone = "ECLI:NL:PHR:2019:999"
+    detail.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment(
+                phr,
+                ecli=phr,
+                date="2019-09-13",
+                advocate_general="Langemeijer en Wissink",
+                advocate_general_role="procureur-generaal",
+                text="De conclusie, die niet gelezen wordt.",
+            ),
+            _judgment(HR10, ecli=HR10, conclusion_eclis=[gone, phr]),
+        ],
+    )
+
+    data = judgment_queries.get_judgment_with_relations(detail, HR10)
+
+    assert data.conclusions == [
+        {"ecli": gone, "author": None, "role": None, "date": None},
+        {
+            "ecli": phr,
+            "author": "Langemeijer en Wissink",
+            "role": "procureur-generaal",
+            "date": "2019-09-13",
+        },
+    ]
+    assert judgment_queries.get_judgment_with_relations(detail, HR1).conclusions == []
+
+
 def test_the_series_by_ecli_number(detail: GraphStore) -> None:
     detail.bulk_insert_or_update_nodes(
         "judgments",

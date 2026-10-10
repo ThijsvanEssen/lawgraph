@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
@@ -15,6 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.identifiers import find_eclis
 from lawgraph.core.judgments import case_number_keys
+from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
@@ -42,6 +44,8 @@ class JudgmentDetailData:
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
+    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date}`` each
+    conclusions: list[dict[str, Any]] = field(default_factory=list)
 
 
 def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailData:
@@ -110,7 +114,38 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         ]
         if series_id
         else [],
+        conclusions=_conclusions(
+            store, (judgment_doc.get("props") or {}).get("conclusion_eclis")
+        ),
     )
+
+
+def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
+    """``{ecli, author, role, date}`` of each conclusion a judgment names, in its order: the
+    A-G or P-G and the date its light node gives (``lg_judgment_light``, never its text);
+    a conclusion the graph lacks is its ECLI alone."""
+    named = [str(e) for e in eclis or [] if e]
+    if not named:
+        return []
+    ids = {f"{COLLECTION_JUDGMENTS}/{make_node_key(ecli)}": ecli for ecli in named}
+    light = {
+        row["id"]: row["light"] or {}
+        for row in store.query(
+            "SELECT id, props AS light FROM lg_judgment_light"
+            " WHERE id = ANY(%(ids)s::text[])",
+            {"ids": list(ids)},
+        )
+    }
+    found = {ecli: light.get(node_id, {}) for node_id, ecli in ids.items()}
+    return [
+        {
+            "ecli": ecli,
+            "author": found[ecli].get("advocate_general"),
+            "role": found[ecli].get("advocate_general_role"),
+            "date": found[ecli].get("date"),
+        }
+        for ecli in named
+    ]
 
 
 def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
