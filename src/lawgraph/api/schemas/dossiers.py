@@ -9,7 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
 from lawgraph.api.schemas.documents import (
+    _REPLACED_BY,
+    _REPLACES,
     DocumentOrigin,
+    PaperRefDTO,
     SenderDTO,
     SigningCapacity,
     origin_fields,
@@ -420,10 +423,19 @@ class DossierDocumentDTO(DocumentEntryDTO):
     """One document linked to a dossier."""
 
     display_name: str | None = None
+    replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
+    replaced_by: list[PaperRefDTO] = Field(
+        default_factory=list, description=_REPLACED_BY
+    )
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> DossierDocumentDTO:
-        """From a document row of ``get_dossier_documents``."""
+    def from_row(
+        cls,
+        row: dict[str, Any],
+        replacements: dict[str, list[dict[str, Any]]] | None = None,
+    ) -> DossierDocumentDTO:
+        """From a document row of ``get_dossier_documents``; *replacements* its own of
+        ``get_replacements``."""
         origin = origin_fields(row.get("labels"), row.get("source"), row.get("kind"))
         return cls(
             id=row["id"],
@@ -440,6 +452,12 @@ class DossierDocumentDTO(DocumentEntryDTO):
             tk_url=tk_url("document", row),
             display_name=row.get("display_name"),
             sender=sender_of(row),
+            replaces=[
+                PaperRefDTO(**r) for r in (replacements or {}).get("replaces", [])
+            ],
+            replaced_by=[
+                PaperRefDTO(**r) for r in (replacements or {}).get("replaced_by", [])
+            ],
             **origin,
         )
 
