@@ -13,6 +13,18 @@ from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.member_role import has_role
 
 
+class VoteOfficeDTO(BaseModel):
+    """A post in a cabinet a member held on the day of a vote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    function: str | None = Field(
+        None, description="The post as Rijksoverheid names it."
+    )
+    cabinet_key: str | None = Field(None, description="Key of the cabinet node.")
+    cabinet: str | None = Field(None, description="The cabinet: ``kabinet-Rutte IV``.")
+
+
 class MemberVoteDTO(BaseModel):
     """One vote a member took part in.
 
@@ -42,6 +54,12 @@ class MemberVoteDTO(BaseModel):
         "member",
         description="``member``: their own vote, on a roll-call (hoofdelijke stemming); "
         "``faction``: their faction's, cast while they belonged to it (``faction_key``).",
+    )
+    in_office: list[VoteOfficeDTO] = Field(
+        default_factory=list,
+        description="The posts in a cabinet (``government_functions``) the member held "
+        "on ``date``, oldest first: a vote as (demissionary) bewindspersoon and Kamerlid; "
+        "empty when none.",
     )
 
 
