@@ -169,6 +169,7 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         wissel = client.get("/api/decisions", params={"coalition": "wissel"}).json()
         everything = client.get("/api/decisions").json()
         detail = client.get("/api/decisions/wissel").json()
+        feed = client.get("/api/feed", params={"kind": "stemming"}).json()
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -211,6 +212,30 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
         "carried": False,
         "decisive": False,
     }
+
+    # the feed gives each vote the same block and the choice of each coalition faction,
+    # most seats first
+    votes = {item["node"]["key"]: item["vote"] for item in feed["items"]}
+    assert votes["wissel"]["coalition"] == detail["coalition"]
+    assert votes["wissel"]["coalition_factions"] == [
+        {
+            "key": "pvv",
+            "short": "PVV",
+            "choice": "Tegen",
+            "seats_for": 0,
+            "seats_against": 37,
+        },
+        {
+            "key": "vvd",
+            "short": "VVD",
+            "choice": "Voor",
+            "seats_for": 24,
+            "seats_against": 0,
+        },
+    ]
+    assert [f["key"] for f in votes["roll_call"]["coalition_factions"]] == ["vvd"]
+    assert votes["before"]["coalition"] is None
+    assert votes["before"]["coalition_factions"] == []
 
     # a full run removes a row whose decision no longer has a coalition vote
     store.execute("DELETE FROM edges WHERE to_id = 'decisions/together'")

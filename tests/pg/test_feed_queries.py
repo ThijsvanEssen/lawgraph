@@ -500,6 +500,9 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         # how it was decided, as the Kamer writes it
         "method": None,
         "decision_kind": "Stemmen - aangenomen",
+        # no cabinet in the data: no coalition
+        "coalition": None,
+        "coalition_factions": [],
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -985,6 +988,8 @@ ITEM_KEYS = [
     "instrument",
     "changed_articles",
     "changed_instruments",
+    "coalition",
+    "coalition_factions",
 ]
 
 

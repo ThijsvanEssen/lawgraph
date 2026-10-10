@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import FacetCountDTO, WithPath
+from lawgraph.api.schemas.decisions import CoalitionVoteDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import (
     CHAMBER_TK,
@@ -120,6 +121,22 @@ class FeedPersonDTO(WithPath):
     )
 
 
+class FeedCoalitionFactionDTO(BaseModel):
+    """A faction of the coalition on a vote: how its seats went."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    short: str | None = Field(None, description="Its abbreviation, else its name.")
+    choice: Literal["Voor", "Tegen"] | None = Field(
+        None,
+        description="``Voor`` or ``Tegen``; null when its seats went both ways (a "
+        "roll call).",
+    )
+    seats_for: int
+    seats_against: int
+
+
 class FeedVoteDTO(BaseModel):
     """The outcome of a ``stemming``."""
 
@@ -151,6 +168,17 @@ class FeedVoteDTO(BaseModel):
         description="Of the Tweede Kamer: its ``BesluitSoort`` as the Kamer writes it "
         "(``Stemmen - aangenomen``, ``Stemmen - zonder stemming aannemen``: a hamerstuk, "
         "no votes).",
+    )
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="Of the Tweede Kamer: what the coalition of the cabinet in office did, "
+        "as ``GET /api/decisions/{key}`` gives it; null without a cabinet or a coalition "
+        "vote, and of the Eerste Kamer.",
+    )
+    coalition_factions: list[FeedCoalitionFactionDTO] = Field(
+        default_factory=list,
+        description="Of the Tweede Kamer: each coalition faction that cast a seat, with its "
+        "choice, most seats first; empty where ``coalition`` is null.",
     )
 
 
@@ -363,7 +391,7 @@ class FeedItemDTO(WithPath):
             if kind in DOCUMENT_EVENTS
             else None,
             number=paper_number(CHAMBER_TK, props) if kind in DOCUMENT_EVENTS else None,
-            vote=_vote(props) if kind == EVENT_VOTE else None,
+            vote=_vote(props, row) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
             commencement=_commencement(row) if kind == EVENT_COMMENCEMENT else None,
@@ -522,7 +550,7 @@ def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
     )
 
 
-def _vote(props: dict[str, Any]) -> FeedVoteDTO:
+def _vote(props: dict[str, Any], row: dict[str, Any]) -> FeedVoteDTO:
     passed = props.get("passed")
     return FeedVoteDTO(
         chamber=props.get("chamber") or "TK",
@@ -532,6 +560,8 @@ def _vote(props: dict[str, Any]) -> FeedVoteDTO:
         tally=props.get("tally") or {},
         method=props.get("method"),
         decision_kind=props.get("decision_kind"),
+        coalition=row.get("coalition"),
+        coalition_factions=row.get("coalition_factions") or [],
     )
 
 

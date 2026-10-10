@@ -67,6 +67,7 @@ from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries.coalition import coalition_factions, coalition_object
 from lawgraph.db.schema import INSTRUMENT_DOSSIER_NUMBERS, feed_title, search_words
 from lawgraph.db.store import (
     ReadTimedOut,
@@ -1080,7 +1081,7 @@ _CHANGED_ARTICLES = f"""CASE WHEN pg.kind = {_lit(EVENT_COMMENCEMENT)} THEN (
 
 # The page (``page``), read in full: the node's props, its first dossier, the cabinet on its
 # date, the signatures with their factions, of a paper whether it has its text and its
-# dictum (``lg_document_light``), and what a kind adds (who made a commitment, the
+# dictum (``lg_document_light``), of a vote what the coalition did, and what a kind adds (who made a commitment, the
 # laws a publication changes, the law and the articles a new version puts in force). The
 # props as KEEP gave them: in the byte order of their names, as MERGE (``lg_merge``).
 _ITEMS = f"""(
@@ -1102,12 +1103,17 @@ _ITEMS = f"""(
             'persons', persons.value,
             'instrument', instrument.value,
             'changed_articles', {_CHANGED_ARTICLES},
-            'changed_instruments', {_CHANGED_INSTRUMENTS}
+            'changed_instruments', {_CHANGED_INSTRUMENTS},
+            'coalition', {coalition_object("co")},
+            'coalition_factions', {coalition_factions("co")}
         ) ORDER BY {_PAGE_ORDER}), {_EMPTY})
         FROM page pg
         {_node_of("pg")}
         -- of a paper: whether its text is in the data and a motion's dictum, kept light
         LEFT JOIN lg_document_light light ON light.id = pg.id
+        -- of a vote of the Tweede Kamer: what the coalition did (``tk-coalition-votes``)
+        LEFT JOIN lg_decision_coalition co
+            ON pg.kind = {_lit(EVENT_VOTE)} AND co.id = pg.id
         LEFT JOIN LATERAL (
             SELECT json_build_object(
                 'key', d.key,
