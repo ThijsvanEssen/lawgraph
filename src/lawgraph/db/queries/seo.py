@@ -32,6 +32,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
+    RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
 from lawgraph.core.models import make_node_key
@@ -68,6 +69,21 @@ LAWS = 50
 # They are computed on in the background and kept per version of the tables they read,
 # so a later page has them at once; the app fills them in for the first.
 CITED_BUDGET = 0.05
+
+
+def same_person(store: GraphStore, member_id: str) -> str | None:
+    """The member a bare member is ``SAME_AS`` (``semantic tk-person-duplicates``): the one
+    whose page theirs points to; None for any other member."""
+    rows = store.query(
+        """
+        SELECT e.to_id FROM edges e
+        WHERE e.from_id = %(id)s AND e.relation = %(relation)s
+          AND e.to_collection = 'members'
+        ORDER BY e.to_id LIMIT 1
+        """,
+        {"id": member_id, "relation": RELATION_SAME_AS},
+    )
+    return next(iter(rows), None)
 
 
 def node_of(store: GraphStore, pad: Pad) -> str | None:
