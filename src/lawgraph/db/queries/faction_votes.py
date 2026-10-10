@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_FACTIONS, RELATION_VOTED
 from lawgraph.db import GraphStore
+from lawgraph.db.version_cache import once_true
 
 # The decisions of one statement, each with the votes of its factions.
 BATCH = 5_000
@@ -57,8 +58,15 @@ def fill_faction_votes(store: GraphStore, *, every: bool = False) -> int:
 
 
 def is_filled(store: GraphStore) -> bool:
-    """Whether the table holds every vote of a faction (filled once since the triggers)."""
-    return (
-        next(iter(store.query("SELECT 1 FROM lg_faction_votes_state WHERE id")), None)
-        is not None
+    """Whether the table holds every vote of a faction (filled once since the triggers);
+    once it does, known without asking (``once_true``)."""
+    return once_true(
+        store,
+        "lg_faction_votes filled",
+        lambda: (
+            next(
+                iter(store.query("SELECT 1 FROM lg_faction_votes_state WHERE id")), None
+            )
+            is not None
+        ),
     )
