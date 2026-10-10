@@ -464,3 +464,29 @@ def staatscourant_texts(store: Store, since_date: str | None) -> Iterator[Any]:
         _STAATSCOURANT_TEXTS_SQL,
         {"source": SOURCE_STAATSCOURANT, "since_iso": since_date or None},
     )
+
+
+# A paper of the Staatsblad or the Staatscourant and the publication of the BWB of the same
+# official id: ``documents/stb_stb_2019_33`` and ``instruments/stb_2019_33`` (the key of the
+# paper is that of the publication after its source's prefix), by the keys alone.
+_SAME_PUBLICATION_SQL = """
+SELECT d.id AS doc_id, i.id AS inst_id
+FROM documents d
+JOIN instruments i ON i.id = 'instruments/' || substr(d.key, length(%(prefix)s) + 1)
+WHERE d.source = %(source)s AND starts_with(d.key, %(prefix)s || %(prefix)s)
+  AND i.kind = %(publication)s
+ORDER BY d.id ASC NULLS LAST
+"""
+
+
+def same_publications(store: Store, source: str, prefix: str) -> list[dict[str, Any]]:
+    """``{doc_id, inst_id}`` of every paper of *source* (keys ``<prefix><prefix>…``) whose
+    publication of the BWB, of the same official id, is in the graph."""
+    from lawgraph.core.bwb_xml import KIND_PUBLICATION
+
+    return list(
+        store.query(
+            _SAME_PUBLICATION_SQL,
+            {"source": source, "prefix": prefix, "publication": KIND_PUBLICATION},
+        )
+    )

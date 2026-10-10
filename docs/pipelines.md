@@ -10,7 +10,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
-| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-implements`, `bwb-relation-types` |
+| BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes` | `eerstekamer` |
@@ -1043,6 +1043,13 @@ that of a post still held on every run. After `retrieve rijksoverheid`, on the K
 **Semantic `staatscourant`.** `EXPLAINS`: `bwb_id` match 0.92, title contains an instrument
 `citation_title` 0.65, a BWB id found in the text 0.75.
 
+**Semantic `bwb-publications`.** `SAME_AS` from a paper of the Staatsblad or the Staatscourant
+to the publication of the BWB of the same official id (`documents/stb_stb_2019_33` →
+`instruments/stb_2019_33`, `documents/stcrt_stcrt_2020_12345` → `instruments/stcrt_2020_12345`):
+the one publication, as its own source gives its text and as the BWB names what it introduced,
+amended or repealed (`semantic bwb-amendments`). By the keys alone, confidence 1.0,
+`meta.basis` `official_id`; every run derives them in full and removes those no longer derived.
+
 ## Eerste Kamer
 
 **Provides.** The Kamerstukken of the Eerste Kamer, about 38,000 from 1994 on, from the KOOP SRU
@@ -1561,6 +1568,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
+| semantic `bwb-publications` | `bwb-amendments` (the publications of the BWB) and `normalize staatsblad` and `staatscourant` (their papers) |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |

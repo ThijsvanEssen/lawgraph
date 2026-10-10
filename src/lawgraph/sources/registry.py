@@ -103,6 +103,7 @@ from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_publications import BWBPublicationsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_relation_types import (
     BWBRelationTypesSemanticPipeline,
 )
@@ -799,6 +800,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         StaatscourantSemanticPipeline,
         "EXPLAINS: links Staatscourant regulations to instruments.",
+    ),
+    _pipeline(
+        BWBPublicationsSemanticPipeline,
+        "SAME_AS: a paper of the Staatsblad or the Staatscourant to the publication of the "
+        "BWB of the same official id, by their keys.",
     ),
     _pipeline(
         EerstekamerSemanticPipeline,
