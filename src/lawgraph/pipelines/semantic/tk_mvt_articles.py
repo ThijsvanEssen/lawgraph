@@ -26,6 +26,7 @@ of the two ran first, because ``tk-mvt`` leaves an edge alone that this pipeline
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -40,6 +41,7 @@ from lawgraph.core.mvt_articles import (
     Change,
     Law,
     Reference,
+    amendment_references,
     explained_targets,
     find_references,
     is_introduction,
@@ -139,14 +141,20 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         kept: dict[str, set[str]] = {}
         changed: dict[str, set[str]] = {}
         for row in self._track(papers, "explanatory memoranda"):
-            try:
-                written = self._explain(row, edges, kept, changed)
-            except (KeyError, TypeError, ValueError) as exc:
-                logger.warning("Memorandum %s skipped: %s", row.get("document"), exc)
-                result.skipped += 1
-                continue
-            if not written:
-                result.skipped += 1
+            self._read(row, self._explain, edges, kept, changed, result, dossier=True)
+        amendments = semantic_tk.adopted_amendments_with_sections(
+            self.store, batch_size=_BATCH_SIZE
+        )
+        for row in self._track(amendments, "adopted amendments"):
+            self._read(
+                row,
+                self._explain_amendment,
+                edges,
+                kept,
+                changed,
+                result,
+                dossier=False,
+            )
         edges.flush_into(result)
         self._replace_what_is_no_longer_found(kept, changed, result)
         return result
@@ -184,15 +192,57 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
                 len(removed) - back,
             )
 
-    def _explain(
-        self,
+    @staticmethod
+    def _read(
         row: dict[str, Any],
+        explain: Callable[[dict[str, Any]], dict[str, list[Reference]]],
         edges: EdgeWriter,
         kept: dict[str, set[str]],
         changed: dict[str, set[str]],
-    ) -> int:
-        """Queue the edges of one memorandum; how many. Its edge keys go into *kept*, the
-        nodes its dossier changed into *changed*."""
+        result: PipelineResult,
+        *,
+        dossier: bool,
+    ) -> None:
+        """Queue the edges of one paper; its edge keys go into *kept* and, with *dossier*
+        (a memorandum, which ``tk-mvt`` links to its dossier), what its dossier changed
+        into *changed*. A paper that cannot be read is skipped and keeps its edges."""
+        try:
+            explained = explain(row)
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning("Paper %s skipped: %s", row.get("document"), exc)
+            result.skipped += 1
+            return
+        document = row["document"]
+        kept[document] = set()
+        for target, refs in explained.items():
+            kept[document].add(edge_key(document, RELATION_EXPLAINS, target))
+            edges.add(
+                document,
+                target,
+                RELATION_EXPLAINS,
+                source=SEMANTIC_SOURCE,
+                confidence=max(r.confidence for r in refs),
+                meta=edge_meta(refs),
+            )
+        if dossier:
+            changed[document] = {c.target for c in _changes(row.get("changes") or [])}
+        if not explained:
+            result.skipped += 1
+
+    def _explain_amendment(self, row: dict[str, Any]) -> dict[str, list[Reference]]:
+        """The articles an adopted amendment explains in its Toelichting."""
+        changes = _changes(row.get("changes") or [])
+        references = amendment_references(
+            row["text"],
+            row.get("sections") or [],
+            _laws(row.get("laws") or [], None),
+            changes,
+            bill_parts(row["bill"]) if row.get("bill") else {},
+        )
+        return explained_targets(references, changes, self._article_exists)
+
+    def _explain(self, row: dict[str, Any]) -> dict[str, list[Reference]]:
+        """The articles the sections of one memorandum explain."""
         changes = _changes(row.get("changes") or [])
         own = row.get("own") or []
         own_bwb_id = (
@@ -205,22 +255,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             own_bwb_id=own_bwb_id,
             bill=bill_parts(row["bill"]) if row.get("bill") else None,
         )
-        explained = explained_targets(references, changes, self._article_exists)
-        document = row["document"]
-        kept[document] = {
-            edge_key(document, RELATION_EXPLAINS, target) for target in explained
-        }
-        changed[document] = {change.target for change in changes}
-        for target, refs in explained.items():
-            edges.add(
-                row["document"],
-                target,
-                RELATION_EXPLAINS,
-                source=SEMANTIC_SOURCE,
-                confidence=max(r.confidence for r in refs),
-                meta=edge_meta(refs),
-            )
-        return len(explained)
+        return explained_targets(references, changes, self._article_exists)
 
     def _article_exists(self, article_id: str) -> bool:
         key = article_id.split("/", 1)[1]
