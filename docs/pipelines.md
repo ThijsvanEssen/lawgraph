@@ -617,7 +617,10 @@ has the shape of one (Dutch: a number or an LJN). What the text shows is repaire
 digits it sets apart (`BH 2815`, `BH:4033`), NL and the court swapped, a range (`2018:2374-2375`)
 as its members, a word or the next ECLI glued to the number, a zero or one typed for a letter of
 an LJN (`A09006`). The rest is dropped and makes no stub; `_resolve_eclis` makes no stub of a
-malformed ECLI for any step. The citations of a judgment are derived in full each time it is
+malformed ECLI for any step. An LJN named on its own (`LJN BK9271`, `LJN: BK9271`, `LJN-nummer
+BK 9271`), the way a decision was cited before 2013, cites the judgment in the graph whose ECLI has
+it for its number (`ECLI:NL:CRVB:2010:BK9271`; `core/ecli.cited_ljns`, `ljn_of`), with its
+paragraphs as for an ECLI; an LJN no judgment has, or two have, cites nothing and makes no stub. The citations of a judgment are derived in full each time it is
 read: an edge of this step its text no longer names is removed, and then every stub judgment no
 edge reaches or leaves. No `REFERS_TO` is written between two judgments that `APPEAL_OF`,
 `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` tie (either way): a Hoge Raad ruling that
