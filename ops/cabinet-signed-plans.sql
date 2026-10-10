@@ -3,7 +3,7 @@
 -- (after, once it is filled). EXPLAIN ANALYZE runs the SELECTs; nothing is written. Run cold if it can be,
 -- e.g. right after a restart; the Buffers lines (shared read) say what came from disk.
 SET default_transaction_read_only = on;
-SET statement_timeout = '300s';
+SET statement_timeout = '120s';
 \pset pager off
 
 \echo '== whether lg_authored is filled (the API reads it once it is)'
