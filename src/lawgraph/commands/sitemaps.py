@@ -14,7 +14,8 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``publicaties``: in the Staatsblad and the Tractatenblad since 2018, with a title of
   their own or a regulation they change;
 - ``toezeggingen``: those made since 2018 that have a text;
-- ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``).
+- ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),
+  but those that say ``"index": false``.
 
 Each by its readable address (``core/readable_paths.py``); a node without one is left out.
 ``scripts/daily.sh`` runs it.
@@ -64,7 +65,11 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "commissies": entries(queries.committees(store)),
         "publicaties": entries(queries.publications(store)),
         "toezeggingen": entries(queries.commitments(store)),
-        "paginas": [sitemaps.Entry(path) for path in shell.shell().routes],
+        "paginas": [
+            sitemaps.Entry(path)
+            for path, route in shell.shell().routes.items()
+            if shell.indexed(route)
+        ],
     }
 
 
