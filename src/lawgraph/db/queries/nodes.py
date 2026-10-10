@@ -608,3 +608,21 @@ def _buckets(
             }
         )
     return found
+
+
+def version_law_name(store: GraphStore, bwb_id: str) -> str | None:
+    """The citation title of the law of an instrument version (its props do not hold it):
+    from the columns of ``instruments`` and ``lg_instrument_names``, as the canvas reads it."""
+    return next(
+        iter(
+            store.query(
+                """
+                SELECT coalesce(nullif(i.citation_title, ''), nullif(t.title, ''))
+                FROM instruments i LEFT JOIN lg_instrument_names t ON t.id = i.id
+                WHERE i.bwb_id = %(bwb_id)s ORDER BY i.key LIMIT 1
+                """,
+                {"bwb_id": bwb_id},
+            )
+        ),
+        None,
+    )

@@ -197,6 +197,9 @@ class ArticleProps(_CommonProps):
     heading: str | None = (
         None  # the title of its kop ("Definities"), when the BWB has one
     )
+    # what it is about for its title: the deepest division title only one division of its law
+    # has ("Onrechtmatige daad" for 6:162 BW; ``semantic bwb-captions``)
+    caption: str | None = None
     position: int | None = None  # its place in the current toestand: the order of lists
     title: str | None = None
     text: str | None = None
