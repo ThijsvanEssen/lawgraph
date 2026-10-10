@@ -189,7 +189,9 @@ def number_key(number: str) -> str:
 
 
 def _number_keys(number: str) -> list[str]:
-    """The numbers an article may be stored under: a book's articles have no book."""
+    """The numbers the article a reference names may be stored under: a book's articles
+    have no book (the BW stores 7:658 as 658 in Boek 7); a law numbered per chapter keeps
+    it (Awb 11:2)."""
     key = number_key(number)
     return [key, key.split(":", 1)[1]] if ":" in key else [key]
 
@@ -535,10 +537,13 @@ def explained_targets(
     when the section states the article itself (its heading), at the article when it exists;
     the reference then says the dossier did not change it (``changed``).
     """
+    # a change by the number the law stores the article under: a reference may leave out
+    # the book (``_number_keys``), the store does not (Awb 11:2 is no article 2)
     changed: dict[tuple[str, str], list[Change]] = {}
     for change in changes:
-        for key in _number_keys(change.number):
-            changed.setdefault((change.bwb_id, key), []).append(change)
+        changed.setdefault((change.bwb_id, number_key(change.number)), []).append(
+            change
+        )
     explained: dict[str, list[Reference]] = {}
     for reference in references:
         if reference.last is not None:

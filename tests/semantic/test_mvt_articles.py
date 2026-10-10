@@ -692,3 +692,40 @@ def test_a_range_in_a_heading_is_what_the_dossier_changed_in_it() -> None:
     ]
     (inner,) = explained["article_versions/v15f"]
     assert inner.match_type == MATCH_HEADING_TARGET and inner.changed
+
+
+def test_a_book_is_left_out_of_a_reference_not_out_of_a_change() -> None:
+    """The BW stores 7:658 as 658 in Boek 7, so "artikel 7:658" is 658 there; the Awb
+    stores 11:2 as 11:2, so "artikel 2" (of an annex, Verzamelwet) is not Awb 11:2."""
+    bw7, awb = "BWBR0005290", "BWBR0005537"
+    paper = _Paper()
+    paper.add(
+        "Artikel 7:658",
+        "Toelichting.",
+        number="7:658",
+        scheme="book_article",
+        refs=[("7:658", "named_law")],
+        law="BW",
+    )
+    paper.add(
+        "Artikel II (Algemene wet bestuursrecht)",
+        "",
+        number="II",
+        scheme="roman",
+        refs=[("II", "self")],
+        law="Algemene wet bestuursrecht",
+    )
+    _arabic(paper, "Artikelen 1, 2 en 9", "1", "2", "9")
+    laws = [
+        Law(bw7, ("Burgerlijk Wetboek Boek 7",), ("BW",)),
+        Law(awb, ("Algemene wet bestuursrecht",), ("Awb",)),
+    ]
+    refs = find_references(paper.text, paper.sections, laws)
+    changes = [
+        Change(bw7, "658", article_id(bw7, "658"), "v658", RELATION_AMENDS),
+        Change(awb, "11:2", article_id(awb, "11:2"), "v11_2", RELATION_AMENDS),
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: False)
+
+    assert sorted(explained) == ["article_versions/v658"]
