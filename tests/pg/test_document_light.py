@@ -60,8 +60,10 @@ def test_a_paper_written_is_kept_light(store: GraphStore) -> None:
         "dossier_number",
         "sequence",
         "case_kinds",
+        "has_text",
     ]
     assert "text" not in light and "sections" not in light
+    assert light["has_text"] is True
 
     store.bulk_insert_or_update_nodes(
         "documents", [_paper("d1", "36000", title="Gewijzigd")]
@@ -74,6 +76,28 @@ def test_a_paper_written_is_kept_light(store: GraphStore) -> None:
 
     store.execute("DELETE FROM documents WHERE id = 'documents/d1'")
     assert _light(store, "d1") is None
+
+
+def test_whether_a_paper_has_its_text_is_kept_light(store: GraphStore) -> None:
+    """``has_text``: the paper's text is in the data; it changes when the text comes."""
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _paper("d1", "36000", text=None),
+            _paper("d2", "36000", text=""),
+            _paper("d3", "36000", text=["no", "string"]),
+        ],
+    )
+    assert [_light(store, f"d{n}")["has_text"] for n in (1, 2, 3)] == [False] * 3
+    store.bulk_insert_or_update_nodes(
+        "documents", [_paper("d1", "36000", text="De tekst kwam later.")]
+    )
+    assert _light(store, "d1")["has_text"] is True
+    # a paper without any of the light props has the flag alone
+    store.bulk_insert_or_update_nodes(
+        "documents", [{"_key": "bare", "type": "document", "labels": [], "props": {}}]
+    )
+    assert _light(store, "bare") == {"has_text": False}
 
 
 def test_the_papers_written_before_are_filled(store: GraphStore, monkeypatch) -> None:
@@ -172,3 +196,27 @@ def test_the_step_keeps_judgments_and_papers(store: GraphStore) -> None:
     result = graph_light.main([])
     assert result.updated == 1
     assert _light(store, "d1")["title"] == "Stuk d1"
+
+
+def test_the_papers_alone_are_kept_again(store: GraphStore) -> None:
+    """``semantic graph-light --papers``: every paper again (after what is kept of a paper
+    changed, as ``has_text``), every other light table only where a row is missing."""
+    from lawgraph.pipelines.semantic import graph_light
+
+    store.bulk_insert_or_update_nodes(
+        "documents", [_paper("d1", "36000"), _paper("d2", "36000", text=None)]
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"_key": "j1", "type": "judgment", "labels": [], "props": {"ecli": "ECLI:1"}}],
+    )
+    # as kept before the flag: no has_text
+    store.execute('UPDATE lg_document_light SET props = \'{"title": "oud"}\'')
+    store.execute('UPDATE lg_judgment_light SET props = \'{"ecli": "kept"}\'')
+
+    assert graph_light.main(["--papers"]).updated == 2
+
+    assert _light(store, "d1")["has_text"] is True
+    assert _light(store, "d2")["has_text"] is False
+    (judgment,) = store.query("SELECT props FROM lg_judgment_light")
+    assert judgment == {"ecli": "kept"}  # not read again

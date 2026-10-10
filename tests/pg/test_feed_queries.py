@@ -190,6 +190,9 @@ def _nodes() -> list[Node]:
             "2026-05-01",
             "37001-VII",
             subject="Gewijzigde motie van het lid Bakker over gemeenten",
+            text="De Kamer, gehoord de beraadslaging, verzoekt de regering de gemeenten te "
+            "steunen, en gaat over tot de orde van de dag.",
+            dictum="verzoekt de regering de gemeenten te steunen",
             case_ids=[MOTION_CASE],
             actors=[
                 _actor(BAKKER, "f-d66", FIRST, "kamerlid"),
@@ -455,6 +458,14 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     # the griffier signs, but is no person of the event
     assert [p["key"] for p in items["Motie"]["persons"]] == [BAKKER_KEY]
     assert items["Motie"]["subkind"] == "Motie (gewijzigd/nader)"
+    # a row opens only on what there is: the motion's dictum, not the letter without text
+    assert items["Motie"]["has_text"] is True
+    assert items["Motie"]["dictum"] == "verzoekt de regering de gemeenten te steunen"
+    assert (items["Brief regering"]["has_text"], items["Brief regering"]["dictum"]) == (
+        False,
+        None,
+    )
+    assert items["stemming"]["has_text"] is None
     # named as the member routes name them, whatever the paper writes
     assert items["Brief regering"]["persons"][0]["name"] == "Eelco Heinen"
     bill = items["Voorstel van wet"]
@@ -967,6 +978,8 @@ ITEM_KEYS = [
     "dossier",
     "props",
     "text",
+    "has_text",
+    "dictum",
     "persons",
     "instrument",
     "changed_articles",
@@ -1025,6 +1038,14 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
     assert person["faction"] == {"key": "vvd", "short": "VVD"}
     assert items["toezegging"]["text"].startswith("De minister")
     assert items["Motie"]["text"] is None
+    # whether a paper has its text, and a motion's dictum, from lg_document_light
+    assert items["Motie"]["has_text"] is True
+    assert items["Motie"]["dictum"] == "verzoekt de regering de gemeenten te steunen"
+    assert (items["Brief regering"]["has_text"], items["Brief regering"]["dictum"]) == (
+        False,
+        None,
+    )
+    assert (items["stemming"]["has_text"], items["stemming"]["dictum"]) == (None, None)
 
     without = get_feed(store, FeedFilters(), facets=False)
     assert list(without) == ["items", "total", "facets"]

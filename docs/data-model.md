@@ -40,8 +40,9 @@ summary to 401 characters, date, court, case number, source, jurisdiction, stub,
 and advocate-general), kept by triggers on every write of `judgments` and filled once by
 `semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
-dossier numbers, case kinds, sequence), without its text, kept and filled the same way from
-`documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
+dossier numbers, case kinds, sequence, a motion's dictum) and `has_text`, whether its text is
+in the data (which a row of the feed opens on), without its text, kept and filled the same way
+from `documents`. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
 (`''` for none), which the laws a dossier title names are found by besides the column
 `citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an

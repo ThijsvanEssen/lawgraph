@@ -262,6 +262,17 @@ class FeedItemDTO(WithPath):
         description="The whole text of a commitment, the decision of a vote "
         "(``Aangenomen.``), the inhoudsindicatie of a judgment; null for the other kinds.",
     )
+    has_text: bool | None = Field(
+        None,
+        description="Of a paper: whether its text is in the data, so that it can be "
+        "opened (a new paper's text follows its PDF by days); null for the other kinds.",
+    )
+    dictum: str | None = Field(
+        None,
+        description="Of a motion: what it asks or says (``verzoekt de regering …``), as "
+        "``GET /api/documents/{key}`` gives it; null for the other kinds and a motion "
+        "without text.",
+    )
     subkind: str | None = Field(
         None,
         description="What the source calls it: the document kind (``Motie (gewijzigd/"
@@ -317,6 +328,8 @@ class FeedItemDTO(WithPath):
             date=row["date"],
             title=title,
             summary=_summary(kind, props, row),
+            has_text=row.get("has_text") if kind in DOCUMENT_EVENTS else None,
+            dictum=row.get("dictum") if kind in DOCUMENT_EVENTS else None,
             subkind=_subkind(kind, props),
             node=FeedNodeDTO(collection=collection, key=key),
             dossier=(

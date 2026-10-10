@@ -258,7 +258,10 @@ Each item: `id` (`collection/key` of its node), `kind`, `date` (no time of day; 
 gives none), `title` (a bill the title of its dossier, a commitment its first words, another
 paper or a vote its subject, a publication its citation title, a version the title of its
 law), `summary` (the text of a commitment, the
-decision of a vote, `Aangenomen.`; else null), `subkind` (the whole `Document.Soort`,
+decision of a vote, `Aangenomen.`; else null), `has_text` (of a paper: whether its text is in
+the data, so a row can open on it; a new paper's text follows its PDF by days; null for the
+other kinds), `dictum` (of a motion what it asks or says, as `/api/documents/{key}` gives it;
+else null; both from `lg_document_light`, not from the paper's props), `subkind` (the whole `Document.Soort`,
 `Motie (gewijzigd/nader)`; for a vote what was voted on, the `Zaak.Soort`: `Motie`,
 `Amendement`, `Wetgeving`, …, null when the Kamer names no one Soort), `dossier` short titles: `short_title` the name the dossier goes by and `short_title_basis` where it comes from: `title` (of a budget its chapter and year, else the parentheses that end the title, as in `/api/dossiers`), else official data of its bill: `citation` (the citation title the bill gives itself, "Deze wet wordt aangehaald als: …"), `case` (the citation title the Kamer gives the bill's case), `amended_law` (the citation title of the one Dutch law the bill changes: then it names that law, not the bill); both null when there is none, `headline` (the parts a headline is made of:
 `surname` of the first `indiener`, `subject` the part of the title after its first ` over `,

@@ -41,11 +41,17 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         action="store_true",
         help="Keep every row again, not only those without (after the props kept changed).",
     )
+    parser.add_argument(
+        "--papers",
+        action="store_true",
+        help="Keep every paper again (after what is kept of a paper changed), the rest "
+        "only where a row is missing.",
+    )
     args = parser.parse_args(argv)
     store = GraphStore()
     judgments = fill_judgment_light(store, every=args.all)
     logger.info("Kept %d judgments as neighbours.", judgments)
-    documents = fill_document_light(store, every=args.all)
+    documents = fill_document_light(store, every=args.all or args.papers)
     logger.info("Kept %d papers light for the signals of their dossiers.", documents)
     instruments = fill_instrument_names(store, every=args.all)
     logger.info(
