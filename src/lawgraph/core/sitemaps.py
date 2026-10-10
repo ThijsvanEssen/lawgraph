@@ -21,6 +21,9 @@ MAX_URLS = 50_000
 INDEX = "sitemap.xml"
 _NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 _DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+# the first day a search engine takes as a lastmod: an older one (a law in force since 1821)
+# is refused as an invalid date, so the page has none
+_FIRST_DAY = "1970-01-01"
 # a part, as it is written now (``.xml``) or was before (``.xml.gz``): those the index no
 # longer names are removed
 _PART = re.compile(r"sitemap-[a-z]+(-\d+)?\.xml(\.gz)?")
@@ -36,9 +39,11 @@ class Entry:
 
 def day(value: object, today: str) -> str | None:
     """The day (``YYYY-MM-DD``) a value of the graph begins with, or None; a day after
-    *today* (a planned activity) is today."""
+    *today* (a planned activity) is today, a day before 1970 is None."""
     text = value.strip()[:10] if isinstance(value, str) else ""
-    return min(text, today) if _DAY.fullmatch(text) else None
+    if not _DAY.fullmatch(text) or text < _FIRST_DAY:
+        return None
+    return min(text, today)
 
 
 def urlset(base: str, entries: Iterable[Entry]) -> bytes:
