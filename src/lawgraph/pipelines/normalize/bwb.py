@@ -27,6 +27,7 @@ from lawgraph.core.bwb_wti import (
     instrument_aliases,
     label_concepts,
     parse_abbreviations,
+    parse_citation_titles,
     parse_subjects,
     thesaurus_concepts,
     with_concepts,
@@ -274,7 +275,8 @@ class BWBNormalizePipeline(NormalizePipelineBase):
 
     def _write_abbreviations(self, result: PipelineResult) -> None:
         """Set ``short_title`` and ``aliases`` on the instruments from the official WTI
-        abbreviations (``aliases`` also for the books of a code, ``instrument_aliases``).
+        abbreviations (``aliases`` also for the books of a code, ``instrument_aliases``), and
+        ``citation_titles``: every citation title the WTI gives, the earlier ones too.
 
         Which abbreviation wins depends on what the other regulations claim
         (``choose_short_titles``), so every stored WTI record is read on every run,
@@ -283,6 +285,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         are not created.
         """
         abbreviations_by_bwb: dict[str, list[str]] = {}
+        titles_by_bwb: dict[str, list[str]] = {}
         parsed: dict[str, tuple[list[dict[str, Any]], list[str]]] = {}
         for record in self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
@@ -293,6 +296,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 continue
             try:
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
+                titles_by_bwb[bwb_id] = parse_citation_titles(payload_text)
                 parsed[bwb_id] = parse_subjects(payload_text)
             except ET.ParseError as exc:
                 logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
@@ -303,6 +307,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 "key": make_node_key(bwb_id),
                 "short_title": short_titles.get(bwb_id),
                 "aliases": aliases,
+                "citation_titles": titles_by_bwb.get(bwb_id) or [],
             }
             for bwb_id, aliases in instrument_aliases(abbreviations_by_bwb).items()
         ]
