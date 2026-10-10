@@ -560,4 +560,59 @@ def get_node_neighborhood(
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
         "edges": [light_edge_doc(row) for row in edges],
+        "first_level": _first_level(
+            store, focal["_id"], filters, {row["id"] for row in nodes}
+        ),
     }
+
+
+# The neighbours of a node along the edges a walk follows (``lg_walk``'s first level).
+_FIRST_LEVEL = """
+SELECT DISTINCT x.id FROM (
+    SELECT e.to_id AS id FROM edges e
+    WHERE %(outbound)s AND e.from_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+    UNION
+    SELECT e.from_id FROM edges e
+    WHERE %(inbound)s AND e.to_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+) x
+WHERE x.id <> %(focal)s
+"""
+
+
+def _first_level(
+    store: GraphStore, focal_id: str, filters: NeighborFilter, kept: set[str]
+) -> list[dict[str, Any]]:
+    """Per collection of the node's own neighbours (the first level of its neighbourhood):
+    how many there are (``reached``: those that are there, of the types asked for) and how
+    many the walk kept under its cap (``kept``), by collection name."""
+    params = _walk_params(focal_id, 1, 1, filters)
+    by_collection: dict[str, list[str]] = {}
+    for node_id in store.query(_FIRST_LEVEL, params):
+        collection = node_id.partition("/")[0]
+        if collection in _ALLOWED_NODE_COLLECTIONS and (
+            filters.collections is None or collection in filters.collections
+        ):
+            by_collection.setdefault(collection, []).append(node_id)
+    if not by_collection:
+        return []
+    # whether each is there, asked of its own table
+    reads = " UNION ALL ".join(
+        f"SELECT id FROM {collection} WHERE id = ANY(%(c{n})s::text[])"
+        for n, collection in enumerate(sorted(by_collection))
+    )
+    present = list(
+        store.query(
+            reads,
+            {f"c{n}": by_collection[c] for n, c in enumerate(sorted(by_collection))},
+        )
+    )
+    found: dict[str, dict[str, int]] = {}
+    for node_id in present:
+        counts = found.setdefault(node_id.partition("/")[0], {"reached": 0, "kept": 0})
+        counts["reached"] += 1
+        counts["kept"] += node_id in kept
+    return [{"collection": c, **counts} for c, counts in sorted(found.items())]

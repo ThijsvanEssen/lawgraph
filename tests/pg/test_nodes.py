@@ -14,9 +14,13 @@ from lawgraph.db.store import _query
 
 
 def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
-    node_type = {"dossiers": "dossier", "documents": "document", "members": "member"}[
-        collection
-    ]
+    node_type = {
+        "dossiers": "dossier",
+        "documents": "document",
+        "members": "member",
+        "cases": "case",
+        "cabinets": "cabinet",
+    }[collection]
     return collection, {
         "_key": key,
         "type": node_type,
@@ -829,3 +833,68 @@ def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> 
     }
     assert items["bwbr0001941_annex_ii"]["label"] == "II"
     assert items["bwbr0001941_2025_01_01"]["instrument_citation_title"] == "Opiumwet"
+
+
+@pytest.fixture()
+def minister(store: GraphStore) -> GraphStore:
+    """A member who signed 6 cases and 6 papers and served in a cabinet; one case's edge
+    reaches a case that is gone."""
+    nodes = [_node("members", "m"), _node("cabinets", "c1")]
+    nodes += [_node("cases", f"k{n}") for n in range(1, 7)]
+    nodes += [_node("documents", f"d{n}") for n in range(1, 7)]
+    for collection, doc in nodes:
+        store.bulk_insert_or_update_nodes(collection, [doc])
+    edges = [_edge("s", "members/m", "cabinets/c1", "SERVED_IN")]
+    edges += [
+        _edge(f"k{n}", "members/m", f"cases/k{n}", "AUTHORED") for n in range(1, 7)
+    ]
+    edges += [_edge("k9", "members/m", "cases/k9", "AUTHORED")]  # gone
+    edges += [
+        _edge(f"d{n}", "members/m", f"documents/d{n}", "AUTHORED") for n in range(1, 7)
+    ]
+    store.bulk_insert_or_update_edges(edges)
+    return store
+
+
+def _kept(hood: dict[str, Any]) -> dict[str, list[str]]:
+    found: dict[str, list[str]] = {}
+    for n in hood["nodes"]:
+        collection, _, key = n["_id"].partition("/")
+        found.setdefault(collection, []).append(key)
+    return found
+
+
+def test_a_capped_neighbourhood_shares_the_cap_among_its_collections(
+    minister: GraphStore,
+) -> None:
+    """A level is not kept in id order until the cap (every case before any paper: a
+    minister's 148 cases and none of his 1,483 papers): a collection with fewer neighbours
+    than its share is kept whole, the rest of the cap goes in equal shares to the others,
+    each in id order; what a collection cannot fill goes to the others."""
+    hood = node_queries.get_node_neighborhood(minister, "members", "m", depth=1, cap=7)
+    assert _kept(hood) == {
+        "cabinets": ["c1"],
+        "cases": ["k1", "k2", "k3"],
+        "documents": ["d1", "d2", "d3"],
+    }
+    # of the first level per collection: its neighbours there and those kept; a gone one
+    # is none
+    assert hood["first_level"] == [
+        {"collection": "cabinets", "reached": 1, "kept": 1},
+        {"collection": "cases", "reached": 6, "kept": 3},
+        {"collection": "documents", "reached": 6, "kept": 3},
+    ]
+    # a cap one short of a fair split: the earlier collection takes the odd one
+    odd = node_queries.get_node_neighborhood(minister, "members", "m", depth=1, cap=6)
+    assert {c: len(keys) for c, keys in _kept(odd).items()} == {
+        "cabinets": 1,
+        "cases": 3,
+        "documents": 2,
+    }
+    # without a cap that binds, every neighbour
+    whole = node_queries.get_node_neighborhood(minister, "members", "m", depth=1)
+    assert {c: len(keys) for c, keys in _kept(whole).items()} == {
+        "cabinets": 1,
+        "cases": 6,
+        "documents": 6,
+    }

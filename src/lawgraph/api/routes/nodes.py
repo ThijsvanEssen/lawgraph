@@ -12,6 +12,7 @@ from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NeighborBucketDTO,
     NeighborDTO,
+    NeighborhoodCollectionDTO,
     NodeGraphResponse,
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
@@ -373,4 +374,9 @@ def get_node_neighborhood_route(
         )
         for e in data["edges"]
     ]
-    return NodeNeighborhoodResponse(focal_id=focal["_id"], nodes=nodes, edges=edges)
+    return NodeNeighborhoodResponse(
+        focal_id=focal["_id"],
+        nodes=nodes,
+        edges=edges,
+        first_level=[NeighborhoodCollectionDTO(**c) for c in data["first_level"]],
+    )
