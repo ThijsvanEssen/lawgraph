@@ -1668,8 +1668,9 @@ END $$"""
 # words. Not tables of the graph: the step raises the data version of ``articles`` itself.
 # What the coalition did on each vote (``core.coalition.vote_pattern``), kept by ``semantic
 # tk-coalition-votes``: its seats for and against, the opposition's, the pattern (``together``,
-# ``split``, ``wissel``) and whether it carried or decided the vote; a row per decision with
-# a cabinet and a coalition vote. Not a table of the graph: writing it raises no data version.
+# ``split``, ``wissel``), whether it carried or decided the vote, and each coalition
+# faction's choice (``factions``); a row per decision with a cabinet and a coalition vote. Not
+# a table of the graph: writing it raises no data version.
 DECISION_COALITION = """
 CREATE TABLE IF NOT EXISTS lg_decision_coalition (
     id text PRIMARY KEY,
@@ -1680,7 +1681,8 @@ CREATE TABLE IF NOT EXISTS lg_decision_coalition (
     opposition_against int NOT NULL,
     pattern text NOT NULL,
     carried boolean NOT NULL,
-    decisive boolean NOT NULL
+    decisive boolean NOT NULL,
+    factions json NOT NULL DEFAULT '[]'
 )
 """
 
@@ -1891,6 +1893,9 @@ def statements() -> list[str]:
         *member_authored(),
         ARTICLE_TERMS,
         DECISION_COALITION,
+        # the table as it was kept before its factions
+        "ALTER TABLE lg_decision_coalition ADD COLUMN IF NOT EXISTS factions json"
+        " NOT NULL DEFAULT '[]'",
         INSTRUMENT_DEFINITIONS,
         *feed_events(),
         EK_SEATS,

@@ -253,3 +253,16 @@ def test_schoof_keeps_its_88_seats_on_its_first_day() -> None:
     }
     # without the vacancies the coalition looks 14 seats short, as Front-end #1 saw
     assert seat_timeline(posts, seats, "2024-07-02", "2024-07-10")[0]["coalition"] == 74
+
+
+def test_each_coalition_faction_with_its_choice_most_seats_first() -> None:
+    votes = [("vvd", "Voor", 24), ("pvv", "Tegen", 37), ("gl", "Voor", 25)]
+    votes += [("nsc", "Voor", 3), ("nsc", "Tegen", 2), ("bbb", "Niet deelgenomen", 7)]
+    result = vote_pattern(votes, COALITION)
+    assert result is not None
+    assert result["factions"] == [
+        {"key": "pvv", "choice": "Tegen", "seats_for": 0, "seats_against": 37},
+        {"key": "vvd", "choice": "Voor", "seats_for": 24, "seats_against": 0},
+        # a roll call whose members went both ways: no one choice
+        {"key": "nsc", "choice": None, "seats_for": 3, "seats_against": 2},
+    ]

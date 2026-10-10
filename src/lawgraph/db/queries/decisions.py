@@ -23,6 +23,7 @@ from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import _words
+from lawgraph.db.queries.coalition import coalition_object
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import (
     ReadTimedOut,
@@ -255,16 +256,7 @@ _ITEM = f"""json_build_object(
     'tally', {_object_or_empty("d.props -> 'tally'")},
     'voters', {_object_or_empty("d.props -> 'voters'")},
     'primary_case_id', d.props -> 'primary_case_id',
-    'coalition', CASE WHEN c.id IS NULL THEN NULL ELSE json_build_object(
-        'cabinet', c.cabinet,
-        'coalition_for', c.coalition_for,
-        'coalition_against', c.coalition_against,
-        'opposition_for', c.opposition_for,
-        'opposition_against', c.opposition_against,
-        'pattern', c.pattern,
-        'carried', c.carried,
-        'decisive', c.decisive
-    ) END
+    'coalition', {coalition_object("c")}
 )"""
 
 # The order of the list: newest first, the key settling a day.
