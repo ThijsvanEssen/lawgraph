@@ -526,6 +526,7 @@ Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that 
 | `raw` | the record of the Tweede Kamer as it came |
 | `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
 | `identifier`, `year`, `bwb_id` | of a Staatsblad or Staatscourant publication |
+| `summary`, `submitted_on`, `debate`, `status`, `motion_url`, `pdf_url` | of a motion of the Eerste Kamer, from its page (`normalize eerstekamer-motions`): what it asks as the page opens ("In deze motie wordt de regering verzocht …"), the day it was submitted, the debate it was submitted at, its `behandelstatus` (`verworpen`, `aangenomen`, `aangehouden`, as the Kamer writes it), its page and its PDF; its signers are its `actors` (`Eerste ondertekenaar`, `Mede ondertekenaar`, with the `person_id` of their member) and `AUTHORED` from each member |
 
 ### Activity (`activities`)
 

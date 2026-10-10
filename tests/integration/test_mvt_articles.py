@@ -366,6 +366,54 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
     assert all(s["char_end"] <= len(document["text"]) for s in document["sections"])
 
 
+def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> None:
+    """``explanations``: per paper its passages with their text, for the article reader;
+    what explains only the dossier is not there."""
+    store = GraphStore()
+    ids = _graph(store)
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+    app.dependency_overrides[get_store] = lambda: store
+    client = TestClient(app)
+
+    def explanations(bwb_id: str, article: str) -> dict[str, Any]:
+        response = client.get(f"/api/articles/{bwb_id}/{article}/explanations")
+        assert response.status_code == 200
+        return response.json()
+
+    body = explanations(KLIMAATFONDS, "2")
+    assert body["article_id"] == f"articles/{make_node_key(KLIMAATFONDS, '2')}"
+    assert body["total"] == 1
+    (item,) = body["items"]
+    assert item["document"]["id"] == ids["klimaat_doc"]
+    assert item["document"]["kind"] == "Memorie van toelichting"
+    assert item["target"] == "article_version"
+    assert item["target_id"] == ids["klimaat_2"]
+    (passage,) = item["passages"]
+    assert passage["heading"] == "Artikel I"
+    assert passage["match_type"] == "body_named_law"
+    assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
+    # the same passage as the memorandum's own route gives
+    same = client.get(
+        f"/api/documents/{item['document']['key']}/passages",
+        params={"bwb_id": KLIMAATFONDS, "article": "2"},
+    ).json()["items"]
+    assert [item["passages"]] == [same]
+
+    # a new law: through the version, and the article without a change edge itself
+    for number, target in (("1", "article_version"), ("3", "article")):
+        (item,) = explanations(NEW_LAW, number)["items"]
+        assert item["target"] == target
+        assert [p["text"] for p in item["passages"]] == [
+            f"Artikel {number}\nToelichting op artikel {number}."
+        ]
+
+    # explained for the dossier only, a budget paper, and an unknown article: nothing
+    empty = {"total": 0, "items": []}
+    for bwb_id, number in ((KLIMAATFONDS, "3"), (BUDGET_LAW, "2"), (NEW_LAW, "99")):
+        body = explanations(bwb_id, number)
+        assert {"total": body["total"], "items": body["items"]} == empty
+
+
 PROEF = "BWBR0099003"  # changed by dossier 36300, whose memorandum names onderdelen
 _BILL_36300 = """VOORSTEL VAN WET
 ARTIKEL I
@@ -453,3 +501,14 @@ def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
     # what the bill inserted and the dossier did not change, and the bill's own articles
     assert ids["20b"] not in edges
     assert set(edges) == {ids["10"], ids["20a"]}
+
+    # and the reader gets the onderdeel as the passage of the article
+    app.dependency_overrides[get_store] = lambda: store
+    body = TestClient(app).get(f"/api/articles/{PROEF}/20a/explanations").json()
+    (item,) = body["items"]
+    (passage,) = item["passages"]
+    assert (passage["heading"], passage["match_type"]) == (
+        "Artikel I, onderdeel B",
+        "bill_part",
+    )
+    assert passage["text"] == "Artikel I, onderdeel B\nTwee nieuwe delicten."

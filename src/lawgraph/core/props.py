@@ -405,6 +405,14 @@ class DocumentProps(_CommonProps):
     raw: dict[str, Any] | None = None
     # what a motion asks or says, its dictum (``core/motion_dictum.py``)
     dictum: str | None = None
+    # of a motion of the Eerste Kamer, from its page (``normalize eerstekamer-motions``): what
+    # it asks, the day it was submitted, the debate, its status, its page and its PDF
+    summary: str | None = None
+    submitted_on: str | None = None
+    debate: str | None = None
+    status: str | None = None
+    motion_url: str | None = None
+    pdf_url: str | None = None
     title: str | None = None
     # a paper named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None

@@ -641,6 +641,201 @@ def test_explanations_of_another_or_an_unknown_article(store: GraphStore) -> Non
     }
 
 
+# ── the passages that explain an article ─────────────────────────────────────
+
+_MVT_TEXT = "Artikel I\nAlgemeen.\nArtikel 5\nToelichting op artikel 5.\n"
+_AMENDMENT_TEXT = (
+    "Artikel 5\nVoorgestelde tekst.\nToelichting\nDit amendement regelt 5."
+)
+
+
+def _section(
+    section_id: str, heading: str, start: int, end: int, level: int
+) -> dict[str, Any]:
+    return {
+        "id": section_id,
+        "heading": heading,
+        "level": level,
+        "kind": "article",
+        "char_start": start,
+        "char_end": end,
+    }
+
+
+def _passage(
+    section_id: str,
+    heading: str,
+    start: int,
+    end: int,
+    confidence: float,
+    match_type: str = "heading_target",
+) -> dict[str, Any]:
+    return {
+        "section_anchor": section_id,
+        "heading": heading,
+        "char_start": start,
+        "char_end": end,
+        "match_type": match_type,
+        "changed": True,
+        "confidence": confidence,
+        "explanation": f"De kop '{heading}' noemt het artikel.",
+    }
+
+
+def _paper(
+    key: str, kind: str, date: str, sequence: int, text: str, sections: Any
+) -> dict[str, Any]:
+    return _node(
+        key,
+        "document",
+        ["TK"],
+        source="tk",
+        kind=kind,
+        title=f"{kind} {key}",
+        date=date,
+        dossier_number="36000",
+        sequence=sequence,
+        text=text,
+        sections=sections,
+    )
+
+
+_MVT_SECTIONS = [
+    _section("s-1", "Artikel I", 0, len(_MVT_TEXT), 1),
+    _section("s-2", "Artikel 5", 20, len(_MVT_TEXT), 2),
+]
+_AMENDMENT_SECTIONS = [
+    _section("s-1", "Artikel 5", 0, 29, 1),
+    _section("s-2", "Toelichting", 30, len(_AMENDMENT_TEXT), 2),
+]
+
+
+def _seed_passages(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _article("bwbr0002_5", "5", stam_id="S5"),
+            _article("bwbr0002_6", "6", stam_id="S6"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [
+            _version("av_5_old", "S5", "5", valid_from="2020-01-01"),
+            _version("av_5_new", "S5", "5", valid_from="2024-01-01"),
+            _version("av_6", "S6", "6", valid_from="2024-01-01"),
+        ],
+    )
+    mvt = "Memorie van toelichting"
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _paper("mvt_new", mvt, "2023-06-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _paper(
+                "amendment_new",
+                "Amendement",
+                "2023-09-01",
+                14,
+                _AMENDMENT_TEXT,
+                _AMENDMENT_SECTIONS,
+            ),
+            _paper("mvt_old", mvt, "2019-03-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _paper("mvt_article", mvt, "2025-01-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            # explains the dossier's changes, no section: no passage
+            _paper("mvt_dossier", mvt, "2023-07-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            # its only section lies beyond the end of its text
+            _paper("mvt_short", mvt, "2023-08-01", 3, "Artikel 5", _MVT_SECTIONS),
+            # explains another article
+            _paper("mvt_other", mvt, "2024-02-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+        ],
+    )
+    d = "documents"
+    article_5 = _passage("s-2", "Artikel 5", 20, len(_MVT_TEXT), 0.95)
+    general = _passage("s-1", "Artikel I", 0, len(_MVT_TEXT), 0.65, "body_named_law")
+    toelichting = _passage(
+        "s-2", "Toelichting", 30, len(_AMENDMENT_TEXT), 0.9, "amendment"
+    )
+    explains: list[tuple[str, str, list[dict[str, Any]] | None]] = [
+        # the surest of a section counts: 0.95 through the version, 0.3 through the article
+        ("mvt_new", AV_NEW, [article_5]),
+        ("mvt_new", ARTICLE, [{**article_5, "confidence": 0.3}, general]),
+        ("amendment_new", AV_NEW, [toelichting]),
+        ("mvt_old", AV_OLD, [article_5]),
+        ("mvt_article", ARTICLE, [article_5]),
+        ("mvt_dossier", AV_NEW, None),
+        ("mvt_short", AV_NEW, [article_5]),
+        ("mvt_other", AV_OTHER, [article_5]),
+    ]
+    edges = []
+    for i, (document, target, sections) in enumerate(explains):
+        meta: dict[str, Any] = {}
+        if sections:
+            meta = {
+                "section_anchor": sections[0]["section_anchor"],
+                "sections": sections,
+            }
+        edges.append(
+            _edge(f"x{i:02d}", f"{d}/{document}", target, "EXPLAINS", meta=meta)
+        )
+    store.bulk_insert_or_update_edges(edges)
+
+
+def test_the_passages_of_an_article_per_document_newest_version_first(
+    store: GraphStore,
+) -> None:
+    _seed_passages(store)
+
+    rows = articles.get_article_explanation_passages(store, BWB, "5")
+
+    assert [(r["key"], r["target_id"]) for r in rows] == [
+        # the newest version first; of one version the memorandum before an amendment
+        ("mvt_new", AV_NEW),
+        ("amendment_new", AV_NEW),
+        ("mvt_old", AV_OLD),
+        # an edge to the article itself, no version: last
+        ("mvt_article", ARTICLE),
+    ]
+    first = rows[0]
+    assert {k: v for k, v in first.items() if k != "passages"} == {
+        "document_id": "documents/mvt_new",
+        "key": "mvt_new",
+        "kind": "Memorie van toelichting",
+        "date": "2023-06-01",
+        "source": "tk",
+        "labels": ["TK"],
+        # what names the paper, not its text
+        "props": {
+            "dossier_number": "36000",
+            "sequence": 3,
+            "title": "Memorie van toelichting mvt_new",
+        },
+        "target_id": AV_NEW,
+        "valid_from": "2024-01-01",
+    }
+    # the sections of both edges, one per section with its surest match, in text order
+    assert [
+        (p["section_anchor"], p["confidence"], p["level"], p["text"])
+        for p in first["passages"]
+    ] == [
+        ("s-1", 0.65, 1, _MVT_TEXT),
+        ("s-2", 0.95, 2, "Artikel 5\nToelichting op artikel 5.\n"),
+    ]
+    (passage,) = rows[1]["passages"]
+    assert passage["heading"] == "Toelichting"
+    assert passage["match_type"] == "amendment"
+    assert passage["changed"] is True
+    assert passage["text"] == "Toelichting\nDit amendement regelt 5."
+    assert rows[3]["valid_from"] is None
+
+
+def test_an_article_without_passages_has_none(store: GraphStore) -> None:
+    _seed_passages(store)
+
+    assert articles.get_article_explanation_passages(store, BWB, "99") == []
+    store.execute("DELETE FROM edges WHERE to_id <> %(other)s", {"other": AV_OTHER})
+    assert articles.get_article_explanation_passages(store, BWB, "5") == []
+
+
 # ── cited by ─────────────────────────────────────────────────────────────────
 
 CITED = "articles/sr_287"
