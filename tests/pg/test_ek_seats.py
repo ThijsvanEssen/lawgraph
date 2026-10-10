@@ -171,3 +171,24 @@ def test_the_seats_of_the_eerste_kamer_on_a_day(walked: GraphStore) -> None:
         is None
     )
     assert before.status_code == 404
+
+
+def test_the_counts_of_the_ops_script_read(walked: GraphStore) -> None:
+    """``ops/ek-seats-counts.sql`` runs on the tables it counts (its psql lines aside)."""
+    sql = (
+        Path(__file__).resolve().parents[2] / "ops" / "ek-seats-counts.sql"
+    ).read_text()
+    queries = [
+        q.strip()
+        for q in "\n".join(
+            line
+            for line in sql.splitlines()
+            if not line.startswith(("\\", "--", "SET"))
+        ).split(";")
+        if q.strip()
+    ]
+    terms, mismatches, cabinets = (list(walked.query(q)) for q in queries)
+    assert [(t["start"], t["checked"], t["stretches"]) for t in terms] == [
+        ("2023-06-13", True, 24)
+    ]
+    assert mismatches == [] and cabinets == []
