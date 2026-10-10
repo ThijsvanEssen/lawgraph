@@ -15,6 +15,7 @@ place of the old one, or (``since``) those dated from a day on, in place.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 import psycopg
@@ -207,11 +208,11 @@ def _words_filter(
     return f"e.words @@ %(words)s::tsquery AND ({exact})"
 
 
-def periods_query(
-    filters: FeedFilters, per: str, queries: list[str | None] | None = None
-) -> tuple[str, dict[str, Any]]:
-    """SQL and parameters: per period (``per``) and kind the events under *filters*, from
-    ``lg_feed_events``. Every kind is counted unless ``kinds`` names some."""
+def _matching(
+    filters: FeedFilters, queries: list[str | None] | None
+) -> tuple[str, list[str], dict[str, Any]]:
+    """The CTEs, conditions (on ``e``) and parameters of the rows of ``lg_feed_events``
+    under *filters*: every kind unless ``kinds`` names some."""
     bind: dict[str, Any] = {"since": filters.since or "0"}
     where = ["e.date >= %(since)s"]
     ctes = ""
@@ -244,6 +245,15 @@ def periods_query(
     words = _words_filter(filters, queries or [], bind)
     if words:
         where.append(words)
+    return ctes, where, bind
+
+
+def periods_query(
+    filters: FeedFilters, per: str, queries: list[str | None] | None = None
+) -> tuple[str, dict[str, Any]]:
+    """SQL and parameters: per period (``per``) and kind the events under *filters*, from
+    ``lg_feed_events``. Every kind is counted unless ``kinds`` names some."""
+    ctes, where, bind = _matching(filters, queries)
     period = _period(per)
     return (
         f"""{ctes}
@@ -254,6 +264,55 @@ def periods_query(
         ORDER BY 1 ASC NULLS LAST, 2 ASC NULLS LAST""",
         bind,
     )
+
+
+# The days back from the day the events were last written that a poll writes again
+# (``scripts/poll.sh``: ``feed-events --days 14``): what the table may lack is dated in them.
+RECENT_DAYS = 14
+
+
+def first_day_of_page(
+    store: GraphStore, filters: FeedFilters, limit: int, before: str | None
+) -> tuple[str, bool] | None:
+    """The first day the page of the feed under *filters* (with words, without a first day)
+    reaches back to, and whether the table holds a whole page: the day of the
+    ``limit + 1``-th newest event that matches them in ``lg_feed_events``, of those before
+    the day *before* (a cursor's: its own day is read whole), else of the oldest; no later
+    than ``RECENT_DAYS`` before today (what the table may lack yet). None where the table
+    cannot tell: never written, or a filter it does not keep. The feed then reads its page
+    from that day on, once, instead of window after window."""
+    if unsupported(filters):
+        return None
+    state = "SELECT written_at FROM lg_feed_events_state WHERE id"
+    if next(iter(store.query(state)), None) is None:
+        return None
+    ctes, where, bind = _matching(filters, word_queries(store, filters))
+    if before:
+        where.append("e.date < %(before)s")
+        bind["before"] = before
+    bind["n"] = limit
+    condition = " AND ".join(f"({clause})" for clause in where)
+    row = (
+        next(
+            iter(
+                store.query(
+                    f"""{ctes}
+                SELECT
+                    (SELECT e.date FROM {FEED_EVENTS_TABLE} e WHERE {condition}
+                     ORDER BY e.date DESC NULLS LAST LIMIT 1 OFFSET %(n)s) AS nth,
+                    (SELECT min(e.date) FROM {FEED_EVENTS_TABLE} e WHERE {condition})
+                        AS oldest""",
+                    bind,
+                )
+            ),
+            None,
+        )
+        or {}
+    )
+    found = row.get("nth") or row.get("oldest")
+    recent = (dt.date.today() - dt.timedelta(days=RECENT_DAYS)).isoformat()
+    day = min(str(found)[:10], recent) if found else recent
+    return day, row.get("nth") is not None
 
 
 # How long the periods under a filter are kept (seconds). They are kept per writing of the

@@ -203,3 +203,61 @@ def test_the_route(client: TestClient) -> None:
 )
 def test_what_the_route_does_not_count(client: TestClient, params: dict) -> None:
     assert client.get("/api/feed/periods", params=params).status_code == 422
+
+
+def _pages(store: GraphStore, filters: FeedFilters, limit: int) -> list[list[str]]:
+    """Every page of the feed under *filters*, by its cursor."""
+    from lawgraph.core.feed import FeedCursor
+
+    pages, cursor = [], None
+    while True:
+        items = get_feed(store, filters, cursor=cursor, limit=limit, facets=False)[
+            "items"
+        ]
+        pages.append([i["id"] for i in items[:limit]])
+        if len(items) <= limit:
+            return pages
+        last = items[limit - 1]
+        cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        FeedFilters(q=("ai",)),
+        FeedFilters(q=("AI-verordening", "grens")),
+        FeedFilters(q=("motie",), chamber="TK"),
+        FeedFilters(q=("voorbeeld",), until="2026-06-30"),
+        FeedFilters(q=("nergens",)),
+    ],
+    ids=repr,
+)
+def test_a_page_of_words_is_that_of_the_windows(
+    seeded: GraphStore, filters: FeedFilters, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Words without a first day: the page read from the day ``lg_feed_events`` says it
+    reaches back to is the page the windows find, page after page."""
+    from lawgraph.db.queries import feed_events
+
+    bounded = _pages(seeded, filters, limit=1)
+    monkeypatch.setattr(feed_events, "first_day_of_page", lambda *a, **k: None)
+    assert bounded == _pages(seeded, filters, limit=1)
+
+
+def test_a_page_of_words_reads_once_from_its_first_day(
+    seeded: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the events written, a page of words is one read from its first day, not the
+    windows back from today."""
+    from lawgraph.db.queries import feed
+
+    read: list[str | None] = []
+    rows = feed._rows
+
+    def recorded(store: Any, filters: FeedFilters, *a: Any, **k: Any) -> Any:
+        read.append(filters.since)
+        return rows(store, filters, *a, **k)
+
+    monkeypatch.setattr(feed, "_rows", recorded)
+    get_feed(seeded, FeedFilters(q=("ai",)), limit=1, facets=False)
+    assert len(read) == 1 and read[0] is not None
