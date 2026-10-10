@@ -1120,6 +1120,14 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     ) not in set(words):
         # without its number the words are the law's, not the article's
         own = [_folded(extra.get("heading"))]
+    if hit.get("collection") == "judgments":
+        # a judgment's case number is no name: "Rechtbank Amsterdam 2009-07-08 / AWB
+        # 08/5197 HUUR" is named by its court and day, the type code of the case is none
+        # of its words (``compose_display_name``)
+        own = [
+            _folded(str(hit.get("display_name") or "").split(" / ", 1)[0]),
+            *(_folded(name) for name in extra.get("names") or []),
+        ]
     if any(all(w in n for w in words) for n in own + context if n):
         return SCORE_CONTAINS
     return SCORE_WORDS
