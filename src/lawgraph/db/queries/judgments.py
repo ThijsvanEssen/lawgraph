@@ -461,24 +461,6 @@ def get_judgments_list(
         conditions = [_CLAUSES[n] for n in names if n not in leave_out] + search
         return f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-    def items() -> list[Any]:
-        return list(
-            store.query(
-                f"""
-                SELECT {_ITEM}
-                FROM (
-                    SELECT j.id, row_number() OVER (ORDER BY {order}) AS n
-                    FROM judgments j {where()}
-                    ORDER BY {order}
-                    LIMIT %(limit)s OFFSET %(offset)s
-                ) page
-                JOIN judgments j ON j.id = page.id
-                ORDER BY page.n
-                """,
-                params,
-            )
-        )
-
     def facet(name: str) -> Callable[[], list[Any]]:
         value, leave_out = _FACETS[name]
         by_count = "" if name == "year" else "count DESC, "
@@ -514,6 +496,15 @@ def get_judgments_list(
         )
 
     filtered = [*names, *(["search"] if search else [])]
+    # A search that finds few judgments sorts its hits; one that finds many reads the
+    # list in the order of an index (``_page``). The total (kept) tells which.
+    hits_first = bool(search) and (
+        _total(store, filtered, where(), params) <= SORTED_HITS_MAX
+    )
+
+    def items() -> list[Any]:
+        return _page(store, order, where(), params, hits_first=hits_first)
+
     if not facets:
         page, total = run_together(
             items, lambda: _total(store, filtered, where(), params)
@@ -533,6 +524,52 @@ def get_judgments_list(
         "facets": counted,
     }
     return result
+
+
+# The most hits of a search that are found first and then sorted (``_page``). Past them
+# they are at least one in twenty judgments, and a page in the order of an index finds
+# its rows by testing twenty for each.
+SORTED_HITS_MAX = 50_000
+
+
+def _page(
+    store: GraphStore,
+    order: str,
+    where: str,
+    params: dict[str, Any],
+    *,
+    hits_first: bool,
+) -> list[Any]:
+    """A page of the judgments *where* lets through, in *order*. With *hits_first* the
+    rows are found by the indexes of *where* (the words of a search) and then sorted:
+    in the order of an index the planner would test every judgment of the list for the
+    words of a rare one, and finds the page only after reading nearly the whole table
+    (``pacht``: 317 of a million)."""
+    source = "judgments"
+    hits = ""
+    if hits_first:
+        hits = f"""WITH hits AS MATERIALIZED (
+            SELECT j.id, j.key, j.date_eff, j.inbound_citation_count
+            FROM judgments j {where}
+        )"""
+        source, where = "hits", ""
+    return list(
+        store.query(
+            f"""
+            {hits}
+            SELECT {_ITEM}
+            FROM (
+                SELECT j.id, row_number() OVER (ORDER BY {order}) AS n
+                FROM {source} j {where}
+                ORDER BY {order}
+                LIMIT %(limit)s OFFSET %(offset)s
+            ) page
+            JOIN judgments j ON j.id = page.id
+            ORDER BY page.n
+            """,
+            params,
+        )
+    )
 
 
 def _with_narrower(
