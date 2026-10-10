@@ -319,9 +319,10 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["eerstekamer-agenda"]
         == lanes["eerstekamer-mutations"]
         == lanes["eerstekamer-persons"]
+        == lanes["eerstekamer-motions"]
     )
     assert len(set(lanes.values())) == (
-        len(lanes) - 3 - 1 - 1 - 1 - 5 - (len(koop) - 1)
+        len(lanes) - 3 - 1 - 1 - 1 - 6 - (len(koop) - 1)
     )
 
 
@@ -357,6 +358,8 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("eerstekamer-mutations", registry.LANE_EERSTEKAMER_SITE, ()),
         # after the composition and the changes in its lane: the members they link
         ("eerstekamer-persons", registry.LANE_EERSTEKAMER_SITE, ()),
+        # the motions the votes named, in the lane of the site
+        ("eerstekamer-motions", registry.LANE_EERSTEKAMER_SITE, ()),
         ("kiesraad", "kiesraad", ()),
         ("eerstekamer-agenda", registry.LANE_EERSTEKAMER_SITE, ()),
         ("eerstekamer-bills", registry.LANE_EERSTEKAMER_SITE, ()),

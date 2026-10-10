@@ -44,6 +44,9 @@ from lawgraph.pipelines.normalize.eerstekamer_bills import (
 from lawgraph.pipelines.normalize.eerstekamer_composition import (
     EerstekamerCompositionNormalizePipeline,
 )
+from lawgraph.pipelines.normalize.eerstekamer_motions import (
+    EerstekamerMotionsNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eerstekamer_mutations import (
     EerstekamerMutationsNormalizePipeline,
 )
@@ -74,6 +77,7 @@ from lawgraph.pipelines.retrieve_commands import (
     retrieve_eerstekamer_agenda,
     retrieve_eerstekamer_bills,
     retrieve_eerstekamer_composition,
+    retrieve_eerstekamer_motions,
     retrieve_eerstekamer_mutations,
     retrieve_eerstekamer_persons,
     retrieve_eerstekamer_votes,
@@ -611,6 +615,15 @@ RETRIEVE: list[Pipeline] = [
         lane=LANE_EERSTEKAMER_SITE,
     ),
     _pipeline(
+        retrieve_eerstekamer_motions,
+        "The page of every motion of the Eerste Kamer voted on (/motiedossier): what it "
+        "asks, its key data and who submitted and co-signed it; each page once.",
+        argv_for_all=_no_argv,
+        lane=LANE_EERSTEKAMER_SITE,
+        # the motions voted on: the motion_url of its decisions on a motion
+        reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
+    ),
+    _pipeline(
         retrieve_kiesraad,
         "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
         "Kiesraad's databank: each election once.",
@@ -748,6 +761,13 @@ NORMALIZE: list[Pipeline] = [
         "say them, checked against the changes of the Kamer's pages.",
         # the members and factions, and the changes the periods are checked against
         after=("eerstekamer-composition", "eerstekamer-mutations"),
+    ),
+    _pipeline(
+        EerstekamerMotionsNormalizePipeline,
+        "What the page of a motion of the Eerste Kamer says on the motion's Kamerstuk: what "
+        "it asks, its key data and who submitted and co-signed it, with AUTHORED from them.",
+        # the Kamerstukken of the Eerste Kamer, and the members of the persons' pages
+        after=("eerstekamer", "eerstekamer-persons"),
     ),
     _pipeline(
         EerstekamerAgendaNormalizePipeline,

@@ -131,6 +131,7 @@ and exits 1 when any of them failed.
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
 | `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) |
+| `retrieve eerstekamer-motions` | `--limit` (at most this many pages, the rest in the next run); the page of every motion of the Eerste Kamer voted on not stored yet (the first run, every motion voted on since June 2015, some 700 pages at the site's interval: `ops/ek-motions.sh`, in slices of 300) |
 | `retrieve eerstekamer-persons` | `--sitting`: the page of every sitting member again (`weekly.sh`); without it each page not stored, and one a change fetched after it links |
 | `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, on bills and motions), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
 | `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records`, `--only-stored` (only the treaties stored already) |
@@ -207,7 +208,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS` and `KIESRAAD` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid` and `normalize eerstekamer-mutations` read them) |
 | `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_DOSSIER_RELATIONS`, `TK_DICTUM`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
