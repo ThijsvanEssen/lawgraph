@@ -13,6 +13,11 @@ The ECLIs are read by ``core.ecli.cited_eclis``: a malformed one is repaired whe
 what was meant (a split LJN, NL and the court swapped, a range) and dropped otherwise, so it
 makes no stub. A stub judgment no edge reaches any more goes at the end.
 
+A decision before 2013 is cited by its LJN alone ("CRvB 12 januari 2010, LJN BK9271"): the
+number of its ECLI (``ECLI:NL:CRVB:2010:BK9271``), unique over the courts. Such an LJN cites the
+judgment in the graph whose ECLI has it for its number (``core.ecli.cited_ljns``, ``ljn_of``);
+one that no judgment has, or that two have, cites nothing and makes no stub.
+
 A decision of the ECHR is cited by application number ("EHRM 28 maart 2000, nr. 22492/93"):
 ``REFERS_TO`` to the decision of that number and date, or without a date to the only decision of
 the number (``_echr_citations``).
@@ -26,6 +31,7 @@ reading its text; none when no numbered paragraph names it.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -38,7 +44,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.echr_citations import Cited, cited_in_dutch
-from lawgraph.core.ecli import cited_eclis
+from lawgraph.core.ecli import cited_eclis, cited_ljns, ljn_of
 from lawgraph.core.judgments import body_text, extract_sections, parse_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -64,15 +70,24 @@ PROCEDURAL_RELATIONS = (
 )
 
 
-def paragraphs_citing(paragraphs: list[dict[str, Any]]) -> dict[str, list[str]]:
-    """Cited ECLI -> the numbers of the paragraphs that name it, in their order, each once;
-    a paragraph without a number counts for none."""
+def cited(text: str, by_ljn: Mapping[str, str]) -> list[str]:
+    """The ECLIs *text* cites: those it names, then those of the LJNs it names (*by_ljn*:
+    LJN -> the ECLI of the judgment in the graph that has it), once each."""
+    ljns = (by_ljn[ljn] for ljn in cited_ljns(text) if ljn in by_ljn)
+    return list(dict.fromkeys([*cited_eclis(text), *ljns]))
+
+
+def paragraphs_citing(
+    paragraphs: list[dict[str, Any]], by_ljn: Mapping[str, str] | None = None
+) -> dict[str, list[str]]:
+    """Cited ECLI -> the numbers of the paragraphs that name it (or its LJN, *by_ljn*), in
+    their order, each once; a paragraph without a number counts for none."""
     found: dict[str, list[str]] = {}
     for paragraph in paragraphs:
         number = paragraph.get("number")
         if not number:
             continue
-        for ecli in cited_eclis(str(paragraph.get("text") or "")):
+        for ecli in cited(str(paragraph.get("text") or ""), by_ljn or {}):
             numbers = found.setdefault(ecli, [])
             if number not in numbers:
                 numbers.append(str(number))
@@ -90,6 +105,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         super().__init__(store)
         # (citing id, cited ECLI) -> the numbers of the paragraphs that name it
         self._places: dict[tuple[str, str], list[str]] = {}
+        self._by_ljn: dict[str, str] | None = (
+            None  # read once, when a text names an LJN
+        )
         self.after = after
         self.limit = limit
 
@@ -150,8 +168,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 continue
             read.append(judgment.node_id)
             source_ecli = str(judgment.props["ecli"]).upper()
-            where = paragraphs_citing(extract_sections(root))
-            for ecli in cited_eclis(text):
+            by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
+            where = paragraphs_citing(extract_sections(root), by_ljn)
+            for ecli in cited(text, by_ljn):
                 if ecli == source_ecli:
                     continue
                 pending.append((judgment.node_id, ecli))
@@ -160,6 +179,21 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     self._places[(judgment.node_id, ecli)] = where[ecli]
             by_appno += [(judgment.node_id, c) for c in cited_in_dutch(text)]
         return pending, all_cited_eclis, read, by_appno
+
+    def _judgments_by_ljn(self) -> dict[str, str]:
+        """LJN -> the ECLI of the one judgment in the graph whose number it is; an LJN two
+        judgments have is left out."""
+        if self._by_ljn is None:
+            claims: dict[str, list[str]] = {}
+            for ecli in semantic_rechtspraak.eclis_with_an_ljn(self.store):
+                ljn = ljn_of(str(ecli))
+                if ljn:
+                    claims.setdefault(ljn, []).append(str(ecli).upper())
+            self._by_ljn = {
+                ljn: eclis[0] for ljn, eclis in claims.items() if len(eclis) == 1
+            }
+            logger.info("Read the LJNs of %d judgments.", len(self._by_ljn))
+        return self._by_ljn
 
     def _procedural_pairs(self, ids: list[str]) -> set[tuple[str, str]]:
         """``(id, other)`` for every judgment of *ids* and the judgments a procedural edge
