@@ -105,9 +105,13 @@ FROM (
                          THEN q.to_id ELSE p.to_id END AS target
     FROM (
         -- each date read once: OFFSET 0 keeps the subquery from being inlined into every
-        -- comparison of the date below, where it would be read again per comparison
+        -- comparison of the date below, where it would be read again per comparison; a
+        -- case's from its own table by key, not through the view of every node
         SELECT a.to_id,
                CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}' THEN doc.date
+                    WHEN a.to_collection = '{COLLECTION_CASES}' THEN (
+                        SELECT lg_str(k.props -> 'date') FROM {COLLECTION_CASES} k
+                        WHERE k.id = a.to_id)
                     ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
                END AS date
         FROM edges a
@@ -140,6 +144,9 @@ FROM (
     FROM (
         SELECT a.dossiers,
                CASE WHEN starts_with(a.document_id, '{COLLECTION_DOCUMENTS}/') THEN doc.date
+                    WHEN starts_with(a.document_id, '{COLLECTION_CASES}/') THEN (
+                        SELECT lg_str(k.props -> 'date') FROM {COLLECTION_CASES} k
+                        WHERE k.id = a.document_id)
                     ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n
                           WHERE n.id = a.document_id)
                END AS date
