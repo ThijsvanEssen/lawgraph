@@ -82,28 +82,37 @@ def find_dossier(store: GraphStore, label: str) -> str | None:
 
 def find_document(store: GraphStore, dossier: str, number: str) -> str | None:
     """The paper *number* (a number of the Tweede Kamer, a letter of the Eerste Kamer) that
-    is numbered in the dossier *dossier* (``36799``, ``36600-VIII``)."""
+    is numbered in the dossier *dossier* (``36799``, ``36600-VIII``). A number is looked up
+    in ``lg_document_light`` by its index; a letter in the props of the papers of the
+    dossier (the Eerste Kamer numbers a dossier's papers A, B, C: few)."""
     parts = split_dossier(dossier)
     if parts is None:
         return None
-    sequence = int(number) if number.isdigit() else None
+    if number.isdigit():
+        return _one(
+            store,
+            """
+            SELECT l.id FROM lg_document_light l
+            WHERE lg_str(l.props -> 'dossier_number') = %(number)s
+              AND upper(coalesce(lg_str(l.props -> 'dossier_suffix'), ''))
+                  = upper(%(suffix)s)
+              AND lg_num(l.props -> 'sequence') = %(sequence)s
+            ORDER BY l.id
+            LIMIT 1
+            """,
+            {"number": parts[0], "suffix": parts[1], "sequence": int(number)},
+        )
     return _one(
         store,
         """
         SELECT d.id FROM documents d
         WHERE d.dossier_number = %(number)s
           AND upper(coalesce(lg_str(d.props -> 'dossier_suffix'), '')) = upper(%(suffix)s)
-          AND (lg_num(d.props -> 'sequence') = %(sequence)s
-               OR upper(coalesce(lg_str(d.props -> 'number'), '')) = upper(%(paper)s))
+          AND upper(coalesce(lg_str(d.props -> 'number'), '')) = upper(%(paper)s)
         ORDER BY d.key
         LIMIT 1
         """,
-        {
-            "number": parts[0],
-            "suffix": parts[1],
-            "sequence": sequence,
-            "paper": number,
-        },
+        {"number": parts[0], "suffix": parts[1], "paper": number},
     )
 
 

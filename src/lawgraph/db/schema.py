@@ -1359,6 +1359,14 @@ END $$""",
             f" AFTER {event} ON documents REFERENCING {transition} TABLE AS changed"
             " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_document_light()"
         )
+    # a paper by its dossier and number (``queries/lookup.find_document``): one index probe,
+    # where the props of every paper of a budget dossier were read for it
+    statements.append(
+        "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light"
+        " (lg_str(props -> 'dossier_number'),"
+        " upper(coalesce(lg_str(props -> 'dossier_suffix'), '')),"
+        " lg_num(props -> 'sequence'))"
+    )
     return statements
 
 

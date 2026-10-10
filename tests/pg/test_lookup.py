@@ -254,3 +254,34 @@ def test_a_missing_or_malformed_parameter_is_422(
     client: TestClient, params: dict[str, str]
 ) -> None:
     assert client.get("/api/lookup", params=params).status_code == 422
+
+
+def test_a_paper_by_its_number_is_one_probe_of_an_index(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Of a budget dossier the props of thousands of papers were read for one lookup
+    (1.8 s cold on prod): a number is looked up by the index on ``lg_document_light``."""
+    from lawgraph.db.queries import lookup
+    from lawgraph.db.store import _query
+
+    ran: list[tuple[Any, Any]] = []
+    stream = store._stream
+
+    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
+        ran.append((statement, params))
+        return stream(statement, params, *a, **k)
+
+    store._stream = recorded  # type: ignore[method-assign]
+    try:
+        assert lookup.find_document(store, "36799", "31") == "documents/tk31"
+    finally:
+        store._stream = stream  # type: ignore[method-assign]
+    ((statement, params),) = ran
+    with store.pool.connection() as conn:
+        conn.execute("SET enable_seqscan = off")
+        plan = conn.execute(
+            b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn), params
+        ).fetchone()[0]
+    text = str(plan)
+    assert "lg_document_light_paper" in text
+    assert "'Relation Name': 'documents'" not in text
