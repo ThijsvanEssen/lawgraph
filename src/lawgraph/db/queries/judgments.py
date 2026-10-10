@@ -540,31 +540,37 @@ def _page(
     *,
     hits_first: bool,
 ) -> list[Any]:
-    """A page of the judgments *where* lets through, in *order*. With *hits_first* the
-    rows are found by the indexes of *where* (the words of a search) and then sorted:
-    in the order of an index the planner would test every judgment of the list for the
-    words of a rare one, and finds the page only after reading nearly the whole table
-    (``pacht``: 317 of a million)."""
-    source = "judgments"
+    """A page of the judgments *where* lets through, in *order*: the rows of the page are
+    chosen first, and only theirs are built into items, read again by their place
+    (``ctid``): one read of a page the choosing read already, where a lookup by id walked
+    the primary key for each row (four times the reads of the choosing itself, the most of a
+    cold page). With *hits_first* the rows are found by the indexes of *where* (the words of
+    a search) and then sorted: in the order of an index the planner would test every
+    judgment of the list for the words of a rare one, and finds the page only after reading
+    nearly the whole table (``pacht``: 317 of a million)."""
     hits = ""
+    rows = f"judgments j {where}"
     if hits_first:
         hits = f"""WITH hits AS MATERIALIZED (
-            SELECT j.id, j.key, j.date_eff, j.inbound_citation_count
+            SELECT j.ctid AS row_id, j.key, j.date_eff, j.inbound_citation_count
             FROM judgments j {where}
         )"""
-        source, where = "hits", ""
+        rows = "hits j"
+    row_id = "j.row_id" if hits_first else "j.ctid"
     return list(
         store.query(
             f"""
+            -- a ctid is the place of a row in this snapshot: the rows chosen and the join
+            -- that reads them are one statement, so no row has moved between the two
             {hits}
             SELECT {_ITEM}
             FROM (
-                SELECT j.id, row_number() OVER (ORDER BY {order}) AS n
-                FROM {source} j {where}
+                SELECT {row_id} AS row_id, row_number() OVER (ORDER BY {order}) AS n
+                FROM {rows}
                 ORDER BY {order}
                 LIMIT %(limit)s OFFSET %(offset)s
             ) page
-            JOIN judgments j ON j.id = page.id
+            JOIN judgments j ON j.ctid = page.row_id
             ORDER BY page.n
             """,
             params,
