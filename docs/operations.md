@@ -289,9 +289,9 @@ Incremental `retrieve bwb-history` reads which toestanden exist (the SRU listing
 pages, once there are 150 regulations or more; else one query per regulation) and downloads
 those it has no record of: a new toestand of a known regulation, and every toestand of a
 regulation `bwb` stored since. Incremental `retrieve tk-content` fetches the papers of which
-no XML is stored; a paper the repository has no XML for yet is asked for again after 3 days
-when it is younger than a week (the XML follows the PDF within about two working days), else
-after 30.
+no XML is stored; a paper the repository has no XML for yet is asked for again the next
+night when it is 14 days old or younger (the XML follows the PDF within about two working days,
+now and then a week or more later), else after 30 days.
 Law abbreviations (`instruments.props.short_title` and `aliases`, used by the citation
 detectors) come from the WTI records that `retrieve bwb` stores and are written by `normalize
 bwb`, so run both before `semantic`. A law is only cited once it is loaded: `retrieve bwb
