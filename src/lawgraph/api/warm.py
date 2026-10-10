@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from functools import partial
 
-from lawgraph.api.routes.stats import coverage_data, stats_data
+from lawgraph.api.routes.stats import coverage_data, list_totals, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
@@ -169,6 +169,8 @@ def warm_up(store: GraphStore) -> None:
     parts: dict[str, Callable[[], object]] = {
         # cheap and asked most first, so that a deploy is warm for them within a minute
         "stats": lambda: stats_data(store),
+        # the totals of the lists without a filter (``lists``; each kept per its tables)
+        "list totals": lambda: list_totals(store),
         "coverage": lambda: coverage_data(store),
         "cabinets": lambda: _warm_cabinets(store),
         "instruments": lambda: get_instruments_list(
