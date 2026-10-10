@@ -10,7 +10,8 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.cabinets import (
     cabinets_with_posts,
     get_cabinet,
@@ -312,6 +313,34 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
         ("m1", 1, 0),
     ]
     assert get_cabinet(government, "nope") is None
+
+
+def test_what_its_members_signed_read_light_is_the_same(
+    government: GraphStore,
+) -> None:
+    """Once ``lg_authored`` is filled, the counts of the members read a range of its index
+    per member instead of walking every paper they signed and its cases: the same answer,
+    the paper counted directly and through its case, the dossier that is gone, the period
+    of each cabinet."""
+    walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    version_cache.clear()
+    # the triggers kept every signature as it was written; the fill notes it is whole
+    member_authored.fill_authored(government)
+    assert member_authored.is_filled(government)
+
+    light = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+
+    assert json.dumps(light) == json.dumps(walked)
+    # and it is what is read: a paper kept with another dossier counts that one
+    government.execute(
+        "UPDATE lg_authored SET dossiers = ARRAY['dossiers/elsewhere']"
+        " WHERE member_id = 'members/m1'"
+    )
+    version_cache.clear()
+    jetten = get_cabinet(government, "jetten")
+    assert jetten is not None
+    (heinen,) = [m for m in jetten["members"] if m["member"]["key"] == "m1"]
+    assert (heinen["dossiers"], heinen["bills"]) == (1, 0)
 
 
 def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:

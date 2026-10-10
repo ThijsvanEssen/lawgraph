@@ -21,6 +21,7 @@ from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DU
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import member_authored
 from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -128,6 +129,35 @@ WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
 """
 
 
+# The same, from ``lg_authored`` once it is filled: per member a range of its index, each
+# paper with its dossiers (directly and through its cases) kept with it, instead of the walk
+# over every paper the member signed and its cases.
+_SIGNED_LIGHT = f"""
+SELECT count(*)::int AS dossiers,
+       (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s))::int AS bills
+FROM (
+    SELECT DISTINCT x.dossier_id
+    FROM (
+        SELECT a.dossiers,
+               CASE WHEN starts_with(a.document_id, '{COLLECTION_DOCUMENTS}/') THEN doc.date
+                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n
+                          WHERE n.id = a.document_id)
+               END AS date
+        FROM lg_authored a
+        LEFT JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = a.document_id
+        WHERE a.member_id = m.id
+          AND lg_str(a.meta -> 'capacity') = %(government)s
+        OFFSET 0
+    ) a
+    CROSS JOIN LATERAL unnest(a.dossiers) AS x(dossier_id)
+    WHERE a.date IS NOT NULL
+      AND (c.period_start IS NULL OR a.date >= c.period_start)
+      AND a.date <= c.period_end
+) signed
+LEFT JOIN dossiers d ON d.id = signed.dossier_id
+"""
+
+
 # How long the page of a cabinet is kept (seconds), whatever the data does: its counts read
 # every paper its members signed (a minute for the newest cabinets together, from disk), and a
 # poll of other sources (an hour of judgments) changes none of them; a newly signed paper
@@ -152,6 +182,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
 
 
 def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
+    signed_sql = _SIGNED_LIGHT if member_authored.is_filled(store) else _SIGNED
     rows = store.query(
         f"""
         SELECT c.id, c.key, c.type, c.labels, c.props,
@@ -171,7 +202,7 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
                    ) ORDER BY e.key ASC), '[]'::json)
                    FROM edges e
                    JOIN members m ON m.id = e.from_id
-                   CROSS JOIN LATERAL ({_SIGNED}) signed
+                   CROSS JOIN LATERAL ({signed_sql}) signed
                    WHERE e.to_id = c.id AND e.relation = %(served_in)s
                ) AS members,
                (SELECT count(*)::int FROM dossiers d
