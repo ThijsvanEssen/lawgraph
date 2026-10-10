@@ -108,6 +108,7 @@ from lawgraph.pipelines.semantic import (
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_captions import BWBCaptionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_implements import BWBImplementsSemanticPipeline
@@ -390,6 +391,14 @@ def _bwb_definitions_add_args(parser: argparse.ArgumentParser) -> None:
         "--limit", type=int, help="Stop after this many regulations (a slice)."
     )
 
+
+BWB_CAPTIONS = PipelineCommand(
+    BWBCaptionsSemanticPipeline,
+    "What each article is about, for its title (its caption), from the breadcrumbs of the "
+    "articles of its regulation.",
+    add_args=_bwb_definitions_add_args,
+    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+)
 
 BWB_DEFINITIONS = PipelineCommand(
     BWBDefinitionsSemanticPipeline,
@@ -842,6 +851,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWB_DEFINITIONS,
         "The definitions each regulation gives itself (its begripsbepalingen).",
+    ),
+    _pipeline(
+        BWB_CAPTIONS,
+        "What each article is about, for its title: the deepest title of the divisions it "
+        "stands in that one division of its law has.",
     ),
     _pipeline(
         BWBGrondslagenSemanticPipeline,

@@ -15,6 +15,7 @@ from psycopg import sql
 from psycopg.types.json import Json
 
 from lawgraph.config.constants import (
+    RAW_KIND_BWB_TOESTAND,
     RELATION_REFERS_TO,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
@@ -490,4 +491,43 @@ def same_publications(store: Store, source: str, prefix: str) -> list[dict[str, 
             _SAME_PUBLICATION_SQL,
             {"source": source, "prefix": prefix, "publication": KIND_PUBLICATION},
         )
+    )
+
+
+def regulations_of_toestanden(
+    store: Store, *, since_iso: str | None, after: str | None, limit: int | None
+) -> list[str]:
+    """The BWB ids of the stored toestanden, in order: those fetched at or after
+    *since_iso*, past the BWB id *after*, at most *limit*."""
+    return list(
+        store.query(
+            """
+            SELECT external_id FROM raw_sources
+            WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+              AND (%(since)s::text IS NULL OR fetched_at >= %(since)s)
+              AND (%(after)s::text IS NULL OR external_id > %(after)s)
+            ORDER BY external_id
+            LIMIT %(limit)s
+            """,
+            {
+                "source": SOURCE_BWB,
+                "kind": RAW_KIND_BWB_TOESTAND,
+                "since": since_iso,
+                "after": after,
+                "limit": limit,
+            },
+        )
+    )
+
+
+def article_breadcrumbs(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, bwb_id, breadcrumb, caption}`` of the articles of these regulations."""
+    return store.query(
+        """
+        SELECT key, bwb_id, props -> 'breadcrumb' AS breadcrumb,
+               props -> 'caption' AS caption
+        FROM articles WHERE bwb_id = ANY(%(ids)s::text[])
+        ORDER BY bwb_id, key
+        """,
+        {"ids": bwb_ids},
     )
