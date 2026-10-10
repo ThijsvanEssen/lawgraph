@@ -402,6 +402,11 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--limit", type=int, help="With --mixed-votes: this many decisions (a slice)."
     )
+    parser.add_argument(
+        "--persons",
+        action="store_true",
+        help="Only every stored Persoon record, normalized again into its member.",
+    )
 
 
 def _slice_add_args(parser: argparse.ArgumentParser) -> None:
@@ -444,6 +449,7 @@ TK_DOSSIERS_NORMALIZE = PipelineCommand(
     make_extra_kwargs=lambda args: {
         "mixed_votes": args.mixed_votes,
         "limit": args.limit,
+        "persons": args.persons,
     },
 )
 

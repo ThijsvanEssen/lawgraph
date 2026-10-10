@@ -9,10 +9,13 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import RAW_KIND_TK_PERSOON, SOURCE_TK
 from lawgraph.core.member_role import has_role
-from lawgraph.db import GraphStore
+from lawgraph.core.models import make_node_key
+from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries import search as search_queries
+from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.test_member_role import CASES
 
 
@@ -63,3 +66,38 @@ def test_search_and_the_detail(store: GraphStore) -> None:
         assert client.get("/api/members/vries_2").json()["has_role"] is True
     finally:
         app.dependency_overrides.pop(get_store, None)
+
+
+def test_the_persons_again_give_the_day_they_died(store: GraphStore) -> None:
+    """``normalize tk-dossiers --persons``: every stored Persoon record into its member,
+    merged into what other steps wrote (their seats stay)."""
+    person = "b153ff84-388e-41a4-a0d9-e1be6dc00d04"
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [
+            _node(make_node_key(person), external_id=person, name="P.J.H.M. Luijten",
+                  slug="p-j-h-m-luijten",
+                  faction_memberships=[{"faction_id": "factions/vvd", "faction_key": "vvd"}]),
+        ],
+    )  # fmt: skip
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_PERSOON,
+                external_id=person,
+                payload_json={
+                    "Id": person,
+                    "Initialen": "PJHM",
+                    "Achternaam": "Luijten",
+                    "Geboortedatum": "1924-04-28T00:00:00",
+                    "Overlijdensdatum": "2009-01-05T00:00:00",
+                    "Verwijderd": False,
+                },
+            )
+        )
+    TKDossiersNormalizePipeline(store, persons=True).run()
+    props = store.get_document("members", make_node_key(person))["props"]
+    assert props["death_date"] == "2009-01-05"
+    assert props["faction_memberships"][0]["faction_key"] == "vvd"
+    assert props["slug"] == "p-j-h-m-luijten"
