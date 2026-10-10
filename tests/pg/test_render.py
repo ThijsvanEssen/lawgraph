@@ -1072,7 +1072,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert response.status_code == 200
     page = _head(response.text)
     assert page["title"] == (
-        "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"
+        "Regels over kunstmatige intelligentie (2025Z15468), Concordans"
     )
     assert "gestart 1 augustus 2025" in page["description"]
     assert "dossier 36496" in page["description"]
@@ -1089,7 +1089,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert [i["name"] for i in crumbs] == [
         "Concordans",
         "Dossier 36496",
-        "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468)",
+        "Regels over kunstmatige intelligentie (2025Z15468)",
     ]
     assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36496"
     assert _focus(response.text) == "cases/z_2"
@@ -1111,7 +1111,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     ("path", "focus", "title"),
     [
         ("/zaken/2025Z15468", "cases/",
-         "Wetgeving: Regels over kunstmatige intelligentie (2025Z15468), Concordans"),
+         "Regels over kunstmatige intelligentie (2025Z15468), Concordans"),
         # of an annex the props hold no name of its law (the whole page joins it)
         ("/wetten/BWBR0001941/bijlage/II", "annexes/bwbr0001941_annex_ii",
          "Bijlage II: lijst II, Concordans"),

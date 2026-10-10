@@ -608,8 +608,10 @@ def dossier_page(row: dict[str, Any]) -> Page:
 
 
 def case_title(props: dict[str, Any], key: str) -> str:
-    """``Motie Bolhuis over een AI-killswitch (2025Z15468)``; another zaak
-    ``<kind>: <title> (2025Z15468)``."""
+    """``Motie Bolhuis over een AI-killswitch (2025Z15468)``; another zaak by its title
+    (``Brief van de tijdelijke commissie … (2025Z15468)``), its kind only when it has
+    none: the kind is the source's category (``Brief van lid/fractie/commissie``), which
+    the reader leaves out too."""
     number = _text(props.get("number")) or key
     subject = _text(props.get("title")) or _text(props.get("citation_title"))
     kind = _text(props.get("kind"))
@@ -621,8 +623,6 @@ def case_title(props: dict[str, Any], key: str) -> str:
             if match
             else subject or kind
         )
-    elif kind and subject and not subject.startswith(kind):
-        head = f"{kind}: {subject}"
     else:
         head = subject or kind or "Zaak"
     return f"{head} ({number})"
@@ -753,16 +753,28 @@ def member_role(props: dict[str, Any]) -> str:
         return _text(held[-1].get("function"))
     seats = [m for m in props.get("faction_memberships") or [] if isinstance(m, dict)]
     now = [m for m in seats if not m.get("to_date")]
+    name = member_name(props)
     if now:
-        party = _text(now[-1].get("abbreviation")) or _text(now[-1].get("name"))
+        party = _own(
+            name, _text(now[-1].get("abbreviation")) or _text(now[-1].get("name"))
+        )
         return f"Tweede Kamerlid ({party})" if party else "Tweede Kamerlid"
     ek = props.get("ek") if isinstance(props.get("ek"), dict) else {}
     if ek and not ek.get("observed_until"):
-        party = _text(ek.get("abbreviation"))
+        party = _own(name, _text(ek.get("abbreviation")))
         return f"Eerste Kamerlid ({party})" if party else "Eerste Kamerlid"
     if seats and all(m.get("to_date") for m in seats):
         return "oud-Kamerlid"
     return ""
+
+
+def _own(name: str, faction: str) -> str:
+    """*faction*, unless it is named after the member *name* (a group of one: ``Lid
+    Keijzer``, ``Groep Markuszower``), which says the name again: then nothing, as the
+    explorer leaves it out (``eigenFractie``)."""
+    surname = (name.split() or [""])[-1].lower()
+    words = re.split(r"[\s-]+", faction.lower())
+    return "" if surname and surname in words else faction
 
 
 def member_title(props: dict[str, Any]) -> str:
@@ -1527,10 +1539,13 @@ PAGES = {
 }
 
 
-def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
+def title_of(
+    node_id: str, props: dict[str, Any], law: dict[str, Any] | None = None
+) -> tuple[str, str]:
     """The title and description of a node from its own props alone, as its page has them
     (without what a page reads beside them: the outcome of a motion, the counts of an
-    article): what the SPA shows when it opens a node in the app."""
+    article): what the SPA shows when it opens a node in the app. *law*: of an annex, its
+    law as its page reads it (``seo.law_of``), so that both name it alike."""
     collection, _, key = node_id.partition("/")
     if collection == "instruments":
         name = law_name(props) or _text(props.get("display_name"))
@@ -1550,7 +1565,7 @@ def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
         title = version_title(props)
         return title, cut(title, DESCRIPTION_MAX)
     if collection == "annexes":
-        law = {
+        law = law or {
             "bwb_id": props.get("bwb_id"),
             "short_title": props.get("instrument_abbreviation"),
             "citation_title": props.get("instrument_citation_title"),
