@@ -877,13 +877,16 @@ def test_a_capped_neighbourhood_shares_the_cap_among_its_collections(
         "cases": ["k1", "k2", "k3"],
         "documents": ["d1", "d2", "d3"],
     }
-    # of the first level per collection: its neighbours there and those kept; a gone one
-    # is none
-    assert hood["first_level"] == [
-        {"collection": "cabinets", "reached": 1, "kept": 1},
-        {"collection": "cases", "reached": 6, "kept": 3},
-        {"collection": "documents", "reached": 6, "kept": 3},
+    # of the first level per collection: its neighbours there (from the edges: the gone
+    # case among them) and those kept
+    assert hood["buckets"] == [
+        {"collection": "cabinets", "total": 1, "kept": 1},
+        {"collection": "cases", "total": 7, "kept": 3},
+        {"collection": "documents", "total": 6, "kept": 3},
     ]
+    # the same walk gives the same nodes, call after call
+    again = node_queries.get_node_neighborhood(minister, "members", "m", depth=1, cap=7)
+    assert again == hood
     # a cap one short of a fair split: the earlier collection takes the odd one
     odd = node_queries.get_node_neighborhood(minister, "members", "m", depth=1, cap=6)
     assert {c: len(keys) for c, keys in _kept(odd).items()} == {

@@ -378,5 +378,5 @@ def get_node_neighborhood_route(
         focal_id=focal["_id"],
         nodes=nodes,
         edges=edges,
-        first_level=[NeighborhoodCollectionDTO(**c) for c in data["first_level"]],
+        buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
     )

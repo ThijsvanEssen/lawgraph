@@ -231,9 +231,10 @@ class NeighborhoodCollectionDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     collection: str
-    reached: int = Field(
+    total: int = Field(
         ...,
-        description="Its neighbours there along the edges walked, of the types asked.",
+        description="Its neighbours there along the edges walked, of the types asked "
+        "(from the edges: one that is gone counts too).",
     )
     kept: int = Field(..., description="Of those, the ones in `nodes`.")
 
@@ -246,9 +247,9 @@ class NodeNeighborhoodResponse(BaseModel):
     focal_id: str
     nodes: list[BaseNodeDTO]
     edges: list[NodeNeighborhoodEdge]
-    first_level: list[NeighborhoodCollectionDTO] = Field(
+    buckets: list[NeighborhoodCollectionDTO] = Field(
         default_factory=list,
         description="Per collection of the focal node's own neighbours (the first level), "
-        "by name: `reached` and `kept`; where `kept` is less, the cap left the rest out "
+        "by name: `total` and `kept`; where `kept` is less, the cap left the rest out "
         "(`GET /api/nodes/{collection}/{key}` lists them all).",
     )

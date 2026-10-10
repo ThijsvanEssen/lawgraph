@@ -560,15 +560,17 @@ def get_node_neighborhood(
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
         "edges": [light_edge_doc(row) for row in edges],
-        "first_level": _first_level(
-            store, focal["_id"], filters, {row["id"] for row in nodes}
-        ),
+        "buckets": _buckets(store, focal["_id"], filters, {row["id"] for row in nodes}),
     }
 
 
-# The neighbours of a node along the edges a walk follows (``lg_walk``'s first level).
-_FIRST_LEVEL = """
-SELECT DISTINCT x.id FROM (
+# Per collection, the neighbours of a node along the edges a walk follows (``lg_walk``'s
+# first level): from the edges alone, through their covering indexes (a neighbour that is
+# gone counts too).
+_BUCKETS = """
+SELECT split_part(x.id, '/', 1) AS collection, count(*)::int AS total,
+       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{}') AS ids
+FROM (
     SELECT e.to_id AS id FROM edges e
     WHERE %(outbound)s AND e.from_id = %(focal)s
       AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
@@ -580,39 +582,29 @@ SELECT DISTINCT x.id FROM (
       AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
 ) x
 WHERE x.id <> %(focal)s
+GROUP BY 1
+ORDER BY 1 ASC NULLS LAST
 """
 
 
-def _first_level(
+def _buckets(
     store: GraphStore, focal_id: str, filters: NeighborFilter, kept: set[str]
 ) -> list[dict[str, Any]]:
-    """Per collection of the node's own neighbours (the first level of its neighbourhood):
-    how many there are (``reached``: those that are there, of the types asked for) and how
-    many the walk kept under its cap (``kept``), by collection name."""
-    params = _walk_params(focal_id, 1, 1, filters)
-    by_collection: dict[str, list[str]] = {}
-    for node_id in store.query(_FIRST_LEVEL, params):
-        collection = node_id.partition("/")[0]
-        if collection in _ALLOWED_NODE_COLLECTIONS and (
-            filters.collections is None or collection in filters.collections
+    """Per collection of the node's own neighbours (the first level of its neighbourhood),
+    by name: ``total``, its neighbours there along the edges walked, of the types asked for,
+    and ``kept``, those the walk kept under its cap."""
+    found = []
+    for row in store.query(_BUCKETS, _walk_params(focal_id, 1, 1, filters)):
+        collection = row["collection"]
+        if collection not in _ALLOWED_NODE_COLLECTIONS or (
+            filters.collections is not None and collection not in filters.collections
         ):
-            by_collection.setdefault(collection, []).append(node_id)
-    if not by_collection:
-        return []
-    # whether each is there, asked of its own table
-    reads = " UNION ALL ".join(
-        f"SELECT id FROM {collection} WHERE id = ANY(%(c{n})s::text[])"
-        for n, collection in enumerate(sorted(by_collection))
-    )
-    present = list(
-        store.query(
-            reads,
-            {f"c{n}": by_collection[c] for n, c in enumerate(sorted(by_collection))},
+            continue
+        found.append(
+            {
+                "collection": collection,
+                "total": row["total"],
+                "kept": sum(1 for node_id in row["ids"] if node_id in kept),
+            }
         )
-    )
-    found: dict[str, dict[str, int]] = {}
-    for node_id in present:
-        counts = found.setdefault(node_id.partition("/")[0], {"reached": 0, "kept": 0})
-        counts["reached"] += 1
-        counts["kept"] += node_id in kept
-    return [{"collection": c, **counts} for c, counts in sorted(found.items())]
+    return found
