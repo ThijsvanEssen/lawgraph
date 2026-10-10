@@ -5,7 +5,9 @@ of a neighbourhood or of a path; ``lg_document_light`` per paper what the signal
 read (``normalize tk-dossiers``). Those read them there instead of the props, which hold the
 whole text; ``lg_instrument_names`` per instrument its title and short title, which the
 laws a dossier title names are found by; ``lg_faction_votes`` every vote of a faction with
-its decision's date, which the votes of a member are read from. Triggers on ``judgments``,
+its decision's date, which the votes of a member are read from; ``lg_authored`` every paper a
+member signed with its dossiers, which the dossiers of a member are read from. Triggers on
+``judgments``,
 ``documents``, ``instruments``, ``edges`` and ``decisions`` keep them with every write: this step
 adds the rows written before them (once, after the deploy that brought a table), and with
 ``--all`` keeps every row again (after the props kept changed). Writes no node or edge: the
@@ -21,6 +23,7 @@ from lawgraph.db.queries.document_light import fill_document_light
 from lawgraph.db.queries.faction_votes import fill_faction_votes
 from lawgraph.db.queries.instrument_names import fill_instrument_names
 from lawgraph.db.queries.judgment_light import fill_judgment_light
+from lawgraph.db.queries.member_authored import fill_authored
 from lawgraph.pipelines.command import command_parser
 
 logger = get_logger(__name__)
@@ -50,4 +53,8 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     )
     votes = fill_faction_votes(store, every=args.all)
     logger.info("Kept %d votes of factions for the votes of their members.", votes)
-    return PipelineResult(updated=judgments + documents + instruments + votes)
+    signed = fill_authored(store, every=args.all)
+    logger.info(
+        "Kept %d papers members signed for the dossiers of their members.", signed
+    )
+    return PipelineResult(updated=judgments + documents + instruments + votes + signed)

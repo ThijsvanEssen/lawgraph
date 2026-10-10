@@ -40,6 +40,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
+    RELATION_AUTHORED,
+    RELATION_PART_OF,
     RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
@@ -1408,7 +1410,9 @@ def faction_votes() -> list[str]:
 LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP IN ('DELETE', 'UPDATE') THEN
-        DELETE FROM public.lg_faction_votes v USING changed c WHERE v.edge_key = c.key;
+        DELETE FROM public.lg_faction_votes v USING changed c
+        WHERE v.edge_key = c.key
+          AND c.relation = '{RELATION_VOTED}' AND c.from_collection = '{COLLECTION_FACTIONS}';
     END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
         INSERT INTO public.lg_faction_votes
@@ -1456,6 +1460,92 @@ END $$""",
                 f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
                 f" FOR EACH STATEMENT EXECUTE FUNCTION {function}()"
             )
+    return statements
+
+
+# Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
+# of the signature and the dossiers of the paper, directly or through its case: what the
+# page of a member's dossiers reads, a range of an index instead of the edges of every paper
+# they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
+# Kept by triggers on every write of ``edges`` (the signatures, and the papers placed in a
+# dossier or a case, and the cases in a dossier); ``semantic graph-light`` fills it once and
+# notes that in ``lg_authored_state``, before which the page walks the edges. Not a table of
+# the graph: writing it raises no data version.
+def member_authored() -> list[str]:
+    part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_authored (
+    edge_key text PRIMARY KEY,
+    member_id text NOT NULL,
+    document_id text NOT NULL,
+    meta json NOT NULL,
+    dossiers text[] NOT NULL
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
+        "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
+        """CREATE TABLE IF NOT EXISTS lg_authored_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    filled_at timestamptz NOT NULL
+)""",
+        # the dossiers of a paper (or a case): directly, and through the cases it is part of
+        f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
+LANGUAGE sql STABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}') FROM (
+        SELECT p.to_id AS d FROM public.edges p
+        WHERE p.from_id = paper AND p.relation = '{part_of}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+        UNION
+        SELECT p2.to_id FROM public.edges p1
+        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
+         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
+        WHERE p1.from_id = paper AND p1.relation = '{part_of}'
+          AND p1.to_collection = '{COLLECTION_CASES}'
+    ) found
+$$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_authored() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP IN ('DELETE', 'UPDATE') THEN
+        DELETE FROM public.lg_authored a USING changed c
+        WHERE a.edge_key = c.key
+          AND c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}';
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        INSERT INTO public.lg_authored (edge_key, member_id, document_id, meta, dossiers)
+        SELECT c.key, c.from_id, c.to_id,
+               json_build_object('role', c.doc -> 'meta' -> 'role',
+                                 'function', c.doc -> 'meta' -> 'function',
+                                 'capacity', c.doc -> 'meta' -> 'capacity'),
+               public.lg_dossiers_of(c.to_id)
+        FROM changed c
+        WHERE c.relation = '{authored}' AND c.from_collection = '{COLLECTION_MEMBERS}'
+        ON CONFLICT (edge_key) DO NOTHING;
+    END IF;
+    -- a paper placed in a dossier or a case, or a case in a dossier (or taken out): the
+    -- dossiers of the papers signed that it reaches again
+    WITH placed AS MATERIALIZED (
+        SELECT c.from_id, c.from_collection, c.to_collection FROM changed c
+        WHERE c.relation = '{part_of}'
+          AND c.to_collection IN ('{COLLECTION_DOSSIERS}', '{COLLECTION_CASES}')
+    )
+    UPDATE public.lg_authored a SET dossiers = public.lg_dossiers_of(a.document_id)
+    WHERE a.document_id IN (
+        SELECT p.from_id FROM placed p
+        UNION
+        SELECT e.from_id FROM placed p
+        JOIN public.edges e ON e.to_id = p.from_id AND e.relation = '{part_of}'
+        WHERE p.from_collection = '{COLLECTION_CASES}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+    );
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER edges_authored_{event.lower()}"
+            f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored()"
+        )
     return statements
 
 
@@ -1672,6 +1762,7 @@ def statements() -> list[str]:
         *document_light(),
         *instrument_names(),
         *faction_votes(),
+        *member_authored(),
         ARTICLE_TERMS,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
