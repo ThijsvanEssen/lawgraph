@@ -18,6 +18,7 @@ from lawgraph.core.judgments import case_number_keys
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
 
 
@@ -56,7 +57,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         raise ValueError("judgment not found")
 
     rows = store.query(
-        """
+        f"""
         SELECT a.id, a.key, a.type, a.labels, a.props,
                n.id AS i_id, n.key AS i_key, n.type AS i_type, n.labels AS i_labels,
                n.props AS i_props,
@@ -64,12 +65,12 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         FROM edges e
         JOIN articles a ON a.id = e.to_id
         LEFT JOIN LATERAL (
-            SELECT ie.to_id FROM edges ie
+            SELECT ie.to_id, ie.to_collection FROM edges ie
             WHERE ie.from_id = a.id AND ie.relation = %(part_of)s
             ORDER BY ie.to_id
             LIMIT 1
         ) ie ON true
-        LEFT JOIN nodes n ON n.id = ie.to_id
+        LEFT JOIN {node_of("ie.to_id", "ie.to_collection")} n ON true
         WHERE e.from_id = %(jid)s AND e.relation = %(refers_to)s
           AND e.to_collection = 'articles'
         ORDER BY e.to_id, e.key

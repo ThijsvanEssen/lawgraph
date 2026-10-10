@@ -1778,6 +1778,20 @@ def nodes_view() -> str:
     return f"CREATE OR REPLACE VIEW nodes AS\n{parts}"
 
 
+def node_of(id_sql: str, collection_sql: str) -> str:
+    """SQL: ``LATERAL (...)``, the node *id_sql* names (the columns of the view ``nodes``)
+    from its own table, *collection_sql* (``e.from_collection``, or ``split_part(id, '/',
+    1)``). A join of the view on its id alone looked in every table of it, an index probe
+    each per row (``tests/test_nodes_view_joins.py`` keeps that from coming back): here
+    each table's part is gated on its name, so only the node's own table is read."""
+    parts = "\n        UNION ALL\n        ".join(
+        f"SELECT x.id, x.key, '{c}'::text AS collection, x.type, x.labels, x.props"
+        f" FROM {c} x WHERE {collection_sql} = '{c}' AND x.id = {id_sql}"
+        for c in NODE_COLLECTIONS
+    )
+    return f"LATERAL (\n        {parts}\n    )"
+
+
 def statements() -> list[str]:
     """The whole schema, in the order it is created."""
     found = [DICTIONARY, FUNCTIONS, SEARCH_FUNCTIONS, DATA_VERSION, TRIGRAMS]

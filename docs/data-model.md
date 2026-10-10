@@ -797,7 +797,10 @@ order). `edges` holds `key`, `from_id`, `to_id` and the rest of the edge as `doc
 `raw_sources` and `pipeline_state` hold their documents as `doc`, `raw_sources` with the
 generated columns `source`, `kind`, `external_id` and `fetched_at` and the indexes
 `(source, kind, key)` and `(source, fetched_at)`. The view `nodes` unions the node tables for a
-lookup by id.
+lookup by id. A query never joins it on an id alone, which would look the id up in every table:
+it names the node's table (`n.collection = 'documents'`), or reads the node through
+`schema.node_of`, which reads from the table the id's collection names only
+(`tests/test_nodes_view_joins.py` keeps it so).
 
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
 `ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
