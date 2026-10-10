@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
@@ -932,10 +933,14 @@ _MEMBER_VOTES_TEMPLATE = f"""
                 'party', page.party,
                 'faction_key', page.faction_key,
                 'vote_source', page.vote_source,
-                'in_office', {_IN_OFFICE}
+                'in_office', {_IN_OFFICE},
+                'coalition', {coalition_object("co")},
+                'coalition_factions', {coalition_factions("co")}
             ) ORDER BY page.date DESC NULLS LAST, page.key ASC,
                        page.faction_order ASC NULLS FIRST)
             FROM page JOIN {COLLECTION_DECISIONS} d ON d.id = page.decision_id
+            -- what the coalition did on it (``tk-coalition-votes``)
+            LEFT JOIN lg_decision_coalition co ON co.id = page.decision_id
         ), '[]'::json) AS votes
 """
 _MEMBER_VOTES = _MEMBER_VOTES_TEMPLATE.replace(

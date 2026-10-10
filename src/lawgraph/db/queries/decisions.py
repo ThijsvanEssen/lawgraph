@@ -23,7 +23,7 @@ from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import _words
-from lawgraph.db.queries.coalition import coalition_object
+from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import (
     ReadTimedOut,
