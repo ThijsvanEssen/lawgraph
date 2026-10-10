@@ -42,6 +42,7 @@ from lawgraph.api.schemas.dossiers import (
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
     STAGE_ENACTED,
     get_dossier_changed_articles,
@@ -299,9 +300,11 @@ def list_dossier_documents(
 ) -> DossierDocumentsResponse:
     dossier = _dossier_or_404(store, number)
     raw = get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
+    items = raw.get("items") or []
+    chains = get_replacements(store, [d["id"] for d in items])
     return DossierDocumentsResponse(
         total=int(raw.get("total") or 0),
-        items=[DossierDocumentDTO.from_row(d) for d in raw.get("items") or []],
+        items=[DossierDocumentDTO.from_row(d, chains.get(d["id"])) for d in items],
     )
 
 

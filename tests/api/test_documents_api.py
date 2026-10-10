@@ -61,6 +61,7 @@ def _client(monkeypatch, doc: dict | None) -> tuple[TestClient, list[tuple[str, 
     monkeypatch.setattr(f"{_ROUTES}.get_document", get_document)
     monkeypatch.setattr(f"{_ROUTES}.get_document_links", get_document_links)
     monkeypatch.setattr(f"{_ROUTES}.get_document_decisions", lambda store, _id: [])
+    monkeypatch.setattr(f"{_ROUTES}.get_replacements", lambda store, ids: {})
     return TestClient(app), calls
 
 
