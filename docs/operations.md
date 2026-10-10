@@ -608,7 +608,7 @@ afterwards, so tests stay independent of each other and safe to run in parallel;
 touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
 when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
 stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
-their own (`database`, on a pull request and on a push to `develop` or `main`) against a
+their own (`database`; on every run, as the unit suite: see CONTRIBUTING) against a
 `postgres:18` with JIT off, as the test server (pulled from the ECR Public mirror of Docker Hub, `public.ecr.aws/docker/library/postgres:18`, the same image: Docker Hub limits pulls without login); it has
 no S3 server, so the tests of the payload store in a bucket are skipped there.
 
