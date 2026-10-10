@@ -1110,6 +1110,12 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
         f" ON documents USING gin (({feed_title()}) gin_trgm_ops)",
     ),
+    # /api/decisions, newest first: a page reads as far as it goes in the order of the list,
+    # not every decision under the filters sorted (1.6 s a first page on the full graph)
+    COLLECTION_DECISIONS: (
+        "CREATE INDEX IF NOT EXISTS decisions_list_date"
+        " ON decisions (date DESC NULLS LAST, key)",
+    ),
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
     # what the judgments citing a law or an article are sorted and filtered on, from the
     # index alone (``judgments_citing``): a much cited law (the Awb, Sr) is hundreds of
