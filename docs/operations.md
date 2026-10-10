@@ -131,7 +131,7 @@ and exits 1 when any of them failed.
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--max-records` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--max-records` |
 | `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) |
-| `retrieve eerstekamer-motions` | `--limit` (at most this many pages, the rest in the next run); the page of every motion of the Eerste Kamer voted on not stored yet (the first run, every motion voted on since June 2015, some 700 pages at the site's interval: `ops/ek-motions.sh`, in slices of 300) |
+| `retrieve eerstekamer-motions` | `--limit` (at most this many pages, the rest in the next run); the page of every motion of the Eerste Kamer voted on not stored yet (the first run, every motion voted on since June 2015, some 700 pages at the site's interval, over half an hour) |
 | `retrieve eerstekamer-persons` | `--sitting`: the page of every sitting member again (`weekly.sh`); without it each page not stored, and one a change fetched after it links |
 | `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, on bills and motions), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
 | `retrieve verdragenbank` | `--mode full\|gaps`, `--max-records`, `--only-stored` (only the treaties stored already) |
