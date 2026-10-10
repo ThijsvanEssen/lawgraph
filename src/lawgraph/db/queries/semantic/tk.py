@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REPEALS,
+    RELATION_REVISES,
     RELATION_SECOND_READING_OF,
     SOURCE_EERSTEKAMER,
 )
@@ -387,7 +388,39 @@ def memorandum_targets(store: Store, *, sections_source: str) -> Iterator[Any]:
 # to read; a dossier that legislated nothing has nothing to link to. ``own``: the BWB ids of
 # the instruments legislated; ``changes``: every distinct change of an article with a BWB id
 # and a number, in the order of the edges; ``laws``: the instruments of those BWB ids, by key.
-_MEMORANDA_WITH_SECTIONS_SQL = f"""
+# Which papers: a memorandum with article headings, not of a budget.
+_MEMORANDA = f"""{_EXPLANATORY}
+      AND lg_bool(c.p -> 'budget') IS DISTINCT FROM true
+      AND lg_str(c.p -> 'structure_quality') = ANY(%(qualities)s::text[])"""
+
+# ... or an adopted amendment: the last of its chain (no paper REVISES it), and the latest
+# decision with an outcome on a case it is part of passed.
+_ADOPTED_AMENDMENTS = f"""starts_with(d.kind, 'Amendement')
+      AND NOT EXISTS (
+          SELECT 1 FROM {COLLECTION_EDGES} r
+          WHERE r.to_id = d.id AND r.relation = %(revises)s
+            AND r.from_collection = '{COLLECTION_DOCUMENTS}'
+      )
+      AND (
+          SELECT dc.passed
+          FROM {COLLECTION_EDGES} pc
+          JOIN {COLLECTION_EDGES} ab
+            ON ab.to_id = pc.to_id AND ab.relation = %(about)s
+           AND ab.from_collection = '{COLLECTION_DECISIONS}'
+          JOIN {COLLECTION_DECISIONS} dc ON dc.id = ab.from_id
+          WHERE pc.from_id = d.id AND pc.relation = %(part_of)s
+            AND pc.to_collection = '{COLLECTION_CASES}' AND dc.passed IS NOT NULL
+          ORDER BY dc.date DESC NULLS LAST, dc.key DESC
+          LIMIT 1
+      ) IS TRUE"""
+
+
+def _papers_with_sections_sql(papers: str) -> str:
+    """The rows of ``memoranda_with_sections`` for the papers *papers* selects."""
+    return _PAPERS_WITH_SECTIONS_SQL.replace("{papers}", papers)
+
+
+_PAPERS_WITH_SECTIONS_SQL = f"""
 SELECT json_build_object(
     'document', d.id,
     'text', d.p -> 'text',
@@ -404,9 +437,7 @@ FROM (
         SELECT {_cut("d", "budget", "structure_quality", "text", "sections")} AS p
         OFFSET 0
     ) c
-    WHERE {_EXPLANATORY}
-      AND lg_bool(c.p -> 'budget') IS DISTINCT FROM true
-      AND lg_str(c.p -> 'structure_quality') = ANY(%(qualities)s::text[])
+    WHERE {{papers}}
       AND {present_sql("c.p -> 'text'")}
 ) d
 {_LEGISLATED}
@@ -508,7 +539,27 @@ def memoranda_with_sections(
         "second_reading_of": RELATION_SECOND_READING_OF,
         "change_relations": list(_CHANGE_RELATIONS),
     }
-    return store.query(_MEMORANDA_WITH_SECTIONS_SQL, params, batch_size=batch_size)
+    return store.query(
+        _papers_with_sections_sql(_MEMORANDA), params, batch_size=batch_size
+    )
+
+
+def adopted_amendments_with_sections(
+    store: Store, *, batch_size: int
+) -> Iterator[dict[str, Any]]:
+    """``memoranda_with_sections`` for the adopted amendments: the last of a chain whose
+    case was decided and passed, each with the dossier's changes, laws and bill."""
+    params: dict[str, Any] = {
+        "part_of": RELATION_PART_OF,
+        "legislated_in": RELATION_LEGISLATED_IN,
+        "second_reading_of": RELATION_SECOND_READING_OF,
+        "change_relations": list(_CHANGE_RELATIONS),
+        "revises": RELATION_REVISES,
+        "about": RELATION_ABOUT,
+    }
+    return store.query(
+        _papers_with_sections_sql(_ADOPTED_AMENDMENTS), params, batch_size=batch_size
+    )
 
 
 def dossier_ids(store: Store) -> Iterator[str]:

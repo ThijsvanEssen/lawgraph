@@ -73,9 +73,12 @@ ROW = {
 
 
 class _FakeStore(_BaseFakeStore):
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
+    def __init__(
+        self, rows: list[dict[str, Any]], amendments: list[dict[str, Any]] | None = None
+    ) -> None:
         super().__init__()
         self.rows = rows
+        self.amendments = amendments or []
         self.removals: list[tuple[list[str], dict[str, set[str]]]] = []
 
     def get_node(self, collection: str, key: str) -> dict | None:
@@ -90,6 +93,11 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
         semantic_tk,
         "memoranda_with_sections",
         lambda store, **_: iter(list(store.rows)),
+    )
+    monkeypatch.setattr(
+        semantic_tk,
+        "adopted_amendments_with_sections",
+        lambda store, **_: iter(list(store.amendments)),
     )
 
     def removed(store: Any, relation: str, source: str, ids: Any, keep: Any) -> list:
@@ -178,3 +186,37 @@ def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None
     assert ids == ["documents/mvt-1"]
     (edge,) = store.edges.values()
     assert keep == {"documents/mvt-1": {edge["_key"]}}
+
+
+_AMENDMENT_TEXT = (
+    "AMENDEMENT VAN HET LID X\nDe ondergetekende stelt het volgende amendement voor:\n"
+    "In artikel 2 van de Woningwet wordt «a» vervangen door: b.\n"
+    "Toelichting\nDit amendement verduidelijkt artikel 2."
+)
+_TOELICHTING = _AMENDMENT_TEXT.index("Toelichting")
+AMENDMENT_ROW = {
+    **ROW,
+    "document": "documents/amendement-1",
+    "text": _AMENDMENT_TEXT,
+    "sections": [
+        {"id": "s-1", "heading": "Toelichting", "level": 1, "parent": None,
+         "kind": "other", "number": None, "number_scheme": None, "article_refs": [],
+         "law": None, "char_start": _TOELICHTING, "char_end": len(_AMENDMENT_TEXT)}
+    ],
+}  # fmt: skip
+
+
+def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
+    store = _FakeStore([], [AMENDMENT_ROW])
+
+    TKMvtArticlesSemanticPipeline(store=store).run()
+
+    (edge,) = store.edges.values()
+    assert edge["_from"] == "documents/amendement-1"
+    assert edge["_to"] == "article_versions/bwbr0005068_stam2_v2"
+    assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edge["meta"]["match_type"] == "amendment"
+    assert edge["meta"]["heading"] == "Toelichting"
+    # its edges are replaced like a memorandum's
+    ((ids, _),) = store.removals
+    assert ids == ["documents/amendement-1"]

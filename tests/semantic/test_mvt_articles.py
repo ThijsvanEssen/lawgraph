@@ -11,6 +11,7 @@ from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
     CONFIDENCE_UNCHANGED,
+    MATCH_AMENDMENT,
     MATCH_BILL_PART,
     MATCH_BODY_NAMED_LAW,
     MATCH_HEADING_TARGET,
@@ -19,6 +20,7 @@ from lawgraph.core.mvt_articles import (
     Change,
     Law,
     Reference,
+    amendment_references,
     article_id,
     explained_targets,
     find_references,
@@ -729,3 +731,83 @@ def test_a_book_is_left_out_of_a_reference_not_out_of_a_change() -> None:
     explained = explained_targets(refs, changes, lambda _: False)
 
     assert sorted(explained) == ["article_versions/v658"]
+
+
+# ── adopted amendments ───────────────────────────────────────────────────────
+
+_BILL_34372 = bill_parts(
+    "ARTIKEL I\nHet Wetboek van Strafrecht wordt als volgt gewijzigd:\nA\n"
+    "In artikel 138c wordt «a» vervangen door: b.\n"
+    "ARTIKEL II\nHet Wetboek van Strafvordering wordt als volgt gewijzigd:\nU\n"
+    "Na artikel 126ee wordt een artikel ingevoegd, luidende:\nArtikel 126ff\nTekst."
+)
+
+
+def _amendment(operative: str, toelichting: str) -> tuple[str, list[dict[str, Any]]]:
+    """An amendment as the parser reads it (34372 nr. 14): its article heading, and its
+    Toelichting under it."""
+    head = "AMENDEMENT VAN DE LEDEN RECOURT EN TELLEGEN\n"
+    text = f"{head}{operative}\nToelichting\n{toelichting}"
+    start = text.index("Toelichting\n")
+    article = text.find("Artikel 126ffa")
+    sections: list[dict[str, Any]] = []
+    if article != -1:
+        sections.append(
+            {"id": "s-2", "heading": "Artikel 126ffa", "level": 1, "parent": None,
+             "kind": "article", "number": "126ffa", "number_scheme": "arabic",
+             "article_refs": [{"number": "126ffa", "of": "self"}], "law": None,
+             "char_start": article, "char_end": len(text)}
+        )  # fmt: skip
+    sections.append(
+        {"id": "s-3", "heading": "Toelichting", "level": 2,
+         "parent": "s-2" if article != -1 else None, "kind": "other", "number": None,
+         "number_scheme": None, "article_refs": [], "law": None,
+         "char_start": start, "char_end": len(text)}
+    )  # fmt: skip
+    return text, sections
+
+
+_OPERATIVE_14 = (
+    "In artikel II wordt na onderdeel U een onderdeel ingevoegd, luidende:\nUa\n"
+    "Artikel 126ffa\n1.\nDe officier van justitie kan bevelen."
+)
+
+
+def test_an_adopted_amendment_explains_what_it_changes_in_its_toelichting() -> None:
+    text, sections = _amendment(_OPERATIVE_14, "Dit amendement regelt een machtiging.")
+
+    refs = amendment_references(text, sections, _LAWS_HERZIENING, [], _BILL_34372)
+
+    assert _found(refs) == [("s-3", SV, "126ffa", MATCH_AMENDMENT)]
+    (ref,) = refs
+    assert text[ref.char_start : ref.char_end] == (
+        "Toelichting\nDit amendement regelt een machtiging."
+    )
+    assert ref.explanation == (
+        "Het aangenomen amendement wijzigt het artikel; dit is zijn toelichting; "
+        "het dossier wijzigt het artikel."
+    )
+
+
+def test_the_law_of_an_amendment_without_the_bill() -> None:
+    """The law the instruction names, else the one law of the dossier that changed the
+    number; none when two did."""
+    text, sections = _amendment(
+        "In artikel 4, vijfde lid, van de Wet administratiefrechtelijke handhaving "
+        "verkeersvoorschriften wordt «a» vervangen door: b.",
+        "Een technische wijziging.",
+    )
+    named = amendment_references(text, sections, _LAWS_HERZIENING, [], {})
+    assert _found(named) == [("s-3", WAHV, "4", MATCH_AMENDMENT)]
+
+    text, sections = _amendment(_OPERATIVE_14, "Toelichting.")
+    one = [Change(SV, "126ffa", article_id(SV, "126ffa"), None, RELATION_INTRODUCES)]
+    found = amendment_references(text, sections, _LAWS_HERZIENING, one, {})
+    assert _found(found) == [("s-3", SV, "126ffa", MATCH_AMENDMENT)]
+    both = [*one, Change(SR, "126ffa", article_id(SR, "126ffa"), None, RELATION_AMENDS)]
+    assert amendment_references(text, sections, _LAWS_HERZIENING, both, {}) == []
+
+
+def test_an_amendment_without_a_toelichting_explains_nothing() -> None:
+    text = f"AMENDEMENT\n{_OPERATIVE_14}"
+    assert amendment_references(text, [], _LAWS_HERZIENING, [], _BILL_34372) == []

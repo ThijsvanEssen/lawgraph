@@ -40,6 +40,12 @@ _PART_RE = re.compile(rf"^(?P<p>{_PART})\.?$")
 _HEADING_RE = re.compile(
     r"^Artikel\s+(?P<n>\d+(?-i:[a-z]*)(?:[.:]\d+(?-i:[a-z]*))*)\.?$"
 )
+# An instruction of an amendment: "… wordt …", "… vervalt", "… komt te luiden".
+_INSTRUCTION_RE = re.compile(
+    r"\b(?:wordt|worden|vervalt|vervallen|komt|komen)\b", re.IGNORECASE
+)
+# "In artikel II": an article of the bill an instruction names.
+_BILL_ARTICLE_IN_RE = re.compile(rf"\bartikel\s+(?P<n>{_ROMAN})(?![\w])", re.IGNORECASE)
 # What follows the instruction's own reference: a quotation, or the new text after a colon
 # (the colon of "3:57" is part of the number).
 _QUOTED_RE = re.compile(r"«|:(?!\d)")
@@ -112,6 +118,35 @@ def bill_parts(text: str) -> dict[tuple[str, str], BillPart]:
             until = letters[k + 1] if k + 1 < len(letters) else len(body)
             parts[(article, letter)] = _part(article, letter, law, body[at + 1 : until])
     return parts
+
+
+@dataclass(frozen=True)
+class AmendmentChanges:
+    """What the operative text of an amendment changes in its bill."""
+
+    numbers: tuple[str, ...]  # the articles of the law: inserted ones, else those named
+    bill_articles: tuple[str, ...]  # the articles of the bill it changes: ("II",)
+    instructions: tuple[str, ...]  # its instructions, up to what they quote
+
+
+def amendment_changes(text: str) -> AmendmentChanges:
+    """What an amendment changes, read from its operative text (the text before its
+    Toelichting): the articles under its headings when it inserts them ("Artikel 126ffa"),
+    else those its instructions name before what they quote ("In artikel II, onderdeel G,
+    wordt in artikel 126nba …" is 126nba); and the articles of the bill it names ("II"),
+    through which the bill says the law."""
+    lines = [line.strip() for line in text.split("\n")]
+    instructions = tuple(
+        cut for line in lines if _INSTRUCTION_RE.search(cut := _instruction(line))
+    )
+    bill_articles = tuple(
+        dict.fromkeys(
+            m["n"] for i in instructions for m in _BILL_ARTICLE_IN_RE.finditer(i)
+        )
+    )
+    return AmendmentChanges(
+        _numbers(" ".join(instructions), lines), bill_articles, instructions
+    )
 
 
 def heading_parts(heading: str) -> tuple[str, tuple[str, ...]] | None:

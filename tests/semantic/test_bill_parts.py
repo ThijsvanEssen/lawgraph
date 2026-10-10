@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from lawgraph.core.bill_parts import BillPart, bill_parts, heading_law, heading_parts
+from lawgraph.core.bill_parts import (
+    BillPart,
+    amendment_changes,
+    bill_parts,
+    heading_law,
+    heading_parts,
+)
 
 # The text of Kamerstukken II 2008/09, 31810, nr. 2 (Lanzarote), shortened.
 BILL_31810 = """VOORSTEL VAN WET
@@ -170,3 +176,45 @@ def test_the_law_a_heading_of_an_article_of_the_bill_names() -> None:
     assert heading_law("Artikel I, onderdeel B (artikel 1a)") == "artikel 1a"
     assert heading_law("ARTIKEL II") is None
     assert heading_law("Artikel 5 Sr") is None  # no article of a bill
+
+
+# Kamerstukken II 2016/17, 34372, nrs. 14 and 13, shortened.
+AMENDMENT_14 = """AMENDEMENT VAN DE LEDEN RECOURT EN TELLEGEN
+De ondergetekenden stellen het volgende amendement voor:
+In artikel II wordt na onderdeel U een onderdeel ingevoegd, luidende:
+Ua
+In titel VD wordt na de vijfde afdeling een afdeling ingevoegd, luidende:
+ZESDE AFDELING UITSTEL MELDING ONBEKENDE KWETSBAARHEDEN
+Artikel 126ffa
+1.
+De officier van justitie kan bevelen dat het bekend maken wordt uitgesteld."""
+AMENDMENT_13 = """GEWIJZIGD AMENDEMENT VAN HET LID VERHOEVEN C.S.
+De ondergetekenden stellen het volgende amendement voor:
+I
+In artikel II, onderdeel G, wordt in artikel 126nba «binnendringt» vervangen door: zonder.
+II
+In artikel II, onderdeel L, wordt in artikel 126uba «binnendringt» vervangen door: zonder."""
+
+
+def test_what_an_amendment_changes() -> None:
+    inserted = amendment_changes(AMENDMENT_14)
+    assert inserted.numbers == ("126ffa",)
+    assert inserted.bill_articles == ("II",)
+
+    two = amendment_changes(AMENDMENT_13)
+    # the articles it changes, not what it quotes or puts in their place
+    assert two.numbers == ("126nba", "126uba")
+    assert two.bill_articles == ("II",)
+
+
+def test_an_amendment_that_names_the_law_it_changes() -> None:
+    changes = amendment_changes(
+        "De ondergetekende stelt het volgende amendement voor:\n"
+        "In artikel 51a, tweede lid, van de Uitleveringswet wordt «a» vervangen door: b."
+    )
+
+    assert changes.numbers == ("51a",)
+    assert changes.bill_articles == ()
+    assert changes.instructions == (
+        "In artikel 51a, tweede lid, van de Uitleveringswet wordt",
+    )
