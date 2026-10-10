@@ -25,7 +25,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
@@ -84,8 +84,11 @@ def bulk_in_flux(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JSONResponse:
     """Return all nodes that have at least one VOORGESTELD edge, with counts (kept while
-    the edges stand still, ``get_in_flux_counts``)."""
-    return JSONResponse(get_in_flux_counts(store))
+    the edges stand still, ``get_in_flux_counts``). After a poll that wrote edges, the
+    count of the edges before is answered at once while the new one computes: a signal
+    that hardly moves is not worth a wait."""
+    with version_cache.stale_wait(0.0):
+        return JSONResponse(get_in_flux_counts(store))
 
 
 # The nodes a request may name, and how many the map of the whole graph keeps.
