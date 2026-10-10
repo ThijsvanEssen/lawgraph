@@ -58,7 +58,7 @@ from when the dossiers of a member are read from it (`get_actor_dossiers`), befo
 walk the edges. Each row also holds the `date` of its paper or case (`lg_signed_date`, kept by
 triggers on `documents` and `cases` as well) and the `capacity` of the signature, with an index
 on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
-every row had them (`semantic graph-light --authored-dates`), from when the counts of a
+every row had them (the first fill of a new table, as in a rebuild; on one filled before, `semantic graph-light --authored-dates`), from when the counts of a
 cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
 every paper the member signed. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
