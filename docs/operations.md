@@ -237,7 +237,9 @@ from `expand-graph`, which fetches the ones the loaded records refer to. The sou
 Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, and
 `expand-graph` later adds what the loaded records refer to. The whole history for research is
 one option away: `--window all` (the Tweede Kamer alone is over 400K documents and hours), or
-a date such as `--window 2015-01-01`.
+a date such as `--window 2015-01-01`. A rebuild that has to equal a running database (the
+check that a temporary correction of `ops/` is one a rebuild makes too) takes the window that
+database was built with: what an `ops/` script corrected before the window is not loaded.
 
 **A code fix during a build.** A running process keeps the code it started with only as long
 as nobody changes it: the install is editable and a module is imported when a step first needs
