@@ -155,7 +155,7 @@ jobs:
           exit 1
 
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist worksteal --durations=20
+        run: pytest ${{ matrix.tests }} -n auto --dist loadgroup --durations=0
 
   # The one check of the database tests the merge gate reads: green when every shard is, or
   # when the same files passed on develop.
