@@ -471,8 +471,9 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         for item in bucket["items"]
     }
     assert whole["d1"]["props"]["kind"] == "Memorie van toelichting"
-    # the rollup of its cases is left out of a neighbour, kept on the paper itself
-    assert "case_ids" not in whole["d1"]["props"]
+    # the cases of a paper stay on a neighbour: the timetable of a dossier finds the vote on
+    # each amendment by them
+    assert whole["d1"]["props"]["case_ids"] == ["c1"]
     assert paper.json()["node"]["props"]["case_ids"] == ["c1"]
     assert whole["m1"]["meta"] == {"record_ids": ["r"]}
 
@@ -626,7 +627,8 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
 ) -> None:
     """A budget debate is about hundreds of cases: its ``case_ids`` and
     ``case_kinds_by_dossier`` (what ``normalize tk-dossiers`` rolls up, which the canvas does
-    not read) are not in a neighbourhood; its other props are."""
+    not read) are not in a neighbourhood; its other props are. A paper keeps its cases: the
+    explorer's timetable of a dossier finds the vote on each amendment by them."""
     from fastapi.testclient import TestClient
 
     from lawgraph.api.app import app
@@ -643,8 +645,16 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
             "case_ids": [f"cases/c{n}" for n in range(300)],
             "case_kinds_by_dossier": {"36800-VII": ["Begroting"]}}}],
     )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [{"_key": "am1", "type": "document", "labels": [], "props": {
+            "kind": "Amendement", "case_ids": ["cases/c7"]}}],
+    )  # fmt: skip
     store.bulk_insert_or_update_edges(
-        [_edge("e1", "activities/a1", "dossiers/36800_vii", "ABOUT")]
+        [
+            _edge("e1", "activities/a1", "dossiers/36800_vii", "ABOUT"),
+            _edge("e2", "documents/am1", "dossiers/36800_vii", "PART_OF"),
+        ]
     )
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -655,6 +665,8 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
     assert activity["props"]["kind"] == "Plenair debat"
     assert "case_ids" not in activity["props"]
     assert "case_kinds_by_dossier" not in activity["props"]
+    (amendment,) = [n for n in found["nodes"] if n["id"] == "documents/am1"]
+    assert amendment["props"]["case_ids"] == ["cases/c7"]
 
 
 def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(

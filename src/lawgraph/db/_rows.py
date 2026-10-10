@@ -28,11 +28,8 @@ GRAPH_PROPS_LEFT_OUT = (
 
 # And a neighbour, a node of a neighbourhood or of a path: the text of a paper (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
-# breadcrumb: three quarters of what the articles of a law weigh), and the rollups of an
-# activity that ``normalize tk-dossiers`` reads (its cases, hundreds for a budget debate, and
-# their kinds per dossier: 390 of the 677 kB of the neighbourhood of a budget dossier). A
-# neighbour is light; its text belongs to the node itself (``/api/nodes/{collection}/{key}``,
-# the readers).
+# breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
+# text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
 NEIGHBOUR_PROPS_LEFT_OUT = (
     *GRAPH_PROPS_LEFT_OUT,
     "sections",
@@ -40,22 +37,29 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
     "parts",
     "references",
     "breadcrumb",
-    "case_ids",
-    "case_kinds_by_dossier",
 )
+# And of an activity the rollups ``normalize tk-dossiers`` reads: its cases (hundreds for a
+# budget debate) and their kinds per dossier, 390 of the 677 kB of the neighbourhood of a
+# budget dossier. Of an activity only: the cases of a paper (a handful) are what the
+# explorer's timetable of a dossier finds the vote on each amendment by.
+ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
 
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
-    ``NEIGHBOUR_PROPS_LEFT_OUT``, the others in their order; of a judgment those kept in
+    ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
+    in their order; of a judgment those kept in
     ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and
     their text, while it has them."""
     keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
+    rollups = ", ".join(f"'{key}'" for key in ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
+    activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
-        f" THEN coalesce({kept}, {unset}) ELSE {unset} END)"
+        f" THEN coalesce({kept}, {unset})"
+        f" WHEN {alias}.collection = 'activities' THEN {activity} ELSE {unset} END)"
     )
 
 
