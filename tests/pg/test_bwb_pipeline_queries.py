@@ -62,6 +62,7 @@ def _instruments(store: GraphStore) -> None:
                 bwb_id="BWBR2",
                 title="Wet twee",
                 citation_title="Wet twee",
+                citation_titles=["Wet twee", "Wet de tweede"],
                 short_title="W2",
                 aliases=["W2", "Wtwee"],
                 basis=["BWBR1"],
@@ -92,17 +93,20 @@ def _instruments(store: GraphStore) -> None:
 
 def test_alias_rows_are_the_instruments_with_an_id_by_key(store: GraphStore) -> None:
     _instruments(store)
+    none = {"citation_title": None, "citation_titles": None}
     assert list(semantic_bwb.instrument_alias_rows(store)) == [
-        {"bwb_id": "BWBR1", "celex": None, "title": "Wet een", "citation_title": None},
+        {"bwb_id": "BWBR1", "celex": None, "title": "Wet een", **none},
         {
             "bwb_id": "BWBR2",
             "celex": None,
             "title": "Wet twee",
             "citation_title": "Wet twee",
+            # every citation title of its WTI, the earlier ones too
+            "citation_titles": ["Wet twee", "Wet de tweede"],
         },
-        {"bwb_id": "BWBR3", "celex": None, "title": None, "citation_title": None},
-        {"bwb_id": None, "celex": "32016R0679", "title": None, "citation_title": None},
-        {"bwb_id": "BWBR9", "celex": None, "title": None, "citation_title": None},
+        {"bwb_id": "BWBR3", "celex": None, "title": None, **none},
+        {"bwb_id": None, "celex": "32016R0679", "title": None, **none},
+        {"bwb_id": "BWBR9", "celex": None, "title": None, **none},
     ]
     rows = list(semantic_bwb.code_alias_rows(store))
     assert [r["bwb_id"] or r["celex"] for r in rows] == [

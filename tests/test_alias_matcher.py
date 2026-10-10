@@ -164,3 +164,30 @@ def test_a_title_with_its_year_is_also_cited_without_it() -> None:
     assert names["Wegenverkeerswet"] == ("BWBR0006622", None)
     assert "Wet voorbeeld" not in names
     assert names["Mediawet"] == ("BWBR0000006", None)
+
+
+def test_an_earlier_citation_title_names_its_law_after_every_current_one() -> None:
+    rows = [
+        {
+            "bwb_id": "BWBR0015703",
+            "citation_title": "Participatiewet",
+            "citation_titles": ["Participatiewet", "Wet werk en bijstand"],
+        },
+        # an earlier title that is another law's title now names that law
+        {
+            "bwb_id": "BWBR0035362",
+            "citation_title": "Wet maatschappelijke ondersteuning 2015",
+            "citation_titles": ["Wet maatschappelijke ondersteuning"],
+        },
+        {
+            "bwb_id": "BWBR0020031",
+            "citation_title": "Wet maatschappelijke ondersteuning",
+        },
+        # an earlier title two laws had names neither
+        {"bwb_id": "BWBR0000001", "citation_titles": ["Oude wet"]},
+        {"bwb_id": "BWBR0000002", "citation_titles": ["Oude wet"]},
+    ]
+    names = instrument_names(rows)
+    assert names["Wet werk en bijstand"] == ("BWBR0015703", None)
+    assert names["Wet maatschappelijke ondersteuning"] == ("BWBR0020031", None)
+    assert "Oude wet" not in names
