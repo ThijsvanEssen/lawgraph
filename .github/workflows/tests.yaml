@@ -100,16 +100,16 @@ jobs:
           - shard: 1
             tests: tests/pg/test_[abef]*.py
           - shard: 2
-            tests: tests/pg/test_[g-r]*.py tests/integration/test_[k-m]*.py
+            tests: tests/pg/test_[c-dg-r]*.py tests/integration/test_[k-mp-q]*.py
             dist: loadgroup
           - shard: 3
             tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
           - shard: 4
-            tests: tests/pg/test_c*.py tests/integration/test_[a-cp-qt]*.py
+            tests: tests/integration/test_[a-ct]*.py
           - shard: 5
             tests: tests/integration/test_[d-i]*.py
           - shard: 6
-            tests: tests/pg/test_d*.py tests/integration/test_[jsu]*.py
+            tests: tests/integration/test_[jsu]*.py
 
     env:
       ALLOW_DB_TESTS: '1'
