@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import pytest
 
+from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
+from lawgraph.db.schema import SEARCH_FIELDS
+from lawgraph.db.store import reset_read_deadline, set_read_deadline
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -1076,3 +1084,62 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
     every = keys(search_queries.search_all(store, q="klimaat", types=types))
     assert len(every["judgments"]) == 3
     assert every["instruments"] == ["bwbr8", "bwbr9"]
+
+
+@contextmanager
+def _pool_busy() -> Iterator[None]:
+    """Every worker of the pool of the cache busy, as with a warm-up and the counts of the
+    feed, until the block ends."""
+    release = threading.Event()
+    started = threading.Barrier(version_cache.WORKERS + 1)
+
+    def hold() -> None:
+        started.wait()
+        release.wait(60)
+
+    for _ in range(version_cache.WORKERS):
+        version_cache._pool.submit(hold)
+    started.wait(10)
+    try:
+        yield
+    finally:
+        release.set()
+
+
+def _searched(store: GraphStore, search: Any, q: str) -> tuple[Any, set[str], float]:
+    token = set_read_deadline(30)
+    began = time.monotonic()
+    try:
+        hits, partial = search(store, q=q, types=list(SEARCH_TYPES))
+    finally:
+        reset_read_deadline(token)
+    return hits, partial, time.monotonic() - began
+
+
+def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
+    graph: GraphStore,
+) -> None:
+    # what the warm-up keeps: the parser of citations and the statistics of each table
+    search_queries.load_notation_parser(graph)
+    for table in SEARCH_FIELDS:
+        _bm25._stats(graph, table)
+    with _pool_busy():
+        hits, partial, took = _searched(graph, search_queries.search_full, "voorzien")
+    # its frequencies are counted by the search, not behind the pool: no type waits out
+    # its budget (3 s, then its live search)
+    assert partial == set()
+    assert _ids(hits["articles"]) == ["articles/bwbr0001903_1"]
+    assert took < 0.5
+
+
+def test_a_search_does_not_wait_for_a_parser_of_citations_not_yet_kept(
+    graph: GraphStore,
+) -> None:
+    with _pool_busy():
+        hits, partial, took = _searched(graph, search_queries.search_live, "Lindenbaum")
+        none_yet = search_queries.kept_notation_parser(graph, 0.05)
+    # after a start, before the warm-up: the words are searched without the parser
+    assert none_yet is None
+    assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
+    assert took < 0.5
+    assert search_queries.kept_notation_parser(graph, 5.0) is not None
