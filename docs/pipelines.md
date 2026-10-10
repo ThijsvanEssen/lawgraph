@@ -267,10 +267,10 @@ are read.
 
 | `meta.match_type` | Section says | Confidence |
 |-------------------|--------------|-----------|
-| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
+| `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`, `Artikel 11 Sr`, `Artikel 4, vijfde lid, Wahv`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
 | `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
-| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names, else of the only law the dossier changes; the dossier changed that article | 0.8 |
+| `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names (an enclosing one, or the heading of the article of the bill before it under the same heading: `ARTIKEL II – WETBOEK VAN STRAFRECHT`, or `Artikel II, onderdeel D` through the bill's ARTIKEL II), else of the only law the dossier changes; the dossier changed that article | 0.8 |
 | `bill_part` | the heading names an onderdeel of the bill and no article (`Artikel I, onderdeel B`, `Artikel I, onderdelen C tot en met E`, an `Onderdeel B` under `Artikel I`, an `Artikel III` without onderdelen), and the bill says which article it changes (`core/bill_parts.py`): the articles under its headings when it inserts them (`Na artikel 248c worden twee artikelen ingevoegd: Artikel 248d … Artikel 248e`), else those its instruction names before what it quotes; of the law its `ARTIKEL` says it changes (`Het Wetboek van Strafrecht wordt als volgt gewijzigd`), else the law the instruction names; the section has text of its own, and the dossier changed that article | 0.9 |
 
 The confidences (`core/mvt_articles.py`) are the share a hand check of 10 edges per kind in
@@ -283,7 +283,10 @@ the one it is taken for (the heading says `Wft`, the dossier changes Boek 2 BW).
 rests on is `match_type`, `changed` (whether the dossier changed the article) and
 `explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
 wijzigt het artikel."). A heading with several numbers (`Artikelen 3 en
-4`) gives a reference per number. An `Artikel I` / `Onderdeel B` that names no article gives
+4`) gives a reference per number; a range (`Artikelen 15 tot en met 15l Sr`) also the
+articles between its ends that the dossier changed of that law, in the order of their numbers.
+A reference may leave out the book of a code that the BWB stores per book (`artikel 7:658` is
+658 of Boek 7); a law numbered per chapter keeps it (Awb `11:2` is no `artikel 2`). An `Artikel I` / `Onderdeel B` that names no article gives
 what the bill says that onderdeel changes (`bill_part`), and nothing without the bill:
 attaching it to every article the dossier changed would only repeat the dossier-level edges.
 An `ARTIKEL I` over all the onderdelen of a law is the whole change of that law, and gives
@@ -301,7 +304,10 @@ holds `section_anchor`, `char_start`, `char_end`, `match_type`, `changed`, `expl
 its `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
-number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to.
+number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to. A run of
+`tk-mvt-articles` reads every memorandum and replaces its own edges of them: a section edge it
+no longer finds (an earlier code, a renumbered article) becomes the dossier-level edge again
+at once when the dossier changed the article, and goes when it did not.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:

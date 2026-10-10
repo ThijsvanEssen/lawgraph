@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core.bill_parts import BillPart, bill_parts, heading_parts
+from lawgraph.core.bill_parts import BillPart, bill_parts, heading_law, heading_parts
 
 # The text of Kamerstukken II 2008/09, 31810, nr. 2 (Lanzarote), shortened.
 BILL_31810 = """VOORSTEL VAN WET
@@ -160,3 +160,13 @@ def test_the_onderdelen_a_heading_of_a_memorandum_names() -> None:
     assert heading_parts("Artikel 5") is None
     assert heading_parts("Artikel I, onderdeel B (artikel 1a)") == ("I", ("B",))
     assert heading_parts("Algemeen") is None
+
+
+def test_the_law_a_heading_of_an_article_of_the_bill_names() -> None:
+    assert (
+        heading_law("ARTIKEL II – WETBOEK VAN STRAFRECHT") == "WETBOEK VAN STRAFRECHT"
+    )
+    assert heading_law("Artikel III (Woningwet)") == "Woningwet"
+    assert heading_law("Artikel I, onderdeel B (artikel 1a)") == "artikel 1a"
+    assert heading_law("ARTIKEL II") is None
+    assert heading_law("Artikel 5 Sr") is None  # no article of a bill

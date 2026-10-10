@@ -45,10 +45,13 @@ from lawgraph.core.mvt_articles import (
     is_introduction,
 )
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
-from .tk_mvt import SEMANTIC_SOURCE_SECTIONS
+from .tk_mvt import DOSSIER_CONFIDENCE, SEMANTIC_SOURCE_SECTIONS
+from .tk_mvt import SEMANTIC_SOURCE as SEMANTIC_SOURCE_DOSSIER
 
 logger = get_logger(__name__)
 
@@ -132,9 +135,12 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             qualities=[QUALITY_EXPLICIT, QUALITY_IMPLICIT],
             batch_size=_BATCH_SIZE,
         )
+        # per memorandum read: the keys of its edges, and what its dossier changed
+        kept: dict[str, set[str]] = {}
+        changed: dict[str, set[str]] = {}
         for row in self._track(papers, "explanatory memoranda"):
             try:
-                written = self._explain(row, edges)
+                written = self._explain(row, edges, kept, changed)
             except (KeyError, TypeError, ValueError) as exc:
                 logger.warning("Memorandum %s skipped: %s", row.get("document"), exc)
                 result.skipped += 1
@@ -142,10 +148,51 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             if not written:
                 result.skipped += 1
         edges.flush_into(result)
+        self._replace_what_is_no_longer_found(kept, changed, result)
         return result
 
-    def _explain(self, row: dict[str, Any], edges: EdgeWriter) -> int:
-        """Queue the edges of one memorandum; how many."""
+    def _replace_what_is_no_longer_found(
+        self,
+        kept: dict[str, set[str]],
+        changed: dict[str, set[str]],
+        result: PipelineResult,
+    ) -> None:
+        """A section edge of a memorandum read that this run no longer derives (an earlier
+        code, an article renumbered) goes; when the dossier changed its article it is the
+        edge ``semantic tk-mvt`` writes again, at once, not on its next run."""
+        removed = semantic_edges.removed_edges_from(
+            self.store, RELATION_EXPLAINS, SEMANTIC_SOURCE, sorted(kept), kept
+        )
+        dossier = EdgeWriter(self.store, what=None)
+        back = 0
+        for document, target in removed:
+            if target in changed.get(document, ()):
+                dossier.add(
+                    document,
+                    target,
+                    RELATION_EXPLAINS,
+                    source=SEMANTIC_SOURCE_DOSSIER,
+                    confidence=DOSSIER_CONFIDENCE,
+                )
+                back += 1
+        dossier.flush_into(result)
+        if removed:
+            logger.info(
+                "%d section edges no longer found: %d back to their dossier, %d gone.",
+                len(removed),
+                back,
+                len(removed) - back,
+            )
+
+    def _explain(
+        self,
+        row: dict[str, Any],
+        edges: EdgeWriter,
+        kept: dict[str, set[str]],
+        changed: dict[str, set[str]],
+    ) -> int:
+        """Queue the edges of one memorandum; how many. Its edge keys go into *kept*, the
+        nodes its dossier changed into *changed*."""
         changes = _changes(row.get("changes") or [])
         own = row.get("own") or []
         own_bwb_id = (
@@ -159,6 +206,11 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
             bill=bill_parts(row["bill"]) if row.get("bill") else None,
         )
         explained = explained_targets(references, changes, self._article_exists)
+        document = row["document"]
+        kept[document] = {
+            edge_key(document, RELATION_EXPLAINS, target) for target in explained
+        }
+        changed[document] = {change.target for change in changes}
         for target, refs in explained.items():
             edges.add(
                 row["document"],

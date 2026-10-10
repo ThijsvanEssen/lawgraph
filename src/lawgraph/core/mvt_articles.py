@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     RELATION_INTRODUCES,
 )
-from lawgraph.core.bill_parts import BillPart, heading_parts, part_letters
+from lawgraph.core.bill_parts import BillPart, heading_law, heading_parts, part_letters
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     DutchCitationExtractor,
@@ -100,6 +100,9 @@ _RESTS_ON = {
 # The most of a heading an explanation quotes.
 _HEADING_CHARS = 80
 
+# The matches a range in a heading is read with: the heading's own numbers.
+_RANGE_MATCHES = frozenset({MATCH_HEADING_TARGET, MATCH_INFERRED_LAW})
+
 # What a heading states, against what a sentence in the body may mention in passing: a target
 # that the dossier did not change is still one when the heading names it.
 _STATED_MATCHES = frozenset({MATCH_OWN_NUMBER, MATCH_HEADING_TARGET})
@@ -116,6 +119,7 @@ _BOOK_OF_RE = re.compile(
     r"^(?P<book>boek\s+\d+[a-z]?)\s+van\s+(?:het\s+|de\s+)?(?P<law>.+)$", re.IGNORECASE
 )
 _LEADING_ARTICLE_RE = re.compile(r"^(?:de|het)\s+", re.IGNORECASE)
+_RANGE_RE = re.compile(r"\btot\s+en\s+met\b|\bt/m\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -158,6 +162,9 @@ class Reference:
     number: str
     match_type: str
     changed: bool = True  # the dossier changed the article (``explained_targets``)
+    # "Artikelen 15 tot en met 15l": the last article of a range that begins at ``number``;
+    # the articles between are those of the law the dossier changed
+    last: str | None = None
 
     @property
     def confidence(self) -> float:
@@ -182,7 +189,9 @@ def number_key(number: str) -> str:
 
 
 def _number_keys(number: str) -> list[str]:
-    """The numbers an article may be stored under: a book's articles have no book."""
+    """The numbers the article a reference names may be stored under: a book's articles
+    have no book (the BW stores 7:658 as 658 in Boek 7); a law numbered per chapter keeps
+    it (Awb 11:2)."""
     key = number_key(number)
     return [key, key.split(":", 1)[1]] if ":" in key else [key]
 
@@ -238,13 +247,27 @@ class _Registry:
 class _Outline:
     """The sections of a paper: their parents, and where their own text ends."""
 
-    def __init__(self, sections: Sequence[Mapping[str, Any]]) -> None:
+    def __init__(
+        self,
+        sections: Sequence[Mapping[str, Any]],
+        bill: Mapping[tuple[str, str], BillPart] | None = None,
+    ) -> None:
         self.by_id = {str(s["id"]): s for s in sections}
+        self.bill = bill or {}
         first_child: dict[str, int] = {}
+        # the heading of an article of the bill before a section, under the same parent
+        # ("ARTIKEL II – WETBOEK VAN STRAFRECHT", "Artikel II, onderdeel D")
+        self._bill_article: dict[str, Mapping[str, Any]] = {}
+        last: dict[str | None, Mapping[str, Any]] = {}
         for section in sections:
             parent = section.get("parent")
             if parent is not None:
                 first_child.setdefault(str(parent), int(section["char_start"]))
+            parent_key = None if parent is None else str(parent)
+            if heading_parts(str(section["heading"])) is not None:
+                last[parent_key] = section
+            elif parent_key in last:
+                self._bill_article[str(section["id"])] = last[parent_key]
         self._first_child = first_child
 
     def own_end(self, section: Mapping[str, Any]) -> int:
@@ -264,9 +287,35 @@ class _Outline:
         while node is not None:
             if node.get("law"):
                 return registry.resolve(str(node["law"]))
+            before = self._bill_article.get(str(node["id"]))
+            if before is not None:
+                law = self.bill_article_law(before, registry)
+                if law:
+                    return law
             parent = node.get("parent")
             node = self.by_id.get(str(parent)) if parent is not None else None
         return registry.sole
+
+    def bill_article_law(
+        self, heading: Mapping[str, Any], registry: _Registry
+    ) -> str | None:
+        """The law the heading of an article of the bill says it changes: the law its
+        heading names ("ARTIKEL II – WETBOEK VAN STRAFRECHT"), else the one that article
+        of the bill changes."""
+        text = str(heading["heading"])
+        named = heading_law(text)
+        law = registry.resolve(heading.get("law") or named)
+        if law:
+            return law
+        article = heading_parts(text)
+        for (number, _), part in self.bill.items():
+            if article is None or number != article[0]:
+                continue
+            if part.law:
+                return registry.resolve(part.law)
+            hits = registry.extractor.extract(part.instruction)
+            return next((hit.bwb_id for hit in hits if hit.bwb_id), None)
+        return None
 
 
 def _span(
@@ -296,6 +345,7 @@ def _heading_targets(
     """``(bwb_id, number, match type)`` of the articles the heading says it explains."""
     found: list[tuple[str, str, str]] = []
     law_of_heading = registry.resolve(section.get("law"))
+    named = _named_in_heading(section, registry)
     for ref in section.get("article_refs") or []:
         number, of = str(ref["number"]), ref["of"]
         if of == OF_NAMED_LAW:
@@ -311,15 +361,40 @@ def _heading_targets(
             and section.get("number_scheme") in _NUMBER_SCHEMES
             and not section.get("law")  # "Artikel 3 (Woningwet)": 3 is the bill's own
         ):
-            # An Arabic number is the article of the law when the bill is the law; in a bill
-            # that changes another law it is the number of the article it changes.
-            if own_bwb_id:
+            # An Arabic number is the article of the law the heading names ("Artikel 11
+            # Sr"), else of the law when the bill is the law; in a bill that changes
+            # another law it is the number of the article it changes.
+            if number_key(number) in named:
+                found.append((named[number_key(number)], number, MATCH_HEADING_TARGET))
+            elif own_bwb_id:
                 found.append((own_bwb_id, number, MATCH_OWN_NUMBER))
             else:
                 law = outline.context_law(section, registry)
                 if law:
                     found.append((law, number, MATCH_INFERRED_LAW))
     return found
+
+
+def _named_in_heading(
+    section: Mapping[str, Any], registry: _Registry
+) -> dict[str, str]:
+    """``{number: bwb_id}`` of the articles a heading names with their law ("Artikel 11
+    Sr", "Artikel 4, vijfde lid, Wahv"): a law the dossier changes, by its name or code."""
+    if section["kind"] != KIND_ARTICLE or section.get("law"):
+        return {}
+    return {
+        number_key(hit.article_number): hit.bwb_id
+        for hit in registry.extractor.extract(str(section["heading"]))
+        if hit.bwb_id and hit.article_number
+    }
+
+
+def _range_end(section: Mapping[str, Any]) -> tuple[str, str] | None:
+    """``(first, last)`` of a heading that names a range ("Artikelen 15 tot en met 15l")."""
+    refs = [r for r in section.get("article_refs") or [] if r.get("of") == OF_SELF]
+    if len(refs) != 2 or not _RANGE_RE.search(str(section["heading"])):
+        return None
+    return number_key(str(refs[0]["number"])), number_key(str(refs[1]["number"]))
 
 
 def _body_targets(
@@ -411,7 +486,7 @@ def find_references(
     surest way it does so counts.
     """
     registry = _Registry(laws)
-    outline = _Outline(sections)
+    outline = _Outline(sections, bill)
     best: dict[tuple[str, str, str], Reference] = {}
     for section in sections:
         if section["kind"] not in _ARTICLE_KINDS:
@@ -436,6 +511,15 @@ def find_references(
                 number=number_key(number),
                 match_type=match_type,
             )
+        span = _range_end(section)
+        if span is None:
+            continue
+        for bwb_id, number, match_type in targets:
+            if match_type in _RANGE_MATCHES and number_key(number) == span[0]:
+                known = best[(str(section["id"]), bwb_id, span[0])]
+                best[(str(section["id"]), bwb_id, f"{span[0]}..{span[1]}")] = replace(
+                    known, match_type=match_type, last=span[1]
+                )
     return list(best.values())
 
 
@@ -453,12 +537,25 @@ def explained_targets(
     when the section states the article itself (its heading), at the article when it exists;
     the reference then says the dossier did not change it (``changed``).
     """
+    # a change by the number the law stores the article under: a reference may leave out
+    # the book (``_number_keys``), the store does not (Awb 11:2 is no article 2)
     changed: dict[tuple[str, str], list[Change]] = {}
     for change in changes:
-        for key in _number_keys(change.number):
-            changed.setdefault((change.bwb_id, key), []).append(change)
+        changed.setdefault((change.bwb_id, number_key(change.number)), []).append(
+            change
+        )
     explained: dict[str, list[Reference]] = {}
     for reference in references:
+        if reference.last is not None:
+            inside = [
+                c
+                for c in changes
+                if c.bwb_id == reference.bwb_id
+                and _order(reference.number) < _order(c.number) < _order(reference.last)
+            ]
+            for target in sorted({c.target for c in inside}):
+                explained.setdefault(target, []).append(reference)
+            continue
         hits = [
             change
             for key in _number_keys(reference.number)
@@ -475,6 +572,11 @@ def explained_targets(
         for target in sorted(targets):
             explained.setdefault(target, []).append(reference)
     return explained
+
+
+def _order(number: str) -> list[tuple[int, str]]:
+    """An article number as it is ordered in its law: 14l, 15, 15a, 15l, 16; 6:1:2."""
+    return [(int(n), s) for n, s in re.findall(r"(\d+)([a-z]*)", number_key(number))]
 
 
 def is_introduction(changes: Sequence[Change], bwb_id: str) -> bool:

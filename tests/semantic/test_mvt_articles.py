@@ -574,3 +574,158 @@ def test_an_onderdeel_points_only_at_what_the_dossier_changed() -> None:
 
     # 248e, 240b and 51a were not changed (renumbered, or left out by an amendment)
     assert sorted(explained) == ["article_versions/v248d", article_id(SV, "67")]
+
+
+# ── the law of an Arabic heading ─────────────────────────────────────────────
+
+WAHV = "BWBR0004627"
+_LAWS_HERZIENING = [
+    Law(SR, ("Wetboek van Strafrecht",), ("Sr",)),
+    Law(SV, ("Wetboek van Strafvordering",), ("Sv",)),
+    Law(
+        WAHV,
+        ("Wet administratiefrechtelijke handhaving verkeersvoorschriften",),
+        ("Wahv",),
+    ),
+]
+
+
+def _arabic(
+    paper: _Paper, heading: str, *numbers: str, parent: str | None = None
+) -> str:
+    return paper.add(
+        heading,
+        f"Toelichting bij {heading}.",
+        number=numbers[0],
+        scheme="arabic",
+        refs=[(n, "self") for n in numbers],
+        parent=parent,
+    )
+
+
+def _roman(paper: _Paper, heading: str, number: str, body: str = "") -> str:
+    return paper.add(
+        heading, body, number=number, scheme="roman", refs=[(number, "self")]
+    )
+
+
+def test_a_heading_that_names_its_law() -> None:
+    paper = _Paper()
+    _arabic(paper, "Artikel 11 Sr", "11")
+    _arabic(paper, "Artikel 4, vijfde lid, Wahv", "4")
+    _arabic(paper, "Artikel 12", "12")  # no law, and the dossier changes three
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+
+    assert _found(refs) == [
+        ("s-0", SR, "11", MATCH_HEADING_TARGET),
+        ("s-1", WAHV, "4", MATCH_HEADING_TARGET),
+    ]
+
+
+def test_the_heading_of_the_article_of_the_bill_before_it_names_the_law() -> None:
+    """``ARTIKEL II – WETBOEK VAN STRAFRECHT`` holds for the headings after it, up to the
+    next article of the bill (Herziening tenuitvoerlegging, 33745)."""
+    paper = _Paper()
+    _roman(paper, "ARTIKEL II – WETBOEK VAN STRAFRECHT", "II")
+    _arabic(paper, "Artikel 13", "13")
+    _arabic(paper, "Artikel 14f", "14f")
+    _roman(
+        paper,
+        "ARTIKEL III – WET ADMINISTRATIEFRECHTELIJKE HANDHAVING VERKEERSVOORSCHRIFTEN",
+        "III",
+    )
+    _arabic(paper, "Artikel 6", "6")
+    _roman(paper, "ARTIKEL IV – OVERGANGSRECHT", "IV")
+    _arabic(paper, "Artikel 7", "7")  # no law named before it
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+
+    assert _found(refs) == [
+        ("s-1", SR, "13", MATCH_INFERRED_LAW),
+        ("s-2", SR, "14f", MATCH_INFERRED_LAW),
+        ("s-4", WAHV, "6", MATCH_INFERRED_LAW),
+    ]
+
+
+def test_the_article_of_the_bill_before_it_names_the_law_through_the_bill() -> None:
+    """34372: "Artikel II, onderdeel D" (no text) and then "Artikel 125p", which explains:
+    ARTIKEL II of the bill changes the Wetboek van Strafvordering."""
+    bill = bill_parts(
+        "ARTIKEL I\nHet Wetboek van Strafrecht wordt als volgt gewijzigd:\nA\n"
+        "In artikel 138c wordt «a» vervangen door: b.\n"
+        "ARTIKEL II\nHet Wetboek van Strafvordering wordt als volgt gewijzigd:\nD\n"
+        "Na artikel 125o wordt een artikel ingevoegd, luidende:\nArtikel 125p\nTekst."
+    )
+    paper = _Paper()
+    _roman(paper, "Artikel I, onderdeel A", "I")
+    _arabic(paper, "Artikel 138c", "138c")
+    _roman(paper, "Artikel II, onderdeel D", "II")
+    _arabic(paper, "Artikel 125p", "125p")
+
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING, bill=bill)
+
+    assert _found(refs) == [
+        ("s-1", SR, "138c", MATCH_INFERRED_LAW),
+        ("s-3", SV, "125p", MATCH_INFERRED_LAW),
+    ]
+    # without the bill the onderdelen name no law
+    assert find_references(paper.text, paper.sections, _LAWS_HERZIENING) == []
+
+
+def test_a_range_in_a_heading_is_what_the_dossier_changed_in_it() -> None:
+    paper = _Paper()
+    _arabic(paper, "Artikelen 15 tot en met 15l Sr", "15", "15l")
+    refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
+    changes = [
+        Change(SR, n, article_id(SR, n), f"v{n}", RELATION_AMENDS)
+        for n in ("14l", "15", "15a", "15f", "15l", "16")
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: True)
+
+    assert sorted(explained) == [
+        "article_versions/v15",
+        "article_versions/v15a",
+        "article_versions/v15f",
+        "article_versions/v15l",
+    ]
+    (inner,) = explained["article_versions/v15f"]
+    assert inner.match_type == MATCH_HEADING_TARGET and inner.changed
+
+
+def test_a_book_is_left_out_of_a_reference_not_out_of_a_change() -> None:
+    """The BW stores 7:658 as 658 in Boek 7, so "artikel 7:658" is 658 there; the Awb
+    stores 11:2 as 11:2, so "artikel 2" (of an annex, Verzamelwet) is not Awb 11:2."""
+    bw7, awb = "BWBR0005290", "BWBR0005537"
+    paper = _Paper()
+    paper.add(
+        "Artikel 7:658",
+        "Toelichting.",
+        number="7:658",
+        scheme="book_article",
+        refs=[("7:658", "named_law")],
+        law="BW",
+    )
+    paper.add(
+        "Artikel II (Algemene wet bestuursrecht)",
+        "",
+        number="II",
+        scheme="roman",
+        refs=[("II", "self")],
+        law="Algemene wet bestuursrecht",
+    )
+    _arabic(paper, "Artikelen 1, 2 en 9", "1", "2", "9")
+    laws = [
+        Law(bw7, ("Burgerlijk Wetboek Boek 7",), ("BW",)),
+        Law(awb, ("Algemene wet bestuursrecht",), ("Awb",)),
+    ]
+    refs = find_references(paper.text, paper.sections, laws)
+    changes = [
+        Change(bw7, "658", article_id(bw7, "658"), "v658", RELATION_AMENDS),
+        Change(awb, "11:2", article_id(awb, "11:2"), "v11_2", RELATION_AMENDS),
+    ]
+
+    explained = explained_targets(refs, changes, lambda _: False)
+
+    assert sorted(explained) == ["article_versions/v658"]
