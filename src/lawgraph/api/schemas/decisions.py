@@ -410,10 +410,11 @@ class DecisionListResponse(BaseModel):
     total: int | None = Field(
         ...,
         description="Matching decisions, independent of ``limit``; null while they are "
-        "still being counted (``partial``).",
+        "still being counted (``partial``) or not asked for (``facets=false``).",
     )
     items: list[DecisionSummaryDTO]
-    facets: DecisionFacets = Field(default_factory=DecisionFacets)
+    # null when asked for without them (``facets=false``)
+    facets: DecisionFacets | None = Field(default_factory=DecisionFacets)
     partial: bool = Field(
         False,
         description="Something is still being counted; ask again for it. ``total`` and "

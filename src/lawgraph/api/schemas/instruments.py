@@ -532,7 +532,8 @@ class InstrumentListResponse(BaseModel):
 
     items: list[InstrumentListItemDTO]
     total: int
-    facets: InstrumentFacets = Field(default_factory=InstrumentFacets)
+    # null when asked for without them (``facets=false``)
+    facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)
 
 
 class InstrumentVersionDTO(BaseModel):

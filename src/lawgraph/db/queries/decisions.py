@@ -414,8 +414,10 @@ def get_decisions(
     *,
     limit: int = 50,
     offset: int = 0,
+    facets: bool = True,
 ) -> dict[str, Any]:
-    """A page of decisions, newest first, with the seat tally per row, and the facets.
+    """A page of decisions, newest first, with the seat tally per row, and the facets
+    (``facets=False``: the page alone, ``total`` and ``facets`` None, nothing counted).
 
     The page is read first and alone: the decisions under the filters in date order, as
     far as the page goes. ``total`` and ``facets`` (``decision_counts``) read every decision
@@ -427,6 +429,8 @@ def get_decisions(
     filters = filters or DecisionFilters()
     items = _page(store, filters, limit, offset)
     _add_motions(store, items)
+    if not facets:
+        return {"total": None, "items": items, "facets": None}
     left = read_time_left()
     token = set_read_deadline(
         COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)

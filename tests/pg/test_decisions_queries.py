@@ -865,3 +865,23 @@ def test_a_page_reads_the_decisions_in_its_order_as_far_as_it_goes(
         and n.get("Index Name") == "decisions_list_date"
     )
     assert read <= 200, read
+
+
+def test_without_facets_the_page_alone(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``facets=False``: the same page, ``total`` and ``facets`` None, nothing counted
+    (not even ``party_votes``)."""
+    from lawgraph.db.queries import decisions as decision_queries
+
+    with_facets = get_decisions(votes, EVERY, limit=2)
+
+    def no_count(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("counted")
+
+    monkeypatch.setattr(decision_queries, "decision_counts", no_count)
+    monkeypatch.setattr(decision_queries, "party_votes", no_count)
+    without = get_decisions(
+        votes, replace(EVERY, party_votes=("all",)), limit=2, facets=False
+    )
+    assert without == {"total": None, "items": with_facets["items"], "facets": None}

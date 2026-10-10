@@ -524,3 +524,21 @@ def test_a_cabinet_is_kept_an_hour_whatever_the_data_does(
     monkeypatch.setattr(cabinet_queries, "CABINET_MAX_AGE", 0.0)
     assert get_cabinet(government, "jetten")["commitments"] == 4  # type: ignore[index]
     assert computed == ["jetten", "jetten"]
+
+
+def test_the_commitments_without_facets_the_page_and_the_total_alone(
+    government: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``facets=False``: the same page and total, ``facets`` None, and no facet counted."""
+    with_facets = get_commitments(government, status="Openstaand", limit=1)
+    statements: list[str] = []
+    query = government.query
+
+    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append(str(statement))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(government, "query", counting)
+    without = get_commitments(government, status="Openstaand", limit=1, facets=False)
+    assert without == {**with_facets, "facets": None}
+    assert statements and not [s for s in statements if "GROUP BY" in s]

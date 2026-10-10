@@ -583,7 +583,8 @@ class DossierListResponse(BaseModel):
         ..., description="Matching dossiers, independent of limit and offset."
     )
     items: list[DossierSummaryDTO]
-    facets: DossierFacetsDTO
+    # null when asked for without them (``facets=false``)
+    facets: DossierFacetsDTO | None
 
 
 class DossierFacetsDTO(BaseModel):

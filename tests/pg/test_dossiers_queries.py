@@ -13,6 +13,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -2251,3 +2252,25 @@ def test_the_names_of_the_dossiers_are_read_once_per_version(
     store.bulk_insert_or_update_nodes("dossiers", [dossier("36001", "36001", "Wonen")])
     assert dossier_queries.load_dossier_names(store)["36001"]["title"] == "Wonen"
     assert len(reads) == 2
+
+
+def test_the_dossier_list_without_facets_the_page_and_the_total_alone(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``facets=False``: the same page and total, ``facets`` None, and no facet counted."""
+    _listed(store)
+    filters = DossierFilters(status="closed")
+    with_facets = get_dossiers(store, filters, limit=1)
+    statements: list[str] = []
+    query = store.query
+
+    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
+        statements.append(str(statement))
+        return query(statement, params, **options)
+
+    monkeypatch.setattr(store, "query", counting)
+    without = get_dossiers(store, filters, limit=1, facets=False)
+    assert without["items"] == with_facets["items"]
+    assert without["total"] == with_facets["total"]
+    assert without["facets"] is None
+    assert statements and not [s for s in statements if "GROUP BY" in s]
