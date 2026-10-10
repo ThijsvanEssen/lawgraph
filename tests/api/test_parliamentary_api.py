@@ -675,6 +675,13 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
         return {"vvd": 33}
 
     monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    # one seat of the faction no member held that day
+    monkeypatch.setattr(
+        "lawgraph.api.routes.parliament.vacancies_between",
+        lambda store, start, end: [
+            {"faction_key": "vvd", "from_date": "2010-10-01", "to_date": "2010-10-12"}
+        ],
+    )
     monkeypatch.setattr(
         "lawgraph.api.routes.parliament.coalition_of_day",
         lambda store, day: Coalition(cabinet=None),
@@ -683,7 +690,10 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
     assert body["cabinet"] is None and body["factions"][0]["coalition"] is None
     assert asked == ["2010-10-10"]
     assert body["as_of"] == "2010-10-10"
-    assert [(f["key"], f["seats"]) for f in body["factions"]] == [("vvd", 33)]
+    assert [(f["key"], f["seats"], f["vacant"]) for f in body["factions"]] == [
+        ("vvd", 33, 1)
+    ]
+    # the seats held: the vacant one is no member's
     assert body["assigned_seats"] == 33
     assert client.get("/api/parliament/seats?date=gisteren").status_code == 422
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -66,7 +67,9 @@ def cabinet_seats(
     (``_ek_stretches``)."""
     props = cabinet.get("props") or {}
     start = str(props.get("from_date") or "")[:10]
-    end = str(props.get("to_date") or "")[:10] or today
+    end = (
+        _last_day(store, cabinet["_key"], str(props.get("to_date") or "")[:10]) or today
+    )
     posts = cabinet_posts(store, cabinet["_key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
@@ -92,6 +95,18 @@ def cabinet_seats(
             )
             previous = now
     return {"tk": tk, "ek": _ek_stretches(store, posts, start, end)}
+
+
+def _last_day(store: GraphStore, key: str, to_date: str) -> str:
+    """The last day of the cabinet *key* that is its own: the day before *to_date* when its
+    successor begins on it (Rutte IV ended on 2 July 2024, the day Schoof was sworn in:
+    the seats of that day are the successor's), else *to_date*; empty while in office."""
+    if not to_date:
+        return ""
+    on_it = cabinet_on(store, to_date)
+    if on_it is None or on_it["key"] == key:
+        return to_date
+    return (dt.date.fromisoformat(to_date) - dt.timedelta(days=1)).isoformat()
 
 
 def _ek_stretches(

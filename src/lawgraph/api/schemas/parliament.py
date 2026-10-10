@@ -24,7 +24,17 @@ class FactionSeatsDTO(WithPath):
     key: str | None = None
     abbreviation: str | None
     name: str | None
-    seats: int
+    seats: int = Field(
+        ...,
+        description="Its seats: with ``date`` those its members held that day, else the "
+        "number the Kamer gives.",
+    )
+    vacant: int = Field(
+        0,
+        description="With ``date`` (Tweede Kamer): its seats no member held that day "
+        "(FractieZetelVacature); with ``seats`` its seats as a cabinet's stretches count "
+        "them (``/api/cabinets/{key}/seats``). 0 otherwise.",
+    )
     color: str | None = Field(
         None,
         description="The colour this Kamer draws the faction in (the first of `colors`), "
