@@ -27,7 +27,7 @@ from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
-from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE
+from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached_rows, lasting
 
 # Edges from an amending instrument to the articles it changes.
@@ -366,7 +366,7 @@ def get_instrument_dossiers(
     """
     # The publications of a dossier in the order of their id: ``_dossier_link`` picks the
     # newest of them.
-    page = """
+    page = f"""
         SELECT g.id, g.key, g.type, g.labels, g.props, g.direct,
                (
                    SELECT coalesce(json_agg(json_build_object(
@@ -374,7 +374,8 @@ def get_instrument_dossiers(
                        'identifier', s.props -> 'identifier',
                        'published', s.props -> 'date_published'
                    ) ORDER BY s.id), '[]')
-                   FROM links l JOIN nodes s ON s.id = l.source_id
+                   FROM links l
+                   CROSS JOIN {node_of("l.source_id", "split_part(l.source_id, '/', 1)")} s
                    WHERE l.dossier_id = g.id AND l.source_id <> %(instrument_id)s
                ) AS publications,
                row_number() OVER (

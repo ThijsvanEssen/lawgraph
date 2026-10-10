@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.schema import node_of
 
 
 def get_annex(store: GraphStore, key: str) -> dict[str, Any] | None:
@@ -28,10 +29,10 @@ def get_annex_referenced_by(
     whose article is gone is left out.
     """
     rows = store.query(
-        """
+        f"""
         SELECT e.key AS edge_key, e.from_id, e.to_id, e.doc,
                n.id, n.key, n.type, n.labels, n.props
-        FROM edges e JOIN nodes n ON n.id = e.from_id
+        FROM edges e CROSS JOIN {node_of("e.from_id", "e.from_collection")} n
         WHERE e.to_id = %(annex_id)s AND e.relation = %(scoped_by)s
         ORDER BY e.from_id, e.key
         """,
