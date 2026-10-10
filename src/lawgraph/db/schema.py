@@ -1311,6 +1311,8 @@ DOCUMENT_LIGHT_PROPS = (
     # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
     "dictum",
 )
+# ... and, after them, ``has_text``: whether the paper's text is in the data (a string, not
+# empty), which a row of the feed opens on; read from the same pass over the props.
 
 
 def document_light() -> list[str]:
@@ -1322,10 +1324,20 @@ def document_light() -> list[str]:
 )""",
         f"""CREATE OR REPLACE FUNCTION lg_document_light_props(p json) RETURNS json
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT json_object_agg(e.key, e.value ORDER BY e.n)
-    FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
-        WITH ORDINALITY AS e(key, value, n)
-    WHERE e.key IN ({keys})
+    WITH e AS (
+        SELECT key, value, n
+        FROM json_each(CASE WHEN json_typeof(p) = 'object' THEN p ELSE '{{}}'::json END)
+            WITH ORDINALITY AS e(key, value, n)
+    )
+    SELECT json_object_agg(x.key, x.value ORDER BY x.n)
+    FROM (
+        SELECT key, value, n FROM e WHERE key IN ({keys})
+        UNION ALL
+        SELECT 'has_text', to_json(coalesce(bool_or(
+            key = 'text' AND json_typeof(value) = 'string' AND value::text <> '""'
+        ), false)), 9223372036854775807
+        FROM e
+    ) x
 $$""",
         """CREATE OR REPLACE FUNCTION lg_keep_document_light() RETURNS trigger
 LANGUAGE plpgsql AS $$
