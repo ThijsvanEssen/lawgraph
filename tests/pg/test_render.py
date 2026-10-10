@@ -631,6 +631,39 @@ def test_what_a_member_is_comes_from_the_source(
     assert page["robots"] == ("noindex" if slug == "j-de-vries" else None)
 
 
+def test_the_page_of_a_bare_record_of_a_member_is_theirs(
+    client: TestClient, store: GraphStore
+) -> None:
+    """A bare Persoon that is the same person as a member with a role (``semantic
+    tk-person-duplicates``): its page is a 301 to theirs."""
+    _seed_people(store)
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [
+            {
+                "_key": "m_jetten_ek",
+                "type": "member",
+                "labels": ["TK"],
+                "props": {"name": "Rob Jetten", "slug": "rob-jetten-1987"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "_key": "same_as_jetten",
+                "_from": "members/m_jetten_ek",
+                "_to": "members/m_jetten",
+                "relation": "SAME_AS",
+                "source": "tk-person-duplicates",
+            }
+        ]
+    )
+    response = _get(client, "/leden/rob-jetten-1987")
+    assert response.status_code == 301
+    assert response.headers["location"] == "/leden/rob-jetten"
+
+
 def test_a_faction_lists_its_members_now(client: TestClient, store: GraphStore) -> None:
     _seed_people(store)
     page = _head(_get(client, "/fracties/d66").text)

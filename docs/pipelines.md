@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-dictum` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -51,8 +51,10 @@ A code split over books (`data/code_families.json`, `core/code_families.CODE_FAM
 Burgerlijk Wetboek, books 1–8, 7A and 10, each its own BWB id) resolves through the book in the
 article number: `artikel 6:162 BW` cites article `162` of book 6 (`BWBR0005289`, key
 `bwbr0005289_162`), whichever books are loaded, so a citation of a book that is not loaded
-becomes a stub of that book. Without a book (`artikel 162 BW`) or with an unknown one there is
-no hit, and the family code (`BW`) is never a short title. A law that numbers
+becomes a stub of that book. The family's full name does the same (`artikel 7:669 van het
+Burgerlijk Wetboek`): it is the name its books share in the graph (`Burgerlijk Wetboek Boek 7`
+less `Boek 7`), unless that is a law's own name. Without a book (`artikel 162 BW`) or with an
+unknown one there is no hit, and the family code (`BW`) is never a short title. A law that numbers
 `Hoofdstuk:artikel` in one regulation (the Awb: `8:54`) is no family; its articles keep the
 colon. How the families are built: see BWB.
 
@@ -204,7 +206,11 @@ over a window (`--since`) that holds a seat (FractieZetelPersoon) reads every st
 person, so the member's timeline is made of all their seats, and takes the member and the faction
 from the database when the window holds neither. Every run keeps the vacant seats of each faction (FractieZetelVacature, all of
 them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`, the day the
-successor takes the seat; a record that ends before it begins is left out.
+successor takes the seat; a record that ends before it begins is left out. A seat is held or
+vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
+FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
+(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
 footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
@@ -367,6 +373,13 @@ dossiers. For those it comes to what a run over all would. Of the touched dossie
 one that keeps none (`first_signed`), or of which a paper the window touched is dated on or
 before the one kept, or is it; found in one pass, however many dossiers the window touched. What changes in another way (a cabinet, a post,
 the date of a publication) waits for the nightly run, which walks all.
+
+**Semantic `tk-person-duplicates`.** `SAME_AS` from a bare `Persoon` of the Tweede Kamer to the
+member with a role (`core/member_role.py`) who is the same person: the same birth date, surname and
+initials (letters alone), all three given. The Kamer keeps some people twice, a record with their
+seats and a bare one it made for their seat in the Eerste Kamer. A bare member that matches two
+members with a role is left alone. The page of the bare member is a 301 to the other. Derived in
+full each run.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
 (`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
@@ -1663,6 +1676,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
+| semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |

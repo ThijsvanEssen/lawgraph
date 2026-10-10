@@ -360,13 +360,21 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         tk_members.link_members_to_factions(
             store, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
         )
-        # every vacancy and every faction, also on a run over a window: they are few
+        # every vacancy and every faction, also on a run over a window: they are few; with
+        # every holding of a seat, which a vacancy of that seat cannot overlap
         tk_members.keep_faction_vacancies(
             store,
             RawRecords(
                 self,
                 source=SOURCE_TK,
                 kinds=[RAW_KIND_TK_FRACTIEZETELVACATURE],
+                since=None,
+                batch_size=1000,
+            ),
+            RawRecords(
+                self,
+                source=SOURCE_TK,
+                kinds=[RAW_KIND_TK_FRACTIEZETELPERSOON],
                 since=None,
                 batch_size=1000,
             ),

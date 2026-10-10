@@ -227,15 +227,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SAME_AS",
-        (_J, _I, _DOC),
-        (_J, _I),
+        (_J, _I, _DOC, _MEMBER),
+        (_J, _I, _MEMBER),
         "A publication of a decision → the publication of the same decision that replaces "
         "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
         "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. "
         "The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty "
         "number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or "
         "the Staatscourant → the publication of the BWB of the same official id "
-        "(`stb-2019-33`, `stcrt-2020-12345`), by their keys.",
+        "(`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede "
+        "Kamer → the member with a role who is the same person: the same birth date, surname "
+        "and initials (`tk-person-duplicates`).",
     ),
     RelationSpec(
         "SCOPED_BY",
