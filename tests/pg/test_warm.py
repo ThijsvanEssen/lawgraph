@@ -247,3 +247,19 @@ def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
     opened.clear()
     warm._warm_articles(store, store.data_version())
     assert opened == ["top", "next", "last"]
+
+
+def test_the_articles_are_warmed_after_the_warm_up_is_done(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deploy waits for ``warm`` (``/api/health``); the most cited articles take minutes
+    and are not waited for: the warm-up is done for the data before they are warmed."""
+    monkeypatch.setattr(warm, "_warmed", None)
+    warm_while_warming: list[bool] = []
+    monkeypatch.setattr(
+        warm,
+        "_warm_articles",
+        lambda store_, version: warm_while_warming.append(warm.is_warm(store_)),
+    )
+    warm.warm_up(store)
+    assert warm_while_warming == [True]

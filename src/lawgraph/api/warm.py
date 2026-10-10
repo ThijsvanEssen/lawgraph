@@ -221,7 +221,6 @@ def warm_up(store: GraphStore) -> None:
         "feed": lambda: get_feed(store, FeedFilters(), limit=50),
         "judgments by area of law": lambda: _warm_subject_areas(store),
         "judgments citing a law": lambda: _warm_law_judgments(store),
-        "most cited articles": lambda: _warm_articles(store, version),
     }
     for name, part in parts.items():
         if version_cache.superseded(store, version):
@@ -241,6 +240,9 @@ def warm_up(store: GraphStore) -> None:
             _warmed_parts[(store.name, name)] = stamp
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(parts))
+    # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
+    # is asked far less than the lists above
+    _run("most cited articles", lambda: _warm_articles(store, version))
     if _search_terms_due(store.name):
         _run("search terms", lambda: _warm_search_terms(store))
 
