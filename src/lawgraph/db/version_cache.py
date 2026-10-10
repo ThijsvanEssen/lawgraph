@@ -67,6 +67,13 @@ def stale_wait(seconds: float) -> Iterator[None]:
         _stale_wait.reset(token)
 
 
+# From this part of its ``max_age`` on, an answer of ``lasting`` is computed again ahead of
+# time: a request takes the kept one at once and the new one computes in the background, so
+# that a visitor seldom finds it expired (and waits ``STALE_WAIT`` for it: 3.7 s for the feed
+# on 10 Oct); the warm-up, after every change of the data, waits for the new one.
+REFRESH_AHEAD = 0.75
+
+
 # Computations at the same time (each holds a connection of the pool while it reads).
 WORKERS = 3
 
@@ -324,14 +331,30 @@ def lasting(
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     Once older, it is computed again in the background, and a request waits for that
-    ``STALE_WAIT`` at most, then takes the one it had; *inline* as ``cached``."""
+    ``STALE_WAIT`` at most, then takes the one it had. From ``REFRESH_AHEAD`` of its age on
+    a request takes the kept one at once while the new one computes, and the warm-up (no
+    deadline) waits for the new one; *inline* as ``cached``."""
     if getattr(store, "data_version", None) is None:
         return compute()
     entry_key = ((str(getattr(store, "name", "")), "lasting"), key)
     with _lock:
         kept = _lasting.get(entry_key)
-        if kept is not None and time.monotonic() - kept[1] < max_age:
+        age = None if kept is None else time.monotonic() - kept[1]
+        if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
             return kept[0]  # type: ignore[no-any-return]
+        ahead = (
+            kept is not None
+            and age is not None
+            and age < max_age
+            and read_time_left() is not None
+        )
+        if ahead and not inline and not _in_cache_worker():
+            if entry_key not in _running:
+                _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)
+            return kept[0]  # type: ignore[index, no-any-return]
+        if ahead:
+            # computed here (inline, or in a worker of the pool): the kept one now
+            return kept[0]  # type: ignore[index, no-any-return]
     if inline:
         value = compute()
         with _lock:

@@ -382,3 +382,35 @@ def test_a_stamp_of_tables_moves_with_them_alone(store: GraphStore) -> None:
     assert store.data_version(["instruments"]) == instruments
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
     assert store.data_version(["instruments"]) != instruments
+
+
+def test_a_lasting_answer_is_computed_again_before_it_expires(
+    store: GraphStore,
+) -> None:
+    """From ``REFRESH_AHEAD`` of its age on, a request takes the kept answer at once and
+    the new one computes in the background (the feed waited ``STALE_WAIT`` for its counts
+    once they had expired: 3.7 s on 10 Oct); the warm-up waits for the new one."""
+    from lawgraph.db import store as store_module
+
+    max_age = 0.4
+    assert version_cache.lasting(store, ("ahead",), lambda: 1, max_age) == 1
+    time.sleep(max_age * version_cache.REFRESH_AHEAD)
+    computed = threading.Event()
+
+    def slow() -> int:
+        time.sleep(0.3)
+        computed.set()
+        return 2
+
+    token = store_module.set_read_deadline(5.0)
+    try:
+        started = time.monotonic()
+        assert version_cache.lasting(store, ("ahead",), slow, max_age) == 1
+        assert time.monotonic() - started < 0.1  # not waited for
+        assert computed.wait(2)
+        assert version_cache.lasting(store, ("ahead",), slow, max_age) == 2
+    finally:
+        store_module.reset_read_deadline(token)
+    # without a deadline (the warm-up) the new answer is waited for
+    time.sleep(max_age * version_cache.REFRESH_AHEAD)
+    assert version_cache.lasting(store, ("ahead",), lambda: 3, max_age) == 3
