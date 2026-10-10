@@ -8,6 +8,7 @@ ref its first step fails), so only what is merged here can be sent.
 gh workflow run ops -f action=status                       # health, timers, runs, statements, disk, ops jobs
 gh workflow run ops -f action=run -f name=<script>          # ops/<script>.sh, in the background on the server
 gh workflow run ops -f action=log -f name=<script>          # the tail of /srv/lawgraph/ops/<script>.log
+gh workflow run ops -f action=run-log -f name=daily-<date> # the tail of /srv/lawgraph/logs/daily-<date>.log
 gh workflow run ops -f action=sql -f name=<query>           # ops/<query>.sql in a read-only session (600 s)
 gh run view --log "$(gh run list -w ops -L 1 --json databaseId -q '.[0].databaseId')"   # the output
 ```
