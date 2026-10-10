@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.publication_xml import SERIES_NAMES
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import member_role
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
@@ -139,25 +140,16 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
 
 
 # A field of the props that is a list with something in it.
-_LISTS = (
-    "CASE json_typeof(props -> '{field}')"
-    " WHEN 'array' THEN json_array_length(props -> '{field}') ELSE 0 END > 0"
-)
-
-
 def members(store: GraphStore) -> Iterator[dict[str, Any]]:
-    """The members with a slug who sat in a chamber or held a post in a cabinet; no day
-    of change (none is kept)."""
+    """The members with a slug who have a role (``member_role``: sat in a chamber or held a
+    post in a cabinet); no day of change (none is kept)."""
     yield from store.query(
         f"""
-        SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
+        SELECT m.id, json_build_object('slug', lg_str(m.props -> 'slug')) AS props,
                NULL AS lastmod
-        FROM {COLLECTION_MEMBERS}
-        WHERE lg_str(props -> 'slug') IS NOT NULL
-          AND ({_LISTS.format(field="faction_memberships")}
-               OR {_LISTS.format(field="government_functions")}
-               OR coalesce(json_typeof(props -> 'ek'), 'null') = 'object')
-        ORDER BY id
+        FROM {COLLECTION_MEMBERS} m
+        WHERE lg_str(m.props -> 'slug') IS NOT NULL AND {member_role.has_role("m")}
+        ORDER BY m.id
         """
     )
 

@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.member_role import has_role
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, key_ecli, path_of
@@ -706,7 +707,8 @@ def member_page(row: dict[str, Any]) -> Page:
             ),
         },
         body=body,
-        index=bool(name and path),
+        # a person of the Tweede Kamer's records whose seat the data does not hold
+        index=bool(name and path) and has_role(props),
     )
 
 

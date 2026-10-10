@@ -583,12 +583,14 @@ them (`W.B. Buma`). A bewindspersoon without a `Persoon` is a member of their ow
 |------|---------|
 | `name`, `full_name`, `initials` | the name they go by (`Roepnaam` and surname), `Voornamen` and surname, `Initialen` |
 | `family_name`, `name_prefix` | `Achternaam` without the `Tussenvoegsel`, and the tussenvoegsel |
-| `number`, `birth_date` | `Persoon.Nummer`; the date of birth |
+| `number`, `birth_date`, `death_date` | `Persoon.Nummer`; the date of birth; the date of death (`Overlijdensdatum`) |
 | `slug` | the name as the API gives it, lower-case ASCII with hyphens (`core/member_slugs.py`). Given once by every pipeline that writes members and never changed; a later namesake gets the year they were born, else `number`, else a number of its own. `lawgraph check` fails on a slug two members share |
 | `party`, `faction_memberships` | the party, and every faction membership with its dates |
 | `government_name`, `known_as` | from Rijksoverheid: `S.Th.M. Hermans`, and `Sophie Hermans` (the first name the page gives; null when none) |
 | `government_functions` | every post in a cabinet since 1945, oldest first (below) |
 | `ek` | a member of the Eerste Kamer (`normalize eerstekamer-composition`): `name` as its page writes it, `path` and `url` of that page, `faction` (key) and `abbreviation`, `seniority_days` (`Anciënniteit`), `residence`, `observed_from`, `observed_until`, `retrieved_on`. It is the member of the Tweede Kamer born that day whose surname ends its name, when exactly one is; else a member of its own (`ek_<slug>`, label `EK`, with `name` and `birth_date` from the page) |
+
+A member has a role when the sources give them a seat or a post: `faction_memberships`, `government_functions` or `ek_faction_memberships` not empty, or `ek` set (`core/member_role.py`, in SQL `db/queries/member_role.py`; a column of its own when the database is built again). One without is a person of the Tweede Kamer's records (`Persoon`) whose seat the data does not hold: the sitemap leaves them out, their page is not indexed, and search lists them after the members with one.
 
 A post in `government_functions` (`normalize rijksoverheid`, [pipelines](pipelines.md#rijksoverheid)):
 
