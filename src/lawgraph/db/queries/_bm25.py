@@ -27,7 +27,7 @@ from lawgraph.db.store import (
     reset_read_deadline,
     set_read_deadline,
 )
-from lawgraph.db.version_cache import cached, lasting, stale_wait
+from lawgraph.db.version_cache import lasting, stale_wait
 
 logger = get_logger(__name__)
 
@@ -210,12 +210,14 @@ def _stems_of(store: Any, word: str) -> list[str]:
 def _frequencies(
     store: Any, table: str, terms: list[_Term], params: dict[str, Any], rows: float
 ) -> list[float]:
-    """The document frequency of each term, kept per data version. A word whose stem is one
-    of the most common elements of its column (``_common_elements``) takes the frequency the
-    planner keeps of it; every other term is counted, in one statement: for a common word
-    those counts were the slowest part of a search (2 s of 3 on the full graph). Counted by
-    the search itself (``inline``): for a rare word a few index pages, which on the pool of
-    the cache waited behind a warm-up for the whole budget of the search."""
+    """The document frequency of each term. A word whose stem is one of the most common
+    elements of its column (``_common_elements``) takes the frequency the planner keeps of
+    it; every other term is counted, in one statement, and kept ``STATS_MAX_AGE`` whatever
+    the data does, as the statistics of the table are: a poll hardly moves how many rows
+    hold a word, and counting a common one reads thousands of rows from disk (articles
+    "belasting": 3.6 s on prod). A request never waits for a count it does not have: it
+    takes the estimate of ``_estimated_frequencies`` and the count is made in the
+    background, for the next search. Outside a request (the warm-up) it waits."""
     if not terms:
         return []
     key = (
@@ -243,7 +245,42 @@ def _frequencies(
             found.update(_counted(store, table, terms, params, counted, rows))
         return [found[n] for n in range(len(terms))]
 
-    return cached(store, key, count, tables=(table,), inline=True)
+    if read_time_left() is None:
+        return lasting(store, key, count, STATS_MAX_AGE)
+    token = set_read_deadline(0.0)
+    try:
+        with stale_wait(0.0):
+            return lasting(store, key, count, STATS_MAX_AGE)
+    except ReadTimedOut:
+        pass  # counted on, for the next search
+    finally:
+        reset_read_deadline(token)
+    return _estimated_frequencies(terms, params, common, rows)
+
+
+def _estimated_frequencies(
+    terms: list[_Term],
+    params: dict[str, Any],
+    common: dict[str, dict[str, float]],
+    rows: float,
+) -> list[float]:
+    """The frequency of each term without counting, while the count is made: of a stem among
+    the most common elements of its column the planner's; of another word, half the least
+    common of those, as the planner itself estimates an element it keeps no frequency of
+    (it is rarer than every one it keeps); of a term of another analyzer (a prefix, a part
+    of a value), one in a thousand rows."""
+    estimates = []
+    for term in terms:
+        if term.analyzer != "text":
+            estimates.append(max(rows / 1000.0, 1.0))
+            continue
+        known = common.get(search_column(term.field, term.analyzer)) or {}
+        word = str(params[term.param])
+        if word in known:
+            estimates.append(known[word])
+        else:
+            estimates.append(max(min(known.values(), default=rows / 1000.0) / 2.0, 1.0))
+    return estimates
 
 
 def _counted(

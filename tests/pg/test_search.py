@@ -1308,3 +1308,67 @@ def test_of_two_articles_alike_the_one_cited_more_comes_first(
     )  # fmt: skip
     hits = search_queries.search_all(store, q="tekortkoming", types=["articles"])
     assert [h["key"] for h in hits["articles"]] == ["bwbr0005289_75", "bwbr0005289_74"]
+
+
+def test_a_common_word_ranks_its_most_cited_hits(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Of a word with more hits than ``RANK_CANDIDATES`` only the first in the order of
+    their columns are ranked (the most cited, then the newest): a judgment whose words weigh
+    most but that nothing cites is left out; with fewer hits than that every hit is ranked
+    and it comes first."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}", source="rechtspraak",
+                  summary="Een geschil over belasting.", inbound_citation_count=10 * n,
+                  date_eff=f"2026-01-{n + 1:02d}")
+            for n in range(1, 6)
+        ]
+        + [
+            # its summary holds the word most often; no name holds it (a name is found
+            # apart from the rank)
+            _node("j_woorden", "judgment", ecli="ECLI:NL:HR:2026:99", source="rechtspraak",
+                  summary="Belasting, belasting en nog eens belasting.",
+                  inbound_citation_count=0, date_eff="2020-01-01"),
+        ],
+    )  # fmt: skip
+
+    def found() -> list[str]:
+        version_cache.clear()
+        hits = search_queries.search_all(store, q="belasting", types=["judgments"])
+        return [h["key"] for h in hits["judgments"]]
+
+    assert found()[0] == "j_woorden"  # every hit ranked: the one whose words weigh most
+    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 3)
+    assert sorted(found()) == ["j_3", "j_4", "j_5"]  # the three most cited
+
+
+def test_a_search_does_not_wait_for_the_frequency_of_a_word(store: GraphStore) -> None:
+    """In a request a frequency not counted yet is estimated (the count is made in the
+    background); outside one (the warm-up) it is counted."""
+    from lawgraph.db.queries import _bm25
+    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}", source="rechtspraak",
+                  summary="Een geschil over pacht." if n < 3 else "Een geschil over huur.")
+            for n in range(1, 6)
+        ],
+    )  # fmt: skip
+    terms = [_bm25._Term("summary", "text", "_w", 1.0)]
+    params = {"_w": "pacht"}
+    token = set_read_deadline(5.0)
+    try:
+        (estimate,) = _bm25._frequencies(store, "judgments", terms, params, 5.0)
+    finally:
+        reset_read_deadline(token)
+    # an estimate, without waiting: the table is not analyzed, so no frequency is kept of
+    # any element, and the least it can be is one row (the count, made after, is two)
+    assert estimate == 1.0
+    version_cache.clear()
+    assert _bm25._frequencies(store, "judgments", terms, params, 5.0) == [2.0]
