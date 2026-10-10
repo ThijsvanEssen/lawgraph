@@ -104,12 +104,16 @@ def test_every_service_but_the_api_is_started_by_a_timer() -> None:
 
 def test_caddy_serves_the_sitemaps_from_where_they_are_written() -> None:
     """``/sitemap*`` is handled before the files of the build and the render route, from the
-    directory ``scheduler.env`` gives ``lawgraph sitemaps``."""
+    directory ``scheduler.env`` gives ``lawgraph sitemaps``, compressed on the way."""
     caddy = (SERVER / "caddy" / "concordans.caddy").read_text(encoding="utf-8")
     env = (SERVER / "scheduler.env.example").read_text(encoding="utf-8")
     where = re.search(r"^LAWGRAPH_SITEMAP_DIR=(\S+)$", env, re.M)
     assert where, "LAWGRAPH_SITEMAP_DIR"
-    block = re.search(r"handle /sitemap\* \{\s*root \* (\S+)\s*file_server\s*\}", caddy)
+    block = re.search(
+        r"handle /sitemap\* \{\s*encode zstd gzip\s*root \* (\S+)\s*file_server\s*\}",
+        caddy,
+    )
+    # plain XML on disk, compressed on the way (``encode``)
     assert block and block.group(1) == where.group(1)
     assert caddy.index("handle /sitemap*") < caddy.index("@file file")
     assert caddy.index("handle /sitemap*") < caddy.index("rewrite * /render")
