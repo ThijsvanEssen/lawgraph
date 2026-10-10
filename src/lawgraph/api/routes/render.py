@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
-from lawgraph.api.seo.pages import PAGES, Page, cut
+from lawgraph.api.seo.pages import PAGES, Page, cut, title_of
 from lawgraph.core.logging import get_logger
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
@@ -182,24 +182,56 @@ def render_page(
     token = set_read_deadline(
         RENDER_BUDGET if left is None else min(RENDER_BUDGET, left)
     )
+    node_id: str | None = None
+    timed_out = False
     try:
         node_id = seo.node_of(store, pad)
         if node_id is None:
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
         if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
             return _redirect(same + _query(request))
-        page = _source_page(store, pad, node_id)
+        source = _source_page(store, pad, node_id)
         stamp = store.data_version()
     except RequestCancelled:
         raise
     except ReadTimedOut:
         logger.warning(
-            "Render of %s past %.1f s: the shell alone.", pathname, RENDER_BUDGET
+            "Render of %s past %.1f s: its title alone.", pathname, RENDER_BUDGET
         )
-        return _html(request, Page("", "", canonical), 200, "no-store", None)
+        timed_out = True
     except psycopg.OperationalError:
         # the database is gone: Caddy serves the static shell on a 503
         return Response(status_code=503, headers={"Retry-After": "30"})
     finally:
         reset_read_deadline(token)
-    return _html(request, page, 200, CACHE_PAGE, stamp)
+    if timed_out:
+        return _html(
+            request, _title_page(store, node_id, canonical), 200, "no-store", None
+        )
+    return _html(request, source, 200, CACHE_PAGE, stamp)
+
+
+# How long a page whose reads ran past ``RENDER_BUDGET`` may read the props of its node for
+# its title (seconds).
+TITLE_BUDGET = 0.5
+
+
+def _title_page(store: GraphStore, node_id: str | None, path: str) -> Page:
+    """A page whose reads took too long: its title and description from the props of its
+    node alone (``title_of``, as ``/api/nodes`` gives them) and its node, without its
+    content; the shell alone when even that is not read in time. A crawler sees the title
+    of the page, never "Concordans", and the next request may have it whole."""
+    if node_id is None:
+        return Page("", "", path)
+    collection, _, key = node_id.partition("/")
+    token = set_read_deadline(TITLE_BUDGET)
+    try:
+        doc = store.get_document(collection, key)
+    except ReadTimedOut:
+        return Page("", "", path, focus=node_id)
+    finally:
+        reset_read_deadline(token)
+    if not isinstance(doc, dict):
+        return Page("", "", path)
+    title, description = title_of(node_id, doc.get("props") or {})
+    return Page(title, description, path, focus=node_id)

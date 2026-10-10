@@ -599,4 +599,51 @@ def get_node_neighborhood(
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
         "edges": [light_edge_doc(row) for row in edges],
+        "buckets": _buckets(store, focal["_id"], filters, {row["id"] for row in nodes}),
     }
+
+
+# Per collection, the neighbours of a node along the edges a walk follows (``lg_walk``'s
+# first level): from the edges alone, through their covering indexes (a neighbour that is
+# gone counts too).
+_BUCKETS = """
+SELECT split_part(x.id, '/', 1) AS collection, count(*)::int AS total,
+       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{}') AS ids
+FROM (
+    SELECT e.to_id AS id FROM edges e
+    WHERE %(outbound)s AND e.from_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+    UNION
+    SELECT e.from_id FROM edges e
+    WHERE %(inbound)s AND e.to_id = %(focal)s
+      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
+      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+) x
+WHERE x.id <> %(focal)s
+GROUP BY 1
+ORDER BY 1 ASC NULLS LAST
+"""
+
+
+def _buckets(
+    store: GraphStore, focal_id: str, filters: NeighborFilter, kept: set[str]
+) -> list[dict[str, Any]]:
+    """Per collection of the node's own neighbours (the first level of its neighbourhood),
+    by name: ``total``, its neighbours there along the edges walked, of the types asked for,
+    and ``kept``, those the walk kept under its cap."""
+    found = []
+    for row in store.query(_BUCKETS, _walk_params(focal_id, 1, 1, filters)):
+        collection = row["collection"]
+        if collection not in _ALLOWED_NODE_COLLECTIONS or (
+            filters.collections is not None and collection not in filters.collections
+        ):
+            continue
+        found.append(
+            {
+                "collection": collection,
+                "total": row["total"],
+                "kept": sum(1 for node_id in row["ids"] if node_id in kept),
+            }
+        )
+    return found

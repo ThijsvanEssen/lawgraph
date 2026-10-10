@@ -295,11 +295,14 @@ $$;
 
 -- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
 -- one statement: a level is read whole (the neighbours along the edges of the relations
--- and status asked for, in the directions asked for, not seen before) and kept in id order
--- until the cap; a node that is gone is not one; a node outside w_collections (when given)
--- is seen but neither kept nor walked through. Whether a neighbour is there is asked of
--- its own table only (w_tables), w_chunk at a time in id order, so a capped walk does not
--- look up the neighbours it will never keep.
+-- and status asked for, in the directions asked for, not seen before) and the room the cap
+-- leaves is shared among its collections: in rounds, each collection with neighbours left
+-- takes up to an equal share of the room, in id order, so a collection with fewer than its
+-- share is kept whole and what it leaves goes to the others (not every case of a minister
+-- before any of his papers, as id order would). A node that is gone is not one; a node
+-- outside w_collections (when given) or w_tables is neither kept nor walked through.
+-- Whether a neighbour is there is asked of its own table only, w_chunk at a time, so a
+-- capped walk does not look up the neighbours it will never keep.
 CREATE OR REPLACE FUNCTION lg_walk(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
     w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
@@ -314,9 +317,16 @@ DECLARE
     chunk text[];
     present text[];
     level text[];
-    reads text;
-    node text;
-    start int;
+    -- per collection of a level: its name, and the run of ``reached`` that is its (ids
+    -- begin with their collection, so a collection's neighbours are one run of them)
+    b_coll text[];
+    b_pos int[];
+    b_end int[];
+    room int;
+    n_open int;
+    share int;
+    took int;
+    n int;
 BEGIN
     FOR step IN 1..w_depth LOOP
         reached := ARRAY(
@@ -336,31 +346,43 @@ BEGIN
             ORDER BY f.id
         );
         level := '{}';
-        start := 1;
-        WHILE start <= coalesce(array_length(reached, 1), 0) LOOP
-            chunk := reached[start:start + w_chunk - 1];
-            start := start + w_chunk;
-            SELECT string_agg(
-                format('SELECT id FROM public.%I WHERE id = ANY($1)', c), ' UNION ALL '
-            ) INTO reads
-            FROM (
-                SELECT DISTINCT split_part(x, '/', 1) AS c FROM unnest(chunk) x
-            ) cs
-            WHERE c = ANY(w_tables);
-            IF reads IS NULL THEN
-                CONTINUE;
-            END IF;
-            EXECUTE 'SELECT coalesce(array_agg(id ORDER BY id), ''{}'') FROM ('
-                || reads || ') t' INTO present USING chunk;
-            seen := seen || present;
-            FOREACH node IN ARRAY present LOOP
-                IF w_collections IS NULL OR split_part(node, '/', 1) = ANY(w_collections) THEN
-                    level := level || node;
+        SELECT coalesce(array_agg(b.c ORDER BY b.c ASC NULLS LAST), '{}'),
+               coalesce(array_agg(b.lo ORDER BY b.c ASC NULLS LAST), '{}'),
+               coalesce(array_agg(b.hi ORDER BY b.c ASC NULLS LAST), '{}')
+        INTO b_coll, b_pos, b_end
+        FROM (
+            SELECT split_part(r.x, '/', 1) AS c, min(r.i)::int AS lo, max(r.i)::int AS hi
+            FROM unnest(reached) WITH ORDINALITY AS r(x, i)
+            GROUP BY 1
+        ) b
+        WHERE b.c = ANY(w_tables) AND (w_collections IS NULL OR b.c = ANY(w_collections));
+        LOOP
+            room := w_cap - coalesce(array_length(kept, 1), 0)
+                - coalesce(array_length(level, 1), 0);
+            SELECT count(*) INTO n_open
+            FROM generate_subscripts(b_coll, 1) AS g(i) WHERE b_pos[g.i] <= b_end[g.i];
+            EXIT WHEN n_open = 0;
+            share := ceil(room::numeric / n_open)::int;
+            FOR i IN 1..coalesce(array_length(b_coll, 1), 0) LOOP
+                CONTINUE WHEN b_pos[i] > b_end[i];
+                took := 0;
+                WHILE took < share AND b_pos[i] <= b_end[i] LOOP
+                    n := least(w_chunk, share - took, b_end[i] - b_pos[i] + 1);
+                    chunk := reached[b_pos[i]:b_pos[i] + n - 1];
+                    b_pos[i] := b_pos[i] + n;
+                    EXECUTE format(
+                        'SELECT coalesce(array_agg(id ORDER BY id), ''{}'')'
+                        ' FROM public.%I WHERE id = ANY($1)', b_coll[i]
+                    ) INTO present USING chunk;
+                    seen := seen || present;
+                    level := level || present;
+                    took := took + coalesce(array_length(present, 1), 0);
                     IF coalesce(array_length(kept, 1), 0)
-                       + array_length(level, 1) = w_cap THEN
-                        RETURN kept || level;
+                       + coalesce(array_length(level, 1), 0) >= w_cap THEN
+                        RETURN kept
+                            || level[1:w_cap - coalesce(array_length(kept, 1), 0)];
                     END IF;
-                END IF;
+                END LOOP;
             END LOOP;
         END LOOP;
         kept := kept || level;

@@ -234,6 +234,21 @@ class NodeNeighborhoodEdge(BaseModel):
     status: str | None = None
 
 
+class NeighborhoodCollectionDTO(BaseModel):
+    """Of the focal node's own neighbours in one collection: how many, and how many the
+    neighbourhood holds under its cap."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    collection: str
+    total: int = Field(
+        ...,
+        description="Its neighbours there along the edges walked, of the types asked "
+        "(from the edges: one that is gone counts too).",
+    )
+    kept: int = Field(..., description="Of those, the ones in `nodes`.")
+
+
 class NodeNeighborhoodResponse(BaseModel):
     """One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."""
 
@@ -242,3 +257,9 @@ class NodeNeighborhoodResponse(BaseModel):
     focal_id: str
     nodes: list[BaseNodeDTO]
     edges: list[NodeNeighborhoodEdge]
+    buckets: list[NeighborhoodCollectionDTO] = Field(
+        default_factory=list,
+        description="Per collection of the focal node's own neighbours (the first level), "
+        "by name: `total` and `kept`; where `kept` is less, the cap left the rest out "
+        "(`GET /api/nodes/{collection}/{key}` lists them all).",
+    )
