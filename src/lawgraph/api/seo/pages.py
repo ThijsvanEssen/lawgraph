@@ -1552,6 +1552,7 @@ def title_of(node_id: str, props: dict[str, Any]) -> tuple[str, str]:
     if collection == "annexes":
         law = {
             "bwb_id": props.get("bwb_id"),
+            "short_title": props.get("instrument_abbreviation"),
             "citation_title": props.get("instrument_citation_title"),
         }
         title = annex_title(props, law)

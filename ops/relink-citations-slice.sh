@@ -7,7 +7,7 @@
 STATE="$OPS/out/relink-citations.after"
 after=$(cat "$STATE" 2>/dev/null)
 [ "$after" = done ] && { echo "== the pass is done; remove $STATE for a new one"; exit 0; }
-[ -n "$after" ] || counts ljn before ljn-citations-counts.sql
+[ -n "$after" ] || { counts ljn before ljn-citations-counts.sql; counts paragraphs before citation-paragraphs-counts.sql; }
 LIMITS="$OPS/out/relink-citations.limit"
 limit=$(cat "$LIMITS" 2>/dev/null)
 limit=${limit:-${LIMIT:-150000}}
@@ -25,6 +25,7 @@ next=$(sed -n 's/.*go on with --after \([^)]*\)).*/\1/p' "$OUT/$label.log" | tai
 if [ -z "$next" ] || [ "$next" = None ]; then
   echo done > "$STATE"
   counts ljn after ljn-citations-counts.sql
+  counts paragraphs after citation-paragraphs-counts.sql
   echo "== the pass is done"
 else
   echo "$next" > "$STATE"

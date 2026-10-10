@@ -3,7 +3,6 @@ an index of them with the last day of each, escaped addresses, and no stale part
 
 from __future__ import annotations
 
-import gzip
 from pathlib import Path
 
 from lawgraph.commands.sitemaps import entries
@@ -14,7 +13,7 @@ BASE = "https://concordans.nl"
 
 
 def _read(path: Path) -> str:
-    return gzip.decompress(path.read_bytes()).decode()
+    return path.read_text(encoding="utf-8")
 
 
 def test_parts_of_at_most_so_many_addresses_and_their_index(tmp_path: Path) -> None:
@@ -23,17 +22,17 @@ def test_parts_of_at_most_so_many_addresses_and_their_index(tmp_path: Path) -> N
     assert counts == {"wetten": 5, "moties": 0}
     names = sorted(p.name for p in tmp_path.iterdir())
     assert names == [
-        "sitemap-wetten-2.xml.gz",
-        "sitemap-wetten-3.xml.gz",
-        "sitemap-wetten.xml.gz",
+        "sitemap-wetten-2.xml",
+        "sitemap-wetten-3.xml",
+        "sitemap-wetten.xml",
         "sitemap.xml",
     ]
     index = (tmp_path / "sitemap.xml").read_text()
     assert (
-        "<sitemap><loc>https://concordans.nl/sitemap-wetten-2.xml.gz</loc>"
+        "<sitemap><loc>https://concordans.nl/sitemap-wetten-2.xml</loc>"
         "<lastmod>2025-04-01</lastmod></sitemap>"
     ) in index
-    first = _read(tmp_path / "sitemap-wetten.xml.gz")
+    first = _read(tmp_path / "sitemap-wetten.xml")
     assert first.count("<url>") == 2
     assert (
         "<url><loc>https://concordans.nl/wetten/BWBR0000001</loc>"
@@ -42,6 +41,8 @@ def test_parts_of_at_most_so_many_addresses_and_their_index(tmp_path: Path) -> N
 
 
 def test_a_part_no_longer_named_is_removed(tmp_path: Path) -> None:
+    # a gzipped part of before (the parts are plain XML now) goes too
+    (tmp_path / "sitemap-dossiers.xml.gz").write_bytes(b"old")
     many = [Entry(f"/dossiers/{n}") for n in range(30000, 30005)]
     sitemaps.write(tmp_path, BASE, {"dossiers": many}, max_urls=2)
     sitemaps.write(tmp_path, BASE, {"dossiers": many[:1]}, max_urls=2)
@@ -50,7 +51,7 @@ def test_a_part_no_longer_named_is_removed(tmp_path: Path) -> None:
     sitemaps.write(tmp_path, BASE, {"dossiers": many[:1]}, max_urls=2)
     assert sorted(p.name for p in tmp_path.iterdir()) == [
         "robots.txt",
-        "sitemap-dossiers.xml.gz",
+        "sitemap-dossiers.xml",
         "sitemap.xml",
     ]
     assert "<lastmod>" not in (tmp_path / "sitemap.xml").read_text()

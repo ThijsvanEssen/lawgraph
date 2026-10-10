@@ -28,13 +28,17 @@ trap 'exit 130' INT TERM
 A writing script can source `_steps.sh` for that preamble: it waits until no scheduled run is busy, takes the lock,
 and gives `counts <block> <before|after> <file.sql>` (a read-only query from here, printed and kept) and
 `step <label> <lawgraph args...>` (one command, its log kept; the script stops at the first failure). Outputs go to
-`/srv/lawgraph/ops/out/<script>/`. A run sends the whole of `ops/`, so a script can run its siblings
-(`chain-rest.sh` runs `tk-dictum.sh`, `post-0.79.29.sh` and `post-0.79.30.sh`, each with its own lock). A chain that should run at night waits for its window itself (`revises-backfill.sh`: `NOT_BEFORE`, `NOT_AFTER`).
+`/srv/lawgraph/ops/out/<script>/`. A run sends the whole of `ops/`, so a script can run its siblings, each with its
+own lock.
 
 A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europe/Amsterdam (`NOT_BEFORE`,
 `NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
-sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `tk-members.sh` (#410),
-`ek-seats.sh` (#453), `ek-persons.sh`, `ek-motions.sh` (slices of 300 pages, each under the lock on its own), `member-death-dates.sh`, `papers-light.sh` and `bwb-definitions.sh` (#414, slices of 5,000 regulations, each under the lock on its own, going on from
-`out/bwb-definitions.after`).
+sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `ek-seats.sh` (#453),
+`member-death-dates.sh` and `papers-light.sh`. One over every judgment goes in slices, each under the lock on its own,
+going on from `out/<script>.after`: `renormalize-judgments.sh`, `relink-judgments.sh`, `relink-citations.sh`,
+`authored-dates.sh` (slices of members).
+
+A script here is a temporary correction: it does once what a complete rebuild plus the regular nightly and weekly
+runs would do too, and it goes once its run on the server is done.
 
 A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.
