@@ -719,21 +719,20 @@ def _cited_by_sql(order: str) -> str:
 MOST_CITED_MAX_AGE = 86400.0
 
 
-def most_cited_articles(store: GraphStore, n: int) -> list[dict[str, Any]]:
-    """``{id, key}`` of the *n* articles with the most citations (``inbound_citation_count``),
-    kept ``MOST_CITED_MAX_AGE``."""
+def most_cited_articles(store: GraphStore, at_least: int) -> list[dict[str, Any]]:
+    """``{id, key}`` of the articles with *at_least* citations (``inbound_citation_count``),
+    the most cited first, kept ``MOST_CITED_MAX_AGE``."""
     return lasting(
         store,
-        ("most cited articles", n),
+        ("most cited articles", at_least),
         lambda: list(
             store.query(
                 """
                 SELECT id, key FROM articles
-                WHERE inbound_citation_count > 0
+                WHERE inbound_citation_count >= %(at_least)s
                 ORDER BY inbound_citation_count DESC NULLS LAST, key
-                LIMIT %(n)s
                 """,
-                {"n": n},
+                {"at_least": max(at_least, 1)},
             )
         ),
         MOST_CITED_MAX_AGE,
