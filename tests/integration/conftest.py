@@ -85,6 +85,14 @@ def cli(
     database: str, payload_store: str
 ) -> Callable[..., subprocess.CompletedProcess[str]]:
     """Run ``lawgraph <args>`` as a process of its own against the test database."""
+    return lawgraph_runner(database, payload_store)
+
+
+def lawgraph_runner(
+    database: str, payload_store: str
+) -> Callable[..., subprocess.CompletedProcess[str]]:
+    """``lawgraph <args>`` as a process of its own against *database* on the test server,
+    with *payload_store*: what ``cli`` gives a test, for a fixture of a wider scope too."""
 
     def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         env = {
