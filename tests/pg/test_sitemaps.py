@@ -249,9 +249,9 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
         ("/fracties/d66", "2026-03-01"),
         ("/fracties/ek_d66", None),
     ]
-    # its end, else the start of its last phase, else its beëdiging
+    # its end, else the start of its last phase, else its beëdiging; none before 1970
     assert _paths(kinds, "kabinetten") == [
-        ("/kabinetten/drees", "1948-08-07"),
+        ("/kabinetten/drees", None),
         ("/kabinetten/jetten", "2026-02-23"),
         ("/kabinetten/schoof", "2026-02-23"),
     ]

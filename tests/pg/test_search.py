@@ -1345,6 +1345,63 @@ def test_a_common_word_ranks_its_most_cited_hits(
     assert sorted(found()) == ["j_3", "j_4", "j_5"]  # the three most cited
 
 
+def _common_word_rows(table: str, n: int) -> dict[str, Any]:
+    """Row *n* of *table*: one in ten holds "belasting", in the field the search reads."""
+    word = "belasting" if n % 10 == 0 else "pacht"
+    if table == "judgments":
+        return _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}",
+                     source="rechtspraak", summary=f"Een geschil over {word}.",
+                     inbound_citation_count=n, date_eff="2026-01-01")  # fmt: skip
+    node = _node(f"d_{n}", "document", title=f"Brief over {word}",
+                 date=f"2026-01-{n % 28 + 1:02d}")  # fmt: skip
+    return {**node, "labels": ["TK"]}
+
+
+@pytest.mark.parametrize("table", ["judgments", "documents"])
+def test_the_hits_of_a_common_word_are_found_from_its_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, table: str
+) -> None:
+    """Of a word with more hits than ``RANK_CANDIDATES`` the hits are found from the
+    indexes of the words, then ordered by their columns, not by walking the index in the
+    order of the candidates and testing the words of row after row until enough hold them
+    (60,000 judgments for "belasting" on prod, past the 3 s of the search, 10 Oct)."""
+    version_cache.clear()
+    store.bulk_insert_or_update_nodes(
+        table, [_common_word_rows(table, n) for n in range(4000)]
+    )
+    store.execute(f"ANALYZE {table}")
+    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 20)
+    seen: list[tuple[str, Any]] = []
+    query = store.query
+
+    def spy(statement: Any, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+        seen.append((statement, params))
+        return query(statement, params, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", spy)
+    hits = search_queries.search_all(store, q="belasting", types=[table])
+    assert len(hits[table]) == 20
+    (statement, params), *_ = [s for s in seen if "LIMIT 20" in str(s[0])]
+    with store.pool.connection() as conn, conn.transaction():
+        conn.execute("SET LOCAL enable_seqscan = off")  # as ``indexes_only``
+        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
+    assert row is not None
+    scans: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("Relation Name") == table and node.get("Filter"):
+                scans.append(f"{node['Node Type']} {node.get('Index Name', '')}")
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(row[0])
+    assert scans == []  # no scan of the table that tests the words row by row
+
+
 def test_a_search_does_not_wait_for_the_frequency_of_a_word(store: GraphStore) -> None:
     """In a request a frequency not counted yet is estimated (the count is made in the
     background); outside one (the warm-up) it is counted."""

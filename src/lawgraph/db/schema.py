@@ -40,7 +40,9 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_PIPELINE_STATE,
     COLLECTION_RAW_SOURCES,
+    RELATION_ABOUT,
     RELATION_AUTHORED,
+    RELATION_LED_BY,
     RELATION_PART_OF,
     RELATION_VOTED,
 )
@@ -1661,6 +1663,107 @@ END $$"""
     return statements
 
 
+# What each committee leads: every ``LED_BY`` edge into a committee (from an activity or a
+# case) with the date of that item and the dossiers it is ``ABOUT``. What the pages of a
+# committee read (``queries/committees``): its activities a range of an index in the order of
+# their dates, its dossiers those kept with its items, instead of a probe of the edges or the
+# row of every item it leads (8.9 s for the dossiers of Financiën on prod, 17,920 items).
+# Kept by triggers on ``edges`` (an item led, a dossier it is about) and on ``activities``
+# and ``cases`` (their dates); ``semantic graph-light`` fills it once and notes that in
+# ``lg_led_state``, before which the pages walk the edges. Not a table of the graph: writing
+# it raises no data version.
+def committee_led() -> list[str]:
+    led_by, about = RELATION_LED_BY, RELATION_ABOUT
+    statements = [
+        """CREATE TABLE IF NOT EXISTS lg_led (
+    edge_key text PRIMARY KEY,
+    committee_id text NOT NULL,
+    item_id text NOT NULL,
+    item_collection text NOT NULL,
+    date text,
+    dossiers text[] NOT NULL
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_led_committee ON lg_led"
+        " (committee_id, item_collection, date DESC NULLS LAST, item_id) INCLUDE (dossiers)",
+        "CREATE INDEX IF NOT EXISTS lg_led_item ON lg_led (item_id)",
+        """CREATE TABLE IF NOT EXISTS lg_led_state (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    filled_at timestamptz NOT NULL
+)""",
+        # the dossiers an activity or a case is about
+        f"""CREATE OR REPLACE FUNCTION lg_led_dossiers(item text) RETURNS text[]
+LANGUAGE sql STABLE PARALLEL SAFE AS $$
+    SELECT coalesce(array_agg(DISTINCT e.to_id ORDER BY e.to_id ASC NULLS LAST), '{{}}')
+    FROM public.edges e
+    WHERE e.from_id = item AND e.relation = '{about}'
+      AND e.to_collection = '{COLLECTION_DOSSIERS}'
+$$""",
+        # the date of an activity or a case
+        f"""CREATE OR REPLACE FUNCTION lg_led_date(item text) RETURNS text
+LANGUAGE sql STABLE PARALLEL SAFE AS $$
+    SELECT CASE
+        WHEN starts_with(item, '{COLLECTION_ACTIVITIES}/') THEN
+            (SELECT a.date FROM public.{COLLECTION_ACTIVITIES} a WHERE a.id = item)
+        WHEN starts_with(item, '{COLLECTION_CASES}/') THEN
+            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+             WHERE k.id = item)
+    END
+$$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_led() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP IN ('DELETE', 'UPDATE') THEN
+        DELETE FROM public.lg_led l USING changed c
+        WHERE l.edge_key = c.key AND c.relation = '{led_by}';
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        INSERT INTO public.lg_led
+            (edge_key, committee_id, item_id, item_collection, date, dossiers)
+        SELECT c.key, c.to_id, c.from_id, c.from_collection,
+               public.lg_led_date(c.from_id), public.lg_led_dossiers(c.from_id)
+        FROM changed c
+        WHERE c.relation = '{led_by}' AND c.to_collection = '{COLLECTION_COMMITTEES}'
+        ON CONFLICT (edge_key) DO NOTHING;
+    END IF;
+    -- an item led placed in a dossier or taken out: its dossiers again
+    UPDATE public.lg_led l SET dossiers = public.lg_led_dossiers(l.item_id)
+    WHERE l.item_id IN (
+        SELECT c.from_id FROM changed c
+        WHERE c.relation = '{about}' AND c.to_collection = '{COLLECTION_DOSSIERS}'
+    );
+    RETURN NULL;
+END $$""",
+    ]
+    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
+        statements.append(
+            f"CREATE OR REPLACE TRIGGER edges_led_{event.lower()}"
+            f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
+            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_led()"
+        )
+    # an activity or a case written after the edge that leads it, or its date changed
+    for table, date in (
+        (COLLECTION_ACTIVITIES, "c.date"),
+        (COLLECTION_CASES, "public.lg_str(c.props -> 'date')"),
+    ):
+        statements.append(
+            f"""CREATE OR REPLACE FUNCTION lg_keep_led_{table}_date() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE public.lg_led l SET date = {date}
+    FROM changed c
+    WHERE l.item_id = c.id AND l.date IS DISTINCT FROM {date};
+    RETURN NULL;
+END $$"""
+        )
+        for event in ("INSERT", "UPDATE"):
+            statements.append(
+                f"CREATE OR REPLACE TRIGGER {table}_led_date_{event.lower()}"
+                f" AFTER {event} ON {table} REFERENCING NEW TABLE AS changed"
+                f" FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_led_{table}_date()"
+            )
+    return statements
+
+
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
 # it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
 # the number of light summaries each stem is in, which the terms are weighed against.
@@ -1891,6 +1994,7 @@ def statements() -> list[str]:
         *instrument_names(),
         *faction_votes(),
         *member_authored(),
+        *committee_led(),
         ARTICLE_TERMS,
         DECISION_COALITION,
         # the table as it was kept before its factions

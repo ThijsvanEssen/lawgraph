@@ -218,7 +218,10 @@ class _CancelOnDisconnectMiddleware:
                 message = await receive()
                 await messages.put(message)
                 if message["type"] == "http.disconnect":
-                    await anyio.to_thread.run_sync(cancellation.cancel)
+                    # not anyio's to_thread: the server sends this at the end of every
+                    # request too, and an anyio worker whose call is cancelled before it
+                    # starts (``listening.cancel()``) is never used again but stays
+                    await asyncio.to_thread(cancellation.cancel)
                     return
 
         listening = asyncio.create_task(listen())
@@ -318,7 +321,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.45",
+    version="0.79.46",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "

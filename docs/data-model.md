@@ -60,7 +60,7 @@ triggers on `documents` and `cases` as well) and the `capacity` of the signature
 on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
 every row had them (the first fill of a new table, as in a rebuild; on one filled before, `semantic graph-light --authored-dates`), from when the counts of a
 cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
-every paper the member signed. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+every paper the member signed. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and the `dossiers` it is `ABOUT` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once; `lg_led_state` notes when, from when the pages of a committee read it (`get_committee_detail`, `get_committee_activities`), before which they walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
