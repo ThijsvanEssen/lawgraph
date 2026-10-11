@@ -44,6 +44,19 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
         store,
         (RAW_KIND_TK_FRACTIE, _faction(D66, "D66", "1966-10-14", None, 26)),
         (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(1, "2026-02-23", "2026-02-25")),
+        # the seat's member until the day before (a seat no one ever held has no vacancy)
+        (
+            RAW_KIND_TK_FRACTIEZETELPERSOON,
+            {
+                "Id": uid(1, 3),
+                "Persoon_Id": uid(1, 2),
+                "FractieZetel_Id": uid(1, 5),
+                "FractieZetel": {"Id": uid(1, 5), "Fractie_Id": D66},
+                "Van": "2025-11-12T00:00:00+01:00",
+                "TotEnMet": "2026-02-22T00:00:00+01:00",
+                "Functie": "Lid",
+            },
+        ),
         # a record of the source that ends before it begins
         (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(2, "2026-02-23", "2026-02-22")),
     )

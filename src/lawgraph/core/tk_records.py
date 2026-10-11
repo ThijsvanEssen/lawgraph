@@ -589,11 +589,15 @@ def vacant_periods(
     """The days of *vacancy* (``seat_vacancy``) its seat was held by no one: a seat is held
     or vacant, never both, and a vacancy ends at the latest the day before the seat is taken
     again (*held*: the periods of the seat's holdings, ``holding_of_seat``). The source
-    holds vacancies that begin on the predecessor's last day, and some it never closed."""
+    holds vacancies that begin on the predecessor's last day, and some it never closed; and
+    a vacancy of a seat no one ever held (Fractie Bontes, 2017-02-13), which is no seat of
+    the Kamer: none."""
     start, end = str(vacancy["from_date"]), vacancy.get("to_date")
     periods = sorted(
         (str(h["from_date"]), h.get("to_date")) for h in held if h.get("from_date")
     )
+    if not periods:
+        return []
     for begins, _ends in periods:
         if begins > start and (end is None or begins <= end):
             end = _day(begins, -1)
