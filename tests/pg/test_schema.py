@@ -42,8 +42,10 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # (lg_instrument_names), and the votes of the factions with when they were filled
     # (lg_faction_votes, lg_faction_votes_state), and the papers members signed with when
     # they were filled and dated (lg_authored, lg_authored_state, lg_authored_dated), and
-    # what each committee leads with when it was filled (lg_led, lg_led_state)
-    assert tables == len(NODE_COLLECTIONS) + 25
+    # what each committee leads with when it was filled (lg_led, lg_led_state), and the
+    # kept candidates of the most searched words with when they were read
+    # (lg_search_candidates, lg_search_candidates_state)
+    assert tables == len(NODE_COLLECTIONS) + 27
 
 
 def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:
