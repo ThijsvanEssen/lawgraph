@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime as dt
 import functools
+import hashlib
+import json
 import re
 import time
 import unicodedata
@@ -30,7 +32,7 @@ from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
-from lawgraph.db.queries._bm25 import bm25_sql
+from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
@@ -365,7 +367,9 @@ def _text_query(
 ) -> Query:
     """The hits of *table* that hold every token in *fields*, the best ranked first (the
     key settles ties); *live* as ``_live_query``. *termed*: per token the rows that have
-    it as a term (``_termed``), found too and ranked ``TERM_WEIGHT`` higher.
+    it as a term (``_termed``), found too and ranked ``TERM_WEIGHT`` higher. One word
+    without a further condition ranks the hits kept of it (``kept_candidates``) while they
+    are those of now: the same, without reading them.
 
     Run it with ``store.query(..., indexes_only=True)``: its conditions and its rank read
     the large search columns, whose detoasting the planner does not count, so for a
@@ -376,9 +380,8 @@ def _text_query(
         )
     clause, clause_params = build_search_clause(table, tokens, fields, termed=termed)
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
-    rank, lateral, rank_params = bm25_sql(
-        store, table, words, fields, _BOOSTS.get(table, {})
-    )
+    bm25 = bm25_sql(store, table, words, fields, _BOOSTS.get(table, {}))
+    rank = bm25.rank
     if termed:
         bonus = " + ".join(
             f"(doc.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
@@ -398,22 +401,57 @@ def _text_query(
         if table in _CANDIDATE_ORDER
         else ""
     )
-    statement = f"""
-        SELECT {hit}
-        FROM (
+    found = f"SELECT * FROM {table} doc WHERE {clause} {where}"
+
+    def ranked(found: str) -> str:
+        return f"""
             SELECT doc.id, {rank} AS rank
-            FROM (
-                SELECT * FROM (SELECT * FROM {table} doc WHERE {clause} {where} OFFSET 0) doc
-                {candidates}
-            ) doc
-            {lateral}
+            FROM (SELECT * FROM ({found} OFFSET 0) doc {candidates}) doc
+            {bm25.lateral}
             ORDER BY rank DESC, doc.key
             LIMIT %(limit)s
-        ) top
+            """
+
+    statement_params = {
+        **clause_params,
+        **bm25.params,
+        **(params or {}),
+        "limit": limit,
+    }
+    kept = (
+        None
+        if where or len(tokens) != 1 or table not in CANDIDATE_FIELDS
+        else kept_candidates(store, table, tokens[0], clause, clause_params)
+    )
+    if kept is None:
+        top = ranked(found)
+    else:
+        # the hits kept of the word while they are those of now (``kept_candidates``), else
+        # those found: the condition is the same for every row, so the one not taken is
+        # not read (a one-time filter)
+        gate, gate_params = kept
+        statement_params.update(gate_params)
+        top = f"""
+            (SELECT doc.id, {rank} AS rank
+             FROM (
+                SELECT c.id, c.key, c.citations AS inbound_citation_count, c.tf, c.len
+                FROM lg_search_candidates c
+                WHERE c.collection = %(_kept_table)s AND c.word = %(_kept_word)s
+                  AND {gate}
+             ) doc
+             {bm25.stored}
+             ORDER BY rank DESC, doc.key
+             LIMIT %(limit)s)
+            UNION ALL
+            ({ranked(f"{found} AND NOT {gate}")})
+            """
+    statement = f"""
+        SELECT {hit}
+        FROM ({top}) top
         JOIN {table} doc ON doc.id = top.id {joins}
         ORDER BY top.rank DESC, doc.key
         """
-    return statement, {**clause_params, **rank_params, **(params or {}), "limit": limit}
+    return statement, statement_params
 
 
 # ── articles ─────────────────────────────────────────────────────────────────
@@ -823,6 +861,9 @@ def _search_committees(
     return list(store.query(*query, indexes_only=True))
 
 
+_DOCUMENT_FIELDS = ["display_name", "title", "external_id"]
+
+
 def _search_documents(
     store: GraphStore,
     tokens: list[str],
@@ -866,13 +907,96 @@ def _search_documents(
         "documents",
         hit,
         tokens,
-        ["display_name", "title", "external_id"],
+        _DOCUMENT_FIELDS,
         limit,
         where=(_KIND if kinds else "") + period.where("documents"),
         params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
         live=live,
     )
     return list(store.query(*query, indexes_only=True))
+
+
+# ── the hits of a word searched often, kept ready ────────────────────────────
+
+# The types whose hits of a word are kept (``lg_search_candidates``, written by
+# ``queries/search_candidates.py``): those of which a common word ranks only its first
+# ``RANK_CANDIDATES`` hits, with the fields their search reads; and what their rank reads of
+# a hit besides its words (``CITATION_PRIOR``).
+CANDIDATE_FIELDS: dict[str, list[str]] = {
+    "articles": _ARTICLE_FIELDS,
+    "judgments": _JUDGMENT_FIELDS,
+    "documents": _DOCUMENT_FIELDS,
+}
+CANDIDATE_CITATIONS = {"articles": "doc.inbound_citation_count"}
+
+# Whether the hits kept of a word are those of now: read at the version of the type's table
+# it is at (``lg_data_version``), for a search of the shape it has now.
+_KEPT = """
+    EXISTS (SELECT 1 FROM lg_search_candidates_state s
+            JOIN lg_data_version v ON v.collection = s.collection AND v.version = s.version
+            WHERE s.collection = %(_kept_table)s AND s.word = %(_kept_word)s
+              AND s.signature = %(_kept_signature)s)
+"""
+
+
+@dataclass(frozen=True)
+class CandidateSearch:
+    """What the search of one word in a type reads of its hits: its condition and its
+    parameters (``build_search_clause``), the SQL of what the rank reads of a hit
+    (``_bm25.bm25_inputs``) and a signature of all of it."""
+
+    clause: str
+    params: dict[str, Any]
+    tf: str
+    lengths: str
+    signature: str
+
+
+def candidate_search(
+    store: GraphStore, table: str, clause: str, clause_params: dict[str, Any]
+) -> CandidateSearch:
+    """The search of the one word of *clause* in *table*. Its signature changes with
+    whatever changes which hits it ranks or what it reads of them: the condition and its
+    parameters (the forms of the word, the articles that have it as a term), the order of
+    the candidates and their number, the terms and fields of the rank."""
+    words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
+    tf, lengths, rank_params, shape = bm25_inputs(
+        store, table, words, CANDIDATE_FIELDS[table]
+    )
+    signature = hashlib.sha256(
+        json.dumps(
+            [
+                table,
+                clause,
+                clause_params,
+                _CANDIDATE_ORDER[table],
+                RANK_CANDIDATES,
+                CANDIDATE_CITATIONS.get(table),
+                shape,
+            ],
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    return CandidateSearch(
+        clause, {**clause_params, **rank_params}, tf, lengths, signature
+    )
+
+
+def kept_candidates(
+    store: GraphStore,
+    table: str,
+    word: str,
+    clause: str,
+    clause_params: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """The condition that the hits kept of *word* in *table* are those of now, and its
+    parameters."""
+    search = candidate_search(store, table, clause, clause_params)
+    return _KEPT, {
+        "_kept_table": table,
+        "_kept_word": word,
+        "_kept_signature": search.signature,
+    }
 
 
 # ── members and factions: every word in their names ─────────────────────────

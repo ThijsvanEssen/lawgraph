@@ -9,5 +9,6 @@ step semantic all --since last
 step feed-events
 step check --skip-edges
 step search-stats prune
+step search-candidates
 step sitemaps
 finish

@@ -66,6 +66,7 @@ for name in $(.venv/bin/lawgraph semantic all --list); do
 done
 run expand-graph
 run check
+run search-candidates
 
 if [ -n "$failures" ]; then
   echo "$(date '+%F %T') weekly.sh: FAILED: $failures" >> "$LOG_DIR/runs.log"

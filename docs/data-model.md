@@ -66,7 +66,15 @@ them and a fifth, 5 times as often as in all summaries, at most 20, the most tel
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
 in how many light summaries each stem is (the stems in 3 or more, and under `''` how many
 summaries there are), which a run after a poll weighs the terms against. The step raises the
-data version of `articles` when terms changed.
+data version of `articles` when terms changed. `lg_search_candidates` holds, per type
+(`judgments`, `articles`, `documents`) and word searched most (`lawgraph search-candidates`),
+the hits a search of that word ranks (the first 1,000 in the order of their columns), in that
+order (`pos`), with what their rank reads of each: the frequency of every term (`tf`), the
+length of every field it weighs (`len`) and, of an article, its citations;
+`lg_search_candidates_state` the version of the type's table they were read at
+(`lg_data_version`), the signature of the search they were read for, and how many hits the
+word has. A search of the word takes them while both are those of now, and finds its hits
+itself otherwise.
 
 ## Node types and relation catalogue
 
