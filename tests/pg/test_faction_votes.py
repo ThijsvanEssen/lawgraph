@@ -163,3 +163,30 @@ def test_the_faction_votes_of_a_period_are_a_range_of_the_table(
         n["Actual Rows"] * n["Actual Loops"] for n in nodes if n.get("Relation Name")
     )
     assert read <= 20, read
+
+
+def test_the_votes_in_office_are_read_within_the_posts(store: GraphStore) -> None:
+    """With ``in_office`` a period is read only where a post of the member overlaps it: the
+    faction's votes outside every post are not walked and dropped one by one (4 to 12 s on
+    prod for every member page, also for a member with no vote in office)."""
+    from tests.pg.test_committees_queries import _candidates_plan
+
+    post = {"function": "Minister", "from_date": "2020-01-01", "to_date": "2020-01-31"}
+    _decisions_voted(store, [VVD, D66], [post])
+    faction_votes.fill_faction_votes(store)
+    nodes = _candidates_plan(store, "members/m1", 10, in_office=True)
+    # at most the faction's votes of January 2020 (250), not those of 2020-2025 (3,000)
+    read = sum(
+        (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n["Actual Loops"]
+        for n in nodes
+        if n.get("Relation Name") == "lg_faction_votes"
+    )
+    assert read <= 250, read
+
+
+def test_a_member_never_in_office_has_no_votes_in_office(store: GraphStore) -> None:
+    """No post overlaps a period: none of its votes count."""
+    post = {"function": "Minister", "from_date": "2005-01-01", "to_date": "2006-12-31"}
+    _decisions_voted(store, [VVD, D66], [post])
+    faction_votes.fill_faction_votes(store)
+    assert get_member_votes(store, "members/m1", in_office=True) == []

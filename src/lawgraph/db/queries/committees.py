@@ -841,8 +841,8 @@ _WALK_CANDIDATES = f"""
             -- range whose sort costs nothing, and the dates would be read whole and sorted;
             -- the test of the period itself stays
             WHERE ROW(d.date, d.key)
-                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
-              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
+                  >= ROW(p.first_day, '')
+              AND d.date <= p.last_day
               AND {_IN_MEMBERSHIP}
               AND {_in_office_on("d.date")}
             -- NULLS FIRST as the index of the dates walked backward gives it (no date is
@@ -865,8 +865,8 @@ _LIGHT_CANDIDATES = f"""
             CROSS JOIN LATERAL (SELECT p.period) AS f(period)
             WHERE d.faction_id = p.period ->> 'faction_id'
               AND ROW(d.date, d.decision_key)
-                  >= ROW(coalesce(lg_str(p.period -> 'from_date'), ''), '')
-              AND d.date <= coalesce(lg_str(p.period -> 'to_date'), '9999-12-31')
+                  >= ROW(p.first_day, '')
+              AND d.date <= p.last_day
               AND {_IN_MEMBERSHIP}
               AND {_in_office_on("d.date")}
             ORDER BY d.date DESC NULLS FIRST, d.decision_key ASC
@@ -897,7 +897,9 @@ _MEMBER_VOTES_TEMPLATE = f"""
         SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
     ),
     periods AS (
-        SELECT f.period, f.n
+        SELECT f.period, f.n,
+               greatest(s.first_day, o.first_day) AS first_day,
+               least(s.last_day, o.last_day) AS last_day
         FROM member
         -- the periods in the factions of the Tweede Kamer and of the Eerste Kamer
         -- (``normalize eerstekamer-persons``), numbered as one list
@@ -905,6 +907,25 @@ _MEMBER_VOTES_TEMPLATE = f"""
             {_array("member.props -> 'faction_memberships'")}::jsonb
             || {_array("member.props -> 'ek_faction_memberships'")}::jsonb
         )::json) WITH ORDINALITY AS f(period, n)
+        CROSS JOIN LATERAL (
+            SELECT coalesce(lg_str(f.period -> 'from_date'), '') AS first_day,
+                   coalesce(lg_str(f.period -> 'to_date'), '9999-12-31') AS last_day
+        ) s
+        -- with ``in_office`` the days of the period its votes are read in are those from
+        -- the first to the last day of the posts that overlap it; a period no post
+        -- overlaps is not read (its votes were walked and dropped one by one: 4 to 12 s
+        -- on prod for every member page)
+        CROSS JOIN LATERAL (
+            SELECT min(coalesce(lg_str(g.post -> 'from_date'), '')) AS first_day,
+                   max(coalesce(lg_str(g.post -> 'to_date'), '9999-12-31')) AS last_day
+            FROM json_array_elements(
+                {_array("member.props -> 'government_functions'")}
+            ) AS g(post)
+            WHERE %(in_office)s
+              AND coalesce(lg_str(g.post -> 'from_date'), '') <= s.last_day
+              AND coalesce(lg_str(g.post -> 'to_date'), '9999-12-31') >= s.first_day
+        ) o
+        WHERE %(in_office)s IS NOT TRUE OR o.first_day IS NOT NULL
     ),
     -- per period the newest votes of the faction: the decisions of the period newest first
     -- (their index of the dates), each with the faction's vote on it; a faction votes on

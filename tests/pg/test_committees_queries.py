@@ -1471,7 +1471,7 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
 
 
 def _candidates_plan(
-    store: GraphStore, member_id: str, limit: int
+    store: GraphStore, member_id: str, limit: int, *, in_office: bool = False
 ) -> list[dict[str, Any]]:
     """The nodes of the plan (EXPLAIN ANALYZE) of the candidates of the votes of a member,
     as ``get_member_votes`` reads them first."""
@@ -1487,7 +1487,8 @@ def _candidates_plan(
 
     store.query = recording  # type: ignore[method-assign]
     try:
-        assert len(get_member_votes(store, member_id, limit=limit)) == limit
+        votes = get_member_votes(store, member_id, limit=limit, in_office=in_office)
+        assert len(votes) == limit
     finally:
         store.query = query  # type: ignore[method-assign]
     statement, params = statements[0]
@@ -1506,11 +1507,22 @@ def _candidates_plan(
     return list(scans(candidates))
 
 
-def _decisions_voted(store: GraphStore, memberships: list[dict[str, Any]]) -> None:
-    """A member of *memberships* and 3,000 decisions of 2020-2025 the factions of those
-    all voted on."""
+def _decisions_voted(
+    store: GraphStore,
+    memberships: list[dict[str, Any]],
+    posts: list[dict[str, Any]] | None = None,
+) -> None:
+    """A member of *memberships* (in the government during *posts*) and 3,000 decisions
+    of 2020-2025 the factions of those all voted on."""
     g = Graph(store)
-    g.node("members", "m1", name="Anna", party="D66", faction_memberships=memberships)
+    g.node(
+        "members",
+        "m1",
+        name="Anna",
+        party="D66",
+        faction_memberships=memberships,
+        government_functions=posts or [],
+    )
     factions = sorted({m["faction_id"] for m in memberships})
     for faction in factions:
         g.node("factions", faction.split("/")[1], name=faction)

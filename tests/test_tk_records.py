@@ -63,10 +63,27 @@ def test_committee_seats_collect_every_seat_per_person() -> None:
     ]
     assert seats["p2"] == [
         Seat("2019-01-01", None),
-        Seat("2018-01-01", None, "Plv. lid", substitute=True),
+        Seat("2018-01-01", None, "PlvLid", substitute=True),
     ]
     # a seat the Kamer deleted is none
     assert "p3" not in seats
+
+
+@pytest.mark.parametrize(
+    ("functie", "role"),
+    [
+        ("Plv. lid", "PlvLid"),
+        ("PlvLid", "PlvLid"),
+        ("OnderVz", "OnderVz"),
+        ("Lid", "Lid"),
+        ("Voorzitter", "Voorzitter"),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_a_seat_role_has_one_spelling(functie: str | None, role: str | None) -> None:
+    # the Kamer wrote "Plv. lid" on older seats and writes "PlvLid" now
+    assert tk_records.seat_role(functie) == role
 
 
 def test_representative_period_prefers_an_open_one_with_its_role() -> None:
@@ -163,19 +180,41 @@ def test_seat_holding_without_a_faction_is_skipped() -> None:
     assert tk_records.seat_holding({"Persoon_Id": "p1", "FractieZetel": {}}) is None
 
 
-def test_faction_aliases_accept_an_acronym_a_vote_uses() -> None:
+def test_faction_aliases_are_its_names_and_those_of_its_votes() -> None:
     payload = {
         "Afkorting": "Nieuw Sociaal Contract",
         "NaamNL": "Nieuw Sociaal Contract",
     }
-    aliases = tk_records.faction_aliases(payload, {"NSC", "VVD"})
-    assert "NSC" in aliases
-    assert "Nieuw Sociaal Contract" in aliases
+    assert tk_records.faction_aliases(payload, {"NSC"}) == [
+        "NSC",
+        "Nieuw Sociaal Contract",
+    ]
 
 
-def test_faction_aliases_reject_an_acronym_no_vote_uses() -> None:
-    payload = {"Afkorting": "XYZ", "NaamNL": "Partij Voor Iets"}
-    assert "PVI" not in tk_records.faction_aliases(payload, {"VVD"})
+def test_a_faction_whose_afkorting_is_its_name_goes_by_the_acronym_its_votes_use() -> (
+    None
+):
+    payload = {
+        "Id": "f-nsc",
+        "Afkorting": "Nieuw Sociaal Contract",
+        "NaamNL": "Nieuw Sociaal Contract",
+    }
+    parsed = tk_records.faction(payload, tk_records.faction_aliases(payload, {"NSC"}))
+    assert parsed is not None
+    key, props = parsed
+    assert key == "nieuw_sociaal_contract"
+    assert props["abbreviation"] == "NSC"
+    assert props["display_name"] == "NSC"
+    assert props["name"] == "Nieuw Sociaal Contract"
+
+
+def test_a_faction_keeps_its_afkorting_without_an_acronym_its_votes_use() -> None:
+    # Groep Lazrak: "GL" is what GroenLinks votes as, no name its own votes give it
+    payload = {"Afkorting": "Groep Lazrak", "NaamNL": "Groep Lazrak"}
+    assert tk_records.short_name(payload, ["Groep Lazrak"]) == "Groep Lazrak"
+    # an Afkorting of its own stays, whatever its votes say
+    payload = {"Afkorting": "PvdD", "NaamNL": "Partij voor de Dieren"}
+    assert tk_records.short_name(payload, ["PvdD", "PVDD"]) == "PvdD"
 
 
 def test_faction_is_current_prefers_a_seated_record() -> None:

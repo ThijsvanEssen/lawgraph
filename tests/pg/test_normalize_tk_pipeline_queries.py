@@ -7,9 +7,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import psycopg
-import pytest
-
 from lawgraph.config.constants import (
     CHAMBER_TK,
     RELATION_AUTHORED,
@@ -141,37 +138,6 @@ def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
         {},
     ]
     assert list(queries.nodes_by_external_id(store, "cases", ["b"])) == []
-
-
-def test_faction_aliases_are_every_alias_once(store: GraphStore) -> None:
-    _seed(
-        store,
-        "factions",
-        _node("vvd", aliases=["Volkspartij", "VVD"]),
-        _node("ek_vvd", aliases=["VVD", "vvd", None, 3, ["x"]]),
-        _node("cda", aliases=[]),
-        _node("x", aliases=None),
-        _node("y", aliases=""),
-        _node("z"),
-    )
-    # sorted as ArangoDB sorts values; a set to its reader
-    assert list(queries.faction_aliases(store)) == [
-        None,
-        3,
-        "Volkspartij",
-        "VVD",
-        "vvd",
-        ["x"],
-    ]
-
-
-def test_faction_aliases_of_another_type_fail_as_in_arangodb(
-    store: GraphStore,
-) -> None:
-    # ``FOR alias IN "Losse naam"`` raised; so does this
-    _seed(store, "factions", _node("w", aliases="Losse naam"))
-    with pytest.raises(psycopg.Error):
-        list(queries.faction_aliases(store))
 
 
 def test_dossier_case_kinds_of_the_keys_asked(store: GraphStore) -> None:

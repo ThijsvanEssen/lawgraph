@@ -424,7 +424,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
             "periods": [
                 {"from_date": "2020-01-01", "to_date": "2021-01-01"},
                 {"from_date": "2022-01-01"},
-                {"from_date": "2023-01-01", "role": "Plv. lid", "substitute": True},
+                {"from_date": "2023-01-01", "role": "PlvLid", "substitute": True},
             ],
         },
         (

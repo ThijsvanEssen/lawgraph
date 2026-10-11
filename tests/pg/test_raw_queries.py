@@ -145,6 +145,31 @@ def test_votes_and_deletions(store: GraphStore) -> None:
     ] == ["v1"]
 
 
+def _vote(external_id: str, faction_id: str, label: str, **more: object) -> dict:
+    payload = {"Besluit_Id": "b", "Fractie_Id": faction_id, "ActorFractie": label}
+    return _raw(
+        SOURCE_TK,
+        RAW_KIND_TK_STEMMING,
+        external_id,
+        "2026-01-01T00:00:00Z",
+        payload_json={**payload, **more},
+    )
+
+
+def test_the_names_the_votes_of_a_faction_give_it(store: GraphStore) -> None:
+    store.insert_raw_sources(
+        [
+            _vote("v1", "f-nsc", "NSC"),
+            _vote("v2", "f-nsc", " NSC "),
+            _vote("v3", "f-gl", "GL"),
+            _vote("v4", "f-nsc", "Weg", Verwijderd=True),
+            _vote("v5", "f-nsc", ""),
+        ]
+    )
+    rows = raw_queries.vote_labels_of_factions(store, ["f-nsc", "f-lazrak"])
+    assert [(r["faction_id"], r["label"]) for r in rows] == [("f-nsc", "NSC")]
+
+
 def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))

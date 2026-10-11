@@ -105,6 +105,11 @@ COUNTED = [
     FeedFilters(q=("brief", "motie"), cabinet="jetten"),
     FeedFilters(q=("motie",), dossier="37000", until="2026-09-30"),
     FeedFilters(q=("nergens",)),
+    FeedFilters(faction="vvd"),
+    FeedFilters(faction="d66", chamber="TK"),
+    FeedFilters(faction="vvd", kinds=("Motie",)),
+    FeedFilters(coalition="split"),
+    FeedFilters(coalition="together", faction="vvd"),
 ]
 
 
@@ -112,8 +117,9 @@ COUNTED = [
 def test_the_total_and_facets_of_words_are_the_feeds_own(
     seeded: GraphStore, filters: FeedFilters
 ) -> None:
-    """Under words the feed takes its ``total`` and ``facets`` from the table: each facet
-    (kind, ministry, faction, cabinet, chamber) and the total equal its own count."""
+    """Under words, a faction or a coalition the feed takes its ``total`` and ``facets``
+    from the table: each facet (kind, ministry, faction, cabinet, chamber, coalition) and
+    the total equal its own count."""
     from_table = get_counts(seeded, filters, 60.0)
     assert from_table == _counts(seeded, filters)
     assert get_feed(seeded, filters, limit=1)["facets"] == from_table["facets"]
@@ -305,4 +311,63 @@ def test_a_page_of_words_reads_once_from_its_first_day(
 
     monkeypatch.setattr(feed, "_rows", recorded)
     get_feed(seeded, FeedFilters(q=("ai",)), limit=1, facets=False)
+    assert len(read) == 1 and read[0] is not None
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [FeedFilters(faction="vvd"), FeedFilters(coalition="decisive")],
+    ids=repr,
+)
+def test_a_faction_or_coalition_is_counted_in_the_table(
+    seeded: GraphStore, filters: FeedFilters, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not by a read of every event (over a minute on prod, so the first answers came
+    ``partial`` without facets)."""
+    from lawgraph.db.queries import feed
+
+    def every_event(*a: Any, **k: Any) -> Any:
+        raise AssertionError("counted over every event")
+
+    monkeypatch.setattr(feed, "feed_counts", every_event)
+    raw = get_feed(seeded, filters, limit=1)
+    assert raw["facets"] == get_counts(seeded, filters, 60.0)["facets"]  # type: ignore[index]
+    assert "partial" not in raw
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        FeedFilters(faction="vvd"),
+        FeedFilters(faction="d66", chamber="TK"),
+        FeedFilters(faction="nergens"),
+    ],
+    ids=repr,
+)
+def test_a_page_of_a_faction_is_that_of_the_windows(
+    seeded: GraphStore, filters: FeedFilters, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.db.queries import feed_events
+
+    bounded = _pages(seeded, filters, limit=1)
+    monkeypatch.setattr(feed_events, "first_day_of_page", lambda *a, **k: None)
+    assert bounded == _pages(seeded, filters, limit=1)
+
+
+def test_a_page_of_a_faction_reads_once_from_its_first_day(
+    seeded: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A faction that signs few events of a kind (none of a letter of the government) has
+    each kind read from its first day, not the whole history (over 30 s on prod)."""
+    from lawgraph.db.queries import feed
+
+    read: list[str | None] = []
+    rows = feed._rows
+
+    def recorded(store: Any, filters: FeedFilters, *a: Any, **k: Any) -> Any:
+        read.append(filters.since)
+        return rows(store, filters, *a, **k)
+
+    monkeypatch.setattr(feed, "_rows", recorded)
+    get_feed(seeded, FeedFilters(faction="vvd"), limit=1, facets=False)
     assert len(read) == 1 and read[0] is not None
