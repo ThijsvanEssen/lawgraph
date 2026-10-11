@@ -516,7 +516,8 @@ class CabinetDetailDTO(CabinetSummaryDTO):
             )
             for key, posts in sorted(groups.items(), key=lambda g: protocol_rank(g[0]))
         ]
-        return cls(**summary.model_dump(), ministries=ministries)
+        # the fields as they are: a dump leaves out the address props (``path_props``)
+        return cls(**dict(summary), ministries=ministries)
 
 
 class CommitmentDossierDTO(WithPath):
