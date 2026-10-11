@@ -2,6 +2,7 @@
 
 from lawgraph.core.seat_periods import (
     mend_reversed_ends,
+    one_faction_at_a_time,
     seated_bounds,
     split_overlapping_chairs,
 )
@@ -48,6 +49,31 @@ def test_a_handover_on_one_day_is_no_overlap_left() -> None:
     )
     assert held[0][2]["to_date"] == "2025-09-01"
     assert held[1] == ("a", "nsc", _p("2025-09-02", "2025-09-02"))
+
+
+def test_a_person_sits_in_one_faction_a_day() -> None:
+    """Agnes Joseph moved from NSC to BBB: the Kamer ends her NSC seat on 31 July 2025, the
+    day her BBB seat begins. She sits in BBB that day, in NSC until the day before."""
+    held = one_faction_at_a_time(
+        [
+            ("joseph", "nsc", _p("2023-12-06", "2025-07-31")),
+            ("joseph", "bbb", _p("2025-07-31", "2025-11-11")),
+            ("other", "nsc", _p("2023-12-06", "2025-07-31")),
+        ]
+    )
+    assert held == [
+        ("joseph", "nsc", _p("2023-12-06", "2025-07-30")),
+        ("joseph", "bbb", _p("2025-07-31", "2025-11-11")),
+        ("other", "nsc", _p("2023-12-06", "2025-07-31")),
+    ]
+    # seats that touch, or follow in the same faction, are left as they are
+    touching = [
+        ("a", "pvv", _p("2023-12-06", "2025-01-31")),
+        ("a", "groep", _p("2025-02-01", None)),
+        ("b", "vvd", _p("2023-12-06", "2024-07-03", "Fractievoorzitter")),
+        ("b", "vvd", _p("2024-07-03", None)),
+    ]
+    assert one_faction_at_a_time(touching) == touching
 
 
 def test_a_faction_is_active_while_its_seats_are_held() -> None:

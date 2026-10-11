@@ -1124,10 +1124,19 @@ def test_a_vacancy_counts_only_the_days_its_seat_is_held_by_no_one() -> None:
         {"from_date": "2026-03-01", "to_date": None},
         _held(("2025-11-12", "2026-02-28")),
     ) == [{"from_date": "2026-03-01", "to_date": None}]
-    # a vacancy with no holdings of its seat known is as the source says
-    assert vacancy({"from_date": "2026-02-23", "to_date": "2026-02-24"}, []) == [
-        {"from_date": "2026-02-23", "to_date": "2026-02-24"}
-    ]
+    # Fractie Bontes: seat b5ab8da3 has a vacancy (13 to 14 February 2017) and no member
+    # ever held it; a seat of the Kamer it never was
+    bontes = {
+        "Van": "2017-02-13T00:00:00+01:00",
+        "TotEnMet": "2017-02-15T00:00:00+01:00",
+        "FractieZetel": {"Id": "b5ab8da3", "Fractie_Id": "bontes"},
+    }
+    period = tk_records.seat_vacancy(bontes)
+    assert period == (
+        "bontes",
+        {"from_date": "2017-02-13", "to_date": "2017-02-14"},
+    )
+    assert vacancy(period[1], []) == []
 
 
 @pytest.mark.parametrize(

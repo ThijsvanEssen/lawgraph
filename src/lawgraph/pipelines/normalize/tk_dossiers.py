@@ -99,24 +99,30 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         mixed_votes: bool = False,
         limit: int | None = None,
         persons: bool = False,
+        seats: bool = False,
     ) -> None:
         """With *mixed_votes* a run reads only the decisions taken for a roll call that
         were a faction vote with members voting apart
         (``normalize_tk.mixed_vote_decisions``, *limit* of them: a slice); with *persons*
         only every stored Persoon record (the props of the members, merged into what
-        other steps wrote: after a prop of the record was added)."""
+        other steps wrote: after a prop of the record was added); with *seats* only every
+        stored FractieZetelPersoon record (the MEMBER_OF edges to the factions and the
+        members' timelines: after the reading of seat periods changed)."""
         super().__init__(store)
         self._mixed_votes = mixed_votes
         self._limit = limit
         self._persons = persons
+        self._seats = seats
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """The records since *since*, or all; the mixed decisions or the persons alone
-        when asked."""
+        """The records since *since*, or all; the mixed decisions, the persons or the
+        seats alone when asked."""
         if self._mixed_votes:
             return self._run_mixed_votes(self._limit)
         if self._persons:
             return self._run_persons()
+        if self._seats:
+            return self._run_seats()
         return super().run(since=since)
 
     def _run_persons(self) -> PipelineResult:
@@ -132,6 +138,21 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 since=None,
                 batch_size=1000,
             ),
+        )
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
+        result.unchanged += writes.unchanged
+        return result
+
+    def _run_seats(self) -> PipelineResult:
+        """Link every stored FractieZetelPersoon record again to its member and faction:
+        the MEMBER_OF edges and each member's faction timeline, from the stored members
+        and factions."""
+        result = PipelineResult()
+        self.store.reset_counts()
+        tk_members.link_members_to_factions(
+            self.store, self._every_seat(), *self._stored_holders(), source=EDGE_SOURCE
         )
         writes = self.store.writes
         result.created += writes.created
@@ -479,19 +500,24 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             for seat in raw_queries.seat_records_of_persons(self.store, persons)
         }
         by_id.update({str(self._payload_json(seat).get("Id")): seat for seat in seats})
-        members = {
-            **self._stored(COLLECTION_MEMBERS, NodeType.MEMBER, ["name"]),
-            **members,
-        }
-        factions = {
-            **self._stored(
+        stored_members, stored_factions = self._stored_holders()
+        return (
+            list(by_id.values()),
+            {**stored_members, **members},
+            {**stored_factions, **factions},
+        )
+
+    def _stored_holders(self) -> tuple[dict[str, Node], dict[str, Node]]:
+        """The stored members and factions by TK ``Id``, with the props
+        ``link_members_to_factions`` reads."""
+        return (
+            self._stored(COLLECTION_MEMBERS, NodeType.MEMBER, ["name"]),
+            self._stored(
                 COLLECTION_FACTIONS,
                 NodeType.FACTION,
                 ["name", "abbreviation", "aliases", "seats_changed_on"],
             ),
-            **factions,
-        }
-        return list(by_id.values()), members, factions
+        )
 
     def _stored(
         self, collection: str, node_type: NodeType, names: list[str] | None = None

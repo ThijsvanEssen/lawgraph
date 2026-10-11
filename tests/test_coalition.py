@@ -7,8 +7,10 @@ from lawgraph.core.coalition import (
     coalition_on,
     seat_timeline,
     seats_on,
+    tk_events,
     vote_pattern,
 )
+from lawgraph.core.seat_periods import one_faction_at_a_time
 
 
 def _post(faction: str | None, start: str, end: str | None = None) -> dict:
@@ -198,6 +200,37 @@ def test_a_vacant_seat_counts_for_its_faction() -> None:
     ]
     assert timeline[0]["factions"] == [
         {"key": "d66", "seats": 150, "vacant": 11, "coalition": True}
+    ]
+
+
+def test_a_member_who_moves_on_the_day_her_seat_ends_is_one_seat() -> None:
+    """Agnes Joseph, NSC to BBB on 31 July 2025: the Kamer ends her NSC seat on the day her
+    BBB seat begins. Read one faction a day, the Kamer holds 150 seats that day, not 151,
+    and the change is an overstap (BBB held seats before)."""
+    holdings = [("joseph", "nsc", {"from_date": "2023-12-06", "to_date": "2025-07-31"})]
+    holdings += [("joseph", "bbb", {"from_date": "2025-07-31", "to_date": None})]
+    holdings += [(f"nsc{n}", "nsc", {"from_date": "2023-12-06", "to_date": None})
+                 for n in range(19)]  # fmt: skip
+    holdings += [(f"bbb{n}", "bbb", {"from_date": "2023-12-06", "to_date": None})
+                 for n in range(7)]  # fmt: skip
+    holdings += [(f"opp{n}", "opp", {"from_date": "2023-12-06", "to_date": None})
+                 for n in range(123)]  # fmt: skip
+    seats = [
+        _seat(person, faction, period["from_date"], period["to_date"])
+        for person, faction, period in one_faction_at_a_time(holdings)
+    ]
+    posts = [_post(f, "2024-07-02") for f in ("vvd", "nsc", "bbb")]
+    timeline = seat_timeline(posts, seats, "2025-07-30", "2025-08-01")
+    assert [(s["from_date"], s["coalition"] + s["opposition"]) for s in timeline] == [
+        ("2025-07-30", 150),
+        ("2025-07-31", 150),
+    ]
+    assert seats_on(seats, "2025-07-31") == {"nsc": 19, "bbb": 8, "opp": 123}
+    events = tk_events(
+        "2025-07-31", seats, [], {"vvd", "nsc", "bbb"}, {"vvd", "nsc", "bbb"}
+    )
+    assert [(e["kind"], e["factions"], e["members"]) for e in events] == [
+        ("overstap", ["bbb", "nsc"], ["joseph"])
     ]
 
 

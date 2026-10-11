@@ -225,7 +225,8 @@ def link_members_to_factions(
     FractieZetelPersoon it is made of; the full timeline is denormalised onto the member
     as ``faction_memberships`` so a profile renders without a traversal. The periods are
     read so they hold together (``seat_periods``: an end before the start, two
-    fractievoorzitters at once). The edge of a seat the Kamer deleted goes.
+    fractievoorzitters at once, a person in two factions on one day). The edge of a seat
+    the Kamer deleted goes.
     """
     seats: dict[str, dict[str, Any]] = {}  # edge key -> the edge
     ranks: dict[
@@ -258,7 +259,9 @@ def link_members_to_factions(
         )
 
     mended = seat_periods.mend_reversed_ends(holdings)
-    held = seat_periods.split_overlapping_chairs(mended)
+    held = seat_periods.one_faction_at_a_time(
+        seat_periods.split_overlapping_chairs(mended)
+    )
     for person_id, faction_id, period in held:
         period = dict(period)
         record_id = period.pop(_RECORD_ID, "")
