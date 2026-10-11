@@ -63,10 +63,27 @@ def test_committee_seats_collect_every_seat_per_person() -> None:
     ]
     assert seats["p2"] == [
         Seat("2019-01-01", None),
-        Seat("2018-01-01", None, "Plv. lid", substitute=True),
+        Seat("2018-01-01", None, "PlvLid", substitute=True),
     ]
     # a seat the Kamer deleted is none
     assert "p3" not in seats
+
+
+@pytest.mark.parametrize(
+    ("functie", "role"),
+    [
+        ("Plv. lid", "PlvLid"),
+        ("PlvLid", "PlvLid"),
+        ("OnderVz", "OnderVz"),
+        ("Lid", "Lid"),
+        ("Voorzitter", "Voorzitter"),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_a_seat_role_has_one_spelling(functie: str | None, role: str | None) -> None:
+    # the Kamer wrote "Plv. lid" on older seats and writes "PlvLid" now
+    assert tk_records.seat_role(functie) == role
 
 
 def test_representative_period_prefers_an_open_one_with_its_role() -> None:

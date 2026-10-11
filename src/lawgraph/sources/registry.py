@@ -430,6 +430,12 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
         "and faction (the members' faction timelines).",
     )
     parser.add_argument(
+        "--committees",
+        action="store_true",
+        help="Only every stored Commissie record, normalized again into its committee "
+        "and the MEMBER_OF edges of its seats.",
+    )
+    parser.add_argument(
         "--factions",
         action="store_true",
         help="Only every stored Fractie record, normalized again into its faction "
@@ -490,6 +496,7 @@ TK_DOSSIERS_NORMALIZE = PipelineCommand(
         "persons": args.persons,
         "seats": args.seats,
         "factions": args.factions,
+        "committees": args.committees,
     },
 )
 

@@ -101,6 +101,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         persons: bool = False,
         seats: bool = False,
         factions: bool = False,
+        committees: bool = False,
     ) -> None:
         """With *mixed_votes* a run reads only the decisions taken for a roll call that
         were a faction vote with members voting apart
@@ -110,17 +111,20 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         stored FractieZetelPersoon record (the MEMBER_OF edges to the factions and the
         members' timelines: after the reading of seat periods changed); with *factions*
         only every stored Fractie record (the props of the factions: after the reading of
-        their names changed)."""
+        their names changed); with *committees* only every stored Commissie record (the
+        committees and the MEMBER_OF edges of their seats: after the reading of a seat
+        changed)."""
         super().__init__(store)
         self._mixed_votes = mixed_votes
         self._limit = limit
         self._persons = persons
         self._seats = seats
         self._factions = factions
+        self._committees = committees
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """The records since *since*, or all; the mixed decisions, the persons, the
-        seats or the factions alone when asked."""
+        seats, the factions or the committees alone when asked."""
         if self._mixed_votes:
             return self._run_mixed_votes(self._limit)
         if self._persons:
@@ -129,6 +133,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             return self._run_seats()
         if self._factions:
             return self._run_factions()
+        if self._committees:
+            return self._run_committees()
         return super().run(since=since)
 
     def _run_persons(self) -> PipelineResult:
@@ -166,6 +172,26 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             ),
             self._every_seat(),
         )
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
+        result.unchanged += writes.unchanged
+        return result
+
+    def _run_committees(self) -> PipelineResult:
+        """Normalize every stored Commissie record again into its committee, and link its
+        seats again."""
+        result = PipelineResult()
+        self.store.reset_counts()
+        records = RawRecords(
+            self,
+            source=SOURCE_TK,
+            kinds=[RAW_KIND_TK_COMMISSIE],
+            since=None,
+            batch_size=1000,
+        )
+        tk_members.normalize_committees(self.store, records)
+        tk_members.link_members_to_committees(self.store, records, source=EDGE_SOURCE)
         writes = self.store.writes
         result.created += writes.created
         result.updated += writes.updated

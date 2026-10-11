@@ -397,14 +397,22 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
 @dataclass(frozen=True)
 class CommitteeSeat:
     """One period a person held a seat on a commissie: from, to (inclusive, None while
-    open), the role as the Kamer writes it (``CommissieZetel…Persoon.Functie``: ``Lid``,
-    ``Voorzitter``, ``OnderVz``, ``Plv. lid``) and whether it was a substitute's seat
+    open), the role (``CommissieZetel…Persoon.Functie``, ``seat_role``: ``Lid``,
+    ``Voorzitter``, ``OnderVz``, ``PlvLid``) and whether it was a substitute's seat
     (``CommissieZetelVervangerPersoon``)."""
 
     from_date: str | None
     to_date: str | None
     role: str | None = None
     substitute: bool = False
+
+
+def seat_role(functie: str | None) -> str | None:
+    """The ``Functie`` of a committee seat in one spelling: its words run together, each
+    capitalised, without dots (``PlvLid``, as the Kamer writes it now, also for the
+    ``Plv. lid`` of older seats; ``OnderVz``, ``Lid``)."""
+    words = re.findall(r"[^\W_]+", functie or "")
+    return "".join(w[0].upper() + w[1:] for w in words) or None
 
 
 def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
@@ -424,7 +432,7 @@ def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
                         CommitteeSeat(
                             iso_date(held.get("Van")),
                             iso_date(held.get("TotEnMet")),
-                            _text(held, "Functie") or None,
+                            seat_role(_text(held, "Functie")),
                             substitute,
                         )
                     )
