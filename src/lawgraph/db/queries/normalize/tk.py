@@ -129,23 +129,6 @@ def nodes_by_external_id(
     return store.query(statement, {"names": names})
 
 
-def faction_aliases(store: Store) -> Iterator[Any]:
-    """Every alias a stored faction carries."""
-    aliases = "f.props -> 'aliases'"
-    statement = f"""
-    SELECT a.v::json
-    FROM (
-        SELECT DISTINCT x.v::jsonb AS v
-        FROM {COLLECTION_FACTIONS} f
-        CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN lg_truthy({aliases}) THEN {aliases} ELSE '[]'::json END
-        ) AS x(v)
-    ) a
-    ORDER BY {_json_keys("a.v::json")}
-    """
-    return store.query(statement)
-
-
 def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, case_kinds}`` of the dossiers with these *keys*."""
     lookup = f"""

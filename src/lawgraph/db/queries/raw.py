@@ -154,6 +154,26 @@ def seat_records_of_persons(
     return _records(rows)
 
 
+def vote_labels_of_factions(
+    store: Store, faction_ids: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{faction_id, label}``: every name (``ActorFractie``) the live Tweede Kamer vote
+    rows of these factions (``Fractie_Id``) give them."""
+    return store.query(
+        """
+        SELECT DISTINCT doc -> 'payload_json' ->> 'Fractie_Id' AS faction_id,
+               btrim(doc -> 'payload_json' ->> 'ActorFractie') AS label
+        FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s
+          AND doc -> 'payload_json' ->> 'Fractie_Id' = ANY(%(ids)s)
+          AND lg_bool(doc -> 'payload_json' -> 'Verwijderd') IS NOT TRUE
+          AND btrim(doc -> 'payload_json' ->> 'ActorFractie') <> ''
+        ORDER BY faction_id, label NULLS LAST
+        """,
+        {"source": SOURCE_TK, "kind": RAW_KIND_TK_STEMMING, "ids": faction_ids},
+    )
+
+
 def deleted_records_since(
     store: Store, kind: str, since_iso: str | None
 ) -> Iterator[dict[str, Any]]:

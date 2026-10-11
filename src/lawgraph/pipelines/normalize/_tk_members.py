@@ -25,6 +25,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 
 logger = get_logger(__name__)
@@ -96,7 +97,6 @@ def normalize_members(
 def normalize_factions(
     store: Store,
     faction_raws: Iterable[dict[str, Any]],
-    vote_labels: set[str],
     seat_raws: Iterable[dict[str, Any]],
 ) -> dict[str, Node]:
     """Faction nodes, by the TK ``Id`` of every Fractie record.
@@ -126,11 +126,19 @@ def normalize_factions(
         if held:
             seats.setdefault(held[1], []).append(held[2])
 
+    labels: dict[str, set[str]] = {}
+    for row in raw_queries.vote_labels_of_factions(
+        store,
+        sorted({str(r.get("Id")) for rs in by_key.values() for r in rs if r.get("Id")}),
+    ):
+        labels.setdefault(row["faction_id"], set()).add(row["label"])
+
     nodes: dict[str, Node] = {}
     for records in by_key.values():
         current = max(records, key=tk_records.faction_is_current)
+        own = {label for r in records for label in labels.get(str(r.get("Id")), ())}
         parsed = tk_records.faction(
-            current, tk_records.faction_aliases(current, vote_labels), records
+            current, tk_records.faction_aliases(current, own), records
         )
         if parsed is None:
             continue

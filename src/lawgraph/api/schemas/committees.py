@@ -562,7 +562,7 @@ class MemberDTO(WithPath):
     role: str | None = Field(
         None,
         description="In a committee: the role of the seat as the Kamer writes it, of the "
-        "Tweede Kamer its ``Functie`` (``Lid``, ``Voorzitter``, ``OnderVz``, ``Plv. lid``), "
+        "Tweede Kamer its ``Functie`` (``Lid``, ``Voorzitter``, ``OnderVz``, ``PlvLid``), "
         "of the Eerste Kamer the role its page gives (``voorzitter``, ``ondervoorzitter``).",
     )
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
@@ -648,7 +648,7 @@ class CommitteeSeatDTO(BaseModel):
     role: str | None = Field(
         None,
         description="As the Kamer writes it: of the Tweede Kamer the ``Functie`` of the "
-        "seat (``Lid``, ``Voorzitter``, ``OnderVz``, ``Plv. lid``), of the Eerste Kamer "
+        "seat (``Lid``, ``Voorzitter``, ``OnderVz``, ``PlvLid``), of the Eerste Kamer "
         "the role its page gives (``voorzitter``); null for none.",
     )
     substitute: bool = Field(

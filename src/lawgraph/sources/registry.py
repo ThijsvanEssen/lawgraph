@@ -429,6 +429,18 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
         help="Only every stored FractieZetelPersoon record, linked again to its member "
         "and faction (the members' faction timelines).",
     )
+    parser.add_argument(
+        "--committees",
+        action="store_true",
+        help="Only every stored Commissie record, normalized again into its committee "
+        "and the MEMBER_OF edges of its seats.",
+    )
+    parser.add_argument(
+        "--factions",
+        action="store_true",
+        help="Only every stored Fractie record, normalized again into its faction "
+        "(its aliases and abbreviation from the names its vote rows give it).",
+    )
 
 
 def _slice_add_args(parser: argparse.ArgumentParser) -> None:
@@ -483,6 +495,8 @@ TK_DOSSIERS_NORMALIZE = PipelineCommand(
         "limit": args.limit,
         "persons": args.persons,
         "seats": args.seats,
+        "factions": args.factions,
+        "committees": args.committees,
     },
 )
 

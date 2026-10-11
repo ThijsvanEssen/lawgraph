@@ -38,9 +38,6 @@ class Votes:
     by_decision: dict[str, list[VoteCast]] = field(default_factory=dict)
     # The expanded Besluit rides along on every row; the first that carries it is kept.
     decisions: dict[str, dict[str, Any]] = field(default_factory=dict)
-    faction_labels: set[str] = field(
-        default_factory=set
-    )  # every ``ActorFractie`` spelling
     rows: int = 0
     # the Stemming rows the Kamer deleted, and the Besluiten a row names deleted
     deleted: Deleted = field(default_factory=lambda: Deleted(COLLECTION_EDGES))
@@ -65,9 +62,6 @@ def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
         payload = payload_json(raw)
         if votes.deleted(payload) or _struck(votes, payload):
             continue
-        label = (payload.get("ActorFractie") or "").strip()
-        if label:
-            votes.faction_labels.add(label)
         cast = tk_records.vote(payload)
         if cast is None:
             continue
@@ -91,7 +85,6 @@ def merge_votes(votes: Votes, more: Votes) -> None:
         if decision_id not in votes.by_decision:
             votes.by_decision[decision_id] = casts
             votes.decisions[decision_id] = more.decisions.get(decision_id, {})
-    votes.faction_labels |= more.faction_labels
     votes.rows += more.rows
 
 
