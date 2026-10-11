@@ -406,6 +406,9 @@ def first_day_of_page(
     found = row.get("nth") or row.get("oldest")
     recent = (dt.date.today() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     day = min(str(found)[:10], recent) if found else recent
+    if before:
+        # the cursor's own day is read whole, also when nothing before it matches
+        day = min(day, before)
     return day, row.get("nth") is not None
 
 
@@ -425,6 +428,10 @@ def counts_query(
         coalition=None,
     )
     _, where, bind = _matching(shared, queries)
+    if filters.faction:
+        # as the feed reads its rows: only the kinds a faction can sign, for every facet
+        where.append("e.kind = ANY(%(faction_kinds)s)")
+        bind["faction_kinds"] = [s.kind for s in _kinds_to_read(filters, facets=True)]
     dimensions = _dimension_filters(filters, bind)
     plan = _Plan(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
