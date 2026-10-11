@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.config.constants import (
+    COLLECTION_FACTIONS,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_RS_CONTENT,
     RAW_KIND_TK_STEMMING,
@@ -13,6 +14,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
+from lawgraph.pipelines.normalize import _tk_members as tk_members
 
 
 def _raw(source: str, kind: str, external_id: str, at: str, **fields: object) -> dict:
@@ -143,6 +145,64 @@ def test_votes_and_deletions(store: GraphStore) -> None:
         r["external_id"]
         for r in raw_queries.tk_records_of(store, RAW_KIND_TK_STEMMING, ["v1"])
     ] == ["v1"]
+
+
+def _vote(external_id: str, faction_id: str, label: str, **more: object) -> dict:
+    payload = {"Besluit_Id": "b", "Fractie_Id": faction_id, "ActorFractie": label}
+    return _raw(
+        SOURCE_TK,
+        RAW_KIND_TK_STEMMING,
+        external_id,
+        "2026-01-01T00:00:00Z",
+        payload_json={**payload, **more},
+    )
+
+
+def test_the_names_the_votes_of_a_faction_give_it(store: GraphStore) -> None:
+    store.insert_raw_sources(
+        [
+            _vote("v1", "f-nsc", "NSC"),
+            _vote("v2", "f-nsc", " NSC "),
+            _vote("v3", "f-gl", "GL"),
+            _vote("v4", "f-nsc", "Weg", Verwijderd=True),
+            _vote("v5", "f-nsc", ""),
+        ]
+    )
+    rows = raw_queries.vote_labels_of_factions(store, ["f-nsc", "f-lazrak"])
+    assert [(r["faction_id"], r["label"]) for r in rows] == [("f-nsc", "NSC")]
+
+
+def test_a_faction_is_named_by_its_own_votes_only(store: GraphStore) -> None:
+    """Nieuw Sociaal Contract, whose Afkorting is its full name, goes by the NSC of its
+    votes; Groep Lazrak does not take the GL GroenLinks votes as."""
+    store.insert_raw_sources(
+        [
+            _vote("v1", "f-nsc", "NSC"),
+            _vote("v2", "f-gl", "GL"),
+            _vote("v3", "f-lazrak", "Groep Lazrak"),
+        ]
+    )
+    records = [
+        {"payload_json": {"Id": i, "Afkorting": a, "NaamNL": n}}
+        for i, a, n in [
+            ("f-nsc", "Nieuw Sociaal Contract", "Nieuw Sociaal Contract"),
+            ("f-gl", "GL", "GroenLinks"),
+            ("f-lazrak", "Groep Lazrak", "Groep Lazrak"),
+        ]
+    ]
+    tk_members.normalize_factions(store, records, [])
+    props = {
+        key: store.get_node(COLLECTION_FACTIONS, key).props  # type: ignore[union-attr]
+        for key in ("nieuw_sociaal_contract", "gl", "groep_lazrak")
+    }
+    assert props["nieuw_sociaal_contract"]["abbreviation"] == "NSC"
+    assert props["nieuw_sociaal_contract"]["aliases"] == [
+        "NSC",
+        "Nieuw Sociaal Contract",
+    ]
+    assert props["gl"]["aliases"] == ["GL", "GroenLinks"]
+    assert props["groep_lazrak"]["abbreviation"] == "Groep Lazrak"
+    assert props["groep_lazrak"]["aliases"] == ["Groep Lazrak"]
 
 
 def test_judgments_with_payloads(store: GraphStore) -> None:

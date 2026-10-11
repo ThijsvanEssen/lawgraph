@@ -100,6 +100,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         limit: int | None = None,
         persons: bool = False,
         seats: bool = False,
+        factions: bool = False,
     ) -> None:
         """With *mixed_votes* a run reads only the decisions taken for a roll call that
         were a faction vote with members voting apart
@@ -107,22 +108,27 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         only every stored Persoon record (the props of the members, merged into what
         other steps wrote: after a prop of the record was added); with *seats* only every
         stored FractieZetelPersoon record (the MEMBER_OF edges to the factions and the
-        members' timelines: after the reading of seat periods changed)."""
+        members' timelines: after the reading of seat periods changed); with *factions*
+        only every stored Fractie record (the props of the factions: after the reading of
+        their names changed)."""
         super().__init__(store)
         self._mixed_votes = mixed_votes
         self._limit = limit
         self._persons = persons
         self._seats = seats
+        self._factions = factions
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """The records since *since*, or all; the mixed decisions, the persons or the
-        seats alone when asked."""
+        """The records since *since*, or all; the mixed decisions, the persons, the
+        seats or the factions alone when asked."""
         if self._mixed_votes:
             return self._run_mixed_votes(self._limit)
         if self._persons:
             return self._run_persons()
         if self._seats:
             return self._run_seats()
+        if self._factions:
+            return self._run_factions()
         return super().run(since=since)
 
     def _run_persons(self) -> PipelineResult:
@@ -138,6 +144,27 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 since=None,
                 batch_size=1000,
             ),
+        )
+        writes = self.store.writes
+        result.created += writes.created
+        result.updated += writes.updated
+        result.unchanged += writes.unchanged
+        return result
+
+    def _run_factions(self) -> PipelineResult:
+        """Normalize every stored Fractie record again into its faction."""
+        result = PipelineResult()
+        self.store.reset_counts()
+        tk_members.normalize_factions(
+            self.store,
+            RawRecords(
+                self,
+                source=SOURCE_TK,
+                kinds=[RAW_KIND_TK_FRACTIE],
+                since=None,
+                batch_size=1000,
+            ),
+            self._every_seat(),
         )
         writes = self.store.writes
         result.created += writes.created
@@ -265,11 +292,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         store = self.store
         votes = tk_votes.read_votes(raw[RAW_KIND_TK_STEMMING])
         self._add_bill_decisions(votes, raw[RAW_KIND_TK_BESLUIT])
-        vote_labels = votes.faction_labels
-        if self._incremental:
-            # The factions are written again with the spellings votes gave them: those of
-            # the window alone would take away what earlier votes taught.
-            vote_labels = vote_labels | self._stored_faction_aliases()
 
         normalized: dict[str, Any] = {
             "committees": tk_members.normalize_committees(
@@ -277,7 +299,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             ),
             "members": tk_members.normalize_members(store, raw[RAW_KIND_TK_PERSOON]),
             "factions": tk_members.normalize_factions(
-                store, raw[RAW_KIND_TK_FRACTIE], vote_labels, self._every_seat()
+                store, raw[RAW_KIND_TK_FRACTIE], self._every_seat()
             ),
             "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
             "activities": tk_cases.normalize_activities(
@@ -471,9 +493,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             since=None,
             batch_size=1000,
         )
-
-    def _stored_faction_aliases(self) -> set[str]:
-        return set(normalize_tk.faction_aliases(self.store))
 
     def _seats_and_holders(
         self, raw: dict[str, Iterable[dict[str, Any]]], normalized: dict[str, Any]
