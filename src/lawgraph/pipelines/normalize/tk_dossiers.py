@@ -69,6 +69,8 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "tk-dossiers"
+# The prop of a faction with the id of each of its Fractie records (``tk_records.faction``).
+EXTERNAL_IDS = "external_ids"
 
 RAW_KINDS = [
     RAW_KIND_TK_DOSSIER,
@@ -523,20 +525,27 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         self, collection: str, node_type: NodeType, names: list[str] | None = None
     ) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read
-        (or *names*)."""
+        (or *names*). A faction is reached by the id of each of its Fractie records
+        (``external_ids``): a seat, a vacancy or a vote names any of them."""
         rows = normalize_tk.nodes_by_external_id(
-            self.store, collection, names or list(tk_cases.LINK_PROPS)
+            self.store,
+            collection,
+            [*(names or tk_cases.LINK_PROPS), EXTERNAL_IDS],
         )
-        return {
-            row["id"]: Node(
+        found: dict[str, Node] = {}
+        for row in rows:
+            props = row["props"]
+            ids = props.pop(EXTERNAL_IDS, None) or []
+            node = Node(
                 collection=collection,
                 type=node_type,
                 key=row["key"],
-                props=row["props"],
+                props=props,
                 _skip_validation=True,
             )
-            for row in rows
-        }
+            for external_id in {row["id"], *ids}:
+                found[external_id] = node
+        return found
 
     # ── Dossiers ──────────────────────────────────────────────────────────────
 
