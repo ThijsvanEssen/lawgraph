@@ -1413,9 +1413,9 @@ def get_feed(
 ) -> dict[str, Any]:
     """One page of the feed: ``items`` (up to ``limit + 1``: one more than the page when
     there is a next page), and with *facets* ``total`` and ``facets`` (null without), or,
-    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``. Words
-    without a first day are searched back in windows (``_page_items``): when the budget
-    ends that search, ``partial`` and ``searched_from``.
+    while those are counted longer than ``COUNTS_BUDGET``, null and ``partial``. Words or a
+    faction without a first day are searched back in windows (``_page_items``): when the
+    budget ends that search, ``partial`` and ``searched_from``.
 
     The page is read without the facets: each kind reads its rows in date order and stops
     after one page. The total and the facets read every row under the filters (20 s on the
@@ -1434,7 +1434,7 @@ def get_feed(
     try:
         return {
             **shown,
-            **(_counts_of_words(store, filters) or feed_counts(store, filters)),
+            **(_counts_of_events(store, filters) or feed_counts(store, filters)),
         }
     except ReadTimedOut:
         # counted on for the next request (``lasting``); this one shows the page now
@@ -1443,8 +1443,10 @@ def get_feed(
         reset_read_deadline(token)
 
 
-# Words without a first day (``q`` and no ``since``): a word that few events hold has every
-# event of every kind tested for it, the whole history. The page is read back in windows,
+# Words or a faction without a first day (``q`` or ``faction``, and no ``since``): a word
+# that few events hold, or a faction that signs few events of a kind (a letter of the
+# government: none), has every event of every kind tested for it, the whole history (over
+# 30 s for ``faction=vvd`` on prod, 11 Oct). The page is read back in windows,
 # newest first, each of these many days further back from where it starts, then the rest,
 # until it is full or ``WORDS_BUDGET`` seconds are spent: then what was found is answered,
 # ``partial``, with the first day searched (``searched_from``), and a request with ``until``
@@ -1458,7 +1460,7 @@ def _page_items(
 ) -> tuple[list[dict[str, Any]], str | None]:
     """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
     before the first event, the first day it searched."""
-    if not filters.q or filters.since:
+    if filters.since or not (filters.q or filters.faction):
         return _rows(store, filters, cursor, limit), None
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:
@@ -1494,8 +1496,8 @@ def _page_items(
 def _bounded_page(
     store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
 ) -> list[dict[str, Any]] | None:
-    """The page under words without a first day, read once from the first day it reaches
-    back to (``feed_events.first_day_of_page``: by the index on the words of the events,
+    """The page under words or a faction without a first day, read once from the first
+    day it reaches back to (``feed_events.first_day_of_page``: by the index on the words of the events,
     not window after window); None where that table cannot tell, or the page read from that
     day is short of what it counted (an event gone since it was written): then the
     windows."""
@@ -1536,11 +1538,12 @@ COUNTS_MAX_AGE = 3600.0
 COUNTS_BUDGET = 3.0
 
 
-def _counts_of_words(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:
-    """Under words, ``total`` and ``facets`` from ``lg_feed_events`` (by the index on their
-    words, not a read of every event); None without words or where that table cannot tell:
-    then ``feed_counts``."""
-    if not filters.q:
+def _counts_of_events(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:
+    """Under words, a faction or a coalition, ``total`` and ``facets`` from
+    ``lg_feed_events`` (by the index on their words or factions, not a read of every event,
+    which takes a minute and more on prod for each such filter); None without them or where
+    that table cannot tell: then ``feed_counts``."""
+    if not (filters.q or filters.faction or filters.coalition):
         return None
     # it reads the events as this module does
     from lawgraph.db.queries import feed_events
