@@ -1813,6 +1813,36 @@ CREATE TABLE IF NOT EXISTS lg_summary_stems (
 )
 """
 
+# The hits of a word searched often, ready to rank (``queries/search_candidates.py``): per
+# type and word the hits the search ranks (``RANK_CANDIDATES``), in the order it takes them,
+# with what their rank reads of each (the frequency of every term, the length of every
+# field, the citations), so that a search of the word reads neither the hits it leaves nor
+# the large columns of those it ranks. ``lg_search_candidates_state`` holds the version of
+# the type's table they were read at (``lg_data_version``) and the shape of the search they
+# were read for: a search takes them only while both are those of now. Not tables of the
+# graph: writing them raises no data version.
+SEARCH_CANDIDATES = """
+CREATE TABLE IF NOT EXISTS lg_search_candidates (
+    collection text NOT NULL,
+    word text NOT NULL,
+    pos integer NOT NULL,
+    id text NOT NULL,
+    key text NOT NULL,
+    citations double precision,
+    tf bigint[] NOT NULL,
+    len bigint[] NOT NULL,
+    PRIMARY KEY (collection, word, pos)
+);
+CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
+    collection text NOT NULL,
+    word text NOT NULL,
+    version bigint NOT NULL,
+    signature text NOT NULL,
+    hits integer NOT NULL,
+    PRIMARY KEY (collection, word)
+)
+"""
+
 
 # One light row per event of the feed (``queries/feed_events.py``), written by ``lawgraph
 # feed-events`` from the same reading of the events as the feed: what ``GET
@@ -1996,6 +2026,7 @@ def statements() -> list[str]:
         *member_authored(),
         *committee_led(),
         ARTICLE_TERMS,
+        SEARCH_CANDIDATES,
         DECISION_COALITION,
         # the table as it was kept before its factions
         "ALTER TABLE lg_decision_coalition ADD COLUMN IF NOT EXISTS factions json"

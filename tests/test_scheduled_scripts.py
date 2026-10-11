@@ -77,6 +77,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_aft
         "feed-events",
         "check --skip-edges",
         "search-stats prune",  # the counts of the terms searched, older than a week
+        "search-candidates",  # the hits of the words searched most
         "sitemaps",
     ]
     assert (checkout / "logs" / "runs.log").read_text().count("daily.sh: ok") == 1
@@ -104,10 +105,11 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         "semantic graph-heat",
         "expand-graph",
         "check",
+        "search-candidates",
     ]
     # each step took the lock on its own and let it go: a poll can run in between
     runs = (checkout / "logs" / "runs.log").read_text()
-    assert runs.count("step.sh: ok") == 12
+    assert runs.count("step.sh: ok") == 13
     assert runs.count("weekly.sh: ok") == 1
     assert not (checkout / "lawgraph-scheduled.lock").exists()
 
@@ -115,7 +117,7 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
 def test_a_failing_weekly_step_is_told_and_the_rest_still_runs(checkout: Path) -> None:
     done = _run(checkout, "weekly.sh", fail_on="semantic tk")
     assert done.returncode == 1
-    assert _calls(checkout)[-2:] == ["expand-graph", "check"]
+    assert _calls(checkout)[-3:] == ["expand-graph", "check", "search-candidates"]
     assert (
         "weekly.sh: FAILED: lawgraph semantic tk"
         in (checkout / "logs" / "runs.log").read_text()
@@ -140,8 +142,9 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
 ) -> None:
     done = _run(checkout, "daily.sh", fail_on="normalize all")
     assert done.returncode == 1
-    # semantic, the events of the feed, check, the prune and sitemaps ran too
-    assert len(_calls(checkout)) == 7
+    # semantic, the events of the feed, check, the prune, the words searched most and
+    # sitemaps ran too
+    assert len(_calls(checkout)) == 8
     runs = (checkout / "logs" / "runs.log").read_text()
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
 
@@ -166,13 +169,18 @@ def test_a_poll_reaches_back_past_the_poll_before_it(
     assert _calls(checkout) == [
         f"poll {chain} --since {window}",
         "feed-events --days 14",
+        "search-candidates",
     ]
     assert "poll.sh: ok" in (checkout / "logs" / "runs.log").read_text()
 
 
 def test_a_poll_takes_another_window_and_refuses_another_chain(checkout: Path) -> None:
     assert _run(checkout, "poll.sh", args=["tk", "90m"]).returncode == 0
-    assert _calls(checkout) == ["poll tk --since 90m", "feed-events --days 14"]
+    assert _calls(checkout) == [
+        "poll tk --since 90m",
+        "feed-events --days 14",
+        "search-candidates",
+    ]
     refused = _run(checkout, "poll.sh", args=["bwb"])
     assert refused.returncode == 2 and "usage" in refused.stderr
     assert not (checkout / "lawgraph-scheduled.lock").exists()
@@ -407,4 +415,4 @@ def test_a_slice_that_does_not_go_on_stops_with_a_failure(
     done = _run(checkout, "weekly.sh", **extra)
     assert done.returncode == 1
     assert failure in (checkout / "logs" / "runs.log").read_text()
-    assert _calls(checkout)[-2:] == ["expand-graph", "check"]
+    assert _calls(checkout)[-3:] == ["expand-graph", "check", "search-candidates"]
