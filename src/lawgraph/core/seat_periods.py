@@ -13,6 +13,9 @@ dates say how (nothing here comes from a name or a guess):
 - a fractievoorzitter still chairing after the next one started (Van Ojik until 2015-05-19,
   Klaver from 2015-05-12) chairs until the day before, and holds the rest of that seat as
   a member;
+- a person sits in one faction a day: a seat that ends on the day the person's seat in
+  another faction begins (Agnes Joseph, NSC until 2025-07-31, BBB from 2025-07-31) ends the
+  day before;
 - a faction is active while its seats are held: its record may start or end a day off them
   (GroenLinks-PvdA ends 2026-06-10, its seats 2026-06-09; PRO starts 2026-06-09, its seats
   2026-06-10). The seats date a faction from the Kamer installed on 30 November 2006; before
@@ -95,6 +98,31 @@ def split_overlapping_chairs(holdings: list[Holding]) -> list[Holding]:
         result.append(
             (person, faction, {**period, "from_date": takes_over, "role": MEMBER})
         )
+    return result
+
+
+def one_faction_at_a_time(holdings: list[Holding]) -> list[Holding]:
+    """``(person, faction, period)`` holdings with each person in one faction a day: a period
+    that runs into the start of the person's next seat in another faction ends the day
+    before (see the module)."""
+    starts: dict[str, list[tuple[str, str]]] = {}
+    for person, faction, period in holdings:
+        if period.get("from_date"):
+            starts.setdefault(person, []).append((faction, period["from_date"]))
+    result: list[Holding] = []
+    for person, faction, period in holdings:
+        start, end = period.get("from_date"), period.get("to_date")
+        later = min(
+            (
+                s
+                for f, s in starts.get(person, [])
+                if f != faction and s > (start or "9")
+            ),
+            default=None,
+        )
+        if later is not None and (end is None or end >= later):
+            period = {**period, "to_date": day_before(later)}
+        result.append((person, faction, period))
     return result
 
 

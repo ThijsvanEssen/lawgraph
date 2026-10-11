@@ -103,3 +103,43 @@ def test_the_timeline_keeps_the_seats_before_the_window(
     )
     assert [m["abbreviation"] for m in row["timeline"]] == ["VVD", "PRO"]
     assert row["party"] == "PRO"
+
+
+def test_the_seats_again_link_every_stored_seat(database: str, cli: Any) -> None:
+    """``normalize tk-dossiers --seats``: every stored seat linked again, read as the seat
+    periods are read now; a seat ending on the day the next one, in another faction,
+    begins (Agnes Joseph, NSC to BBB on 31 July 2025) ends the day before."""
+    store = GraphStore()
+    _write(
+        store,
+        (RAW_KIND_TK_FRACTIE, _faction(VVD, "VVD", "1948-01-23", None, 22)),
+        (RAW_KIND_TK_FRACTIE, _faction(PRO, "PRO", "2023-12-06", None, 20)),
+        (RAW_KIND_TK_PERSOON, _person(KLAVER, "Agnes", "Joseph")),
+    )
+    cli("normalize", "tk-dossiers")
+    assert _member_of(store) == set()
+    # seats stored without a run that links them (as a run before this reading left them)
+    _write(
+        store,
+        (
+            RAW_KIND_TK_FRACTIEZETELPERSOON,
+            _seat(10, KLAVER, VVD, "2023-12-06", "2025-07-31"),
+        ),
+        (RAW_KIND_TK_FRACTIEZETELPERSOON, _seat(11, KLAVER, PRO, "2025-07-31", None)),
+    )
+    cli("normalize", "tk-dossiers", "--seats")
+
+    member = "members/" + KLAVER.lower().replace("-", "_")
+    assert _member_of(store) == {(member, "factions/vvd"), (member, "factions/pro")}
+    (row,) = store.query(
+        "SELECT props -> 'faction_memberships' AS timeline, props ->> 'party' AS party"
+        " FROM members"
+    )
+    periods = [
+        (m["abbreviation"], m["from_date"], m["to_date"]) for m in row["timeline"]
+    ]
+    assert periods == [
+        ("VVD", "2023-12-06", "2025-07-30"),
+        ("PRO", "2025-07-31", None),
+    ]
+    assert row["party"] == "PRO"
