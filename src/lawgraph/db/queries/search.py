@@ -19,7 +19,7 @@ import unicodedata
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
@@ -1174,11 +1174,8 @@ def search_all(
 
     notation = _notation(store, q, types)
     searches = _full_searches(store, q, tokens, notation, kinds, limit, period)
-    wanted = [t for t in types if t in searches]
-    # The types are searched side by side, each on a connection of its own: the answer
-    # takes as long as the slowest type, not as long as all of them.
-    found = side_by_side(_SEARCHES, [searches[t] for t in wanted])
-    return {t: rank_hits(q, hits) for t, hits in zip(wanted, found, strict=True)}
+    found = _heavy_first({t: searches[t] for t in types if t in searches})
+    return {t: rank_hits(q, hits) for t, hits in found.items()}
 
 
 Searches = dict[str, Callable[[], list[dict[str, Any]]]]
@@ -1304,13 +1301,15 @@ def search_full(
     notation = _notation(store, q, types)
     full = _full_searches(store, q, tokens, notation, kinds, limit, period)
     live = _live_searches(store, q, tokens, notation, kinds, limit, period)
-    wanted = [t for t in types if t in full]
-    found = side_by_side(
-        _SEARCHES,
-        [functools.partial(_full_or_live, full[t], live[t]) for t in wanted],
+    found = _heavy_first(
+        {
+            t: functools.partial(_full_or_live, full[t], live[t])
+            for t in types
+            if t in full
+        }
     )
-    hits = {t: rank_hits(q, rows) for t, (rows, _) in zip(wanted, found, strict=True)}
-    partial = {t for t, (_, cut) in zip(wanted, found, strict=True) if cut}
+    hits = {t: rank_hits(q, rows) for t, (rows, _) in found.items()}
+    partial = {t for t, (_, cut) in found.items() if cut}
     return hits, partial
 
 
@@ -1327,6 +1326,26 @@ def _full_or_live(
 
 
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
+
+# The types whose full search takes longest cold, slowest first: they take the threads of
+# ``_SEARCHES`` (as many as are free), the others run one after another in the thread of
+# the request meanwhile, so that the answer takes about as long as the slowest type.
+HEAVY_TYPES = ("articles", "judgments", "documents", "instruments")
+
+R = TypeVar("R")
+
+
+def _heavy_first(searches: dict[str, Callable[[], R]]) -> dict[str, R]:
+    """The result of each of *searches*, run side by side with the ``HEAVY_TYPES`` handed
+    to the pool first; in the order of *searches*."""
+    order = sorted(
+        searches,
+        key=lambda t: HEAVY_TYPES.index(t) if t in HEAVY_TYPES else len(HEAVY_TYPES),
+    )
+    found = dict(
+        zip(order, side_by_side(_SEARCHES, [searches[t] for t in order]), strict=True)
+    )
+    return {t: found[t] for t in searches}
 
 
 # ── Live search: while typing ──────────────────────────────────────────────────
