@@ -66,6 +66,10 @@ URLS = [
     # an article by what its case law calls it (``lg_article_terms``), full and live
     "/api/search?q=noodweer&types=articles",
     "/api/search?q=noodweer&types=articles&mode=live",
+    # a word and the abbreviation of a law: its laws by the index of their aliases, their
+    # articles by the index of their law
+    "/api/search?q=daad+pw&types=articles",
+    "/api/search?q=daad+pw&types=articles&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     # a paper by its number: by the index on lg_document_light, not the props of every

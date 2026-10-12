@@ -127,17 +127,17 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         app.dependency_overrides.pop(get_store, None)
 
     assert [d["term"] for d in listed["definitions"]][:2] == ["wet", "verblijf"]
-    assert listed["definitions"][0]["ref"] == "bwbr0018492_1:a"
+    assert listed["definitions"][0]["ref"] == "bwbr0018492_1:a:wet"
     marked = [
         (text[s["start"] : s["end"]], s["definition_ref"])
         for s in article["term_spans"]
     ]
-    assert ("wet", "bwbr0018492_1:a") in marked and (
+    assert ("wet", "bwbr0018492_1:a:wet") in marked and (
         "verblijf",
-        "bwbr0018492_1:b",
+        "bwbr0018492_1:b:verblijf",
     ) in marked
-    assert ("eigen bijdrage", "bwbr0018492_1:c") in marked
-    assert {d["ref"] for d in article["definitions"]} >= {"bwbr0018492_1:a"}
+    assert ("eigen bijdrage", "bwbr0018492_1:c:eigen bijdrage") in marked
+    assert {d["ref"] for d in article["definitions"]} >= {"bwbr0018492_1:a:wet"}
 
     # "van de wet" in a citation of the Zorgverzekeringswet: no span of its own, the
     # citation names the definition of "wet"; one of another law names none
@@ -149,7 +149,7 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         {"text": text, "path": "/Hoofdstuk2/Artikel2"},
         [(start, end, "BWBR0018450")],
     )
-    assert refs == {0: "bwbr0018492_1:a"}
+    assert refs == {0: "bwbr0018492_1:a:wet"}
     assert all(not (start <= s["start"] < end) for s in spans)
     _, other, _ = article_terms(
         store,
@@ -158,3 +158,67 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         [(start, end, "BWBR0005537")],
     )
     assert other == {}
+
+
+def test_each_term_of_an_unmarked_list_shows_its_own_definition(
+    database: str, cli: Any
+) -> None:
+    """Cyberbeveiligingswet art. 1 is an unmarked list (every ``<li.nr>`` a dash): "entiteit"
+    in art. 21 shows the definition of "entiteit", not of the first term of the article."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store = GraphStore()
+    _toestand(store, "BWBR0052872", (FIXTURES / "bwb_definitions_cbw.xml").read_text())
+    cli("semantic", "bwb-definitions")
+    text = (
+        "De essentiële entiteit of belangrijke entiteit neemt maatregelen tegen de "
+        "risico’s, naar de omvang van de entiteit."
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "_key": "bwbr0052872",
+                "type": "instrument",
+                "labels": ["BWB"],
+                "props": {"bwb_id": "BWBR0052872", "title": "Cyberbeveiligingswet"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "_key": "bwbr0052872_21",
+                "type": "article",
+                "labels": ["BWB"],
+                "props": {
+                    "bwb_id": "BWBR0052872",
+                    "article_number": "21",
+                    "text": text,
+                    "path": "/Hoofdstuk7/Artikel21",
+                },
+            }
+        ],
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        article = TestClient(app).get("/api/articles/BWBR0052872/21").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    by_ref = {d["ref"]: d for d in article["definitions"]}
+    shown = [
+        (text[s["start"] : s["end"]], by_ref[s["definition_ref"]]["term"])
+        for s in article["term_spans"]
+    ]
+    assert shown == [
+        ("essentiële entiteit", "essentiële entiteit"),
+        ("belangrijke entiteit", "belangrijke entiteit"),
+        ("risico", "risico"),
+        ("entiteit", "entiteit"),
+    ]
+    assert {d["place"] for d in article["definitions"]} == {None}

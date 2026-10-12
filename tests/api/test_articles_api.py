@@ -123,10 +123,10 @@ def test_get_article_detail_exposes_citations(monkeypatch):
                     "start": 30,
                     "end": 33,
                     "term": "wet",
-                    "definition_ref": "bwbr0001854_1:a",
+                    "definition_ref": "bwbr0001854_1:a:wet",
                 }
             ],
-            {0: "bwbr0001854_1:a"},
+            {0: "bwbr0001854_1:a:wet"},
             [definition],
         ),
     )
@@ -144,10 +144,10 @@ def test_get_article_detail_exposes_citations(monkeypatch):
     assert target["display_name"] == "Artikel 24c"
     # the defined terms: a span of its own, and the definition the citation names
     assert payload["term_spans"] == [
-        {"start": 30, "end": 33, "term": "wet", "definition_ref": "bwbr0001854_1:a"}
+        {"start": 30, "end": 33, "term": "wet", "definition_ref": "bwbr0001854_1:a:wet"}
     ]
-    assert citation["definition_ref"] == "bwbr0001854_1:a"
-    assert payload["definitions"][0]["ref"] == "bwbr0001854_1:a"
+    assert citation["definition_ref"] == "bwbr0001854_1:a:wet"
+    assert payload["definitions"][0]["ref"] == "bwbr0001854_1:a:wet"
     assert payload["definitions"][0]["text"] == "het Wetboek van Strafrecht"
 
 

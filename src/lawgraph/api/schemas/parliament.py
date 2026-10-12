@@ -114,8 +114,16 @@ class ParliamentSeatsResponse(BaseModel):
     )
     hall: HallDTO | None = Field(
         None,
-        description="Of the Eerste Kamer: who sits where in its plenary hall; null for "
-        "the Tweede Kamer, and when no plan was read.",
+        description="Of the Eerste Kamer: who sits where in its plenary hall, as Wie zit "
+        "waar showed it on `hall_read_on`; on a `date` before that day null (the site "
+        "shows today's plan only). Null for the Tweede Kamer (its open data places no "
+        "seat), and when no plan was read.",
+    )
+    hall_read_on: str | None = Field(
+        None,
+        description="Of the Eerste Kamer: the day Wie zit waar was read (YYYY-MM-DD), the "
+        "first day whose `hall` is known. Null for the Tweede Kamer, and when no plan "
+        "was read.",
     )
     checked: bool | None = Field(
         None,

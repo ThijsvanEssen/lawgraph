@@ -77,7 +77,8 @@ def get_seats(
             description="``EK``: the seats of the Eerste Kamer, in the order of their "
             "size (no plan): without ``date`` as eerstekamer.nl shows them on the day it "
             "was last read; with it, those of that day as walked from the Kiesraad's "
-            "result through the changes the Kamer's pages tell (404 before 2003)."
+            "result through the changes the Kamer's pages tell (404 before 2003), and "
+            "``hall`` from the day Wie zit waar was read (``hall_read_on``)."
         ),
     ] = "TK",
 ) -> ParliamentSeatsResponse:
@@ -144,6 +145,7 @@ def get_seats(
         ),
         source=None,
         hall=None,
+        hall_read_on=None,
         checked=None,
     )
 
@@ -175,9 +177,8 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             doc["props"].get("abbreviation") or "",
         )
     )
-    read_on = max(
-        (doc["props"].get("retrieved_on") or "" for doc in factions), default=""
-    )
+    read_on = _read_on(factions)
+    hall = _hall(store)
     coalition = coalition_of_day(store, (read_on or dt.date.today().isoformat())[:10])
     items = [
         FactionSeatsDTO(
@@ -212,7 +213,8 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
             ),
             attribution=EK_ATTRIBUTION,
         ),
-        hall=_hall(store),
+        hall=hall,
+        hall_read_on=(read_on or None) if hall else None,
         checked=None,
     )
 
@@ -225,10 +227,14 @@ def _ek_seats_on(store: GraphStore, day: str) -> ParliamentSeatsResponse:
         raise HTTPException(
             status_code=404, detail=f"No seats of the Eerste Kamer are known on {day}."
         )
+    factions = get_factions(store, chamber="EK")
     keys = {
         str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc
-        for doc in get_factions(store, chamber="EK")
+        for doc in factions
     }
+    # Wie zit waar shows the plan of the day it is read only: a day before it has none
+    hall = _hall(store)
+    read_on = _read_on(factions) if hall else ""
     coalition = coalition_of_day(store, day)
     ranked = sorted(
         ((name, n) for name, n in (stretch["seats"] or {}).items() if n > 0),
@@ -266,9 +272,18 @@ def _ek_seats_on(store: GraphStore, day: str) -> ParliamentSeatsResponse:
             data_since=None,
             attribution=EK_ATTRIBUTION,
         ),
-        hall=None,
+        hall=hall if read_on and day >= read_on else None,
+        hall_read_on=read_on or None,
         checked=bool(stretch["checked"]),
     )
+
+
+def _read_on(factions: list[dict[str, Any]]) -> str:
+    """The day eerstekamer.nl was last read: that of the latest snapshot of its factions."""
+    return max(
+        ((doc.get("props") or {}).get("retrieved_on") or "" for doc in factions),
+        default="",
+    )[:10]
 
 
 # The order of the blocks of the hall of the Eerste Kamer in its plan.

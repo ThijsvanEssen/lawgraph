@@ -130,6 +130,28 @@ def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> Non
     assert search(graph, q="strafbaar vordering", types=["articles"])["articles"] == []
 
 
+def test_a_word_of_an_article_and_the_abbreviation_of_its_law(
+    graph: GraphStore,
+) -> None:
+    """ "strafbaar sr" finds art. 1 Sr as "strafbaar wetboek van strafrecht" does: a word
+    is a word of an article also when its law is cited by it (its short title or one of
+    its aliases from the WTI, whole and in any case); the abbreviation of another law is
+    not, and a part of one is not."""
+    for search in (search_queries.search_all, search_queries.search_live):
+        found = search(graph, q="strafbaar sr", types=["articles"])
+        hits = found[0] if isinstance(found, tuple) else found
+        assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"]
+    for q in ("strafbaar WvSr", "strafbaar wetboek van strafrecht"):
+        hits = search_queries.search_all(graph, q=q, types=["articles"])
+        assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"]
+    assert search_queries.search_all(graph, q="strafbaar sv", types=["articles"]) == {
+        "articles": []
+    }
+    assert search_queries.search_all(graph, q="strafbaar wvs", types=["articles"]) == {
+        "articles": []
+    }
+
+
 def test_a_singular_finds_its_plural_and_back(store: GraphStore) -> None:
     """A word whose last consonant changes in its plural stems apart from it (huurprijs,
     huurprijz): the search looks for both forms."""

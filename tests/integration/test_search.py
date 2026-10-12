@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search import search_all, search_live
 
 BW7 = "BWBR0005290"
 
@@ -179,3 +179,77 @@ def test_a_vote_is_found_by_its_subject(store: GraphStore) -> None:
     motie = search_all(store, q="motie abortuswet", types=["decisions"])["decisions"]
     assert [h["key"] for h in motie] == ["d_old"]
     assert search_all(store, q="stemming", types=["decisions"])["decisions"] == []
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+def test_an_instrument_hit_has_its_kind_and_dates(store: GraphStore, mode: str) -> None:
+    """Regulations of one title are told apart by their kind and dates, not by their BWB
+    id alone (#53: six "Belastingen op milieugrondslag")."""
+    for bwb_id, version in (
+        ("BWBR0021767", "2007-04-27"),
+        ("BWBR0034957", "2014-03-22"),
+    ):
+        _put(
+            store,
+            "instruments",
+            bwb_id.lower(),
+            bwb_id=bwb_id,
+            title="Belastingen op milieugrondslag",
+            citation_title="Belastingen op milieugrondslag",
+            kind="beleidsregel",
+            version_date_in_force=version,
+        )
+    hits = (
+        search_all(store, q="milieugrondslag", types=["instruments"])
+        if mode == "full"
+        else search_live(store, q="milieugrondslag", types=["instruments"])[0]
+    )
+    assert {
+        hit["key"]: (
+            hit["extra"]["kind"],
+            hit["extra"]["date_published"],
+            hit["extra"]["date_in_force"],
+            hit["extra"]["version_date_in_force"],
+        )
+        for hit in hits["instruments"]
+    } == {
+        "bwbr0021767": ("beleidsregel", None, None, "2007-04-27"),
+        "bwbr0034957": ("beleidsregel", None, None, "2014-03-22"),
+    }
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+def test_a_word_and_the_abbreviation_of_a_law_find_its_article(
+    store: GraphStore, mode: str
+) -> None:
+    """ "zorgplicht cbw" finds art. 21 of the Cyberbeveiligingswet, whose heading holds
+    the word and whose law has the abbreviation (its short title from the WTI), as
+    "zorgplicht cyberbeveiligingswet" does."""
+    cbw = "BWBR0052872"
+    _put(
+        store,
+        "instruments",
+        cbw.lower(),
+        bwb_id=cbw,
+        title="Cyberbeveiligingswet",
+        citation_title="Cyberbeveiligingswet",
+        short_title="Cbw",
+        aliases=["Cbw"],
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        make_node_key(cbw, "21"),
+        bwb_id=cbw,
+        article_number="21",
+        display_name="Artikel 21 Cyberbeveiligingswet",
+        heading="(zorgplicht)",
+        text="Een essentiële of belangrijke entiteit neemt passende maatregelen.",
+    )
+    search = search_all if mode == "full" else search_live
+    for q in ("zorgplicht cbw", "Zorgplicht CBW", "zorgplicht cyberbeveiligingswet"):
+        found = search(store, q=q, types=[COLLECTION_ARTICLES])
+        hits = found[0] if isinstance(found, tuple) else found
+        assert [h["key"] for h in hits[COLLECTION_ARTICLES]] == [
+            make_node_key(cbw, "21")
+        ]

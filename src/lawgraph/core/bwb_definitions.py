@@ -141,6 +141,10 @@ def _after_announcement(
 
 
 def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any]]:
+    """The definitions of a ``<lijst>``, each with the number of its onderdeel ("a"): none
+    in a list the BWB calls unmarked (``type="ongemarkeerd"``), whose ``<li.nr>`` is a
+    dash."""
+    marked = lijst.get("type") != "ongemarkeerd"
     for item in _children(lijst, "li"):
         al = _first(item, "al")
         if al is None:
@@ -155,7 +159,9 @@ def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any
         )
         yield {
             **_definition(match["term"], match["text"], al, scope),
-            "place": _text(number).rstrip(".") if number is not None else None,
+            "place": (
+                _text(number).rstrip(".") if marked and number is not None else None
+            ),
             "jci": jci,
         }
 
@@ -228,10 +234,12 @@ def applies(definition: dict[str, Any], article_path: str) -> bool:
 
 
 def definition_ref(definition: dict[str, Any]) -> str:
-    """How a span names its definition: the article and the letter of the onderdeel
-    (``bwbr0018492_1:a``), else the article and the term."""
-    return (
-        f"{definition['article_key']}:{definition.get('place') or definition['term']}"
+    """How a span names its definition: the article, the letter of the onderdeel and the
+    term (``bwbr0018492_1:a:wet``), the article and the term where there is no letter. The
+    term keeps two definitions of one article apart where their letters do not."""
+    place = definition.get("place")
+    return ":".join(
+        [definition["article_key"], *([place] if place else []), definition["term"]]
     )
 
 

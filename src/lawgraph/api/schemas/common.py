@@ -269,12 +269,17 @@ class DefinitionDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    ref: str = Field(..., description="What a span names it by: article and letter.")
+    ref: str = Field(
+        ..., description="What a span names it by: article, letter and term."
+    )
     term: str
     text: str
     article_key: str
     article_number: str | None = None
-    place: str | None = Field(None, description="The letter of its onderdeel: `a`.")
+    place: str | None = Field(
+        None,
+        description="The letter of its onderdeel: `a`; none in an unmarked list.",
+    )
     jci: str | None = None
     scope: dict[str, str] = Field(
         default_factory=dict,
