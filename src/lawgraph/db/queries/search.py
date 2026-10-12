@@ -668,7 +668,11 @@ _INSTRUMENT_HIT = f"""
             'bwb_id', doc.props -> 'bwb_id',
             'citation_title', doc.props -> 'citation_title',
             'short_title', doc.props -> 'short_title',
-            'aliases', doc.props -> 'aliases'
+            'aliases', doc.props -> 'aliases',
+            'kind', doc.props -> 'kind',
+            'date_published', doc.props -> 'date_published',
+            'date_in_force', doc.props -> 'date_in_force',
+            'version_date_in_force', doc.props -> 'version_date_in_force'
         )
     )
 """

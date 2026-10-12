@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search import search_all, search_live
 
 BW7 = "BWBR0005290"
 
@@ -179,3 +179,40 @@ def test_a_vote_is_found_by_its_subject(store: GraphStore) -> None:
     motie = search_all(store, q="motie abortuswet", types=["decisions"])["decisions"]
     assert [h["key"] for h in motie] == ["d_old"]
     assert search_all(store, q="stemming", types=["decisions"])["decisions"] == []
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+def test_an_instrument_hit_has_its_kind_and_dates(store: GraphStore, mode: str) -> None:
+    """Regulations of one title are told apart by their kind and dates, not by their BWB
+    id alone (#53: six "Belastingen op milieugrondslag")."""
+    for bwb_id, version in (
+        ("BWBR0021767", "2007-04-27"),
+        ("BWBR0034957", "2014-03-22"),
+    ):
+        _put(
+            store,
+            "instruments",
+            bwb_id.lower(),
+            bwb_id=bwb_id,
+            title="Belastingen op milieugrondslag",
+            citation_title="Belastingen op milieugrondslag",
+            kind="beleidsregel",
+            version_date_in_force=version,
+        )
+    hits = (
+        search_all(store, q="milieugrondslag", types=["instruments"])
+        if mode == "full"
+        else search_live(store, q="milieugrondslag", types=["instruments"])[0]
+    )
+    assert {
+        hit["key"]: (
+            hit["extra"]["kind"],
+            hit["extra"]["date_published"],
+            hit["extra"]["date_in_force"],
+            hit["extra"]["version_date_in_force"],
+        )
+        for hit in hits["instruments"]
+    } == {
+        "bwbr0021767": ("beleidsregel", None, None, "2007-04-27"),
+        "bwbr0034957": ("beleidsregel", None, None, "2014-03-22"),
+    }
