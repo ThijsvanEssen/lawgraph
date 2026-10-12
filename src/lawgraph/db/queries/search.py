@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.logging import get_logger
@@ -197,7 +197,8 @@ def build_search_clause(
     its value or a part of it, folded for a whole folded value. ``_form_0_0``, … hold the
     forms of each that stem apart (``word_forms``), each of which matches with all its
     words. *termed* holds per token the rows
-    that have it as a term (``_termed``: an article by what its case law calls it), each
+    that have it as a term (``_termed``: an article by what its case law calls it;
+    ``_legislated``: a dossier by the abbreviation of the law it made), each
     found by its key as well; *laws* per token the BWB ids of the laws it is the
     abbreviation of (``_cited_by``), whose articles it matches.
     """
@@ -604,18 +605,38 @@ def _with_terms(
     return hits
 
 
-# Per word the BWB ids of the laws it is a short title or an alias of (``bwb_wti``: the
+# The laws a word ``w.word`` is a short title or an alias of (``bwb_wti``: the
 # abbreviations of the WTI, ``BW`` of every book), whole and folded: an index lookup each.
+_ABBREVIATES = f"""
+    i.{search_column("aliases", "norm")} @> ARRAY[lg_fold(w.word)]
+    OR i.{search_column("short_title", "norm")} @> ARRAY[lg_fold(w.word)]
+"""
+# Per word the BWB ids of the laws it is the abbreviation of.
 _CITED_BY_SQL = f"""
 SELECT w.n::int AS n,
        coalesce(array_agg(DISTINCT i.bwb_id) FILTER (WHERE i.bwb_id IS NOT NULL), '{{}}')
            AS ids
 FROM unnest(%(words)s::text[]) WITH ORDINALITY AS w(word, n)
 LEFT JOIN LATERAL (
-    SELECT i.bwb_id FROM instruments i
-    WHERE i.{search_column("aliases", "norm")} @> ARRAY[lg_fold(w.word)]
-       OR i.{search_column("short_title", "norm")} @> ARRAY[lg_fold(w.word)]
+    SELECT i.bwb_id FROM instruments i WHERE {_ABBREVIATES}
 ) i ON true
+GROUP BY w.n
+ORDER BY w.n
+"""
+# Per word the dossiers the laws it is the abbreviation of were ``LEGISLATED_IN`` (the
+# bill each became, as the BWB names it): an index lookup on the edges of each law.
+_LEGISLATED_SQL = f"""
+SELECT w.n::int AS n,
+       coalesce(array_agg(DISTINCT d.id ORDER BY d.id) FILTER (WHERE d.id IS NOT NULL),
+                '{{}}') AS ids
+FROM unnest(%(words)s::text[]) WITH ORDINALITY AS w(word, n)
+LEFT JOIN LATERAL (
+    SELECT e.to_id AS id
+    FROM instruments i
+    JOIN edges e ON e.from_id = i.id AND e.relation = %(legislated_in)s
+                AND e.to_collection = 'dossiers'
+    WHERE {_ABBREVIATES}
+) d ON true
 GROUP BY w.n
 ORDER BY w.n
 """
@@ -631,6 +652,19 @@ def _cited_by(store: GraphStore, tokens: list[str]) -> list[list[str]] | None:
     rows = store.query(_CITED_BY_SQL, {"words": tokens})
     laws = [list(row["ids"]) for row in rows]
     return laws if any(laws) else None
+
+
+def _legislated(store: GraphStore, tokens: list[str]) -> list[list[str]] | None:
+    """Per token the dossiers of the laws it is the abbreviation of: a name of each, as
+    the name of its law in its title is ("cbw" finds dossier 36764, whose bill became the
+    Cyberbeveiligingswet). None when no token is one."""
+    if not tokens:
+        return None
+    rows = store.query(
+        _LEGISLATED_SQL, {"words": tokens, "legislated_in": RELATION_LEGISLATED_IN}
+    )
+    dossiers = [list(row["ids"]) for row in rows]
+    return dossiers if any(dossiers) else None
 
 
 def _search_articles(
@@ -852,6 +886,11 @@ _KIND = "AND lower(doc.props ->> 'kind') = ANY(%(kind_filter)s)"
 _CHAMBER = chamber_sql("doc")
 
 
+# Words that name the type of a dossier rather than what it is about: "cbw dossier" asks for
+# the dossier of the Cbw. Left out unless they are all that is asked.
+_DOSSIER_WORDS = frozenset({"dossier", "dossiers"})
+
+
 def _search_dossiers(
     store: GraphStore,
     tokens: list[str],
@@ -876,16 +915,18 @@ def _search_dossiers(
             )
         )
     """
+    words = [t for t in tokens if t not in _DOSSIER_WORDS] or tokens
     query = _text_query(
         store,
         "dossiers",
         hit,
-        tokens,
+        words,
         ["title", "display_name", "number"],
         limit,
         where=(_KIND if kinds else "") + period.where("dossiers"),
         params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
         live=live,
+        termed=_legislated(store, words),
     )
     hits = list(store.query(*query, indexes_only=True))
     for hit in hits:
