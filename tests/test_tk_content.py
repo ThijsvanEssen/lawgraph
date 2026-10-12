@@ -311,6 +311,15 @@ def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> Non
     assert store.stored == [] and "cannot be read" in result.errors[0]
 
 
+def test_a_limit_fetches_the_first_papers_and_leaves_the_rest_for_the_next_run() -> (
+    None
+):
+    papers = [_paper("1", 1), _paper("2", 2), _paper("3", 3)]
+    result, _, client = _run(papers, limit=2)
+    assert client.fetched == ["kst-1-1", "kst-2-2"] and result.created == 2
+    assert result.notes == ["2 of 3 Kamerstukken without XML, again for the rest"]
+
+
 def test_a_dry_run_fetches_and_stores_nothing() -> None:
     result, store, client = _run([_paper("36867", 3)], dry_run=True)
     assert client.fetched == [] and store.stored == [] and result.skipped == 1

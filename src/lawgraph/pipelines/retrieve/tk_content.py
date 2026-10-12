@@ -82,15 +82,21 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         kinds: Sequence[str] = DEFAULT_KINDS,
+        limit: int | None = None,
         dry_run: bool = False,
     ) -> PipelineResult:
         """Fetch the XML of every qualifying paper that has none stored.
 
         Args:
             kinds: Case-insensitive substrings matched against ``props.kind``.
+            limit: At most this many papers; the rest are the gaps of the next run.
             dry_run: When True, log what would happen but make no changes.
         """
         papers = _gaps.kamerstuk_gaps(self.store, kinds)
+        if limit and len(papers) > limit:
+            rest = _gaps.Gaps(papers[:limit])
+            rest.note = f"{limit:,} of {len(papers):,} Kamerstukken without XML, again for the rest"
+            papers = rest
         if not papers:
             logger.info("No papers without XML found for kinds %s.", list(kinds))
             return PipelineResult()
