@@ -124,21 +124,31 @@ jobs:
 
       # Test data only: the data directory in memory, and no waiting for the disk (fsync,
       # synchronous_commit and full_page_writes off). JIT off, as on postgres-test. The
-      # official image from the ECR Public mirror of Docker Hub (the same digest): a runner
-      # pulling from Docker Hub without login hits its rate limit. ECR Public throttles a
-      # burst of pulls too (the shards at once: "toomanyrequests"), so the pull is tried 5
-      # times, 10, 20, 30 and 40 s apart. It starts while Python is installed; the step before
-      # the tests waits until it answers.
+      # official image (postgres:18 of Docker Hub, the same digest on every registry below),
+      # pulled without login. Each registry limits anonymous pulls from the shared runner
+      # addresses in its own way (Docker Hub per hour, ECR Public on data volume: "Data limit
+      # exceeded"), so the pull goes down the list: Google's Docker Hub mirror, ECR Public,
+      # Docker Hub itself; the list is tried 4 times, 10, 20 and 30 s apart. It starts while
+      # Python is installed; the step before the tests waits until it answers.
       - name: Start PostgreSQL
         env:
-          IMAGE: public.ecr.aws/docker/library/postgres:18
+          IMAGES: >-
+            mirror.gcr.io/library/postgres:18
+            public.ecr.aws/docker/library/postgres:18
+            docker.io/library/postgres:18
         run: |
-          for i in 1 2 3 4 5; do
-            docker pull "$IMAGE" && break
-            [ "$i" -lt 5 ] || exit 1
-            echo "pull $i failed, again in $((i * 10)) s"
-            sleep $((i * 10))
-          done
+          pull() {
+            for round in 1 2 3 4; do
+              for image in $IMAGES; do
+                docker pull "$image" && { IMAGE=$image; return 0; }
+              done
+              [ "$round" -lt 4 ] || return 1
+              echo "round $round failed, again in $((round * 10)) s"
+              sleep $((round * 10))
+            done
+          }
+          pull
+          echo "pulled $IMAGE"
           docker run -d --name postgres -p 5433:5432 \
             --tmpfs /var/lib/postgresql:rw,size=8g \
             -e POSTGRES_USER=lawgraph -e POSTGRES_PASSWORD=lawgraph-test \
