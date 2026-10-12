@@ -11,12 +11,14 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
+    InstrumentSummaryDTO,
     JudgmentSummaryDTO,
 )
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
     AmendingInstrumentDTO,
+    BasisArticleDTO,
     CitedArticleRef,
     EuLinkDTO,
     InstrumentArticleNodeDTO,
@@ -24,6 +26,8 @@ from lawgraph.api.schemas.instruments import (
     InstrumentArticlesResponse,
     InstrumentArticleVersionDTO,
     InstrumentDefinitionsResponse,
+    InstrumentDelegatedItem,
+    InstrumentDelegatedResponse,
     InstrumentDetailDTO,
     InstrumentDossierItem,
     InstrumentDossiersResponse,
@@ -41,9 +45,11 @@ from lawgraph.api.schemas.instruments import (
     InternationalLinkDTO,
     LinkedInstrumentDTO,
 )
+from lawgraph.core.delegations import kind_rank
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.definitions import definitions_of
+from lawgraph.db.queries.delegations import get_delegated_by_law
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
     get_international_links,
@@ -521,6 +527,45 @@ def get_instrument_related_route(
         for r in rows
     ]
     return InstrumentRelatedResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+@router.get(
+    "/{bwb_id}/delegated",
+    response_model=InstrumentDelegatedResponse,
+    summary="Regulations issued under a law",
+    description=(
+        'The regulations in force whose preamble ("Gelet op") names an article of this '
+        "law as their legal basis (`BASED_ON`), one per regulation with the articles it "
+        "names: AMvBs first, then ministerial regulations, then the others; by title. "
+        "A repealed regulation is left out. Empty for an unknown instrument."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_delegated_route(
+    bwb_id: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> InstrumentDelegatedResponse:
+    items = sorted(
+        (_delegated_item(row) for row in get_delegated_by_law(store, bwb_id)),
+        key=lambda item: (
+            kind_rank(item.kind),
+            (item.instrument.citation_title or item.instrument.title or "").lower(),
+            item.instrument.key,
+        ),
+    )
+    return InstrumentDelegatedResponse(bwb_id=bwb_id, total=len(items), items=items)
+
+
+def _delegated_item(row: dict) -> InstrumentDelegatedItem:
+    instrument = row["instrument"]
+    props = instrument.get("props") or {}
+    kind = props.get("kind")
+    return InstrumentDelegatedItem(
+        instrument=InstrumentSummaryDTO.from_document(instrument),
+        kind=kind.lower() if isinstance(kind, str) else None,
+        date_in_force=props.get("date_in_force"),
+        articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
+    )
 
 
 @router.get(

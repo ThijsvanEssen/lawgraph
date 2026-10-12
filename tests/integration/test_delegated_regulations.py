@@ -13,6 +13,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
@@ -212,3 +213,75 @@ def test_a_basis_without_a_formula_and_a_formula_without_a_regulation(
     finally:
         app.dependency_overrides.pop(get_store, None)
     assert missing.status_code == 404
+
+
+REPEALED = "BWBR0052881"
+LATER = "BWBR0052882"
+
+
+def _version(bwb_id: str, valid_from: str, *, current: bool) -> Node:
+    return Node(
+        collection=COLLECTION_INSTRUMENT_VERSIONS,
+        type=NodeType.INSTRUMENT_VERSION,
+        key=f"{bwb_id.lower()}_{valid_from}",
+        labels=["BWB"],
+        props={"bwb_id": bwb_id, "valid_from": valid_from, "current": current},
+    )
+
+
+def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _seed(store)
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                # every version closed: repealed, left out
+                _instrument(
+                    REPEALED, "AMvB", "Vervallen besluit", basis=[_basis("16", "16")]
+                ),
+                _version(REPEALED, "2020-01-01", current=False),
+                # a version in force: kept, its kind folded to lower case
+                _instrument(
+                    LATER,
+                    "AMvB",
+                    "Aanvullend besluit",
+                    date_in_force="2026-01-01",
+                    basis=[_basis("18", "18"), _basis("16", "16, derde lid")],
+                ),
+                _version(LATER, "2026-01-01", current=True),
+                _version(LATER, "2025-01-01", current=False),
+            ]
+        )
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/instruments/{WET}/delegated")
+
+    # AMvBs by title, then the ministerial regulation; one row per regulation
+    assert body["total"] == 4
+    assert [(i["instrument"]["bwb_id"], i["kind"]) for i in body["items"]] == [
+        (LATER, "amvb"),
+        (OTHER, "amvb"),
+        (BESLUIT, "amvb"),
+        (REGELING, "ministeriele-regeling"),
+    ]
+    later, _, besluit, regeling = body["items"]
+    assert later["date_in_force"] == "2026-01-01"
+    assert later["instrument"]["path"] == f"/wetten/{LATER}"
+    # the articles of the law each names, in the order of the law, with its leden
+    assert [(a["article_number"], a["leden"]) for a in later["articles"]] == [
+        ("16", ["3"]),
+        ("18", []),
+    ]
+    assert [
+        (a["article_number"], a["text"], a["leden"]) for a in besluit["articles"]
+    ] == [
+        ("16", "16, eerste lid", ["1"]),
+        ("17", "17", []),
+    ]
+    assert [a["key"] for a in regeling["articles"]] == [f"{WET.lower()}_16"]
+
+    # a law no regulation is issued under, and an unknown one: empty, as the other lists
+    # of an instrument
+    for bwb_id in (REGELING, "BWBR0099999"):
+        body = _get(store, f"/api/instruments/{bwb_id}/delegated")
+        assert body == {"bwb_id": bwb_id, "total": 0, "items": []}

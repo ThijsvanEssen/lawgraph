@@ -105,6 +105,8 @@ URLS = [
     f"/api/instruments/{BWB}/judgments?year=2020",
     f"/api/instruments/{BWB}/dossiers",
     f"/api/instruments/{BWB}/related-instruments",
+    # the regulations issued under the law: its articles, then their BASED_ON edges
+    f"/api/instruments/{BWB}/delegated",
     f"/api/instruments/{BWB}/versions",
     f"/api/articles/{BWB}/1",
     f"/api/articles/{BWB}/1/cited-by",

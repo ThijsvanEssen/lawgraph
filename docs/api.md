@@ -80,6 +80,7 @@ zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that sit
 | `.../dossiers` | dossiers through `LEGISLATED_IN` from the regulation itself (`via: instrument`) and from its amending publications (`via: amending_publication`, `publication` = newest) |
 | `.../judgments` | citing judgments with the cited articles, each with its `court` (ECLI court code), `tier`, `court_kind` and `date`, as in `/api/judgments`, and of a conclusion its `advocate_general` and `advocate_general_role` as on the detail; `sort` `date` (default, the newest first) or `cited` (the most cited articles of the law first, then the newest), ties by id; `limit`, `offset`; `year` (YYYY) keeps the judgments of that year (`total` and the page, echoed as `year`); `facets.year` counts every citing judgment per year (the oldest first, null for those without a date), not the page, also under `year`. Page, total and years come from one reading, dated from the index `judgments_citing`, and are kept an hour per request whatever the data does (a newer answer computes in the background while the kept one is served); the first page (100, the newest first) and the years of the 15 laws with the most citations are warmed |
 | `.../related-instruments` | per related instrument, inbound and outbound article-level `REFERS_TO` counts |
+| `.../delegated` | the regulations whose `Gelet op` names an article of the law as their legal basis (`BASED_ON`, `semantic bwb-grondslagen`), one per regulation: `items` (AMvBs first, then ministerial regulations, then the others, by title), each with its `instrument`, `kind` (BWB type, lower case), `date_in_force` and `articles`: the articles of the law it names, in the order of the law, each with `text` (the reference in its preamble, `16, eerste en zevende lid`) and the `leden`, `onderdelen` and `aanhef` it names (none: the whole article); `total`. A regulation whose versions are all closed (none `current`: repealed) is left out. Per article: `/api/articles/{bwb_id}/{article_number}/delegated` |
 | `/api/annexes/{key}` | one annex with its entries (`index`, `name`, `heading`: the law the entry falls under, `parent_index`: the entry it is nested in) and `referenced_by`: the articles that name it (by label or by name) |
 
 `IMPLEMENTS` rests on an implementation source (`bases`): `national_implementing_measure`
@@ -93,7 +94,7 @@ judgments to instruments and to articles of the ECHR Convention. Verdragenbank t
 Convention articles have no link from Dutch text, so nothing is returned for them.
 
 `articles`, `judgments`, `dossiers`, `amended-by` and `related-instruments` answer for an EU
-act too; `bwb_id` in their response then holds the CELEX number as requested. `versions` and
+act too; `bwb_id` in their response then holds the CELEX number as requested. `versions`, `delegated` and
 `articles/at` are about BWB toestanden: for a CELEX number they are empty. An identifier that names nothing
 gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
