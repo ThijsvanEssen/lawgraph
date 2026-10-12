@@ -391,8 +391,9 @@ def get_explanations(
     response_model=ArticleDelegatedResponse,
     summary="Regulations issued under an article",
     description=(
-        'The regulations whose preamble ("Gelet op") names this article as their '
-        "legal basis (`BASED_ON`), each with the leden it names and its articles that "
+        'The regulations in force whose preamble ("Gelet op") names this article as '
+        "their legal basis (`BASED_ON`; a repealed regulation is left out), each with "
+        "the leden it names and its articles that "
         'refer to this one; and the delegation formulas of the article ("bij of '
         'krachtens algemene maatregel van bestuur"), each with the regulations that '
         "fill it, or none yet. 404 when the article is unknown."

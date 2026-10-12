@@ -1,5 +1,5 @@
-"""The regulations issued under an article: ``BASED_ON`` edges into it, with the articles of
-each regulation that refer to it.
+"""The regulations in force issued under an article, or under any article in force of a law:
+``BASED_ON`` edges into it, with the articles of each regulation that refer to it.
 
 ``semantic bwb-grondslagen`` writes ``Instrument --BASED_ON--> Article`` from the "Gelet op"
 paragraph of a regulation, with the text of that reference in ``meta.text`` ("16, eerste en
@@ -14,11 +14,20 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     RELATION_BASED_ON,
     RELATION_REFERS_TO,
 )
 from lawgraph.db import GraphStore
+
+# A regulation in force: one whose versions are not all closed (none ``current``:
+# repealed); one without versions counts as in force. One probe of the
+# ``(bwb_id, current)`` index of the versions.
+_IN_FORCE = f"""(
+    SELECT bool_or(v.current IS TRUE) FROM {COLLECTION_INSTRUMENT_VERSIONS} v
+    WHERE v.bwb_id = i.bwb_id
+) IS NOT FALSE"""
 
 # One row per regulation: the regulation, the meta of its edge (one per regulation: the
 # lowest key, as the edge writer keys one edge per pair) and the articles of the regulation
@@ -36,6 +45,7 @@ WITH based AS (
 regulations AS (
     SELECT i.id, i.key, i.type, i.labels, i.props, i.bwb_id, b.meta
     FROM based b JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
+    WHERE {_IN_FORCE}
 ),
 referring AS (
     SELECT a.bwb_id, json_agg(json_build_object(
@@ -66,8 +76,8 @@ ORDER BY g.key
 def get_delegated_regulations(
     store: GraphStore, article_id: str
 ) -> list[dict[str, Any]]:
-    """The regulations ``BASED_ON`` the article, by key: ``{instrument, meta, articles}``
-    with ``articles`` the articles of the regulation that refer to it (``id``, ``key``,
+    """The regulations in force ``BASED_ON`` the article, by key:
+    ``{instrument, meta, articles}`` with ``articles`` the articles of the regulation that refer to it (``id``, ``key``,
     ``article_number``, ``display_name``, ``meta`` of the reference). One query."""
     return list(
         store.query(
@@ -77,5 +87,55 @@ def get_delegated_regulations(
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
             },
+        )
+    )
+
+
+# One row per regulation in force issued under any article in force of a law: the regulation
+# and the articles of the law its preamble names, each with the meta of its edge (one per pair: the lowest
+# key), in the order of the law. The articles of the law by their ``(bwb_id, …)`` index,
+# their edges by the ``(to_id, relation, from_collection)`` index: one probe per article,
+# in the query.
+_DELEGATED_BY_LAW_SQL = f"""
+WITH based AS (
+    SELECT DISTINCT ON (e.from_id, a.id)
+           e.from_id, a.id, a.key, a.article_number, a.position,
+           a.props -> 'display_name' AS display_name, e.doc -> 'meta' AS meta
+    FROM {COLLECTION_ARTICLES} a
+    JOIN {COLLECTION_EDGES} e
+      ON e.to_id = a.id AND e.relation = %(based_on)s
+     AND e.from_collection = '{COLLECTION_INSTRUMENTS}'
+    WHERE a.bwb_id = %(bwb)s AND a.repealed IS NOT TRUE
+    ORDER BY e.from_id, a.id, e.key
+),
+grouped AS (
+    SELECT b.from_id, json_agg(json_build_object(
+        'id', b.id,
+        'key', b.key,
+        'article_number', b.article_number,
+        'display_name', b.display_name,
+        'meta', b.meta
+    ) ORDER BY b.position NULLS LAST, b.key) AS articles
+    FROM based b
+    GROUP BY b.from_id
+)
+SELECT json_build_object('_key', i.key, '_id', i.id, 'type', i.type,
+                         'labels', to_json(i.labels), 'props', i.props) AS instrument,
+       g.articles
+FROM grouped g
+JOIN {COLLECTION_INSTRUMENTS} i ON i.id = g.from_id
+WHERE {_IN_FORCE}
+"""
+
+
+def get_delegated_by_law(store: GraphStore, bwb_id: str) -> list[dict[str, Any]]:
+    """The regulations ``BASED_ON`` any article of the law *bwb_id*, in no order:
+    ``{instrument, articles}`` with ``articles`` the articles of the law its preamble names
+    (``id``, ``key``, ``article_number``, ``display_name``, ``meta`` of the edge), in the
+    order of the law. Repealed articles and regulations are left out. One query."""
+    return list(
+        store.query(
+            _DELEGATED_BY_LAW_SQL,
+            {"bwb": bwb_id.upper(), "based_on": RELATION_BASED_ON},
         )
     )
