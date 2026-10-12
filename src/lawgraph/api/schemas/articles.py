@@ -63,8 +63,10 @@ class ArticlePartSpanDTO(BaseModel):
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
         "`onder-a` (an article without leden), `lid-2-onder-a-onder-1` (an onderdeel "
-        "inside an onderdeel), `tekst-1` (a paragraph outside the other parts, such as a line "
-        "between the lists of an article of a bijlage). Unique within the article."
+        "inside an onderdeel), `onder-_39-onder-a` (inside an unmarked onderdeel), `tekst-1` "
+        "(a paragraph outside the other parts, such as a line between the lists of an "
+        "article of a bijlage), `tekst-6-onder-a` (in the list a definition paragraph "
+        "leads). Unique within the article."
     )
     kind: str = Field(description="`aanhef`, `lid`, `onderdeel` or `tekst`.")
     number: str | None = Field(
@@ -76,6 +78,12 @@ class ArticlePartSpanDTO(BaseModel):
         "onderdelen spans them too."
     )
     end: int
+    term: str | None = Field(
+        None,
+        description="The term a definition without a letter or digit defines (an unmarked "
+        "onderdeel, a tekst), as its `<nadruk>` gives it; it is cited by it: `art. 1, "
+        "definitie van 'netwerk- en informatiesysteem', onder a`. Null elsewhere.",
+    )
 
 
 class ArticlePartDTO(ArticlePartSpanDTO):
@@ -111,6 +119,7 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
                 id=str(part.get("id") or ""),
                 kind=str(part.get("kind") or ""),
                 number=part.get("number"),
+                term=part.get("term"),
                 text=text[start:end],
                 start=start,
                 end=end,
