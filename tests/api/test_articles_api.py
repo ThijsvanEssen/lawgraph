@@ -272,6 +272,15 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
             "valid_until": None,
             "current": True,
             "text": "Hij die opzettelijk een ander van het leven berooft",
+            "parts": [
+                {
+                    "id": "onder-_1",
+                    "kind": "onderdeel",
+                    "number": "–",
+                    "start": 0,
+                    "end": 51,
+                }
+            ],
         },
     }
 
@@ -290,12 +299,15 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
     (article,) = body["items"]
     assert article["text_preview"] == "Hij"
     assert article["text"] is None  # the preview was asked for
+    assert article["parts"] == []
     assert article["official_url"]
     assert body["first_version_from"] == "2002-04-01"
 
     whole = client.get("/api/instruments/BWBR0001854/articles/at/2024-01-01").json()
     assert asked[1][2:] == (2000, 0)  # the defaults of /articles
     assert whole["items"][0]["text"] == version["props"]["text"]
+    # The whole-law reader nests the text by its parts, as the article does.
+    assert whole["items"][0]["parts"] == version["props"]["parts"]
 
 
 def test_the_articles_on_a_date_bound_their_page_and_preview():

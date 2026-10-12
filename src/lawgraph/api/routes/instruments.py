@@ -600,7 +600,8 @@ def list_instrument_versions(
         "before the first toestand of the law (``first_version_from``) and when no "
         "version covers that date. ``text_preview`` is the start of the text; with "
         "``text_preview_chars`` the whole ``text`` is left out unless "
-        "``include_text=true``. ``limit`` and ``offset`` page, ``total`` counts every "
+        "``include_text=true``; with the text come its ``parts`` (spans, nested by id). "
+        "``limit`` and ``offset`` page, ``total`` counts every "
         "article."
     ),
     tags=["instruments"],

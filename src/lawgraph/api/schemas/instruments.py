@@ -7,6 +7,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.articles import ArticlePartSpanDTO, parts_from_props
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_URL,
@@ -613,6 +614,12 @@ class InstrumentArticleVersionDTO(BaseModel):
     text: str | None = Field(
         None, description="The whole text; null when it was not asked for."
     )
+    parts: list[ArticlePartSpanDTO] = Field(
+        [],
+        description="The aanhef, leden and onderdelen of the text as spans of it, as "
+        "the article gives them (`lid-2-onder-a`, `onder-_39-onder-a`: an onderdeel "
+        "inside an unmarked one); empty when the text was not asked for.",
+    )
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
@@ -645,6 +652,14 @@ class InstrumentArticleVersionDTO(BaseModel):
                 on=props.get("valid_from"),
             ),
             text=text if include_text else None,
+            parts=(
+                [
+                    ArticlePartSpanDTO(**part.model_dump(exclude={"text"}))
+                    for part in parts_from_props(props)
+                ]
+                if include_text
+                else []
+            ),
             text_preview=text[:text_preview_chars] if text else None,
         )
 

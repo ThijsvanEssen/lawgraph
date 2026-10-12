@@ -53,7 +53,7 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
 }
 
 
-class ArticlePartDTO(BaseModel):
+class ArticlePartSpanDTO(BaseModel):
     """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
 
     The parts and the printed numbers between them cover the whole text."""
@@ -71,12 +71,19 @@ class ArticlePartDTO(BaseModel):
         description="The number as printed: `2`, `2a`, `a`, `1°`; null for an aanhef "
         "or an item without one."
     )
-    text: str = Field(
-        description="The content without its number: `text[start:end]` of the article. "
-        "A part with onderdelen spans them too."
+    start: int = Field(
+        description="Offset of the part in the `text` of the article; a part with "
+        "onderdelen spans them too."
     )
-    start: int = Field(description="Offset of the part in the `text` of the article.")
     end: int
+
+
+class ArticlePartDTO(ArticlePartSpanDTO):
+    """A part of an article with its content."""
+
+    text: str = Field(
+        description="The content without its number: `text[start:end]` of the article."
+    )
 
 
 def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
