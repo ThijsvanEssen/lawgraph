@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db.queries import ek_seats
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CROLL = "/persoon/mr_r_s_croll_d66"
@@ -225,3 +226,51 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: GraphStore) -> 
         )
     finally:
         app.dependency_overrides.pop(get_store, None)
+
+
+def test_the_hall_on_a_day_is_the_plan_read_since(store: GraphStore) -> None:
+    """Wie zit waar shows today's plan only: a day from the day it was read gets it, a day
+    before it gets none, and the response says from which day the plan is known."""
+    ek_seats.write(
+        store,
+        [
+            {
+                "start": "2023-06-13",
+                "election": "2023-05-30",
+                "source": {},
+                "checked": True,
+                "mismatches": [],
+            }
+        ],
+        [
+            {
+                "from_date": "2023-06-13",
+                "to_date": None,
+                "term": "2023-06-13",
+                "seats": {"D66": 7},
+                "events": [],
+            }
+        ],
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+
+        def seats(**params: str) -> dict[str, Any]:
+            response = client.get("/api/parliament/seats", params=params)
+            assert response.status_code == 200
+            return dict(response.json())
+
+        today = seats(chamber="EK")
+        on_read = seats(chamber="EK", date="2026-09-30")
+        later = seats(chamber="EK", date="2026-10-05")
+        before = seats(chamber="EK", date="2026-09-29")
+        tk = seats()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert today["hall_read_on"] == "2026-09-30"
+    assert on_read["hall"] == today["hall"] == later["hall"]
+    assert len(on_read["hall"]["seats"]) == 7
+    assert (before["hall"], before["hall_read_on"]) == (None, "2026-09-30")
+    # the Tweede Kamer publishes no plan of its seats as data
+    assert (tk["hall"], tk["hall_read_on"]) == (None, None)
