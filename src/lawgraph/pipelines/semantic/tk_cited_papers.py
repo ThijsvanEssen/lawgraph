@@ -1,0 +1,162 @@
+"""Semantic pipeline: the Kamerstukken a paper's subject names, as edges between the papers.
+
+The Kamer files a letter that carries out a motion as a case of its own; only its subject
+names the motion: "Uitvoering van de motie van het lid Vliegenthart c.s. over …
+(Kamerstuk 25424-795)" (``core.kamerstuk_refs``). Each paper the subject (else the title)
+names by dossier and number gets an edge when it is in the graph, found by its
+``dossier_number``, ``dossier_suffix`` and ``sequence``: ``ANSWERS`` from a letter of the
+government (``Brief regering``) to a motion, ``REFERS_TO`` otherwise (a list of questions
+about a letter, the decision note of a letter, an inbreng on it). ``meta.basis`` is
+``subject``, ``meta.text`` the reference as written.
+
+With ``--since`` the papers fetched since then (the poll, the nightly run); without it every
+paper, and an edge no longer derived goes (the weekly run).
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+from collections import Counter
+from collections.abc import Iterable
+from typing import Any
+
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    RELATION_ANSWERS,
+    RELATION_REFERS_TO,
+)
+from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers
+from lawgraph.core.logging import get_logger
+from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.db import EdgeWriter, edge_key
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries.semantic import tk as semantic_tk
+
+from .base import SemanticPipelineBase
+
+logger = get_logger(__name__)
+
+SEMANTIC_SOURCE = "tk-cited-papers"
+BASIS = "subject"
+RELATIONS = (RELATION_ANSWERS, RELATION_REFERS_TO)
+# The kind of a letter of the government, and the kinds of a motion start with "Motie"
+# ("Motie", "Motie (gewijzigd/nader)").
+LETTER_OF_GOVERNMENT = "Brief regering"
+MOTION = "Motie"
+
+PaperKey = tuple[str, str, int]  # dossier number, suffix ("" for none), sequence
+Kept = dict[str, dict[str, set[str]]]  # relation -> paper -> keys of its edges
+
+
+def relation_of(source_kind: str | None, target_kind: str | None) -> str:
+    """``ANSWERS`` from a letter of the government to a motion, else ``REFERS_TO``."""
+    if source_kind == LETTER_OF_GOVERNMENT and (target_kind or "").startswith(MOTION):
+        return RELATION_ANSWERS
+    return RELATION_REFERS_TO
+
+
+def _key(ref: PaperRef) -> PaperKey:
+    return (ref.number, (ref.suffix or "").upper(), ref.sequence)
+
+
+class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
+    """``ANSWERS`` and ``REFERS_TO`` to the Kamerstukken a paper's subject names."""
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = PipelineResult()
+        ids = self._fetched_since(since)
+        logger.info("Kamerstukken named in subjects (since=%s).", describe_since(since))
+        dossiers = semantic_tk.dossier_labels(self.store)
+
+        def is_dossier(number: str, suffix: str | None) -> bool:
+            return f"{number}-{suffix}" in dossiers
+
+        named: list[tuple[dict[str, Any], PaperRef]] = []
+        for row in self._track(
+            semantic_tk.papers_naming_kamerstukken(self.store, ids), "papers"
+        ):
+            named += [(row, ref) for ref in cited_papers(row["subject"], is_dossier)]
+
+        found = {
+            (row["number"], row["suffix"], int(row["sequence"])): row
+            for row in semantic_tk.papers_by_number(
+                self.store, sorted({_key(ref) for _, ref in named})
+            )
+        }
+        kept, written = self._write(named, found, result)
+        removed = self._remove_stale(kept, ids)
+        result.skipped += written["not found"]
+        logger.info(
+            "Kamerstukken named: %d in %d papers; %s; removed %d.",
+            len(named),
+            len({row["id"] for row, _ in named}),
+            ", ".join(f"{count} {what}" for what, count in sorted(written.items())),
+            removed,
+        )
+        return result
+
+    def _fetched_since(self, since: dt.datetime | None) -> list[str] | None:
+        """The ids of the papers of the Tweede Kamer fetched since *since*; ``None`` for
+        every paper."""
+        since_iso = iso_timestamp(since)
+        if since_iso is None:
+            return None
+        return sorted(
+            f"{COLLECTION_DOCUMENTS}/{make_node_key(str(guid))}"
+            for guid in raw_queries.tk_document_ids_fetched_since(self.store, since_iso)
+        )
+
+    def _write(
+        self,
+        named: Iterable[tuple[dict[str, Any], PaperRef]],
+        found: dict[PaperKey, dict[str, Any]],
+        result: PipelineResult,
+    ) -> tuple[Kept, Counter[str]]:
+        """Write an edge for every paper named that is in the graph; the keys kept per
+        relation and paper, and how many of each relation and how many not found."""
+        kept: Kept = {relation: {} for relation in RELATIONS}
+        written: Counter[str] = Counter()
+        edges = EdgeWriter(self.store, what=None)
+        for row, ref in named:
+            target = found.get(_key(ref))
+            if target is None:
+                written["not found"] += 1
+                continue
+            source_id, target_id = str(row["id"]), str(target["id"])
+            if source_id == target_id:
+                continue
+            relation = relation_of(row.get("kind"), target.get("kind"))
+            edges.add(
+                source_id,
+                target_id,
+                relation,
+                source=SEMANTIC_SOURCE,
+                confidence=1.0,
+                meta={"basis": BASIS, "text": ref.text},
+            )
+            key = edge_key(source_id, relation, target_id)
+            if key not in kept[relation].setdefault(source_id, set()):
+                kept[relation][source_id].add(key)
+                written[relation] += 1
+        edges.flush_into(result)
+        return kept, written
+
+    def _remove_stale(self, kept: Kept, ids: list[str] | None) -> int:
+        """Remove the edges of this step no longer derived: of the papers *ids*, or of
+        every paper when it is ``None``."""
+        removed = 0
+        for relation, per_paper in kept.items():
+            if ids is None:
+                removed += semantic_edges.remove_edges_of_source_except(
+                    self.store,
+                    relation,
+                    SEMANTIC_SOURCE,
+                    sorted(key for keys in per_paper.values() for key in keys),
+                )
+            else:
+                removed += semantic_edges.remove_edges_from(
+                    self.store, relation, SEMANTIC_SOURCE, ids, per_paper
+                )
+        return removed

@@ -163,14 +163,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "REFERS_TO",
         (_A, _DOC, _J, _I),
-        (_A, _I, _J),
-        "A text refers to an article, instrument or judgment: the reference is in the "
-        "text, never only in metadata (a judgment's earlier instance or conclusion is "
+        (_A, _I, _J, _DOC),
+        "A text refers to an article, instrument, judgment or Kamerstuk: the reference is in "
+        "the text, never only in metadata (a judgment's earlier instance or conclusion is "
         "`APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, "
         "`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The "
         "source node says who refers; article → "
         "article edges also carry a `semantic_type`. From an instrument: a regulation "
-        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`.",
+        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`. Document → "
+        'document: its subject names the paper by dossier and number, "(Kamerstuk '
+        '36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` '
+        "it.",
     ),
     RelationSpec(
         "EXPLAINS",
@@ -218,12 +221,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "ANSWERS",
         (_J, _DOC),
-        (_J, _COMMIT),
+        (_J, _COMMIT, _DOC),
         "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
         "questions: the earlier instance its metadata names (`meta.basis` "
         "`formal_relation`), else the ECLI or the case number and date its text names "
         "(`referral_text`). A letter → the commitment it fulfils "
-        "(`Toezegging.KamerbriefNakoming`).",
+        "(`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its "
+        'subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk '
+        '25424-795)" (`meta.basis` `subject`, `meta.text` as written).',
     ),
     RelationSpec(
         "SAME_AS",
