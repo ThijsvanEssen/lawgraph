@@ -2,7 +2,8 @@
 
 The fixtures are articles of the toestanden the repository served on 9 October 2026, cut
 out whole (the Wft article and two lists shortened): Besluit zorgverzekering art. 1, Wft
-art. 1:1, Wet milieubeheer art. 8.47 and Vreemdelingenwet 2000 art. 1.
+art. 1:1, Wet milieubeheer art. 8.47 and Vreemdelingenwet 2000 art. 1; and Cyberbeveiligingswet
+art. 1 of 15 August 2026, its unmarked list cut to four terms.
 """
 
 from __future__ import annotations
@@ -90,6 +91,27 @@ def test_a_term_without_a_colon_is_left_out_and_a_regulation_without_any_gives_n
     ]
 
 
+def test_an_unmarked_list_gives_no_place_and_each_term_its_own_definition() -> None:
+    found = _read("cbw", "BWBR0052872")
+    # <lijst type="ongemarkeerd">: its <li.nr> is a dash, no letter of an onderdeel
+    assert [(d["term"], d["place"]) for d in found] == [
+        ("belangrijke entiteit", None),
+        ("entiteit", None),
+        ("essentiële entiteit", None),
+        ("risico", None),
+    ]
+    assert len({definition_ref(d) for d in found}) == 4
+    text = "De essentiële entiteit weegt de risico’s en de omvang van de entiteit."
+    assert [
+        (text[s:e], d["term"])
+        for s, e, d in TermMatcher(found).find(text, "/Hoofdstuk7/Artikel21")
+    ] == [
+        ("essentiële entiteit", "essentiële entiteit"),
+        ("risico", "risico"),
+        ("entiteit", "entiteit"),
+    ]
+
+
 def test_the_terms_of_a_text_each_with_the_definition_that_holds_there() -> None:
     def defined(term: str, path: str = "", place: str = "a") -> dict:
         return {
@@ -114,11 +136,11 @@ def test_the_terms_of_a_text_each_with_the_definition_that_holds_there() -> None
     ]
     # whatever its case; the longest term first; whole words only
     assert found == [
-        ("Wet", "bwbr0000001_1:a"),
-        ("eigen bijdrage", "bwbr0000001_1:b"),
-        ("bijdrage", "bwbr0000001_1:c"),
+        ("Wet", "bwbr0000001_1:a:wet"),
+        ("eigen bijdrage", "bwbr0000001_1:b:eigen bijdrage"),
+        ("bijdrage", "bwbr0000001_1:c:bijdrage"),
     ]
     # in chapter 2 its own definition of the same term, the narrower one
     in_chapter = matcher.find("een bijdrage", "/Hoofdstuk2/Artikel9")
-    assert [definition_ref(d) for _, _, d in in_chapter] == ["bwbr0000001_1:d"]
+    assert [definition_ref(d) for _, _, d in in_chapter] == ["bwbr0000001_1:d:bijdrage"]
     assert TermMatcher([]).find("de wet", "") == []
