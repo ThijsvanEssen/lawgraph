@@ -216,3 +216,40 @@ def test_an_instrument_hit_has_its_kind_and_dates(store: GraphStore, mode: str) 
         "bwbr0021767": ("beleidsregel", None, None, "2007-04-27"),
         "bwbr0034957": ("beleidsregel", None, None, "2014-03-22"),
     }
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+def test_a_word_and_the_abbreviation_of_a_law_find_its_article(
+    store: GraphStore, mode: str
+) -> None:
+    """ "zorgplicht cbw" finds art. 21 of the Cyberbeveiligingswet, whose heading holds
+    the word and whose law has the abbreviation (its short title from the WTI), as
+    "zorgplicht cyberbeveiligingswet" does."""
+    cbw = "BWBR0052872"
+    _put(
+        store,
+        "instruments",
+        cbw.lower(),
+        bwb_id=cbw,
+        title="Cyberbeveiligingswet",
+        citation_title="Cyberbeveiligingswet",
+        short_title="Cbw",
+        aliases=["Cbw"],
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        make_node_key(cbw, "21"),
+        bwb_id=cbw,
+        article_number="21",
+        display_name="Artikel 21 Cyberbeveiligingswet",
+        heading="(zorgplicht)",
+        text="Een essentiële of belangrijke entiteit neemt passende maatregelen.",
+    )
+    search = search_all if mode == "full" else search_live
+    for q in ("zorgplicht cbw", "Zorgplicht CBW", "zorgplicht cyberbeveiligingswet"):
+        found = search(store, q=q, types=[COLLECTION_ARTICLES])
+        hits = found[0] if isinstance(found, tuple) else found
+        assert [h["key"] for h in hits[COLLECTION_ARTICLES]] == [
+            make_node_key(cbw, "21")
+        ]
