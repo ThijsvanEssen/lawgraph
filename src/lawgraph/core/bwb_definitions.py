@@ -24,7 +24,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.core.bwb_xml import article_key, article_number
+from lawgraph.core.bwb_xml import article_key, article_number, leading_term
 from lawgraph.core.xml import local_name
 
 # "… wordt (in deze wet …) verstaan onder:", the last words of an announcement.
@@ -123,7 +123,7 @@ def _after_announcement(
     for index, element in enumerate(following):
         if local_name(element.tag) != "al":
             continue
-        term = _leading_term(element)
+        term = leading_term(element)
         if term is None:
             more = _text(element)
             if found and more:
@@ -164,20 +164,6 @@ def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any
             ),
             "jci": jci,
         }
-
-
-def _leading_term(al: ET.Element) -> str | None:
-    """The term an ``<al>`` begins with in ``<nadruk>``, without its colon: inside it
-    ("<nadruk>aanbieden:</nadruk>") or right after it ("<nadruk>bieder</nadruk>: een …")."""
-    first = next(iter(al), None)
-    if first is None or local_name(first.tag) != "nadruk" or (al.text or "").strip():
-        return None
-    term = _text(first)
-    if term.endswith(":"):
-        term = term[:-1]
-    elif not (first.tail or "").lstrip().startswith(":"):
-        return None
-    return term.strip() or None
 
 
 def _definition(

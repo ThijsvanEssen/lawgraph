@@ -279,6 +279,7 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
                     "number": "–",
                     "start": 0,
                     "end": 51,
+                    "term": "Hij",
                 }
             ],
         },

@@ -295,7 +295,7 @@ renumbering; each version has a `versie-id`.
   `false` on every other current article: it is never read from the number.
 - Articles of the current toestand without text, or without a number and a `stam-id`, are not
   written.
-- `parts` is the structure of the text: a list of `{id, kind, number, start, end}`, offsets into
+- `parts` is the structure of the text: a list of `{id, kind, number, start, end, term}`, offsets into
   the article's own `text` (the text of a part is `text[start:end]`, without its printed
   number). `kind` is `lid`, `onderdeel`, `aanhef` or `tekst`; sentences (volzinnen) are not parts. A
   part with onderdelen spans them too, and the list is ordered by `start`, an enclosing part
@@ -307,7 +307,12 @@ renumbering; each version has a `versie-id`.
   its siblings; a marker that repeats one before it gets `_<n>`, its occurrence
   (`onder-a_2`). In an article with parts, a paragraph in none of them (a note next to the
   leden, a line between the lists of an article of a bijlage) is a `tekst` (`tekst-1`,
-  `tekst-2`), so that the parts and their printed numbers cover the whole text.
+  `tekst-2`), so that the parts and their printed numbers cover the whole text. A paragraph
+  that is only a term (`<nadruk>adviseren:</nadruk>`, Wft 1:1) holds the list after it:
+  `tekst-6-onder-a`. A list keeps its parent, also an unmarked one: `onder-_39-onder-a`.
+  `term` (absent elsewhere) is the term an unmarked onderdeel or a `tekst` defines, the
+  `<nadruk>` its paragraph begins with; such a definition is cited by it ("art. 1,
+  definitie van 'netwerk- en informatiesysteem', onder a").
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a

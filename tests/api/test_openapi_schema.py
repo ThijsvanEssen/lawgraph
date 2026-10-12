@@ -188,7 +188,7 @@ def _properties(name: str) -> set[str]:
 def test_an_article_says_where_its_parts_and_references_are() -> None:
     assert "parts" in _properties("ArticleSummaryDTO")
     assert "parts" in _properties("ArticleVersionDTO")
-    assert {"id", "kind", "number", "text", "start", "end"} == _properties(
+    assert {"id", "kind", "number", "text", "start", "end", "term"} == _properties(
         "ArticlePartDTO"
     )
     assert "references" in _properties("ArticleDetailResponse")
