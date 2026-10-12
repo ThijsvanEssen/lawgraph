@@ -378,24 +378,60 @@ def _terms(
     return terms, params
 
 
+def _lengths(terms: list[_Term]) -> list[tuple[str, str]]:
+    """The fields and analyzers whose lengths the terms weigh, in the order of the terms."""
+    return list(dict.fromkeys((term.field, term.analyzer) for term in terms))
+
+
+def bm25_inputs(
+    store: Any, table: str, words: dict[str, str], fields: list[str]
+) -> tuple[str, str, dict[str, Any], list[Any]]:
+    """What the rank of a row ``doc`` of *table* reads of it for the words: ``(tf, len,
+    params, shape)``. *tf* is the SQL of an array of the frequency of every term, in the
+    order of the ``t0``, ``t1``, … of ``bm25_sql``; *len* that of the length of every field
+    and analyzer they weigh (``l0``, ``l1``, …); *shape* the terms and lengths they are of.
+    Kept apart from the row (``search_candidates``), they rank it as its own columns do
+    (``Bm25.stored``)."""
+    terms, params = _terms(store, table, words, fields, {})
+    tf = ", ".join(f"({_tf(term)})::bigint" for term in terms)
+    lengths = ", ".join(f"({_length(*pair)})::bigint" for pair in _lengths(terms))
+    shape = [
+        [[term.field, term.analyzer, str(params[term.param])] for term in terms],
+        [list(pair) for pair in _lengths(terms)],
+    ]
+    return f"ARRAY[{tf}]::bigint[]", f"ARRAY[{lengths}]::bigint[]", params, shape
+
+
+@dataclass(frozen=True)
+class Bm25:
+    """The BM25 of a row ``doc`` (``bm25_sql``): *rank* adds up the frequency and length of
+    each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} doc``)
+    reads once per row of the table, and *stored* of a row that holds them in its arrays
+    ``tf`` and ``len`` (``bm25_inputs``)."""
+
+    rank: str
+    lateral: str
+    stored: str
+    params: dict[str, Any]
+
+
 def bm25_sql(
     store: Any,
     table: str,
     words: dict[str, str],
     fields: list[str],
     boosts: dict[str, float],
-) -> tuple[str, str, dict[str, Any]]:
+) -> Bm25:
     """The BM25 of a row ``doc`` of *table* for the words (parameter name → word) in
-    *fields*: ``(rank, lateral, params)``. *lateral* (``CROSS JOIN LATERAL …``, to follow
-    ``FROM {table} doc``) reads the frequency and length of each term once per row; *rank*
-    adds them up."""
+    *fields*."""
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
-        return "0", "", params
+        return Bm25("0", "", "", params)
     stats = _stats_now(store, table)
     frequencies = _frequencies(store, table, terms, params, stats["N"])
-    columns, parts = [], []
-    lengths: dict[tuple[str, str], str] = {}  # one length per field and analyzer
+    names = {pair: n for n, pair in enumerate(_lengths(terms))}
+    columns, stored, parts = [], [], []
+    lengths: set[int] = set()  # one length per field and analyzer
     for n, term in enumerate(terms):
         df = frequencies[n]
         if df == 0:
@@ -406,16 +442,22 @@ def bm25_sql(
         avglen = stats.get(f"{term.field}/{term.analyzer}")
         # without its mean length (an estimate, ``_stats_now``) no length is weighed: b = 0
         b = B if avglen else 0.0
-        length = lengths.get((term.field, term.analyzer))
-        if length is None:
-            length = lengths[(term.field, term.analyzer)] = f"l{len(lengths)}"
-            columns.append(f"{_length(term.field, term.analyzer)} AS {length}")
+        k = names[(term.field, term.analyzer)]
+        if k not in lengths:
+            lengths.add(k)
+            columns.append(f"{_length(term.field, term.analyzer)} AS l{k}")
+            stored.append(f"doc.len[{k + 1}] AS l{k}")
         columns.append(f"{_tf(term)} AS t{n}")
+        stored.append(f"doc.tf[{n + 1}] AS t{n}")
         parts.append(
             f"CASE WHEN f.t{n} > 0 THEN {weight * (K1 + 1)} * f.t{n}"
-            f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.{length}) ELSE 0 END"
+            f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.l{k}) ELSE 0 END"
         )
     if not parts:
-        return "0", "", params
-    lateral = f"CROSS JOIN LATERAL (SELECT {', '.join(columns)} OFFSET 0) f"
-    return "(" + " + ".join(parts) + ")", lateral, params
+        return Bm25("0", "", "", params)
+    return Bm25(
+        "(" + " + ".join(parts) + ")",
+        f"CROSS JOIN LATERAL (SELECT {', '.join(columns)} OFFSET 0) f",
+        f"CROSS JOIN LATERAL (SELECT {', '.join(stored)} OFFSET 0) f",
+        params,
+    )

@@ -2,7 +2,7 @@
 
     lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
     lawgraph <bootstrap|check|code-families|courts|curated|expand-graph|feed-events|gaps|
-              ministries|poll|search-stats|sitemaps|verify> [options]
+              ministries|poll|search-candidates|search-stats|sitemaps|verify> [options]
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
@@ -24,6 +24,7 @@ from lawgraph.commands.feed_events import main as feed_events
 from lawgraph.commands.gaps import main as gaps
 from lawgraph.commands.ministries import main as ministries
 from lawgraph.commands.poll import main as poll
+from lawgraph.commands.search_candidates import main as search_candidates
 from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
 from lawgraph.commands.verify import main as verify
@@ -43,6 +44,7 @@ _COMMANDS: dict[str, Command] = {
     "gaps": gaps,
     "ministries": ministries,
     "poll": poll,
+    "search-candidates": search_candidates,
     "search-stats": search_stats,
     "sitemaps": sitemaps,
     "verify": verify,

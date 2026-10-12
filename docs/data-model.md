@@ -66,7 +66,15 @@ them and a fifth, 5 times as often as in all summaries, at most 20, the most tel
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
 in how many light summaries each stem is (the stems in 3 or more, and under `''` how many
 summaries there are), which a run after a poll weighs the terms against. The step raises the
-data version of `articles` when terms changed.
+data version of `articles` when terms changed. `lg_search_candidates` holds, per type
+(`judgments`, `articles`, `documents`) and word searched most (`lawgraph search-candidates`),
+the hits a search of that word ranks (the first 1,000 in the order of their columns), in that
+order (`pos`), with what their rank reads of each: the frequency of every term (`tf`), the
+length of every field it weighs (`len`) and, of an article, its citations;
+`lg_search_candidates_state` the version of the type's table they were read at
+(`lg_data_version`), the signature of the search they were read for, and how many hits the
+word has. A search of the word takes them while both are those of now, and finds its hits
+itself otherwise.
 
 ## Node types and relation catalogue
 
@@ -746,7 +754,7 @@ van State as its vice-president. So each signature keeps what it was signed as:
   otherwise (the griffier, the Raad van State, the Algemene Rekenkamer, the Nationale
   ombudsman). No minister or staatssecretaris signs for a faction in the source.
 
-`MEMBER_OF` edges run from a member to a committee (`meta` = the seat that represents the membership: `from_date`, `to_date`, `role` (`Functie` of `CommissieZetelVastPersoon` or `CommissieZetelVervangerPersoon` as the Kamer writes it: `Lid`, `Voorzitter`, `OnderVz`, `Plv. lid`), `substitute` for a substitute's seat, and `periods`, every seat oldest first, when there is more than one or it has a role; an open seat represents before a closed one, a member's before a substitute's) and to a
+`MEMBER_OF` edges run from a member to a committee (`meta` = the seat that represents the membership: `from_date`, `to_date`, `role` (`Functie` of `CommissieZetelVastPersoon` or `CommissieZetelVervangerPersoon` in one spelling, its words run together without dots: `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`, also for the `Plv. lid` of older seats), `substitute` for a substitute's seat, and `periods`, every seat oldest first, when there is more than one or it has a role; an open seat represents before a closed one, a member's before a substitute's) and to a
 faction (`meta.from_date`, `meta.to_date`, `meta.role`, `meta.record_ids`: the
 FractieZetelPersoon records it is made of). Edge keys are one per pair, so a
 member who leaves and rejoins keeps one edge with the latest period, whatever order the records

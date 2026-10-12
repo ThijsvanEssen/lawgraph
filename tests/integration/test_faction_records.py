@@ -4,6 +4,8 @@ any of its ids reaches it. The real ``normalize tk-dossiers`` on stored records.
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -13,6 +15,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
+    RAW_KIND_TK_FRACTIEZETELVACATURE,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
     SOURCE_TK,
@@ -158,3 +161,69 @@ def test_a_vote_of_a_faction_the_graph_lacks_is_reported(
             )
     done = cli("normalize", "tk-dossiers")
     assert "do not add up to the tally; the factions: VVD." in done.stderr + done.stdout
+
+
+def test_a_run_over_a_window_reaches_the_faction_by_every_record(
+    database: str, cli: Any
+) -> None:
+    """A run over a window reads the factions it does not hold from the database: a seat or
+    a vacancy on the old record of 50PLUS is still the faction's (the nightly run dropped
+    them: Rutte III counted 147 seats of 150 for three years)."""
+    store = GraphStore()
+    old_seat = {"Id": uid(9, 5), "Fractie_Id": OLD_50PLUS}
+    vacancy = {
+        "Id": uid(1, 4),
+        "FractieZetel": old_seat,
+        "Van": "2017-03-23T00:00:00+01:00",
+        "TotEnMet": "2017-03-30T00:00:00+02:00",
+    }
+    records = [
+        (kind, {**payload, "FractieZetel": old_seat})
+        if kind == RAW_KIND_TK_FRACTIEZETELPERSOON
+        else (kind, payload)
+        for kind, payload in _records()
+    ]
+    with RawSourceWriter(store) as writer:
+        for kind, payload in [*records, (RAW_KIND_TK_FRACTIEZETELVACATURE, vacancy)]:
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_TK,
+                    kind=kind,
+                    external_id=payload["Id"],
+                    payload_json=payload,
+                )
+            )
+    cli("normalize", "tk-dossiers")
+
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    # Krol takes a seat on the new record of 50PLUS: his timeline is made again
+    again = {
+        "Id": uid(2, 5),
+        "Persoon_Id": KROL,
+        "FractieZetel": {"Id": uid(8, 5), "Fractie_Id": NEW_50PLUS},
+        "Van": "2025-11-12T00:00:00+01:00",
+        "TotEnMet": None,
+        "Functie": "Lid",
+    }
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_FRACTIEZETELPERSOON,
+                external_id=again["Id"],
+                payload_json=again,
+            )
+        )
+    cli("normalize", "tk-dossiers", "--since", window)
+
+    krol = store.get_node("members", make_node_key(KROL))
+    assert krol is not None
+    assert [
+        (m["faction_key"], m["from_date"]) for m in krol.props["faction_memberships"]
+    ] == [("50plus", "2012-09-20"), ("50plus", "2025-11-12")]
+    faction = store.get_node("factions", "50plus")
+    assert faction is not None
+    assert faction.props["vacancies"] == [
+        {"from_date": "2017-03-23", "to_date": "2017-03-29"}
+    ]

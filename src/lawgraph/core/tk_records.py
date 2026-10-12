@@ -397,14 +397,22 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
 @dataclass(frozen=True)
 class CommitteeSeat:
     """One period a person held a seat on a commissie: from, to (inclusive, None while
-    open), the role as the Kamer writes it (``CommissieZetel…Persoon.Functie``: ``Lid``,
-    ``Voorzitter``, ``OnderVz``, ``Plv. lid``) and whether it was a substitute's seat
+    open), the role (``CommissieZetel…Persoon.Functie``, ``seat_role``: ``Lid``,
+    ``Voorzitter``, ``OnderVz``, ``PlvLid``) and whether it was a substitute's seat
     (``CommissieZetelVervangerPersoon``)."""
 
     from_date: str | None
     to_date: str | None
     role: str | None = None
     substitute: bool = False
+
+
+def seat_role(functie: str | None) -> str | None:
+    """The ``Functie`` of a committee seat in one spelling: its words run together, each
+    capitalised, without dots (``PlvLid``, as the Kamer writes it now, also for the
+    ``Plv. lid`` of older seats; ``OnderVz``, ``Lid``)."""
+    words = re.findall(r"[^\W_]+", functie or "")
+    return "".join(w[0].upper() + w[1:] for w in words) or None
 
 
 def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
@@ -424,7 +432,7 @@ def committee_seats(payload: Payload) -> dict[str, list[CommitteeSeat]]:
                         CommitteeSeat(
                             iso_date(held.get("Van")),
                             iso_date(held.get("TotEnMet")),
-                            _text(held, "Functie") or None,
+                            seat_role(_text(held, "Functie")),
                             substitute,
                         )
                     )
@@ -635,28 +643,34 @@ def faction_label(payload: Payload) -> str:
     return _text(payload, "Afkorting") or _text(payload, "NaamNL")
 
 
-def faction_aliases(payload: Payload, vote_labels: Iterable[str]) -> list[str]:
-    """Every spelling of this fractie that other TK endpoints use.
+def _acronym(name: str) -> str:
+    """``NSC`` of ``Nieuw Sociaal Contract``: the first letter of every word."""
+    return "".join(w[0] for w in name.split() if w and w[0].isalpha()).upper()
 
-    ``Fractie.Afkorting`` is sometimes the full party name while
-    ``Stemming.ActorFractie`` uses the short form, so the alias set is what
-    joins the two. An auto-acronym is accepted only when a vote actually uses
-    it; unvalidated guesses would merge distinct parties.
+
+def faction_aliases(payload: Payload, vote_labels: Iterable[str]) -> list[str]:
+    """Every name of this fractie: its abbreviation, its name and the names its own vote
+    rows give it (*vote_labels*, ``Stemming.ActorFractie`` of the rows whose
+    ``Fractie_Id`` is one of its records).
+
+    ``Fractie.Afkorting`` is sometimes the full party name while its votes use the short
+    form (``NSC``), so the alias set is what joins the two.
     """
     abbreviation = _text(payload, "Afkorting")
     name = _text(payload, "NaamNL")
-    label = abbreviation or name
-    labels = set(vote_labels)
-    aliases = {value for value in (abbreviation, name) if value}
-    acronym = "".join(w[0] for w in name.split() if w and w[0].isalpha()).upper()
-    if len(acronym) >= 2 and acronym in labels:
-        aliases.add(acronym)
-    aliases.update(
-        spelling
-        for spelling in labels
-        if make_node_key(spelling) == make_node_key(label)
-    )
-    return sorted(aliases)
+    return sorted({abbreviation, name, *vote_labels} - {""})
+
+
+def short_name(payload: Payload, aliases: Iterable[str]) -> str:
+    """The abbreviation of a fractie: ``Afkorting``; where the Kamer gives the full name
+    there (``Nieuw Sociaal Contract``), the acronym of it its votes use (``NSC``)."""
+    abbreviation = _text(payload, "Afkorting")
+    name = _text(payload, "NaamNL")
+    acronym = _acronym(name)
+    if (not abbreviation or abbreviation == name) and len(acronym) >= 2:
+        if acronym in set(aliases):
+            return acronym
+    return abbreviation
 
 
 def faction(
@@ -672,8 +686,8 @@ def faction(
     if not external_id or not label or is_deleted(payload):
         return None
     records = [r for r in records or [payload] if not is_deleted(r)]
-    abbreviation = _text(payload, "Afkorting")
     name = _text(payload, "NaamNL")
+    abbreviation = short_name(payload, aliases)
     starts = [d for d in (iso_date(r.get("DatumActief")) for r in records) if d]
     ends = [iso_date(r.get("DatumInactief")) for r in records]
     active = any(end is None for end in ends)
