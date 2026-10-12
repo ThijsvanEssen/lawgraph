@@ -1,10 +1,11 @@
 """Pipeline that fetches the XML of Tweede Kamer papers and stores it in raw_sources.
 
 Only papers whose kind contains one of a few words qualify (by default ``toelichting``,
-``motie``, ``amendement``, ``voorstel van wet`` and ``nota van wijziging``): the memoranda
-that feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), the moties and
-amendementen, and the bill and its changes, whose text is what they say; not the whole
-corpus.
+``motie``, ``amendement``, ``voorstel van wet``, ``nota van wijziging``, ``raad van state``
+and ``nader rapport``): the memoranda that feed the memorandum context (``tk-mvt``,
+``tk-amendment-articles``), the moties and amendementen, the bill and its changes, and the
+advice of the Raad van State on it with the government's answer, whose text is what they
+say; not the whole corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
 raw records.
@@ -48,6 +49,8 @@ DEFAULT_KINDS = (
     "amendement",
     "voorstel van wet",
     "nota van wijziging",
+    "raad van state",
+    "nader rapport",
 )
 
 # A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
