@@ -217,6 +217,7 @@ def test_a_basis_without_a_formula_and_a_formula_without_a_regulation(
 
 REPEALED = "BWBR0052881"
 LATER = "BWBR0052882"
+ON_REPEALED = "BWBR0052883"
 
 
 def _version(bwb_id: str, valid_from: str, *, current: bool) -> Node:
@@ -229,29 +230,68 @@ def _version(bwb_id: str, valid_from: str, *, current: bool) -> Node:
     )
 
 
-def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
-    store = GraphStore()
-    _seed(store)
+def _seed_in_force(store: GraphStore) -> None:
+    """A repealed regulation on article 16, one in force on 16, 18 and the repealed
+    article 19, and one in force on article 19 only."""
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                # every version closed: repealed, left out
+                # every version closed: repealed
                 _instrument(
                     REPEALED, "AMvB", "Vervallen besluit", basis=[_basis("16", "16")]
                 ),
                 _version(REPEALED, "2020-01-01", current=False),
-                # a version in force: kept, its kind folded to lower case
+                # a version in force; its kind as the source writes it
                 _instrument(
                     LATER,
                     "AMvB",
                     "Aanvullend besluit",
                     date_in_force="2026-01-01",
-                    basis=[_basis("18", "18"), _basis("16", "16, derde lid")],
+                    basis=[
+                        _basis("18", "18"),
+                        _basis("16", "16, derde lid"),
+                        _basis("19", "19"),
+                    ],
                 ),
                 _version(LATER, "2026-01-01", current=True),
                 _version(LATER, "2025-01-01", current=False),
+                _article(WET, "19", repealed=True),
+                _instrument(
+                    ON_REPEALED,
+                    "ministeriele-regeling",
+                    "Regeling op een vervallen artikel",
+                    basis=[_basis("19", "19")],
+                ),
+                _version(ON_REPEALED, "2026-01-01", current=True),
             ]
         )
+
+
+def test_a_repealed_regulation_is_not_issued_under_an_article(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_in_force(store)
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/articles/{WET}/16/delegated")
+
+    # the repealed AMvB is left out, also from the clauses; the one in force is kept
+    assert [i["instrument"]["bwb_id"] for i in body["items"]] == [
+        LATER,
+        BESLUIT,
+        REGELING,
+    ]
+    assert REPEALED.lower() not in {
+        k for c in body["clauses"] for k in c["instruments"]
+    }
+
+
+def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_in_force(store)
     cli("semantic", "bwb-grondslagen")
 
     body = _get(store, f"/api/instruments/{WET}/delegated")
@@ -264,10 +304,12 @@ def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
         (BESLUIT, "amvb"),
         (REGELING, "ministeriele-regeling"),
     ]
+    # not the repealed regulation, nor the one on a repealed article only
     later, _, besluit, regeling = body["items"]
     assert later["date_in_force"] == "2026-01-01"
     assert later["instrument"]["path"] == f"/wetten/{LATER}"
-    # the articles of the law each names, in the order of the law, with its leden
+    # the articles in force of the law each names, in the order of the law, with its
+    # leden: not the repealed article 19
     assert [(a["article_number"], a["leden"]) for a in later["articles"]] == [
         ("16", ["3"]),
         ("18", []),

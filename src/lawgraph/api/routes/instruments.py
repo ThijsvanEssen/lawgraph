@@ -534,10 +534,11 @@ def get_instrument_related_route(
     response_model=InstrumentDelegatedResponse,
     summary="Regulations issued under a law",
     description=(
-        'The regulations in force whose preamble ("Gelet op") names an article of this '
-        "law as their legal basis (`BASED_ON`), one per regulation with the articles it "
-        "names: AMvBs first, then ministerial regulations, then the others; by title. "
-        "A repealed regulation is left out. Empty for an unknown instrument."
+        'The regulations in force whose preamble ("Gelet op") names an article in force '
+        "of this law as their legal basis (`BASED_ON`), one per regulation with the "
+        "articles it names: AMvBs first, then ministerial regulations, then the others; "
+        "by title. A repealed regulation or article is left out. Empty for an unknown "
+        "instrument."
     ),
     tags=["instruments"],
 )

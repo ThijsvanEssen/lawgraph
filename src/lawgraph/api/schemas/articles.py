@@ -446,7 +446,7 @@ class ArticleDelegatedResponse(BaseModel):
     )
     items: list[DelegatedRegulationDTO] = Field(
         default_factory=list,
-        description="Every regulation issued under the article: AMvBs first, then "
+        description="Every regulation in force issued under the article: AMvBs first, then "
         "ministerial regulations, then the others; by title.",
     )
     total: int
