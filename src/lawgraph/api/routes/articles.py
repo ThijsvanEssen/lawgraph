@@ -9,6 +9,7 @@ from lawgraph.api.params import Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
+    ArticleDelegatedResponse,
     ArticleDetailResponse,
     ArticleExplanationDTO,
     ArticleExplanationsResponse,
@@ -19,6 +20,10 @@ from lawgraph.api.schemas.articles import (
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
+    DelegatedArticleDTO,
+    DelegatedClauseDTO,
+    DelegatedRegulationDTO,
+    DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
     references_from_props,
@@ -31,9 +36,11 @@ from lawgraph.api.schemas.common import (
     TermSpanDTO,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.core.delegations import delegation_clauses, fills, kind_rank
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import native_article_number
+from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -45,6 +52,7 @@ from lawgraph.db.queries.articles import (
     get_article_with_relations,
 )
 from lawgraph.db.queries.definitions import article_terms
+from lawgraph.db.queries.delegations import get_delegated_regulations
 from lawgraph.db.queries.relationships import get_article_relationship_data
 
 router = APIRouter()
@@ -100,6 +108,7 @@ def get_article_detail(
 
     relationship_data = get_article_relationship_data(store, data.article["_id"])
     upstream, downstream, scope = _build_relationship_dtos(relationship_data)
+    props = data.article.get("props") or {}
 
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
@@ -107,7 +116,11 @@ def get_article_detail(
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],
-        references=references_from_props(data.article.get("props") or {}),
+        references=references_from_props(props),
+        delegations=[
+            DelegationClauseDTO.from_clause(clause)
+            for clause in delegation_clauses(props.get("text"), props.get("parts"))
+        ],
         metadata=data.metadata or None,
         upstream_dependencies=upstream,
         downstream_implications=downstream,
@@ -370,6 +383,74 @@ def get_explanations(
         article_id=article_id,
         total=len(rows),
         items=[ArticlePassagesDTO.from_row(row) for row in rows],
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/delegated",
+    response_model=ArticleDelegatedResponse,
+    summary="Regulations issued under an article",
+    description=(
+        'The regulations whose preamble ("Gelet op") names this article as their '
+        "legal basis (`BASED_ON`), each with the leden it names and its articles that "
+        'refer to this one; and the delegation formulas of the article ("bij of '
+        'krachtens algemene maatregel van bestuur"), each with the regulations that '
+        "fill it, or none yet. 404 when the article is unknown."
+    ),
+    tags=["articles"],
+)
+def get_delegated(
+    bwb_id: str,
+    article_number: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> ArticleDelegatedResponse:
+    article_number = native_article_number(bwb_id, article_number)
+    article = store.get_document(
+        COLLECTION_ARTICLES, make_node_key(bwb_id, article_number)
+    )
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    items = sorted(
+        (
+            _delegated_regulation(row)
+            for row in get_delegated_regulations(store, article["_id"])
+        ),
+        key=lambda item: (
+            kind_rank(item.kind),
+            (item.instrument.citation_title or item.instrument.title or "").lower(),
+            item.instrument.key,
+        ),
+    )
+    props = article.get("props") or {}
+    clauses = [
+        DelegatedClauseDTO(
+            **DelegationClauseDTO.from_clause(clause).model_dump(),
+            instruments=[
+                item.instrument.key
+                for item in items
+                if fills(clause, item.kind, item.leden)
+            ],
+        )
+        for clause in delegation_clauses(props.get("text"), props.get("parts"))
+    ]
+    return ArticleDelegatedResponse(
+        article_id=article["_id"], clauses=clauses, items=items, total=len(items)
+    )
+
+
+def _delegated_regulation(row: dict[str, Any]) -> DelegatedRegulationDTO:
+    instrument = row["instrument"]
+    props = instrument.get("props") or {}
+    meta = row.get("meta") or {}
+    text = meta.get("text") if isinstance(meta.get("text"), str) else None
+    qualifier = parse_qualifier(text) if text else Qualifier()
+    return DelegatedRegulationDTO(
+        instrument=InstrumentSummaryDTO.from_document(instrument),
+        kind=props.get("kind"),
+        date_in_force=props.get("date_in_force"),
+        text=text,
+        articles=[DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []],
+        **qualifier.to_dict(),
     )
 
 
