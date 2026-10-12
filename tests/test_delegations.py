@@ -121,12 +121,14 @@ def test_a_regulation_fills_a_clause_of_its_type_and_lid() -> None:
         _clause("ministeriele_regeling", lid=None), "ministeriele-regeling", ["3"]
     )
     assert not fills(amvb, "KB", [])
+    # the stored type in either case: the source writes ``amvb`` and ``AMvB``
+    assert fills(amvb, "amvb", [])
+    assert fills(_clause("amvb", lid=None), "rijksamvb", [])
+    assert fills(_clause("ministeriele_regeling"), "ministeriele-regeling-bes", [])
+    assert not fills(amvb, "kb", [])
 
 
 def test_amvbs_come_first() -> None:
-    assert sorted(["KB", "ministeriele-regeling", "AMvB", None], key=kind_rank) == [
-        "AMvB",
-        "ministeriele-regeling",
-        "KB",
-        None,
-    ]
+    assert sorted(
+        ["kb", "ministeriele-regeling", "amvb", None, "AMvB-BES"], key=kind_rank
+    ) == ["amvb", "AMvB-BES", "ministeriele-regeling", "kb", None]

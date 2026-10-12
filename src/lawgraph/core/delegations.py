@@ -34,12 +34,13 @@ _CLAUSE = re.compile(
 # What follows a formula that names rules already made, not a power to make them.
 _MADE = re.compile(r"\s+(?:vast)?gestelde\b|\s+gegeven(?:e)?\b", re.IGNORECASE)
 
-# BWB types (``props.kind``) per formula.
-_AMVB_KINDS = frozenset({"AMvB", "rijksAMvB", "AMvB-BES"})
+# BWB types (``props.kind``, the ``soort`` of the toestand) per formula, folded to lower case:
+# the source writes ``amvb`` and ``AMvB`` alike.
+_AMVB_KINDS = frozenset({"amvb", "rijksamvb", "amvb-bes"})
 _REGELING_KINDS = frozenset(
     {
         "ministeriele-regeling",
-        "ministeriele-regeling-BES",
+        "ministeriele-regeling-bes",
         "ministeriele-regeling-archiefselectielijst",
     }
 )
@@ -101,7 +102,7 @@ def fills(clause: DelegationClause, kind: str | None, leden: Iterable[str]) -> b
         kinds = _AMVB_KINDS | _REGELING_KINDS if clause.krachtens else _AMVB_KINDS
     else:
         kinds = _REGELING_KINDS
-    if kind not in kinds:
+    if (kind or "").lower() not in kinds:
         return False
     named = set(leden)
     return not named or clause.lid is None or clause.lid in named
@@ -110,6 +111,7 @@ def fills(clause: DelegationClause, kind: str | None, leden: Iterable[str]) -> b
 def kind_rank(kind: str | None) -> int:
     """The order of regulations of BWB type *kind* under an article: AMvBs, then ministerial
     regulations, then the others."""
-    if kind in _AMVB_KINDS:
+    folded = (kind or "").lower()
+    if folded in _AMVB_KINDS:
         return 0
-    return 1 if kind in _REGELING_KINDS else 2
+    return 1 if folded in _REGELING_KINDS else 2

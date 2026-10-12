@@ -407,7 +407,7 @@ class DelegatedRegulationDTO(QualifierFields):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
-        description="Its BWB type: `AMvB`, `ministeriele-regeling`, `KB`, …"
+        description="Its BWB type as stored: `amvb`, `ministeriele-regeling`, `kb`, …"
     )
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."

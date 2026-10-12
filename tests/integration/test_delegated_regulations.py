@@ -47,6 +47,7 @@ def _parts(text: str) -> list[dict[str, Any]]:
 
 
 def _instrument(bwb_id: str, kind: str, title: str, **props: Any) -> Node:
+    # *kind* as `normalize bwb` stores it on prod: the `soort` of the toestand, `amvb`
     return Node(
         collection=COLLECTION_INSTRUMENTS,
         type=NodeType.INSTRUMENT,
@@ -94,7 +95,7 @@ def _seed(store: GraphStore) -> None:
                 _instrument(WET, "wet", "Cyberbeveiligingswet"),
                 _instrument(
                     BESLUIT,
-                    "AMvB",
+                    "amvb",
                     "Cyberbeveiligingsbesluit",
                     basis=[_basis("16", "16, eerste lid"), _basis("17", "17")],
                 ),
@@ -104,7 +105,7 @@ def _seed(store: GraphStore) -> None:
                     "Cyberbeveiligingsregeling",
                     basis=[_basis("16", "16 van de Cyberbeveiligingswet")],
                 ),
-                _instrument(OTHER, "AMvB", "Ander besluit", basis=[_basis("17", "17")]),
+                _instrument(OTHER, "amvb", "Ander besluit", basis=[_basis("17", "17")]),
                 _article(WET, "16", text=_TEXT_16, parts=_parts(_TEXT_16)),
                 _article(WET, "17", text="Onze Minister wijst aan."),
                 _article(
@@ -154,7 +155,7 @@ def test_the_regulations_issued_under_an_article(database: str, cli: Any) -> Non
     items = body["items"]
     # the AMvB first, then the ministerial regulation; not the AMvB on article 17
     assert [(i["instrument"]["bwb_id"], i["kind"], i["leden"]) for i in items] == [
-        (BESLUIT, "AMvB", ["1"]),
+        (BESLUIT, "amvb", ["1"]),
         (REGELING, "ministeriele-regeling", []),
     ]
     assert items[0]["text"] == "16, eerste lid"
