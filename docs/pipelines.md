@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -89,7 +89,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; and those without a Stemming on an `Amendement` or `Motie`: `ingetrokken`, `uitstellen`, `aangehouden`, `vervallen`; with the Stemming window and `--skip-decisions`; `--mode unvoted` those of amendments and motions alone, since `--decisions-since` or `--since`, else all, about 25,000), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, FractieZetelVacature, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-fractie-zetel-vacature`, `tk-document` |
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet` and `nota van wijziging`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`) of which none is stored, so a second run asks only for the new papers; `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet`, `nota van wijziging`, `raad van state` and `nader rapport`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
@@ -430,6 +430,28 @@ activity (`Verplaatst`) is `CONTINUES`d by the activity that replaced it: `repla
 It reads every dossier, every related case and every activity on every run, since a node loaded
 today can be the other end of a relation stated earlier. It only adds and updates edges: an edge
 whose evidence is gone stays until the database is built again.
+
+<a id="semantic-tk-cited-papers"></a>
+**Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number
+(`core/kamerstuk_refs.py`). A letter that carries out a motion is often a case of its own, with
+no `Zaak.GerelateerdNaar` to the motion; only its subject names it: "Uitvoering van de motie van
+het lid Vliegenthart c.s. over … (Kamerstuk 25424-795)". The forms read after "Kamerstuk(ken)":
+`25424-795`, `36945-XIV-1` (a suffix), `21501-02-3465` (a numeric suffix, when that dossier
+exists; else `35261-13-15-16` is three papers of `35261`), `29 507, nr. 146`, `36 200 XVI, nr. 12`,
+`36441, nrs. 38 en 39`, `Kamerstukken II 2025/26, 36600-XV, nr. 5`, and a list of them. A dossier
+without a paper, a paper of the Eerste Kamer by its letter (`37035-M`) and the paper an amended
+motion replaces ("ter vervanging van Kamerstuk 29826-322", which is `REVISES`) name nothing.
+Each paper named is found by `dossier_number`, `dossier_suffix` and `sequence`
+(`lg_document_light`); one not in the graph gets no edge and is counted. A letter of the
+government (`Brief regering`) `ANSWERS` a motion (`Motie`, `Motie (gewijzigd/nader)`): the
+appreciatie, the reaction, the carrying out; every other paper `REFERS_TO` what it names (a list
+of questions, an inbreng or the decision note about a letter). `meta.basis` is `subject`,
+`meta.text` the reference as written. Only the subject (else the title) is read, never the text.
+
+On `lawgraph_small` (12 Oct 2026, 23,423 papers): 596 subjects say "Kamerstuk", 420 name a paper
+(451 references), 86 references are in the graph (82 papers with an edge; most others name a
+paper the small database does not hold: 14 of 15 of them resolve on concordans.nl). Of 20
+sampled edges all 20 point at the paper the subject names.
 
 ## Rechtspraak
 
@@ -1691,6 +1713,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
+| semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |

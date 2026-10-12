@@ -21,7 +21,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.pipelines.retrieve import _gaps
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from tests.integration.seed import FIXTURES, seed
 
 # The seed makes two memoranda: papers 0 and 25 of the dossiers 36000 and 36025.
@@ -204,3 +207,39 @@ def test_a_paper_whose_document_does_not_exist_yet_is_left_alone(
     )  # no bare node was made
     assert "1 updated, 1 skipped" in result.stderr
     assert _mvt_documents(store)[1]["props"]["structure_quality"] == "explicit"
+
+
+ADVICE = "Advies Afdeling advisering Raad van State en Nader rapport"
+
+
+def test_the_advice_of_the_raad_van_state_gets_its_text_by_default(
+    database: str, cli: Any
+) -> None:
+    store = _seeded(cli)
+    # a motie of the seed (nr. 2) becomes the advice whose XML is kst-36944-4
+    store.execute(
+        "UPDATE documents SET kind = %(kind)s,"
+        " props = (props::jsonb || jsonb_build_object('kind', %(kind)s::text))::json"
+        " WHERE lg_num(props -> 'sequence') = 2",
+        {"kind": ADVICE},
+    )
+    (advice,) = [
+        p for p in _gaps.kamerstuk_gaps(store, DEFAULT_KINDS) if p["sequence"] == 2
+    ]
+    repository = _Repository({advice["identifier"]: _xml("kst_36944_4")})
+    TKContentRetrievePipeline(store=store, client=repository).run(  # type: ignore[arg-type]
+        kinds=[ADVICE.lower()]
+    )
+    assert repository.fetched == [advice["identifier"]]
+
+    cli("normalize", "tk-content")
+    props = store.get_document("documents", advice["key"])["props"]
+    assert props["kind"] == ADVICE
+    assert props["text"].startswith(
+        "ADVIES AFDELING ADVISERING RAAD VAN STATE EN NADER RAPPORT\n"
+    )
+    assert props["dictum"] is None
+    assert [s["heading"] for s in props["sections"]][:2] == [
+        "1. Inhoud van het voorstel",
+        "2. Minderjarige verdachten die worden uitgenodigd voor verhoor",
+    ]

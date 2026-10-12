@@ -14,10 +14,12 @@ import pytest
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_JUDGMENTS,
+    RELATION_LEGISLATED_IN,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore
+from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.db.queries.search import search_all, search_live
 
 BW7 = "BWBR0005290"
@@ -253,3 +255,50 @@ def test_a_word_and_the_abbreviation_of_a_law_find_its_article(
         assert [h["key"] for h in hits[COLLECTION_ARTICLES]] == [
             make_node_key(cbw, "21")
         ]
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+@pytest.mark.parametrize("q", ["cbw", "CBW", "cbw dossier", "Cbw dossiers"])
+def test_the_abbreviation_of_a_law_finds_the_dossier_it_was_legislated_in(
+    store: GraphStore, mode: str, q: str
+) -> None:
+    """ "cbw" finds dossier 36764, whose bill became the Cyberbeveiligingswet (the law is
+    ``LEGISLATED_IN`` it, its short title from the WTI is Cbw), though its title holds the
+    name only in full; "dossier" names the type and is left out. Another dossier does not
+    match by the abbreviation."""
+    cbw = "BWBR0052872"
+    _put(
+        store,
+        "instruments",
+        cbw.lower(),
+        bwb_id=cbw,
+        title="Cyberbeveiligingswet",
+        citation_title="Cyberbeveiligingswet",
+        short_title="Cbw",
+        aliases=["Cbw"],
+    )
+    for number, title in (
+        (
+            "36764",
+            "Regels ter implementatie van Richtlijn (EU) 2022/2555 (Cyberbeveiligingswet)",
+        ),
+        (
+            "36765",
+            "Wet weerbaarheid kritieke entiteiten",
+        ),
+    ):
+        _put(
+            store, COLLECTION_DOSSIERS, number, label=number, number=number, title=title
+        )
+    edges = EdgeWriter(store, what=None)
+    edges.add(
+        f"instruments/{cbw.lower()}",
+        f"{COLLECTION_DOSSIERS}/36764",
+        RELATION_LEGISLATED_IN,
+        source="test",
+    )
+    edges.flush()
+    search = search_all if mode == "full" else search_live
+    found = search(store, q=q, types=[COLLECTION_DOSSIERS])
+    hits = found[0] if isinstance(found, tuple) else found
+    assert [h["key"] for h in hits[COLLECTION_DOSSIERS]] == ["36764"]

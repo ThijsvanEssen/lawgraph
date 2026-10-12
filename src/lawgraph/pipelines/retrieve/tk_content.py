@@ -1,10 +1,11 @@
 """Pipeline that fetches the XML of Tweede Kamer papers and stores it in raw_sources.
 
 Only papers whose kind contains one of a few words qualify (by default ``toelichting``,
-``motie``, ``amendement``, ``voorstel van wet`` and ``nota van wijziging``): the memoranda
-that feed the memorandum context (``tk-mvt``, ``tk-amendment-articles``), the moties and
-amendementen, and the bill and its changes, whose text is what they say; not the whole
-corpus.
+``motie``, ``amendement``, ``voorstel van wet``, ``nota van wijziging``, ``raad van state``
+and ``nader rapport``): the memoranda that feed the memorandum context (``tk-mvt``,
+``tk-amendment-articles``), the moties and amendementen, the bill and its changes, and the
+advice of the Raad van State on it with the government's answer, whose text is what they
+say; not the whole corpus.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same paper as
 structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
 raw records.
@@ -48,6 +49,8 @@ DEFAULT_KINDS = (
     "amendement",
     "voorstel van wet",
     "nota van wijziging",
+    "raad van state",
+    "nader rapport",
 )
 
 # A new paper is first published as a PDF only ("Onopgemaakt"); its XML follows within about
@@ -79,15 +82,21 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         kinds: Sequence[str] = DEFAULT_KINDS,
+        limit: int | None = None,
         dry_run: bool = False,
     ) -> PipelineResult:
         """Fetch the XML of every qualifying paper that has none stored.
 
         Args:
             kinds: Case-insensitive substrings matched against ``props.kind``.
+            limit: At most this many papers; the rest are the gaps of the next run.
             dry_run: When True, log what would happen but make no changes.
         """
         papers = _gaps.kamerstuk_gaps(self.store, kinds)
+        if limit and len(papers) > limit:
+            rest = _gaps.Gaps(papers[:limit])
+            rest.note = f"{limit:,} of {len(papers):,} Kamerstukken without XML, again for the rest"
+            papers = rest
         if not papers:
             logger.info("No papers without XML found for kinds %s.", list(kinds))
             return PipelineResult()

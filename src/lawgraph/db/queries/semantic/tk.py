@@ -43,6 +43,7 @@ from lawgraph.db.queries.semantic import (
     present_sql,
     slim_sql,
 )
+from lawgraph.db.schema import feed_title
 
 _CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
@@ -165,6 +166,66 @@ def tk_document_titles(
         ORDER BY d.key
         """
     return store.query(sql, {"since": since_date})
+
+
+# The papers whose subject (else title) says "kamerstuk": through the trigram index of the
+# title the feed shows (``documents_feed_title_g``), which is that text folded.
+_NAMING_KAMERSTUKKEN_SQL = f"""
+SELECT d.id, d.kind,
+       (CASE WHEN lg_truthy(d.pj_subject) THEN d.pj_subject ELSE d.pj_title END) #>> '{{}}'
+           AS subject
+FROM {COLLECTION_DOCUMENTS} d
+WHERE {feed_title("d")} LIKE '%%kamerstuk%%'
+"""
+
+
+def papers_naming_kamerstukken(
+    store: Store, ids: list[str] | None
+) -> Iterator[dict[str, Any]]:
+    """``{id, kind, subject}`` of every paper whose subject, or else its title, names a
+    Kamerstuk; only those of *ids* (node ids) when it is given."""
+    only = "AND d.id = ANY(%(ids)s::text[])" if ids is not None else ""
+    return store.query(
+        f"{_NAMING_KAMERSTUKKEN_SQL} {only} ORDER BY d.key", {"ids": ids}
+    )
+
+
+def dossier_labels(store: Store) -> set[str]:
+    """The label of every dossier (``36945-XIV``, ``21501-02``, ``36799``)."""
+    return {
+        str(label)
+        for label in store.query(
+            f"SELECT label FROM {COLLECTION_DOSSIERS} WHERE label IS NOT NULL"
+        )
+    }
+
+
+def papers_by_number(
+    store: Store, papers: list[tuple[str, str, int]]
+) -> Iterator[dict[str, Any]]:
+    """``{number, suffix, sequence, id, kind}`` of the paper of each ``(dossier number,
+    suffix or "", sequence)`` in *papers* that is in the graph: one probe of the index of
+    ``lg_document_light`` each (``queries/lookup.find_document``)."""
+    return store.query(
+        """
+        SELECT k.number, k.suffix, k.sequence, l.id, lg_str(l.props -> 'kind') AS kind
+        FROM unnest(%(numbers)s::text[], %(suffixes)s::text[], %(sequences)s::int[])
+            AS k(number, suffix, sequence)
+        CROSS JOIN LATERAL (
+            SELECT l.id, l.props FROM lg_document_light l
+            WHERE lg_str(l.props -> 'dossier_number') = k.number
+              AND upper(coalesce(lg_str(l.props -> 'dossier_suffix'), '')) = k.suffix
+              AND lg_num(l.props -> 'sequence') = k.sequence
+            ORDER BY l.id
+            LIMIT 1
+        ) l
+        """,
+        {
+            "numbers": [number for number, _, _ in papers],
+            "suffixes": [suffix.upper() for _, suffix, _ in papers],
+            "sequences": [sequence for _, _, sequence in papers],
+        },
+    )
 
 
 def acts_of_dossiers(store: Store) -> dict[str, set[str]]:

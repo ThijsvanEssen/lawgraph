@@ -475,6 +475,12 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
         help="Say which papers would be fetched; fetch nothing.",
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="At most this many papers in this run (the rest in the next).",
+    )
+    parser.add_argument(
         "--mode",
         choices=[GAPS],
         default=GAPS,
@@ -483,7 +489,9 @@ def retrieve_tk_content(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
 
     pipeline = TKContentRetrievePipeline(store=GraphStore())
-    return pipeline.run(kinds=args.kind or DEFAULT_KINDS, dry_run=args.dry_run)
+    return pipeline.run(
+        kinds=args.kind or DEFAULT_KINDS, limit=args.limit, dry_run=args.dry_run
+    )
 
 
 def retrieve_tk_document_links(argv: list[str] | None = None) -> PipelineResult:

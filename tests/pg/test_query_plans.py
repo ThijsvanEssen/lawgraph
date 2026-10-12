@@ -70,6 +70,9 @@ URLS = [
     # articles by the index of their law
     "/api/search?q=daad+pw&types=articles",
     "/api/search?q=daad+pw&types=articles&mode=live",
+    # the abbreviation of a law: the dossiers it was legislated in by the edges of its laws
+    "/api/search?q=pw+dossier&types=dossiers",
+    "/api/search?q=pw+dossier&types=dossiers&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     # a paper by its number: by the index on lg_document_light, not the props of every
@@ -108,6 +111,7 @@ URLS = [
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/explained-by",
+    f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
     f"/api/articles/{BWB}/1/legislative-history",
     "/api/relationships/search",
@@ -395,9 +399,18 @@ def _seed(store: GraphStore) -> None:
                 meta={"paragraphs": [1]},
             ),
             _edge("x1", "documents/d1", article, "EXPLAINS"),
+            _edge(
+                "b1",
+                "instruments/stb_2026_1",
+                article,
+                "BASED_ON",
+                meta={"text": "1, eerste lid"},
+            ),
             _edge("s1", article, "annexes/a1", "SCOPED_BY"),
             # a bill: the publication that enacts it, and a paper that proposes a change
             _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),
+            # the law the bill became
+            _edge("l2", "instruments/bwbr0001", "dossiers/36000", "LEGISLATED_IN"),
             _edge(
                 "m1",
                 "instruments/stb_2026_1",

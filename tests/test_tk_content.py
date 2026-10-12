@@ -20,7 +20,10 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.db import raw_key
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_content import (
+    DEFAULT_KINDS,
+    TKContentRetrievePipeline,
+)
 from tests.fakes import FakeResponse, RawSourcesFake
 
 FIXTURE = (
@@ -38,6 +41,8 @@ FIXTURE = (
         ("36867", None, 7, "kst-36867-7"),
         ("36867", "", "7", "kst-36867-7"),
         ("35925", "VII", 12, "kst-35925-VII-12"),
+        # a Rijkswet: its number is no part of the dossier in the repository
+        ("36984", "(R2222)", 4, "kst-36984-4"),
     ],
 )
 def test_the_identifier_of_a_paper(number, suffix, sequence, expected) -> None:
@@ -192,6 +197,29 @@ def test_the_papers_are_asked_for_by_their_kinds_in_lower_case() -> None:
     assert store.kinds == [["toelichting", "motie"]]
 
 
+@pytest.mark.parametrize(
+    ("kind", "fetched"),
+    [
+        # the kinds of the Tweede Kamer's papers as stored (props.kind)
+        ("Memorie van toelichting", True),
+        ("Advies Afdeling advisering Raad van State en Nader rapport", True),
+        ("Advies Afdeling advisering Raad van State", True),
+        (
+            "Advies Afdeling advisering Raad van State en Reactie van de initiatiefnemer(s)",
+            True,
+        ),
+        ("Voorlichting Afdeling advisering Raad van State", True),
+        ("Nader rapport", True),
+        ("Advies van andere adviesorganen", False),
+        ("Brief regering", False),
+    ],
+)
+def test_the_default_kinds_hold_the_advice_of_the_raad_van_state(
+    kind: str, fetched: bool
+) -> None:
+    assert any(word in kind.lower() for word in DEFAULT_KINDS) is fetched
+
+
 def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
     result, _, client = _run(
         [_paper("1", 1), _paper("2", 2)], have={_xml_key("kst-1-1")}
@@ -281,6 +309,15 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
 def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> None:
     result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": "<html>Bad gateway"})
     assert store.stored == [] and "cannot be read" in result.errors[0]
+
+
+def test_a_limit_fetches_the_first_papers_and_leaves_the_rest_for_the_next_run() -> (
+    None
+):
+    papers = [_paper("1", 1), _paper("2", 2), _paper("3", 3)]
+    result, _, client = _run(papers, limit=2)
+    assert client.fetched == ["kst-1-1", "kst-2-2"] and result.created == 2
+    assert result.notes == ["2 of 3 Kamerstukken without XML, again for the rest"]
 
 
 def test_a_dry_run_fetches_and_stores_nothing() -> None:
