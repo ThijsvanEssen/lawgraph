@@ -199,6 +199,37 @@ def test_an_article_without_leden_has_an_aanhef_and_onderdelen() -> None:
     ]
 
 
+def test_a_list_in_an_unmarked_onderdeel_stays_under_it() -> None:
+    """Art. 1 Cbw: the definition "netwerk- en informatiesysteem" has its own a, b, c."""
+    article = _article(
+        """<artikel><kop><nr>1</nr></kop>
+        <al>In deze wet wordt verstaan onder:</al>
+        <lijst type="ongemarkeerd">
+        <li><li.nr>–</li.nr><al><nadruk>netwerk voor de levering van inhoud:</nadruk>
+          een netwerk;</al></li>
+        <li><li.nr>–</li.nr><al><nadruk>netwerk- en informatiesysteem:</nadruk></al>
+          <lijst type="expliciet">
+          <li><li.nr>a.</li.nr><al>een netwerk; of</al></li>
+          <li><li.nr>b.</li.nr><al>een apparaat;</al></li></lijst></li>
+        <li><li.nr>–</li.nr><al><nadruk>NIS2-richtlijn:</nadruk> een richtlijn;</al></li>
+        </lijst></artikel>"""
+    )
+
+    shape = [(id_, number) for id_, _, number, _ in _shape(article)]
+    assert shape == [
+        ("aanhef", None),
+        ("onder-_1", "–"),
+        ("onder-_2", "–"),
+        ("onder-_2-onder-a", "a"),
+        ("onder-_2-onder-b", "b"),
+        ("onder-_3", "–"),
+    ]
+    parts = {p.id: article.text[p.start : p.end] for p in article.parts}
+    assert parts["onder-_2"].startswith("netwerk- en informatiesysteem:")
+    assert parts["onder-_2"].endswith("b. een apparaat;")
+    assert parts["onder-_2-onder-a"] == "een netwerk; of"
+
+
 def test_a_lid_without_a_number_or_paragraph_is_still_a_part() -> None:
     article = _article(
         """<artikel><kop><nr>5</nr></kop>

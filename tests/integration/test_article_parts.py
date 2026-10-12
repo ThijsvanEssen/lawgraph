@@ -165,3 +165,19 @@ def test_a_version_of_the_article_has_the_same_parts(client: TestClient) -> None
 
     assert version["text"] == article["text"]
     assert version["parts"] == article["parts"]
+
+
+def test_the_law_of_a_day_carries_the_parts_with_the_text(client: TestClient) -> None:
+    """The whole-law reader nests the text by these, as the article reader does."""
+    article = client.get(f"/api/articles/{BWB}/1").json()["article"]
+
+    items = client.get(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        params={"text_preview_chars": 0, "include_text": "true"},
+    ).json()["items"]
+    first = next(item for item in items if item["article_number"] == "1")
+
+    assert first["text"] == article["text"]
+    assert first["parts"] == [
+        {k: v for k, v in part.items() if k != "text"} for part in article["parts"]
+    ]
