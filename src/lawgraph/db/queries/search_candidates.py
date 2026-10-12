@@ -28,6 +28,7 @@ from lawgraph.db.queries.search import (
     CANDIDATE_FIELDS,
     RANK_CANDIDATES,
     CandidateSearch,
+    _cited_by,
     _termed,
     build_search_clause,
     candidate_search,
@@ -61,9 +62,13 @@ def searched_words(directory: Path, today: dt.date, most: int = WORDS) -> list[s
 
 def _search(store: GraphStore, table: str, word: str) -> CandidateSearch:
     """The search of *word* in *table*, as ``search._text_query`` makes it."""
-    termed = _termed(store, [word]) if table == "articles" else None
+    articles = table == "articles"
     clause, clause_params = build_search_clause(
-        table, [word], CANDIDATE_FIELDS[table], termed=termed
+        table,
+        [word],
+        CANDIDATE_FIELDS[table],
+        termed=_termed(store, [word]) if articles else None,
+        laws=_cited_by(store, [word]) if articles else None,
     )
     return candidate_search(store, table, clause, clause_params)
 
