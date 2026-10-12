@@ -15,7 +15,9 @@ from lawgraph.api.schemas.common import (
     DefinitionDTO,
     DossierRefDTO,
     FacetCountDTO,
+    InstrumentSummaryDTO,
     JudgmentSummaryDTO,
+    QualifierFields,
     WithPath,
     address_of,
 )
@@ -25,6 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
+from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -1176,3 +1179,61 @@ class InstrumentDefinitionsResponse(BaseModel):
 
     key: str
     definitions: list[DefinitionDTO] = Field(default_factory=list)
+
+
+class BasisArticleDTO(QualifierFields):
+    """An article of the law a regulation is issued under, with the leden and onderdelen
+    its preamble names (none: the whole article)."""
+
+    id: str
+    key: str
+    article_number: str | None
+    display_name: str | None
+    text: str | None = Field(
+        description="The reference in the preamble: `16, eerste en zevende lid`."
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> BasisArticleDTO:
+        meta = row.get("meta") or {}
+        text = meta.get("text") if isinstance(meta.get("text"), str) else None
+        qualifier = parse_qualifier(text) if text else Qualifier()
+        return cls(
+            id=row["id"],
+            key=row["key"],
+            article_number=row.get("article_number"),
+            display_name=row.get("display_name"),
+            text=text,
+            **qualifier.to_dict(),
+        )
+
+
+class InstrumentDelegatedItem(BaseModel):
+    """A regulation whose preamble ("Gelet op") names an article of the law."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: InstrumentSummaryDTO
+    kind: str | None = Field(
+        description="Its BWB type, lower case: `amvb`, `ministeriele-regeling`, `kb`, …"
+    )
+    date_in_force: str | None = Field(
+        None, description="When the regulation itself entered into force."
+    )
+    articles: list[BasisArticleDTO] = Field(
+        description="The articles of the law it is issued under, in the order of the law."
+    )
+
+
+class InstrumentDelegatedResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/delegated."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str = Field(..., description=_REQUESTED)
+    total: int
+    items: list[InstrumentDelegatedItem] = Field(
+        default_factory=list,
+        description="Every regulation in force issued under an article of the law: AMvBs "
+        "first, then ministerial regulations, then the others; by title.",
+    )
