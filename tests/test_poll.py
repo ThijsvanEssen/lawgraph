@@ -50,6 +50,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "normalize tk-case-actors",
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
+        "semantic tk-cited-papers",
     ]
     since = {argv[-1] for _, argv in ran}
     assert len(since) == 1  # the window starts at one moment for every step
@@ -61,6 +62,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     moment = dict(ran)["normalize tk"][-1]
     for step in ("semantic tk-dossier-outcomes", "semantic tk-government"):
         assert dict(ran)[step] == ["--touched-since", moment]
+    assert dict(ran)["semantic tk-cited-papers"] == ["--since", moment]
 
 
 def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> None:
