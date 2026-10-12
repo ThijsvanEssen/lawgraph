@@ -3,7 +3,8 @@
 A word of the query matches a field as ArangoSearch matched it (probed, PR #102): by its
 stemmed tokens (``text``), as the start of a value in any case (``identity``), as the whole
 folded value (``norm``) or as a part of 3 to 12 characters of the folded value (``ngram``).
-Every word must match some field. Which fields have which matches is ``SEARCH_FIELDS`` of
+Every word must match some field (of an article also: be the abbreviation of its law,
+``_cited_by``). Which fields have which matches is ``SEARCH_FIELDS`` of
 ``db/schema.py``; the columns are generated there. The rank within a type is ``ts_rank``
 over the weighted words (``search_tsv``), not ArangoSearch's BM25: the hits are the same,
 their order is held to D3.
@@ -186,6 +187,7 @@ def build_search_clause(
     fields: list[str],
     row: str = "doc",
     termed: list[list[str]] | None = None,
+    laws: list[list[str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """A condition on *row* (a row of *table*): every token matches one of *fields*.
 
@@ -196,7 +198,8 @@ def build_search_clause(
     forms of each that stem apart (``word_forms``), each of which matches with all its
     words. *termed* holds per token the rows
     that have it as a term (``_termed``: an article by what its case law calls it), each
-    found by its key as well.
+    found by its key as well; *laws* per token the BWB ids of the laws it is the
+    abbreviation of (``_cited_by``), whose articles it matches.
     """
     if not tokens:
         return "true", {}
@@ -215,8 +218,20 @@ def build_search_clause(
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"{row}.id = ANY(%(_termed_{i})s::text[])")
+        per_field += _of_laws(laws, i, params, row)
         parts.append("(" + " OR ".join(per_field) + ")")
     return " AND ".join(parts), params
+
+
+def _of_laws(
+    laws: list[list[str]] | None, i: int, params: dict[str, Any], row: str = "doc"
+) -> list[str]:
+    """The condition that *row* is an article of a law the token *i* is the abbreviation
+    of (``_cited_by``), its parameter added to *params*; none when it is of no law."""
+    if not laws or not laws[i]:
+        return []
+    params[f"_law_{i}"] = laws[i]
+    return [f"{row}.bwb_id = ANY(%(_law_{i})s::text[])"]
 
 
 def rank_sql(tokens: list[str]) -> Query:
@@ -364,10 +379,12 @@ def _text_query(
     params: dict[str, Any] | None = None,
     live: bool = False,
     termed: list[list[str]] | None = None,
+    laws: list[list[str]] | None = None,
 ) -> Query:
     """The hits of *table* that hold every token in *fields*, the best ranked first (the
     key settles ties); *live* as ``_live_query``. *termed*: per token the rows that have
-    it as a term (``_termed``), found too and ranked ``TERM_WEIGHT`` higher. One word
+    it as a term (``_termed``), found too and ranked ``TERM_WEIGHT`` higher; *laws*: per
+    token the laws whose articles it matches (``_cited_by``). One word
     without a further condition ranks the hits kept of it (``kept_candidates``) while they
     are those of now: the same, without reading them.
 
@@ -376,9 +393,11 @@ def _text_query(
     common word it would scan the whole table instead of using the indexes."""
     if live:
         return _live_query(
-            table, hit, tokens, fields, limit, joins, where, params, termed
+            table, hit, tokens, fields, limit, joins, where, params, termed, laws
         )
-    clause, clause_params = build_search_clause(table, tokens, fields, termed=termed)
+    clause, clause_params = build_search_clause(
+        table, tokens, fields, termed=termed, laws=laws
+    )
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     bm25 = bm25_sql(store, table, words, fields, _BOOSTS.get(table, {}))
     rank = bm25.rank
@@ -585,6 +604,35 @@ def _with_terms(
     return hits
 
 
+# Per word the BWB ids of the laws it is a short title or an alias of (``bwb_wti``: the
+# abbreviations of the WTI, ``BW`` of every book), whole and folded: an index lookup each.
+_CITED_BY_SQL = f"""
+SELECT w.n::int AS n,
+       coalesce(array_agg(DISTINCT i.bwb_id) FILTER (WHERE i.bwb_id IS NOT NULL), '{{}}')
+           AS ids
+FROM unnest(%(words)s::text[]) WITH ORDINALITY AS w(word, n)
+LEFT JOIN LATERAL (
+    SELECT i.bwb_id FROM instruments i
+    WHERE i.{search_column("aliases", "norm")} @> ARRAY[lg_fold(w.word)]
+       OR i.{search_column("short_title", "norm")} @> ARRAY[lg_fold(w.word)]
+) i ON true
+GROUP BY w.n
+ORDER BY w.n
+"""
+
+
+def _cited_by(store: GraphStore, tokens: list[str]) -> list[list[str]] | None:
+    """Per token the BWB ids of the laws it is the abbreviation of: a word of each of
+    their articles, as the name of its law is ("zorgplicht cbw" finds art. 21 of the
+    Cyberbeveiligingswet as "zorgplicht cyberbeveiligingswet" does). None when no token
+    is one."""
+    if not tokens:
+        return None
+    rows = store.query(_CITED_BY_SQL, {"words": tokens})
+    laws = [list(row["ids"]) for row in rows]
+    return laws if any(laws) else None
+
+
 def _search_articles(
     store: GraphStore,
     tokens: list[str],
@@ -594,6 +642,7 @@ def _search_articles(
     period: Period = NO_PERIOD,
 ) -> list[dict[str, Any]]:
     termed = _termed(store, tokens)
+    laws = _cited_by(store, tokens)
     in_period = period.where("articles")
     text = _text_query(
         store,
@@ -607,6 +656,7 @@ def _search_articles(
         params=period.params(),
         live=live,
         termed=termed,
+        laws=laws,
     )
     if notation is None or notation.kind != "article":
         hits = list(store.query(*text, indexes_only=True))[:limit]
@@ -1579,13 +1629,14 @@ def _live_query(
     where: str = "",
     params: dict[str, Any] | None = None,
     termed: list[list[str]] | None = None,
+    laws: list[list[str]] | None = None,
 ) -> Query:
     """``_text_query`` while typing: no word counted (the df of BM25) and none ranked.
     Every token is a word of *fields*, a whole value of one, or, from three characters,
     the start of a word of a name or title (``stik``: Stikstofwet); of the first
     ``LIVE_CANDIDATES`` found, those whose name or title starts with the query first (as
     ``score_hit``), then those first in ``_LIVE_ORDER``."""
-    clause, clause_params = _live_clause(table, tokens, fields, termed)
+    clause, clause_params = _live_clause(table, tokens, fields, termed, laws)
     starts = " OR ".join(
         f"doc.{column} LIKE {_LIVE_START} OR doc.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
         for column in (
@@ -1640,6 +1691,7 @@ def _live_clause(
     tokens: list[str],
     fields: list[str],
     termed: list[list[str]] | None = None,
+    laws: list[list[str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """The condition of ``_live_query``: each an index lookup, none a part of a value
     within a word (``tikst``), which a short part finds in a large share of the rows."""
@@ -1673,6 +1725,7 @@ def _live_clause(
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"doc.id = ANY(%(_termed_{i})s::text[])")
+        per_field += _of_laws(laws, i, params)
         parts.append("(" + " OR ".join(per_field or ["false"]) + ")")
     return " AND ".join(parts) or "true", params
 
