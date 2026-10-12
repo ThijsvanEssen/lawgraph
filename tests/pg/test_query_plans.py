@@ -111,6 +111,7 @@ URLS = [
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/explained-by",
+    f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
     f"/api/articles/{BWB}/1/legislative-history",
     "/api/relationships/search",
@@ -398,6 +399,13 @@ def _seed(store: GraphStore) -> None:
                 meta={"paragraphs": [1]},
             ),
             _edge("x1", "documents/d1", article, "EXPLAINS"),
+            _edge(
+                "b1",
+                "instruments/stb_2026_1",
+                article,
+                "BASED_ON",
+                meta={"text": "1, eerste lid"},
+            ),
             _edge("s1", article, "annexes/a1", "SCOPED_BY"),
             # a bill: the publication that enacts it, and a paper that proposes a change
             _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),
