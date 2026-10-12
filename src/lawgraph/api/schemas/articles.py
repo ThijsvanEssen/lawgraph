@@ -35,6 +35,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
+from lawgraph.core.delegations import DelegationClause, DelegationKind
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
@@ -109,6 +110,44 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
             )
         )
     return parts
+
+
+class DelegationClauseDTO(BaseModel):
+    """A delegation formula in the text of an article ("bij of krachtens algemene maatregel
+    van bestuur"), as a span of its `text`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: int = Field(
+        description="Offset of the formula in the `text` of the article."
+    )
+    end: int
+    text: str
+    kind: DelegationKind = Field(
+        description="`amvb` (bij algemene maatregel van bestuur) or "
+        "`ministeriele_regeling` (bij ministeriële regeling, bij regeling van Onze "
+        "Minister)."
+    )
+    krachtens: bool = Field(
+        description="`bij of krachtens`: the regulation may delegate further."
+    )
+    part: str | None = Field(
+        description="The `id` of the innermost part it stands in (`lid-1`, "
+        "`lid-2-onder-a`); null for an article without parts."
+    )
+    lid: str | None = Field(description="The number of the lid it stands in.")
+
+    @classmethod
+    def from_clause(cls, clause: DelegationClause) -> DelegationClauseDTO:
+        return cls(
+            start=clause.start,
+            end=clause.end,
+            text=clause.text,
+            kind=clause.kind,
+            krachtens=clause.krachtens,
+            part=clause.part,
+            lid=clause.lid,
+        )
 
 
 class ArticleReferenceDTO(QualifierFields):
@@ -326,6 +365,12 @@ class ArticleDetailResponse(BaseModel):
         "whether or not the target is in the graph. `citations` holds the resolved ones, "
         "one per target.",
     )
+    delegations: list[DelegationClauseDTO] = Field(
+        default_factory=list,
+        description="The delegation formulas in the text, in text order; empty when the "
+        "article delegates nothing. `.../delegated` lists the regulations issued under "
+        "the article, per formula.",
+    )
     metadata: dict[str, Any] | None
     upstream_dependencies: list[ArticleRelationshipWithType] = Field(
         default_factory=list
@@ -334,6 +379,77 @@ class ArticleDetailResponse(BaseModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+
+
+class DelegatedArticleDTO(QualifierFields):
+    """An article of a regulation issued under the article that refers to it, with the
+    leden and onderdelen of the article it names."""
+
+    id: str
+    key: str
+    article_number: str | None
+    display_name: str | None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DelegatedArticleDTO:
+        return cls(
+            id=row["id"],
+            key=row["key"],
+            article_number=row.get("article_number"),
+            display_name=row.get("display_name"),
+            **Qualifier.from_dict(row.get("meta")).to_dict(),
+        )
+
+
+class DelegatedRegulationDTO(QualifierFields):
+    """A regulation whose preamble ("Gelet op") names the article as its legal basis, with
+    the leden and onderdelen of the article it names (none: the whole article)."""
+
+    instrument: InstrumentSummaryDTO
+    kind: str | None = Field(
+        description="Its BWB type: `AMvB`, `ministeriele-regeling`, `KB`, …"
+    )
+    date_in_force: str | None = Field(
+        None, description="When the regulation itself entered into force."
+    )
+    text: str | None = Field(
+        description="The reference in its preamble: `16, eerste en zevende lid`."
+    )
+    articles: list[DelegatedArticleDTO] = Field(
+        default_factory=list,
+        description="Its articles that refer to the article, in the order of the "
+        "regulation.",
+    )
+
+
+class DelegatedClauseDTO(DelegationClauseDTO):
+    """A delegation formula with the regulations that fill it."""
+
+    instruments: list[str] = Field(
+        default_factory=list,
+        description="The `key` of every item that fills it: of a type the formula names "
+        "(an AMvB; with `krachtens` also a ministerial regulation) and naming its lid or "
+        "no lid. Empty: no regulation is issued under it yet.",
+    )
+
+
+class ArticleDelegatedResponse(BaseModel):
+    """Response for GET /api/articles/{bwb_id}/{article_number}/delegated."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article_id: str
+    clauses: list[DelegatedClauseDTO] = Field(
+        default_factory=list,
+        description="The delegation formulas of the article (as `delegations` of the "
+        "article), each with the regulations that fill it.",
+    )
+    items: list[DelegatedRegulationDTO] = Field(
+        default_factory=list,
+        description="Every regulation issued under the article: AMvBs first, then "
+        "ministerial regulations, then the others; by title.",
+    )
+    total: int
 
 
 class CitedByJudgment(WithPath):
