@@ -90,7 +90,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
     response = client.get(
         "/api/nodes/instruments/BWBR0000123"
         "?relations=PART_OF,REFERS_TO&node_types=article&direction=inbound"
-        "&status=voorgesteld&limit=10&offset=20"
+        "&status=voorgesteld&limit=10&offset=20&edge_meta=passages"
     )
     assert response.status_code == 200
     payload = response.json()
@@ -106,6 +106,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         "offset": 20,
         "canvas": False,
         "wait_for_lids": False,  # a further page waits for no lid counts
+        "passages": True,
     }
     node = payload["node"]
     assert node["id"].startswith("instruments")
@@ -146,6 +147,7 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
         "offset": 0,
         "canvas": False,
         "wait_for_lids": True,
+        "passages": False,
     }
 
 

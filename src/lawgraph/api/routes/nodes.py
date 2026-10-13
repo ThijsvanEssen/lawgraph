@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import EdgeMeta, parse_choices
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
@@ -239,6 +239,7 @@ def get_node_graph(
             )
         ),
     ] = "full",
+    edge_meta: EdgeMeta = "light",
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     if props == "full" and limit > FULL_BUCKET_LIMIT:
@@ -261,6 +262,7 @@ def get_node_graph(
             # canvas loads, which draws none (the first page of 8:75 Awb took 13.8 s cold
             # for them); kept an hour and counted on in the background
             wait_for_lids=limit > 1 and offset == 0 and props == "full",
+            passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
@@ -357,6 +359,7 @@ def get_node_neighborhood_route(
             )
         ),
     ] = "full",
+    edge_meta: EdgeMeta = "light",
 ) -> NodeNeighborhoodResponse:
     if depth > 1 and cap > NEIGHBORHOOD_CAP:
         raise HTTPException(
@@ -373,6 +376,7 @@ def get_node_neighborhood_route(
             cap=cap,
             filters=filters,
             canvas=props == "canvas",
+            passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
@@ -391,24 +395,9 @@ def get_node_neighborhood_route(
     nodes.insert(
         0, BaseNodeDTO.from_document(focal, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
     )
-    edges = [
-        NodeNeighborhoodEdge(
-            id=e["_id"],
-            source=e["_from"],
-            target=e["_to"],
-            relation=e.get("relation"),
-            confidence=(
-                float(e.get("confidence"))
-                if isinstance(e.get("confidence"), (int, float))
-                else None
-            ),
-            status=e.get("status"),
-        )
-        for e in data["edges"]
-    ]
     return NodeNeighborhoodResponse(
         focal_id=focal["_id"],
         nodes=nodes,
-        edges=edges,
+        edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
     )

@@ -483,6 +483,7 @@ reading order:
 | `qualifier` | what the citation says of the article's parts, as written: `derde lid` |
 | `leden`, `onderdelen`, `aanhef` | what the qualifier names, as in the part ids of an article (`core/qualifiers.py`) |
 | `snippet`, `confidence` | the text around the citation; 0.95 for a law named by its code or its title, less for a law that is found by "die wet" |
+| `snippet_start` | where `snippet` starts in that text: `snippet[start - snippet_start:end - snippet_start]` is `raw_match`, so a passage shows without the text |
 
 A Tweede Kamer document's edge to an article has `meta.raw_match`, `snippet`, `reason`, `qualifier`,
 `leden`, `onderdelen` and `aanhef` of the first citation of that article.
