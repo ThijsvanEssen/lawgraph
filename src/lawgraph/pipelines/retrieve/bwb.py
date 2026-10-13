@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
@@ -38,6 +40,23 @@ HISTORY_LISTING_FROM = 150
 def _history_id(meta: ToestandMeta) -> str:
     """``{bwb_id}@{start_date}``: the key of a historical toestand."""
     return f"{meta['bwb_id']}@{meta.get('geldigheidsperiode_startdatum') or 'unknown'}"
+
+
+def _unchanged(
+    stored: Mapping[str, Any] | None, meta: ToestandMeta, today: str
+) -> bool:
+    """Whether the listed current toestand *meta* is the *stored* one, as the SRU described
+    it then: the same file and the same end of its period, and that end had passed when it
+    was stored, or has not passed yet. A regulation repealed since it was stored keeps its
+    last toestand, whose end has passed now: it is stored again, so that its record tells
+    it expired (``bwb_xml.expiry_date``)."""
+    if stored is None or stored.get("url") != meta["locatie_toestand"]:
+        return False
+    end = meta.get("geldigheidsperiode_einddatum")
+    if str(stored.get("end_date") or "") != str(end or ""):
+        return False
+    stored_on = str(stored.get("at") or "")[:10]
+    return not (end and stored_on <= end < today)
 
 
 @dataclass
@@ -101,7 +120,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         self, bwb_ids: Sequence[str], current: Mapping[str, ToestandMeta]
     ) -> Iterator[RetrieveRecord]:
         """The WTI general information of each regulation, followed by its current toestand."""
-        stored = self._stored_state_urls() if current else {}
+        stored = self._stored_toestanden() if current else {}
+        today = dt.date.today().isoformat()
         wti_fresh = (
             self._stored_since(
                 SOURCE_BWB, RAW_KIND_BWB_WTI_GENERAL, hours=WTI_REFRESH_DAYS * 24
@@ -114,7 +134,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         def download(bwb_id: str) -> _Download:
             """What one regulation needs of the network; the outcome is reported below."""
             meta = current.get(bwb_id)
-            if meta is not None and stored.get(bwb_id) == meta["locatie_toestand"]:
+            if meta is not None and _unchanged(stored.get(bwb_id), meta, today):
                 # The same toestand as the stored one. Its WTI file can change on its own
                 # (a new abbreviation), so that is read again once a month.
                 got = _Download(skip="toestand unchanged since it was stored")
@@ -181,10 +201,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if got.skip:
                 self.progress.skip(got.skip, bwb_id)
 
-    def _stored_state_urls(self) -> dict[str, str]:
-        """``{bwb_id: state_url}`` of the stored current toestanden."""
+    def _stored_toestanden(self) -> dict[str, dict[str, Any]]:
+        """``{bwb_id: {url, end_date, at}}`` of the stored current toestanden."""
         rows = raw_queries.toestand_state_urls(self.store)
-        return {str(row["id"]): str(row["url"]) for row in rows if row.get("url")}
+        return {str(row["id"]): row for row in rows if row.get("url")}
 
     def _add_wti_general_info(self, meta: ToestandMeta, got: _Download) -> None:
         """The WTI general information (official abbreviations) of one regulation.
@@ -227,7 +247,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         ``{bwb_id}@{start_date}``.
         """
         normalized = (
-            clean_ids(bwb_ids) if bwb_ids else sorted(self._stored_state_urls())
+            clean_ids(bwb_ids) if bwb_ids else sorted(self._stored_toestanden())
         )
         if not normalized:
             logger.warning("BWB history retrieve: no IDs to process.")
