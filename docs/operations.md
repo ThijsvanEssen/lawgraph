@@ -493,7 +493,10 @@ and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
 `/srv/lawgraph/scheduler.env` (or `/srv/lawgraph/bin/alert.sh`), and stays red.
 
 The deploy takes the lock of the scheduled runs, so it never swaps the code under a running
-load; when a run holds it, the job fails before it changes anything and is run again later. Data
+load; when a run holds it, the deploy waits for it, up to `LAWGRAPH_LOCK_WAIT` seconds (30
+minutes, set in the workflow) and says so every minute, and fails before it changes anything
+when the lock is still held after that (then it is run again later). The rollback waits for the
+lock the same way. Data
 migrations that a release needs (a `normalize` or `semantic` step) are not part of it: run them
 on the server after the deploy. An index a release adds to a large table (`ensure_schema` creates
 what is missing at the start of the API, in one transaction that blocks the table) is built

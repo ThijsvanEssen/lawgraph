@@ -42,6 +42,9 @@ env:
   PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://concordans.nl' }}
   # how long the API may take to warm up after the restart
   WARM_UP_SECONDS: 1200
+  # how long the deploy and its rollback wait for a scheduled run that holds the lock (as
+  # LAWGRAPH_LOCK_WAIT does for scripts/_run.sh); with the warm-up well inside the job's 6 hours
+  LAWGRAPH_LOCK_WAIT: 1800
 
 jobs:
   test:
@@ -87,16 +90,27 @@ jobs:
 
       # Under the lock of the scheduled runs (scripts/_run.sh, with TMPDIR=$DEPLOY_DIR/tmp as the
       # timers set it): a deploy never swaps the code under a running load. When a run holds the
-      # lock the deploy fails before it changes anything; run the job again once the run is over.
+      # lock the deploy waits for it, up to LAWGRAPH_LOCK_WAIT seconds, and says so every minute;
+      # a lock still held after that fails the deploy before it changes anything.
       # Before the checkout it writes "<previous> <new> <run id>" to deploy/previous: only this
       # run's rollback uses it.
       - name: Deploy
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
-            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID WARM=$WARM_UP_SECONDS sh -s" << 'EOF'
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID WARM=$WARM_UP_SECONDS LAWGRAPH_LOCK_WAIT=$LAWGRAPH_LOCK_WAIT sh -s" << 'EOF'
           set -e
           LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
-          mkdir "$LOCK" || { echo "[deploy] a scheduled run holds $LOCK; run this job again later"; exit 1; }
+          waited=0
+          until mkdir "$LOCK" 2>/dev/null; do
+            if [ "$waited" -ge "$LAWGRAPH_LOCK_WAIT" ]; then
+              echo "[deploy] a scheduled run still holds $LOCK after ${waited} s; run this job again later"
+              exit 1
+            fi
+            [ "$((waited % 60))" -ne 0 ] || echo "[deploy] a scheduled run holds $LOCK; waiting (${waited} s of ${LAWGRAPH_LOCK_WAIT} s)"
+            sleep 1
+            waited=$((waited + 1))
+          done
+          [ "$waited" -eq 0 ] || echo "[deploy] took $LOCK after waiting ${waited} s"
           trap 'rmdir "$LOCK"' EXIT
           cd "$DEPLOY_DIR/app"
           # the tags too: the version of the install comes from them
@@ -148,14 +162,14 @@ jobs:
         run: scripts/smoke.sh "$PUBLIC_URL" "${{ inputs.version }}"
 
       # Only when this run changed the code (deploy/previous names this run and the server is on
-      # its commit): back to the previous commit, its dependencies, a restart and /api/health,
-      # then an alert through LAWGRAPH_ALERT_COMMAND of scheduler.env (or bin/alert.sh). The job
-      # stays red either way.
+      # its commit): under the lock (waited for as the deploy does) back to the previous commit,
+      # its dependencies, a restart and /api/health, then an alert through LAWGRAPH_ALERT_COMMAND
+      # of scheduler.env (or bin/alert.sh). The job stays red either way.
       - name: Roll back
         if: failure()
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
-            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID sh -s" << 'EOF'
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID LAWGRAPH_LOCK_WAIT=$LAWGRAPH_LOCK_WAIT sh -s" << 'EOF'
           set -e
           [ -r "$DEPLOY_DIR/scheduler.env" ] && . "$DEPLOY_DIR/scheduler.env"
           alert() {
@@ -173,7 +187,18 @@ jobs:
             exit 0
           fi
           LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
-          mkdir "$LOCK" || { alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback could not take the lock: roll back by hand"; exit 1; }
+          waited=0
+          until mkdir "$LOCK" 2>/dev/null; do
+            if [ "$waited" -ge "$LAWGRAPH_LOCK_WAIT" ]; then
+              echo "[rollback] a scheduled run still holds $LOCK after ${waited} s"
+              alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback could not take the lock: roll back by hand"
+              exit 1
+            fi
+            [ "$((waited % 60))" -ne 0 ] || echo "[rollback] a scheduled run holds $LOCK; waiting (${waited} s of ${LAWGRAPH_LOCK_WAIT} s)"
+            sleep 1
+            waited=$((waited + 1))
+          done
+          [ "$waited" -eq 0 ] || echo "[rollback] took $LOCK after waiting ${waited} s"
           trap 'rmdir "$LOCK"' EXIT
           git checkout --quiet --detach "$prev"
           "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
