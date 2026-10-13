@@ -114,6 +114,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda store, since_date: iter(list(store._pub_docs)),
     )
     monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(semantic_tk, "remove_own_act_edges", lambda *_a, **_k: 0)
     monkeypatch.setattr(
         semantic_tk, "acts_of_dossiers", lambda store: getattr(store, "acts", {})
     )

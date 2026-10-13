@@ -18,6 +18,7 @@ from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
     AmendingInstrumentDTO,
+    AmendingProposalDTO,
     BasisArticleDTO,
     CitedArticleRef,
     EuLinkDTO,
@@ -494,12 +495,13 @@ def get_instrument_dossiers_route(
     response_model=AmendedByResponse,
     summary="Amending publications of a regulation",
     description=(
-        "The amending instruments (Staatsblad, Tractatenblad, ...) that change, "
-        "introduce or repeal articles of this regulation (AMENDS / INTRODUCES / "
-        "REPEALS), newest first. Per publication: the edge count per kind, the "
-        "number of articles affected, the first effective date and the "
+        "The amending publications (Staatsblad, Staatscourant, Tractatenblad, ...) "
+        "that change, introduce or repeal articles of this regulation (AMENDS / "
+        "INTRODUCES / REPEALS), newest first. Per publication: the edge count per "
+        "kind, the number of articles affected, the first effective date and the "
         "dossiers. ``total`` is the absolute count, independent of ``limit`` "
-        "and ``offset``."
+        "and ``offset``. Apart from them, in ``proposals``, the papers of the "
+        "Tweede Kamer that propose to change it and are pending."
     ),
     tags=["instruments"],
 )
@@ -510,8 +512,14 @@ def get_instrument_amended_by_route(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AmendedByResponse:
     data = get_instrument_amended_by(store, bwb_id, limit=limit, offset=offset)
-    items = [AmendingInstrumentDTO.from_row(r, data.dossier_titles) for r in data.items]
-    return AmendedByResponse(bwb_id=bwb_id, total=data.total, items=items)
+    titles = data.dossier_titles
+    return AmendedByResponse(
+        bwb_id=bwb_id,
+        total=data.total,
+        items=[AmendingInstrumentDTO.from_row(r, titles) for r in data.items],
+        proposals_total=data.proposals_total,
+        proposals=[AmendingProposalDTO.from_row(r, titles) for r in data.proposals],
+    )
 
 
 @router.get(

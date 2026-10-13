@@ -292,7 +292,13 @@ def test_amended_by_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.get(f"/api/instruments/{BWB}/amended-by")
 
     assert response.status_code == 200
-    assert response.json() == {"bwb_id": BWB, "total": 0, "items": []}
+    assert response.json() == {
+        "bwb_id": BWB,
+        "total": 0,
+        "items": [],
+        "proposals_total": 0,
+        "proposals": [],
+    }
 
 
 def test_amended_by_rejects_bad_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
