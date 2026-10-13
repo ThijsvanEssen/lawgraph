@@ -140,10 +140,21 @@ def _after_announcement(
     return found
 
 
+def _place(item: ET.Element, marked: bool) -> str | None:
+    """The number of an onderdeel ("a", "1°"): none in a list the BWB calls unmarked
+    (``type="ongemarkeerd"``), and none whose ``<li.nr>`` holds no letter or digit, a dash
+    or a bullet ("–", "−", "•") of a list the BWB calls explicit all the same: a mark
+    without a number is no place to cite."""
+    number = _first(item, "li.nr")
+    if not marked or number is None:
+        return None
+    place = _text(number).rstrip(".")
+    return place if any(char.isalnum() for char in place) else None
+
+
 def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any]]:
-    """The definitions of a ``<lijst>``, each with the number of its onderdeel ("a"): none
-    in a list the BWB calls unmarked (``type="ongemarkeerd"``), whose ``<li.nr>`` is a
-    dash."""
+    """The definitions of a ``<lijst>``, each with the number of its onderdeel
+    (``_place``)."""
     marked = lijst.get("type") != "ongemarkeerd"
     for item in _children(lijst, "li"):
         al = _first(item, "al")
@@ -152,16 +163,13 @@ def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any
         match = _TERM.match(_text(al))
         if match is None:
             continue
-        number = _first(item, "li.nr")
         jci = next(
             (e.get("verwijzing") for e in item.iter() if local_name(e.tag) == "jci"),
             None,
         )
         yield {
             **_definition(match["term"], match["text"], al, scope),
-            "place": (
-                _text(number).rstrip(".") if marked and number is not None else None
-            ),
+            "place": _place(item, marked),
             "jci": jci,
         }
 

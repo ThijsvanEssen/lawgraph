@@ -46,11 +46,20 @@ law throughout: so an abbreviation several laws claim (WW: also the Woningwet an
 names a law where the text says which. An abbreviation that is one law's keeps that law.
 
 In running text (`semantic tk`, `semantic rechtspraak`) an abbreviation of one word cites its
-law as its source writes it: `CBW` is the Centrale Branchevereniging Wonen ("artikel 12 van de
-CBW-voorwaarden"), not the Cyberbeveiligingswet (`Cbw`). Another spelling (`AWB`, `GW`) cites
-the law only in a text that also names it so (`Awb`) or by its title or citation title; else
-the citation is one of a law the graph does not know. The first part of a compound
-(`art. 6 EVRM-verweer`) still cites the article.
+law as its source writes it. Another case (`Vw` for `VW`, `AWB` for `Awb`) cites the law in a
+text that also names it so or by its title or citation title, and in a judgment dated five
+years or more after the law came into force (`date_in_force`): "art. 8 Vw" is the
+Vreemdelingenwet 2000, while `CBW` in 2026 is the Centrale Branchevereniging Wonen ("artikel
+12 van de CBW-voorwaarden"), not the new Cyberbeveiligingswet (`Cbw`). A spelling that starts
+in lower case where the source starts with a capital (`bis` for `BIS`, `cao` for `CAO`) never
+cites the law. Else the citation is one of a law the graph does not know. The first part of a
+compound (`art. 6 EVRM-verweer`) still cites the article.
+
+A judgment cites no law that came to be after its date, in any spelling: the earliest of the
+law's `date_signed`, `date_published` and `date_in_force` (`artikel 1a Vw` in 1998 is the
+Vreemdelingenwet of 1965, not the Vreemdelingenwet 2000). A law without these dates is not
+held to them. `semantic tk` does not date its papers: a bill is discussed before its law is
+signed.
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
@@ -941,7 +950,9 @@ that abbreviation (`7A` too), the code keeps the spelling most regulations give 
 families follow the WTI; nothing is kept by hand. A book whose WTI record is not stored is not in
 its family.
 
-**Normalize `bwb-history`.** Reads every stored toestand once and writes:
+**Normalize `bwb-history`.** Reads every stored toestand once (`bwb_xml.read_toestand`: the
+text, references and parts of an article are read only for a version it has not met, so a
+toestand costs about its XML parse) and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
   toestand only repeats versions still valid), with `parts`, `origin_publication` and
@@ -999,14 +1010,14 @@ Articles are processed in chunks of 500 so one lookup resolves a whole chunk's t
 
 **Semantic `bwb-definitions`.** The definitions a regulation gives itself, its
 begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML and kept in
-`lg_instrument_definitions` (not a table of the graph; apart from the instrument's props, so
-its lists do not carry them). The BWB marks no definition as such; the article has a structure
+`lg_instrument_definitions` (not a table of the graph, but a write that changes it raises the
+data version; apart from the instrument's props, so its lists do not carry them). The BWB marks no definition as such; the article has a structure
 all the same: an `<al>` that announces them ("… wordt verstaan onder:"), then a `<lijst>` of
 `<li>` with its letter and JCI and an `<al>` "term: definition", or `<al>` after `<al>` that
 begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term goes on with the
 definition before it); and a sentence that defines one term. Per definition `term`, `text`,
-`article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`,
-whose `<li.nr>` is a dash), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
+`article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`, and
+none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
 …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
 

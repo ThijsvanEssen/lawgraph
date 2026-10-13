@@ -37,6 +37,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import delegation_clauses, fills, kind_rank
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import native_article_number
@@ -309,7 +310,12 @@ def get_legislative_history(
     raw_entries = get_article_legislative_history(
         store, bwb_id, article_number, article_id=article_id
     )
-    entries = [LegislativeHistoryEntry(**e) for e in raw_entries]
+    entries = [
+        LegislativeHistoryEntry(
+            **e, dossier_short_title=short_title(e.get("dossier_title"))
+        )
+        for e in raw_entries
+    ]
     return ArticleLegislativeHistoryResponse(
         article_id=article_id,
         entries=entries,

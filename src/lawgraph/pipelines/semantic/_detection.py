@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import Callable
 
 from lawgraph.core.aliases import InstrumentAliasMap
-from lawgraph.core.citations import CitationHit, DutchCitationExtractor
+from lawgraph.core.citations import CitationHit, DutchCitationExtractor, LawDates
 from lawgraph.core.eu_citations import (
     ARTICLE_NUMBER_ANY_LETTERS,
     EUCitationConfidence,
@@ -37,10 +37,12 @@ def build_extractor(
     code_aliases: dict[str, str],
     instrument_aliases: InstrumentAliasMap,
     context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
+    law_dates: Mapping[str, LawDates] | None = None,
 ) -> DutchCitationExtractor:
     """Extractor that resolves law codes as their sources write them (``as_written``: "CBW"
     is not the Cbw) and full law names ("artikel 5 van de Wegenwet"), and the
-    abbreviations that stand for a law only beside other words ("EP" beside "EVRM")."""
+    abbreviations that stand for a law only beside other words ("EP" beside "EVRM");
+    *law_dates* date the laws for a text with a date (``detect_in_text(on=...)``)."""
     name_aliases = {
         name: bwb_id or celex
         for name, (bwb_id, celex) in instrument_aliases.items()
@@ -51,6 +53,7 @@ def build_extractor(
         name_aliases=name_aliases,
         context_aliases=context_aliases,
         as_written=True,
+        law_dates=law_dates,
     )
 
 
@@ -75,15 +78,17 @@ def detect_in_text(
     extra: Callable[[str, Callable[[CitationHit], None]], None] | None = None,
     every_occurrence: bool = False,
     unknown_laws: bool = False,
+    on: str | None = None,
 ) -> list[CitationHit]:
     """Article hits of *extractor* plus the EU hits (and *extra* ones).
 
     Once per citation, or with *every_occurrence* once per place in the text that cites it
     (each hit carries its ``start`` and ``end``). With *unknown_laws* also the citations of
-    laws the extractor does not know (``CitationHit.unknown_law``).
+    laws the extractor does not know (``CitationHit.unknown_law``). *on* is the date of the
+    text (``DutchCitationExtractor.extract``).
     """
     hits = extractor.extract(
-        text, every_occurrence=every_occurrence, unknown_laws=unknown_laws
+        text, every_occurrence=every_occurrence, unknown_laws=unknown_laws, on=on
     )
     seen = {hit_identity(h) for h in hits}
 

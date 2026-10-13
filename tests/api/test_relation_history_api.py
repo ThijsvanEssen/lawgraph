@@ -383,6 +383,45 @@ def test_instrument_dossiers_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body == {"bwb_id": BWB, "total": 0, "items": []}
 
 
+def test_an_instrument_dossier_and_a_history_entry_name_the_dossier_short(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each dossier of a law, and the dossier of each change of an article, has the name it
+    goes by (``short_title``, ``dossier_short_title``): from its title, null without one."""
+    named = _dossier("36764", "2025-01-01")
+    named["props"]["title"] = "Regels over cyberbeveiliging (Cyberbeveiligingswet)"
+    rows = [
+        {"dossier": named, "via": "instrument", "publication": None},
+        {
+            "dossier": _dossier("111", "2020-01-01"),
+            "via": "instrument",
+            "publication": None,
+        },
+    ]
+    _instrument_dossiers(monkeypatch, rows, total=2)
+    entry = {
+        "date": "2025-03-01", "kind": "Wetsvoorstel", "change": "introduces",
+        "status": "voorgesteld", "summary": None, "document_id": "documents/b",
+        "dossier_id": "dossiers/36764", "dossier_number": "36764",
+    }  # fmt: skip
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.get_article_legislative_history",
+        lambda *a, **k: [
+            {**entry, "dossier_title": named["props"]["title"]},
+            {**entry, "dossier_title": None},
+        ],
+    )
+
+    items = client.get(f"/api/instruments/{BWB}/dossiers").json()["items"]
+    history = client.get(f"/api/articles/{BWB}/287/legislative-history").json()
+
+    assert [i["short_title"] for i in items] == ["Cyberbeveiligingswet", None]
+    assert [e["dossier_short_title"] for e in history["entries"]] == [
+        "Cyberbeveiligingswet",
+        None,
+    ]
+
+
 # ── OpenAPI ─────────────────────────────────────────────────────────────────
 
 

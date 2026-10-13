@@ -929,3 +929,60 @@ def test_the_first_level_alone_keeps_up_to_2000(store: GraphStore) -> None:
         store, "dossiers", "1", depth=2, cap=1500
     )
     assert len(deeper["nodes"]) == node_queries.NEIGHBORHOOD_CAP == 1000
+
+
+def test_a_dossier_has_its_short_title_and_a_law_its_kind(store: GraphStore) -> None:
+    """A dossier carries the name it goes by (``short_title``, from its title) as the node
+    itself, as a neighbour and in a neighbourhood, with every prop and on the canvas; a law
+    on the canvas its ``kind``, as its own page has it."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    title = (
+        "Regels ter bevordering van een hoog niveau van cyberbeveiliging in de Unie "
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"_key": "36764", "type": "dossier", "labels": [], "props": {
+            "label": "36764", "number": "36764",
+            "title": f"{title}(Cyberbeveiligingswet)"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "bwbr0051234", "type": "instrument", "labels": [], "props": {
+            "bwb_id": "BWBR0051234", "citation_title": "Cyberbeveiligingswet",
+            "kind": "wet", "article_count": 70}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("e1", "instruments/bwbr0051234", "dossiers/36764", "LEGISLATED_IN")]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        dossier = "/api/nodes/dossiers/36764"
+        law = "/api/nodes/instruments/bwbr0051234"
+        answers = {
+            (path, props): client.get(path, params={"props": props}).json()
+            for path in (dossier, f"{dossier}/neighborhood", law, f"{law}/neighborhood")
+            for props in ("full", "canvas")
+        }
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    def found(answer: dict[str, Any], node_id: str) -> dict[str, Any]:
+        nodes = answer.get("nodes") or [answer["node"]] + [
+            item for b in answer["neighbors"]["buckets"] for item in b["items"]
+        ]
+        return next(n["props"] for n in nodes if n["id"] == node_id)
+
+    for answer in answers.values():
+        assert found(answer, "dossiers/36764")["short_title"] == "Cyberbeveiligingswet"
+        assert found(answer, "instruments/bwbr0051234")["kind"] == "wet"
+    canvas = found(answers[(dossier, "canvas")], "instruments/bwbr0051234")
+    assert canvas == {
+        "bwb_id": "BWBR0051234",
+        "citation_title": "Cyberbeveiligingswet",
+        "kind": "wet",
+    }

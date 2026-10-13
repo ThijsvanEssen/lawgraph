@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from lawgraph.core.citations import LawDates
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.curated import LISTS
 from lawgraph.core.identifiers import is_bwb_id
@@ -94,6 +95,26 @@ def code_aliases(
             elif base := _base_law(list(laws), titles):
                 found[laws[base]] = base
     return found
+
+
+def law_dates(rows: Iterable[Mapping[str, Any]]) -> dict[str, LawDates]:
+    """Law id -> ``LawDates`` of the instruments whose source dates them.
+
+    *rows* are ``{bwb_id, celex, date_signed, date_published, date_in_force}``; ``start``
+    is the earliest of the three (a law that is signed or published exists, also before
+    it comes into force), ``in_force`` the day it came into force, else ``start``.
+    """
+    dates: dict[str, LawDates] = {}
+    for row in rows:
+        law_id = normalize_instrument_id(row.get("bwb_id") or row.get("celex"))
+        days = {
+            field: str(row.get(field) or "").strip()[:10] or None
+            for field in ("date_signed", "date_published", "date_in_force")
+        }
+        known = [day for day in days.values() if day]
+        if law_id and known:
+            dates[law_id] = LawDates(min(known), days["date_in_force"] or min(known))
+    return dates
 
 
 def _base_law(law_ids: list[str], titles: Mapping[str, str]) -> str | None:

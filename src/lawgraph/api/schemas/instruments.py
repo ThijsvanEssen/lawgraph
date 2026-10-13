@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.division_anchor import breadcrumb_on
 from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier
@@ -61,14 +62,49 @@ def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
     ]
 
 
-def breadcrumb_on(props: dict[str, Any], day: str) -> Any:
-    """The stored breadcrumb of an article version on *day*: the last of its
-    ``breadcrumb_changes`` from on or before *day*, else its ``breadcrumb``."""
-    crumbs = props.get("breadcrumb")
-    for change in props.get("breadcrumb_changes") or []:
-        if (change.get("from") or "") <= day:
-            crumbs = change.get("breadcrumb")
-    return crumbs
+class InstrumentDivisionDTO(BaseModel):
+    """The division a list of articles is cut to (``division``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    anchor: str = Field(
+        ...,
+        description="Its anchor, the path of labels down to it: "
+        "`deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`.",
+    )
+    type: str | None = Field(None, description="Its element: `afdeling`.")
+    label: str | None = Field(None, description="As printed: `Afdeling 10.2.2`.")
+    title: str | None = Field(None, description="Its heading: `Vernietiging`.")
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = Field(
+        ...,
+        description="The divisions from the outermost down to this one, itself last.",
+    )
+    offset: int = Field(
+        ...,
+        description="The place of its first article in the whole list (the same "
+        "request without ``division``): an ``offset`` to read on from there.",
+    )
+
+    @classmethod
+    def from_path(
+        cls, anchor: str, path: list[dict[str, Any]], offset: int
+    ) -> InstrumentDivisionDTO:
+        crumbs = breadcrumb_dtos(path)
+        own = crumbs[-1]
+        return cls(
+            anchor=anchor,
+            type=own.type,
+            label=own.label,
+            title=own.title,
+            breadcrumb=crumbs,
+            offset=offset,
+        )
+
+
+_DIVISION = (
+    "With ``division``: the division the list is cut to, its heading and its place in "
+    "the whole list; else null."
+)
 
 
 class InstrumentArticleNodeDTO(WithPath):
@@ -155,6 +191,7 @@ class InstrumentArticlesResponse(BaseModel):
             "of ``limit`` — use to render a '+N more' badge."
         ),
     )
+    division: InstrumentDivisionDTO | None = Field(None, description=_DIVISION)
     items: list[InstrumentArticleNodeDTO]
 
 
@@ -270,6 +307,11 @@ class InstrumentDossierItem(WithPath):
     key: str
     dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name the dossier goes by (``Cyberbeveiligingswet``), as "
+        "``/api/dossiers`` gives it; null without one.",
+    )
     display_name: str | None = None
     current_phase: str | None = Field(
         None, description="The current phase of the dossier's bill (``phases``)."
@@ -673,8 +715,8 @@ class InstrumentArticlesAtResponse(BaseModel):
     at_date: str
     total: int = Field(
         ...,
-        description="Every article in force on ``at_date``, independent of ``limit`` "
-        "and ``offset``.",
+        description="Every article in force on ``at_date`` (of the division, with "
+        "``division``), independent of ``limit`` and ``offset``.",
     )
     first_version_from: str | None = Field(
         None,
@@ -682,6 +724,7 @@ class InstrumentArticlesAtResponse(BaseModel):
         "oldest ``valid_from`` of its versions). Before it the source gives no law: the "
         "route is empty, also where an article's own ``valid_from`` is older.",
     )
+    division: InstrumentDivisionDTO | None = Field(None, description=_DIVISION)
     items: list[InstrumentArticleVersionDTO]
 
 

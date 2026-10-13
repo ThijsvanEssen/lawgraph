@@ -16,9 +16,10 @@ from lawgraph.core.aliases import (
     curated_abbreviations,
     curated_context_abbreviations,
     instrument_names,
+    law_dates,
     normalize_instrument_id,
 )
-from lawgraph.core.citations import number_shape
+from lawgraph.core.citations import LawDates, number_shape
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
@@ -381,6 +382,11 @@ class SemanticPipelineBase(PipelineBase):
         ``_load_code_aliases`` reads), and such a name without its year
         (``core.aliases.instrument_names``). A failing query fails the step."""
         return instrument_names(semantic_bwb.instrument_alias_rows(self.store))
+
+    def _load_law_dates(self) -> dict[str, LawDates]:
+        """Law id -> when the instrument came to be and came into force
+        (``core.aliases.law_dates``)."""
+        return law_dates(semantic_bwb.law_date_rows(self.store))
 
     # ------------------------------------------------------------------ edges
 

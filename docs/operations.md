@@ -559,8 +559,9 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   0 errors`, rewritten in place once a second while the other log lines scroll above it. A
   pipe, a file and the JSON mode get that line once a minute instead. The total is there when
   it is cheap to know (an index, a list of ids, the OData `$count`, a count from a database
-  index); the speed is that of the last minute. At the end of a step one summary gives the
-  duration and the count per outcome and per reason. A reason to skip or fail is logged once,
+  index); the speed is that of the last minute, and for records with a text payload also in
+  MB/s (`· 4.9/s · 31.2 MB/s ·`), which compares across records of very different sizes. At
+  the end of a step one summary gives the duration and the count per outcome and per reason. A reason to skip or fail is logged once,
   with the first record it happened to; a cause of failure is one error of the result
   (`25 x download failed (HTTP 500) (first: ...)`).
 - A log file next to the live terminal: `LAWGRAPH_LOG_FILE=run.log lawgraph bootstrap`. Piped

@@ -17,6 +17,12 @@ from lawgraph.pipelines.base import PipelineBase
 logger = get_logger(__name__)
 
 
+def _payload_size(record: dict[str, Any]) -> int:
+    """The characters of a record's text payload: what most of the work on it grows with."""
+    text = record.get("payload_text")
+    return len(text) if isinstance(text, str) else 0
+
+
 class RawRecords:
     """The raw records of some kinds, streamed from the database by every ``for`` loop.
 
@@ -125,7 +131,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
             after=after,
             limit=limit,
         )
-        yield from progress.track(self.store.with_payloads(rows))
+        yield from progress.track(self.store.with_payloads(rows), _payload_size)
 
     def _count_raw_sources(self, source: str, kinds: list[str]) -> int | None:
         return raw_queries.count_raw_records(self.store, source, kinds)

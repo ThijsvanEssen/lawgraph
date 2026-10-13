@@ -222,3 +222,20 @@ def test_each_term_of_an_unmarked_list_shows_its_own_definition(
         ("entiteit", "entiteit"),
     ]
     assert {d["place"] for d in article["definitions"]} == {None}
+
+
+def test_a_run_that_changes_definitions_raises_the_data_version(
+    database: str, cli: Any
+) -> None:
+    """The article routes mark the terms with the kept definitions: a run that changes them
+    changes the data version (and the ETag, and what the API keeps per version); one that
+    changes nothing leaves it."""
+    store = GraphStore()
+    _toestand(store, "BWBR0047689", (FIXTURES / "bwb_definitions_jtf.xml").read_text())
+    before = store.data_version()
+    cli("semantic", "bwb-definitions")
+    after = store.data_version()
+    assert after != before
+    assert {d["place"] for d in _kept(store)["BWBR0047689"]} == {None}
+    cli("semantic", "bwb-definitions")
+    assert store.data_version() == after
