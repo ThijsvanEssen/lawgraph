@@ -53,7 +53,7 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
 }
 
 
-class ArticlePartDTO(BaseModel):
+class ArticlePartSpanDTO(BaseModel):
     """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
 
     The parts and the printed numbers between them cover the whole text."""
@@ -63,20 +63,35 @@ class ArticlePartDTO(BaseModel):
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
         "`onder-a` (an article without leden), `lid-2-onder-a-onder-1` (an onderdeel "
-        "inside an onderdeel), `tekst-1` (a paragraph outside the other parts, such as a line "
-        "between the lists of an article of a bijlage). Unique within the article."
+        "inside an onderdeel), `onder-_39-onder-a` (inside an unmarked onderdeel), `tekst-1` "
+        "(a paragraph outside the other parts, such as a line between the lists of an "
+        "article of a bijlage), `tekst-6-onder-a` (in the list a definition paragraph "
+        "leads). Unique within the article."
     )
     kind: str = Field(description="`aanhef`, `lid`, `onderdeel` or `tekst`.")
     number: str | None = Field(
         description="The number as printed: `2`, `2a`, `a`, `1°`; null for an aanhef "
         "or an item without one."
     )
-    text: str = Field(
-        description="The content without its number: `text[start:end]` of the article. "
-        "A part with onderdelen spans them too."
+    start: int = Field(
+        description="Offset of the part in the `text` of the article; a part with "
+        "onderdelen spans them too."
     )
-    start: int = Field(description="Offset of the part in the `text` of the article.")
     end: int
+    term: str | None = Field(
+        None,
+        description="The term a definition without a letter or digit defines (an unmarked "
+        "onderdeel, a tekst), as its `<nadruk>` gives it; it is cited by it: `art. 1, "
+        "definitie van 'netwerk- en informatiesysteem', onder a`. Null elsewhere.",
+    )
+
+
+class ArticlePartDTO(ArticlePartSpanDTO):
+    """A part of an article with its content."""
+
+    text: str = Field(
+        description="The content without its number: `text[start:end]` of the article."
+    )
 
 
 def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
@@ -104,6 +119,7 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
                 id=str(part.get("id") or ""),
                 kind=str(part.get("kind") or ""),
                 number=part.get("number"),
+                term=part.get("term"),
                 text=text[start:end],
                 start=start,
                 end=end,
@@ -446,7 +462,7 @@ class ArticleDelegatedResponse(BaseModel):
     )
     items: list[DelegatedRegulationDTO] = Field(
         default_factory=list,
-        description="Every regulation issued under the article: AMvBs first, then "
+        description="Every regulation in force issued under the article: AMvBs first, then "
         "ministerial regulations, then the others; by title.",
     )
     total: int

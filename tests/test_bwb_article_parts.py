@@ -199,6 +199,89 @@ def test_an_article_without_leden_has_an_aanhef_and_onderdelen() -> None:
     ]
 
 
+def test_a_list_in_an_unmarked_onderdeel_stays_under_it() -> None:
+    """Art. 1 Cbw: the definition "netwerk- en informatiesysteem" has its own a, b, c."""
+    article = _article(
+        """<artikel><kop><nr>1</nr></kop>
+        <al>In deze wet wordt verstaan onder:</al>
+        <lijst type="ongemarkeerd">
+        <li><li.nr>–</li.nr><al><nadruk>netwerk voor de levering van inhoud:</nadruk>
+          een netwerk;</al></li>
+        <li><li.nr>–</li.nr><al><nadruk>netwerk- en informatiesysteem:</nadruk></al>
+          <lijst type="expliciet">
+          <li><li.nr>a.</li.nr><al>een netwerk; of</al></li>
+          <li><li.nr>b.</li.nr><al>een apparaat;</al></li></lijst></li>
+        <li><li.nr>–</li.nr><al><nadruk>NIS2-richtlijn:</nadruk> een richtlijn;</al></li>
+        </lijst></artikel>"""
+    )
+
+    shape = [(id_, number) for id_, _, number, _ in _shape(article)]
+    assert shape == [
+        ("aanhef", None),
+        ("onder-_1", "–"),
+        ("onder-_2", "–"),
+        ("onder-_2-onder-a", "a"),
+        ("onder-_2-onder-b", "b"),
+        ("onder-_3", "–"),
+    ]
+    parts = {p.id: article.text[p.start : p.end] for p in article.parts}
+    assert parts["onder-_2"].startswith("netwerk- en informatiesysteem:")
+    assert parts["onder-_2"].endswith("b. een apparaat;")
+    assert parts["onder-_2-onder-a"] == "een netwerk; of"
+    # The unmarked definitions are cited by their term, from their <nadruk>.
+    assert [p.term for p in article.parts] == [
+        None,
+        "netwerk voor de levering van inhoud",
+        "netwerk- en informatiesysteem",
+        None,
+        None,
+        "NIS2-richtlijn",
+    ]
+
+
+def test_a_definition_paragraph_holds_its_own_list() -> None:
+    """Wft 1:1: "<nadruk>aanbieden:</nadruk>" and its a, b; the first is no aanhef."""
+    article = _article(
+        """<artikel><kop><nr>1:1</nr></kop>
+        <al>In deze wet wordt verstaan onder:</al>
+        <al><nadruk>aanbieden:</nadruk></al>
+        <lijst><li><li.nr>a.</li.nr><al>doen;</al></li>
+        <li><li.nr>b.</li.nr><al>laten;</al></li></lijst>
+        <al><nadruk>aanbieder:</nadruk> degene die aanbiedt;</al>
+        <al><nadruk>adviseren:</nadruk></al>
+        <lijst><li><li.nr>a.</li.nr><al>raden;</al></li></lijst>
+        <al>Slot.</al></artikel>"""
+    )
+
+    assert [(id_, text) for id_, _, _, text in _shape(article)] == [
+        ("aanhef", "In deze wet wordt verstaan onder:"),
+        ("tekst-1", "aanbieden:\na. doen;\nb. laten;"),
+        ("tekst-1-onder-a", "doen;"),
+        ("tekst-1-onder-b", "laten;"),
+        ("tekst-2", "aanbieder: degene die aanbiedt;"),
+        ("tekst-3", "adviseren:\na. raden;"),
+        ("tekst-3-onder-a", "raden;"),
+        ("tekst-4", "Slot."),
+    ]
+    assert {p.id: p.term for p in article.parts if p.term} == {
+        "tekst-1": "aanbieden",
+        "tekst-2": "aanbieder",
+        "tekst-3": "adviseren",
+    }
+    assert article.parts[1].to_dict()["term"] == "aanbieden"
+    assert "term" not in article.parts[2].to_dict()
+
+
+def test_a_paragraph_with_more_than_a_term_does_not_hold_the_list() -> None:
+    article = _article(
+        """<artikel><kop><nr>2</nr></kop>
+        <al><nadruk>Let op:</nadruk> het volgende geldt:</al>
+        <lijst><li><li.nr>a.</li.nr><al>een;</al></li></lijst></artikel>"""
+    )
+
+    assert [p.id for p in article.parts] == ["aanhef", "onder-a"]
+
+
 def test_a_lid_without_a_number_or_paragraph_is_still_a_part() -> None:
     article = _article(
         """<artikel><kop><nr>5</nr></kop>

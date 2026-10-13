@@ -56,6 +56,19 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
         <lid><lidnr>1</lidnr><al>Een.</al></lid><lid><lidnr>2</lidnr><al>Twee.</al></lid>
         <lid><lidnr>3</lidnr><al>Drie.</al></lid>
       </artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel3" stam-id="9003" versie-id="1" inwerking="2020-01-01"
+          label="Artikel 3" effect="nieuw">
+        <kop><label>Artikel</label><nr>3</nr></kop>
+        <al>In deze wet wordt verstaan onder:</al>
+        <al><nadruk>adviseren:</nadruk></al>
+        <lijst><li><li.nr>a.</li.nr><al>raden;</al></li><li><li.nr>b.</li.nr><al>wijzen;</al></li></lijst>
+        <al><nadruk>systemen:</nadruk></al>
+        <lijst type="ongemarkeerd">
+          <li><li.nr>–</li.nr><al><nadruk>netwerk:</nadruk></al>
+            <lijst><li><li.nr>a.</li.nr><al>een kabel; of</al></li></lijst></li>
+          <li><li.nr>–</li.nr><al><nadruk>richtlijn:</nadruk> een richtlijn;</al></li>
+        </lijst>
+      </artikel>
     </wettekst></wet-besluit>
   </wetgeving>
 </toestand>"""
@@ -165,3 +178,46 @@ def test_a_version_of_the_article_has_the_same_parts(client: TestClient) -> None
 
     assert version["text"] == article["text"]
     assert version["parts"] == article["parts"]
+
+
+def test_the_law_of_a_day_carries_the_parts_with_the_text(client: TestClient) -> None:
+    """The whole-law reader nests the text by these, as the article reader does."""
+    article = client.get(f"/api/articles/{BWB}/1").json()["article"]
+
+    items = client.get(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        params={"text_preview_chars": 0, "include_text": "true"},
+    ).json()["items"]
+    first = next(item for item in items if item["article_number"] == "1")
+
+    assert first["text"] == article["text"]
+    assert first["parts"] == [
+        {k: v for k, v in part.items() if k != "text"} for part in article["parts"]
+    ]
+
+
+def test_definitions_hold_their_own_lists_and_are_named_by_their_term(
+    client: TestClient,
+) -> None:
+    """A definition paragraph with its own list (Wft 1:1) and an unmarked definition with
+    its own a, b (art. 1 Cbw): the list stays under its term, which the part names."""
+    article = client.get(f"/api/articles/{BWB}/3").json()["article"]
+
+    assert [(p["id"], p["number"], p["term"]) for p in article["parts"]] == [
+        ("aanhef", None, None),
+        ("tekst-1", None, "adviseren"),
+        ("tekst-1-onder-a", "a", None),
+        ("tekst-1-onder-b", "b", None),
+        ("tekst-2", None, "systemen"),
+        ("tekst-2-onder-_1", "–", "netwerk"),
+        ("tekst-2-onder-_1-onder-a", "a", None),
+        ("tekst-2-onder-_2", "–", "richtlijn"),
+    ]
+    assert article["parts"][0]["text"] == "In deze wet wordt verstaan onder:"
+
+    items = client.get(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        params={"text_preview_chars": 0, "include_text": "true"},
+    ).json()["items"]
+    third = next(item for item in items if item["article_number"] == "3")
+    assert [p["term"] for p in third["parts"]] == [p["term"] for p in article["parts"]]

@@ -178,7 +178,14 @@ class ArticlePart:
       that the parts and their printed numbers cover the whole text;
     * ``lid-2``, ``lid-2a``; ``lid-2-aanhef``: the text of a lid before its onderdelen;
     * ``lid-2-onder-a``, ``onder-a`` (an article without leden), ``lid-2-onder-a-onder-1`` (an
-      onderdeel of an onderdeel: the id of the part it sits in, then its own).
+      onderdeel of an onderdeel: the id of the part it sits in, then its own);
+    * ``tekst-3-onder-a``: an onderdeel of the list that a definition paragraph leads
+      ("<nadruk>adviseren:</nadruk>" and its own a, b: Wft 1:1).
+
+    ``term`` is the term a definition without a letter or digit defines, from the
+    ``<nadruk>`` its paragraph begins with: an unmarked onderdeel ("– netwerk- en
+    informatiesysteem:", art. 1 Cbw) or a tekst (Wft 1:1). It is cited by it ("art. 1,
+    definitie van 'netwerk- en informatiesysteem', onder a").
 
     The number of a lid or onderdeel is written as ``qualifiers.part_slug`` does (``1°`` is
     ``1``). An item without a letter or a digit is ``_<n>``, its position among its siblings;
@@ -191,16 +198,21 @@ class ArticlePart:
     number: str | None
     start: int
     end: int
+    term: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """JSON-able form stored in ``props.parts`` (offsets only: the text is in the article)."""
-        return {
+        """JSON-able form stored in ``props.parts`` (offsets only: the text is in the article);
+        ``term`` only where there is one."""
+        out: dict[str, Any] = {
             "id": self.id,
             "kind": self.kind,
             "number": self.number,
             "start": self.start,
             "end": self.end,
         }
+        if self.term:
+            out["term"] = self.term
+        return out
 
 
 @dataclass(frozen=True)
@@ -465,6 +477,7 @@ class _OpenPart:
     number: str | None
     start: int
     depth: int  # 0 for a lid, 1 + the nesting for an onderdeel
+    term: str | None = None
 
 
 class TextBuilder:
@@ -500,7 +513,14 @@ class TextBuilder:
     def value(self) -> str:
         return "".join(self.parts)
 
-    def open_part(self, kind: str, label: str, number: str | None, depth: int) -> None:
+    def open_part(
+        self,
+        kind: str,
+        label: str,
+        number: str | None,
+        depth: int,
+        term: str | None = None,
+    ) -> None:
         """Start a lid or onderdeel at the current position, inside the part it sits in."""
         self.close_from(depth)
         parent = self._open[-1].id if self._open else ""
@@ -512,14 +532,21 @@ class TextBuilder:
         elif seen.count(slug) > 1:
             slug = f"{slug}_{seen.count(slug)}"
         ident = "-".join(part for part in (parent, label, slug) if part)
-        self._open.append(_OpenPart(ident, kind, number, self.length, depth))
+        self._open.append(_OpenPart(ident, kind, number, self.length, depth, term))
+
+    def open_lead(self, ident: str, start: int, term: str | None) -> None:
+        """Start a tekst at *start* that holds the list after it (a definition paragraph
+        and its own onderdelen); *ident* stands for its id until the teksten are numbered."""
+        self._open.append(_OpenPart(ident, PART_TEKST, None, start, 0, term))
 
     def close_from(self, depth: int) -> None:
         """End the open parts at *depth* and deeper, here."""
         while self._open and self._open[-1].depth >= depth:
             part = self._open.pop()
             self.structure.append(
-                ArticlePart(part.id, part.kind, part.number, part.start, self.length)
+                ArticlePart(
+                    part.id, part.kind, part.number, part.start, self.length, part.term
+                )
             )
 
     def add_aanhef(self, start: int, end: int) -> None:
@@ -620,6 +647,34 @@ def _article_heading(article: ET.Element) -> str | None:
     return None
 
 
+def _words(element: ET.Element) -> str:
+    return " ".join("".join(element.itertext()).split())
+
+
+def leading_term(al: ET.Element) -> str | None:
+    """The term an ``<al>`` begins with in ``<nadruk>``, without its colon: inside it
+    ("<nadruk>aanbieden:</nadruk>") or right after it ("<nadruk>bieder</nadruk>: een …")."""
+    first = next(iter(al), None)
+    if first is None or local_name(first.tag) != "nadruk" or (al.text or "").strip():
+        return None
+    term = _words(first)
+    if term.endswith(":"):
+        term = term[:-1]
+    elif not (first.tail or "").lstrip().startswith(":"):
+        return None
+    return term.strip() or None
+
+
+def _leads_list(children: list[ET.Element], index: int) -> str | None:
+    """The term of the paragraph at *index* when it is only a term and the list after it is
+    its meanings ("<nadruk>adviseren:</nadruk>", then a, b: Wft 1:1)."""
+    al = children[index]
+    if index + 1 >= len(children) or local_name(children[index + 1].tag) != "lijst":
+        return None
+    term = leading_term(al)
+    return term if term and _words(al).rstrip(":").strip() == term else None
+
+
 def _add_paragraphs(builder: TextBuilder, paragraphs: list[ET.Element]) -> None:
     """Add *paragraphs* separated by a space."""
     for index, al in enumerate(paragraphs):
@@ -650,7 +705,9 @@ def _add_item(
     marker = text_of(find_descendant(li, "li.nr"))
     if marker:
         builder.add(f"{marker} ")
-    builder.open_part(PART_ONDERDEEL, "onder", marker.rstrip(".") or None, depth)
+    unmarked = not any(char.isalnum() for char in marker)
+    term = leading_term(body[0]) if unmarked else None
+    builder.open_part(PART_ONDERDEEL, "onder", marker.rstrip(".") or None, depth, term)
     _add_paragraphs(builder, body)
 
 
@@ -718,6 +775,18 @@ def _shift_part(
     return replace(part, start=start - lead, end=end - lead)
 
 
+@dataclass
+class _Paragraph:
+    """A paragraph of an article outside its leden: its span and the term it defines."""
+
+    start: int
+    end: int
+    term: str | None
+    lead: str | None = (
+        None  # the stand-in id of a definition paragraph with its own list
+    )
+
+
 def _article_text(
     article: ET.Element,
 ) -> tuple[str, list[Reference], list[ArticlePart]]:
@@ -726,37 +795,42 @@ def _article_text(
     "Dit artikel is nog niet in werking getreden") is part of the article.
 
     Also the offsets of the leden, onderdelen and aanhef in that text, and of the references.
-    An article without leden but with a list has the paragraphs before it as its aanhef."""
+    An article without leden but with a list has the paragraphs before it as its aanhef; a
+    paragraph that is only a term ("adviseren:") holds the list after it."""
     builder = TextBuilder()
     children = [c for c in article if local_name(c.tag) not in ("kop", "meta-data")]
     first_list = next(
         (i for i, c in enumerate(children) if local_name(c.tag) == "lijst"), None
     )
     has_leden = any(local_name(c.tag) == "lid" for c in children)
-    intro: list[tuple[int, int]] = []  # spans of the paragraphs before the list
-    loose: list[tuple[int, int]] = []  # spans of the other paragraphs outside the leden
+    intro: list[_Paragraph] = []  # the paragraphs before the list
+    loose: list[_Paragraph] = []  # the other paragraphs outside the leden
     for index, child in enumerate(children):
         start = builder.length
-        if local_name(child.tag) == "lid":
+        name = local_name(child.tag)
+        if name == "lid":
             _add_lid(builder, child)
             continue
+        lead_term = _leads_list(children, index) if name == "al" else None
         _add_block(builder, child)
-        if local_name(child.tag) != "al":
+        if name == "lijst":
+            builder.close_from(0)  # the definition paragraph that led it, if any
+        if name != "al":
             continue
+        paragraph = _Paragraph(start, builder.length, leading_term(child))
+        if lead_term:
+            paragraph.lead = f"\0{index}"
+            builder.open_lead(paragraph.lead, start, lead_term)
         before_list = first_list is not None and index < first_list
-        (intro if not has_leden and before_list else loose).append(
-            (start, builder.length)
-        )
+        intro_ = not has_leden and before_list and not lead_term
+        (intro if intro_ else loose).append(paragraph)
     if intro and any(part.kind == PART_ONDERDEEL for part in builder.structure):
-        builder.add_aanhef(intro[0][0], intro[-1][1])
+        builder.add_aanhef(intro[0].start, intro[-1].end)
     else:
         loose = intro + loose
     builder.close_from(0)
     if builder.structure:
-        for number, (start, end) in enumerate(loose, start=1):
-            builder.structure.append(
-                ArticlePart(f"{PART_TEKST}-{number}", PART_TEKST, None, start, end)
-            )
+        _number_teksten(builder, loose)
     raw = builder.value()
     text = raw.strip()
     lead = len(raw) - len(raw.lstrip())
@@ -771,6 +845,31 @@ def _article_text(
         key=lambda part: (part.start, -part.end),
     )
     return text, refs, parts
+
+
+def _number_teksten(builder: TextBuilder, paragraphs: list[_Paragraph]) -> None:
+    """Make the paragraphs outside the other parts ``tekst-1``, ``tekst-2`` in text order; a
+    definition paragraph with its own list is a part already, under its stand-in id, which
+    it and its onderdelen trade for its number."""
+    ids: dict[str, str] = {}
+    for number, paragraph in enumerate(paragraphs, start=1):
+        ident = f"{PART_TEKST}-{number}"
+        if paragraph.lead:
+            ids[paragraph.lead] = ident
+            continue
+        builder.structure.append(
+            ArticlePart(
+                ident, PART_TEKST, None, paragraph.start, paragraph.end, paragraph.term
+            )
+        )
+    if not ids:
+        return
+    builder.structure = [
+        replace(part, id=ids[head] + part.id[len(head) :])
+        if (head := part.id.split("-", 1)[0]) in ids
+        else part
+        for part in builder.structure
+    ]
 
 
 def _crumb(division: ET.Element, name: str) -> Crumb:
