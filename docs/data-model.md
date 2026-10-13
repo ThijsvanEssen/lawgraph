@@ -108,7 +108,7 @@ they are out of date. Do not edit inside the markers.
 |----------|------|----|---------|
 | `PART_OF` | Article / Annex / Document / Case / Instrument | Instrument / Case / Dossier | Containment. Article/Annex → Instrument; Document → Case or Dossier; Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers it (a Protocol → its Convention, `Moederverdrag`). |
 | `VERSION_OF` | InstrumentVersion / ArticleVersion | Instrument / Article | A dated version of an instrument or article. An article keeps one identity across versions (BWB `stam-id`); each version has valid_from / valid_until. |
-| `AMENDS` | Instrument / Document | Instrument / Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`. |
+| `AMENDS` | Instrument / Document | Instrument / Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument / Document | Instrument / Article | An instrument adds a new article or instrument; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument / Document | Instrument / Article | An instrument withdraws an article or instrument; a bill proposing it is `voorgesteld`. |
 | `BASED_ON` | Instrument | Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
@@ -833,7 +833,8 @@ Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a wo
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
-`lg_data_version` holds a counter per table of the graph. A statement trigger on each
+`lg_data_version` holds a counter per table of the graph, and one for
+`lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads

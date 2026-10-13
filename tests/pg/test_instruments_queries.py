@@ -449,9 +449,8 @@ def test_amended_by_grouped_per_instrument_newest_first(
 
     monkeypatch.setattr(instruments, "get_dossier_titles", titles)
     data = instruments.get_instrument_amended_by(store, BWB)
-    assert data.total == 7
+    assert data.total == 6
     assert [i["instrument"]["_key"] for i in data.items] == [
-        "doc1",
         "p2",
         "p1",
         "p3b",
@@ -459,7 +458,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "p3c",
         "p4",
     ]
-    p1 = data.items[2]
+    p1 = data.items[1]
     assert list(p1) == [
         "instrument",
         "amends",
@@ -476,15 +475,138 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "first_effective_date": "2020-03-01",
     }
     assert p1["instrument"]["_id"] == "instruments/p1"
-    assert data.items[1]["first_effective_date"] is None
+    assert data.items[0]["first_effective_date"] is None
+    # a paper proposes, it is no publication
+    assert [p["instrument"]["_key"] for p in data.proposals] == ["doc1"]
+    assert data.proposals_total == 1
     assert asked == [["35000", "36000"]]
     assert data.dossier_titles == {"36000": "Wet X"}
 
-    page = instruments.get_instrument_amended_by(store, BWB, limit=2, offset=5)
-    assert page.total == 7
+    page = instruments.get_instrument_amended_by(store, BWB, limit=2, offset=4)
+    assert page.total == 6
     assert [i["instrument"]["_key"] for i in page.items] == ["p3c", "p4"]
     beyond = instruments.get_instrument_amended_by(store, BWB, offset=10)
-    assert (beyond.items, beyond.total, beyond.dossier_titles) == ([], 7, {})
+    assert (beyond.items, beyond.total) == ([], 6)
+
+
+def _seed_proposals(store: GraphStore) -> None:
+    """Papers that propose to change article 1, and what became of each."""
+    _seed_articles(store)
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _doc("37000", "dossier", label="37000", title="Wet Y"),
+            # the bill that made the law (or one rejected): closed
+            _doc("36764", "dossier", label="36764", closed=True, outcome="aangenomen"),
+        ],
+    )
+
+    def paper(key: str, kind: str, dossier: str, **props: Any) -> dict[str, Any]:
+        return _doc(
+            key, "document", kind=kind, date="2026-03-01", dossier_numbers=[dossier],
+            dossier_number=dossier, dossier_suffix=None, display_name=f"Stuk {key}",
+            text="Lange tekst", **props,
+        )  # fmt: skip
+
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            paper("bill", "Voorstel van wet", "37000", sequence=2),
+            paper("own_bill", "Voorstel van wet", "36764", sequence=2),
+            paper("adopted", "Amendement", "37000", sequence=8),
+            paper("rejected", "Amendement", "37000", sequence=9),
+            paper("replaced", "Amendement", "37000", sequence=10),
+            paper("withdrawn", "Amendement", "37000", sequence=11),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _doc("d_withdrawn", "decision", decision_kind="Stemmen - ingetrokken"),
+            _doc("d_other", "decision", decision_kind="Stemmen - aangenomen"),
+        ],
+    )
+    papers = ("bill", "own_bill", "adopted", "rejected", "replaced", "withdrawn")
+    store.bulk_insert_or_update_edges(
+        [
+            *(
+                {**_edge(f"documents/{p}", "articles/a1", "AMENDS"),
+                 "status": "voorgesteld"}
+                for p in papers
+            ),
+            _edge("documents/withdrawn", "cases/z1", "PART_OF"),
+            _edge("decisions/d_withdrawn", "cases/z1", "ABOUT"),
+            # a decision on another case of the bill withdraws nothing
+            _edge("documents/bill", "cases/z2", "PART_OF"),
+            _edge("decisions/d_other", "cases/z2", "ABOUT"),
+        ]
+    )  # fmt: skip
+    store.execute(
+        "INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)"
+        " VALUES ('documents/adopted', 'documents/adopted', '2026-03-01', 'aangenomen'),"
+        " ('documents/rejected', 'documents/rejected', '2026-03-01', 'verworpen'),"
+        " ('documents/newer', 'documents/replaced', '2026-03-01', 'other')"
+    )
+
+
+def test_amended_by_lists_only_the_pending_proposals(store: GraphStore) -> None:
+    _seed_proposals(store)
+
+    data = instruments.get_instrument_amended_by(store, BWB)
+
+    assert (data.items, data.total) == ([], 0)
+    assert data.proposals_total == 2
+    assert [(p["instrument"]["_key"], p["outcome"]) for p in data.proposals] == [
+        ("bill", None),
+        ("adopted", "aangenomen"),
+    ]
+    # the row of a paper, without its text
+    assert data.proposals[0]["instrument"]["props"] == {
+        "date": "2026-03-01",
+        "display_name": "Stuk bill",
+        "dossier_number": "37000",
+        "dossier_numbers": ["37000"],
+        "dossier_suffix": None,
+        "kind": "Voorstel van wet",
+        "sequence": 2,
+    }
+
+
+def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
+    _seed_proposals(store)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/instruments/{BWB}/amended-by").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert (body["total"], body["items"]) == (0, [])
+    assert body["proposals_total"] == 2
+    adopted = body["proposals"][1]
+    assert adopted == {
+        "id": "documents/adopted",
+        "key": "adopted",
+        "display_name": "Stuk adopted",
+        "kind": "Amendement",
+        "number": "8",
+        "date": "2026-03-01",
+        "dossiers": [
+            {
+                "number": "37000",
+                "key": "37000",
+                "title": "Wet Y",
+                "short_title": None,
+                "path": "/dossiers/37000",
+            }
+        ],
+        "outcome": "aangenomen",
+        "amends": 1,
+        "introduces": 0,
+        "repeals": 0,
+        "articles_affected": 1,
+        "path": adopted["path"],
+    }
+    assert adopted["path"]
 
 
 def test_amended_by_of_nothing_asks_no_titles(store: GraphStore) -> None:

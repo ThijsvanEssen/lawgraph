@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
@@ -22,9 +23,11 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
@@ -39,11 +42,14 @@ _MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
 
 @dataclass
 class AmendedByData:
-    """Amending instruments of a regulation plus the titles of their dossiers."""
+    """The publications that changed a regulation and the pending proposals to change it,
+    plus the titles of their dossiers."""
 
     items: list[dict[str, Any]]
     total: int
     dossier_titles: dict[str, str | None]
+    proposals: list[dict[str, Any]] = field(default_factory=list)
+    proposals_total: int = 0
 
 
 @dataclass
@@ -92,6 +98,20 @@ def _articles_of(prop: str) -> str:
     return f"SELECT id FROM articles WHERE {prop} = %(bwb)s"
 
 
+def _articles_matched(
+    identifier: str, *, include_stubs: bool, include_repealed: bool
+) -> tuple[str, dict[str, Any]]:
+    """The articles of an instrument (BWB id or CELEX) a list holds (``articles a WHERE
+    ...``) and their binds."""
+    scope = scope_of(identifier)
+    conditions = [f"a.{scope.prop} = %(bwb)s"]
+    if not include_stubs:
+        conditions.append("a.stub IS NOT TRUE")
+    if not include_repealed:
+        conditions.append("a.repealed IS NOT TRUE")
+    return f"articles a WHERE {' AND '.join(conditions)}", {"bwb": scope.value}
+
+
 def get_articles(
     store: GraphStore,
     identifier: str,
@@ -108,13 +128,9 @@ def get_articles(
     Without *include_repealed* only the articles in force: no historical identity and no
     article whose current version repeals it.
     """
-    scope = scope_of(identifier)
-    conditions = [f"a.{scope.prop} = %(bwb)s"]
-    if not include_stubs:
-        conditions.append("a.stub IS NOT TRUE")
-    if not include_repealed:
-        conditions.append("a.repealed IS NOT TRUE")
-    matched = f"articles a WHERE {' AND '.join(conditions)}"
+    matched, bind = _articles_matched(
+        identifier, include_stubs=include_stubs, include_repealed=include_repealed
+    )
     page = f"""
         SELECT a.id, a.key, a.type, a.labels, a.props,
                row_number() OVER (ORDER BY {_document_order("a")}) AS n
@@ -123,11 +139,95 @@ def get_articles(
         LIMIT %(limit)s OFFSET %(offset)s
     """
     rows = store.query(
-        _paged(matched, page),
-        {"bwb": scope.value, "limit": limit, "offset": offset},
+        _paged(matched, page), {**bind, "limit": limit, "offset": offset}
     )
     items, total = _split_page(rows)
     return [node_doc(row) for row in items], total
+
+
+@dataclass(frozen=True)
+class DivisionPage:
+    """A page of the articles of one division of a law: the divisions from the outermost
+    down to it (``path``), the place of its first article in the whole list (``start``),
+    and, of the law on a date, the start of its first toestand."""
+
+    items: list[dict[str, Any]]
+    total: int
+    path: list[dict[str, Any]]
+    start: int
+    first_version_from: str | None = None
+
+
+def _division(
+    rows: list[dict[str, Any]], anchor: str, crumbs_of: Callable[[dict[str, Any]], Any]
+) -> tuple[list[str], list[dict[str, Any]], int] | None:
+    """Of *rows* (a list in order, ``id`` and what *crumbs_of* reads the breadcrumb from)
+    the ids that stand in the division *anchor*, the path down to it and the place of the
+    first; None when none does."""
+    ids: list[str] = []
+    path: list[dict[str, Any]] = []
+    start = 0
+    for n, row in enumerate(rows):
+        found = division_path(crumbs_of(row), anchor)
+        if found is None:
+            continue
+        if not ids:
+            path, start = found, n
+        ids.append(row["id"])
+    return (ids, path, start) if ids else None
+
+
+def _page_of(
+    store: GraphStore, table: str, ids: list[str], limit: int, offset: int
+) -> list[dict[str, Any]]:
+    """The nodes of *table* with the ids of a page of *ids*, in that order."""
+    page = ids[offset : offset + limit]
+    if not page:
+        return []
+    rows = store.query(
+        f"SELECT id, key, type, labels, props FROM {table}"
+        " WHERE id = ANY(%(ids)s::text[])",
+        {"ids": page},
+    )
+    by_id = {row["id"]: node_doc(row) for row in rows}
+    return [by_id[i] for i in page if i in by_id]
+
+
+def get_division_articles(
+    store: GraphStore,
+    identifier: str,
+    anchor: str,
+    *,
+    include_stubs: bool = False,
+    include_repealed: bool = False,
+    limit: int = 2000,
+    offset: int = 0,
+) -> DivisionPage | None:
+    """The articles of ``get_articles`` that stand in the division *anchor*
+    (``deel-hoofdstuk-6``, ``division_anchor``), a page of them; None when none does.
+
+    The breadcrumbs of the articles of the law are read by the index of its law, then
+    the page by id."""
+    matched, bind = _articles_matched(
+        identifier, include_stubs=include_stubs, include_repealed=include_repealed
+    )
+    rows = list(
+        store.query(
+            f"SELECT a.id, a.props -> 'breadcrumb' AS crumbs FROM {matched}"
+            f" ORDER BY {_document_order('a')}",
+            bind,
+        )
+    )
+    found = _division(rows, anchor, lambda row: row["crumbs"])
+    if found is None:
+        return None
+    ids, path, start = found
+    return DivisionPage(
+        items=_page_of(store, "articles", ids, limit, offset),
+        total=len(ids),
+        path=path,
+        start=start,
+    )
 
 
 # The orders of the judgments that cite a law: the newest first, or the most cited articles
@@ -433,15 +533,87 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 def get_instrument_amended_by(
     store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
-    """Amending instruments of a regulation, newest first (2 queries at most).
+    """The publications that changed a regulation, newest first, and the pending proposals
+    to change it (3 queries at most).
 
-    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an article of the regulation (the ``edges_to_cover`` index is used with
-    the article ids), grouped per amending instrument; a second bulk
-    query resolves the titles of every dossier the page mentions.
+    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose ``_to`` is an
+    article of the regulation (the ``edges_to_cover`` index is used with the article ids),
+    grouped per publication that made them; one the same per paper of the Tweede Kamer that
+    proposes them and is still pending (``queries.proposals``), up to
+    ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
     scope = scope_of(identifier)
-    ctes = f"""
+    rows = store.query(
+        _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
+        + _paged("grouped", _newest("date_published")),
+        {**_amending_bind(scope.value), "limit": limit, "offset": offset},
+    )
+    page_rows, total = _split_page(rows)
+    proposal_rows, proposals_total = _split_page(
+        store.query(
+            _amending_ctes(COLLECTION_DOCUMENTS, scope.prop)
+            + _paged("grouped", _newest("date")),
+            {**_amending_bind(scope.value), "limit": PROPOSALS_SHOWN, "offset": 0},
+        )
+    )
+    items = [_amending_item(row) for row in page_rows]
+    proposals = [
+        {**_amending_item(row), "outcome": row["outcome"]} for row in proposal_rows
+    ]
+    numbers = collect_dossier_numbers(
+        {"dossiers": (i["instrument"].get("props") or {}).get("dossier_numbers")}
+        for i in items + proposals
+    )
+    return AmendedByData(
+        items=items,
+        total=total,
+        dossier_titles=get_dossier_titles(store, numbers),
+        proposals=proposals,
+        proposals_total=proposals_total,
+    )
+
+
+# The pending proposals ``amended-by`` lists at most.
+PROPOSALS_SHOWN = 100
+
+# The props of a paper its row in ``amended-by`` shows.
+_PAPER_PROPS = """(
+    SELECT coalesce(json_object_agg(p.k, p.v), '{}'::json)
+    FROM json_each(n.props) AS p(k, v)
+    WHERE p.k IN ('display_name', 'title', 'kind', 'date', 'sequence', 'dossier_numbers',
+                  'dossier_number', 'dossier_suffix')
+)"""
+
+
+def _newest(date: str) -> str:
+    """A page of ``grouped`` newest first: by the prop *date*, then the date signed."""
+    return f"""
+        SELECT g.*, row_number() OVER (
+            ORDER BY lg_str(g.props -> '{date}') DESC NULLS LAST,
+                     lg_str(g.props -> 'date_signed') DESC NULLS LAST,
+                     g.key DESC
+        ) AS n
+        FROM grouped g
+        ORDER BY n
+        LIMIT %(limit)s OFFSET %(offset)s
+    """
+
+
+def _amending_ctes(collection: str, prop: str) -> str:
+    """``hits`` and ``grouped``: the changes of the articles of a regulation made by the
+    nodes of *collection*, per node; of a paper only a pending proposal, with its outcome."""
+    paper = collection == COLLECTION_DOCUMENTS
+    # the collection tested on the groups: a test of the edges would turn the probe of the
+    # index per article into a scan of every change made by the collection
+    pending = f"AND {proposals.pending_sql('h.from_id')}" if paper else ""
+    outcome = (
+        f"{proposals.outcome_sql('h.from_id')} AS outcome"
+        if paper
+        else "NULL::text AS outcome"
+    )
+    # a paper holds its whole text: only what its row shows
+    props = f"{_PAPER_PROPS} AS props" if paper else "n.props"
+    return f"""
         WITH hits AS (
             SELECT e.from_id,
                    (count(*) FILTER (WHERE e.relation = %(amends)s))::int AS amends,
@@ -450,7 +622,7 @@ def get_instrument_amended_by(
                    count(DISTINCT e.to_id)::int AS articles_affected,
                    min(lg_str(e.doc -> 'meta' -> 'effective_date')) AS first_effective_date
             FROM edges e
-            WHERE e.to_id IN ({_articles_of(scope.prop)})
+            WHERE e.to_id IN ({_articles_of(prop)})
               AND e.relation = ANY(%(mutations)s)
             GROUP BY e.from_id
         ),
@@ -459,62 +631,37 @@ def get_instrument_amended_by(
             -- every table whole; LIMIT keeps the planner from turning it into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
                    h.amends, h.introduces, h.repeals, h.articles_affected,
-                   h.first_effective_date
+                   h.first_effective_date, {outcome}
             FROM hits h
             CROSS JOIN LATERAL (
-                SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n
+                SELECT n.id, n.key, n.type, n.labels, {props} FROM nodes n
                 WHERE n.id = h.from_id
                 LIMIT 1
             ) d
+            WHERE starts_with(h.from_id, '{collection}/') {pending}
         )
     """
-    page = """
-        SELECT g.*, row_number() OVER (
-            ORDER BY lg_str(g.props -> 'date_published') DESC NULLS LAST,
-                     lg_str(g.props -> 'date_signed') DESC NULLS LAST,
-                     g.key DESC
-        ) AS n
-        FROM grouped g
-        ORDER BY n
-        LIMIT %(limit)s OFFSET %(offset)s
-    """
-    rows = store.query(
-        ctes + _paged("grouped", page),
-        {
-            "bwb": scope.value,
-            "mutations": _MUTATION_RELATIONS,
-            "amends": RELATION_AMENDS,
-            "introduces": RELATION_INTRODUCES,
-            "repeals": RELATION_REPEALS,
-            "limit": limit,
-            "offset": offset,
-        },
-    )
-    page_rows, total = _split_page(rows)
-    items = [
-        {
-            "instrument": node_doc(row),
-            "amends": row["amends"],
-            "introduces": row["introduces"],
-            "repeals": row["repeals"],
-            "articles_affected": row["articles_affected"],
-            "first_effective_date": row["first_effective_date"],
-        }
-        for row in page_rows
-    ]
-    numbers = collect_dossier_numbers(
-        {
-            "dossiers": (i.get("instrument", {}).get("props") or {}).get(
-                "dossier_numbers"
-            )
-        }
-        for i in items
-    )
-    return AmendedByData(
-        items=items,
-        total=total,
-        dossier_titles=get_dossier_titles(store, numbers),
-    )
+
+
+def _amending_bind(bwb: str) -> dict[str, Any]:
+    return {
+        "bwb": bwb,
+        "mutations": _MUTATION_RELATIONS,
+        "amends": RELATION_AMENDS,
+        "introduces": RELATION_INTRODUCES,
+        "repeals": RELATION_REPEALS,
+    }
+
+
+def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "instrument": node_doc(row),
+        "amends": row["amends"],
+        "introduces": row["introduces"],
+        "repeals": row["repeals"],
+        "articles_affected": row["articles_affected"],
+        "first_effective_date": row["first_effective_date"],
+    }
 
 
 def _reference_bucket(identity: str, own: str, other: str) -> str:
@@ -1160,6 +1307,29 @@ class LawOnADate:
     first_version_from: str | None
 
 
+# The article versions of a law in force on a date (``%(bwb_id)s``, ``%(at_date)s``), under
+# ``_EARLIEST``. The start of the first toestand is the smallest valid_from, null first: a
+# toestand without a start, or none at all, leaves no law on any date. An article version
+# without a start began before any date; one without an end is in force still.
+_IN_FORCE_ON = """
+    article_versions v
+    WHERE v.bwb_id = %(bwb_id)s
+      AND EXISTS (SELECT 1 FROM earliest WHERE earliest.valid_from <= %(at_date)s)
+      AND (v.valid_from <= %(at_date)s OR v.valid_from IS NULL)
+      AND (v.valid_until > %(at_date)s
+           OR v.valid_until_set IS NOT TRUE)
+      AND coalesce(v.article_number, '') NOT LIKE 'bijlage %%'
+"""
+_EARLIEST = """
+    earliest AS (
+        SELECT valid_from FROM instrument_versions
+        WHERE bwb_id = %(bwb_id)s
+        ORDER BY valid_from NULLS FIRST
+        LIMIT 1
+    )
+"""
+
+
 def get_articles_at(
     store: GraphStore,
     bwb_id: str,
@@ -1175,34 +1345,17 @@ def get_articles_at(
     None before the first toestand of the law: the source gives the law from there, and an
     article's own start before it (``inwerking``) says nothing of the articles that were
     replaced or lapsed before it."""
-    # The start of the first toestand is the smallest valid_from, null first: a toestand
-    # without a start, or none at all, leaves no law on any date. An article version
-    # without a start began before any date; one without an end is in force still.
-    matched = """
-        article_versions v
-        WHERE v.bwb_id = %(bwb_id)s
-          AND EXISTS (SELECT 1 FROM earliest WHERE earliest.valid_from <= %(at_date)s)
-          AND (v.valid_from <= %(at_date)s OR v.valid_from IS NULL)
-          AND (v.valid_until > %(at_date)s
-               OR v.valid_until_set IS NOT TRUE)
-          AND coalesce(v.article_number, '') NOT LIKE 'bijlage %%'
-    """
     page = f"""
         SELECT v.id, v.key, v.type, v.labels, v.props,
                row_number() OVER (ORDER BY {_document_order("v")}) AS n
-        FROM {matched}
+        FROM {_IN_FORCE_ON}
         ORDER BY n
         LIMIT %(limit)s OFFSET %(offset)s
     """
     statement = f"""
-        WITH earliest AS (
-            SELECT valid_from FROM instrument_versions
-            WHERE bwb_id = %(bwb_id)s
-            ORDER BY valid_from NULLS FIRST
-            LIMIT 1
-        )
+        WITH {_EARLIEST}
         SELECT (SELECT valid_from FROM earliest) AS first_from, paged.*
-        FROM ({_paged(matched, page)}) paged
+        FROM ({_paged(_IN_FORCE_ON, page)}) paged
         ORDER BY paged.n
     """
     bind = {
@@ -1217,4 +1370,48 @@ def get_articles_at(
         items=[node_doc(row) for row in items],
         total=total,
         first_version_from=found[0]["first_from"] if found else None,
+    )
+
+
+def get_division_articles_at(
+    store: GraphStore,
+    bwb_id: str,
+    at_date: str,
+    anchor: str,
+    *,
+    limit: int = 2000,
+    offset: int = 0,
+) -> DivisionPage | None:
+    """The articles of ``get_articles_at`` that stood in the division *anchor* on
+    *at_date*, by their breadcrumb of that day, a page of them; None when none did."""
+    rows = list(
+        store.query(
+            f"""
+            WITH {_EARLIEST}
+            SELECT v.id, v.props -> 'breadcrumb' AS crumbs,
+                   v.props -> 'breadcrumb_changes' AS changes,
+                   (SELECT valid_from FROM earliest) AS first_from
+            FROM {_IN_FORCE_ON}
+            ORDER BY {_document_order("v")}
+            """,
+            {"bwb_id": bwb_id.upper(), "at_date": at_date},
+        )
+    )
+    found = _division(
+        rows,
+        anchor,
+        lambda row: breadcrumb_on(
+            {"breadcrumb": row["crumbs"], "breadcrumb_changes": row["changes"]},
+            at_date,
+        ),
+    )
+    if found is None:
+        return None
+    ids, path, start = found
+    return DivisionPage(
+        items=_page_of(store, "article_versions", ids, limit, offset),
+        total=len(ids),
+        path=path,
+        start=start,
+        first_version_from=rows[0]["first_from"],
     )

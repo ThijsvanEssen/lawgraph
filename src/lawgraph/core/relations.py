@@ -111,7 +111,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_I, _DOC),
         (_I, _A),
         "An instrument changes existing text (effective date and version in `meta`). "
-        "A bill (Document) proposing the change carries status `voorgesteld`.",
+        "A bill (Document) proposing the change carries status `voorgesteld`; a paper of "
+        "the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it.",
     ),
     RelationSpec(
         "INTRODUCES",

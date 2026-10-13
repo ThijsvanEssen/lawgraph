@@ -32,6 +32,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
+from lawgraph.core.division_anchor import breadcrumb_on
 from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
 from lawgraph.core.verdragenbank_xml import reservations_url
@@ -67,14 +68,49 @@ def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
     ]
 
 
-def breadcrumb_on(props: dict[str, Any], day: str) -> Any:
-    """The stored breadcrumb of an article version on *day*: the last of its
-    ``breadcrumb_changes`` from on or before *day*, else its ``breadcrumb``."""
-    crumbs = props.get("breadcrumb")
-    for change in props.get("breadcrumb_changes") or []:
-        if (change.get("from") or "") <= day:
-            crumbs = change.get("breadcrumb")
-    return crumbs
+class InstrumentDivisionDTO(BaseModel):
+    """The division a list of articles is cut to (``division``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    anchor: str = Field(
+        ...,
+        description="Its anchor, the path of labels down to it: "
+        "`deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`.",
+    )
+    type: str | None = Field(None, description="Its element: `afdeling`.")
+    label: str | None = Field(None, description="As printed: `Afdeling 10.2.2`.")
+    title: str | None = Field(None, description="Its heading: `Vernietiging`.")
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = Field(
+        ...,
+        description="The divisions from the outermost down to this one, itself last.",
+    )
+    offset: int = Field(
+        ...,
+        description="The place of its first article in the whole list (the same "
+        "request without ``division``): an ``offset`` to read on from there.",
+    )
+
+    @classmethod
+    def from_path(
+        cls, anchor: str, path: list[dict[str, Any]], offset: int
+    ) -> InstrumentDivisionDTO:
+        crumbs = breadcrumb_dtos(path)
+        own = crumbs[-1]
+        return cls(
+            anchor=anchor,
+            type=own.type,
+            label=own.label,
+            title=own.title,
+            breadcrumb=crumbs,
+            offset=offset,
+        )
+
+
+_DIVISION = (
+    "With ``division``: the division the list is cut to, its heading and its place in "
+    "the whole list; else null."
+)
 
 
 class InstrumentArticleNodeDTO(WithPath):
@@ -161,6 +197,7 @@ class InstrumentArticlesResponse(BaseModel):
             "of ``limit`` — use to render a '+N more' badge."
         ),
     )
+    division: InstrumentDivisionDTO | None = Field(None, description=_DIVISION)
     items: list[InstrumentArticleNodeDTO]
 
 
@@ -276,6 +313,11 @@ class InstrumentDossierItem(WithPath):
     key: str
     dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name the dossier goes by (``Cyberbeveiligingswet``), as "
+        "``/api/dossiers`` gives it; null without one.",
+    )
     display_name: str | None = None
     current_phase: str | None = Field(
         None, description="The current phase of the dossier's bill (``phases``)."
@@ -379,6 +421,64 @@ class AmendingInstrumentDTO(BaseModel):
         )
 
 
+class AmendingProposalDTO(WithPath):
+    """A paper of the Tweede Kamer that proposes to change a regulation and is pending: its
+    dossier is open, and it is no amendment that was rejected, withdrawn or replaced."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "documents"
+
+    id: str
+    key: str
+    display_name: str | None = None
+    kind: str | None = Field(
+        None,
+        description="As the chamber writes it: ``Amendement``, ``Voorstel van wet``.",
+    )
+    number: str | None = Field(None, description="Its nr. in the dossier: ``26``.")
+    date: str | None = None
+    dossiers: list[DossierRefDTO] = Field(default_factory=list)
+    outcome: Literal["aangenomen"] | None = Field(
+        None, description="Of an amendment: ``aangenomen`` once adopted; else null."
+    )
+    amends: int = Field(0, description="Number of AMENDS edges into the regulation.")
+    introduces: int = Field(
+        0, description="Number of INTRODUCES edges into the regulation."
+    )
+    repeals: int = Field(0, description="Number of REPEALS edges into the regulation.")
+    articles_affected: int = Field(
+        0, description="Distinct articles of the regulation touched."
+    )
+
+    @classmethod
+    def from_row(
+        cls, row: dict[str, Any], titles: dict[str, str | None]
+    ) -> AmendingProposalDTO:
+        """Build from an ``{instrument, amends, ..., outcome}`` query row."""
+        doc = row.get("instrument") or {}
+        props = doc.get("props") or {}
+        number = props.get("sequence")
+        return cls(
+            id=doc.get("_id") or "",
+            key=doc.get("_key") or "",
+            display_name=props.get("display_name") or props.get("title"),
+            kind=props.get("kind"),
+            number=str(number) if number is not None else None,
+            date=props.get("date"),
+            dossiers=[
+                DossierRefDTO.from_number(n, titles)
+                for n in props.get("dossier_numbers") or []
+                if n is not None and str(n).strip()
+            ],
+            outcome=row.get("outcome"),
+            amends=int(row.get("amends") or 0),
+            introduces=int(row.get("introduces") or 0),
+            repeals=int(row.get("repeals") or 0),
+            articles_affected=int(row.get("articles_affected") or 0),
+            path_props=props,
+        )
+
+
 class AmendedByResponse(BaseModel):
     """Response for GET /api/instruments/{bwb_id}/amended-by."""
 
@@ -388,11 +488,21 @@ class AmendedByResponse(BaseModel):
     total: int = Field(
         ...,
         description=(
-            "Absolute number of amending instruments (independent of "
+            "Absolute number of amending publications (independent of "
             "``limit``/``offset``)."
         ),
     )
     items: list[AmendingInstrumentDTO]
+    proposals_total: int = Field(
+        0, description="Absolute number of pending proposals (``proposals``)."
+    )
+    proposals: list[AmendingProposalDTO] = Field(
+        default_factory=list,
+        description="The pending proposals to change the regulation, newest first, at "
+        "most 100: papers of an open dossier (a bill enacted or rejected is no proposal "
+        "any more), no amendment that was rejected, withdrawn or replaced by a newer "
+        "version. Never the papers of the bill that made the regulation.",
+    )
 
 
 # ── /api/instruments/{bwb_id}/related-instruments ─────────────────────────
@@ -719,8 +829,8 @@ class InstrumentArticlesAtResponse(BaseModel):
     at_date: str
     total: int = Field(
         ...,
-        description="Every article in force on ``at_date``, independent of ``limit`` "
-        "and ``offset``.",
+        description="Every article in force on ``at_date`` (of the division, with "
+        "``division``), independent of ``limit`` and ``offset``.",
     )
     first_version_from: str | None = Field(
         None,
@@ -728,6 +838,7 @@ class InstrumentArticlesAtResponse(BaseModel):
         "oldest ``valid_from`` of its versions). Before it the source gives no law: the "
         "route is empty, also where an article's own ``valid_from`` is older.",
     )
+    division: InstrumentDivisionDTO | None = Field(None, description=_DIVISION)
     items: list[InstrumentArticleVersionDTO]
 
 

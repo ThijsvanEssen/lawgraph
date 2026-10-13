@@ -18,6 +18,7 @@ from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
     AmendingInstrumentDTO,
+    AmendingProposalDTO,
     BasisArticleDTO,
     BasisLawDTO,
     CitedArticleRef,
@@ -33,6 +34,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDelegatedItem,
     InstrumentDelegatedResponse,
     InstrumentDetailDTO,
+    InstrumentDivisionDTO,
     InstrumentDossierItem,
     InstrumentDossiersResponse,
     InstrumentEuLinksResponse,
@@ -56,6 +58,8 @@ from lawgraph.api.schemas.instruments import (
     summary_basis_kind,
 )
 from lawgraph.core.delegations import kind_rank
+from lawgraph.core.division_anchor import as_anchor
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
@@ -72,9 +76,12 @@ from lawgraph.db.queries.instrument_scope import (
 )
 from lawgraph.db.queries.instruments import (
     INSTRUMENT_SORTS,
+    LawOnADate,
     get_articles,
     get_articles_at,
     get_citing_judgments,
+    get_division_articles,
+    get_division_articles_at,
     get_instrument_amended_by,
     get_instrument_dossiers,
     get_instrument_references,
@@ -340,6 +347,12 @@ def get_instrument_eu_links(
     )
 
 
+_DIVISION_HELP = (
+    "One division alone, by its anchor: the path of its labels "
+    "(`deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`; `deel-` may be left out)."
+)
+
+
 @router.get(
     "/{bwb_id}/articles",
     response_model=InstrumentArticlesResponse,
@@ -349,7 +362,9 @@ def get_instrument_eu_links(
         "of the document: an article with only a heading (the Algemene bepaling of the "
         "Grondwet) where it stands, an annex after the regulation. `include_repealed` "
         "adds the repealed identities (last). The text is a short preview; "
-        "/api/articles/{bwb_id}/{address} has the full content."
+        "/api/articles/{bwb_id}/{address} has the full content. ``division`` cuts the "
+        "list to the articles of one division (``total`` and the pages count those), "
+        "with the division itself in ``division``; 404 when no article stands in it."
     ),
     tags=["instruments"],
 )
@@ -372,18 +387,27 @@ def list_articles(
     ] = 160,
     limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
+    division: Annotated[
+        str | None, Query(max_length=300, description=_DIVISION_HELP)
+    ] = None,
 ) -> InstrumentArticlesResponse:
-    docs, total = get_articles(
-        store,
-        bwb_id,
-        include_stubs=include_stubs,
-        include_repealed=include_repealed,
-        limit=limit,
-        offset=offset,
-    )
+    filters = {"include_stubs": include_stubs, "include_repealed": include_repealed}
+    shown: InstrumentDivisionDTO | None = None
+    if division is None:
+        docs, total = get_articles(store, bwb_id, **filters, limit=limit, offset=offset)
+    else:
+        anchor = as_anchor(division)
+        part = get_division_articles(
+            store, bwb_id, anchor, **filters, limit=limit, offset=offset
+        )
+        if part is None:
+            raise HTTPException(status_code=404, detail="Division not found")
+        docs, total = part.items, part.total
+        shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     return InstrumentArticlesResponse(
         bwb_id=bwb_id,
         total=total,
+        division=shown,
         items=[
             InstrumentArticleNodeDTO.from_document(
                 d, text_preview_chars=text_preview_chars
@@ -466,6 +490,7 @@ def get_instrument_dossiers_route(
                 key=d.get("_key") or "",
                 dossier_number=_props(d)["label"],
                 title=_props(d).get("title"),
+                short_title=short_title(_props(d).get("title")),
                 display_name=_props(d).get("display_name"),
                 current_phase=_props(d).get("current_phase"),
                 opened_on=_props(d).get("opened_on"),
@@ -482,12 +507,13 @@ def get_instrument_dossiers_route(
     response_model=AmendedByResponse,
     summary="Amending publications of a regulation",
     description=(
-        "The amending instruments (Staatsblad, Tractatenblad, ...) that change, "
-        "introduce or repeal articles of this regulation (AMENDS / INTRODUCES / "
-        "REPEALS), newest first. Per publication: the edge count per kind, the "
-        "number of articles affected, the first effective date and the "
+        "The amending publications (Staatsblad, Staatscourant, Tractatenblad, ...) "
+        "that change, introduce or repeal articles of this regulation (AMENDS / "
+        "INTRODUCES / REPEALS), newest first. Per publication: the edge count per "
+        "kind, the number of articles affected, the first effective date and the "
         "dossiers. ``total`` is the absolute count, independent of ``limit`` "
-        "and ``offset``."
+        "and ``offset``. Apart from them, in ``proposals``, the papers of the "
+        "Tweede Kamer that propose to change it and are pending."
     ),
     tags=["instruments"],
 )
@@ -498,8 +524,14 @@ def get_instrument_amended_by_route(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AmendedByResponse:
     data = get_instrument_amended_by(store, bwb_id, limit=limit, offset=offset)
-    items = [AmendingInstrumentDTO.from_row(r, data.dossier_titles) for r in data.items]
-    return AmendedByResponse(bwb_id=bwb_id, total=data.total, items=items)
+    titles = data.dossier_titles
+    return AmendedByResponse(
+        bwb_id=bwb_id,
+        total=data.total,
+        items=[AmendingInstrumentDTO.from_row(r, titles) for r in data.items],
+        proposals_total=data.proposals_total,
+        proposals=[AmendingProposalDTO.from_row(r, titles) for r in data.proposals],
+    )
 
 
 @router.get(
@@ -732,7 +764,8 @@ def list_instrument_versions(
         "``text_preview_chars`` the whole ``text`` is left out unless "
         "``include_text=true``; with the text come its ``parts`` (spans, nested by id). "
         "``limit`` and ``offset`` page, ``total`` counts every "
-        "article."
+        "article. ``division`` cuts the list to the articles that stood in one division "
+        "that day, with the division itself in ``division``; 404 when none did."
     ),
     tags=["instruments"],
 )
@@ -759,6 +792,9 @@ def list_articles_at(
     ] = None,
     limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
+    division: Annotated[
+        str | None, Query(max_length=300, description=_DIVISION_HELP)
+    ] = None,
 ) -> InstrumentArticlesAtResponse:
     try:
         dt.date.fromisoformat(at_date)
@@ -766,13 +802,25 @@ def list_articles_at(
         raise HTTPException(
             status_code=422, detail="at_date must be YYYY-MM-DD"
         ) from None
-    law = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+    shown: InstrumentDivisionDTO | None = None
+    if division is None:
+        law = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+    else:
+        anchor = as_anchor(division)
+        part = get_division_articles_at(
+            store, bwb_id, at_date, anchor, limit=limit, offset=offset
+        )
+        if part is None:
+            raise HTTPException(status_code=404, detail="Division not found")
+        law = LawOnADate(part.items, part.total, part.first_version_from)
+        shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     whole = text_preview_chars is None if include_text is None else include_text
     return InstrumentArticlesAtResponse(
         bwb_id=bwb_id,
         at_date=at_date,
         total=law.total,
         first_version_from=law.first_version_from,
+        division=shown,
         items=[
             InstrumentArticleVersionDTO.from_document(
                 d,

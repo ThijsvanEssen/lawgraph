@@ -99,6 +99,10 @@ URLS = [
     f"/api/instruments/{BWB}",
     f"/api/instruments/{BWB}/articles",
     f"/api/instruments/{BWB}/articles/at/2020-01-01",
+    # one division of the law: the breadcrumbs of its articles by the index of the law,
+    # then the page by id
+    f"/api/instruments/{BWB}/articles?division=deel-hoofdstuk-1",
+    f"/api/instruments/{BWB}/articles/at/2020-01-01?division=deel-hoofdstuk-1",
     f"/api/instruments/{BWB}/amended-by",
     f"/api/instruments/{BWB}/judgments",
     f"/api/instruments/{BWB}/judgments?sort=cited&offset=1",
@@ -255,6 +259,7 @@ def _seed(store: GraphStore) -> None:
                 display_name=f"Artikel {n} Proefwet",
                 heading="Onrechtmatige daad",
                 text="Hij die jegens een ander een onrechtmatige daad pleegt.",
+                breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
             )
             for n in (1, 2)
         ]
@@ -273,6 +278,7 @@ def _seed(store: GraphStore) -> None:
                 article_number="1",
                 stam_id="s1",
                 valid_from="2010-01-01",
+                breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
             )
         ],
     )

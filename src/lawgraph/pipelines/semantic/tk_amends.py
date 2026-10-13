@@ -10,7 +10,8 @@ Two names in such a title are no law the bill amends: an EU act it implements ("
 met de implementatie van Verordening (EU) 2023/2869"; a Dutch bill cannot amend EU law), and
 the act it makes itself, whose citeertitel closes the title ("(Wet implementatie Europees
 centraal toegangspunt)"): the instrument ``LEGISLATED_IN`` the document's dossier, once that
-act is published and loaded.
+act is published and loaded. Every run removes such an edge of any paper, also of one not
+read again since its act was published.
 """
 
 from __future__ import annotations
@@ -117,6 +118,13 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
             self.store, RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(kept), kept
         )
         logger.info("Removed %d AMENDS edges no longer derived.", removed)
+        # A paper read before its act was published (and not read since) still has them.
+        own = semantic_tk.remove_own_act_edges(
+            self.store, [RELATION_AMENDS], SEMANTIC_SOURCE_AMENDS
+        )
+        logger.info(
+            "Removed %d AMENDS edges to the act of the paper's own dossier.", own
+        )
         return result
 
     def _amends_edges(

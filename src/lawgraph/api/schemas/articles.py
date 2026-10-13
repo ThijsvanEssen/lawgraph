@@ -608,6 +608,11 @@ class LegislativeHistoryEntry(BaseModel):
     )
     dossier_number: str
     dossier_title: str | None = None
+    dossier_short_title: str | None = Field(
+        None,
+        description="The name the dossier goes by (``Cyberbeveiligingswet``), as "
+        "``/api/dossiers`` gives it; null without one.",
+    )
     date: str | None = Field(
         None, description="Of the bill, or the publication date of the publication."
     )
