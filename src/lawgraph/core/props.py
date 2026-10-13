@@ -281,10 +281,17 @@ class JudgmentParagraphProps(_StrictBase):
 
 
 class JudgmentRepresentativeProps(_StrictBase):
-    """Who acts for a party of a judgment, as its kop names them."""
+    """Who acts for a party of a judgment, as its kop or its account of the procedure
+    names them (``core.judgment_counsel``)."""
 
-    name: str  # "mr. H.J.W. Alt"
-    role: Literal["advocaat", "gemachtigde"]
+    name: str  # as written: "mr. drs. R. van Gelder"
+    role: Literal[
+        "advocaat", "gemachtigde", "raadsman"
+    ]  # raadsman: criminal cases only
+    place: str | None = None  # where they practise: "Voorschoten"
+    capacity: str | None = (
+        None  # what else the text calls them: "ambtenaar in dienst van ..."
+    )
 
 
 class JudgmentPartyProps(_StrictBase):

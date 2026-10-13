@@ -9,6 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.judgment_counsel import read_counsel
 from lawgraph.core.judgment_names import judgment_names
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
@@ -140,7 +141,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         # what a court cites in a footnote (``semantic rechtspraak`` reads it too)
         props["footnotes"] = footnotes or None
         kop = kop_lines(root)
-        props["parties"] = read_parties(kop, subjects)
+        props["parties"] = read_counsel(read_parties(kop, subjects), sections, subjects)
 
         court_code, tier, court_kind = derive_court(ecli, props.get("court"))
         props["court_code"] = court_code

@@ -511,7 +511,9 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (below;
 [the fields](data-model.md#judgment)), `isReplacedBy` (an ECLI)
-as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
+as `replaced_by`, the parties its kop names as `parties` (with who acts for each, from the kop and
+from the account of the procedure, and a party that account hears that the kop does not name), and
+of a conclusion the
 advocate-general its opening lines name as `advocate_general` (data model, Judgment). The XML
 itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
