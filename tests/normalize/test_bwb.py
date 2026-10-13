@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core import bwb_xml
 from lawgraph.core.bwb_xml import article_version_key, historical_article_key
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db.queries import raw as raw_queries
@@ -205,6 +206,30 @@ def test_history_stores_one_version_per_real_change_not_one_per_toestand() -> No
     articles_in_toestand = XML.count("<artikel ")
     assert len(versions) == articles_in_toestand + 1  # only artikel 7 has two versions
     assert len(store.nodes["instrument_versions"]) == 2  # one per toestand
+
+
+def test_history_reads_the_text_only_of_versions_it_has_not_met(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read: list[str | None] = []
+    parse = bwb_xml._parse_article
+
+    def counted(element: Any, *args: Any) -> Any:
+        read.append(element.get("versie-id"))
+        return parse(element, *args)
+
+    monkeypatch.setattr(bwb_xml, "_parse_article", counted)
+    _run_history(
+        _Store(),
+        [
+            _record(_older(XML), "2002-03-21", "2023-02-21"),
+            _record(XML, "2023-02-22", "9999-12-31"),
+        ],
+    )
+
+    # every article of the first toestand, and of the second only the new artikel 7
+    assert len(read) == XML.count("<artikel ") + 1
+    assert read[-1] == "25689252"
 
 
 def test_history_derives_valid_until_from_the_next_version() -> None:

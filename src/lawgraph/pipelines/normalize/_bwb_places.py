@@ -6,7 +6,7 @@ inserted before it, it moves to another division, a division is renamed. So both
 from all toestanden, which come in no order:
 
 * ``position``: the versions of a law in one order in which the versions of each toestand
-  keep theirs (``merge_order``); sorted by it, the versions in force on a day are in the
+  keep theirs (``Order``); sorted by it, the versions in force on a day are in the
   order of that day's toestand;
 * ``breadcrumb``: the divisions of the first toestand that holds the version, and
   ``breadcrumb_changes`` the days from which the version stood under other ones
@@ -18,7 +18,7 @@ stored for each law it reads (``seed``).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 from lawgraph.core.bwb_xml import Crumb
@@ -26,27 +26,44 @@ from lawgraph.core.bwb_xml import Crumb
 Crumbs = tuple[Crumb, ...]
 
 
-def merge_order(order: list[str], known: set[str], sequence: Iterable[str]) -> None:
-    """Add the keys of *sequence* that *order* lacks, each run of them right after the key
-    before it in *sequence* (first when there is none), so the keys of *sequence* keep
-    their order; *known* is the set of *order* and is kept up to date."""
-    previous: str | None = None
-    run: list[str] = []
-    for key in sequence:
-        if key in known:
-            _insert_after(order, previous, run)
-            run = []
+class Order:
+    """The versions of a law in one order in which the versions of each toestand keep
+    theirs. Kept as links, so adding a toestand costs the same in a law of a hundred versions
+    as in one of a hundred thousand."""
+
+    def __init__(self) -> None:
+        self._next: dict[str | None, str | None] = {None: None}  # None: the start
+        self._last: str | None = None
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._next
+
+    def __iter__(self) -> Iterator[str]:
+        key = self._next[None]
+        while key is not None:
+            yield key
+            key = self._next[key]
+
+    def append(self, key: str) -> None:
+        """Add *key* at the end, unless it is in the order."""
+        if key not in self._next:
+            self._insert_after(self._last, key)
+
+    def merge(self, sequence: Iterable[str]) -> None:
+        """Add the keys of *sequence* that the order lacks, each run of them right after the
+        key before it in *sequence* (first when there is none), so the keys of *sequence*
+        keep their order."""
+        previous: str | None = None
+        for key in sequence:
+            if key not in self._next:
+                self._insert_after(previous, key)
             previous = key
-        else:
-            known.add(key)
-            run.append(key)
-    _insert_after(order, previous, run)
 
-
-def _insert_after(order: list[str], previous: str | None, run: list[str]) -> None:
-    if run:
-        at = order.index(previous) + 1 if previous is not None else 0
-        order[at:at] = run
+    def _insert_after(self, previous: str | None, key: str) -> None:
+        self._next[key] = self._next[previous]
+        self._next[previous] = key
+        if self._next[key] is None:
+            self._last = key
 
 
 def _crumbs(stored: Iterable[Mapping[str, Any]] | None) -> Crumbs:
@@ -76,7 +93,7 @@ class Places:
     over the toestanden of one run."""
 
     def __init__(self) -> None:
-        self._orders: dict[str, tuple[list[str], set[str]]] = {}
+        self._orders: dict[str, Order] = {}
         # version -> {breadcrumb: the first toestand start under it}
         self._first: dict[str, dict[Crumbs, str]] = {}
         self._stored: dict[str, list[tuple[str, Crumbs]]] = {}
@@ -88,10 +105,9 @@ class Places:
     def seed(self, bwb_id: str, rows: Iterable[Mapping[str, Any]]) -> None:
         """What an earlier run stored for the versions of *bwb_id*, in their stored order:
         ``{key, breadcrumb, breadcrumb_changes}``."""
-        order, known = self._orders.setdefault(bwb_id, ([], set()))
+        order = self._orders.setdefault(bwb_id, Order())
         for row in rows:
             order.append(row["key"])
-            known.add(row["key"])
             self._stored[row["key"]] = _stored_points(row)
 
     def add(
@@ -100,8 +116,7 @@ class Places:
         """The versions of the toestand of *bwb_id* from *start*, in its order, each with
         its breadcrumb there."""
         versions = list(versions)
-        order, known = self._orders.setdefault(bwb_id, ([], set()))
-        merge_order(order, known, (key for key, _ in versions))
+        self._orders.setdefault(bwb_id, Order()).merge(key for key, _ in versions)
         for key, crumbs in versions:
             crumbs = self._interned.setdefault(crumbs, crumbs)
             first = self._first.setdefault(key, {})
@@ -110,8 +125,7 @@ class Places:
 
     def positions(self, bwb_id: str) -> dict[str, int]:
         """The position of each version of *bwb_id* in the merged order."""
-        order, _ = self._orders.get(bwb_id, ([], set()))
-        return {key: index for index, key in enumerate(order)}
+        return {key: index for index, key in enumerate(self._orders.get(bwb_id, ()))}
 
     def breadcrumbs(self, key: str) -> dict[str, Any] | None:
         """``breadcrumb`` and ``breadcrumb_changes`` of a version read in this run, else

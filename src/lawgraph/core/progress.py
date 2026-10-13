@@ -6,6 +6,9 @@ never per record::
 
     12,400 / 34,593 (36%) · 4.9/s · ~1h12m left · 3 skipped · 0 errors
 
+A loop over records of very different sizes (a BWB toestand is a few KB or a few MB) also
+counts their bytes, so the line shows the speed in MB/s next to records/s.
+
 The step a line belongs to (``[retrieve rechtspraak]``) comes from the log context. A reason
 to skip or fail is logged once, with the first record it happened to; the rest is counted
 and shows up in the summary.
@@ -73,6 +76,7 @@ class Progress:
         self.what = what
         self.total = total
         self.done = 0
+        self.bytes = 0
         self.skips: Counter[str] = Counter()
         self.failures: Counter[str] = Counter()
         self.problems: Counter[str] = Counter()
@@ -84,7 +88,7 @@ class Progress:
         self._periodic = PeriodicLog(interval, clock=clock)
         self._live = PeriodicLog(LIVE_INTERVAL_SECONDS, immediate=True, clock=clock)
         self._step = current_step()
-        self._marks: deque[tuple[float, int]] = deque([(self._started, 0)])
+        self._marks: deque[tuple[float, int, int]] = deque([(self._started, 0, 0)])
 
     # ------------------------------------------------------------------ counting
 
@@ -146,11 +150,16 @@ class Progress:
 
     # ------------------------------------------------------------------- logging
 
-    def track(self, items: Iterable[T]) -> Iterator[T]:
-        """Pass *items* on, counting each as done when the loop asks for the next one."""
+    def track(
+        self, items: Iterable[T], size: Callable[[T], int] | None = None
+    ) -> Iterator[T]:
+        """Pass *items* on, counting each as done when the loop asks for the next one;
+        *size*: the bytes of an item."""
         try:
             for item in items:
                 yield item
+                if size is not None:
+                    self.bytes += size(item)
                 self.ok()
         finally:
             self.finish()
@@ -167,11 +176,12 @@ class Progress:
         """``12,400 / 34,593 (36%) · 4.9/s · ~1h12m left · 3 skipped · 0 errors``."""
         now, handled = self._clock(), self.handled
         marks = self._marks
-        marks.append((now, handled))
+        marks.append((now, handled, self.bytes))
         while len(marks) > 2 and now - marks[1][0] >= RATE_WINDOW_SECONDS:
             marks.popleft()
-        since, counted = marks[0]
+        since, counted, read = marks[0]
         rate = (handled - counted) / (now - since) if now > since else 0.0
+        byte_rate = (self.bytes - read) / (now - since) if now > since else 0.0
 
         parts = [f"{handled:,}"]
         if self.total:
@@ -179,6 +189,8 @@ class Progress:
             parts[0] += f" / {self.total:,} ({share}%)"
         parts[0] += f" {self.what}"
         parts.append(f"{rate:.1f}/s")
+        if self.bytes:
+            parts.append(f"{byte_rate / 1e6:.1f} MB/s")
         if self.total and rate > 0 and handled < self.total:
             left = (self.total - handled) / rate
             parts.append(f"~{format_duration(left)} left")
@@ -201,6 +213,8 @@ class Progress:
                 reasons = ", ".join(f"{r}: {n:,}" for r, n in counter.most_common())
                 parts.append(f"{sum(counter.values()):,} {label} ({reasons})")
         rate = f", {self.handled / elapsed:.1f}/s" if elapsed >= 1 else ""
+        if self.bytes and elapsed >= 1:
+            rate += f", {self.bytes / elapsed / 1e6:.1f} MB/s"
         return f"{'; '.join(parts)} in {format_duration(elapsed)}{rate}"
 
     def errors(self) -> list[str]:

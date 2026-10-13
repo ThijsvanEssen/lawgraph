@@ -44,6 +44,20 @@ def test_without_a_total_there_is_no_share_and_no_eta() -> None:
     assert progress.line() == "50 records · 5.0/s · 0 skipped · 0 errors"
 
 
+def test_records_of_a_size_show_the_speed_in_megabytes_too() -> None:
+    clock = _Clock()
+    progress = Progress("toestanden", clock=clock)
+
+    def records() -> Iterator[int]:
+        for size in (1_000_000, 3_000_000):
+            clock.now += 10
+            yield size
+
+    for _ in progress.track(records(), size=lambda size: size):
+        pass
+    assert progress.line() == "2 toestanden · 0.1/s · 0.2 MB/s · 0 skipped · 0 errors"
+
+
 def test_ten_thousand_records_log_a_line_a_minute_not_a_line_a_record(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

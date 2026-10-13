@@ -897,24 +897,49 @@ def _annex_number(annex: ET.Element) -> str | None:
     return rest or None
 
 
-def _articles(
+class ArticleHead:
+    """An article of a toestand before its text is read: the ids that name its version and
+    the divisions it stands in. Reading the text, references and parts of every article is
+    most of the cost of a toestand, and a reader of many toestanden of one law needs them
+    only for the versions it has not met yet (``article``, read once)."""
+
+    __slots__ = ("_annex", "_article", "_element", "breadcrumb", "stam_id", "versie_id")
+
+    def __init__(
+        self, element: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
+    ) -> None:
+        self._element = element
+        self._annex = annex
+        self._article: ArticleXml | None = None
+        self.breadcrumb = breadcrumb
+        self.stam_id = element.get("stam-id")
+        self.versie_id = element.get("versie-id")
+
+    @property
+    def article(self) -> ArticleXml:
+        if self._article is None:
+            self._article = _parse_article(self._element, self.breadcrumb, self._annex)
+        return self._article
+
+
+def _article_heads(
     element: ET.Element,
     breadcrumb: tuple[Crumb, ...] = (),
     annex: str | None = None,
-) -> Iterator[ArticleXml]:
+) -> Iterator[ArticleHead]:
     """The articles under *element* in document order, each with the divisions it is in
     and, in an annex, the number of that annex."""
     for child in element:
         name = local_name(child.tag)
         if name == "artikel":
-            yield _parse_article(child, breadcrumb, annex)
+            yield ArticleHead(child, breadcrumb, annex)
         elif name == "bijlage":
             crumb = _crumb(child, name)
-            yield from _articles(child, (*breadcrumb, crumb), _annex_number(child))
+            yield from _article_heads(child, (*breadcrumb, crumb), _annex_number(child))
         elif name in DIVISIONS:
-            yield from _articles(child, (*breadcrumb, _crumb(child, name)), annex)
+            yield from _article_heads(child, (*breadcrumb, _crumb(child, name)), annex)
         else:
-            yield from _articles(child, breadcrumb, annex)
+            yield from _article_heads(child, breadcrumb, annex)
 
 
 def _parse_article(
@@ -990,11 +1015,18 @@ def _title(root: ET.Element, name: str) -> str | None:
 
 def parse_toestand(xml_text: str) -> ToestandXml:
     """Parse the XML of one toestand. Raises ``ET.ParseError`` on malformed XML."""
+    toestand, heads = read_toestand(xml_text)
+    return replace(toestand, articles=tuple(head.article for head in heads))
+
+
+def read_toestand(xml_text: str) -> tuple[ToestandXml, tuple[ArticleHead, ...]]:
+    """The toestand without its articles, and its articles unread (``ArticleHead``), in
+    document order. Raises ``ET.ParseError`` on malformed XML."""
     root = ET.fromstring(xml_text)
     wetgeving = next(iter_named(root, "wetgeving"), None)
-    articles = tuple(_articles(root))
+    heads = tuple(_article_heads(root))
     enacted, enacted_in_force = _enactment(root)
-    return ToestandXml(
+    toestand = ToestandXml(
         bwb_id=root.get("bwb-id"),
         kind=wetgeving.get("soort") if wetgeving is not None else None,
         treaty_number=(wetgeving.get("verdragnummer") or None)
@@ -1008,9 +1040,9 @@ def parse_toestand(xml_text: str) -> ToestandXml:
         enacted_in_force=enacted_in_force,
         basis=_basis(root),
         implements=_implemented(root),
-        articles=articles,
         annexes=parse_annexes(root),
     )
+    return toestand, heads
 
 
 # ── node props (pure builders shared by the normalize pipelines) ─────────────

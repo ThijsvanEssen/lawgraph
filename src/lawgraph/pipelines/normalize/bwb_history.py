@@ -27,7 +27,9 @@ Model:
     niet inwerking getreden", under the versie-id its text will have: that placeholder is
     written only while no toestand gave the text, and never replaces it.
 
-Phase 1 streams the raw XML and writes nodes in blocks; phase 2 (``build_edges``)
+Phase 1 streams the raw XML and writes nodes in blocks; it reads the text of an article only
+for a version it has not met (``ArticleHead``): most of a toestand repeats versions already
+read, and reading every article was most of its cost. Phase 2 (``build_edges``)
 finalises ``valid_until`` from the database (so incremental runs stay correct),
 links each new version to its Article and each toestand to its Instrument.
 """
@@ -54,6 +56,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import (
     EFFECT_REPUBLISHES,
+    ArticleHead,
     ArticleXml,
     ToestandXml,
     article_display_name,
@@ -63,7 +66,7 @@ from lawgraph.core.bwb_xml import (
     effect_kind,
     historical_article_key,
     instrument_props,
-    parse_toestand,
+    read_toestand,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
@@ -87,7 +90,7 @@ _DIGEST_CHARS = 16
 WrittenVersions = dict[str, list[tuple[str, str | None]]]  # bwb_id -> [(key, stam_id)]
 
 
-def _has_version_id(article: ArticleXml) -> bool:
+def _has_version_id(article: ArticleHead) -> bool:
     return bool(article.stam_id and article.versie_id)
 
 
@@ -292,8 +295,9 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 parsed = self._parse_record(record)
                 if parsed is None:
                     continue
-                bwb_id, start_date, end_date, toestand = parsed
-                instrument_seed.setdefault(bwb_id, instrument_props(toestand, bwb_id))
+                bwb_id, start_date, end_date, toestand, heads = parsed
+                if bwb_id not in instrument_seed:
+                    instrument_seed[bwb_id] = instrument_props(toestand, bwb_id)
 
                 version_key = make_node_key(bwb_id, start_date)
                 writer.add(
@@ -302,22 +306,25 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     )
                 )
                 instrument_versions.append((bwb_id, version_key))
-                self._place(places, bwb_id, start_date, toestand)
+                keyed = self._keyed(heads, bwb_id)
+                self._place(places, bwb_id, start_date, keyed)
 
-                for position, article in enumerate(toestand.articles):
-                    key = self._version_key(article, bwb_id)
+                for position, (key, head) in enumerate(keyed):
                     if key is None:
                         continue
                     last_seen[key] = max(last_seen.get(key, ""), start_date)
-                    if not _has_version_id(article):
+                    if not _has_version_id(head):
                         if key not in by_text:
-                            written[bwb_id].append((key, article.stam_id))
+                            written[bwb_id].append((key, head.stam_id))
                         by_text.keep(
-                            key, bwb_id, start_date, article, toestand, position
+                            key, bwb_id, start_date, head.article, toestand, position
                         )
                         continue
+                    if key in seen:
+                        continue  # most of a toestand: its text is not read
+                    article = head.article
                     placeholder = is_placeholder(article.text)
-                    if key in seen or (placeholder and key in announced):
+                    if placeholder and key in announced:
                         continue
                     if key not in announced:
                         written[bwb_id].append((key, article.stam_id))
@@ -349,23 +356,31 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             "places": places,
         }
 
+    def _keyed(
+        self, heads: Iterable[ArticleHead], bwb_id: str
+    ) -> list[tuple[str | None, ArticleHead]]:
+        """The articles of a toestand in its order, each with the key of its version."""
+        return [(self._version_key(head, bwb_id), head) for head in heads]
+
     def _place(
-        self, places: Places, bwb_id: str, start_date: str, toestand: ToestandXml
+        self,
+        places: Places,
+        bwb_id: str,
+        start_date: str,
+        keyed: list[tuple[str | None, ArticleHead]],
     ) -> None:
         """Add the versions of a toestand, in its order, to *places*; a run with --since
         first reads what an earlier run stored for the law."""
         if self._incremental and bwb_id not in places:
             places.seed(bwb_id, normalize_bwb.stored_places(self.store, bwb_id))
-        versions: list[tuple[str, Crumbs]] = []
-        for article in toestand.articles:
-            key = self._version_key(article, bwb_id)
-            if key is not None:
-                versions.append((key, article.breadcrumb))
+        versions: list[tuple[str, Crumbs]] = [
+            (key, head.breadcrumb) for key, head in keyed if key is not None
+        ]
         places.add(bwb_id, start_date, versions)
 
     def _parse_record(
         self, record: dict[str, Any]
-    ) -> tuple[str, str, str | None, ToestandXml] | None:
+    ) -> tuple[str, str, str | None, ToestandXml, tuple[ArticleHead, ...]] | None:
         payload_text = self._payload_text(record)
         meta = self._meta(record)
         bwb_id = meta.get("bwb_id") or (record.get("external_id") or "").split("@")[0]
@@ -375,7 +390,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             )
             return None
         try:
-            toestand = parse_toestand(payload_text)
+            toestand, heads = read_toestand(payload_text)
         except ET.ParseError as exc:
             logger.warning("XML parsing failed for BWB history %s: %s", bwb_id, exc)
             return None
@@ -384,6 +399,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             meta.get("start_date") or "unknown",
             meta.get("end_date"),
             toestand,
+            heads,
         )
 
     @staticmethod
@@ -433,13 +449,12 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         )
 
     @staticmethod
-    def _version_key(article: ArticleXml, bwb_id: str) -> str | None:
+    def _version_key(head: ArticleHead, bwb_id: str) -> str | None:
         """Key of an article version: its ``stam-id`` and ``versie-id``; without them its
         number and its text, so every toestand that repeats the text names one version."""
-        if _has_version_id(article):
-            return article_version_key(
-                bwb_id, str(article.stam_id), str(article.versie_id)
-            )
+        if _has_version_id(head):
+            return article_version_key(bwb_id, str(head.stam_id), str(head.versie_id))
+        article = head.article
         if article.number:
             return article_version_key(
                 bwb_id, f"n{article.number}", text_digest(article.text)
