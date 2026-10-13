@@ -307,6 +307,11 @@ class InstrumentDossierItem(WithPath):
     key: str
     dossier_number: str = Field(..., description="The dossier's label, e.g. 37020-XV.")
     title: str | None = None
+    short_title: str | None = Field(
+        None,
+        description="The name the dossier goes by (``Cyberbeveiligingswet``), as "
+        "``/api/dossiers`` gives it; null without one.",
+    )
     display_name: str | None = None
     current_phase: str | None = Field(
         None, description="The current phase of the dossier's bill (``phases``)."
