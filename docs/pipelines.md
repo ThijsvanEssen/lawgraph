@@ -223,8 +223,11 @@ FractieZetel holds the seat, and it ends at the latest the day before the seat i
 (`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
 day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
-**Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
-footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
+**Semantic `tk`.** Reads `documents` labelled `TK`. Text is the title (the paper's own subject),
+the text and the footnotes; not the record the paper came with (`props.raw`), whose `Titel` is
+the dossier's title and whose actors, ids and kinds are no text ("Bikkers VVD Tweede Kamerlid"
+names no regulation). The edges of a paper are derived in full each time it is read: one its
+words no longer make goes. Aliases come from the graph:
 `instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
 rechtspraak` for the article forms). The qualifier of an article edge is read into `meta.leden`,
 `meta.onderdelen` and `meta.aanhef` as on judgment edges; only the first citation of an article
@@ -249,14 +252,16 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
 `normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
-else its `AMENDS` edges to instruments). Targets must exist. Every edge is written with status
-`voorgesteld`.
+else its `AMENDS` edges to instruments), except the act of the document's own dossier (the
+instrument `LEGISLATED_IN` it): a bill, its memorandum, a nota van wijziging and its amendments
+make that act, they do not change it. Targets must exist. Every edge is written with status
+`voorgesteld`; the edges are derived in full on every run, and one no longer derived goes.
 
 | Wording | Relation | Confidence |
 |---------|----------|-----------|

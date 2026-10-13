@@ -439,6 +439,58 @@ def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     assert get_article_legislative_history(store, BWB, "99") == []
 
 
+def test_the_legislative_history_holds_no_proposal_that_was_decided(
+    store: GraphStore,
+) -> None:
+    """A paper of a closed dossier (the bill that made the law, or one rejected) and an
+    amendment that was rejected propose nothing any more; the open bill still does."""
+    store.bulk_insert_or_update_nodes(
+        "articles", [_article("bwbr0002_5", "5", stam_id="S5")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node("37000", "dossier", label="37000"),
+            _node("36764", "dossier", label="36764", closed=True),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(
+                key, "document", kind=kind, date="2026-03-01", dossier_numbers=[dossier]
+            )
+            for key, kind, dossier in (
+                ("open_bill", "Voorstel van wet", "37000"),
+                ("own_memo", "Memorie van toelichting", "36764"),
+                ("rejected", "Amendement", "37000"),
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            edge
+            for n, paper in enumerate(("open_bill", "own_memo", "rejected"))
+            for edge in (
+                _edge(f"c{n}", f"documents/{paper}", ARTICLE, "AMENDS",
+                      status="voorgesteld"),
+                _edge(f"p{n}", f"documents/{paper}", "dossiers/37000"
+                      if paper != "own_memo" else "dossiers/36764", "PART_OF"),
+            )
+        ]
+    )  # fmt: skip
+    store.execute(
+        "INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)"
+        " VALUES ('documents/rejected', 'documents/rejected', '2026-03-01', 'verworpen')"
+    )
+
+    entries = get_article_legislative_history(store, BWB, "5")
+
+    assert [(e["document_id"], e["dossier_number"]) for e in entries] == [
+        ("documents/open_bill", "37000")
+    ]
+
+
 # ── explanations ─────────────────────────────────────────────────────────────
 
 
