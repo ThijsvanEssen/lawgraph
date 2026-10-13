@@ -86,6 +86,7 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
             unresolved_citations=["art. 1"],
             text="lang",
             source="rechtspraak",
+            date="2019-04-12",
             paragraphs=[{"text": "p"}],
         ),
         _rs(HR1, paragraphs=[{"text": "a"}, {"text": "b"}], xml="<x/>"),
@@ -104,6 +105,7 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
             "type": "judgment",
             "labels": ["Judgment"],
             "props": {
+                "date": "2019-04-12",
                 "ecli": HR2,
                 "paragraphs": [{"text": "p"}],
                 "unresolved_citations": ["art. 1"],
@@ -111,7 +113,12 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
         },
     ]
     assert [list(r) for r in rows] == [SLIM_KEYS, SLIM_KEYS]
-    assert list(rows[1]["props"]) == ["ecli", "paragraphs", "unresolved_citations"]
+    assert list(rows[1]["props"]) == [
+        "date",
+        "ecli",
+        "paragraphs",
+        "unresolved_citations",
+    ]
     # as stored, the props of HR2 begin with unresolved_citations
     assert list(_props(store, HR2))[:2] == ["ecli", "unresolved_citations"]
 

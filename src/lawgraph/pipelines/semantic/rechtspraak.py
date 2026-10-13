@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, Callable
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
@@ -63,16 +63,23 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         mapping = self._load_code_aliases()
         instrument_aliases = self._load_instrument_aliases()
-        # "EP" is the First Protocol in a judgment that also names the EVRM
+        # "EP" is the First Protocol in a judgment that also names the EVRM; a judgment
+        # cites no law that came to be after its date
         extractor = build_extractor(
-            mapping, instrument_aliases, self._load_context_aliases(mapping)
+            mapping,
+            instrument_aliases,
+            self._load_context_aliases(mapping),
+            self._load_law_dates(),
         )
 
-        def detect(text: str) -> list[CitationHit]:
-            hits = detect_in_text(
-                text, extractor, every_occurrence=True, unknown_laws=True
-            )
-            return [hit for hit in hits if hit.kind == "article"]
+        def detector(on: str | None) -> Callable[[str], list[CitationHit]]:
+            def detect(text: str) -> list[CitationHit]:
+                hits = detect_in_text(
+                    text, extractor, every_occurrence=True, unknown_laws=True, on=on
+                )
+                return [hit for hit in hits if hit.kind == "article"]
+
+            return detect
 
         logger.info(
             "Processing Rechtspraak judgments for article references (since=%s).",
@@ -91,7 +98,9 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                 notes = footnote_paragraphs(
                     paragraphs, judgment.props.get("footnotes") or []
                 )
-                for cited in find_mentions([*paragraphs, *notes], detect).values():
+                decided = str(judgment.props.get("date") or "")[:10] or None
+                cited_in = find_mentions([*paragraphs, *notes], detector(decided))
+                for cited in cited_in.values():
                     if cited.unknown_law:
                         unresolved.append(cited.unresolved())
                         continue
