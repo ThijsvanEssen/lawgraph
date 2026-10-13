@@ -9,6 +9,7 @@ from lawgraph.core.mentions import (
     MAX_MENTIONS_PER_EDGE,
     Mention,
     find_mentions,
+    mention_texts,
 )
 from lawgraph.pipelines.semantic._detection import build_extractor, detect_in_text
 
@@ -153,3 +154,35 @@ def test_a_mention_is_stored_and_read_back() -> None:
     assert Mention.from_dict(stored) == mention
     assert Mention.from_dict({"paragraph_id": "x"}) is None
     assert Mention.from_dict("nonsense") is None
+
+
+def test_a_mention_says_where_it_stands_in_its_snippet() -> None:
+    # far into a long paragraph, the window of the snippet begins on whitespace
+    text = "a" * 500 + "\n  " + "x" * 293 + " Zie art. 287, derde lid, Sr. " + "b" * 400
+    paragraph = _paragraph("rov-5.3", text, "5.3")
+    (cited,) = find_mentions([paragraph], _detect).values()
+    (mention,) = cited.mentions
+
+    start, end = mention.in_snippet(text) or (-1, -1)
+
+    assert mention.snippet[start:end] == mention.raw_match == "art. 287, derde lid, Sr"
+    assert not mention.snippet[0].isspace()
+
+
+def test_a_mention_of_a_text_that_changed_has_no_place_in_its_snippet() -> None:
+    text = "Zie art. 287 Sr."
+    (cited,) = find_mentions([_paragraph("rov-1", text, "1")], _detect).values()
+    (mention,) = cited.mentions
+
+    assert mention.in_snippet(text) == (4, 15)
+    assert mention.in_snippet("Zie ook art. 287 Sr.") is None
+
+
+def test_the_texts_of_a_judgment_are_found_by_paragraph_and_footnote() -> None:
+    paragraphs = [_paragraph("rov-3.1", "Zie de echtscheiding.", "3.1")]
+    footnotes = [{"label": "1", "paragraph_id": "rov-3.1", "text": "Art. 287 Sr."}]
+
+    texts = mention_texts(paragraphs, footnotes)
+
+    assert texts[("rov-3.1", None)] == "Zie de echtscheiding."
+    assert texts[("rov-3.1", "1")] == "Art. 287 Sr."

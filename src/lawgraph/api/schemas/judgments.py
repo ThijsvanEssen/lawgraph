@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -345,6 +346,23 @@ class JudgmentCitedArticle(QualifierFields):
     snippet: str | None = Field(
         default=None, description="The text around the strongest mention."
     )
+    snippet_paragraph_id: str | None = Field(
+        default=None,
+        description="The paragraph the snippet is from (for a citation in a footnote, the "
+        "paragraph that refers to the footnote; the snippet is then of the footnote).",
+    )
+    text: str | None = Field(
+        default=None,
+        description="The citation as written in the strongest mention: "
+        "`artikel 12 van de CBW`.",
+    )
+    start: int | None = Field(
+        default=None,
+        description="Offset of `text` in `snippet`: `snippet[start:end]` is `text`, where "
+        "the linker found it. Null when the judgment was normalized again since it was "
+        "linked.",
+    )
+    end: int | None = None
     confidence: float | None = Field(
         default=None, description="The confidence of the strongest mention."
     )
@@ -361,10 +379,16 @@ class JudgmentCitedArticle(QualifierFields):
         article: ArticleRelationDTO,
         meta: dict[str, Any],
         confidence: float | None,
+        texts: Mapping[tuple[str, str | None], str],
     ) -> JudgmentCitedArticle:
+        """*texts*: the paragraphs and footnotes of the judgment (``mention_texts``)."""
         mentions = mentions_of(meta)
         strongest = max(mentions, key=lambda m: m.confidence, default=None)
         numbers = [m.paragraph_number for m in mentions if m.paragraph_number]
+        span = None
+        if strongest:
+            text = texts.get((strongest.paragraph_id, strongest.footnote))
+            span = strongest.in_snippet(text) if text is not None else None
         return cls(
             article=article,
             qualifier=strongest.qualifier if strongest else None,
@@ -372,6 +396,10 @@ class JudgmentCitedArticle(QualifierFields):
             paragraph_ids=list(dict.fromkeys(m.paragraph_id for m in mentions)),
             paragraph_numbers=list(dict.fromkeys(numbers)),
             snippet=strongest.snippet if strongest else None,
+            snippet_paragraph_id=strongest.paragraph_id if strongest else None,
+            text=strongest.raw_match if strongest else None,
+            start=span[0] if span else None,
+            end=span[1] if span else None,
             confidence=strongest.confidence if strongest else confidence,
             mention_count=_count(meta, mentions),
         )

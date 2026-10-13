@@ -14,6 +14,8 @@ DutchCitationExtractor
     Registry-driven extractor for Dutch article citations in natural-language text.
 make_snippet
     Extract surrounding text context around a regex match span.
+snippet_bounds
+    Where that context stands in the text.
 normalize_code_aliases
     Normalise a ``{alias: identifier}`` mapping to uppercase keys.
 format_celex
@@ -30,7 +32,7 @@ import itertools
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
@@ -89,12 +91,22 @@ class CitationHit:
 # ---------------------------------------------------------------------------
 
 
-def make_snippet(text: str, span: tuple[int, int]) -> str:
-    """Return a context window of *SNIPPET_WINDOW* chars around *span*."""
+def snippet_bounds(text: str, span: tuple[int, int]) -> tuple[int, int]:
+    """Where the snippet of *span* stands in *text*: *SNIPPET_WINDOW* chars each side,
+    without the whitespace at either end (``text[begin:finish]``)."""
     start, end = span
     begin = max(0, start - SNIPPET_WINDOW)
     finish = min(len(text), end + SNIPPET_WINDOW)
-    return text[begin:finish].strip()
+    window = text[begin:finish]
+    left = window.lstrip()
+    begin += len(window) - len(left)
+    return begin, begin + len(left.rstrip())
+
+
+def make_snippet(text: str, span: tuple[int, int]) -> str:
+    """Return a context window of *SNIPPET_WINDOW* chars around *span*."""
+    begin, finish = snippet_bounds(text, span)
+    return text[begin:finish]
 
 
 def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
@@ -278,6 +290,9 @@ _MIN_NAME_LENGTH = 5
 # How far back "die wet" may look for the law it means.
 _ANAPHORA_REACH = 3000
 CONFIDENCE_DIRECT = 0.95
+# How long a law is in force before a text may write its abbreviation in another case without
+# also naming it ("art. 8 Vw" for the VW): a new law's abbreviation may still be another's.
+ESTABLISHED_YEARS = 5
 CONFIDENCE_LOCAL_ALIAS = 0.9
 CONFIDENCE_ANAPHORA = 0.7
 
@@ -360,6 +375,20 @@ class _NamedIn:
         return any(name in (self._keyed or "") for name in names)
 
 
+class LawDates(NamedTuple):
+    """When a law came to be (``start``: the earliest of the day it was signed, published or
+    came into force) and when it came into force (``in_force``), as ISO dates; each ``None``
+    when its source does not say."""
+
+    start: str | None
+    in_force: str | None
+
+
+def _years_after(day: str, years: int) -> str:
+    """The ISO date *years* after *day* (``2026-08-15`` -> ``2031-08-15``)."""
+    return f"{int(day[:4]) + years:04d}{day[4:10]}"
+
+
 @dataclass
 class _Law:
     """The law a citation names, and how it was found."""
@@ -398,10 +427,17 @@ class DutchCitationExtractor:
     code or name, or by a word that points back at the law named last.
 
     With *as_written* (running text, ``_detection.build_extractor``) a code of one word
-    stands for its law as its source writes it: "CBW" is the Centrale Branchevereniging
-    Wonen, not the Cyberbeveiligingswet ("Cbw"). Another spelling ("AWB") stands for the
-    law only in a text that also names it so, or by its name (``_NamedIn``). Without it
-    (a search query) a code is read in any case.
+    stands for its law as its source writes it. Another spelling stands for the law in a
+    text that also names it so, or by its name (``_NamedIn``), or, when the text is dated
+    (``extract(on=...)``), once the law has been in force ``ESTABLISHED_YEARS``: "art. 8 Vw"
+    is the Vreemdelingenwet 2000 (VW), but "CBW" in 2026 is the Centrale Branchevereniging
+    Wonen, not the Cyberbeveiligingswet ("Cbw"). A spelling that starts in lower case where
+    the source starts in capitals ("bis" for BIS, "cao" for CAO) is never the law. Without
+    *as_written* (a search query) a code is read in any case.
+
+    *law_dates* (law id -> ``LawDates``) date the laws: a dated text cites no law that came
+    to be after it, in any spelling ("artikel 1a Vw" in 1998 is the Vreemdelingenwet of
+    1965, not the Vreemdelingenwet 2000).
 
     A family code (``CODE_FAMILIES``: ``BW``) never stands for one regulation: a citation
     of the family resolves through the book in front of the colon (``6`` → the BWB id of
@@ -421,7 +457,9 @@ class DutchCitationExtractor:
         context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
         *,
         as_written: bool = False,
+        law_dates: Mapping[str, LawDates] | None = None,
     ) -> None:
+        self._dates: Mapping[str, LawDates] = law_dates or {}
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
@@ -522,8 +560,10 @@ class DutchCitationExtractor:
         local: dict[str, str],
         last: tuple[int, str] | None,
         named: _NamedIn,
+        on: str | None,
     ) -> _Law | None:
-        """The law named in *text* after position *start*, or ``None``."""
+        """The law named in *text* after position *start*, or ``None``; one that came to be
+        after the date *on* of the text is not it."""
         anaphora = _ANAPHORA_RE.match(text, start)
         if anaphora:
             if last and start - last[0] <= _ANAPHORA_REACH:
@@ -532,13 +572,26 @@ class DutchCitationExtractor:
         pos = LAW_CONNECTOR_RE.match(text, start).end()  # type: ignore[union-attr]
         for law in (
             self._match_local(text, pos, local),
-            self._match_code(text, pos, named),
+            self._match_code(text, pos, named, on),
             self._match_family(text, pos),
             self._match_name(text, pos),
         ):
-            if law:
+            if law and (law.family is not None or self._existed(law.law_id, on)):
                 return law
         return None
+
+    def _existed(self, law_id: str, on: str | None) -> bool:
+        """Whether the law had come to be on the date *on* (always, without a date)."""
+        start = self._dates[law_id].start if law_id in self._dates else None
+        return on is None or start is None or start <= on
+
+    def _established(self, law_id: str, on: str | None) -> bool:
+        """Whether the law had been in force ``ESTABLISHED_YEARS`` on the date *on*; a law
+        its source does not date counts as established, an undated text never does."""
+        if on is None:
+            return False
+        in_force = self._dates[law_id].in_force if law_id in self._dates else None
+        return in_force is None or _years_after(in_force, ESTABLISHED_YEARS) <= on
 
     @staticmethod
     def _match_local(text: str, pos: int, local: dict[str, str]) -> _Law | None:
@@ -556,15 +609,23 @@ class DutchCitationExtractor:
             return None
         return _Law("", match.end(), CONFIDENCE_DIRECT, family=match["key"].upper())
 
-    def _match_code(self, text: str, pos: int, named: _NamedIn) -> _Law | None:
+    def _match_code(
+        self, text: str, pos: int, named: _NamedIn, on: str | None
+    ) -> _Law | None:
         """The law whose code stands at *pos*; a code written otherwise than its source
-        writes it only when the text also names that law so (``as_written``)."""
+        writes it only when the text also names that law so, or the law is established on
+        the date *on*, and never with a lower-case start for a capital (``as_written``)."""
         match = self._code_re.match(text, pos) if self._code_re else None
         if not match:
             return None
-        law = _Law(self._code_map[match["key"].upper()], match.end(), CONFIDENCE_DIRECT)
-        spelled = self._spelling.get(match["key"].upper())
-        if spelled is None or match["key"] == spelled or named(law.law_id):
+        written = match["key"]
+        law = _Law(self._code_map[written.upper()], match.end(), CONFIDENCE_DIRECT)
+        spelled = self._spelling.get(written.upper())
+        if spelled is None or written == spelled:
+            return law
+        if spelled[0].isupper() and written[0].islower():
+            return None
+        if named(law.law_id) or self._established(law.law_id, on):
             return law
         return None
 
@@ -607,14 +668,20 @@ class DutchCitationExtractor:
     # ── extraction ────────────────────────────────────────────────────────────
 
     def extract(
-        self, text: str, *, every_occurrence: bool = False, unknown_laws: bool = False
+        self,
+        text: str,
+        *,
+        every_occurrence: bool = False,
+        unknown_laws: bool = False,
+        on: str | None = None,
     ) -> list[CitationHit]:
         """Return the detected Dutch article citations in *text*.
 
         An article is reported once, at its first citation, unless *every_occurrence* asks
         for a hit per citation. With *unknown_laws* a citation of a law the registry does not
         know (``artikel 392 Rv``) is a hit as well, with the law as written in
-        ``unknown_law`` and no id.
+        ``unknown_law`` and no id. *on* is the ISO date of the text, when it has one: it
+        cites no law that came to be after it (``law_dates``).
         """
         if not text or not (
             self._code_map or self._name_map or self._books or unknown_laws
@@ -635,7 +702,7 @@ class DutchCitationExtractor:
         named = _NamedIn(text, self._written, self._named)
 
         for match in ARTICLE_HEAD_RE.finditer(text):
-            law = self._resolve_law(text, match.end(), local, last, named)
+            law = self._resolve_law(text, match.end(), local, last, named, on)
             if law is None:
                 if unknown_laws:
                     hits.extend(
@@ -650,7 +717,7 @@ class DutchCitationExtractor:
             self._remember_alias(text, law, local)
             span = (match.start(), law.end)
             for hit in self._hits(
-                text, match, law, span, None if every_occurrence else seen
+                text, match, law, span, None if every_occurrence else seen, on
             ):
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
@@ -739,11 +806,12 @@ class DutchCitationExtractor:
         law: _Law,
         span: tuple[int, int],
         seen: set[tuple[str | None, str | None, str]] | None,
+        on: str | None,
     ) -> Iterator[CitationHit]:
         qualifier = (match.group("qual") or "").strip(", ") or None
         for raw_num in parse_article_numbers(match.group("nums") or ""):
             law_id, art_num = self._apply_family(law, raw_num)
-            if not law_id:
+            if not law_id or not self._existed(law_id, on):
                 continue
             is_bwb = (
                 parse_celex(law_id) is None

@@ -45,7 +45,8 @@ def toestanden(
 
 def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> None:
     """Write the definitions of each regulation of *found* (BWB id -> its definitions),
-    replacing what was kept; a regulation without any loses its row."""
+    replacing what was kept; a regulation without any loses its row. A row that holds them
+    already is left, so a run that changes nothing leaves the data version."""
     if not found:
         return
     rows = [
@@ -67,6 +68,9 @@ def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> No
                 WHERE json_array_length(r.definitions) > 0
                 ON CONFLICT (instrument_id) DO UPDATE SET
                     bwb_id = EXCLUDED.bwb_id, definitions = EXCLUDED.definitions
+                WHERE (lg_instrument_definitions.bwb_id,
+                       lg_instrument_definitions.definitions::text)
+                      IS DISTINCT FROM (EXCLUDED.bwb_id, EXCLUDED.definitions::text)
                 """,
                 {"rows": json.dumps(rows)},
             ),

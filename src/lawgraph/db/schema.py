@@ -1868,9 +1868,10 @@ CREATE TABLE IF NOT EXISTS lg_decision_coalition (
 # The definitions each regulation gives itself (``core.bwb_definitions``), kept by ``semantic
 # bwb-definitions``: a row per regulation that has any. Apart from the instrument's props, so
 # its lists and their warm-up do not carry them (the Wft has hundreds). Not a table of the
-# graph: writing it raises no data version.
-INSTRUMENT_DEFINITIONS = """
-CREATE TABLE IF NOT EXISTS lg_instrument_definitions (
+# graph, but the article routes serve what it holds: writing it raises the data version.
+DEFINITIONS_TABLE = "lg_instrument_definitions"
+INSTRUMENT_DEFINITIONS = f"""
+CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
     instrument_id text PRIMARY KEY,
     bwb_id text NOT NULL,
     definitions json NOT NULL
@@ -2114,6 +2115,7 @@ def statements() -> list[str]:
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)
+    found += data_version_triggers(DEFINITIONS_TABLE)
     return found
 
 
