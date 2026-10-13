@@ -934,7 +934,9 @@ that abbreviation (`7A` too), the code keeps the spelling most regulations give 
 families follow the WTI; nothing is kept by hand. A book whose WTI record is not stored is not in
 its family.
 
-**Normalize `bwb-history`.** Reads every stored toestand once and writes:
+**Normalize `bwb-history`.** Reads every stored toestand once (`bwb_xml.read_toestand`: the
+text, references and parts of an article are read only for a version it has not met, so a
+toestand costs about its XML parse) and writes:
 
 - an InstrumentVersion per toestand and an ArticleVersion per `(stam_id, versie_id)` (a
   toestand only repeats versions still valid), with `parts`, `origin_publication` and
