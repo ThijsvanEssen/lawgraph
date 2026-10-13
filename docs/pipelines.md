@@ -46,11 +46,20 @@ law throughout: so an abbreviation several laws claim (WW: also the Woningwet an
 names a law where the text says which. An abbreviation that is one law's keeps that law.
 
 In running text (`semantic tk`, `semantic rechtspraak`) an abbreviation of one word cites its
-law as its source writes it: `CBW` is the Centrale Branchevereniging Wonen ("artikel 12 van de
-CBW-voorwaarden"), not the Cyberbeveiligingswet (`Cbw`). Another spelling (`AWB`, `GW`) cites
-the law only in a text that also names it so (`Awb`) or by its title or citation title; else
-the citation is one of a law the graph does not know. The first part of a compound
-(`art. 6 EVRM-verweer`) still cites the article.
+law as its source writes it. Another case (`Vw` for `VW`, `AWB` for `Awb`) cites the law in a
+text that also names it so or by its title or citation title, and in a judgment dated five
+years or more after the law came into force (`date_in_force`): "art. 8 Vw" is the
+Vreemdelingenwet 2000, while `CBW` in 2026 is the Centrale Branchevereniging Wonen ("artikel
+12 van de CBW-voorwaarden"), not the new Cyberbeveiligingswet (`Cbw`). A spelling that starts
+in lower case where the source starts with a capital (`bis` for `BIS`, `cao` for `CAO`) never
+cites the law. Else the citation is one of a law the graph does not know. The first part of a
+compound (`art. 6 EVRM-verweer`) still cites the article.
+
+A judgment cites no law that came to be after its date, in any spelling: the earliest of the
+law's `date_signed`, `date_published` and `date_in_force` (`artikel 1a Vw` in 1998 is the
+Vreemdelingenwet of 1965, not the Vreemdelingenwet 2000). A law without these dates is not
+held to them. `semantic tk` does not date its papers: a bill is discussed before its law is
+signed.
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
