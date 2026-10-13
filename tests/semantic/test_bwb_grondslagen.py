@@ -29,11 +29,13 @@ class _FakeStore(_BaseFakeStore):
         *,
         instruments: set[str] | None = None,
         articles: set[str] | None = None,
+        texts: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
         self.raw_rows = raw_rows
         self.instruments = instruments if instruments is not None else set()
         self.articles = articles if articles is not None else set()
+        self.texts = texts or {}
         self.reads = 0
         self.existence_calls: list[str] = []
 
@@ -45,16 +47,37 @@ class _FakeStore(_BaseFakeStore):
             r for r in self.raw_rows if r["key"] in self.instruments and r["basis"]
         )
 
-    def existing_keys(self, collection: str, keys) -> set[str]:
-        self.existence_calls.append(collection)
-        known = {"instruments": self.instruments, "articles": self.articles}
-        return set(keys) & known[collection]
+    def targets(self, keys) -> Iterator[dict[str, Any]]:
+        """The basis articles in the graph, with their text."""
+        self.existence_calls.append("articles")
+        return iter(
+            {"key": k, "text": self.texts.get(k), "parts": None}
+            for k in sorted(set(keys) & self.articles)
+        )
+
+    def in_order(self, bwb_ids) -> Iterator[dict[str, Any]]:
+        """The articles of the laws, in the order of the law: here by number."""
+        self.existence_calls.append("order")
+        rows = [
+            {"bwb_id": k.split("_")[0].upper(), "key": k}
+            for k in self.articles
+            if k.split("_")[0].upper() in set(bwb_ids)
+        ]
+        return iter(
+            sorted(rows, key=lambda r: (r["bwb_id"], int(r["key"].split("_")[1])))
+        )
 
 
 @pytest.fixture(autouse=True)
 def _regulations(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_bwb, "regulations_with_basis", lambda store: store.regulations()
+    )
+    monkeypatch.setattr(
+        semantic_bwb, "basis_targets", lambda store, keys: store.targets(keys)
+    )
+    monkeypatch.setattr(
+        semantic_bwb, "articles_in_order", lambda store, ids: store.in_order(ids)
     )
 
 
@@ -194,3 +217,79 @@ def test_store_calls_do_not_grow_with_the_number_of_regulations() -> None:
         len(small.existence_calls),
     )
     assert large.existence_calls == ["articles"]
+
+
+def _gelet_op(refs: str) -> str:
+    return f"""<toestand bwb-id="BWBR0009999"><wetgeving><wet-besluit>
+      <aanhef><considerans><considerans.al>Gelet op {refs};</considerans.al>
+      </considerans></aanhef></wet-besluit></wetgeving></toestand>"""
+
+
+def _link(article: str, text: str) -> str:
+    return (
+        f'<extref doc="jci1.3:c:{BASIS_ID}&amp;artikel={article}" '
+        f'bwb-id="{BASIS_ID}">{text}</extref>'
+    )
+
+
+def _edges_by_target(store: _FakeStore) -> dict[str, dict[str, Any]]:
+    return {e["_to"].split("_")[-1]: e["meta"] for e in store.edges.values()}
+
+
+def test_a_range_of_articles_links_every_article_in_it() -> None:
+    """The BWB links "artikelen 6 tot en met 9" as one link to its first article."""
+    xml = _gelet_op(
+        f"de {_link('6', 'artikelen 6 tot en met 9')} en {_link('12', '12')}"
+    )
+    store = _FakeStore(
+        [_row("BWBR0009999", xml)],
+        instruments={make_node_key("BWBR0009999")},
+        # article 8 is not in the graph (repealed): the others of the range are linked
+        articles={make_node_key(BASIS_ID, n) for n in ("5", "6", "7", "9", "10", "12")},
+    )
+
+    result = _run(store)
+
+    by_target = _edges_by_target(store)
+    assert sorted(by_target, key=int) == ["6", "7", "9", "12"]
+    assert by_target["7"]["text"] == "6 tot en met 9"
+    assert result.created == 4
+
+
+def test_the_text_of_an_edge_has_no_list_word_nor_law() -> None:
+    xml = _gelet_op(
+        f"de {_link('3', 'artikelen 3')}, "
+        f"{_link('16', '16, eerste en zevende lid')} en "
+        f"{_link('107', '107 van de Cyberbeveiligingswet')}"
+    )
+    store = _FakeStore(
+        [_row("BWBR0009999", xml)],
+        instruments={make_node_key("BWBR0009999")},
+        articles={make_node_key(BASIS_ID, n) for n in ("3", "16", "107")},
+    )
+
+    _run(store)
+
+    texts = {k: m["text"] for k, m in _edges_by_target(store).items()}
+    assert texts == {"3": "3", "16": "16, eerste en zevende lid", "107": "107"}
+    # one pass over the targets, no read of the order of a law without a range
+    assert store.existence_calls == ["articles"]
+
+
+def test_an_edge_says_whether_the_article_delegates() -> None:
+    xml = _gelet_op(f"de {_link('3', 'artikelen 3')} en {_link('4', '4')}")
+    store = _FakeStore(
+        [_row("BWBR0009999", xml)],
+        instruments={make_node_key("BWBR0009999")},
+        articles={make_node_key(BASIS_ID, n) for n in ("3", "4", "5")},
+        texts={
+            make_node_key(BASIS_ID, "3"): "Bij ministeriële regeling worden regels "
+            "gesteld over de aanvraag.",
+            make_node_key(BASIS_ID, "4"): "Het bestuursorgaan weegt de belangen af.",
+        },
+    )
+
+    _run(store)
+
+    kinds = {k: m["basis_kind"] for k, m in _edges_by_target(store).items()}
+    assert kinds == {"3": "delegates", "4": "mentioned"}

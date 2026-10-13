@@ -7,7 +7,13 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lawgraph.api.schemas.articles import ArticlePartSpanDTO, parts_from_props
+from lawgraph.api.schemas.articles import (
+    BASIS_KIND,
+    ArticlePartSpanDTO,
+    DelegatedArticleDTO,
+    basis_kind_of,
+    parts_from_props,
+)
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_URL,
@@ -25,9 +31,9 @@ from lawgraph.config.constants import (
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.official_urls import article_url, instrument_url
-from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -392,6 +398,25 @@ class AmendedByResponse(BaseModel):
 # ── /api/instruments/{bwb_id}/related-instruments ─────────────────────────
 
 
+class InstrumentRelatedBasisDTO(BaseModel):
+    """How a related instrument and the law are one of a delegation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    direction: Literal["inbound", "outbound", "via"] = Field(
+        description="`inbound`: it is issued under articles of this law (its preamble names "
+        "them); `outbound`: this law is issued under articles of it; `via`: it is issued "
+        "under articles of the regulation `via`, which is issued under this law."
+    )
+    via: InstrumentSummaryDTO | None = Field(
+        None, description="With `via`: the regulation it is issued under."
+    )
+    articles: list[BasisArticleDTO] = Field(
+        description="The articles in force its preamble names (of this law, of it, or of "
+        "`via`), in the order of their law."
+    )
+
+
 class InstrumentRelatedItem(BaseModel):
     """One other instrument linked via cross-article REFERS_TO edges."""
 
@@ -403,16 +428,37 @@ class InstrumentRelatedItem(BaseModel):
     celex: str | None = None
     display_name: str | None = None
     citation_title: str | None = None
+    kind: str | None = Field(
+        None, description="Its kind: BWB type lower case (`amvb`, `wet`), or EU type."
+    )
+    date_in_force: str | None = Field(
+        None, description="When it entered into force itself."
+    )
+    direction: Literal["inbound", "outbound", "both"] = Field(
+        description="Which refers to which: `inbound` its articles refer to this law, "
+        "`outbound` articles of this law refer to it, `both`."
+    )
     outbound_count: int = Field(
         ...,
-        description=(
-            "Number of REFERS_TO edges from articles of the focal "
-            "instrument to articles of this related instrument."
-        ),
+        description="Articles in force of this law that refer to articles of it.",
+    )
+    outbound_cited_count: int = Field(
+        ..., description="Its articles in force that those refer to."
     )
     inbound_count: int = Field(
-        ...,
-        description="Mirror of ``outbound_count`` in the opposite direction.",
+        ..., description="Its articles in force that refer to articles of this law."
+    )
+    inbound_cited_count: int = Field(
+        ..., description="Articles in force of this law that those refer to."
+    )
+    based_on: bool = Field(
+        False,
+        description="Whether the two are one of a delegation as well: see `basis`.",
+    )
+    basis: InstrumentRelatedBasisDTO | None = Field(
+        None,
+        description="How it and this law are one of a delegation (`BASED_ON`, the preamble "
+        "of a regulation); null when they are not.",
     )
 
 
@@ -1190,21 +1236,113 @@ class BasisArticleDTO(QualifierFields):
     article_number: str | None
     display_name: str | None
     text: str | None = Field(
-        description="The reference in the preamble: `16, eerste en zevende lid`."
+        description="The reference in the preamble: `16, eerste en zevende lid`; a range "
+        "names each of its articles: `26 tot en met 30`."
     )
+    basis_kind: BasisKind | None = Field(None, description=BASIS_KIND)
+
+    @classmethod
+    def fields_of(cls, row: dict[str, Any]) -> dict[str, Any]:
+        meta = row.get("meta") or {}
+        text = meta.get("text") if isinstance(meta.get("text"), str) else None
+        qualifier = basis_qualifier(text)
+        return {
+            "id": row["id"],
+            "key": row["key"],
+            "article_number": row.get("article_number"),
+            "display_name": row.get("display_name"),
+            "text": text,
+            "basis_kind": basis_kind_of(meta),
+            **qualifier.to_dict(),
+        }
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> BasisArticleDTO:
-        meta = row.get("meta") or {}
-        text = meta.get("text") if isinstance(meta.get("text"), str) else None
-        qualifier = parse_qualifier(text) if text else Qualifier()
+        return cls(**cls.fields_of(row))
+
+
+class ImplementedBasisArticleDTO(BasisArticleDTO):
+    """An article a regulation is issued under, with the articles of the regulation that
+    refer to it: those that work it out."""
+
+    referring: list[DelegatedArticleDTO] = Field(
+        default_factory=list,
+        description="The articles in force of the regulation that refer to it, in the "
+        "order of the regulation, each with the parts of it they name.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ImplementedBasisArticleDTO:
         return cls(
-            id=row["id"],
-            key=row["key"],
-            article_number=row.get("article_number"),
-            display_name=row.get("display_name"),
-            text=text,
-            **qualifier.to_dict(),
+            **cls.fields_of(row),
+            referring=[
+                DelegatedArticleDTO.from_row(a) for a in row.get("referring") or []
+            ],
+        )
+
+
+def summary_basis_kind(articles: list[BasisArticleDTO]) -> BasisKind | None:
+    """``delegates`` when one of *articles* delegates, ``mentioned`` when every one is only
+    named, else null."""
+    kinds = {a.basis_kind for a in articles}
+    if "delegates" in kinds:
+        return "delegates"
+    return "mentioned" if kinds == {"mentioned"} else None
+
+
+def _kind(props: dict[str, Any]) -> str | None:
+    kind = props.get("kind")
+    return kind.lower() if isinstance(kind, str) else None
+
+
+class BasisLawDTO(BaseModel):
+    """Another law a regulation names in its preamble, with the articles it names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: InstrumentSummaryDTO
+    kind: str | None = Field(description="Its BWB type, lower case.")
+    articles: list[BasisArticleDTO]
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> BasisLawDTO:
+        instrument = row["instrument"]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=_kind(instrument.get("props") or {}),
+            articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
+        )
+
+
+class SubDelegatedDTO(BaseModel):
+    """A regulation issued under articles of a regulation, one level down."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: InstrumentSummaryDTO
+    kind: str | None = Field(description="Its BWB type, lower case.")
+    date_in_force: str | None = Field(
+        None, description="When the regulation itself entered into force."
+    )
+    basis_kind: BasisKind | None = Field(
+        None, description="`delegates` when one of `articles` does; " + BASIS_KIND
+    )
+    articles: list[BasisArticleDTO] = Field(
+        description="The articles of the regulation above it its preamble names, in the "
+        "order of that regulation."
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> SubDelegatedDTO:
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=_kind(props),
+            date_in_force=props.get("date_in_force"),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
         )
 
 
@@ -1220,9 +1358,103 @@ class InstrumentDelegatedItem(BaseModel):
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
     )
-    articles: list[BasisArticleDTO] = Field(
-        description="The articles of the law it is issued under, in the order of the law."
+    basis_kind: BasisKind | None = Field(
+        None,
+        description="`delegates` when one of `articles` does: the law gives the power it "
+        'is made under; `mentioned` when it only names them ("Genoemd in de aanhef '
+        'van"); null when not known.',
     )
+    articles: list[ImplementedBasisArticleDTO] = Field(
+        description="The articles of the law it is issued under, in the order of the law, "
+        "each with its articles that work it out (`referring`)."
+    )
+    also_based_on: list[BasisLawDTO] = Field(
+        default_factory=list,
+        description="The other laws its preamble names (its co-bases), by title, each with "
+        "the articles in force it names.",
+    )
+    sub_delegated: list[SubDelegatedDTO] = Field(
+        default_factory=list,
+        description="The regulations in force issued under its articles in turn, one level "
+        "down (not one issued under this law itself: an item of its own); AMvBs first, "
+        "then by title.",
+    )
+
+
+class InstrumentBasisItem(BaseModel):
+    """A law a regulation is issued under, with the articles its preamble names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: InstrumentSummaryDTO
+    kind: str | None = Field(description="Its BWB type, lower case.")
+    basis_kind: BasisKind | None = Field(
+        None, description="`delegates` when one of `articles` does; " + BASIS_KIND
+    )
+    articles: list[ImplementedBasisArticleDTO] = Field(
+        description="The articles in force of the law its preamble names, in the order of "
+        "the law, each with the articles of the regulation that refer to it (`referring`)."
+    )
+
+
+class InstrumentBasisResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/basis."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str = Field(..., description=_REQUESTED)
+    total: int
+    items: list[InstrumentBasisItem] = Field(
+        default_factory=list,
+        description="Every law its preamble names an article in force of, by title.",
+    )
+
+
+class InstrumentReferenceArticleDTO(BaseModel):
+    """An article at one end of a reference between two instruments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    key: str
+    bwb_id: str | None = None
+    celex: str | None = None
+    article_number: str | None
+    display_name: str | None
+
+
+class InstrumentReferenceDTO(QualifierFields):
+    """A reference from an article of one instrument to an article of the other, with the
+    parts of the article referred to it names."""
+
+    direction: Literal["outbound", "inbound"] = Field(
+        description="`outbound`: an article of the instrument asked for refers to one of "
+        "the other; `inbound`: the other way."
+    )
+    source: InstrumentReferenceArticleDTO = Field(
+        description="The article that refers."
+    )
+    target: InstrumentReferenceArticleDTO = Field(
+        description="The article it refers to."
+    )
+    text: str | None = Field(
+        None,
+        description="The words of the reference: `artikel 16, eerste lid, van de wet`.",
+    )
+    semantic_type: str | None = Field(
+        None, description="What the reference does (`definitional_reference`, …)."
+    )
+
+
+class InstrumentReferencesResponse(BaseModel):
+    """Response for GET /api/instruments/{bwb_id}/references/{other}."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bwb_id: str = Field(..., description=_REQUESTED)
+    other: str = Field(..., description="The other instrument, as requested.")
+    total: int
+    items: list[InstrumentReferenceDTO] = Field(default_factory=list)
 
 
 class InstrumentDelegatedResponse(BaseModel):

@@ -107,6 +107,10 @@ URLS = [
     f"/api/instruments/{BWB}/related-instruments",
     # the regulations issued under the law: its articles, then their BASED_ON edges
     f"/api/instruments/{BWB}/delegated",
+    # the basis of a regulation: its edges, then the articles of it that refer to each
+    f"/api/instruments/{BWB}/basis",
+    # the references between the articles of two laws: those of each, by its edges
+    f"/api/instruments/{BWB}/references/BWBR0002",
     f"/api/instruments/{BWB}/versions",
     f"/api/articles/{BWB}/1",
     f"/api/articles/{BWB}/1/cited-by",
@@ -228,7 +232,15 @@ def _seed(store: GraphStore) -> None:
                 jurisdiction="nl",
                 kind="wet",
                 article_count=2,
-            )
+            ),
+            # an AMvB issued under the law, and a regulation issued under the AMvB
+            _node("bwbr0002", "instrument", bwb_id="BWBR0002", kind="amvb"),
+            _node(
+                "bwbr0003",
+                "instrument",
+                bwb_id="BWBR0003",
+                kind="ministeriele-regeling",
+            ),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -245,6 +257,10 @@ def _seed(store: GraphStore) -> None:
                 text="Hij die jegens een ander een onrechtmatige daad pleegt.",
             )
             for n in (1, 2)
+        ]
+        + [
+            _node(f"{law}_1", "article", bwb_id=law.upper(), article_number="1")
+            for law in ("bwbr0002", "bwbr0003")
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -408,6 +424,10 @@ def _seed(store: GraphStore) -> None:
                 "BASED_ON",
                 meta={"text": "1, eerste lid"},
             ),
+            _edge("b2", "instruments/bwbr0002", article, "BASED_ON"),
+            _edge("b3", "instruments/bwbr0003", "articles/bwbr0002_1", "BASED_ON"),
+            _edge("r3", "articles/bwbr0002_1", article, "REFERS_TO"),
+            _edge("r4", "articles/bwbr0003_1", article, "REFERS_TO"),
             _edge("s1", article, "annexes/a1", "SCOPED_BY"),
             # a bill: the publication that enacts it, and a paper that proposes a change
             _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),

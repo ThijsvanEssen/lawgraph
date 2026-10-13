@@ -19,12 +19,16 @@ from lawgraph.api.schemas.instruments import (
     AmendedByResponse,
     AmendingInstrumentDTO,
     BasisArticleDTO,
+    BasisLawDTO,
     CitedArticleRef,
     EuLinkDTO,
+    ImplementedBasisArticleDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
     InstrumentArticleVersionDTO,
+    InstrumentBasisItem,
+    InstrumentBasisResponse,
     InstrumentDefinitionsResponse,
     InstrumentDelegatedItem,
     InstrumentDelegatedResponse,
@@ -38,18 +42,25 @@ from lawgraph.api.schemas.instruments import (
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
     InstrumentListResponse,
+    InstrumentReferenceArticleDTO,
+    InstrumentReferenceDTO,
+    InstrumentReferencesResponse,
+    InstrumentRelatedBasisDTO,
     InstrumentRelatedItem,
     InstrumentRelatedResponse,
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
     InternationalLinkDTO,
     LinkedInstrumentDTO,
+    SubDelegatedDTO,
+    summary_basis_kind,
 )
 from lawgraph.core.delegations import kind_rank
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.definitions import definitions_of
-from lawgraph.db.queries.delegations import get_delegated_by_law
+from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
     get_international_links,
@@ -66,6 +77,7 @@ from lawgraph.db.queries.instruments import (
     get_citing_judgments,
     get_instrument_amended_by,
     get_instrument_dossiers,
+    get_instrument_references,
     get_instrument_related_instruments,
     get_instrument_versions,
     get_instruments_list,
@@ -495,11 +507,14 @@ def get_instrument_amended_by_route(
     response_model=InstrumentRelatedResponse,
     summary="Instruments referring to this one, or referred to by it",
     description=(
-        "An aggregation of the REFERS_TO edges between articles of this law and "
-        "articles of other laws. Each related instrument carries "
-        "`outbound_count` (references from this law to the other) and "
-        "`inbound_count` (references from the other law to this one). "
-        "``total`` is the absolute count, independent of ``limit``."
+        "The other laws whose articles in force refer to articles in force of this law, or "
+        "the other way (`REFERS_TO` between articles), the most articles first. Each "
+        "carries its `kind` and `date_in_force`, the `direction`, the articles at both "
+        "ends (`outbound_count` articles of this law refer to `outbound_cited_count` of "
+        "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law) "
+        "and `basis`: whether one is issued under the other as well (`BASED_ON`), with "
+        "the articles its preamble names. ``total`` is the absolute count, independent of "
+        "``limit``. The articles between the two: `.../references/{other}`."
     ),
     tags=["instruments"],
 )
@@ -509,24 +524,86 @@ def get_instrument_related_route(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> InstrumentRelatedResponse:
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
-    items = [
-        InstrumentRelatedItem(
-            id=(r.get("instrument") or {}).get("_id") or "",
-            key=(r.get("instrument") or {}).get("_key") or "",
-            bwb_id=((r.get("instrument") or {}).get("props") or {}).get("bwb_id"),
-            celex=((r.get("instrument") or {}).get("props") or {}).get("celex"),
-            display_name=((r.get("instrument") or {}).get("props") or {}).get(
-                "display_name"
-            ),
-            citation_title=((r.get("instrument") or {}).get("props") or {}).get(
-                "citation_title"
-            ),
-            outbound_count=int(r.get("outbound_count") or 0),
-            inbound_count=int(r.get("inbound_count") or 0),
-        )
-        for r in rows
-    ]
+    items = [_related_item(r) for r in rows]
     return InstrumentRelatedResponse(bwb_id=bwb_id, total=total, items=items)
+
+
+def _related_item(row: dict) -> InstrumentRelatedItem:
+    instrument = row.get("instrument") or {}
+    props = instrument.get("props") or {}
+    kind = props.get("kind")
+    outbound, inbound = int(row["outbound_count"]), int(row["inbound_count"])
+    found = row.get("basis")
+    basis = (
+        InstrumentRelatedBasisDTO(
+            direction=found["direction"],
+            via=InstrumentSummaryDTO.from_document(found["via"])
+            if found.get("via")
+            else None,
+            articles=[BasisArticleDTO.from_row(a) for a in found["articles"] or []],
+        )
+        if found
+        else None
+    )
+    return InstrumentRelatedItem(
+        id=instrument.get("_id") or "",
+        key=instrument.get("_key") or "",
+        bwb_id=props.get("bwb_id"),
+        celex=props.get("celex"),
+        display_name=props.get("display_name"),
+        citation_title=props.get("citation_title"),
+        kind=kind.lower() if isinstance(kind, str) else None,
+        date_in_force=props.get("date_in_force"),
+        direction="both"
+        if outbound and inbound
+        else "outbound"
+        if outbound
+        else "inbound",
+        outbound_count=outbound,
+        outbound_cited_count=int(row["outbound_cited_count"]),
+        inbound_count=inbound,
+        inbound_cited_count=int(row["inbound_cited_count"]),
+        based_on=basis is not None,
+        basis=basis,
+    )
+
+
+@router.get(
+    "/{bwb_id}/references/{other}",
+    response_model=InstrumentReferencesResponse,
+    summary="The references between the articles of two instruments",
+    description=(
+        "Every reference (`REFERS_TO`) from an article in force of this instrument to an "
+        "article in force of `other`, then the other way (`direction` `outbound`, "
+        "`inbound`), in the order of the referring and the referred article: the `source` "
+        "and `target` articles, the words of the reference (`text`), the parts of the "
+        "target it names and its `semantic_type`. Both are a BWB id or a CELEX number; "
+        "empty for an unknown one or the same one twice."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_references_route(
+    bwb_id: str,
+    other: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> InstrumentReferencesResponse:
+    items = [_reference(row) for row in get_instrument_references(store, bwb_id, other)]
+    return InstrumentReferencesResponse(
+        bwb_id=bwb_id, other=other, total=len(items), items=items
+    )
+
+
+def _reference(row: dict) -> InstrumentReferenceDTO:
+    meta = row.get("meta") or {}
+    text = meta.get("text")
+    return InstrumentReferenceDTO(
+        direction=row["direction"],
+        source=InstrumentReferenceArticleDTO(**row["from"]),
+        target=InstrumentReferenceArticleDTO(**row["to"]),
+        text=text if isinstance(text, str) else None,
+        semantic_type=row.get("semantic_type"),
+        **Qualifier.from_dict(meta).to_dict(),
+    )
 
 
 @router.get(
@@ -536,9 +613,11 @@ def get_instrument_related_route(
     description=(
         'The regulations in force whose preamble ("Gelet op") names an article in force '
         "of this law as their legal basis (`BASED_ON`), one per regulation with the "
-        "articles it names: AMvBs first, then ministerial regulations, then the others; "
-        "by title. A repealed regulation or article is left out. Empty for an unknown "
-        "instrument."
+        "articles it names, whether those give the power it is made under (`basis_kind`), "
+        "its articles that work each out (`referring`), the other laws it names "
+        "(`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): "
+        "AMvBs first, then ministerial regulations, then the others; by title. A repealed "
+        "regulation or article is left out. Empty for an unknown instrument."
     ),
     tags=["instruments"],
 )
@@ -548,25 +627,76 @@ def get_instrument_delegated_route(
 ) -> InstrumentDelegatedResponse:
     items = sorted(
         (_delegated_item(row) for row in get_delegated_by_law(store, bwb_id)),
-        key=lambda item: (
-            kind_rank(item.kind),
-            (item.instrument.citation_title or item.instrument.title or "").lower(),
-            item.instrument.key,
-        ),
+        key=lambda item: _regulation_order(item.kind, item.instrument),
     )
     return InstrumentDelegatedResponse(bwb_id=bwb_id, total=len(items), items=items)
+
+
+def _regulation_order(
+    kind: str | None, instrument: InstrumentSummaryDTO
+) -> tuple[int, str, str]:
+    """AMvBs first, then ministerial regulations, then the others; by title."""
+    title = (instrument.citation_title or instrument.title or "").lower()
+    return kind_rank(kind), title, instrument.key
 
 
 def _delegated_item(row: dict) -> InstrumentDelegatedItem:
     instrument = row["instrument"]
     props = instrument.get("props") or {}
     kind = props.get("kind")
+    articles = [
+        ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+    ]
+    sub = [SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []]
     return InstrumentDelegatedItem(
         instrument=InstrumentSummaryDTO.from_document(instrument),
         kind=kind.lower() if isinstance(kind, str) else None,
         date_in_force=props.get("date_in_force"),
-        articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
+        basis_kind=summary_basis_kind(list(articles)),
+        articles=articles,
+        also_based_on=[BasisLawDTO.from_row(r) for r in row.get("also_based_on") or []],
+        sub_delegated=sorted(
+            sub, key=lambda item: _regulation_order(item.kind, item.instrument)
+        ),
     )
+
+
+@router.get(
+    "/{bwb_id}/basis",
+    response_model=InstrumentBasisResponse,
+    summary="The laws a regulation is issued under",
+    description=(
+        'The legal basis of a regulation: per law its preamble ("Gelet op") names an '
+        "article in force of (`BASED_ON`), by title, the articles it names with the leden "
+        "and onderdelen, whether they give the power it is made under (`basis_kind`) and "
+        "the articles of the regulation that refer to each (`referring`). Empty for a law "
+        "without a preamble basis and for an unknown instrument. The other way: "
+        "`.../delegated`."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_basis_route(
+    bwb_id: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> InstrumentBasisResponse:
+    instrument = resolve_instrument(store, bwb_id)
+    rows = get_basis(store, instrument["_id"]) if instrument else []
+    items = []
+    for row in rows:
+        law = row["instrument"]
+        kind = (law.get("props") or {}).get("kind")
+        articles = [
+            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+        ]
+        items.append(
+            InstrumentBasisItem(
+                instrument=InstrumentSummaryDTO.from_document(law),
+                kind=kind.lower() if isinstance(kind, str) else None,
+                basis_kind=summary_basis_kind(list(articles)),
+                articles=articles,
+            )
+        )
+    return InstrumentBasisResponse(bwb_id=bwb_id, total=len(items), items=items)
 
 
 @router.get(

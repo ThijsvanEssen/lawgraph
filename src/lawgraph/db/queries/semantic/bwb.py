@@ -97,6 +97,34 @@ def regulations_with_basis(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_BASIS_SQL, {"source": SOURCE_BWB})
 
 
+def basis_targets(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, text, parts}`` of the articles with these *keys* in the graph: the articles a
+    preamble names, with what ``core.delegations.basis_kind`` reads of them."""
+    return store.query(
+        """
+        SELECT key, props -> 'text' AS text, props -> 'parts' AS parts
+        FROM articles
+        WHERE key = ANY(%(keys)s)
+        ORDER BY key
+        """,
+        {"keys": keys},
+    )
+
+
+def articles_in_order(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, key}`` of the articles in force of these laws (no stub, not repealed), per
+    law in the order of the law: what a range "artikelen 26 tot en met 30" spans."""
+    return store.query(
+        """
+        SELECT bwb_id, key
+        FROM articles
+        WHERE bwb_id = ANY(%(bwb_ids)s) AND stub IS NOT TRUE AND repealed IS NOT TRUE
+        ORDER BY bwb_id, position NULLS LAST, key
+        """,
+        {"bwb_ids": bwb_ids},
+    )
+
+
 def instrument_keys_by_bwb_id(
     store: Store, bwb_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
