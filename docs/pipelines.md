@@ -172,8 +172,9 @@ source writes it, `Indiener` or `Medeindiener`; `function` and `capacity` as on 
 that exist; an actor whose case, member or committee is not stored yet is linked by a later run.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
-`fetched_at`), turns each into text and sections with `core/kamerstuk_xml.py` and writes them
-on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+`fetched_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
+the log names where the next goes on), turns each into text, sections and footnotes with
+`core/kamerstuk_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted; run it after `normalize
 tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
@@ -224,7 +225,10 @@ FractieZetel holds the seat, and it ends at the latest the day before the seat i
 day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is title, summary, body, text, the
-footnotes and every string in `props.raw`, capped at 200,000 characters. Aliases come from the graph:
+footnotes and every string in `props.raw`, capped at 200,000 characters; `core/paper_text.py`
+keeps where each part lies, so an edge says in `meta.place` where its citation stands in what
+`/api/documents/{key}` serves (the title, the text and its section, or a footnote by its `id`),
+and its `snippet` is of that part alone (see [data-model](data-model.md#judgment)). Aliases come from the graph:
 `instruments.props.short_title` (codes such as `Sr`) and instrument titles (see `semantic
 rechtspraak` for the article forms). The qualifier of an article edge is read into `meta.leden`,
 `meta.onderdelen` and `meta.aanhef` as on judgment edges; only the first citation of an article
@@ -636,9 +640,12 @@ longer makes goes. `--since` takes the judgments retrieved from then on.
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
 `raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
-of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.paragraphs` (the
-numbers of the paragraphs that name it, as the judgment prints them, from
-`core/judgments.extract_sections`; none when no numbered paragraph does), no self citations,
+of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.mentions` (every
+place in the paragraphs and footnotes of `core/judgments.judgment_text` that names it, the first
+100, as on an edge to an article without the qualifier fields: a citation in a footnote with its
+`footnote` label, counted for the paragraph that refers to it; `core/ecli.ecli_mentions`,
+`ljn_mentions`), `meta.mention_count`, `meta.paragraphs` (the numbers of their paragraphs, as the
+judgment prints them; none when no numbered paragraph does), no self citations,
 missing judgments become stubs. The ECLIs are read by `core/ecli.cited_eclis`: one is valid when
 its country issues ECLIs, its court code has the shape of one (letters for a Dutch court; whether
 the court exists is not checked), its year lies between 1900 and the current year and its number
@@ -662,7 +669,8 @@ A decision of the ECHR is cited by application number, not by ECLI ("EHRM 28 maa
 numbers named with `nr.` or `nrs.` and a date before them (`core/echr_citations.py`).
 `REFERS_TO` to the ECHR decision of that number and date (0.9), or, without a date, to the only
 decision of the number (0.8); a number of several decisions (admissibility, Chamber, Grand
-Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, `meta.cited_date`).
+Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, `meta.cited_date`, and
+the places as for an ECLI: from "EHRM" to the number, `core/echr_citations.dutch_mentions`).
 The language versions of one decision count once (`echr-versions`). The log says how many were
 linked, not loaded and ambiguous.
 

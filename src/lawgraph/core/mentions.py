@@ -54,14 +54,15 @@ class Mention:
     # and end are then offsets into the text of the footnote
     footnote: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        """The mention as stored in ``meta.mentions`` of the edge."""
+    def to_dict(self, *, parts: bool = True) -> dict[str, Any]:
+        """The mention as stored in ``meta.mentions`` of the edge; without the lid and
+        onderdeel (*parts*) for a citation of what has none, a judgment."""
         stored: dict[str, Any] = {
             "paragraph_id": self.paragraph_id,
             "start": self.start,
             "end": self.end,
             "raw_match": self.raw_match,
-            **self.parts.to_dict(),
+            **(self.parts.to_dict() if parts else {}),
             "snippet": self.snippet,
             "confidence": self.confidence,
         }
@@ -121,8 +122,9 @@ def footnote_paragraphs(
 ) -> list[dict[str, Any]]:
     """The footnotes of a judgment (``core.judgments.judgment_text``) as paragraphs for
     :func:`find_mentions`: a citation in a footnote counts for the paragraph that refers
-    to it (its id and number), with the footnote's label; one nothing refers to is a
-    paragraph ``fn-<label>`` of its own."""
+    to it (its id and number; ``referring``, null when none does), with the footnote's
+    label (its place among them when it has none); one nothing refers to is a paragraph
+    ``fn-<label>`` of its own."""
     numbers = {str(p.get("id")): p.get("number") for p in paragraphs}
     found: list[dict[str, Any]] = []
     for note in footnotes:
@@ -134,6 +136,7 @@ def footnote_paragraphs(
                 "number": numbers.get(referring) if referring else None,
                 "text": str(note.get("text") or ""),
                 "footnote": label,
+                "referring": referring,
             }
         )
     return found

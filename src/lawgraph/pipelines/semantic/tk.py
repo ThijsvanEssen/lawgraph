@@ -19,13 +19,13 @@ from lawgraph.core.citations import (
     LAW_CONNECTOR_RE,
     CitationHit,
     DutchCitationExtractor,
-    coerce_text,
     hit_reason,
     make_snippet,
 )
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.paper_text import PaperText
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -120,6 +120,8 @@ def _instrument_hit(
         confidence=0.6,
         raw_match=text[start:end],
         snippet=make_snippet(text, (start, end)),
+        start=start,
+        end=end,
     )
 
 
@@ -154,7 +156,13 @@ def _collect_tk_hits(
 
 
 class TKSemanticPipeline(SemanticPipelineBase):
-    """Pipeline connecting TK documents to the articles and instruments they cite."""
+    """Pipeline connecting TK documents to the articles and instruments they cite.
+
+    An edge says where its citation stands in what ``/api/documents/{key}`` serves
+    (``core.paper_text``): ``meta.place``, ``{part, start, end}`` with ``part`` ``title``,
+    ``text`` (and ``section_id``) or ``footnote`` (and ``footnote``, ``footnote_id``), and
+    ``meta.snippet`` from that part alone. A citation found in the record of the Tweede
+    Kamer alone has ``place`` null."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -179,12 +187,12 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
-            text = self._extract_document_text(document)
-            if not text:
+            read = self._extract_document_text(document)
+            if read is None:
                 result.skipped += 1
                 continue
 
-            hits = _collect_tk_hits(text, extractor, named_acts)
+            hits = _collect_tk_hits(read.text, extractor, named_acts)
             if not hits:
                 continue
 
@@ -203,6 +211,10 @@ class TKSemanticPipeline(SemanticPipelineBase):
                     }.items()
                     if v
                 }
+                # null when the record alone holds it: a relink clears an earlier place
+                meta["place"], snippet = read.place(hit.start, hit.end)
+                if snippet:
+                    meta["snippet"] = snippet
                 edge_doc = self._make_edge_doc(
                     from_node=document,
                     to_node=target_node,
@@ -269,42 +281,24 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
         return None
 
-    def _extract_document_text(self, document: Node) -> str | None:
-        fragments: list[str] = []
-        total_length = 0
-        for key in ("title", "summary", "body", "text"):
-            candidate = document.props.get(key)
-            text_value = coerce_text(candidate)
-            if not text_value:
-                continue
-            fragments.append(text_value)
-            total_length += len(text_value)
-        # A footnote is no part of ``text`` (``normalize tk-content`` moves it out), and cites
-        # laws as much as the text does.
-        notes = coerce_text(
-            "\n".join(
-                str(note.get("text") or "")
-                for note in document.props.get("footnotes") or []
-                if isinstance(note, dict)
-            )
-        )
-        if notes:
-            fragments.append(notes)
-            total_length += len(notes)
-
-        total_length = self._collect_raw_text(
-            document.props.get("raw"), fragments, total_length
-        )
-        if not fragments:
+    def _extract_document_text(self, document: Node) -> PaperText | None:
+        """The words of the paper: its title, its text and its footnotes (``normalize
+        tk-content`` keeps a footnote out of ``text``, and it cites laws as much as the
+        text does), then the strings of its record."""
+        own = PaperText.of(document.props)
+        record: list[str] = []
+        self._collect_raw_text(document.props.get("raw"), record, len(own.text))
+        read = PaperText.of(document.props, record) if record else own
+        if not read.text:
             return None
-        text = "\n".join(fragments)
+        text = read.text
         if len(text) >= MAX_SEMANTIC_TEXT_LENGTH:
             logger.debug(
                 "TK semantic: document text reached collection limit of %d chars (node %s).",
                 MAX_SEMANTIC_TEXT_LENGTH,
                 document.key,
             )
-        return text
+        return read
 
     def _collect_raw_text(
         self,

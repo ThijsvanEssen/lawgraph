@@ -35,18 +35,36 @@ _BATCH = 20
 class TKContentNormalizePipeline(NormalizePipelineBase):
     """Write the text and the sections of Kamerstuk XML on the Document nodes."""
 
-    def __init__(self, *, store: GraphStore) -> None:
+    def __init__(
+        self, *, store: GraphStore, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that record key, so many
+        papers; the log names the last one read."""
         super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self.last_record_read: str | None = None
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = super().run(since=since)
+        if self.after or self.limit is not None:
+            last = self.last_record_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
+        return result
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
-        return self._iter_raw_sources(
+        for record in self._iter_raw_sources(
             source=SOURCE_TK,
             kinds=[RAW_KIND_TK_KAMERSTUK_XML],
             since=since,
             batch_size=_BATCH,
-        )
+            after=self.after,
+            limit=self.limit,
+        ):
+            self.last_record_read = record.get("_key") or self.last_record_read
+            yield record
 
     def normalize_nodes(
         self, raw: Iterable[dict[str, Any]], result: PipelineResult

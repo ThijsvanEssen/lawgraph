@@ -16,6 +16,7 @@ from lawgraph.core.documents import (
     paper_number,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import submitters
 
@@ -134,6 +135,51 @@ class SectionDTO(BaseModel):
     char_end: int
 
 
+class DocumentFootnoteDTO(BaseModel):
+    """A footnote of a paper, which ``text`` does not hold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        description="`fn-<n>`, its place among the footnotes (`fn-1` the first): what a "
+        "citation in it names (`meta.place.footnote_id` of a `REFERS_TO` edge). Unique in "
+        "the paper; `label` is not, a paper of before 2010 numbers its footnotes per page."
+    )
+    label: str | None = Field(None, description="Its number as printed: `3`.")
+    text: str
+    at: int | None = Field(
+        None,
+        description="Where its marker stands in `text`: `text[:at]` are the words before "
+        "it. Null for a footnote whose marker is not in the text (one of the header) and "
+        "for a paper read before markers were kept.",
+    )
+    section_id: str | None = Field(
+        None, description="The innermost section that holds `at`."
+    )
+
+
+def document_footnotes(props: dict[str, Any]) -> list[DocumentFootnoteDTO]:
+    """The footnotes of a paper (``props.footnotes``), in their order."""
+    sections = props.get("sections") or []
+    length = len(props.get("text") or "")
+    found: list[DocumentFootnoteDTO] = []
+    for index, note in enumerate(props.get("footnotes") or []):
+        if not isinstance(note, dict) or not note.get("text"):
+            continue
+        at = note.get("at")
+        at = at if isinstance(at, int) and 0 <= at <= length else None
+        found.append(
+            DocumentFootnoteDTO(
+                id=footnote_id(index),
+                label=note.get("number") or None,
+                text=str(note["text"]),
+                at=at,
+                section_id=section_at(sections, at) if at is not None else None,
+            )
+        )
+    return found
+
+
 class ExplainedTargetDTO(BaseModel):
     """What an explanatory document explains: an article, or a law as a whole.
 
@@ -237,6 +283,13 @@ class DocumentTextResponse(DocumentOrigin):
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
     sections: list[SectionDTO] = Field(default_factory=list)
+    footnotes: list[DocumentFootnoteDTO] = Field(
+        default_factory=list,
+        description="The footnotes, in their order, each with where its marker stands in "
+        "`text`. A citation in one (a `REFERS_TO` edge whose `meta.place.part` is "
+        "`footnote`) names it by `footnote_id`, its `start` and `end` offsets into its "
+        "`text`.",
+    )
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
         default_factory=list, description=_REPLACED_BY
@@ -292,6 +345,7 @@ class DocumentTextResponse(DocumentOrigin):
             text=text,
             dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
+            footnotes=document_footnotes(props),
             submitters=[
                 SubmitterDTO(
                     **row,

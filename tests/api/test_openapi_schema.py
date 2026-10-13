@@ -207,19 +207,28 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
     qualifier = {"leden", "onderdelen", "aanhef"}
     assert "paragraph_id" in _properties("JudgmentParagraph")
     assert "cited_articles" in _properties("JudgmentDetailResponse")
-    assert qualifier | {
-        "article",
-        "qualifier",
+    place = {
         "paragraph_ids",
         "paragraph_numbers",
         "snippet",
         "snippet_paragraph_id",
+        "footnote",
         "text",
         "start",
         "end",
         "confidence",
         "mention_count",
-    } == _properties("JudgmentCitedArticle")
+    }
+    assert qualifier | place | {"article", "qualifier"} == _properties(
+        "JudgmentCitedArticle"
+    )
+    assert place | {"id", "key", "path", "display_name", "ecli"} == _properties(
+        "JudgmentCitedJudgment"
+    )
+    assert {"label", "paragraph_id", "at", "text", "citations"} == _properties(
+        "JudgmentFootnote"
+    )
+    assert "footnotes" in _properties("JudgmentDTO")
 
 
 def test_an_article_lists_the_passages_that_cite_it() -> None:

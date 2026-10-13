@@ -290,6 +290,40 @@ def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
         },
     )
     assert TKSemanticPipeline(store=store).run().created == 1
+    (edge,) = store.edges.values()
+    meta, place = edge["meta"], edge["meta"]["place"]
+    assert (place["part"], place["footnote"], place["footnote_id"]) == (
+        "footnote",
+        "1",
+        "fn-1",
+    )
+    note = doc["props"]["footnotes"][0]["text"]
+    assert note[place["start"] : place["end"]] == meta["raw_match"] == "artikel 287 Sr"
+    assert meta["snippet"] == note
+
+
+def test_a_citation_in_the_record_alone_has_no_place() -> None:
+    doc = _make_tk_document("tk-6", "Wijziging van artikel 287 Sr")
+    del doc["props"]["title"]  # in the record of the Tweede Kamer alone
+    article_key = make_node_key("BWBR0001854", "287")
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr"},
+            )
+        },
+        articles={
+            article_key: _make_article(
+                article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+            )
+        },
+    )
+    TKSemanticPipeline(store=store).run()
+    (edge,) = store.edges.values()
+    assert edge["meta"]["raw_match"] == "artikel 287 Sr"
+    assert edge["meta"]["place"] is None
 
 
 def test_an_abbreviation_names_its_law_as_written() -> None:
