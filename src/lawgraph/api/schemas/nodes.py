@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import WithPath
 from lawgraph.core.documents import chamber_of, document_sender, paper_number
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
@@ -47,6 +48,9 @@ def _build_node_payload(
         sender = document_sender(props.get("actors"), props.get("date"))
         if sender:
             sanitized["sender"] = sender
+    if doc.get("type") == NodeType.DOSSIER.value:
+        # the name it goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it
+        sanitized["short_title"] = short_title(props.get("title"))
     return {
         "id": doc["_id"],
         "key": doc["_key"],

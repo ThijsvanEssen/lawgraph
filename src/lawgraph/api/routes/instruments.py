@@ -48,6 +48,7 @@ from lawgraph.api.schemas.instruments import (
 )
 from lawgraph.core.delegations import kind_rank
 from lawgraph.core.division_anchor import as_anchor
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.definitions import definitions_of
@@ -476,6 +477,7 @@ def get_instrument_dossiers_route(
                 key=d.get("_key") or "",
                 dossier_number=_props(d)["label"],
                 title=_props(d).get("title"),
+                short_title=short_title(_props(d).get("title")),
                 display_name=_props(d).get("display_name"),
                 current_phase=_props(d).get("current_phase"),
                 opened_on=_props(d).get("opened_on"),
