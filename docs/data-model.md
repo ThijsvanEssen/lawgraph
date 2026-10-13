@@ -833,7 +833,8 @@ Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a wo
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
-`lg_data_version` holds a counter per table of the graph. A statement trigger on each
+`lg_data_version` holds a counter per table of the graph, and one for
+`lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads

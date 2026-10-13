@@ -3,7 +3,9 @@
 The fixtures are articles of the toestanden the repository served on 9 October 2026, cut
 out whole (the Wft article and two lists shortened): Besluit zorgverzekering art. 1, Wft
 art. 1:1, Wet milieubeheer art. 8.47 and Vreemdelingenwet 2000 art. 1; and Cyberbeveiligingswet
-art. 1 of 15 August 2026, its unmarked list cut to four terms.
+art. 1 of 15 August 2026, its unmarked list cut to four terms. Subsidieregeling JTF 2021–2027
+art. 1.1 and 2.3.1 (toestand of 12 June 2026) and Pensioenwet art. 1 (of 7 July 2022), their
+explicit lists of dashes cut to a few terms.
 """
 
 from __future__ import annotations
@@ -144,3 +146,22 @@ def test_the_terms_of_a_text_each_with_the_definition_that_holds_there() -> None
     in_chapter = matcher.find("een bijdrage", "/Hoofdstuk2/Artikel9")
     assert [definition_ref(d) for _, _, d in in_chapter] == ["bwbr0000001_1:d:bijdrage"]
     assert TermMatcher([]).find("de wet", "") == []
+
+
+def test_a_dash_or_bullet_of_an_explicit_list_is_no_place() -> None:
+    # <lijst type="expliciet"> whose <li.nr> is "–", " –" or "−": no number to cite
+    jtf = _read("jtf", "BWBR0047689")
+    assert [(d["article_number"], d["term"], d["place"]) for d in jtf] == [
+        ("1.1", "deelnemer", None),
+        ("1.1", "penvoerder", None),
+        ("1.1", "productieve investering", None),
+        ("2.3.1", "diversificatie", None),
+        ("2.3.1", "SNN", None),
+    ]
+    assert definition_ref(jtf[0]) == "bwbr0047689_1_1:deelnemer"
+    pw = _read("pw", "BWBR0020809")
+    assert [(d["term"], d["place"]) for d in pw] == [
+        ("aanspraakgerechtigde", None),
+        ("accountant", None),
+        ("afkoop", None),
+    ]

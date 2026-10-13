@@ -60,7 +60,12 @@ from lawgraph.db.payloads import (
     encode,
     open_payload_store,
 )
-from lawgraph.db.schema import NODE_COLLECTIONS, create_database_sql, ensure_schema
+from lawgraph.db.schema import (
+    DEFINITIONS_TABLE,
+    NODE_COLLECTIONS,
+    create_database_sql,
+    ensure_schema,
+)
 
 logger = get_logger(__name__)
 
@@ -80,7 +85,7 @@ def raw_key(source: str, kind: str, external_id: str) -> str:
 
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
-_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES)
+_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES, DEFINITIONS_TABLE)
 
 # Payloads read or written at once (a thread and a connection each).
 PAYLOAD_THREADS = 16
