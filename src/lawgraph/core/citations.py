@@ -14,6 +14,8 @@ DutchCitationExtractor
     Registry-driven extractor for Dutch article citations in natural-language text.
 make_snippet
     Extract surrounding text context around a regex match span.
+snippet_bounds
+    Where that context stands in the text.
 normalize_code_aliases
     Normalise a ``{alias: identifier}`` mapping to uppercase keys.
 format_celex
@@ -89,12 +91,22 @@ class CitationHit:
 # ---------------------------------------------------------------------------
 
 
-def make_snippet(text: str, span: tuple[int, int]) -> str:
-    """Return a context window of *SNIPPET_WINDOW* chars around *span*."""
+def snippet_bounds(text: str, span: tuple[int, int]) -> tuple[int, int]:
+    """Where the snippet of *span* stands in *text*: *SNIPPET_WINDOW* chars each side,
+    without the whitespace at either end (``text[begin:finish]``)."""
     start, end = span
     begin = max(0, start - SNIPPET_WINDOW)
     finish = min(len(text), end + SNIPPET_WINDOW)
-    return text[begin:finish].strip()
+    window = text[begin:finish]
+    left = window.lstrip()
+    begin += len(window) - len(left)
+    return begin, begin + len(left.rstrip())
+
+
+def make_snippet(text: str, span: tuple[int, int]) -> str:
+    """Return a context window of *SNIPPET_WINDOW* chars around *span*."""
+    begin, finish = snippet_bounds(text, span)
+    return text[begin:finish]
 
 
 def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:

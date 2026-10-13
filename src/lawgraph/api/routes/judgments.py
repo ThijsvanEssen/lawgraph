@@ -25,6 +25,7 @@ from lawgraph.api.schemas.judgments import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
+from lawgraph.core.mentions import mention_texts
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
@@ -180,8 +181,10 @@ def get_judgment_detail(
         ArticleRelationDTO.from_documents(rel.article, rel.instrument)
         for rel in data.articles
     ]
+    props = data.judgment.get("props") or {}
+    texts = mention_texts(props.get("paragraphs") or [], props.get("footnotes") or [])
     cited_articles = [
-        JudgmentCitedArticle.from_relation(article, rel.meta, rel.confidence)
+        JudgmentCitedArticle.from_relation(article, rel.meta, rel.confidence, texts)
         for article, rel in zip(articles, data.articles, strict=True)
     ]
 

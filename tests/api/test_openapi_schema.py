@@ -213,6 +213,10 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
         "paragraph_ids",
         "paragraph_numbers",
         "snippet",
+        "snippet_paragraph_id",
+        "text",
+        "start",
+        "end",
         "confidence",
         "mention_count",
     } == _properties("JudgmentCitedArticle")

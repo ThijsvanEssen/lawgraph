@@ -16,7 +16,12 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.core.citations import CitationHit, hit_reason, make_snippet
+from lawgraph.core.citations import (
+    CitationHit,
+    hit_reason,
+    make_snippet,
+    snippet_bounds,
+)
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 
 # The most mentions an edge keeps. A judgment that cites one article hundreds of times
@@ -67,6 +72,17 @@ class Mention:
         if self.footnote:
             stored["footnote"] = self.footnote
         return stored
+
+    def in_snippet(self, text: str) -> tuple[int, int] | None:
+        """Where ``raw_match`` stands in ``snippet``: ``snippet[start:end]``, from *text*,
+        the paragraph or footnote the mention was read in (``mention_texts``). None when
+        *text* no longer holds the mention or its snippet (normalized again since)."""
+        if text[self.start : self.end] != self.raw_match:
+            return None
+        begin, finish = snippet_bounds(text, (self.start, self.end))
+        if text[begin:finish] != self.snippet:
+            return None
+        return self.start - begin, self.end - begin
 
     @classmethod
     def from_dict(cls, stored: Any) -> Mention | None:
@@ -121,6 +137,17 @@ def footnote_paragraphs(
             }
         )
     return found
+
+
+def mention_texts(
+    paragraphs: Sequence[Mapping[str, Any]], footnotes: Sequence[Mapping[str, Any]]
+) -> dict[tuple[str, str | None], str]:
+    """The texts the mentions of a judgment are offsets into, by ``(paragraph_id,
+    footnote)``: a paragraph's own text under ``None``, a footnote's under its label."""
+    return {
+        (str(p.get("id")), _text(p.get("footnote"))): str(p.get("text") or "")
+        for p in [*paragraphs, *footnote_paragraphs(paragraphs, footnotes)]
+    }
 
 
 def _text(value: Any) -> str | None:

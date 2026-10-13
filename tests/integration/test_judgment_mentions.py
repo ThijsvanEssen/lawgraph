@@ -148,6 +148,9 @@ def test_the_judgment_serves_the_stored_citations_per_occurrence(
     assert cited["paragraph_numbers"] == ["1.1", "1.2"]
     assert cited["mention_count"] == 3 and cited["confidence"] == 0.95
     assert len(body["articles"]) == 1
+    # the words of the strongest mention, where the linker found them in its snippet
+    assert cited["snippet_paragraph_id"] == "rov-1.1" and cited["text"] == LAW
+    assert cited["snippet"][cited["start"] : cited["end"]] == LAW
 
 
 def _cited_by(client: TestClient, **params: Any) -> dict[str, Any]:

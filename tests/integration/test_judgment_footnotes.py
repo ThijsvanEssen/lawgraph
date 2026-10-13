@@ -8,6 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from fastapi.testclient import TestClient
+
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
@@ -85,3 +89,23 @@ def test_a_citation_in_a_footnote_is_linked_for_its_paragraph(
         "1",
         "art. 10:56 BW",
     )
+
+
+def test_a_cited_article_marks_its_words_in_the_snippet_of_its_footnote(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak")
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/judgments/{ECLI}").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    (cited,) = body["cited_articles"]
+    assert cited["snippet_paragraph_id"] == "rov-3.1"
+    assert cited["snippet"] == "Echtscheiding: art. 3 Brussel II-ter en art. 10:56 BW."
+    assert cited["snippet"][cited["start"] : cited["end"]] == cited["text"]
+    assert cited["text"] == "art. 10:56 BW"
