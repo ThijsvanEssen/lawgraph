@@ -38,8 +38,9 @@ def build_extractor(
     instrument_aliases: InstrumentAliasMap,
     context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
 ) -> DutchCitationExtractor:
-    """Extractor that resolves law codes and full law names ("artikel 5 van de Wegenwet"),
-    and the abbreviations that stand for a law only beside other words ("EP" beside "EVRM")."""
+    """Extractor that resolves law codes as their sources write them (``as_written``: "CBW"
+    is not the Cbw) and full law names ("artikel 5 van de Wegenwet"), and the
+    abbreviations that stand for a law only beside other words ("EP" beside "EVRM")."""
     name_aliases = {
         name: bwb_id or celex
         for name, (bwb_id, celex) in instrument_aliases.items()
@@ -49,6 +50,7 @@ def build_extractor(
         code_aliases=code_aliases,
         name_aliases=name_aliases,
         context_aliases=context_aliases,
+        as_written=True,
     )
 
 

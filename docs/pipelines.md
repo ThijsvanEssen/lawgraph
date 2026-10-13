@@ -45,6 +45,13 @@ Werkloosheidswet (WW)", "de Wet werk en bijstand (hierna: WWB)"), uses that abbr
 law throughout: so an abbreviation several laws claim (WW: also the Woningwet and the Waterwet)
 names a law where the text says which. An abbreviation that is one law's keeps that law.
 
+In running text (`semantic tk`, `semantic rechtspraak`) an abbreviation of one word cites its
+law as its source writes it: `CBW` is the Centrale Branchevereniging Wonen ("artikel 12 van de
+CBW-voorwaarden"), not the Cyberbeveiligingswet (`Cbw`). Another spelling (`AWB`, `GW`) cites
+the law only in a text that also names it so (`Awb`) or by its title or citation title; else
+the citation is one of a law the graph does not know. The first part of a compound
+(`art. 6 EVRM-verweer`) still cites the article.
+
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
 Parlement, so it is the Protocol only in a judgment that also names the EVRM or the Eerste

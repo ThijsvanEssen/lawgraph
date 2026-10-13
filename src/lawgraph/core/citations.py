@@ -30,7 +30,7 @@ import itertools
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
@@ -327,6 +327,39 @@ def name_key(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip(" .,;:\"'“”‘’()")
 
 
+class _NamedIn:
+    """Whether a text names a law as its sources do: by a code as written ("Awb") or by
+    a name ("Algemene wet bestuursrecht", in any case). Looked up once per law, and only
+    for a law a citation writes otherwise ("AWB")."""
+
+    def __init__(
+        self,
+        text: str,
+        written: Mapping[str, Sequence[str]],
+        named: Mapping[str, Sequence[str]],
+    ) -> None:
+        self._text = text
+        self._written = written
+        self._named = named
+        self._keyed: str | None = None
+        self._found: dict[str, bool] = {}
+
+    def __call__(self, law_id: str) -> bool:
+        found = self._found.get(law_id)
+        if found is None:
+            found = self._found[law_id] = self._names(law_id)
+        return found
+
+    def _names(self, law_id: str) -> bool:
+        for code in self._written.get(law_id, ()):
+            if re.search(rf"(?<!\w){re.escape(code)}(?!\w)", self._text):
+                return True
+        names = self._named.get(law_id, ())
+        if names and self._keyed is None:
+            self._keyed = re.sub(r"\s+", " ", self._text.lower())
+        return any(name in (self._keyed or "") for name in names)
+
+
 @dataclass
 class _Law:
     """The law a citation names, and how it was found."""
@@ -364,6 +397,12 @@ class DutchCitationExtractor:
     that is a known name, so any number of names costs nothing per citation), by a family
     code or name, or by a word that points back at the law named last.
 
+    With *as_written* (running text, ``_detection.build_extractor``) a code of one word
+    stands for its law as its source writes it: "CBW" is the Centrale Branchevereniging
+    Wonen, not the Cyberbeveiligingswet ("Cbw"). Another spelling ("AWB") stands for the
+    law only in a text that also names it so, or by its name (``_NamedIn``). Without it
+    (a search query) a code is read in any case.
+
     A family code (``CODE_FAMILIES``: ``BW``) never stands for one regulation: a citation
     of the family resolves through the book in front of the colon (``6`` → the BWB id of
     book 6) and cites the article number after it (``162``), whichever books are loaded
@@ -380,12 +419,24 @@ class DutchCitationExtractor:
         code_aliases: dict[str, str],
         name_aliases: Mapping[str, str | None] | None = None,
         context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
+        *,
+        as_written: bool = False,
     ) -> None:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
             if k and v and k.strip().upper() not in CODE_FAMILIES
         }
+        # "CBW" -> "Cbw": a code of one word as its source writes it, when *as_written*
+        self._spelling: dict[str, str] = (
+            {
+                k.strip().upper(): k.strip()
+                for k in code_aliases
+                if k and k.strip().upper() in self._code_map and " " not in k.strip()
+            }
+            if as_written
+            else {}
+        )
         self._name_map: dict[str, str] = {
             name_key(k): v.strip()
             for k, v in (name_aliases or {}).items()
@@ -412,6 +463,13 @@ class DutchCitationExtractor:
         self._code_re = self._alternation_re(
             self._code_map, prefix=r"(?:de\s+|het\s+)?"
         )
+        # law id -> the ways a text names it as its sources do: codes as written, names
+        self._written: dict[str, list[str]] = {}
+        self._named: dict[str, list[str]] = {}
+        for code, spelled in self._spelling.items():
+            self._written.setdefault(self._code_map[code], []).append(spelled)
+        for name, law_id in self._name_map.items() if self._spelling else ():
+            self._named.setdefault(law_id, []).append(name)
         self._family_re = self._alternation_re(self._books, prefix=r"(?:de\s+|het\s+)?")
 
     @staticmethod
@@ -463,6 +521,7 @@ class DutchCitationExtractor:
         start: int,
         local: dict[str, str],
         last: tuple[int, str] | None,
+        named: _NamedIn,
     ) -> _Law | None:
         """The law named in *text* after position *start*, or ``None``."""
         anaphora = _ANAPHORA_RE.match(text, start)
@@ -473,8 +532,8 @@ class DutchCitationExtractor:
         pos = LAW_CONNECTOR_RE.match(text, start).end()  # type: ignore[union-attr]
         for law in (
             self._match_local(text, pos, local),
-            self._match_alternation(self._code_re, self._code_map, text, pos, None),
-            self._match_alternation(self._family_re, self._books, text, pos, "family"),
+            self._match_code(text, pos, named),
+            self._match_family(text, pos),
             self._match_name(text, pos),
         ):
             if law:
@@ -490,23 +549,24 @@ class DutchCitationExtractor:
                 return _Law(law_id, pos + len(alias), CONFIDENCE_LOCAL_ALIAS)
         return None
 
-    @staticmethod
-    def _match_alternation(
-        pattern: re.Pattern[str] | None,
-        registry: dict[str, Any],
-        text: str,
-        pos: int,
-        kind: str | None,
-    ) -> _Law | None:
-        if pattern is None:
-            return None
-        match = pattern.match(text, pos)
+    def _match_family(self, text: str, pos: int) -> _Law | None:
+        """The family whose code stands at *pos* (``BW``): the book is in the number."""
+        match = self._family_re.match(text, pos) if self._family_re else None
         if not match:
             return None
-        key = match.group("key").upper()
-        if kind == "family":
-            return _Law("", match.end(), CONFIDENCE_DIRECT, family=key)
-        return _Law(registry[key], match.end(), CONFIDENCE_DIRECT)
+        return _Law("", match.end(), CONFIDENCE_DIRECT, family=match["key"].upper())
+
+    def _match_code(self, text: str, pos: int, named: _NamedIn) -> _Law | None:
+        """The law whose code stands at *pos*; a code written otherwise than its source
+        writes it only when the text also names that law so (``as_written``)."""
+        match = self._code_re.match(text, pos) if self._code_re else None
+        if not match:
+            return None
+        law = _Law(self._code_map[match["key"].upper()], match.end(), CONFIDENCE_DIRECT)
+        spelled = self._spelling.get(match["key"].upper())
+        if spelled is None or match["key"] == spelled or named(law.law_id):
+            return law
+        return None
 
     def _match_name(self, text: str, pos: int) -> _Law | None:
         """The longest run of words from *pos* that is the name of a known law, or of a
@@ -572,9 +632,10 @@ class DutchCitationExtractor:
         local |= self._defined_names(text)
         unknown_local: dict[str, str] = {}  # "AW" -> "Aanbestedingswet"
         last: tuple[int, str] | None = None
+        named = _NamedIn(text, self._written, self._named)
 
         for match in ARTICLE_HEAD_RE.finditer(text):
-            law = self._resolve_law(text, match.end(), local, last)
+            law = self._resolve_law(text, match.end(), local, last, named)
             if law is None:
                 if unknown_laws:
                     hits.extend(
