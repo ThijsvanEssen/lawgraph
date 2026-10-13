@@ -1324,6 +1324,82 @@ END $$""",
     return statements
 
 
+# The persons a judgment names, which the search finds it by (``queries/search``): each party
+# whose name is not anonymised ("[appellant]") and each who acts for a party
+# (``core.judgment_counsel``), with the party's alias or name. ``words`` is the name folded
+# (``lg_fold``) with every run of other characters a space, between spaces: " mr drs r van
+# gelder ", so a word of a name is found whole or by its start. Kept by a trigger on every
+# write of a judgment's props; a judgment written before the trigger has none until it is
+# normalized again. Not a table of the graph: writing it raises no data version.
+def judgment_persons() -> list[str]:
+    return [
+        """CREATE TABLE IF NOT EXISTS lg_judgment_persons (
+    id text NOT NULL,
+    n integer NOT NULL,
+    name text NOT NULL,
+    role text,
+    party text,
+    date_eff text,
+    words text NOT NULL,
+    PRIMARY KEY (id, n)
+)""",
+        "CREATE INDEX IF NOT EXISTS lg_judgment_persons_words ON lg_judgment_persons"
+        " USING gin (words gin_trgm_ops)",
+        r"""CREATE OR REPLACE FUNCTION lg_person_words(name text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT ' ' || btrim(regexp_replace(public.lg_fold(name), '[^[:alnum:]]+', ' ', 'g'))
+        || ' '
+$$""",
+        r"""CREATE OR REPLACE FUNCTION lg_judgment_person_rows(p json)
+RETURNS TABLE (n integer, name text, role text, party text)
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    WITH parties AS (
+        SELECT x.party, x.i
+        FROM json_array_elements(
+            CASE WHEN json_typeof(p -> 'parties') = 'array' THEN p -> 'parties'
+                 ELSE '[]'::json END
+        ) WITH ORDINALITY AS x(party, i)
+        WHERE json_typeof(x.party) = 'object'
+    ), persons AS (
+        SELECT (i * 1000)::int AS n, party ->> 'name' AS name, party ->> 'role' AS role,
+               NULL::text AS party
+        FROM parties
+        UNION ALL
+        SELECT (i * 1000 + j)::int, r ->> 'name', r ->> 'role',
+               coalesce(party ->> 'alias', party ->> 'name')
+        FROM parties, json_array_elements(
+            CASE WHEN json_typeof(party -> 'representatives') = 'array'
+                 THEN party -> 'representatives' ELSE '[]'::json END
+        ) WITH ORDINALITY AS y(r, j)
+        WHERE json_typeof(r) = 'object'
+    )
+    SELECT n, name, role, party FROM persons
+    WHERE coalesce(btrim(name), '') <> '' AND name !~ '^\s*\['
+$$""",
+        """CREATE OR REPLACE FUNCTION lg_keep_judgment_persons() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        DELETE FROM public.lg_judgment_persons WHERE id = OLD.id;
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    INSERT INTO public.lg_judgment_persons (id, n, name, role, party, date_eff, words)
+    SELECT NEW.id, f.n, f.name, f.role, f.party, NEW.date_eff,
+           public.lg_person_words(f.name)
+    FROM public.lg_judgment_person_rows(NEW.props) f
+    ON CONFLICT (id, n) DO NOTHING;
+    RETURN NEW;
+END $$""",
+        # a row trigger: a statement trigger with transition tables cannot be limited to
+        # a write of the props, and every other column of a judgment is written in bulk
+        "CREATE OR REPLACE TRIGGER judgments_persons"
+        " AFTER INSERT OR DELETE OR UPDATE OF props ON judgments"
+        " FOR EACH ROW EXECUTE FUNCTION lg_keep_judgment_persons()",
+    ]
+
+
 # What ``normalize tk-dossiers`` reads of each paper of a dossier to derive its title, kind
 # and phases (``queries/normalize/tk.dossier_signals``), kept apart from its props, which
 # hold its whole text: the signals of a dossier read these, not the text of its papers.
@@ -2020,6 +2096,7 @@ def statements() -> list[str]:
         PIPELINE_STATE,
         HEAT,
         *judgment_light(),
+        *judgment_persons(),
         *document_light(),
         *instrument_names(),
         *faction_votes(),
