@@ -126,19 +126,33 @@ def second_reading_memoranda(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_SECOND_READING_SQL, {"part_of": RELATION_PART_OF})
 
 
-def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]]:
-    """The whole Tweede Kamer documents, only those with an external id in *ids* when it is
-    given: ``semantic tk`` scans every text prop of a paper and its API payload."""
-    id_filter = ""
+def tk_documents(
+    store: Store,
+    ids: list[str] | None,
+    *,
+    after: str | None = None,
+    limit: int | None = None,
+) -> Iterator[dict[str, Any]]:
+    """The Tweede Kamer documents with the props ``semantic tk`` reads (title, text and
+    footnotes; not the record they came with), only those with an external id in *ids* when
+    it is given. A slice: past the document key *after*, *limit* of them."""
+    clauses = [f"'{CHAMBER_TK}' = ANY(d.labels)"]
     if ids is not None:
-        id_filter = "AND lg_str(props -> 'external_id') = ANY(%(ids)s::text[])"
+        clauses.append("lg_str(d.props -> 'external_id') = ANY(%(ids)s::text[])")
+    if after:
+        clauses.append("d.key > %(after)s")
     sql = f"""
-        SELECT id, key, type, labels, props
-        FROM {COLLECTION_DOCUMENTS}
-        WHERE '{CHAMBER_TK}' = ANY(labels) {id_filter}
-        ORDER BY key
+        SELECT d.id, d.key, d.type, d.labels,
+               coalesce({_cut("d", "title", "text", "footnotes")}, '{{}}'::json) AS props
+        FROM {COLLECTION_DOCUMENTS} d
+        WHERE {" AND ".join(clauses)}
+        ORDER BY d.key
+        {"LIMIT %(limit)s" if limit is not None else ""}
         """
-    return (node_doc(row) for row in store.query(sql, {"ids": ids}))
+    return (
+        node_doc(row)
+        for row in store.query(sql, {"ids": ids, "after": after, "limit": limit})
+    )
 
 
 def tk_document_titles(
@@ -248,11 +262,13 @@ def acts_of_dossiers(store: Store) -> dict[str, set[str]]:
 
 
 _TO_SCAN_FOR_AMENDMENTS_SQL = f"""
-SELECT {slim_sql("c", "bwb_id", "text")}
+SELECT {slim_sql("c", "bwb_id", "text", "dossier_numbers")}
 FROM (
     SELECT d.id, d.key, d.type, d.labels, coalesce(p.props, '{{}}'::json) AS props
     FROM {COLLECTION_DOCUMENTS} d
-    CROSS JOIN LATERAL (SELECT {_cut("d", "bwb_id", "text")} AS props OFFSET 0) p
+    CROSS JOIN LATERAL (
+        SELECT {_cut("d", "bwb_id", "text", "dossier_numbers")} AS props OFFSET 0
+    ) p
     WHERE '{CHAMBER_TK}' = ANY(d.labels)
 ) c
 WHERE {present_sql("c.props -> 'text'")}
@@ -266,7 +282,7 @@ def tk_documents_to_scan_for_amendments(
     store: Store, amending: list[str]
 ) -> Iterator[dict[str, Any]]:
     """The Tweede Kamer documents with a text and a law to amend: their own ``bwb_id``, or
-    their id in *amending*."""
+    their id in *amending*; with their ``dossier_numbers``."""
     return store.query(_TO_SCAN_FOR_AMENDMENTS_SQL, {"amending": amending})
 
 
@@ -937,5 +953,41 @@ def person_duplicates(store: Store) -> list[dict[str, Any]]:
             HAVING count(*) = 1
             ORDER BY b.id
             """
+        )
+    )
+
+
+# The edges of *source* from a paper to an act its own dossier made (the act LEGISLATED_IN
+# a dossier the paper is in), or to an article of one: a bill and its papers make that act,
+# they do not change it. From the acts, few, through their dossiers to the papers.
+_OWN_ACT_EDGES_SQL = f"""
+DELETE FROM {COLLECTION_EDGES} e
+USING {COLLECTION_EDGES} l, {COLLECTION_DOSSIERS} ds, {COLLECTION_INSTRUMENTS} act,
+      {COLLECTION_DOCUMENTS} d
+WHERE l.relation = %(legislated_in)s AND l.to_collection = '{COLLECTION_DOSSIERS}'
+  AND ds.id = l.to_id AND ds.label IS NOT NULL
+  AND act.id = l.from_id
+  AND d.dossier_numbers @> ARRAY[ds.label]
+  AND e.from_id = d.id
+  AND e.relation = ANY(%(relations)s) AND e.source = %(source)s
+  AND (e.to_id = act.id OR EXISTS (
+      SELECT 1 FROM {COLLECTION_ARTICLES} a
+      WHERE a.id = e.to_id AND a.bwb_id = lg_str(act.props -> 'bwb_id')
+  ))
+RETURNING e.from_id, e.to_id
+"""
+
+
+def remove_own_act_edges(store: Store, relations: list[str], source: str) -> int:
+    """Remove the edges of *relations* made by *source* from a paper to the act its own
+    dossier made, or to an article of that act (``_OWN_ACT_EDGES_SQL``). How many went."""
+    return len(
+        store.execute(
+            _OWN_ACT_EDGES_SQL,
+            {
+                "legislated_in": RELATION_LEGISLATED_IN,
+                "relations": relations,
+                "source": source,
+            },
         )
     )

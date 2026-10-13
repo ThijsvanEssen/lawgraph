@@ -642,7 +642,8 @@ def _papers(store: GraphStore) -> None:
         store,
         COLLECTION_DOCUMENTS,
         _node("b", "document", ["TK"], external_id="e2", date="2025-01-01", kind="Brief",
-              title="B", zeta=1, display_name="b", text="x", bwb_id="BWBR1"),
+              title="B", zeta=1, display_name="b", text="x", bwb_id="BWBR1",
+              raw={"Titel": "De titel van het dossier"}),
         _node("A", "document", ["TK"], external_id=5, date=["x"], text=""),
         _node("a", "document", ["TK"], external_id="e1", date="2024-12-31", text=7),
         _node("c", "document", ["TK"], date=None, text=None, bwb_id="BWBR2"),
@@ -652,29 +653,24 @@ def _papers(store: GraphStore) -> None:
     )  # fmt: skip
 
 
-def test_tk_documents_whole_by_key(store: GraphStore) -> None:
+def test_tk_documents_with_what_semantic_tk_reads_by_key(store: GraphStore) -> None:
     _papers(store)
     rows = list(semantic_tk.tk_documents(store, None))
     assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
+    # the title, text and footnotes; not the record the paper came with
     assert rows[2] == {
         "_key": "b",
         "_id": "documents/b",
         "type": "document",
         "labels": ["TK"],
-        "props": {
-            "external_id": "e2",
-            "date": "2025-01-01",
-            "kind": "Brief",
-            "title": "B",
-            "zeta": 1,
-            "display_name": "b",
-            "text": "x",
-            "bwb_id": "BWBR1",
-        },
+        "props": {"title": "B", "text": "x"},
     }
     picked = semantic_tk.tk_documents(store, ["e2", "e1", "5", "e3", "nope"])
     assert [row["_key"] for row in picked] == ["a", "b"]
     assert list(semantic_tk.tk_documents(store, [])) == []
+    # a slice: past a key, so many
+    sliced = semantic_tk.tk_documents(store, None, after="a", limit=2)
+    assert [row["_key"] for row in sliced] == ["b", "c"]
 
 
 def test_tk_document_titles_since_a_date(store: GraphStore) -> None:

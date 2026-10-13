@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
@@ -25,6 +26,7 @@ from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
@@ -38,11 +40,14 @@ _MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
 
 @dataclass
 class AmendedByData:
-    """Amending instruments of a regulation plus the titles of their dossiers."""
+    """The publications that changed a regulation and the pending proposals to change it,
+    plus the titles of their dossiers."""
 
     items: list[dict[str, Any]]
     total: int
     dossier_titles: dict[str, str | None]
+    proposals: list[dict[str, Any]] = field(default_factory=list)
+    proposals_total: int = 0
 
 
 @dataclass
@@ -526,15 +531,87 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 def get_instrument_amended_by(
     store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
-    """Amending instruments of a regulation, newest first (2 queries at most).
+    """The publications that changed a regulation, newest first, and the pending proposals
+    to change it (3 queries at most).
 
-    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an article of the regulation (the ``edges_to_cover`` index is used with
-    the article ids), grouped per amending instrument; a second bulk
-    query resolves the titles of every dossier the page mentions.
+    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose ``_to`` is an
+    article of the regulation (the ``edges_to_cover`` index is used with the article ids),
+    grouped per publication that made them; one the same per paper of the Tweede Kamer that
+    proposes them and is still pending (``queries.proposals``), up to
+    ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
     scope = scope_of(identifier)
-    ctes = f"""
+    rows = store.query(
+        _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
+        + _paged("grouped", _newest("date_published")),
+        {**_amending_bind(scope.value), "limit": limit, "offset": offset},
+    )
+    page_rows, total = _split_page(rows)
+    proposal_rows, proposals_total = _split_page(
+        store.query(
+            _amending_ctes(COLLECTION_DOCUMENTS, scope.prop)
+            + _paged("grouped", _newest("date")),
+            {**_amending_bind(scope.value), "limit": PROPOSALS_SHOWN, "offset": 0},
+        )
+    )
+    items = [_amending_item(row) for row in page_rows]
+    proposals = [
+        {**_amending_item(row), "outcome": row["outcome"]} for row in proposal_rows
+    ]
+    numbers = collect_dossier_numbers(
+        {"dossiers": (i["instrument"].get("props") or {}).get("dossier_numbers")}
+        for i in items + proposals
+    )
+    return AmendedByData(
+        items=items,
+        total=total,
+        dossier_titles=get_dossier_titles(store, numbers),
+        proposals=proposals,
+        proposals_total=proposals_total,
+    )
+
+
+# The pending proposals ``amended-by`` lists at most.
+PROPOSALS_SHOWN = 100
+
+# The props of a paper its row in ``amended-by`` shows.
+_PAPER_PROPS = """(
+    SELECT coalesce(json_object_agg(p.k, p.v), '{}'::json)
+    FROM json_each(n.props) AS p(k, v)
+    WHERE p.k IN ('display_name', 'title', 'kind', 'date', 'sequence', 'dossier_numbers',
+                  'dossier_number', 'dossier_suffix')
+)"""
+
+
+def _newest(date: str) -> str:
+    """A page of ``grouped`` newest first: by the prop *date*, then the date signed."""
+    return f"""
+        SELECT g.*, row_number() OVER (
+            ORDER BY lg_str(g.props -> '{date}') DESC NULLS LAST,
+                     lg_str(g.props -> 'date_signed') DESC NULLS LAST,
+                     g.key DESC
+        ) AS n
+        FROM grouped g
+        ORDER BY n
+        LIMIT %(limit)s OFFSET %(offset)s
+    """
+
+
+def _amending_ctes(collection: str, prop: str) -> str:
+    """``hits`` and ``grouped``: the changes of the articles of a regulation made by the
+    nodes of *collection*, per node; of a paper only a pending proposal, with its outcome."""
+    paper = collection == COLLECTION_DOCUMENTS
+    # the collection tested on the groups: a test of the edges would turn the probe of the
+    # index per article into a scan of every change made by the collection
+    pending = f"AND {proposals.pending_sql('h.from_id')}" if paper else ""
+    outcome = (
+        f"{proposals.outcome_sql('h.from_id')} AS outcome"
+        if paper
+        else "NULL::text AS outcome"
+    )
+    # a paper holds its whole text: only what its row shows
+    props = f"{_PAPER_PROPS} AS props" if paper else "n.props"
+    return f"""
         WITH hits AS (
             SELECT e.from_id,
                    (count(*) FILTER (WHERE e.relation = %(amends)s))::int AS amends,
@@ -543,7 +620,7 @@ def get_instrument_amended_by(
                    count(DISTINCT e.to_id)::int AS articles_affected,
                    min(lg_str(e.doc -> 'meta' -> 'effective_date')) AS first_effective_date
             FROM edges e
-            WHERE e.to_id IN ({_articles_of(scope.prop)})
+            WHERE e.to_id IN ({_articles_of(prop)})
               AND e.relation = ANY(%(mutations)s)
             GROUP BY e.from_id
         ),
@@ -552,62 +629,37 @@ def get_instrument_amended_by(
             -- every table whole; LIMIT keeps the planner from turning it into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
                    h.amends, h.introduces, h.repeals, h.articles_affected,
-                   h.first_effective_date
+                   h.first_effective_date, {outcome}
             FROM hits h
             CROSS JOIN LATERAL (
-                SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n
+                SELECT n.id, n.key, n.type, n.labels, {props} FROM nodes n
                 WHERE n.id = h.from_id
                 LIMIT 1
             ) d
+            WHERE starts_with(h.from_id, '{collection}/') {pending}
         )
     """
-    page = """
-        SELECT g.*, row_number() OVER (
-            ORDER BY lg_str(g.props -> 'date_published') DESC NULLS LAST,
-                     lg_str(g.props -> 'date_signed') DESC NULLS LAST,
-                     g.key DESC
-        ) AS n
-        FROM grouped g
-        ORDER BY n
-        LIMIT %(limit)s OFFSET %(offset)s
-    """
-    rows = store.query(
-        ctes + _paged("grouped", page),
-        {
-            "bwb": scope.value,
-            "mutations": _MUTATION_RELATIONS,
-            "amends": RELATION_AMENDS,
-            "introduces": RELATION_INTRODUCES,
-            "repeals": RELATION_REPEALS,
-            "limit": limit,
-            "offset": offset,
-        },
-    )
-    page_rows, total = _split_page(rows)
-    items = [
-        {
-            "instrument": node_doc(row),
-            "amends": row["amends"],
-            "introduces": row["introduces"],
-            "repeals": row["repeals"],
-            "articles_affected": row["articles_affected"],
-            "first_effective_date": row["first_effective_date"],
-        }
-        for row in page_rows
-    ]
-    numbers = collect_dossier_numbers(
-        {
-            "dossiers": (i.get("instrument", {}).get("props") or {}).get(
-                "dossier_numbers"
-            )
-        }
-        for i in items
-    )
-    return AmendedByData(
-        items=items,
-        total=total,
-        dossier_titles=get_dossier_titles(store, numbers),
-    )
+
+
+def _amending_bind(bwb: str) -> dict[str, Any]:
+    return {
+        "bwb": bwb,
+        "mutations": _MUTATION_RELATIONS,
+        "amends": RELATION_AMENDS,
+        "introduces": RELATION_INTRODUCES,
+        "repeals": RELATION_REPEALS,
+    }
+
+
+def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "instrument": node_doc(row),
+        "amends": row["amends"],
+        "introduces": row["introduces"],
+        "repeals": row["repeals"],
+        "articles_affected": row["articles_affected"],
+        "first_effective_date": row["first_effective_date"],
+    }
 
 
 def _reference_bucket(identity: str, own: str, other: str) -> str:
