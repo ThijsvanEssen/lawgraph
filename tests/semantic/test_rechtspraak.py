@@ -47,7 +47,7 @@ class _FakeStore(_BaseFakeStore):
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The judgments normalize made and the names of the instruments come from the fake
     store; no law has its articles loaded, and nothing is removed."""
-    for name in ("code_alias_rows", "instrument_alias_rows"):
+    for name in ("code_alias_rows", "instrument_alias_rows", "law_date_rows"):
         monkeypatch.setattr(
             semantic_bwb, name, lambda store: iter(list(store._instruments))
         )
