@@ -17,6 +17,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.pipelines.semantic.tk_amendment_articles import (
+    SEMANTIC_SOURCE as ARTICLES_SOURCE,
+)
 from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
 from tests.integration.seed import uid
 
@@ -117,3 +120,100 @@ def test_a_bill_amends_the_laws_it_changes_only(database: str, cli: Any) -> None
         )
     )
     assert targets == ["instruments/bwbr0019079", "instruments/bwbr0020368"]
+
+
+BILL_TEXT = """Alzo Wij in overweging genomen hebben dat het wenselijk is twee wetten te wijzigen.
+ARTIKEL I
+De Wet op het financieel toezicht wordt als volgt gewijzigd:
+Artikel 5 vervalt.
+ARTIKEL II
+De Wet toezicht accountantsorganisaties wordt als volgt gewijzigd:
+Artikel 7 wordt als volgt gewijzigd:"""
+
+
+def _section(number: str, start: int, end: int) -> dict[str, Any]:
+    return {
+        "id": f"s-{number}",
+        "heading": f"ARTIKEL {number}",
+        "level": 1,
+        "kind": "article",
+        "number": number,
+        "number_scheme": "roman",
+        "article_refs": [],
+        "law": None,
+        "parent": None,
+        "char_start": start,
+        "char_end": end,
+    }
+
+
+def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
+    database: str, cli: Any
+) -> None:
+    """ARTIKEL I changes article 5 of the Wft, ARTIKEL II article 7 of the Wta; both laws
+    have both articles."""
+    store = GraphStore()
+    laws = {"bwbr0020368": "BWBR0020368", "bwbr0019079": "BWBR0019079"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "_key": key,
+                "type": "instrument",
+                "labels": ["BWB"],
+                "props": {**ids, "title": name, "citation_title": name},
+            }
+            for key, ids, name in INSTRUMENTS
+            if key in laws
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "_key": f"{key}_{number}",
+                "type": "article",
+                "labels": ["Article"],
+                "props": {"bwb_id": bwb_id, "article_number": number},
+            }
+            for key, bwb_id in laws.items()
+            for number in ("5", "7")
+        ],
+    )
+    second = BILL_TEXT.index("ARTIKEL II")
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "_key": "bill",
+                "type": "document",
+                "labels": ["TK"],
+                "props": {
+                    "kind": "Voorstel van wet",
+                    "title": "Voorstel van wet",
+                    "dossier_title": "Wijziging van de Wet op het financieel toezicht "
+                    "en de Wet toezicht accountantsorganisaties",
+                    "text": BILL_TEXT,
+                    "sections": [
+                        _section("I", BILL_TEXT.index("ARTIKEL I"), second - 1),
+                        _section("II", second, len(BILL_TEXT)),
+                    ],
+                },
+            }
+        ],
+    )
+
+    cli("semantic", "tk-amends")
+    cli("semantic", "tk-amendment-articles")
+
+    changes = sorted(
+        store.query(
+            "SELECT json_build_array(to_id, relation) FROM edges"
+            " WHERE from_id = 'documents/bill' AND source = %(source)s",
+            {"source": ARTICLES_SOURCE},
+        )
+    )
+    assert changes == [
+        ["articles/bwbr0019079_7", "AMENDS"],
+        ["articles/bwbr0020368_5", "REPEALS"],
+    ]

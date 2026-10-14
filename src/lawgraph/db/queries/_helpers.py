@@ -23,6 +23,11 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import ReadTimedOut, read_time_left
 
+# How long a request waits for the total and facets of a list beside its page (seconds):
+# under a filter not counted yet (a minute or more, cold) it answers its page without them,
+# ``partial``, and they are counted on for a later request.
+COUNTS_BUDGET = 3.0
+
 
 def _find_instrument_for_article(
     store: GraphStore, article_id: str

@@ -184,6 +184,17 @@ def test_part_slug(number, slug) -> None:
             "eerste en tweede lid",
             _q(("1", "2")),
         ),
+        ("artikel 5, elfde lid, Awb", "elfde lid", _q(("11",))),
+        ("artikel 5, twintigste lid, Awb", "twintigste lid", _q(("20",))),
+        ("artikel 5, 2e lid, Awb", "2e lid", _q(("2",))),
+        ("artikel 5, 2de lid, Awb", "2de lid", _q(("2",))),
+        ("artikel 5, 1ste lid, Awb", "1ste lid", _q(("1",))),
+        ("artikel 5, 2e en 3e lid, Awb", "2e en 3e lid", _q(("2", "3"))),
+        (
+            "artikel 5, tiende en elfde lid, Awb",
+            "tiende en elfde lid",
+            _q(("10", "11")),
+        ),
     ],
 )
 def test_what_the_extractor_captures_is_read_back(sentence, captured, expected) -> None:
@@ -199,3 +210,23 @@ def test_what_the_extractor_captures_is_read_back(sentence, captured, expected) 
 
     assert hit.qualifier == captured
     assert parse_qualifier(hit.qualifier) == expected
+
+
+@pytest.mark.parametrize(
+    ("sentence", "numbers", "captured"),
+    [
+        ("artikelen 255a en 257e, achtste lid, Sr", ["255a", "257e"], "achtste lid"),
+        ("artikelen 21a en 21e, eerste lid, Sr", ["21a", "21e"], "eerste lid"),
+        ("artikelen 36e en 36f Sr", ["36e", "36f"], None),
+        ("artikel 36e, 2e lid, Sr", ["36e"], "2e lid"),
+    ],
+)
+def test_an_ordinal_in_digits_is_a_lid_only_before_lid(
+    sentence, numbers, captured
+) -> None:
+    """ "2e" names a lid when "lid" follows; an article like "257e" stays an article."""
+    extractor = DutchCitationExtractor(code_aliases={"Sr": "BWBR0001854"})
+    hits = extractor.extract(sentence)
+
+    assert [hit.article_number for hit in hits] == numbers
+    assert {hit.qualifier for hit in hits} == {captured}

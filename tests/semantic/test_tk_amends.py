@@ -11,22 +11,24 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.pipelines.semantic.tk import NamedActs
 from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
 )
-from tests.fakes import InMemoryStore, patch_alias_rows
+from tests.fakes import InMemoryStore, calls_made, patch_alias_rows
 
 # ---------------------------------------------------------------------------
 # Pure detection helpers
 # ---------------------------------------------------------------------------
 
 
+SR = NamedActs({"Wetboek van Strafrecht": ("BWBR0001854", None)})
+
+
 def test_detect_amends_instrument_matches_alias() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
     hits = detect_amends_instrument(
-        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)",
-        aliases,
+        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)", SR
     )
     assert len(hits) == 1
     bwb_id, celex, confidence = hits[0]
@@ -36,13 +38,20 @@ def test_detect_amends_instrument_matches_alias() -> None:
 
 
 def test_detect_amends_instrument_requires_wijziging_keyword() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
-    hits = detect_amends_instrument("Debat over het Wetboek van Strafrecht", aliases)
-    assert hits == []
+    assert detect_amends_instrument("Debat over het Wetboek van Strafrecht", SR) == []
 
 
 def test_detect_amends_instrument_none_title_returns_empty() -> None:
-    assert detect_amends_instrument(None, {"Sr": ("BWBR0001854", None)}) == []
+    assert detect_amends_instrument(None, SR) == []
+
+
+def test_a_law_name_inside_a_longer_word_is_no_law_amended() -> None:
+    erfgoedwet = NamedActs({"Erfgoedwet": ("BWBR0037521", None)})
+    title = "Wijziging van de Erfgoedwetgeving in verband met de archieven"
+    assert detect_amends_instrument(title, erfgoedwet) == []
+    assert detect_amends_instrument("Wijziging van de Erfgoedwet", erfgoedwet) == [
+        ("BWBR0037521", None, 0.85)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -211,28 +220,17 @@ def test_a_case_never_produces_an_edge() -> None:
     assert not any(e["_from"].startswith("cases/") for e in store.edges.values())
 
 
-def test_detect_amends_instrument_stays_fast_with_many_names(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Thousands of names must not mean thousands of compiled patterns per title."""
-    import re
-
-    looked_up: list[object] = []
-    compiled = re._compile  # every pattern of ``re`` passes it, cached or not
-
-    def counting(pattern: object, flags: object) -> object:
-        looked_up.append(pattern)
-        return compiled(pattern, flags)
-
-    monkeypatch.setattr(re, "_compile", counting)
+def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
+    """Thousands of names must not mean thousands of steps per title: a title costs the
+    same against one name as against twenty thousand and one."""
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
     one = {"Wegenwet": ("BWBR0001948", None)}
     many = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
+    few_acts, many_acts = NamedActs(one), NamedActs({**many, **one})
 
-    assert detect_amends_instrument(title, one) == [("BWBR0001948", None, 0.85)]
-    patterns_for_one = len(looked_up)
-    looked_up.clear()
-    assert detect_amends_instrument(title, {**many, **one}) == [
-        ("BWBR0001948", None, 0.85)
-    ]
-    assert len(looked_up) == patterns_for_one
+    hits = [("BWBR0001948", None, 0.85)]
+    assert detect_amends_instrument(title, few_acts) == hits
+    assert detect_amends_instrument(title, many_acts) == hits
+    assert calls_made(lambda: detect_amends_instrument(title, many_acts)) == calls_made(
+        lambda: detect_amends_instrument(title, few_acts)
+    )

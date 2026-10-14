@@ -232,13 +232,10 @@ def world(
 ) -> Iterator[tuple[TestClient, GraphStore, Any]]:
     """The world built once for every test here, on a database of its own: they read it
     (one runs ``semantic all`` again and finds it unchanged)."""
-    from lawgraph.core.cache import TTLCache
     from lawgraph.db import store as store_module
     from tests.databases import fresh_database
 
     payloads = f"file://{tmp_path_factory.mktemp('payloads')}"
-    # what the caches of the API and the search hold was read from another test's database
-    TTLCache.clear_all()
     with fresh_database(TEST_URL) as name, pytest.MonkeyPatch.context() as patch:
         patch.setattr(store_module, "DB_URL", TEST_SERVER)
         patch.setattr(store_module, "DB_NAME", name)
@@ -254,7 +251,6 @@ def world(
         finally:
             app.dependency_overrides.pop(get_store, None)
             store.close()
-            TTLCache.clear_all()
 
 
 def _get(client: TestClient, path: str, **params: Any) -> Any:
