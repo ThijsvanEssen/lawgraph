@@ -1049,9 +1049,17 @@ regulations whose toestand was fetched since then (the daily run); without it ev
 in slices (`--after BWB-ID`, `--limit N`; the log names the last one read).
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
-`Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
-and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
-which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+`Gelet op` paragraph, 1.0, `meta = {text, doc, basis_kind}`: `text` the reference without its
+list word and law (`artikelen 3` is `3`, `107 van de Cyberbeveiligingswet` is `107`),
+`basis_kind` `delegates` when the leden named of the article (none: all of it) hold a
+delegation formula or another wording of a power ("bij besluit", "bij regeling", "kan nadere
+regels stellen", "kan beleidsregels vaststellen"), else `mentioned` (`core/delegations.py`,
+read from the text of the article). The BWB links a range ("artikelen 26 tot en met 30") as
+one link to its first article: every article in force from the first to the last, in the
+order of the law, gets an edge with the text of the range. Entries without an article, self
+references and targets that are not in the graph are skipped. It reads `props.basis` of the
+regulations, which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+Every run reads all of them, also under `--since`.
 
 **Semantic `bwb-amendments`.** Reads the article versions that carry `origin_publication`:
 
