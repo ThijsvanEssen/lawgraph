@@ -165,8 +165,8 @@ is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Ti
 exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make nothing of it (a case, dossier, activity, commitment, document
-or link record is counted as skipped, `deleted by the Kamer`), and each normalizer removes, through one shared
+`normalize tk-dossiers` make nothing of it (the record is counted as skipped, `deleted by the
+Kamer`), and each normalizer removes, through one shared
 `Deleted` (`pipelines/normalize/_tk_deleted.py`), what an earlier run made of it alone: the
 node keyed by the record id (case, activity, commitment, document, committee, member), the node
 that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes when all its
@@ -1303,7 +1303,8 @@ several, the one the composition observed that day, else the last before it), `c
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
 was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
 of a day are derived in full every time the day is read: a decision of that day the list no
-longer gives goes, with its edges (logged per day); a day not read is left as it is. A vote
+longer gives goes, with its edges (logged per day); a day not read, or whose page gives no
+vote, is skipped and left as it is. A vote
 on a motion decides no bill (`semantic tk-dossier-outcomes` reads the votes on the bill). A
 rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
@@ -1339,7 +1340,7 @@ too. Pages are read one at a time on the lane of eerstekamer.nl.
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
-`ek_bill` on the dossier of that number, when the graph holds it.
+`ek_bill` on the dossier of that number, when the graph holds it (else the page is skipped).
 
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each

@@ -15,7 +15,8 @@ tk-dossier-outcomes``, of the votes on the bill.
 
 The votes of a day are derived in full each time the day is read: a decision of that day
 that the list no longer gives goes, with its edges (one made before the votes on motions
-were told apart, a motion counted as a vote on its bill). A day not read is left as it is.
+were told apart, a motion counted as a vote on its bill). A day not read, or whose page
+gives no vote, is skipped and left as it is.
 
 The list of rejected bills (``ek-rejected-html``) gives the dossier of each bill it names
 ``ek_rejected``: the day the Eerste Kamer rejected it (also before June 2015), with the
@@ -141,7 +142,10 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
         rejected_from: dict[str, Any] = {}
         days: list[str] = []
         for record in raw:
-            text = self._payload_text(record) or ""
+            text = self._payload_text(record)
+            if not text:
+                self.progress.skip("no page", record.get("external_id"))
+                continue
             meta = self._meta(record)
             read_on = meta.get("read_on")
             if record.get("kind") == RAW_KIND_EK_REJECTED:
@@ -149,9 +153,13 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
                 rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
                 continue
             day = str(record["external_id"])
+            votes = eerstekamer_votes.votes(day, text)
+            if not votes:
+                self.progress.skip("no votes on the page", day)
+                continue
             days.append(day)
             seen: dict[str, int] = {}
-            for vote in eerstekamer_votes.votes(day, text):
+            for vote in votes:
                 if vote.letter is None:  # a motion has a letter, not a place
                     seen[vote.label] = seen.get(vote.label, 0) + 1
                 decisions.append(decision_node(vote, seen.get(vote.label, 0), read_on))
