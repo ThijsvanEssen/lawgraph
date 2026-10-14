@@ -131,7 +131,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_I,),
         (_A,),
         "The legal basis (delegation basis) an instrument is issued under: "
-        "'Gelet op artikel …' in the preamble.",
+        "'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to "
+        "each article in force in it. `meta.text` is the reference without list word and "
+        "law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden "
+        "named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), "
+        "`mentioned` when the article is only named (Awb 3:4 by a policy rule).",
     ),
     RelationSpec(
         "IMPLEMENTS",

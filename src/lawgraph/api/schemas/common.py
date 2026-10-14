@@ -264,8 +264,23 @@ class ArticleCitationSpan(QualifierFields):
     )
 
 
+class DefinitionGiverDTO(WithPath):
+    """The regulation that gives a definition another regulation takes (it is issued under
+    it)."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
+
+    key: str
+    bwb_id: str | None = None
+    citation_title: str | None = None
+    short_title: str | None = None
+    abbreviation: str | None = None
+
+
 class DefinitionDTO(BaseModel):
-    """A definition a regulation gives itself (its begripsbepalingen), as its text has it."""
+    """A definition a regulation gives (its begripsbepalingen), as its text has it: its own,
+    or one of a regulation it is issued under (``given_by``)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -283,13 +298,21 @@ class DefinitionDTO(BaseModel):
     jci: str | None = None
     scope: dict[str, str] = Field(
         default_factory=dict,
-        description="Where it holds: `kind` (`wet`, `besluit`, `hoofdstuk`, …) and `path` "
-        "(that part, empty for the whole regulation).",
+        description="Where it holds: `kind` (`wet`, `besluit`, `hoofdstuk`, …), `path` "
+        "(that part, empty for the whole regulation) and `reach`: `own_and_based` where it "
+        'holds in the regulations issued under it too ("In deze wet en de daarop berustende '
+        'bepalingen"), else `own`.',
     )
     refers_to: str | None = Field(
         None,
         description="The BWB id of the regulation the definition is (`wet`: de "
         "Zorgverzekeringswet).",
+    )
+    given_by: DefinitionGiverDTO | None = Field(
+        None,
+        description="The regulation that gives it, where that is not the article's own: a "
+        "law or AMvB the regulation is issued under (`BASED_ON`, two levels), whose "
+        "definition reaches it (`scope.reach`). Null for its own.",
     )
 
     @classmethod
