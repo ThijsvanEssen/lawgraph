@@ -2,7 +2,7 @@
 
 A pipeline has a ``run`` that returns a ``PipelineResult``. What ``run`` takes differs per
 phase and is said where it matters: a retrieve pipeline takes what its command parsed
-(``retrieve_commands``), a normalize or semantic pipeline takes ``since`` or nothing
+(``retrieve_commands``) or nothing, a normalize or semantic pipeline takes ``since`` or nothing
 (``command.PipelineCommand`` reads that from its signature, and a test holds every
 registered pipeline to it).
 """

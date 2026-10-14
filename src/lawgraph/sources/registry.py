@@ -29,8 +29,10 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
 )
+from lawgraph.core.models import PipelineResult
+from lawgraph.db import GraphStore
+from lawgraph.pipelines import retrieve_commands as commands
 from lawgraph.pipelines.command import Command, PipelineCommand
-from lawgraph.pipelines.inputs import Reads, reading
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -69,34 +71,33 @@ from lawgraph.pipelines.normalize.tk_document_links import (
 )
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_composition import (
+    EerstekamerCompositionRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.eerstekamer_motions import (
+    EerstekamerMotionsRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.eerstekamer_mutations import (
+    EerstekamerMutationsRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.eerstekamer_persons import (
+    EerstekamerPersonsRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.kiesraad import KiesraadRetrievePipeline
+from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
+    RechtspraakInstantiesRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
+from lawgraph.pipelines.retrieve.staatscourant_posts import (
+    StaatscourantPostsRetrievePipeline,
+)
+from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve_commands import (
-    retrieve_bwb,
-    retrieve_bwb_history,
-    retrieve_echr,
-    retrieve_eerstekamer,
-    retrieve_eerstekamer_agenda,
-    retrieve_eerstekamer_bills,
-    retrieve_eerstekamer_composition,
-    retrieve_eerstekamer_motions,
-    retrieve_eerstekamer_mutations,
-    retrieve_eerstekamer_persons,
-    retrieve_eerstekamer_votes,
-    retrieve_eurlex,
-    retrieve_eurlex_nim,
-    retrieve_kiesraad,
-    retrieve_rechtspraak,
-    retrieve_rechtspraak_instanties,
-    retrieve_rijksoverheid,
-    retrieve_staatsblad,
-    retrieve_staatscourant,
-    retrieve_staatscourant_posts,
-    retrieve_tk,
-    retrieve_tk_case_actors,
-    retrieve_tk_content,
-    retrieve_tk_document_links,
-    retrieve_tk_dossiers,
-    retrieve_tooi,
-    retrieve_verdragenbank,
+    AddArgs,
+    Reads,
+    RetrieveCommand,
+    RetrieveMode,
+    Run,
 )
 from lawgraph.pipelines.semantic import (
     graph_article_terms,
@@ -215,8 +216,6 @@ LANE_RECHTSPRAAK = "rechtspraak"
 # eur-lex.europa.eu and its CELLAR SPARQL endpoint
 LANE_EURLEX = "eurlex"
 
-RetrieveMode = Literal["incremental", "full"]
-
 
 @dataclass(frozen=True)
 class RetrieveCtx:
@@ -274,8 +273,8 @@ def _address_of(module: str, function: str) -> tuple[Phase, str, str | None]:
     """``(phase, source, part)`` from where a pipeline lives.
 
     ``lawgraph.pipelines.semantic.rechtspraak_citations`` is ``semantic
-    rechtspraak-citations``; a retrieve command is a function of ``retrieve_commands``
-    named ``retrieve_<source>[_<part>]``.
+    rechtspraak-citations``; a retrieve that parses options of its own is a function of
+    ``retrieve_commands`` named ``retrieve_<source>[_<part>]``.
     """
     package, _, stem = module.rpartition(".")
     phase = package.rpartition(".")[2]
@@ -307,30 +306,32 @@ class Options:
     extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]]
 
 
+def _class_address(cls: type) -> tuple[Phase, str, str | None]:
+    """The address of a pipeline class, which its name must spell."""
+    phase, source, part = _address_of(cls.__module__, "")
+    if cls.__name__ != _class_name(phase, source, part):
+        raise ValueError(
+            f"{cls.__module__} holds {cls.__name__}; the pipeline of "
+            f"'{phase} {source}{'-' + part if part else ''}' is called "
+            f"{_class_name(phase, source, part)}"
+        )
+    return phase, source, part
+
+
 def _pipeline(
     runs: type | Command,
     description: str,
     *,
     options: Options | None = None,
-    argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None,
-    lane: str = "",
     after: tuple[str, ...] = (),
-    fills_gaps: bool = False,
-    reads: tuple[Reads, ...] = (),
     fed_by: tuple[str, ...] = (),
 ) -> Pipeline:
-    """Register a pipeline class or a hand-written command.
+    """Register a normalize or semantic pipeline class, or a hand-written command.
 
     A class gets a ``PipelineCommand`` with *description* and *options*, so ``--help``,
     ``lawgraph sources`` and the first log line say the same."""
     if isinstance(runs, type):
-        phase, source, part = _address_of(runs.__module__, "")
-        if runs.__name__ != _class_name(phase, source, part):
-            raise ValueError(
-                f"{runs.__module__} holds {runs.__name__}; the pipeline of "
-                f"'{phase} {source}{'-' + part if part else ''}' is called "
-                f"{_class_name(phase, source, part)}"
-            )
+        phase, source, part = _class_address(runs)
         command: Command = PipelineCommand(
             runs,
             description,
@@ -343,7 +344,48 @@ def _pipeline(
                 f"{runs.__name__}: a hand-written command adds its own options"
             )
         phase, source, part = _address_of(runs.__module__, runs.__name__)
-        command = reading(runs, reads) if reads else runs
+        command = runs
+    return Pipeline(
+        phase, source, part, command, description, after=after, fed_by=fed_by
+    )
+
+
+def _constructed(
+    cls: type, extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None
+) -> Run:
+    """The run of a retrieve pipeline class: made on the graph with the parsed options."""
+
+    def run(args: argparse.Namespace) -> PipelineResult:
+        extra = extra_kwargs(args) if extra_kwargs else {}
+        result: PipelineResult = cls(store=GraphStore(), **extra).run()
+        return result
+
+    return run
+
+
+def _retrieve(
+    runs: type | Run,
+    description: str,
+    *,
+    argv_for_all: Callable[[RetrieveCtx], list[str]],
+    add_args: AddArgs | None = None,
+    extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]] | None = None,
+    lane: str = "",
+    after: tuple[str, ...] = (),
+    fills_gaps: bool = False,
+    reads: tuple[Reads, ...] = (),
+) -> Pipeline:
+    """Register a retrieve: its pipeline class, made with *extra_kwargs* of the options
+    *add_args* adds, or a function of ``retrieve_commands`` that runs it on them."""
+    if isinstance(runs, type):
+        phase, source, part = _class_address(runs)
+        run = _constructed(runs, extra_kwargs)
+    else:
+        if extra_kwargs:
+            raise ValueError(f"{runs.__name__}: a function takes the options it parsed")
+        phase, source, part = _address_of(runs.__module__, runs.__name__)
+        run = runs
+    command = RetrieveCommand(run, description, add_args, reads)
     return Pipeline(
         phase,
         source,
@@ -355,7 +397,6 @@ def _pipeline(
         after,
         fills_gaps,
         reads,
-        fed_by,
     )
 
 
@@ -373,17 +414,17 @@ def _mode_argv(ctx: RetrieveCtx) -> list[str]:
 def _windowed_argv(ctx: RetrieveCtx) -> list[str]:
     """Sources that keep producing: a full load only reads what changed inside the window,
     and all of it without one (no ``--since``: a full load reads none)."""
-    if ctx.mode == "full":
+    if ctx.mode is RetrieveMode.FULL:
         return (
-            ["--mode", "incremental", "--since", ctx.window]
+            ["--mode", RetrieveMode.INCREMENTAL, "--since", ctx.window]
             if ctx.window
-            else ["--mode", "full"]
+            else ["--mode", RetrieveMode.FULL]
         )
     return ["--mode", ctx.mode, "--since", ctx.since]
 
 
 def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
-    if ctx.mode == "full":
+    if ctx.mode is RetrieveMode.FULL:
         return ["--since", ctx.window] if ctx.window else []
     return ["--since", ctx.since, "--skip-members"]
 
@@ -473,219 +514,247 @@ _TK_DOSSIERS_OPTIONS = Options(
 # ── the pipelines, in the order each phase runs them ─────────────────────────
 
 RETRIEVE: list[Pipeline] = [
-    _pipeline(
-        retrieve_tk,
+    _retrieve(
+        commands.retrieve_tk,
         "Tweede Kamer cases (Zaak) from the OData API.",
         argv_for_all=_windowed_argv,
+        add_args=commands.tk_args,
         lane=LANE_TWEEDE_KAMER,
     ),
-    _pipeline(
-        retrieve_tk_dossiers,
+    _retrieve(
+        commands.retrieve_tk_dossiers,
         (
             "Tweede Kamer dossiers, activities, votes, commitments, committees, members, factions"
             " and documents."
         ),
         argv_for_all=_tk_dossiers_argv,
+        add_args=commands.tk_dossiers_args,
         lane=LANE_TWEEDE_KAMER,
         fills_gaps=True,
     ),
-    _pipeline(
-        retrieve_tk_document_links,
+    _retrieve(
+        commands.retrieve_tk_document_links,
         (
             "The links of Tweede Kamer documents alone: the activity a document is the record"
             " of (a stenogram: its debate), its attachments, the letters it is attached to."
         ),
         argv_for_all=_windowed_argv,
+        add_args=commands.windowed_from_a_day_args,
         lane=LANE_TWEEDE_KAMER,
     ),
-    _pipeline(
-        retrieve_tk_case_actors,
+    _retrieve(
+        commands.retrieve_tk_case_actors,
         (
             "The actors of Tweede Kamer cases alone: who submitted a case and which"
             " committee leads it."
         ),
         argv_for_all=_windowed_argv,
+        add_args=commands.windowed_from_a_day_args,
         lane=LANE_TWEEDE_KAMER,
     ),
-    _pipeline(
-        retrieve_tk_content,
+    _retrieve(
+        commands.retrieve_tk_content,
         (
             "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
             "repository: those of which none is stored yet, one XML per paper."
         ),
         argv_for_all=_no_argv,
+        add_args=commands.tk_content_args,
         lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
         after=("tk-dossiers",),
         fills_gaps=True,
         reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
     ),
-    _pipeline(
-        retrieve_rechtspraak,
+    _retrieve(
+        commands.retrieve_rechtspraak,
         (
             "Judgments of every court (--court narrows it), by decision date, and those given "
             "with --ecli."
         ),
         argv_for_all=_windowed_argv,
+        add_args=commands.rechtspraak_args,
         lane=LANE_RECHTSPRAAK,
         fills_gaps=True,
     ),
-    _pipeline(
-        retrieve_rechtspraak_instanties,
+    _retrieve(
+        RechtspraakInstantiesRetrievePipeline,
         "The Instanties value list of the Rechtspraak (every court an ECLI names); "
         "`lawgraph courts build` makes data/courts.json from it.",
         argv_for_all=_no_argv,
         lane=LANE_RECHTSPRAAK,
     ),
-    _pipeline(
-        retrieve_eurlex,
+    _retrieve(
+        commands.retrieve_eurlex,
         (
             "EU acts as HTML by CELEX number: those already in the graph (--mode gaps adds the"
             " ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
+        add_args=commands.eurlex_args,
         lane=LANE_EURLEX,
         fills_gaps=True,
         # the acts already in the graph; full and nim list them at EUR-Lex, gaps reads BWB
         reads=(
-            Reads("eurlex", COLLECTION_INSTRUMENTS, "EU", modes=("incremental", "com")),
+            Reads(
+                "eurlex",
+                COLLECTION_INSTRUMENTS,
+                "EU",
+                modes=(RetrieveMode.INCREMENTAL, RetrieveMode.COM),
+            ),
         ),
     ),
-    _pipeline(
-        retrieve_eurlex_nim,
+    _retrieve(
+        commands.retrieve_eurlex_nim,
         (
             "The Dutch national implementing measures of EU acts (CELLAR SPARQL): those "
             "changed in the window, all with --mode full."
         ),
         argv_for_all=_windowed_argv,
+        add_args=commands.eurlex_nim_args,
         lane=LANE_EURLEX,
     ),
-    _pipeline(
-        retrieve_bwb,
+    _retrieve(
+        commands.retrieve_bwb,
         (
             "Dutch legislation: the current toestand XML and the WTI abbreviations of every "
             "regulation."
         ),
         argv_for_all=_mode_argv,
+        add_args=commands.bwb_args,
         lane=LANE_BWB,
         fills_gaps=True,
     ),
-    _pipeline(
-        retrieve_bwb_history,
+    _retrieve(
+        commands.retrieve_bwb_history,
         (
             "Every historical toestand of the regulations of which the current one is stored: "
             "those not stored yet."
         ),
         argv_for_all=_mode_argv,
+        add_args=commands.bwb_history_args,
         lane=LANE_BWB,  # after bwb in its lane: it reads which regulations bwb stored
     ),
-    _pipeline(
-        retrieve_staatsblad,
+    _retrieve(
+        commands.retrieve_staatsblad,
         (
             "Staatsblad publications (explanatory notes of AMvBs) as XML, for the regulations the"
             " stored BWB XML refers to."
         ),
         argv_for_all=_no_argv,
+        add_args=commands.staatsblad_args,
         lane=LANE_KOOP_REPOSITORY,
         after=("bwb",),
     ),
-    _pipeline(
-        retrieve_staatscourant,
+    _retrieve(
+        commands.retrieve_staatscourant,
         "Ministerial regulations from the Staatscourant as XML, via the KOOP SRU.",
         argv_for_all=_windowed_argv,
+        add_args=commands.staatscourant_args,
         lane=LANE_KOOP_REPOSITORY,
     ),
-    _pipeline(
-        retrieve_eerstekamer,
+    _retrieve(
+        commands.retrieve_eerstekamer,
         "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
         argv_for_all=_windowed_argv,
+        add_args=commands.eerstekamer_args,
         lane=LANE_KOOP_REPOSITORY,
     ),
-    _pipeline(
-        retrieve_eerstekamer_votes,
+    _retrieve(
+        commands.retrieve_eerstekamer_votes,
         "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
         "bills it rejected (since 1996), from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
+        add_args=commands.windowed_args,
         lane=LANE_EERSTEKAMER_SITE,
     ),
-    _pipeline(
-        retrieve_eerstekamer_composition,
+    _retrieve(
+        EerstekamerCompositionRetrievePipeline,
         "The factions (with their seats and boards) and committees of the Eerste Kamer "
         "and who sits in them, as eerstekamer.nl shows them today.",
         argv_for_all=_no_argv,
         lane=LANE_EERSTEKAMER_SITE,
     ),
-    _pipeline(
-        retrieve_eerstekamer_mutations,
+    _retrieve(
+        EerstekamerMutationsRetrievePipeline,
         "The changes in the composition of the Eerste Kamer, term by term, as "
         "eerstekamer.nl tells them (/personele_mutaties): the lists, and each change once.",
         argv_for_all=_no_argv,
         lane=LANE_EERSTEKAMER_SITE,
     ),
-    _pipeline(
-        retrieve_eerstekamer_persons,
+    _retrieve(
+        EerstekamerPersonsRetrievePipeline,
         "The page of every member of the Eerste Kamer (/persoon): those the composition "
         "lists and every person a stored change links, each once, again when a change "
         "names them later (--sitting: every sitting member's again, the weekly run).",
         argv_for_all=_no_argv,
+        add_args=commands.eerstekamer_persons_args,
+        extra_kwargs=lambda args: {"sitting": args.sitting},
         lane=LANE_EERSTEKAMER_SITE,
     ),
-    _pipeline(
-        retrieve_eerstekamer_motions,
+    _retrieve(
+        EerstekamerMotionsRetrievePipeline,
         "The page of every motion of the Eerste Kamer voted on (/motiedossier): what it "
         "asks, its key data and who submitted and co-signed it; each page once.",
         argv_for_all=_no_argv,
+        add_args=commands.eerstekamer_motions_args,
+        extra_kwargs=lambda args: {"limit": args.limit},
         lane=LANE_EERSTEKAMER_SITE,
         # the motions voted on: the motion_url of its decisions on a motion
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
-    _pipeline(
-        retrieve_kiesraad,
+    _retrieve(
+        KiesraadRetrievePipeline,
         "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
         "Kiesraad's databank: each election once.",
         argv_for_all=_no_argv,
     ),
-    _pipeline(
-        retrieve_eerstekamer_agenda,
+    _retrieve(
+        commands.retrieve_eerstekamer_agenda,
         "The agendas of the plenary sittings and committee meetings of the Eerste Kamer, "
-        "from eerstekamer.nl: those planned and those of the window.",
+        "from eerstekamer.nl: those planned, and back to --since (without it back to June "
+        "2015, a long run that goes on where one broke off).",
         argv_for_all=_windowed_argv,
+        add_args=commands.windowed_args,
         lane=LANE_EERSTEKAMER_SITE,
     ),
-    _pipeline(
-        retrieve_eerstekamer_bills,
+    _retrieve(
+        commands.retrieve_eerstekamer_bills,
         "The pages of the bills of the Eerste Kamer: those its committees list (now and "
         "lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
+        add_args=commands.windowed_args,
         lane=LANE_EERSTEKAMER_SITE,
         # those it voted on: the bill_url of its decisions
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
-    _pipeline(
-        retrieve_echr,
+    _retrieve(
+        commands.retrieve_echr,
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
+        add_args=commands.echr_args,
         fills_gaps=True,
     ),
-    _pipeline(
-        retrieve_verdragenbank,
+    _retrieve(
+        commands.retrieve_verdragenbank,
         "Treaties the Netherlands is party to, from the KOOP SRU.",
         argv_for_all=_no_argv,
+        add_args=commands.verdragenbank_args,
         lane=LANE_KOOP_REPOSITORY,
         fills_gaps=True,
     ),
-    _pipeline(
-        retrieve_tooi,
+    _retrieve(
+        TooiRetrievePipeline,
         "The TOOI value list of every ministry (names, dates, mergers since about 2010); "
         "`lawgraph ministries build` makes data/ministries.json from it.",
         argv_for_all=_no_argv,
     ),
-    _pipeline(
-        retrieve_rijksoverheid,
+    _retrieve(
+        RijksoverheidRetrievePipeline,
         "The page of every cabinet since 1945 (posts, holders, dates), from rijksoverheid.nl.",
         argv_for_all=_no_argv,
     ),
-    _pipeline(
-        retrieve_staatscourant_posts,
+    _retrieve(
+        StaatscourantPostsRetrievePipeline,
         "Per cabinet post whose function names no ministry: which ministries issued the "
         "publications naming it (Staatscourant and Staatsblad, from 1995).",
         argv_for_all=_no_argv,

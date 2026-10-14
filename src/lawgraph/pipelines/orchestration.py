@@ -30,7 +30,7 @@ from lawgraph.pipelines.command import (
     command_parser,
     run_command,
 )
-from lawgraph.pipelines.retrieve_commands import GAPS
+from lawgraph.pipelines.retrieve_commands import RetrieveMode, add_mode_argument
 from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
 
 logger = get_logger(__name__)
@@ -240,7 +240,8 @@ def _run_phase(
     if phase != "retrieve":
         # what normalize and semantic wrote, known to the planner before the API reads it
         store.vacuum_analyze()
-    filling_gaps = getattr(args, "mode", None) == GAPS  # says nothing about a date
+    # says nothing about a date
+    filling_gaps = getattr(args, "mode", None) is RetrieveMode.GAPS
     if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)
@@ -255,10 +256,10 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         help="Incremental mode: what changed since then (ISO date, 7d, 2h or 90m)."
         + _LAST_HELP,
     )
-    parser.add_argument(
-        "--mode",
-        choices=["incremental", "full", GAPS],
-        default="incremental",
+    add_mode_argument(
+        parser,
+        (RetrieveMode.INCREMENTAL, RetrieveMode.FULL, RetrieveMode.GAPS),
+        default=RetrieveMode.INCREMENTAL,
         help="incremental: what changed since --since; full: all inside --window; gaps: what "
         "the graph refers to and only holds a stub of, from every source that can fetch it.",
     )
@@ -292,7 +293,7 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         args,
         _retrieve_argv,
         # a full load reads what changed inside the window (all of it without one)
-        read_since=lambda a: a.window if a.mode == "full" else a.since,
+        read_since=lambda a: a.window if a.mode is RetrieveMode.FULL else a.since,
         jobs=args.jobs,
     )
 
@@ -300,14 +301,14 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
 def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
     """The pipelines ``<phase> all`` runs: all of them, but in gaps mode those that can fill
     gaps."""
-    if phase == "retrieve" and args.mode == GAPS:
+    if phase == "retrieve" and args.mode is RetrieveMode.GAPS:
         return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
     return PIPELINES[phase]
 
 
 def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:
-    if args.mode == GAPS:
-        return lambda pipeline: ["--mode", GAPS]
+    if args.mode is RetrieveMode.GAPS:
+        return lambda pipeline: ["--mode", RetrieveMode.GAPS]
     ctx = RetrieveCtx(
         since=args.since.isoformat(),
         mode=args.mode,

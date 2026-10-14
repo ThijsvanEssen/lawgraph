@@ -69,10 +69,23 @@ def test_a_class_that_is_not_named_after_its_address_is_refused() -> None:
 
 
 def test_a_hand_written_command_brings_its_own_options() -> None:
-    from lawgraph.pipelines.retrieve_commands import retrieve_tooi
+    from lawgraph.pipelines.semantic import tk_dictum
 
     with pytest.raises(ValueError, match="adds its own options"):
-        _pipeline(retrieve_tooi, "", options=registry.slice_args("x", "y"))
+        _pipeline(tk_dictum.main, "", options=registry.slice_args("x", "y"))
+
+
+def test_a_retrieve_function_takes_the_options_it_parsed() -> None:
+    """Constructor arguments are for a pipeline class; a function reads the options."""
+    from lawgraph.pipelines import retrieve_commands
+
+    with pytest.raises(ValueError, match="takes the options it parsed"):
+        registry._retrieve(
+            retrieve_commands.retrieve_tk,
+            "",
+            argv_for_all=registry._no_argv,
+            extra_kwargs=lambda args: {},
+        )
 
 
 def test_addresses_are_unique_and_belong_to_a_known_source() -> None:
