@@ -71,6 +71,7 @@ def test_a_citation_in_a_footnote_is_linked_for_its_paragraph(
             "label": "1",
             "paragraph_id": "rov-3.1",
             "text": "Echtscheiding: art. 3 Brussel II-ter en art. 10:56 BW.",
+            "at": 104,  # where its marker stands in r.o. 3.1
         }
     ]
     (meta,) = list(
