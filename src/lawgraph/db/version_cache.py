@@ -151,6 +151,21 @@ VERSION_POLL = 30.0
 # (``LAWGRAPH_WARM_UP_MIN_INTERVAL``, in minutes; 0: none). A warm-up that falls due sooner
 # waits, still for the newest data; the first one never does.
 WARM_UP_MIN_INTERVAL = API_WARM_UP_MIN_INTERVAL * 60
+
+
+class WarmUpClock:
+    """The time the warm-up worker settles and spaces its warm-ups by (the tests move one
+    by hand)."""
+
+    def now(self) -> float:
+        return time.monotonic()
+
+    def wait(self, condition: threading.Condition, timeout: float) -> bool:
+        """Wait on *condition* (held) until notified (True) or *timeout* seconds passed."""
+        return condition.wait(timeout=timeout)
+
+
+_clock = WarmUpClock()
 _warm_started: dict[str, float] = {}  # database -> when its last warm-up began
 _warmers: list[Callable[[Any], None]] = []
 _wanted: dict[
@@ -184,7 +199,7 @@ def warm(store: Any, *, settle: float | None = None) -> None:
         known = None
     with _lock:
         _polled[name] = store
-        _wanted[name] = (store, time.monotonic() + wait, known)
+        _wanted[name] = (store, _clock.now() + wait, known)
         if _warm_worker is None or not _warm_worker.is_alive():
             _warm_worker = threading.Thread(
                 target=_warm_forever, name="lawgraph-warm", daemon=True
@@ -207,7 +222,7 @@ def _warm_forever() -> None:
         with _lock:
             idle = not _wanted
             if idle:
-                _warm_wake.wait(timeout=VERSION_POLL)
+                _clock.wait(_warm_wake, VERSION_POLL)
                 idle = not _wanted
                 polled = list(_polled.values())
         if idle:
@@ -222,9 +237,9 @@ def _warm_forever() -> None:
             started = _warm_started.get(name)
             if started is not None:
                 due = max(due, started + WARM_UP_MIN_INTERVAL)
-            left = due - time.monotonic()
+            left = due - _clock.now()
             if left > 0:
-                _warm_wake.wait(timeout=left)
+                _clock.wait(_warm_wake, left)
                 continue
             del _wanted[name]
         if superseded(store, version):
@@ -234,7 +249,7 @@ def _warm_forever() -> None:
         with _lock:
             warmers = list(_warmers)
             _warming.add(name)
-            _warm_started[name] = time.monotonic()
+            _warm_started[name] = _clock.now()
         try:
             for function in warmers:
                 _quietly(function, store)
