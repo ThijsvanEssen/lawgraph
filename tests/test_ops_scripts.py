@@ -3,6 +3,7 @@ read-only query it counts with is there, and each step a chain runs is a script 
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -35,6 +36,57 @@ def test_a_query_reads_only(query: Path) -> None:
     lines = query.read_text(encoding="utf-8").splitlines()
     first = next(ln.strip() for ln in lines if ln.strip() and not ln.startswith("--"))
     assert first == "SET default_transaction_read_only = on;"
+
+
+# psql's own rule: a failing statement exits 3 under ON_ERROR_STOP, else the run goes on and exits 0
+FAKE_DOCKER = """#!/bin/sh
+echo "$@" > "$CALLS"
+cat > /dev/null
+case " $* " in *" ON_ERROR_STOP=1 "*) echo 'ERROR:  syntax error' >&2; exit 3 ;; esac
+exit 0
+"""
+
+
+def test_a_failing_query_fails(tmp_path: Path) -> None:
+    """``read_only_sql`` stops at the first failing statement and returns its rc, in a read-only
+    session with a time-out, on the container and database of the environment."""
+    (tmp_path / "docker").write_text(FAKE_DOCKER, encoding="utf-8")
+    (tmp_path / "docker").chmod(0o755)
+    calls = tmp_path / "calls"
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "CALLS": str(calls),
+        "LAWGRAPH_DB_CONTAINER": "pg-test",
+        "LAWGRAPH_DB_NAME": "db_test",
+    }
+    done = subprocess.run(
+        ["sh", "-c", f'. "{OPS}/_sql.sh"; echo "SELEC 1;" | read_only_sql'],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 3, done.stderr
+    call = calls.read_text(encoding="utf-8")
+    assert "default_transaction_read_only=on" in call
+    assert "statement_timeout=600s" in call
+    assert " pg-test psql " in call and "-d db_test" in call
+
+
+PSQL_RUNNERS = [*SCRIPTS, OPS.parent / ".github" / "workflows" / "ops.yml"]
+
+
+@pytest.mark.parametrize("path", PSQL_RUNNERS, ids=lambda p: p.name)
+def test_every_psql_call_stops_at_an_error(path: Path) -> None:
+    """psql without ON_ERROR_STOP exits 0 after a failing statement: a red query, a green run."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if re.search(r"\bpsql\b", line) and not line.lstrip().startswith("#"):
+            assert "ON_ERROR_STOP=1" in line, line
+
+
+def test_counts_reads_through_read_only_sql() -> None:
+    steps = (OPS / "_steps.sh").read_text(encoding="utf-8")
+    assert re.search(r"^counts\(\) \{\n\s+read_only_sql <", steps, re.M)
 
 
 SERVER = OPS.parent / "deploy" / "server"

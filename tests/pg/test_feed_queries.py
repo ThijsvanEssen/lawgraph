@@ -931,6 +931,55 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
     }
 
 
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        (
+            "Artikel III\nDeze wet wordt aangehaald als: Wet sterkere archieven.",
+            "Wet sterkere archieven",
+        ),
+        (
+            "Deze wet wordt aangehaald als: Wet sterkere archieven",
+            "Wet sterkere archieven",
+        ),
+        ("Deze wet wordt aangehaald als:Spoedwet zorg.", "Spoedwet zorg"),
+        (
+            "Deze wet wordt aangehaald als: Wet open overheid .\r\nArtikel IV",
+            "Wet open overheid",
+        ),
+    ],
+)
+def test_the_citation_title_of_a_bill_is_its_whole_name(
+    store: GraphStore, text: str, title: str
+) -> None:
+    """The name after "wordt aangehaald als", up to the full stop or the end of its line."""
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _node(
+                    COLLECTION_DOSSIERS,
+                    NodeType.DOSSIER,
+                    "38001",
+                    number="38001",
+                    label="38001",
+                    title="Wijziging van enige wetten",
+                ),
+                _document(
+                    "bill_101", "Voorstel van wet", "2026-06-01", "38001", text=text
+                ),
+            ]
+        )
+    _serve(store)
+    try:
+        items = _feed(_test_client(), kind="Voorstel van wet")["items"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [
+        (item["dossier"]["short_title"], item["dossier"]["short_title_basis"])
+        for item in items
+    ] == [(title, "citation")]
+
+
 def test_a_page_after_a_cursor_counts_the_whole_window(client: TestClient) -> None:
     """The facets and the total are those of every event under the filters, also on the
     pages after the first; the items continue after the cursor."""

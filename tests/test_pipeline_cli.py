@@ -47,6 +47,21 @@ def test_a_command_that_raises_ends_failed_and_the_caller_goes_on() -> None:
     assert outcome.result.errors == ["RuntimeError: database unreachable"]
 
 
+def test_a_command_that_raises_is_logged_once_with_its_traceback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def command(argv: list[str]) -> PipelineResult:
+        return PipelineResult(created={}["x"])
+
+    with caplog.at_level("DEBUG"):
+        outcome = run_command("normalize x", command, [])
+    failed = [record for record in caplog.records if record.exc_info]
+    assert [(record.levelname, record.exc_info[0]) for record in failed] == [
+        ("ERROR", KeyError)
+    ]
+    assert outcome.result.errors == ["KeyError: 'x'"]
+
+
 def test_ctrl_c_and_a_wrong_command_line_are_not_swallowed() -> None:
     def interrupted(argv: list[str]) -> PipelineResult:
         raise KeyboardInterrupt

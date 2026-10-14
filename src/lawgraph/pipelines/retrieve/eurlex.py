@@ -4,7 +4,7 @@ from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 
@@ -56,7 +56,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         for celex in todo:
             try:
                 html = self.eu.fetch_celex_html(celex, lang=lang)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
                 if is_not_found(exc):
                     self.progress.skip("no HTML text (HTTP 404)", celex)
                     streak.ok()
@@ -88,10 +88,10 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         logger.info("EUR-Lex full-load: listing %s via CELLAR SPARQL.", cdm_types)
         try:
             all_ids = self.eu.enumerate_all_ids(cdm_types=cdm_types)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
             result = PipelineResult()
-            msg = f"EUR-Lex SPARQL enumeration failed: {exc}"
-            logger.error(msg)
+            msg = f"EUR-Lex SPARQL enumeration failed: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
             return result
 
@@ -114,10 +114,10 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         )
         try:
             all_ids = self.eu.enumerate_nim_ids(country_code=country_code)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
             result = PipelineResult()
-            msg = f"EUR-Lex NIM SPARQL enumeration failed: {exc}"
-            logger.error(msg)
+            msg = f"EUR-Lex NIM SPARQL enumeration failed: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
             return result
 

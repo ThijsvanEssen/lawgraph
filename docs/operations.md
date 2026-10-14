@@ -83,7 +83,7 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:5174`, `http://127.0.0.1:5174` | CORS allow-list (no credentials); a request from these origins counts toward the rate limit like any other |
 | `LAWGRAPH_RATE_LIMIT_CALLS` / `LAWGRAPH_RATE_LIMIT_PERIOD` | `200` / `60` | requests per window (seconds) per IP |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
-| `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address is only in the memory of the rate limiter |
+| `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address (of IPv6 its /64) is only in the memory of the rate limiter |
 | `LAWGRAPH_CACHE_TTL` / `LAWGRAPH_CACHE_MAXSIZE` | `60` / `512` | in-process cache of some routes |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
 | `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
@@ -98,7 +98,8 @@ All default to the public endpoints; no key is required.
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
-| `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`; shell only |
+| `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`, and fails the run when the test server does not answer; shell only |
+| `ALLOW_S3_TESTS` | unset | `1` runs the tests of the payload store in an S3 bucket (`tests/integration/test_payloads.py`), and fails them when the S3 test server does not answer; shell only |
 | `LAWGRAPH_TEST_DB_URL` | `postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph` | server `tests/pg/` and `tests/integration/` talk to (`docker-compose.test.yml`); each test makes a database `lawgraph_it_...` there and drops it; shell only |
 
 ## CLI
@@ -602,7 +603,7 @@ What only a server shows under real load is in `tests/integration` and `tests/pg
 CLI against a second, deliberately small PostgreSQL (`docker-compose.test.yml`, a compose project of its own:
 port 5433, 1 GB of memory, a throw-away volume; never the database of `.env`), next to an
 S3 server for the payload store in a bucket (versitygw, port 8531, `LAWGRAPH_TEST_S3_URL`;
-without it those tests are skipped). Each test has a payload directory of its own.
+those tests run with `ALLOW_S3_TESTS=1`). Each test has a payload directory of its own.
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
@@ -622,12 +623,13 @@ small server fails the way the corpus does on the real one.
 
 Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and drops it
 afterwards, so tests stay independent of each other and safe to run in parallel; none of them
-touches the database of `.env`. `conftest.py` skips the whole directory (rather than erroring)
-when `ALLOW_DB_TESTS` is unset or the test server is unreachable, so `pytest tests` without it
-stays green. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
+touches the database of `.env`. `conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is
+unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
+the run before any test. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
 their own (`database`; on every run, as the unit suite: see CONTRIBUTING) against a
 `postgres:18` with JIT off, as the test server (pulled from the ECR Public mirror of Docker Hub, `public.ecr.aws/docker/library/postgres:18`, the same image: Docker Hub limits pulls without login); it has
-no S3 server, so the tests of the payload store in a bucket are skipped there.
+no S3 server, so it sets `ALLOW_S3_TESTS=0` and the tests of the payload store in a bucket are
+skipped there.
 
 Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
 `test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure

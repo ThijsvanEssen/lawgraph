@@ -20,8 +20,9 @@ import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-import psycopg
 import pytest
+
+from tests.databases import require_test_server, skip_unless_asked_for
 
 TEST_URL = os.environ.get(
     "LAWGRAPH_TEST_DB_URL",
@@ -32,29 +33,14 @@ TEST_SERVER = TEST_URL.rsplit("/", 1)[0]
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _reachable() -> bool:
-    try:
-        psycopg.connect(TEST_URL, connect_timeout=3).close()
-    except psycopg.OperationalError:
-        return False
-    return True
+def pytest_sessionstart(session: pytest.Session) -> None:
+    require_test_server(TEST_URL, "docker compose -f docker-compose.test.yml up -d")
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    if os.environ.get("ALLOW_DB_TESTS") != "1":
-        reason = "Integration tests disabled (set ALLOW_DB_TESTS=1 to enable)."
-    elif not _reachable():
-        reason = (
-            f"No test database at {TEST_URL} "
-            "(docker compose -f docker-compose.test.yml up -d)."
-        )
-    else:
-        return
-    for item in items:
-        if "tests/integration" in str(item.fspath):
-            item.add_marker(pytest.mark.skip(reason=reason))
+    skip_unless_asked_for(items, "tests/integration")
 
 
 @pytest.fixture()

@@ -23,7 +23,12 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import is_bwb_id, is_ecli, parse_celex
+from lawgraph.core.identifiers import (
+    COMMITMENT_NUMBER,
+    is_bwb_id,
+    is_ecli,
+    parse_celex,
+)
 
 NotationKind = Literal[
     "ecli",
@@ -36,9 +41,6 @@ NotationKind = Literal[
     "publication",
 ]
 LawTier = Literal["code", "title", "prefix", "contains"]
-
-# The number of a toezegging: "TZ202603-130".
-_COMMITMENT_RE = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
 
 # A bare number is a dossier only when it has the length of one; behind "Kamerstuk" or
 # "dossier" any number is.
@@ -192,7 +194,7 @@ class NotationParser:
             return Notation(kind="bwb", identifier=text.upper())
         if parse_celex(text):
             return Notation(kind="celex", identifier=text.upper())
-        if _COMMITMENT_RE.match(text):
+        if COMMITMENT_NUMBER.match(text):
             return Notation(kind="commitment", identifier=text.upper())
         if staatsblad := _STAATSBLAD_RE.match(text):
             number = str(int(staatsblad["number"]))

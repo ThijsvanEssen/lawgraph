@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
@@ -181,7 +181,7 @@ def fetched_side_by_side(
     def attempt(one: str) -> T | Exception:
         try:
             return fetch(one)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — the failure is the answer for this id
             return exc
 
     window: deque[tuple[str, Future[T | Exception]]] = deque()
@@ -246,6 +246,7 @@ class RetrievePipelineBase(PipelineBase):
             for doc, reason in failures:
                 where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
                 progress.fail("could not be stored", where)
+            self._on_stored(stored)
 
         try:
             with RawSourceWriter(self.store, on_flush=written) as writer:
@@ -268,14 +269,21 @@ class RetrievePipelineBase(PipelineBase):
             # entity type of tk-dossiers) must not go on downloading what it cannot store.
             logger.error("Stopping after %d records were stored.", result.created)
             raise
-        except Exception as exc:
-            msg = f"fetch() failed after {result.created} records were stored: {exc}"
-            logger.error(msg)
+        except Exception as exc:  # noqa: BLE001 — what was stored stays, the step fails
+            msg = f"fetch() failed after {result.created} records were stored: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
         finally:
             progress.finish()
         add_outcome(result, progress)
         return result
+
+    def _on_stored(self, docs: list[dict[str, Any]]) -> None:
+        """Called with every buffer of records the writer has stored, in the order yielded.
+
+        For a pipeline that keeps where it got to: what it keeps must not run ahead of what
+        is stored, or a crash loses the buffer for good.
+        """
 
     def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         """Return (or yield) the raw source records that should be stored.

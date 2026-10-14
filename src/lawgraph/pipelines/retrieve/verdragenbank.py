@@ -107,7 +107,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         identifier, url = treaty["identifier"], treaty["item_url"]
         try:
             xml = self.client.fetch_treaty_xml(url)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
             self.progress.fail(f"download failed ({failure_reason(exc)})", identifier)
             streak.failed(identifier, exc)
             return None

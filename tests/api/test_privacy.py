@@ -1,6 +1,6 @@
 """What the API keeps of a visitor: the network of its address in the request log, never
-the address or the query string; the full address only in the rate limiter's memory; the
-terms of /api/search counted without who asked."""
+the address or the query string; the address (of IPv6 its /64) only in the rate limiter's
+memory; the terms of /api/search counted without who asked."""
 
 from __future__ import annotations
 

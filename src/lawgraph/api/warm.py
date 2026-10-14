@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
@@ -338,7 +338,7 @@ def _run(name: str, part: Callable[[], object]) -> bool:
         with version_cache.doing(f"warm-up: {name}"):
             part()
     except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
-        logger.warning("Warm-up of %s failed: %s: %s", name, type(exc).__name__, exc)
+        logger.warning("Warm-up of %s failed: %s", name, describe(exc), exc_info=True)
         return False
     logger.info(
         "Warm-up of %s took %s.", name, format_duration(time.monotonic() - began)
