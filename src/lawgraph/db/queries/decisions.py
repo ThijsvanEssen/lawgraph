@@ -301,21 +301,23 @@ def _kind_facet(where: list[str]) -> str:
     )"""
 
 
-# Per faction asked (``votes_of``: its id), how it voted on the decisions under every
-# filter (``matching``), in all, per kind and per year: ``voor``, ``tegen`` and ``none``
-# (any other choice, or no vote: a roll-call vote is one of members, not of their faction).
-# Its votes are its VOTED edges into them, read from ``edges_to_cover``.
-_PARTY_VOTES = f"""(
+def _party_votes_sql(parties: str, votes_of: str) -> str:
+    """SQL: per faction asked (*votes_of* selects its id), how it voted on the decisions
+    under every filter (``matching``), in all, per kind and per year: ``voor``, ``tegen``
+    and ``none`` (any other choice, or no vote: a roll-call vote is one of members, not of
+    their faction). Its votes are its VOTED edges into them that *parties* keeps, read from
+    ``edges_to_cover``."""
+    return f"""(
     WITH cast_votes AS (
         SELECT e.from_id AS party_id, m.kind, left(m.date, 4) AS year,
                lg_str(e.doc -> 'meta' -> 'choice') AS choice
         FROM matching m
         JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s
          AND e.from_collection = '{COLLECTION_FACTIONS}'
-        WHERE {{parties}}
+        WHERE {parties}
     ),
     asked AS (
-        SELECT party_id FROM votes_of
+        SELECT party_id FROM ({votes_of}) votes_of
     ),
     per_kind AS (
         SELECT a.party_id, t.value,
@@ -372,7 +374,8 @@ _PARTY_VOTES = f"""(
 
 
 def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
-    """SQL: ``_PARTY_VOTES`` of the factions *filters* asks for; ``[]`` when it asks none."""
+    """SQL: ``_party_votes_sql`` of the factions *filters* asks for; ``[]`` when it asks
+    none."""
     if not filters.party_votes:
         return "'[]'::json"
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
@@ -391,9 +394,7 @@ def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
         ]
         votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
         parties = "e.from_id = ANY(%(vote_parties)s)"
-    return _PARTY_VOTES.replace("{parties}", parties).replace(
-        "FROM votes_of", f"FROM ({votes_of}) votes_of"
-    )
+    return _party_votes_sql(parties, votes_of)
 
 
 def get_decisions(
@@ -692,7 +693,7 @@ PARTY_VOTES_MAX_AGE = 3600.0
 
 
 def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
-    """``_PARTY_VOTES`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
+    """``_party_votes`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
     computation per filter at a time, in the background, the same for every visitor."""
     return lasting(
         store,

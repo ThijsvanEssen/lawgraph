@@ -35,7 +35,7 @@ from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_ti
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
-from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
+from lawgraph.db.schema import instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
 # Edges from a publication to the articles it sets (enacting their regulation) or changes.
@@ -1057,7 +1057,7 @@ def _legal_area_tree(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # The day an instrument came into force, as text: the expression of the index
 # ``instruments_date_in_force`` (``db/schema.py``).
-IN_FORCE = INSTRUMENT_DATE_IN_FORCE
+IN_FORCE = instrument_date_in_force()
 
 
 # The instruments under the filters per kind, most first: without the kind filter, over

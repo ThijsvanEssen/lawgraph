@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import datetime as dt
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any, cast
 
@@ -89,8 +90,8 @@ from lawgraph.db.queries.feed_relations import (
 from lawgraph.db.queries.judgment_light import OUTCOME_KEYS
 from lawgraph.db.schema import (
     FEED_EVENTS_TABLE,
-    INSTRUMENT_DOSSIER_NUMBERS,
     feed_title,
+    instrument_dossier_numbers,
     search_words,
 )
 from lawgraph.db.store import read_budget, read_time_left
@@ -247,12 +248,12 @@ class _Source:
     each part is read on its own index when a kind reads one page). The other fields are SQL on ``n`` (its
         ``id`` and ``props``): its dossier labels (JSON; None: none), its signatures (JSON
         objects with ``person_id``, ``member_key``, ``name``, ``role``, ``capacity``,
-        ``faction_id``; None when nobody signs this kind; ``{label}`` is its first dossier
-        label), its title (JSON), its own ministry (text; None: that of its first dossier) and
+        ``faction_id``; None when nobody signs this kind), its title (JSON), its own ministry (text; None: that of its first dossier) and
         its chamber (text). A row looks its signatures up only when a filter or a facet needs
-        them. *found* is SQL on ``n`` that an index serves and that holds for every row whose
-        title holds ``q``, and *dossier_found* for every row whose first dossier is one of
-        ``{titled}`` (the labels of the dossiers whose title holds it); None: no index.
+        them. *found* of a bind of a word is SQL on ``n`` that an index serves and that
+        holds for every row whose title holds it, and *dossier_found* of the SQL of the
+        labels of the dossiers whose title holds it, for every row whose first dossier is
+        one of them; None: no index.
         *laws* is SQL on ``n`` of the names of the laws the event is about, which ``q``
         matches as its title (a publication: the laws it changes or enacts); read from the
         graph by ``lawgraph feed-events`` into the title it writes (``lg_feed_events``),
@@ -268,8 +269,8 @@ class _Source:
     ministry: str | None = None
     chamber: str = _lit(CHAMBER_TK)
     parts: tuple[str, ...] = ()
-    found: str | None = None
-    dossier_found: str | None = None
+    found: Callable[[str], str] | None = None
+    dossier_found: Callable[[str], str] | None = None
     laws: str | None = None
 
     @property
@@ -322,21 +323,27 @@ _DECIDED_PERSONS = f"""coalesce((
             LIMIT 1
         ), {_EMPTY})"""
 
-# The signatures of a bill: its own, else those of the first memorie van toelichting of its
-# dossier, which the source signs where it leaves the voorstel itself unsigned. ``{label}``
-# is the bill's first dossier label.
-_BILL_PERSONS = f"""CASE WHEN {_has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
+
+def _bill_persons(label: str) -> str:
+    """SQL: the signatures of a bill whose first dossier label is *label*: its own, else
+    those of the first memorie van toelichting of its dossier, which the source signs where
+    it leaves the voorstel itself unsigned."""
+    return f"""CASE WHEN {_has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
         ELSE coalesce((
             SELECT {_or(_ACTORS_OF_O, _EMPTY)}
             FROM {COLLECTION_DOCUMENTS} o
-            WHERE {{label}} IS NOT NULL AND o.dossier_numbers @> ARRAY[{{label}}]
+            WHERE {label} IS NOT NULL AND o.dossier_numbers @> ARRAY[{label}]
               AND starts_with(o.kind, {_lit(KIND_EXPLANATORY_MEMORANDUM)})
               AND {_has_length(_ACTORS_OF_O)}
             ORDER BY o.date ASC NULLS FIRST, o.key ASC
             LIMIT 1
         ), {_EMPTY}) END"""
 
+
 _ACTORS = _or(_ACTORS_OF_N, _EMPTY)
+
+# The first dossier label of a row (``labels[0]``), when it is a string.
+_LABEL = "lg_str(CASE WHEN json_typeof(l.labels) = 'array' THEN l.labels -> 0 END)"
 
 # The chamber of a vote: one of the Eerste Kamer carries ``chamber`` ``EK``.
 _VOTE_CHAMBER = "lg_str(" + _or("n.props -> 'chamber'", "'\"TK\"'::json") + ")"
@@ -364,11 +371,16 @@ def _document_source(kind: str) -> _Source:
         where=f"{_lit(CHAMBER_TK)} = ANY(n.labels)",
         parts=_kind_parts("n.kind", kind),
         dossiers=_PAPER_DOSSIER_NUMBERS,
-        persons=_BILL_PERSONS if kind == EVENT_BILL else _ACTORS,
+        persons=_bill_persons(_LABEL) if kind == EVENT_BILL else _ACTORS,
         title=_or("n.pj_subject", "n.pj_title"),
-        found=f"{feed_title('n')} LIKE {_words.FOLDED_LIKE}",
-        dossier_found="n.dossier_numbers && ARRAY({titled})",
+        found=lambda q: f"{feed_title('n')} LIKE {_words.folded_like(q)}",
+        dossier_found=_paper_dossier_found,
     )
+
+
+def _paper_dossier_found(titled: str) -> str:
+    """SQL: a paper (or vote) ``n`` of one of the dossiers *titled* selects."""
+    return f"n.dossier_numbers && ARRAY({titled})"
 
 
 def _tier_part(tier: str) -> str:
@@ -386,11 +398,17 @@ _CHANGES = ", ".join(
 _LAW_KEY = f"""CASE WHEN e.to_collection = {_lit(COLLECTION_ARTICLES)}
                                 THEN lower(coalesce(a.bwb_id, ''))
                             ELSE substr(e.to_id, length(e.to_collection) + 2) END"""
-_LAW_EDGES = f"""FROM {COLLECTION_EDGES} e
+
+
+def _law_edges(paper: str) -> str:
+    """SQL: ``FROM`` the edges (``e``) by which the paper *paper* (its id) changes a law, and
+    of each into an article that article (``a``)."""
+    return f"""FROM {COLLECTION_EDGES} e
                         LEFT JOIN {COLLECTION_ARTICLES} a
                             ON e.to_collection = {_lit(COLLECTION_ARTICLES)}
                            AND a.id = e.to_id
-                        WHERE e.from_id = {{paper}} AND e.relation IN ({_CHANGES})"""
+                        WHERE e.from_id = {paper} AND e.relation IN ({_CHANGES})"""
+
 
 # The names of the laws a publication ``n`` is about, as ``q`` matches them: the citation
 # title (else the title) of each law it changes, adds to or repeals articles of, and of each
@@ -400,7 +418,7 @@ _PUBLICATION_LAWS = f"""(
             SELECT string_agg(DISTINCT x.name, ' | ') FROM (
                 SELECT {_text(_or("i.props -> 'citation_title'", "i.props -> 'title'"))} AS name
                 FROM {COLLECTION_INSTRUMENTS} i
-                WHERE i.key IN (SELECT {_LAW_KEY} {_LAW_EDGES.replace("{paper}", "n.id")})
+                WHERE i.key IN (SELECT {_LAW_KEY} {_law_edges("n.id")})
                 UNION ALL
                 SELECT unnest(ARRAY[
                     {_text(_or("r.props -> 'citation_title'", "r.props -> 'title'"))},
@@ -426,13 +444,15 @@ _SOURCES: dict[str, _Source] = {
             persons=_COMMITMENT_PERSONS,
             title="n.props -> 'text'",
             ministry="n.ministry",
-            found=f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_words.LOWER_LIKE}",
-            dossier_found=(
+            found=lambda q: (
+                f"{search_words(COLLECTION_COMMITMENTS, 'n')} LIKE {_words.lower_like(q)}"
+            ),
+            dossier_found=lambda titled: (
                 f"n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e"
                 f" JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id"
                 f" WHERE e.relation = {_lit(RELATION_ABOUT)}"
                 f" AND e.to_collection = {_lit(COLLECTION_DOSSIERS)}"
-                " AND d.label IN ({titled}))"
+                f" AND d.label IN ({titled}))"
             ),
         ),
         *(_document_source(kind) for kind in DOCUMENT_EVENTS),
@@ -453,8 +473,10 @@ _SOURCES: dict[str, _Source] = {
             persons=_DECIDED_PERSONS,
             title="n.props -> 'subject'",
             chamber=_VOTE_CHAMBER,
-            found=f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.LOWER_LIKE}",
-            dossier_found="n.dossier_numbers && ARRAY({titled})",
+            found=lambda q: (
+                f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.lower_like(q)}"
+            ),
+            dossier_found=_paper_dossier_found,
         ),
         _Source(
             kind=EVENT_PUBLICATION,
@@ -465,10 +487,9 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.props -> 'citation_title'",
             chamber="NULL",
-            found=f"n.s_citation_title_g LIKE {_words.FOLDED_LIKE}",
-            dossier_found=(
-                f"{INSTRUMENT_DOSSIER_NUMBERS.replace('props', 'n.props')}"
-                " && ARRAY({titled})"
+            found=lambda q: f"n.s_citation_title_g LIKE {_words.folded_like(q)}",
+            dossier_found=lambda titled: (
+                f"{instrument_dossier_numbers('n')} && ARRAY({titled})"
             ),
             laws=_PUBLICATION_LAWS,
         ),
@@ -483,7 +504,7 @@ _SOURCES: dict[str, _Source] = {
             persons=None,
             title="n.pj_display_name",
             chamber="NULL",
-            found=f"n.s_display_name_g LIKE {_words.FOLDED_LIKE}",
+            found=lambda q: f"n.s_display_name_g LIKE {_words.folded_like(q)}",
         ),
         _Source(
             kind=EVENT_COMMENCEMENT,
@@ -500,11 +521,11 @@ _SOURCES: dict[str, _Source] = {
             # the versions of the instruments whose title holds the words: by the index
             # on the citation title, or without one (its title then) every such instrument
             # but the publications (``instruments_list_title``)
-            found=(
+            found=lambda q: (
                 "n.bwb_id = ANY(ARRAY("
                 "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"
                 f" FROM {COLLECTION_INSTRUMENTS} i"
-                f" WHERE i.s_citation_title_g LIKE {_words.FOLDED_LIKE}"
+                f" WHERE i.s_citation_title_g LIKE {_words.folded_like(q)}"
                 " OR (coalesce(i.citation_title, '') = ''"
                 f" AND i.kind IS DISTINCT FROM {_lit(INSTRUMENT_KIND_PUBLICATION)})))"
             ),
@@ -576,12 +597,15 @@ _MEMBER_PERSON = f""",
         FROM {COLLECTION_MEMBERS} m WHERE m.key = %(member)s
     )"""
 
-_IN_PERIOD = (
-    "(SELECT cabinet_from FROM period) IS NOT NULL"
-    " AND {date} >= (SELECT cabinet_from FROM period)"
-    " AND ((SELECT cabinet_until FROM period) IS NULL"
-    " OR {date} < (SELECT cabinet_until FROM period))"
-)
+
+def _in_period(date: str) -> str:
+    """SQL: *date* is in the period of the cabinet asked for (``period``)."""
+    return (
+        "(SELECT cabinet_from FROM period) IS NOT NULL"
+        f" AND {date} >= (SELECT cabinet_from FROM period)"
+        " AND ((SELECT cabinet_until FROM period) IS NULL"
+        f" OR {date} < (SELECT cabinet_until FROM period))"
+    )
 
 
 def _cabinet_on(date: str) -> str:
@@ -618,7 +642,7 @@ def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, 
         clauses["chamber"] = "chamber = %(chamber)s"
         bind["chamber"] = filters.chamber
     if filters.cabinet:
-        clauses["cabinet"] = _IN_PERIOD.replace("{date}", "date")
+        clauses["cabinet"] = _in_period("date")
         bind["cabinet"] = filters.cabinet
     if filters.coalition:
         clauses["coalition"] = "%(coalition)s = ANY(coalition)"
@@ -640,8 +664,6 @@ _MEMBER_FILTER = (
     f" AND EXISTS (SELECT 1 FROM {_elements('p.persons')}"
     " WHERE lg_str(x.v -> 'person_id') = (SELECT person FROM member_person)))"
 )
-# Stands for the filter on the words, which reads ``fd`` only where a kind has dossiers.
-_WORDS = "{words}"
 
 
 def _contains(text: str, count: int) -> str:
@@ -655,17 +677,16 @@ def _words_of(filters: FeedFilters) -> list[str]:
     return [w for w in dict.fromkeys(_words.words(q) for q in filters.q) if w]
 
 
-def _each_word(sql: str, count: int) -> str:
-    """SQL: *sql*, written for the binds ``q`` and ``q_whole``, for any of the *count*
-    words."""
-    return " OR ".join(
-        sql.replace("%(q)s", f"%(q_{n})s").replace("%(q_whole)s", f"%(q_whole_{n})s")
-        for n in range(count)
-    )
+def _each_word(sql: Callable[[int], str], count: int) -> str:
+    """SQL: *sql* of the number of a word (of its binds ``q_{n}``, ``q_whole_{n}``), for
+    any of the *count* words."""
+    return " OR ".join(sql(n) for n in range(count))
 
 
 def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
-    """The filters that hold for every facet, on the laterals of a kind's rows."""
+    """The filters that hold for every facet, on the laterals of a kind's rows, but the
+    filter on the words (``_Kind.words``, which reads ``fd`` only where a kind has
+    dossiers)."""
     clauses: list[str] = []
     if filters.dossier:
         clauses.append(_DOSSIER_FILTER)
@@ -675,8 +696,6 @@ def _shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
         bind["member"] = filters.member
     words = _words_of(filters)
     for n, word in enumerate(words):
-        if n == 0:
-            clauses.append(_WORDS)
         bind[f"q_{n}"] = word
         bind[f"q_word_{n}"] = _words.word_pattern(word)
         bind[f"q_whole_{n}"] = _words.whole(word)
@@ -754,9 +773,6 @@ class _Plan:
     def needs_persons(self) -> bool:
         return self.needs_factions or bool(self.filters.member)
 
-
-# The first dossier label of a row (``labels[0]``), when it is a string.
-_LABEL = "lg_str(CASE WHEN json_typeof(l.labels) = 'array' THEN l.labels -> 0 END)"
 
 # The factions a row counts for: those its Kamerleden signed for, a faction as often as
 # they did (``= ANY`` filters on them; the faction facet counts a row once per faction).
@@ -863,7 +879,7 @@ class _Kind:
                 " ORDER BY d.key ASC LIMIT 1) fd ON true"
             )
         if self.plan.needs_persons:
-            persons = (self.source.persons or _EMPTY).replace("{label}", _LABEL)
+            persons = self.source.persons or _EMPTY
             joins.append(f"CROSS JOIN LATERAL (SELECT {persons} AS persons OFFSET 0) p")
         if self.plan.filters.q:
             joins.append(
@@ -897,29 +913,34 @@ class _Kind:
         """The rows that may hold the words, found by index (``_Source.found``); None when
         the kind has no index for them or the words are too short for one."""
         words = _words_of(self.plan.filters)
-        if self.source.found is None or not words:
+        own = self.source.found
+        if own is None or not words:
             return None
         if any(len(word) < _words.TRIGRAM for word in words):
             return None
         count = len(words)
-        found = _each_word(self.source.found, count)
+        found = _each_word(lambda n: own(f"q_{n}"), count)
         if self.laws:
             # the events whose written title may hold the words (``lg_feed_events``)
             found += " OR " + _each_word(
-                f"n.id IN (SELECT e.id FROM {FEED_EVENTS_TABLE} e"
-                f" WHERE e.kind = {_lit(self.source.kind)}"
-                " AND e.words @@ lg_word_query(%(q)s, %(q_whole)s))",
+                lambda n: (
+                    f"n.id IN (SELECT e.id FROM {FEED_EVENTS_TABLE} e"
+                    f" WHERE e.kind = {_lit(self.source.kind)}"
+                    f" AND e.words @@ lg_word_query(%(q_{n})s, %(q_whole_{n})s))"
+                ),
                 count,
             )
         if self.first_dossier:
-            if self.source.dossier_found is None:
+            of_dossiers = self.source.dossier_found
+            if of_dossiers is None:
                 return None
-            titled = (
-                f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
-                f" WHERE ({_each_word(f'd.s_title_g LIKE {_words.FOLDED_LIKE}', count)})"
-                f" AND ({_contains('d.pj_title', count)})"
+            titled = _each_word(
+                lambda n: f"d.s_title_g LIKE {_words.folded_like(f'q_{n}')}", count
             )
-            found += " OR " + self.source.dossier_found.replace("{titled}", titled)
+            found += " OR " + of_dossiers(
+                f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
+                f" WHERE ({titled}) AND ({_contains('d.pj_title', count)})"
+            )
         return f"({found})"
 
     def select(self) -> str:
@@ -973,23 +994,20 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
     if plan.filters.instrument:
         walked = plan.widely_cited and source.kind == EVENT_JUDGMENT
         head.append(CITES_LAW if walked else FOLLOWS[source.kind])
-    tail = [clause.replace(_WORDS, kind.words()) for clause in plan.shared]
+    tail = list(plan.shared)
+    if _words_of(plan.filters):
+        tail.append(kind.words())
     table, order = f"{source.collection} n", ""
     if not plan.facets:
         tail += kind.page_filters()
         if plan.filters.cabinet:
-            head.append(_IN_PERIOD.replace("{date}", date))
+            head.append(_in_period(date))
         if plan.cursor is not None:
             head.append(_after_cursor(source, plan.cursor))
-        # NULLS FIRST, not LAST: no row of the date range is null, and so the order is
-        # that of the index on the date (or the kind and the date) read backwards
-        order = (
-            f"\n        ORDER BY {date} DESC NULLS FIRST, n.id ASC"
-            "\n        LIMIT %(page_size)s"
-        )
+        order = _newest_first(source, "n.")
         if not tail:
             # one page of the kind first, then what its rows look up
-            table = f"({_first_page(source, head, order)}) n"
+            table = f"({_first_page(source, head)}) n"
             head, order = [], ""
     return f"""(
         SELECT {kind.select()}
@@ -997,11 +1015,22 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
     )"""
 
 
-def _first_page(source: _Source, head: list[str], order: str) -> str:
+def _newest_first(source: _Source, row: str) -> str:
+    """SQL: a page of the rows of *source*, newest first, its columns prefixed by *row*.
+    NULLS FIRST, not LAST: no row of the date range is null, and so the order is that of
+    the index on the date (or the kind and the date) read backwards."""
+    return (
+        f"\n        ORDER BY {row}{source.date} DESC NULLS FIRST, {row}id ASC"
+        "\n        LIMIT %(page_size)s"
+    )
+
+
+def _first_page(source: _Source, head: list[str]) -> str:
     """SQL: the first page of *source* under *head*, newest first. Of a kind in parts
     (a ``Document.Soort`` and its ``kind (…)``) each part is read in the order of its own
     index, a page at most, and the pages are merged: no part is read whole for a page."""
     indent = "            "
+    order = _newest_first(source, "n.")
     if not source.parts:
         return f"\n{indent}SELECT * FROM {source.collection} n{_where(head, indent)}{order}\n"
     where = [source.where if clause == source.condition else clause for clause in head]
@@ -1009,7 +1038,7 @@ def _first_page(source: _Source, head: list[str], order: str) -> str:
         f"(SELECT * FROM {source.collection} n{_where([*where, part], indent)}{order})"
         for part in source.parts
     )
-    merged = order.replace("n.", "")
+    merged = _newest_first(source, "")
     return f"\n        SELECT * FROM (\n        {pages}\n        ) n{merged}\n"
 
 
@@ -1017,11 +1046,19 @@ _FACET_AGG = (
     "SELECT coalesce(json_agg(json_build_object('value', value, 'count', cnt)"
     f" ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY})"
 )
-_PER_FACTION = (
-    "events CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 0"
-    " THEN factions ELSE ARRAY[NULL]::text[] END) AS fx(faction)"
-)
-_PER_COALITION = "events CROSS JOIN LATERAL unnest(coalition) AS cx(value)"
+
+
+def _per_faction(rows: str) -> str:
+    """SQL: the rows *rows* once per faction (``fx.faction``), a row without one once."""
+    return (
+        f"{rows} CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 0"
+        " THEN factions ELSE ARRAY[NULL]::text[] END) AS fx(faction)"
+    )
+
+
+def _per_coalition(rows: str) -> str:
+    """SQL: the rows *rows* once per value of their ``coalition`` (``cx.value``)."""
+    return f"{rows} CROSS JOIN LATERAL unnest(coalition) AS cx(value)"
 
 
 def _facet(plan: _Plan, name: str) -> str:
@@ -1042,14 +1079,14 @@ def _facet(plan: _Plan, name: str) -> str:
         # a row counts once for a faction, however many of its signers signed for it
         return f"""({_FACET_AGG} FROM (
             SELECT value, count(*)::int AS cnt
-            FROM (SELECT DISTINCT fx.faction AS value, id FROM {_PER_FACTION}{where}) once
+            FROM (SELECT DISTINCT fx.faction AS value, id FROM {_per_faction("events")}{where}) once
             GROUP BY 1
         ) counted)"""
     if name == "coalition":
         # a vote counts for each that holds; an event without one counts for none
         return f"""({_FACET_AGG} FROM (
             SELECT value, count(*)::int AS cnt
-            FROM {_PER_COALITION}{where}
+            FROM {_per_coalition("events")}{where}
             GROUP BY 1
         ) counted)"""
     return f"""({_FACET_AGG} FROM (
@@ -1139,7 +1176,7 @@ def _official_short(label: str) -> str:
                      LIMIT 1) AS case_title,
                     ARRAY(
                         SELECT DISTINCT {_LAW_KEY}
-                        {_LAW_EDGES.replace("{paper}", "paper.id")}
+                        {_law_edges("paper.id")}
                     ) AS laws
                 OFFSET 0
             ) os
@@ -1152,7 +1189,7 @@ def _official_short(label: str) -> str:
 _SIGNATURES = f"""CASE pg.kind
                 WHEN {_lit(EVENT_COMMITMENT)} THEN {_COMMITMENT_PERSONS}
                 WHEN {_lit(EVENT_VOTE)} THEN {_DECIDED_PERSONS}
-                WHEN {_lit(EVENT_BILL)} THEN {_BILL_PERSONS.replace("{label}", "pg.dossier")}
+                WHEN {_lit(EVENT_BILL)} THEN {_bill_persons("pg.dossier")}
                 ELSE {_ACTORS} END"""
 
 # A signature as an item shows it: with the key and name of its member (a member's key is
@@ -1216,7 +1253,7 @@ _CHANGED_INSTRUMENTS = f"""CASE WHEN pg.kind = {_lit(EVENT_PUBLICATION)} THEN (
                                 SELECT {_LAW_KEY} AS key, e.relation,
                                        CASE WHEN e.to_collection = {_lit(COLLECTION_ARTICLES)}
                                             THEN e.to_id END AS article
-                                {_LAW_EDGES.replace("{paper}", "pg.id")}
+                                {_law_edges("pg.id")}
                             ) law
                             GROUP BY law.key
                         ) changed
@@ -1267,15 +1304,21 @@ _MATCHED = f"""(
 
 _RELATIONS = ",\n            ".join(f"{_lit(name)}, {sql}" for name, sql in RELATIONS)
 
+
 # The page (``page``), read in full: the node's props, its first dossier, the cabinet on its
 # date, the signatures with their factions, of a paper whether it has its text and its
 # dictum (``lg_document_light``), of a vote what the coalition did, and what a kind adds (who
 # made a commitment, the laws a publication enacts or changes, the law, the articles and the
 # publication of a new version and what it is issued under), the sources it is tied to
 # (``feed_relations.RELATIONS``), where it holds the words of ``q`` (``matched``) and how it
-# is tied to the law followed (``via``, ``{via}`` until ``_items``). The props as KEEP gave
+# is tied to the law followed (``via``). The props as KEEP gave
 # them: in the byte order of their names, as MERGE (``lg_merge``).
-_ITEMS = f"""(
+def _items(filters: FeedFilters) -> str:
+    """SQL: the items of the page (``page``) under *filters*: with ``matched`` of each item
+    under words and ``via`` when they follow a law."""
+    via_law = via(article=bool(filters.article)) if filters.instrument else "NULL::json"
+    matched = _MATCHED if filters.q else "NULL::json"
+    return f"""(
         SELECT coalesce(json_agg(json_build_object(
             'kind', pg.kind,
             'id', pg.id,
@@ -1297,8 +1340,8 @@ _ITEMS = f"""(
             'changed_instruments', {_CHANGED_INSTRUMENTS},
             'commenced', {COMMENCED},
             {_RELATIONS},
-            'matched', {{matched}},
-            'via', {{via}},
+            'matched', {matched},
+            'via', {via_law},
             'coalition', {coalition_object("co")},
             'coalition_factions', {coalition_factions("co")}
         ) ORDER BY {_PAGE_ORDER}), {_EMPTY})
@@ -1371,14 +1414,6 @@ def _base_bind(filters: FeedFilters, limit: int) -> dict[str, Any]:
     return bind
 
 
-def _items(filters: FeedFilters) -> str:
-    """``_ITEMS``, with ``matched`` of each item under words and ``via`` when *filters*
-    follow a law."""
-    tie = via(article=bool(filters.article)) if filters.instrument else "NULL::json"
-    matched = _MATCHED if filters.q else "NULL::json"
-    return _ITEMS.replace("{via}", tie).replace("{matched}", matched)
-
-
 def _page_query(plan: _Plan) -> str:
     """The page, with facets the total and the facets too, and the answer."""
     if not plan.facets:
@@ -1449,12 +1484,15 @@ _HIGHLIGHT = (
     " OR date IN (SELECT date FROM quiet_days)))"
 )
 
+
 # Per day of the window: the events per kind, per kind and dossier and, of the votes, per
 # subkind and outcome; the title of every dossier counted; the days with at most ``few``
 # votes on anything but a bill (each of their votes is shown); and the events shown one by
 # one.
-_SUMMARY = f""",
-    matching AS (SELECT * FROM events{{dimensions}}),
+def _summary(dimensions: str, items: str) -> str:
+    """SQL: the summary of ``events`` under *dimensions* (a WHERE), with *items*."""
+    return f""",
+    matching AS (SELECT * FROM events{dimensions}),
     day_kinds AS (
         SELECT date, json_agg(json_build_object('value', kind, 'count', cnt)
                               ORDER BY cnt DESC, kind ASC NULLS FIRST) AS value
@@ -1527,7 +1565,7 @@ _SUMMARY = f""",
     SELECT json_build_object(
         'days', (SELECT value FROM days),
         'dossiers', (SELECT value FROM dossier_titles),
-        'items', {_ITEMS}
+        'items', {items}
     )"""
 
 
@@ -1548,9 +1586,7 @@ def summary_query(
     )
     bind["until"] = plan.until
     dimensions = _where(list(plan.dimensions.values()), "        ")
-    summary = _SUMMARY.replace("{dimensions}", dimensions).replace(
-        _ITEMS, _items(filters)
-    )
+    summary = _summary(dimensions, _items(filters))
     return _rows_of(filters, plan, facets=True) + summary, bind
 
 
@@ -1855,11 +1891,11 @@ def _facet_per_set(name: str) -> str:
     elif name == "faction":
         counted = f"""SELECT set_id, value, count(*)::int AS cnt FROM (
                 SELECT DISTINCT set_id, fx.faction AS value, id
-                FROM {_PER_FACTION.replace("events", "in_set")}
+                FROM {_per_faction("in_set")}
             ) once GROUP BY set_id, value"""
     elif name == "coalition":
         counted = f"""SELECT set_id, value, count(*)::int AS cnt
-            FROM {_PER_COALITION.replace("events", "in_set")}
+            FROM {_per_coalition("in_set")}
             GROUP BY set_id, value"""
     else:
         counted = f"""SELECT set_id, {name} AS value, count(*)::int AS cnt

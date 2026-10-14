@@ -10,6 +10,9 @@
    id, a test for null, a count, a ``coalesce``, a number. Any other term without it is
    named in ``_REVIEWED`` with why it cannot be null; adding ``NULLS`` there would only
    keep an index from serving the order.
+4. SQL is not filled in with ``str.replace``: a template is a function of what it is filled
+   in with, so a misspelled marker cannot leave it unfilled. A ``replace`` in ``db/`` swaps
+   one or two characters of a value (``'`` to ``''``), never a part of a statement.
 
 The statements are the strings of the code (constants and f-strings, with ``{x}`` for
 what is filled in at run time), docstrings left out.
@@ -237,6 +240,30 @@ def test_every_order_says_where_its_nulls_go() -> None:
     assert open_ended == []
     # an entry no term needs any more goes
     assert set(_REVIEWED) - seen == set()
+
+
+def test_no_sql_is_filled_in_with_replace() -> None:
+    replaced = []
+    for path in sorted((SRC / "db").rglob("*.py")):
+        if path.name == "store.py":
+            continue  # it redacts the secrets of a URL, no SQL
+        for node in ast.walk(ast.parse(path.read_text())):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "replace"
+                and not (
+                    isinstance(node.func.value, ast.Name) and node.func.value.id == "os"
+                )
+                and node.args
+                and not (
+                    isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                    and len(node.args[0].value) <= 2
+                )
+            ):
+                replaced.append(f"{path.relative_to(SRC)}:{node.lineno}")
+    assert replaced == []
 
 
 def test_the_order_terms_are_read_whole() -> None:

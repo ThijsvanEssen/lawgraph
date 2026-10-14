@@ -44,8 +44,8 @@ from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
-    INSTRUMENT_DATE_IN_FORCE,
     SEARCH_FIELDS,
+    instrument_date_in_force,
     search_column,
     search_words,
     start_of_value_sql,
@@ -88,10 +88,10 @@ PERIOD_DATES: dict[str, str] = {
     "dossiers": "{row}.opened_on",
     "decisions": "{row}.date",
     "commitments": "{row}.made_on",
-    "instruments": INSTRUMENT_DATE_IN_FORCE.replace("props", "{row}.props"),
+    "instruments": instrument_date_in_force("{row}"),
     "articles": (
         "(SELECT "
-        + INSTRUMENT_DATE_IN_FORCE.replace("props", "i.props")
+        + instrument_date_in_force("i")
         + " FROM instruments i WHERE i.bwb_id = {row}.bwb_id ORDER BY i.key LIMIT 1)"
     ),
 }
