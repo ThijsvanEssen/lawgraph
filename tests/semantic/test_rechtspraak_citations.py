@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
-from lawgraph.core.identifiers import find_eclis
+from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -24,25 +24,25 @@ from tests.fakes import InMemoryStore
 
 
 def test_detect_ecli_references_finds_single() -> None:
-    hits = find_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
+    hits = cited_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_deduplicates() -> None:
     text = "ECLI:NL:HR:2020:1234 en nogmaals ECLI:NL:HR:2020:1234"
-    hits = find_eclis(text)
+    hits = cited_eclis(text)
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_multiple() -> None:
     text = "ECLI:NL:HR:2020:1234 en ECLI:NL:RBAMS:2021:5678"
-    hits = find_eclis(text)
+    hits = cited_eclis(text)
     assert len(hits) == 2
 
 
 def test_detect_ecli_references_empty() -> None:
-    assert find_eclis("") == []
-    assert find_eclis(None) == []
+    assert cited_eclis("") == []
+    assert cited_eclis(None) == []
 
 
 # ---------------------------------------------------------------------------

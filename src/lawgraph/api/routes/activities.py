@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.activities import ActivityDTO, ActivityRecordsResponse
@@ -16,6 +16,7 @@ from lawgraph.config.constants import COLLECTION_ACTIVITIES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.not_found import NotFound, require
 
 router = APIRouter()
 
@@ -37,9 +38,7 @@ def get_activity_detail(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ActivityDTO:
-    row = get_activity(store, key)
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Activity '{key}' not found.")
+    row = require(get_activity(store, key), "Activity", key)
     return ActivityDTO.from_row(row, load_dossier_names(store))
 
 
@@ -60,7 +59,7 @@ def get_activity_records_route(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ActivityRecordsResponse:
     if not store.has_node(COLLECTION_ACTIVITIES, key):
-        raise HTTPException(status_code=404, detail=f"Activity '{key}' not found.")
+        raise NotFound("Activity", key)
     activity_id = f"{COLLECTION_ACTIVITIES}/{key}"
     return ActivityRecordsResponse.from_row(
         activity_id, get_activity_records(store, activity_id)

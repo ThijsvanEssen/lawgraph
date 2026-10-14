@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import DATA_DIR
+from lawgraph.core.ecli import is_valid_ecli
 
 CURATED = DATA_DIR / "curated"
 
@@ -129,7 +130,6 @@ def _outside_courts() -> tuple[Callable[..., Entries], Callable[..., None]]:
 # ── What makes an entry wrong ────────────────────────────────────────────────
 
 _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
-_ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9.]{1,7}:\d{4}:[A-Z0-9.]{1,25}$")
 
 
 CHAMBERS = ("TK", "EK")
@@ -204,7 +204,7 @@ def _seating(entries: Entries) -> list[str]:
 def _judgment_names(entries: Entries) -> list[str]:
     found = []
     for ecli, value in entries.items():
-        if not _ECLI.match(ecli):
+        if not is_valid_ecli(ecli) or ecli != ecli.upper():
             found.append(f"{ecli}: not an ECLI in upper case")
         names = value.get("names") or []
         if not names or any(not n or n != n.strip() for n in names):

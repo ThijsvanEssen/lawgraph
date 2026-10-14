@@ -21,9 +21,7 @@ from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
 
@@ -75,13 +73,19 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
         }
         kept = kept_publications(replaced_by, set(ids))
         self._write_same_as(rows, kept, result)
-        edges_kept = self._write_edges(rows, kept, ids, result)
-        removed = semantic_edges.remove_edges_from(
-            self.store,
-            RELATION_SAME_AS,
-            SEMANTIC_SOURCE,
-            sorted(row["id"] for row in rows),
-            edges_kept,
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        for row in rows:
+            edges.add(
+                row["id"],
+                ids.get(kept.get(row["ecli"].upper(), "")),
+                RELATION_SAME_AS,
+                source=SEMANTIC_SOURCE,
+                confidence=1.0,
+                meta={"basis": "is_replaced_by"},
+            )
+        edges.flush_into(result)
+        removed = edges.remove_stale(
+            RELATION_SAME_AS, SEMANTIC_SOURCE, sorted(row["id"] for row in rows)
         )
         logger.info(
             "%d publication(s) replaced by one that is loaded, of %d replaced; "
@@ -110,30 +114,3 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
                     )
                 )
                 result.updated += 1
-
-    def _write_edges(
-        self,
-        rows: list[dict[str, Any]],
-        kept: dict[str, str],
-        ids: dict[str, str],
-        result: PipelineResult,
-    ) -> dict[str, set[str]]:
-        """The edges from each replaced publication to the one kept; their keys, per
-        publication."""
-        written: dict[str, set[str]] = {}
-        edges = EdgeWriter(self.store, what=None)
-        for row in rows:
-            to_id = ids.get(kept.get(row["ecli"].upper(), ""))
-            if edges.add(
-                row["id"],
-                to_id,
-                RELATION_SAME_AS,
-                source=SEMANTIC_SOURCE,
-                confidence=1.0,
-                meta={"basis": "is_replaced_by"},
-            ):
-                written.setdefault(row["id"], set()).add(
-                    edge_key(row["id"], RELATION_SAME_AS, str(to_id))
-                )
-        edges.flush_into(result)
-        return written

@@ -38,6 +38,7 @@ from lawgraph.db.queries.decisions import (
 )
 from lawgraph.db.queries.documents import get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 
@@ -186,9 +187,7 @@ def get_decision(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DecisionDTO:
-    doc = get_decision_detail(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
+    doc = require(get_decision_detail(store, key), "Decision", key)
     ((motion, dictum),) = motion_papers(store, [{**doc["props"], "id": doc["_id"]}])
     dto = DecisionDTO.from_document(
         doc, load_dossier_names(store), load_member_slugs(store)
@@ -218,15 +217,10 @@ def get_decision_document_route(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
-    decision = get_decision_detail(store, key)
-    if decision is None:
-        raise HTTPException(status_code=404, detail=f"Decision '{key}' not found.")
-    document = get_decision_document(store, decision)
-    if document is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No document resolvable for decision '{key}'.",
-        )
+    decision = require(get_decision_detail(store, key), "Decision", key)
+    document = require(
+        get_decision_document(store, decision), "Document of decision", key
+    )
     return DocumentTextResponse.from_document(
         document,
         get_document_links(store, document["_id"]),

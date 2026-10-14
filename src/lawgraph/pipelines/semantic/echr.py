@@ -39,7 +39,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from . import _echr_citations
@@ -124,8 +123,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
             return result
 
         instruments = self._instruments_named(rows)
-        edges = EdgeWriter(self.store, what=None)
-        kept: dict[str, set[str]] = {}
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
         treaties = protocol_treaties()
         unknown = sum(
@@ -152,22 +150,19 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 props={},
             )
             for target, confidence, meta in self._targets(row, instruments, treaties):
-                doc = self._make_edge_doc(
-                    from_node=judgment,
-                    to_node=target,
-                    relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
-                    confidence=confidence,
-                    meta=meta,
+                edges.add_doc(
+                    self._make_edge_doc(
+                        from_node=judgment,
+                        to_node=target,
+                        relation=RELATION_REFERS_TO,
+                        source=SEMANTIC_SOURCE,
+                        confidence=confidence,
+                        meta=meta,
+                    )
                 )
-                if doc:
-                    edges.add_doc(doc)
-                    kept.setdefault(row["j_id"], set()).add(doc["_key"])
+        self._link_cited_decisions(texts, read, edges)
         edges.flush_into(result)
-        self._link_cited_decisions(texts, read, kept, result)
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
-        )
+        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info("ECHR citations: %d edges no judgment supports removed.", removed)
         return result
 
@@ -175,12 +170,10 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         self,
         texts: list[dict[str, Any]],
         read: list[str],
-        kept: dict[str, set[str]],
-        result: PipelineResult,
+        edges: EdgeWriter,
     ) -> None:
         """``REFERS_TO`` to the decisions of the Court the text of a judgment cites by
-        application number, not its own; adds the judgments read to *read* and the edges
-        to *kept*."""
+        application number, not its own; adds the judgments read to *read*."""
         cited = []
         seen = set(read)
         for row in texts:
@@ -190,11 +183,12 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 read.append(row["j_id"])
         if not cited:
             return
-        decisions = _echr_citations.decisions_index(self.store)
-        for from_id, keys in _echr_citations.link(
-            self.store, cited, decisions, source=SEMANTIC_SOURCE, result=result
-        ).items():
-            kept.setdefault(from_id, set()).update(keys)
+        _echr_citations.link(
+            edges,
+            cited,
+            _echr_citations.decisions_index(self.store),
+            source=SEMANTIC_SOURCE,
+        )
 
     def _targets(
         self,

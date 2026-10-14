@@ -32,10 +32,10 @@ from typing import Any
 from urllib.parse import quote, unquote
 
 from lawgraph.core.code_families import cited_number
+from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
 
-ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
 BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
@@ -56,7 +56,6 @@ ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
-_JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9]+$")
 _PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
 
 
@@ -76,7 +75,7 @@ class Pad:
 # The addresses of one segment after their prefix: the kind, the pattern of the segment
 # and whether it is written in capitals (an ECLI, a BWB id, a number).
 _ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
-    "uitspraken": ("uitspraak", ECLI, True),
+    "uitspraken": ("uitspraak", PATH_ECLI, True),
     "wetten": ("wet", LAW, True),
     "dossiers": ("dossier", DOSSIER, True),
     "leden": ("lid", SLUG, False),
@@ -157,11 +156,6 @@ def pad_href(pad: Pad) -> str:
     return f"/{prefix}/{pad.a}"
 
 
-def key_ecli(key: str) -> str | None:
-    """The ECLI of a judgment's node key, or None."""
-    return key.upper().replace("_", ":") if _JUDGMENT_KEY.match(key) else None
-
-
 def focus_of_pad(pad: Pad) -> str | None:
     """The node id an address names without a lookup: a judgment, a law, a dossier, a
     cabinet and a fractie (their key is their id); None for the others."""
@@ -185,9 +179,11 @@ def _text(value: Any) -> str | None:
 
 
 def _judgment(key: str, props: dict[str, Any]) -> str | None:
-    ecli = _text(props.get("ecli")) or key_ecli(key)
+    ecli = _text(props.get("ecli")) or ecli_of_key(key)
     return (
-        pad_href(Pad("uitspraak", ecli.upper())) if ecli and ECLI.match(ecli) else None
+        pad_href(Pad("uitspraak", ecli.upper()))
+        if ecli and PATH_ECLI.match(ecli)
+        else None
     )
 
 

@@ -22,8 +22,6 @@ from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
-from lawgraph.db.store import edge_key
 from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
     hits_from_references,
@@ -69,11 +67,10 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
         hits_detected = 0
         articles_seen = 0
-        # the articles read and the edges written from them: the edges of an article are
-        # derived in full, so one its references no longer support goes
+        # the articles read: the edges of an article are derived in full, so one its
+        # references no longer support goes
         read: list[str] = []
-        kept: dict[str, set[str]] = {}
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         # Stream articles (they carry full text) and process them in chunks so
         # that all reference targets of a chunk are resolved with ONE lookup.
         articles = self._track(
@@ -106,15 +103,13 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                 NodeType.ARTICLE,
             )
             for article, hits in scanned:
-                self._link(article, hits, edges, kept)
+                self._link(article, hits, edges)
 
         edges.flush_into(result)
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
-        )
+        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info(
             "%d references read; %d edges the references no longer support removed.",
             hits_detected,
@@ -127,12 +122,11 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         article: Node,
         hits: list[ArticleReferenceHit],
         edges: EdgeWriter,
-        kept: dict[str, set[str]],
     ) -> None:
-        """Queue the edges of one article; the keys go into *kept*."""
+        """Queue the edges of one article."""
         for hit in hits:
             target, hit = self._resolve_article(hit)
-            if not target or not article.node_id or not target.node_id:
+            if not target:
                 continue
             edges.add_doc(
                 self._make_edge_doc(
@@ -143,9 +137,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     confidence=hit.confidence,
                     meta=self._edge_meta(hit),
                 )
-            )
-            kept.setdefault(article.node_id, set()).add(
-                edge_key(article.node_id, RELATION_REFERS_TO, target.node_id)
             )
 
     @staticmethod

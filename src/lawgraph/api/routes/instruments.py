@@ -90,6 +90,7 @@ from lawgraph.db.queries.instruments import (
     get_instrument_versions,
     get_instruments_list,
 )
+from lawgraph.db.queries.not_found import require
 
 
 def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
@@ -214,13 +215,6 @@ def _day(day: dt.date | None) -> str | None:
     return day.isoformat() if day else None
 
 
-def _instrument_or_404(store: GraphStore, identifier: str) -> dict:
-    doc = resolve_instrument(store, identifier)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Instrument not found")
-    return doc
-
-
 @router.get(
     "/{identifier}",
     response_model=InstrumentDetailDTO,
@@ -238,7 +232,7 @@ def get_instrument(
     identifier: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDetailDTO:
-    doc = _instrument_or_404(store, identifier)
+    doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
 
 
@@ -287,7 +281,7 @@ def get_instrument_definitions(
     identifier: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDefinitionsResponse:
-    doc = _instrument_or_404(store, identifier)
+    doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     return InstrumentDefinitionsResponse(
         key=doc["_key"],
         definitions=[
@@ -321,7 +315,7 @@ def get_instrument_eu_links(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentEuLinksResponse:
-    doc = _instrument_or_404(store, identifier)
+    doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     eu = get_eu_links(store, doc["_id"], limit=limit)
     cited = (doc.get("props") or {}).get("inbound_citation_count")
     international = get_international_links(

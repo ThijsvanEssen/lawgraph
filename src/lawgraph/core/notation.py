@@ -23,12 +23,8 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.code_families import CODE_FAMILIES, family_named, is_code_family
-from lawgraph.core.identifiers import (
-    COMMITMENT_NUMBER,
-    is_bwb_id,
-    is_ecli,
-    parse_celex,
-)
+from lawgraph.core.ecli import is_ecli
+from lawgraph.core.identifiers import COMMITMENT_NUMBER, is_bwb_id, parse_celex
 
 NotationKind = Literal[
     "ecli",

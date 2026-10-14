@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import CourtKind, Tier
@@ -25,7 +25,6 @@ from lawgraph.api.schemas.judgments import (
     mentions_of,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
-from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import mention_texts
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
@@ -36,7 +35,6 @@ from lawgraph.db.queries.judgments import (
 )
 
 router = APIRouter()
-logger = get_logger(__name__)
 
 
 @router.get(
@@ -172,11 +170,7 @@ def get_judgment_detail(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JudgmentDetailResponse:
     """Return a judgment plus the articles it mentions."""
-    try:
-        data = get_judgment_with_relations(store, ecli)
-    except ValueError as err:
-        logger.debug("Judgment %s not found", ecli)
-        raise HTTPException(status_code=404, detail="Judgment not found") from err
+    data = get_judgment_with_relations(store, ecli)
 
     articles = [
         ArticleRelationDTO.from_documents(rel.article, rel.instrument)
