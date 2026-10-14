@@ -115,8 +115,11 @@ jobs:
             tests: tests/integration/test_[jp-qsu]*.py
             dist: loadgroup
 
+    # A PostgreSQL that does not answer fails the shard (ALLOW_DB_TESTS); there is no S3
+    # server here, so the tests of the payload store in a bucket are skipped (ALLOW_S3_TESTS).
     env:
       ALLOW_DB_TESTS: '1'
+      ALLOW_S3_TESTS: '0'
       LAWGRAPH_TEST_DB_URL: postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph
 
     steps:
