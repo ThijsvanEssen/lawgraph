@@ -63,7 +63,7 @@ from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
@@ -331,12 +331,12 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             ),
             "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
             "activities": tk_cases.normalize_activities(
-                store, raw[RAW_KIND_TK_ACTIVITEIT]
+                self, raw[RAW_KIND_TK_ACTIVITEIT]
             ),
             "commitments": tk_cases.normalize_commitments(
-                store, raw[RAW_KIND_TK_TOEZEGGING]
+                self, raw[RAW_KIND_TK_TOEZEGGING]
             ),
-            "documents": tk_cases.normalize_documents(store, raw[RAW_KIND_TK_DOCUMENT]),
+            "documents": tk_cases.normalize_documents(self, raw[RAW_KIND_TK_DOCUMENT]),
             "votes": votes.by_decision,
         }
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
@@ -604,9 +604,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         for raw in raw_records:
             payload = self._payload_json(raw)
             if deleted(payload):
+                self.progress.skip(DELETED, payload.get("Id"))
                 continue
             parsed = tk_records.dossier(payload)
             if parsed is None:
+                self.progress.skip("no Id or number", raw.get("_key"))
                 continue
             key, label, props = parsed
             node = Node(

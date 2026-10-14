@@ -165,7 +165,8 @@ is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Ti
 exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make nothing of it, and each normalizer removes, through one shared
+`normalize tk-dossiers` make nothing of it (a case, dossier, activity, commitment, document
+or link record is counted as skipped, `deleted by the Kamer`), and each normalizer removes, through one shared
 `Deleted` (`pipelines/normalize/_tk_deleted.py`), what an earlier run made of it alone: the
 node keyed by the record id (case, activity, commitment, document, committee, member), the node
 that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes when all its
@@ -1470,7 +1471,8 @@ about 100 s the first time (on average 170 KB of XML, 22 KB compressed, the larg
 **Normalize.** Judgment per judgment: by its ECLI (the node a Dutch judgment that cites it
 has), else by item (`echr_<itemid>`); the English item's record, else the French one's, else
 another; `appno`, `title`, `date`, `articles`, `conclusion` (and from it what the Court found
-per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance`. A text
+per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance` (a number;
+another value is a problem and is left out). A text
 record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
