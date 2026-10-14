@@ -10,7 +10,8 @@ chain is recorded in the graph, so the link is read rather than guessed::
 A law the dossier made counts with its articles: the publication that enacted it establishes
 them. The edge targets the ArticleVersion the amendment created when the amendment
 names one, the Article itself otherwise, and the Instrument when it changed no
-articles at all.
+articles at all. Derived in full on every run: an edge the chain no longer gives goes; the
+edges ``semantic tk-mvt-articles`` took over are of its own source and stay.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         memoranda = semantic_tk.memorandum_targets(
             self.store, sections_source=SEMANTIC_SOURCE_SECTIONS
         )
@@ -61,4 +62,6 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
                     confidence=DOSSIER_CONFIDENCE,
                 )
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+        logger.info("Memoranda: %d edges the chain no longer gives removed.", removed)
         return result

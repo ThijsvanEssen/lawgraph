@@ -14,7 +14,6 @@ from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -152,12 +151,6 @@ def failure_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def add_outcome(result: PipelineResult, progress: Progress) -> None:
-    """What *progress* counted next to the stored records: skips, and one error per cause."""
-    result.skipped += progress.skipped + progress.failed
-    result.errors.extend(progress.errors())
-
-
 def listed(items: S, what: str) -> S:
     """*items*, the listing of every *what* of a source; an empty one raises.
 
@@ -238,8 +231,6 @@ class RetrievePipelineBase(PipelineBase):
     number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
     """
 
-    progress: Progress  # of the records being stored; made by ``_store_all``
-
     def run(self, **kwargs: Any) -> PipelineResult:
         def records() -> Iterator[RetrieveRecord]:
             # Inside the loop, so a ``fetch`` that raises before its first record is an
@@ -261,7 +252,7 @@ class RetrievePipelineBase(PipelineBase):
         with its count).
         """
         result = PipelineResult()
-        progress = self.progress = Progress(what)
+        progress = self._loop(what)
         by_products: set[str] = set()
 
         def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
@@ -301,7 +292,7 @@ class RetrievePipelineBase(PipelineBase):
             result.add_error(msg)
         finally:
             progress.finish()
-        add_outcome(result, progress)
+        self.add_outcomes(result)
         return result
 
     def _on_stored(self, docs: list[dict[str, Any]]) -> None:
