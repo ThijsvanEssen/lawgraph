@@ -40,7 +40,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
-from lawgraph.core.paper_outcomes import VoteOutcome
+from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (

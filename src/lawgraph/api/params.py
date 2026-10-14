@@ -10,11 +10,11 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Query
 
-from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.code_families import native_number
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import article_id, key_of
+from lawgraph.db.schema import NODE_COLLECTIONS
 
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
@@ -82,8 +82,15 @@ class ArticleRef:
 def article_ref(bwb_id: str, article_number: str) -> ArticleRef:
     """The article of ``/{bwb_id}/{article_number}``, cited or own numbering alike."""
     number = native_number(bwb_id, article_number)
-    key = make_node_key(bwb_id, number)
-    return ArticleRef(bwb_id, number, key, f"{COLLECTION_ARTICLES}/{key}")
+    node = article_id(bwb_id, number)
+    return ArticleRef(bwb_id, number, key_of(node), node)
 
 
 ArticleAddress = Annotated[ArticleRef, Depends(article_ref)]
+
+
+def is_node_id(value: str) -> bool:
+    """Whether *value*, as a request names it, is ``collection/key`` of a node collection
+    with a key."""
+    collection, slash, key = value.partition("/")
+    return bool(slash and key) and collection in NODE_COLLECTIONS

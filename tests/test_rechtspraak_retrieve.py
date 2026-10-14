@@ -388,6 +388,7 @@ def test_an_ecli_that_is_also_in_the_index_is_fetched_once() -> None:
 @pytest.fixture
 def cli(monkeypatch):
     from lawgraph.pipelines import retrieve_commands
+    from lawgraph.sources.registry import find
 
     seen: dict[str, Any] = {}
 
@@ -403,7 +404,8 @@ def cli(monkeypatch):
 
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
-    return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
+    command = find("retrieve", "rechtspraak").command  # type: ignore[union-attr]
+    return lambda argv: (command(argv), seen)[1]
 
 
 def test_the_default_is_every_court(cli) -> None:

@@ -46,7 +46,7 @@ is one unit of work in one phase for one source, and it has an address:
 <phase> <source>[-<part>]                 normalize tk-dossiers
 lawgraph normalize tk-dossiers            what one types
 [normalize tk-dossiers]                   the label of its log lines, its row in the table
-pipelines/normalize/tk_dossiers.py        its module (retrieve: retrieve_tk_dossiers in retrieve_commands.py)
+pipelines/normalize/tk_dossiers.py        its module (a retrieve with options: retrieve_tk_dossiers in retrieve_commands.py)
 TKDossiersNormalizePipeline               its class
 LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS       its skip variable
 ```
@@ -124,8 +124,8 @@ left out: `expand-graph` fetches those acts. A step that ends `ok` is marked in
 `scripts/backup.sh` dumps the database. They share one lock (`scripts/_run.sh`), so two never
 write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
 
-**Release.** A push to the branch `release` deploys that commit: CI runs mypy and the tests,
-then on the server checks it out, installs it and restarts the API, under the lock of the
+**Release.** A push to the branch `release` deploys that commit once `tests.yaml` is green on it:
+on the server it checks it out, installs it and restarts the API, under the lock of the
 scheduled runs (`docs/operations.md`, "Deploy").
 
 **The API** (`api/`) reads only. A route calls functions of `db/queries/` and answers with the
@@ -217,6 +217,8 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | A test of, or fallback for, a json value in SQL (present, absent, truthy `||`, array or `[]`, length, kept props, a period) is spelled once, in `db/queries/_json_sql.py`; its tests never give SQL NULL | `tests/conventions/test_json_sql.py`, `tests/pg/test_json_sql.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
 | A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
+| A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/conventions/test_vote_words.py` |
+| A node id is built with `node_id`, `article_id` or `Node.skeleton` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/conventions/test_node_ids.py` |
 | No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
 | A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/conventions/test_sparse_joins.py`, `tests/conventions/test_semantic_reads.py` |
 | Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |

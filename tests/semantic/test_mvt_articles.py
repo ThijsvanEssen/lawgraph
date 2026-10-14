@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.models import article_id
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
     CONFIDENCE_UNCHANGED,
@@ -25,7 +26,6 @@ from lawgraph.core.mvt_articles import (
     Law,
     Reference,
     amendment_references,
-    article_id,
     explained_targets,
     find_references,
     new_law,

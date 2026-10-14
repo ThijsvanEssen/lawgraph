@@ -44,7 +44,11 @@ from lawgraph.core.delegations import (
     kind_rank,
 )
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.models import (
+    make_node_key,
+    node_id,
+    parse_node_id,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -135,7 +139,7 @@ def _defined_terms(
     if data.instrument is not None:
         instrument_id = data.instrument["_id"]
     elif props.get("bwb_id"):
-        instrument_id = f"{COLLECTION_INSTRUMENTS}/{make_node_key(props['bwb_id'])}"
+        instrument_id = node_id(COLLECTION_INSTRUMENTS, make_node_key(props["bwb_id"]))
     else:
         return [], {}, []
     # one per entry, in its order, so a ref lands on its citation; one without a place

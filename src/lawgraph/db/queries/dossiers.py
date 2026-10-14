@@ -48,7 +48,7 @@ from lawgraph.core.dossier_numbers import (
     suffix_sort_key,
 )
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
-from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.core.models import NodeType, key_of, make_node_key, node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
@@ -478,7 +478,7 @@ def _documents_by_case(
     """
     bind = {
         "cases": cases,
-        "case_ids": [f"{COLLECTION_CASES}/{make_node_key(case)}" for case in cases],
+        "case_ids": [node_id(COLLECTION_CASES, make_node_key(case)) for case in cases],
         "part_of": RELATION_PART_OF,
     }
     return {str(row["case_id"]): node_doc(row) for row in store.query(sql, bind)}
@@ -890,7 +890,7 @@ def get_dossier_mutations(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     if graph.nodes:
         return graph.result()
 
-    dossier = store.get_document(COLLECTION_DOSSIERS, dossier_id.split("/", 1)[-1])
+    dossier = store.get_document(COLLECTION_DOSSIERS, key_of(dossier_id))
     number = str((dossier or {}).get("props", {}).get("label") or "")
     if not number:
         return {"nodes": [], "edges": []}
@@ -928,9 +928,9 @@ class _MutationGraph:
             if node:
                 self.nodes[node["_id"]] = node
         kind = classify_relation(edge.get("relation"))
-        for node_id in (edge.get("_from"), edge.get("_to")):
-            if node_id and self._kinds.get(node_id) != "mutation":
-                self._kinds[node_id] = kind
+        for end in (edge.get("_from"), edge.get("_to")):
+            if end and self._kinds.get(end) != "mutation":
+                self._kinds[end] = kind
         self.edges.append(
             {
                 "from_id": edge.get("_from"),

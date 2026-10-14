@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
@@ -447,7 +448,7 @@ def get_instrument_dossiers(
     Returns ``(items, total)``; each item is ``{dossier, via, publication}``.
     """
     scope = scope_of(identifier)
-    instrument_id = f"{COLLECTION_INSTRUMENTS}/{scope.node_key}"
+    instrument_id = node_id(COLLECTION_INSTRUMENTS, scope.node_key)
     ctes = f"""
         WITH sources AS (
             SELECT %(instrument_id)s::text AS id
@@ -1268,7 +1269,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
     )
     display_name = props.get("display_name")
     return {
-        "_id": f"{COLLECTION_INSTRUMENTS}/{key}",
+        "_id": node_id(COLLECTION_INSTRUMENTS, key),
         "_key": key,
         "bwb_id": props.get("bwb_id"),
         "celex": props.get("celex"),

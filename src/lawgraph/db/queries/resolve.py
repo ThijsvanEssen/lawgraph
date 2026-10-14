@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_PART_OF,
 )
-from lawgraph.core.models import collection_from_id, make_node_key
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
@@ -83,7 +83,7 @@ def _target(row: dict[str, Any], kind: str, confidence: float) -> dict[str, Any]
     return {
         "id": row["id"],
         "key": row["key"],
-        "collection": collection_from_id(row["id"], ""),
+        "collection": parse_node_id(row["id"])[0],
         "kind": kind,
         "display_name": row.get("display_name"),
         "confidence": confidence,

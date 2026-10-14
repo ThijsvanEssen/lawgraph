@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, make_node_key
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -130,7 +130,7 @@ def link_letters_to_commitments(
     for letter, commitment in pairs:
         if letter in stored:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{letter}",
+                node_id(COLLECTION_DOCUMENTS, letter),
                 commitment,
                 RELATION_ANSWERS,
                 source=source,
@@ -286,7 +286,7 @@ def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) 
             if member_key not in known_members:
                 continue
             writer.add(
-                f"{COLLECTION_MEMBERS}/{member_key}",
+                node_id(COLLECTION_MEMBERS, member_key),
                 node.node_id,
                 RELATION_AUTHORED,
                 source=source,
@@ -336,16 +336,16 @@ def link_documents(
     for document, activity in made_in:
         if document in documents and activity in activities:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{document}",
-                f"{COLLECTION_ACTIVITIES}/{activity}",
+                node_id(COLLECTION_DOCUMENTS, document),
+                node_id(COLLECTION_ACTIVITIES, activity),
                 RELATION_MADE_IN,
                 source=source,
             )
     for attachment, letter in accompanies:
         if attachment != letter and attachment in documents and letter in documents:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{attachment}",
-                f"{COLLECTION_DOCUMENTS}/{letter}",
+                node_id(COLLECTION_DOCUMENTS, attachment),
+                node_id(COLLECTION_DOCUMENTS, letter),
                 RELATION_ACCOMPANIES,
                 source=source,
             )

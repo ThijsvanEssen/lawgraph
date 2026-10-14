@@ -22,7 +22,6 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_ARTICLES,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
 )
@@ -48,7 +47,7 @@ from lawgraph.core.kamerstuk_xml import (
     SCHEME_ARABIC,
     SCHEME_BOOK_ARTICLE,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import article_id, node_id
 from lawgraph.core.xml import collapse_ws
 
 # How a section came to name an article, and whether the dossier changed that article. The
@@ -161,7 +160,7 @@ class Change:
     def target(self) -> str:
         """The node an edge points at: the version when the change names one."""
         if self.version:
-            return f"{COLLECTION_ARTICLE_VERSIONS}/{self.version}"
+            return node_id(COLLECTION_ARTICLE_VERSIONS, self.version)
         return self.article
 
 
@@ -216,10 +215,6 @@ def _number_keys(number: str) -> list[str]:
     it (Awb 11:2)."""
     key = number_key(number)
     return [key, key.split(":", 1)[1]] if ":" in key else [key]
-
-
-def article_id(bwb_id: str, number: str) -> str:
-    return f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, number)}"
 
 
 # ── the laws a dossier changes ───────────────────────────────────────────────
