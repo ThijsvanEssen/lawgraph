@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
 from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.tk_records import SUBMITTER_CO, SUBMITTER_FIRST, SubmitterRole
 from lawgraph.core.xml import html_text
 
 _ROW = re.compile(
@@ -30,9 +31,6 @@ _SUMMARY = re.compile(r'<p class="mnone">(.*?)</p>', re.S)
 _PDF = re.compile(r'href="([^"]+\.pdf)"')
 _NUMBER = re.compile(r"^(?P<number>.+?),\s*(?P<letter>[A-Z]{1,3})$")
 
-ROLE_SUBMITTER = "indiener"
-ROLE_COSIGNER = "medeindiener"
-
 
 @dataclass(frozen=True)
 class Signer:
@@ -42,7 +40,7 @@ class Signer:
     path: str  # /persoon/bgen_b_d_drs_a_j_a_beukering
     name: str  # A.J.A. Beukering
     faction: str | None  # Beukering
-    role: str  # indiener, medeindiener
+    role: SubmitterRole
 
 
 @dataclass(frozen=True)
@@ -60,7 +58,7 @@ class MotionPage:
     signers: list[Signer] = field(default_factory=list)
 
 
-def _signers(cell: str, role: str) -> list[Signer]:
+def _signers(cell: str, role: SubmitterRole) -> list[Signer]:
     found = []
     for path, label in _PERSON.findall(cell):
         named = _NAME_FACTION.match(html_text(label))
@@ -93,6 +91,6 @@ def motion_page(page: str) -> MotionPage | None:
         status=html_text(rows.get("behandelstatus", "")) or None,
         summary=html_text(summary[1]) if summary else None,
         pdf_path=html_lib.unescape(pdf[1]) if pdf else None,
-        signers=_signers(rows.get("indiener(s)", ""), ROLE_SUBMITTER)
-        + _signers(rows.get("mede ondertekend door", ""), ROLE_COSIGNER),
+        signers=_signers(rows.get("indiener(s)", ""), SUBMITTER_FIRST)
+        + _signers(rows.get("mede ondertekend door", ""), SUBMITTER_CO),
     )

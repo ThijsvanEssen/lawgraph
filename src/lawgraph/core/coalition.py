@@ -17,7 +17,9 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
+
+from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 
 # The first day every seat of the Tweede Kamer is known (FractieZetelPersoon).
 TK_SEATS_FROM = "2006-11-30"
@@ -151,11 +153,12 @@ def seat_timeline(
     return segments
 
 
-# The choices that count as a vote cast (``VOTED`` ``meta.choice``); any other is none.
-VOTE_FOR, VOTE_AGAINST = "Voor", "Tegen"
 # The pattern of the coalition on a vote: all its votes on one side, on both sides, or on
 # both sides while the side that won holds coalition and opposition seats.
-PATTERN_TOGETHER, PATTERN_SPLIT, PATTERN_WISSEL = "together", "split", "wissel"
+CoalitionPattern = Literal["together", "split", "wissel"]
+PATTERN_TOGETHER: Final[CoalitionPattern] = "together"
+PATTERN_SPLIT: Final[CoalitionPattern] = "split"
+PATTERN_WISSEL: Final[CoalitionPattern] = "wissel"
 
 
 def vote_pattern(

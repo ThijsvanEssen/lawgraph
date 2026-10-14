@@ -303,7 +303,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 if post["ministry"] or post["post"] == POST_DEPUTY_PRIME_MINISTER:
                     continue
                 surname = split_name(post["name"])["surname"]
-                evidence = {
+                evidence: dict[str, Counter[str]] = {
                     SOURCE_TK_SIGNATURES: signature_counts(
                         post, signed.get(member_of[holder_id(post)], ())
                     ),

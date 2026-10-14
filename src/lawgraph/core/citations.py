@@ -34,8 +34,12 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
-from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
+from lawgraph.core.identifiers import (
+    CELEX_KIND_TO_LETTER,
+    EUInstrumentKind,
+    parse_celex,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
 from lawgraph.core.xml import XML_TAG_RE, collapse_ws
@@ -121,7 +125,7 @@ def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
 
 
 def format_celex(
-    kind: Literal["directive", "regulation", "decision", "framework_decision"],
+    kind: EUInstrumentKind,
     year: str,
     number: str,
 ) -> str:
@@ -474,7 +478,7 @@ class DutchCitationExtractor:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
-            if k and v and k.strip().upper() not in CODE_FAMILIES
+            if k and v and not is_code_family(k)
         }
         # "CBW" -> "Cbw": a code of one word as its source writes it, when *as_written*
         self._spelling: dict[str, str] = (
@@ -520,7 +524,7 @@ class DutchCitationExtractor:
                 if key.strip()
                 and " " not in key.strip()
                 and key.strip().upper() not in self._code_map
-                and key.strip().upper() not in CODE_FAMILIES
+                and not is_code_family(key)
             }
             if as_written
             else {}

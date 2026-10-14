@@ -27,6 +27,8 @@ PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
 ).read_text()  # dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
 
+pytestmark = pytest.mark.usefixtures("edge_removals")
+
 
 def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
     client = EerstekamerClient.__new__(EerstekamerClient)

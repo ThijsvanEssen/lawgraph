@@ -1,0 +1,985 @@
+{
+ "/components/schemas/ActivityDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/capacities/items": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/kind_basis/anyOf/0#const": [
+  "case"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/opened_on_basis/anyOf/0": [
+  "first_paper",
+  "royal_message",
+  "earliest_record"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/source": [
+  "tk",
+  "eerstekamer"
+ ],
+ "/components/schemas/ActorDossierDTO/properties/title_source/anyOf/0": [
+  "dossier",
+  "document",
+  "activiteit",
+  "eerstekamer"
+ ],
+ "/components/schemas/AmendingProposalDTO/properties/outcome/anyOf/0#const": [
+  "aangenomen"
+ ],
+ "/components/schemas/ArticleExplanationDTO/properties/scope": [
+  "dossier",
+  "article"
+ ],
+ "/components/schemas/ArticleExplanationDTO/properties/target": [
+  "article",
+  "article_version"
+ ],
+ "/components/schemas/ArticlePassagesDTO/properties/target": [
+  "article",
+  "article_version"
+ ],
+ "/components/schemas/BasisArticleDTO/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/CabinetPhaseDTO/properties/kind/anyOf/0": [
+  "formatie",
+  "in_functie",
+  "demissionair",
+  "dubbel_demissionair",
+  "missionair"
+ ],
+ "/components/schemas/CabinetPostDTO/properties/acting_reason/anyOf/0": [
+  "source",
+  "held_other_seat"
+ ],
+ "/components/schemas/CabinetPostDTO/properties/ministry_missing/anyOf/0": [
+  "no_source",
+  "ambiguous"
+ ],
+ "/components/schemas/CabinetPostDTO/properties/ministry_source/anyOf/0": [
+  "page",
+  "tk_signatures",
+  "tk_commitments",
+  "staatscourant"
+ ],
+ "/components/schemas/CitedByJudgment/properties/conclusion_outcome/anyOf/0": [
+  "verwerping",
+  "vernietiging",
+  "vernietiging en verwijzing",
+  "niet-ontvankelijkverklaring",
+  "gegrondverklaring",
+  "ongegrondverklaring",
+  "beantwoording"
+ ],
+ "/components/schemas/CitedByJudgment/properties/outcome/anyOf/0": [
+  "verworpen",
+  "vernietigd",
+  "gedeeltelijk vernietigd",
+  "vernietigd en verwezen",
+  "bekrachtigd",
+  "bevestigd",
+  "gegrond",
+  "ongegrond",
+  "niet-ontvankelijk",
+  "afgewezen",
+  "toegewezen",
+  "schending",
+  "geen schending"
+ ],
+ "/components/schemas/CoalitionFactionDTO/properties/choice/anyOf/0": [
+  "Voor",
+  "Tegen"
+ ],
+ "/components/schemas/CoalitionVoteDTO/properties/pattern": [
+  "together",
+  "split",
+  "wissel"
+ ],
+ "/components/schemas/CommitteeDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/CommitteeDTO/properties/kind/anyOf/0": [
+  "vast",
+  "algemeen",
+  "tijdelijk",
+  "enquete",
+  "delegatie",
+  "overig"
+ ],
+ "/components/schemas/CommitteeDetailDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/CommitteeDetailDTO/properties/kind/anyOf/0": [
+  "vast",
+  "algemeen",
+  "tijdelijk",
+  "enquete",
+  "delegatie",
+  "overig"
+ ],
+ "/components/schemas/CourtKind": [
+  "hoge_raad",
+  "raad_van_state",
+  "centrale_raad_van_beroep",
+  "college_van_beroep_bedrijfsleven",
+  "parket",
+  "gerechtshof",
+  "rechtbank",
+  "kantongerecht",
+  "tuchtcollege",
+  "ambtenarengerecht",
+  "college_van_beroep_studiefinanciering",
+  "college_van_beroep_voor_het_hoger_onderwijs",
+  "raad_van_arbitrage_in_bouwgeschillen",
+  "raad_van_beroep",
+  "raad_voor_strafrechtstoepassing_en_jeugdbescherming",
+  "tariefcommissie",
+  "constitutioneel_hof",
+  "gemeenschappelijk_hof_van_justitie",
+  "gerecht_in_ambtenarenzaken",
+  "gerecht_in_eerste_aanleg",
+  "hof_van_justitie",
+  "raad_van_beroep_in_ambtenarenzaken",
+  "raad_van_beroep_voor_belastingzaken",
+  "kroon",
+  "buitenlandse_instantie",
+  "hvj_eu",
+  "ehrm"
+ ],
+ "/components/schemas/DelegatedClauseDTO/properties/kind": [
+  "amvb",
+  "ministeriele_regeling"
+ ],
+ "/components/schemas/DelegatedRegulationDTO/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/DelegationClauseDTO/properties/kind": [
+  "amvb",
+  "ministeriele_regeling"
+ ],
+ "/components/schemas/DocumentEntryDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/DocumentListItemDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/DocumentListItemDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen",
+  "ingetrokken",
+  "aangehouden",
+  "vervallen",
+  "vervangen"
+ ],
+ "/components/schemas/DocumentTextResponse/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/DocumentTextResponse/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen",
+  "ingetrokken",
+  "aangehouden",
+  "vervallen",
+  "vervangen"
+ ],
+ "/components/schemas/DossierChange/properties/relation": [
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/DossierChange/properties/stage": [
+  "enacted",
+  "proposed"
+ ],
+ "/components/schemas/DossierCommitteeDTO/properties/role#const": [
+  "lead"
+ ],
+ "/components/schemas/DossierDetailResponse/properties/kind_basis/anyOf/0#const": [
+  "case"
+ ],
+ "/components/schemas/DossierDetailResponse/properties/opened_on_basis/anyOf/0": [
+  "first_paper",
+  "royal_message",
+  "earliest_record"
+ ],
+ "/components/schemas/DossierDetailResponse/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/components/schemas/DossierDetailResponse/properties/source": [
+  "tk",
+  "eerstekamer"
+ ],
+ "/components/schemas/DossierDetailResponse/properties/title_source/anyOf/0": [
+  "dossier",
+  "document",
+  "activiteit",
+  "eerstekamer"
+ ],
+ "/components/schemas/DossierDocumentDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/DossierDocumentDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen",
+  "ingetrokken",
+  "aangehouden",
+  "vervallen",
+  "vervangen"
+ ],
+ "/components/schemas/DossierInstrumentDTO/properties/relation": [
+  "legislated_in",
+  "establishes",
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/DossierInstrumentDTO/properties/status": [
+  "canoniek",
+  "voorgesteld"
+ ],
+ "/components/schemas/DossierInstrumentLinkDTO/properties/relation": [
+  "legislated_in",
+  "establishes",
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/DossierInstrumentLinkDTO/properties/status": [
+  "canoniek",
+  "voorgesteld"
+ ],
+ "/components/schemas/DossierMutationEdge/properties/kind": [
+  "mutation",
+  "explanation"
+ ],
+ "/components/schemas/DossierMutationNode/properties/kind": [
+  "mutation",
+  "explanation"
+ ],
+ "/components/schemas/DossierPhaseDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/DossierRelationDTO/properties/direction": [
+  "outgoing",
+  "incoming"
+ ],
+ "/components/schemas/DossierRelationDTO/properties/nota/anyOf/0": [
+  "voorjaarsnota",
+  "najaarsnota",
+  "miljoenennota"
+ ],
+ "/components/schemas/DossierRelationDTO/properties/relation": [
+  "revises",
+  "accompanies",
+  "related_to",
+  "second_reading_of"
+ ],
+ "/components/schemas/DossierRelationDTO/properties/rule/anyOf/0": [
+  "begrotingswijziging",
+  "slotwet"
+ ],
+ "/components/schemas/DossierSummaryDTO/properties/kind_basis/anyOf/0#const": [
+  "case"
+ ],
+ "/components/schemas/DossierSummaryDTO/properties/opened_on_basis/anyOf/0": [
+  "first_paper",
+  "royal_message",
+  "earliest_record"
+ ],
+ "/components/schemas/DossierSummaryDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/components/schemas/DossierSummaryDTO/properties/source": [
+  "tk",
+  "eerstekamer"
+ ],
+ "/components/schemas/DossierSummaryDTO/properties/title_source/anyOf/0": [
+  "dossier",
+  "document",
+  "activiteit",
+  "eerstekamer"
+ ],
+ "/components/schemas/EchrFindingDTO/properties/aspect/anyOf/0": [
+  "materieel",
+  "procedureel"
+ ],
+ "/components/schemas/EchrFindingDTO/properties/finding": [
+  "schending",
+  "geen schending"
+ ],
+ "/components/schemas/EkFactionVoteDTO/properties/choice": [
+  "voor",
+  "tegen",
+  "aantekening gevraagd"
+ ],
+ "/components/schemas/EkOutcomeDTO/properties/outcome": [
+  "Aangenomen",
+  "Verworpen"
+ ],
+ "/components/schemas/EuLinkDTO/properties/bases/items": [
+  "national_implementing_measure",
+  "considerans"
+ ],
+ "/components/schemas/ExplainedTargetDTO/properties/collection": [
+  "articles",
+  "instruments"
+ ],
+ "/components/schemas/ExplainingDocumentDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/FactionDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/FeedArticleDTO/properties/effect/anyOf/0": [
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/FeedChangedInstrumentDTO/properties/effect": [
+  "establishes",
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/FeedDossierCountDTO/properties/kind": [
+  "toezegging",
+  "Voorstel van wet",
+  "Nota van wijziging",
+  "Amendement",
+  "Motie",
+  "stemming",
+  "publicatie",
+  "inwerkingtreding",
+  "Brief regering",
+  "uitspraak"
+ ],
+ "/components/schemas/FeedDossierCountDTO/properties/short_title_basis/anyOf/0": [
+  "title",
+  "citation",
+  "case",
+  "amended_law"
+ ],
+ "/components/schemas/FeedDossierDTO/properties/short_title_basis/anyOf/0": [
+  "title",
+  "citation",
+  "case",
+  "amended_law"
+ ],
+ "/components/schemas/FeedItemDTO/properties/kind": [
+  "toezegging",
+  "Voorstel van wet",
+  "Nota van wijziging",
+  "Amendement",
+  "Motie",
+  "stemming",
+  "publicatie",
+  "inwerkingtreding",
+  "Brief regering",
+  "uitspraak"
+ ],
+ "/components/schemas/FeedJudgmentDTO/properties/conclusion_outcome/anyOf/0": [
+  "verwerping",
+  "vernietiging",
+  "vernietiging en verwijzing",
+  "niet-ontvankelijkverklaring",
+  "gegrondverklaring",
+  "ongegrondverklaring",
+  "beantwoording"
+ ],
+ "/components/schemas/FeedJudgmentDTO/properties/outcome/anyOf/0": [
+  "verworpen",
+  "vernietigd",
+  "gedeeltelijk vernietigd",
+  "vernietigd en verwezen",
+  "bekrachtigd",
+  "bevestigd",
+  "gegrond",
+  "ongegrond",
+  "niet-ontvankelijk",
+  "afgewezen",
+  "toegewezen",
+  "schending",
+  "geen schending"
+ ],
+ "/components/schemas/FeedMatchDTO/properties/field": [
+  "title",
+  "dossier_title",
+  "laws"
+ ],
+ "/components/schemas/FeedPeriodsResponse/properties/per": [
+  "month",
+  "day"
+ ],
+ "/components/schemas/FeedPersonDTO/properties/role": [
+  "indiener",
+  "medeindiener",
+  "bewindspersoon"
+ ],
+ "/components/schemas/FeedPublicationDTO/properties/series/anyOf/0": [
+  "stb",
+  "stcrt",
+  "trb"
+ ],
+ "/components/schemas/FeedPublicationRefDTO/properties/series/anyOf/0": [
+  "stb",
+  "stcrt",
+  "trb"
+ ],
+ "/components/schemas/FeedViaDTO/properties/relation": [
+  "establishes",
+  "amends",
+  "introduces",
+  "repeals",
+  "proposes",
+  "version_of",
+  "based_on",
+  "refers_to",
+  "legislated_in"
+ ],
+ "/components/schemas/FeedVoteCountDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/FeedVoteCountDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/components/schemas/FeedVoteDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/FeedVoteDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/components/schemas/FeedVoteDTO/properties/vote_kind/anyOf/0": [
+  "member",
+  "faction"
+ ],
+ "/components/schemas/HallPlaceDTO/properties/block": [
+  "left",
+  "right",
+  "chair"
+ ],
+ "/components/schemas/HallSeatDTO/properties/block": [
+  "left",
+  "right",
+  "chair"
+ ],
+ "/components/schemas/ImplementedBasisArticleDTO/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/InstrumentBasisItem/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/InstrumentDelegatedItem/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/InstrumentDossierItem/properties/via": [
+  "instrument",
+  "amending_publication"
+ ],
+ "/components/schemas/InstrumentJudgmentItem/properties/conclusion_outcome/anyOf/0": [
+  "verwerping",
+  "vernietiging",
+  "vernietiging en verwijzing",
+  "niet-ontvankelijkverklaring",
+  "gegrondverklaring",
+  "ongegrondverklaring",
+  "beantwoording"
+ ],
+ "/components/schemas/InstrumentJudgmentItem/properties/outcome/anyOf/0": [
+  "verworpen",
+  "vernietigd",
+  "gedeeltelijk vernietigd",
+  "vernietigd en verwezen",
+  "bekrachtigd",
+  "bevestigd",
+  "gegrond",
+  "ongegrond",
+  "niet-ontvankelijk",
+  "afgewezen",
+  "toegewezen",
+  "schending",
+  "geen schending"
+ ],
+ "/components/schemas/InstrumentJudgmentsResponse/properties/sort": [
+  "date",
+  "cited"
+ ],
+ "/components/schemas/InstrumentReferenceDTO/properties/direction": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/InstrumentRelatedBasisDTO/properties/direction": [
+  "inbound",
+  "outbound",
+  "via"
+ ],
+ "/components/schemas/InstrumentRelatedItem/properties/direction": [
+  "inbound",
+  "outbound",
+  "both"
+ ],
+ "/components/schemas/InternationalLinkDTO/properties/kind": [
+  "treaty",
+  "echr_judgment"
+ ],
+ "/components/schemas/JudgmentConclusionDTO/properties/outcome/anyOf/0": [
+  "verwerping",
+  "vernietiging",
+  "vernietiging en verwijzing",
+  "niet-ontvankelijkverklaring",
+  "gegrondverklaring",
+  "ongegrondverklaring",
+  "beantwoording"
+ ],
+ "/components/schemas/JudgmentDTO/properties/conclusion_outcome/anyOf/0": [
+  "verwerping",
+  "vernietiging",
+  "vernietiging en verwijzing",
+  "niet-ontvankelijkverklaring",
+  "gegrondverklaring",
+  "ongegrondverklaring",
+  "beantwoording"
+ ],
+ "/components/schemas/JudgmentDTO/properties/decision_kind/anyOf/0": [
+  "arrest",
+  "vonnis",
+  "beschikking",
+  "uitspraak",
+  "beslissing",
+  "conclusie",
+  "prejudiciële beslissing"
+ ],
+ "/components/schemas/JudgmentDTO/properties/outcome/anyOf/0": [
+  "verworpen",
+  "vernietigd",
+  "gedeeltelijk vernietigd",
+  "vernietigd en verwezen",
+  "bekrachtigd",
+  "bevestigd",
+  "gegrond",
+  "ongegrond",
+  "niet-ontvankelijk",
+  "afgewezen",
+  "toegewezen",
+  "schending",
+  "geen schending"
+ ],
+ "/components/schemas/JudgmentListItemDTO/properties/decision_kind/anyOf/0": [
+  "arrest",
+  "vonnis",
+  "beschikking",
+  "uitspraak",
+  "beslissing",
+  "conclusie",
+  "prejudiciële beslissing"
+ ],
+ "/components/schemas/JudgmentParty/properties/side": [
+  "first",
+  "second",
+  "other"
+ ],
+ "/components/schemas/JudgmentRepresentative/properties/role": [
+  "advocaat",
+  "gemachtigde",
+  "raadsman"
+ ],
+ "/components/schemas/LegislativeHistoryEntry/properties/change": [
+  "establishes",
+  "amends",
+  "introduces",
+  "repeals"
+ ],
+ "/components/schemas/MemberCommitteeDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/MemberVoteDTO/properties/vote_source": [
+  "member",
+  "faction"
+ ],
+ "/components/schemas/MinistryKey": [
+  "az",
+  "aok",
+  "bz",
+  "jenv",
+  "venj",
+  "justitie",
+  "bzk",
+  "biza",
+  "bzbpbo",
+  "ocw",
+  "ow",
+  "okw",
+  "fin",
+  "def",
+  "oorlog",
+  "marine",
+  "ienw",
+  "ienm",
+  "venw",
+  "vene",
+  "owen",
+  "ezk",
+  "ez",
+  "eli",
+  "hn",
+  "kgg",
+  "lvvn",
+  "lnv",
+  "lnbv",
+  "lenv",
+  "lvv",
+  "szw",
+  "sz",
+  "szv",
+  "vws",
+  "wvc",
+  "vm",
+  "crm",
+  "mw",
+  "vro",
+  "vb",
+  "wv",
+  "vrom",
+  "aenm",
+  "scheepvaart",
+  "ogd",
+  "uor",
+  "or",
+  "zo"
+ ],
+ "/components/schemas/MinistryPeriodDTO/properties/source": [
+  "tooi",
+  "rijksoverheid",
+  "curated"
+ ],
+ "/components/schemas/MinistryPeriodDTO/properties/successor_source/anyOf/0": [
+  "tooi",
+  "rijksoverheid",
+  "curated"
+ ],
+ "/components/schemas/NeighborBucketDTO/properties/direction": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/NeighborDTO/properties/direction": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/ParliamentSeatsResponse/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/PathsResponse/properties/expand": [
+  "none",
+  "members"
+ ],
+ "/components/schemas/Post": [
+  "minister-president",
+  "viceminister-president",
+  "minister",
+  "minister_zonder_portefeuille",
+  "staatssecretaris"
+ ],
+ "/components/schemas/RelatedLinkDTO/properties/direction": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/ResolveMatch/properties/kind": [
+  "article",
+  "instrument",
+  "judgment",
+  "dossier",
+  "document",
+  "commitment",
+  "faction",
+  "member"
+ ],
+ "/components/schemas/ResolveResponse/properties/kind/anyOf/0": [
+  "article",
+  "instrument",
+  "judgment",
+  "dossier",
+  "document",
+  "commitment",
+  "faction",
+  "member"
+ ],
+ "/components/schemas/ResolveResponse/properties/kind/anyOf/1#const": [
+  "none"
+ ],
+ "/components/schemas/SenderDTO/properties/capacity/anyOf/0": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
+ ],
+ "/components/schemas/SubDelegatedDTO/properties/basis_kind/anyOf/0": [
+  "delegates",
+  "mentioned"
+ ],
+ "/components/schemas/SubmitterDTO/properties/role": [
+  "indiener",
+  "medeindiener"
+ ],
+ "/components/schemas/Tier": [
+  "hoge_raad",
+  "raad_van_state",
+  "centrale_raad_van_beroep",
+  "college_van_beroep_bedrijfsleven",
+  "parket",
+  "gerechtshof",
+  "rechtbank",
+  "kantongerecht",
+  "tuchtcollege",
+  "andere_instantie",
+  "koninkrijksinstantie",
+  "kroon",
+  "buitenlandse_instantie",
+  "hvj_eu",
+  "ehrm"
+ ],
+ "/components/schemas/TimelineActivityBody/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/TimelineActivityEntry/properties/node_type#const": [
+  "activity"
+ ],
+ "/components/schemas/TimelineCommitmentEntry/properties/node_type#const": [
+  "commitment"
+ ],
+ "/components/schemas/TimelineDecisionBody/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/TimelineDecisionEntry/properties/node_type#const": [
+  "decision"
+ ],
+ "/components/schemas/TimelineDocumentBody/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/TimelineDocumentEntry/properties/node_type#const": [
+  "document"
+ ],
+ "/components/schemas/TimelineDocumentSummaryDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
+ ],
+ "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/7/schema": [
+  "date_desc",
+  "citation_count"
+ ],
+ "/paths//api/commitments/get/parameters/10/schema": [
+  "date",
+  "expected_resolution"
+ ],
+ "/paths//api/committees/get/parameters/0/schema": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/committees/{slug}/get/parameters/2/schema/anyOf/0": [
+  "open",
+  "closed"
+ ],
+ "/paths//api/decisions/get/parameters/10/schema/anyOf/0": [
+  "together",
+  "split",
+  "wissel",
+  "carried",
+  "decisive"
+ ],
+ "/paths//api/decisions/get/parameters/3/schema/anyOf/0": [
+  "voor",
+  "tegen"
+ ],
+ "/paths//api/documents/get/parameters/0/schema/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/dossiers/get/parameters/0/schema": [
+  "open",
+  "closed",
+  "all"
+ ],
+ "/paths//api/dossiers/get/parameters/1/schema/anyOf/0": [
+  "aangenomen",
+  "verworpen"
+ ],
+ "/paths//api/dossiers/get/parameters/12/schema/anyOf/0": [
+  "number",
+  "opened_on",
+  "last_activity",
+  "closed_on",
+  "title"
+ ],
+ "/paths//api/dossiers/{number}/timeline/get/parameters/1/schema": [
+  "asc",
+  "desc"
+ ],
+ "/paths//api/factions/get/parameters/2/schema": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/feed.atom/get/parameters/11/schema/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/feed.atom/get/parameters/12/schema/anyOf/0": [
+  "together",
+  "split",
+  "wissel",
+  "decisive"
+ ],
+ "/paths//api/feed/get/parameters/12/schema/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/feed/get/parameters/13/schema/anyOf/0": [
+  "together",
+  "split",
+  "wissel",
+  "decisive"
+ ],
+ "/paths//api/feed/periods/get/parameters/10/schema/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/feed/periods/get/parameters/11/schema/anyOf/0": [
+  "together",
+  "split",
+  "wissel",
+  "decisive"
+ ],
+ "/paths//api/feed/periods/get/parameters/2/schema": [
+  "month",
+  "day"
+ ],
+ "/paths//api/feed/summary/get/parameters/12/schema/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/feed/summary/get/parameters/13/schema/anyOf/0": [
+  "together",
+  "split",
+  "wissel",
+  "decisive"
+ ],
+ "/paths//api/instruments/get/parameters/4/schema/anyOf/0": [
+  "nl",
+  "eu",
+  "int"
+ ],
+ "/paths//api/instruments/get/parameters/9/schema": [
+  "title",
+  "article_count"
+ ],
+ "/paths//api/instruments/{bwb_id}/judgments/get/parameters/3/schema": [
+  "date",
+  "cited"
+ ],
+ "/paths//api/judgments/get/parameters/15/schema": [
+  "date_desc",
+  "date_asc",
+  "citation_count"
+ ],
+ "/paths//api/lookup/get/parameters/0/schema": [
+  "document",
+  "dossier",
+  "article",
+  "annex",
+  "law",
+  "judgment",
+  "publication",
+  "official",
+  "commitment",
+  "case",
+  "activity",
+  "faction",
+  "committee",
+  "cabinet",
+  "member"
+ ],
+ "/paths//api/members/get/parameters/10/schema": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/members/get/parameters/4/schema/anyOf/0#const": [
+  "bewindspersoon"
+ ],
+ "/paths//api/members/get/parameters/7/schema": [
+  "name",
+  "family_name"
+ ],
+ "/paths//api/nodes/{collection}/{key}/get/parameters/4/schema": [
+  "full",
+  "canvas"
+ ],
+ "/paths//api/nodes/{collection}/{key}/get/parameters/5/schema": [
+  "light",
+  "passages"
+ ],
+ "/paths//api/nodes/{collection}/{key}/get/parameters/8/schema/anyOf/0": [
+  "outbound",
+  "inbound"
+ ],
+ "/paths//api/nodes/{collection}/{key}/neighborhood/get/parameters/4/schema": [
+  "full",
+  "canvas"
+ ],
+ "/paths//api/nodes/{collection}/{key}/neighborhood/get/parameters/5/schema": [
+  "light",
+  "passages"
+ ],
+ "/paths//api/nodes/{collection}/{key}/neighborhood/get/parameters/8/schema/anyOf/0": [
+  "outbound",
+  "inbound"
+ ],
+ "/paths//api/parliament/seats/get/parameters/1/schema": [
+  "TK",
+  "EK"
+ ],
+ "/paths//api/paths/get/parameters/4/schema": [
+  "none",
+  "members"
+ ],
+ "/paths//api/paths/get/parameters/6/schema": [
+  "light",
+  "passages"
+ ],
+ "/paths//api/search/get/parameters/5/schema": [
+  "full",
+  "live"
+ ]
+}

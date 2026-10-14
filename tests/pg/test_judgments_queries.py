@@ -12,6 +12,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.not_found import NotFound
+from tests.fakes import PATIENCE
 
 HR1 = "ECLI:NL:HR:2020:1"
 HR10 = "ECLI:NL:HR:2020:10"
@@ -887,6 +888,7 @@ def test_a_request_waits_once_for_counts_that_expired_together(
     warm-up, so they expire together; a request then has ten of them to wait for, partly one
     after another. It waits one ``STALE_WAIT`` in all and takes the kept counts, not one per
     count (11.1 s on prod on 10 Oct for the judgments of Rechtspraak)."""
+    import threading
     import time
 
     from fastapi.testclient import TestClient
@@ -905,6 +907,7 @@ def test_a_request_waits_once_for_counts_that_expired_together(
         ],
     )  # fmt: skip
     app.dependency_overrides[get_store] = lambda: store
+    release = threading.Event()
     try:
         client = TestClient(app)
         url = "/api/judgments?source=rechtspraak&limit=10&facets=true"
@@ -916,7 +919,7 @@ def test_a_request_waits_once_for_counts_that_expired_together(
         computed = version_cache._compute_lasting
 
         def slow(entry_key: Any, compute: Any) -> Any:
-            time.sleep(3)
+            release.wait(PATIENCE)  # longer than a request waits
             return computed(entry_key, compute)
 
         monkeypatch.setattr(version_cache, "_compute_lasting", slow)
@@ -924,6 +927,7 @@ def test_a_request_waits_once_for_counts_that_expired_together(
         answer = client.get(url).json()
         took = time.perf_counter() - started
     finally:
+        release.set()
         app.dependency_overrides.pop(get_store, None)
     assert answer["facets"] == kept  # the kept counts
-    assert took < version_cache.STALE_WAIT + 1.5, took  # one wait, not one per count
+    assert took < 2 * version_cache.STALE_WAIT, took  # one wait, not one per count

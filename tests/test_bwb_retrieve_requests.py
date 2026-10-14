@@ -370,3 +370,18 @@ def test_a_toestand_without_a_file_is_remembered_and_not_asked_for_again() -> No
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run_history(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
     assert client.requests == ["sru BWBR1"]
+
+
+def test_a_toestand_the_sru_lists_without_a_start_date_is_skipped() -> None:
+    client = _history_client()
+    client.history["BWBR2"].append(
+        {**_meta("BWBR2", "x"), "geldigheidsperiode_startdatum": None}
+    )
+    store = InMemoryStore()
+
+    result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR2"]
+    )
+
+    assert (result.created, result.skipped, result.errors) == (1, 1, [])
+    assert _history_keys(store) == {"BWBR2@2023-07-01"}

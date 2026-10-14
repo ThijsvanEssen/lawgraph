@@ -19,7 +19,7 @@ from lawgraph.pipelines.orchestration import (
 )
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
-from tests.fakes import PipelineStateFake, patch_pipeline_state
+from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
 
 WINDOW = "2024-09-20T00:00:00+00:00"
 
@@ -385,24 +385,30 @@ def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_pa
 
 
 def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> None:
-    import threading
-    import time
-
     order: list[str] = []
     lock = threading.Lock()
+    other_lane_done = threading.Event()
 
-    def main(name: str, seconds: float = 0.0) -> Callable[..., None]:
+    def main(name: str) -> Callable[..., None]:
         def run(argv: list[str]) -> None:
-            time.sleep(seconds)
             with lock:
                 order.append(name)
 
         return run
 
+    def bwb(argv: list[str]) -> None:
+        # runs on until the other lane is done: the wait of staatsblad took no place
+        other_lane_done.wait(PATIENCE)
+        main("bwb")(argv)
+
+    def staatscourant(argv: list[str]) -> None:
+        main("staatscourant")(argv)
+        other_lane_done.set()
+
     steps = [
-        _step("bwb", "bwb", main("bwb", 0.2)),
+        _step("bwb", "bwb", bwb),
         _step("staatsblad", "koop", main("staatsblad"), after=("bwb",)),
-        _step("staatscourant", "koop", main("staatscourant")),
+        _step("staatscourant", "koop", staatscourant),
     ]
     # Two places and a waiting step: the wait must not take one of them.
     results = _run_pipelines_in_lanes(steps, _no_argv, jobs=2)
@@ -448,34 +454,27 @@ def test_by_default_every_server_has_its_own_job() -> None:
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:
     """Ctrl-C reaches the main thread only; the lanes fetched on for hours."""
-    import time
-
-    import pytest
-
     from lawgraph.pipelines.base import STOP
 
-    looped: list[int] = []
+    under_way = threading.Event()
+    stopped: list[bool] = []
 
     def interrupted(argv: list[str]) -> None:
-        time.sleep(0.2)
+        under_way.wait(PATIENCE)
         raise KeyboardInterrupt
 
     def long_running(argv: list[str]) -> None:
-        # What RetrievePipelineBase._store_all does between two records.
-        for number in range(10_000):
-            if STOP.is_set():
-                return
-            looped.append(number)
-            time.sleep(0.01)
+        # What RetrievePipelineBase._store_all checks between two records.
+        under_way.set()
+        stopped.append(STOP.wait(PATIENCE))
 
     steps = [_step("a", "lane-a", interrupted), _step("b", "lane-b", long_running)]
-    started = time.monotonic()
     try:
         with pytest.raises(KeyboardInterrupt):
             _run_pipelines_in_lanes(steps, _no_argv, jobs=2)
     finally:
         STOP.clear()
-    assert time.monotonic() - started < 5 and len(looped) < 1_000
+    assert stopped == [True]
 
 
 # ── filling gaps is a way to retrieve ────────────────────────────────────────
