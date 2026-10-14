@@ -18,17 +18,18 @@ its seats per day are not known.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from itertools import groupby
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
+from lawgraph.core.cabinets import cabinet_on
 from lawgraph.core.coalition import coalition_on, vote_pattern
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import OPEN_END
+from lawgraph.core.time import covers
 from lawgraph.db.queries import coalition as coalition_queries
-from lawgraph.db.queries.cabinets import memberships_between
+from lawgraph.db.queries.cabinets import all_memberships
 
 from .base import SemanticPipelineBase
 
@@ -44,17 +45,13 @@ class TKCoalitionVotesSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         cabinets = coalition_queries.cabinets_with_posts(self.store)
-        factions_of = _factions_of_members(
-            memberships_between(self.store, "0000-01-01", OPEN_END)
-        )
+        factions_of = _factions_of_members(all_memberships(self.store))
         since_date = since.date().isoformat() if since is not None else None
         rows = coalition_queries.decision_votes(self.store, since_date)
         kept: list[str] = []
         batch: list[dict[str, Any]] = []
-        for decision_id, votes in groupby(
-            self._track(rows, "votes"), lambda r: r["id"]
-        ):
-            row = _decision_row(decision_id, list(votes), cabinets, factions_of)
+        for decision_id, votes in _per_decision(self._track(rows, "votes")):
+            row = _decision_row(decision_id, votes, cabinets, factions_of)
             if row is None:
                 continue
             batch.append(row)
@@ -85,23 +82,21 @@ def _factions_of_members(
     return found
 
 
-def _cabinet_on(cabinets: list[dict[str, Any]], day: str) -> dict[str, Any] | None:
-    """The cabinet in office on *day*: the newest that had begun and not yet ended."""
-    for cabinet in cabinets:  # newest first
-        if cabinet["from_date"] <= day and (
-            not cabinet["to_date"] or day <= cabinet["to_date"]
-        ):
-            return cabinet
-    return None
+def _per_decision(
+    rows: Iterable[dict[str, Any]],
+) -> Iterator[tuple[str, list[dict[str, Any]]]]:
+    """The votes of each decision, from rows sorted by decision (``decision_votes`` sorts on
+    ``d.id``); a decision that comes back after another is an error, not a second group."""
+    seen: set[str] = set()
+    for decision_id, votes in groupby(rows, lambda r: str(r["id"])):
+        if decision_id in seen:
+            raise ValueError(f"votes not sorted by decision: {decision_id} again")
+        seen.add(decision_id)
+        yield decision_id, list(votes)
 
 
 def _faction_on(memberships: list[dict[str, Any]], day: str) -> str | None:
-    for row in memberships:
-        if (row.get("from_date") or "") <= day and (
-            not row.get("to_date") or day <= row["to_date"]
-        ):
-            return row.get("faction_key")
-    return None
+    return next((r.get("faction_key") for r in memberships if covers(r, day)), None)
 
 
 def _votes(
@@ -129,9 +124,10 @@ def _decision_row(
     """The row of ``lg_decision_coalition`` of one decision; None without a cabinet or
     without a coalition vote."""
     day = str(votes[0]["date"])[:10]
-    cabinet = _cabinet_on(cabinets, day)
-    if cabinet is None:
+    key = cabinet_on(day, cabinets)
+    if key is None:
         return None
+    cabinet = next(c for c in cabinets if c["key"] == key)
     coalition = coalition_on(cabinet["posts"] or [], day)
     pattern = vote_pattern(_votes(votes, day, factions_of), coalition)
     if pattern is None:
