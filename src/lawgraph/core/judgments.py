@@ -13,6 +13,7 @@ from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.curated import LISTS
+from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.dutch_names import INITIAL, INITIALS, LONG_WORD, TITLE, surname
 from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
@@ -421,21 +422,20 @@ def case_number_keys(case_number: str | None) -> list[str]:
 # The paragraphs a ruling tells its referral in: the start ("1 De prejudiciële procedure"),
 # after the parties and, when two courts asked, the procedure of each.
 REFERRAL_PARAGRAPHS = 40
-_DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 # "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 # rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
 # 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021"; "verwijst de Hoge Raad naar de
 # beschikkingen in de zaak 4986381\EJ VERZ 16-142 en 5026511\EJ VERZ 16-163 van de
 # kantonrechter te Enschede van 26 april 2016 en 20 mei 2016".
 _CASE_THEN_DATE = re.compile(
-    rf"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{{3,160}}?)\s+van\s+(?P<date>{_DATE})"
-    rf"(?:\s+en\s+(?P<last>{_DATE}))?",
+    rf"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{{3,160}}?)\s+van\s+(?P<date>{DATE})"
+    rf"(?:\s+en\s+(?P<last>{DATE}))?",
     re.IGNORECASE,
 )
 # "Bij tussenvonnis van 14 november 2024 met zaaknummer C/15/351661 / KG ZA 24-199 heeft";
 # "Bij tussenuitspraak van 28 april 2023, in zaak nr. 22/2463T, heeft".
 _DATE_THEN_CASE = re.compile(
-    rf"\bvan\s+(?P<date>{_DATE}),?\s+(?:met\s+zaaknummers?|in\s+(?:de\s+)?zaak\s+nr\.?)"
+    rf"\bvan\s+(?P<date>{DATE}),?\s+(?:met\s+zaaknummers?|in\s+(?:de\s+)?zaak\s+nr\.?)"
     r"\s+(?P<numbers>.{3,120}?)\s*(?:,|\bheeft\b)",
     re.IGNORECASE,
 )
@@ -443,33 +443,13 @@ _DATE_THEN_CASE = re.compile(
 # beslissing van 19 december 2022, nummers 18-018510-21, 18-298097-21 en 18-298079-21,
 # gestelde rechtsvragen".
 _DECISION_NUMBERS = re.compile(
-    rf"\bbij\s+beslissing\s+van\s+(?P<date>{_DATE}),\s+(?:parket)?nummers?\s+"
+    rf"\bbij\s+beslissing\s+van\s+(?P<date>{DATE}),\s+(?:parket)?nummers?\s+"
     r"(?P<numbers>.{3,160}?),\s+gestelde\b",
     re.IGNORECASE,
 )
 _REFERRAL_FORMS = (_CASE_THEN_DATE, _DATE_THEN_CASE, _DECISION_NUMBERS)
 # Where the case numbers of "in de zaak X van de rechtbank Y van <date>" end.
 _COURT_AFTER_NUMBERS = re.compile(r"\s+van\s+(?:de|het)\s", re.IGNORECASE)
-_MONTHS = {
-    month: number
-    for number, month in enumerate(
-        (
-            "januari",
-            "februari",
-            "maart",
-            "april",
-            "mei",
-            "juni",
-            "juli",
-            "augustus",
-            "september",
-            "oktober",
-            "november",
-            "december",
-        ),
-        start=1,
-    )
-}
 
 
 @dataclass(frozen=True)
@@ -483,17 +463,6 @@ class Referral:
     def names(self, case_number: str | None) -> bool:
         """Whether *case_number* (of a judgment, one or more) is one this referral names."""
         return any(same_case_number(own, case_number) for own in self.case_numbers)
-
-
-def _dutch_date(text: str) -> str | None:
-    day, month, year = text.split()
-    number = _MONTHS.get(month.lower())
-    if number is None:
-        return None
-    try:
-        return dt.date(int(year), number, int(day)).isoformat()
-    except ValueError:
-        return None
 
 
 def _cases_and_date(text: str) -> tuple[re.Match[str] | None, tuple[str, ...]]:
@@ -519,7 +488,7 @@ def _referral_of(text: str, referred: Referral | None) -> Referral | None:
         return Referral(eclis=eclis)
     match, numbers = _cases_and_date(text)
     if match and numbers:
-        return Referral(case_numbers=numbers, date=_dutch_date(match["date"]))
+        return Referral(case_numbers=numbers, date=dutch_day(match["date"]))
     if "laatstgenoemd" in lowered:
         return referred
     return None
@@ -531,7 +500,7 @@ def _referred_to(text: str) -> Referral | None:
     if match is None or not numbers:
         return None
     last = match.groupdict().get("last") or match["date"]
-    return Referral(case_numbers=numbers, date=_dutch_date(last))
+    return Referral(case_numbers=numbers, date=dutch_day(last))
 
 
 def read_referrals(paragraphs: list[dict[str, Any]]) -> list[Referral]:

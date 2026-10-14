@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,6 +20,7 @@ from lawgraph.core.coalition import (
     seat_timeline,
     tk_events,
 )
+from lawgraph.core.time import day_before
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
@@ -111,7 +111,7 @@ def _last_day(store: GraphStore, key: str, to_date: str) -> str:
     on_it = cabinet_on(store, to_date)
     if on_it is None or on_it["key"] == key:
         return to_date
-    return (dt.date.fromisoformat(to_date) - dt.timedelta(days=1)).isoformat()
+    return day_before(to_date)
 
 
 def _ek_stretches(

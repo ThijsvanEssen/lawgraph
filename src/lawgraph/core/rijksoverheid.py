@@ -25,69 +25,36 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.core.dutch_dates import (
+    DATE_ABBREVIATED,
+    MONTH_OR_ABBREVIATION,
+    dutch_day,
+)
 from lawgraph.core.dutch_names import TITLES
 from lawgraph.core.xml import collapse_ws, html_text
 
-MONTHS: dict[str, int] = {
-    "januari": 1,
-    "jan": 1,
-    "februari": 2,
-    "febr": 2,
-    "feb": 2,
-    "maart": 3,
-    "mrt": 3,
-    "april": 4,
-    "apr": 4,
-    "mei": 5,
-    "juni": 6,
-    "jun": 6,
-    "juli": 7,
-    "jul": 7,
-    "augustus": 8,
-    "aug": 8,
-    "september": 9,
-    "sept": 9,
-    "sep": 9,
-    "oktober": 10,
-    "okt": 10,
-    "november": 11,
-    "nov": 11,
-    "december": 12,
-    "dec": 12,
-}
-_MONTH = "|".join(sorted(MONTHS, key=len, reverse=True))
-# ``3 juni 2025``, ``15 sept. 1947``, ``8 sep.1977``
-DATE = rf"(\d{{1,2}})\s*({_MONTH})\b\.?\s*(\d{{4}})"
-_DATE = re.compile(DATE, re.IGNORECASE)
-# The same without groups, to build other patterns with.
-DAY = rf"\d{{1,2}}\s*(?:{_MONTH})\b\.?\s*\d{{4}}"
+# ``3 juni 2025``, ``15 sept. 1947``, ``8 sep.1977``: the page abbreviates its months.
+_DAY = DATE_ABBREVIATED
+_DATE = re.compile(_DAY, re.IGNORECASE)
 # ``3 juni 2025 - 19 juni 2025``, ``31 aug.-5 sep. 1966``, ``7-14 jan. 1970``,
 # ``15 mei-10 juli 1950``: what the first day leaves out, it shares with the second.
 _RANGE = re.compile(
-    rf"(\d{{1,2}})\s*(?:({_MONTH})\b\.?\s*(\d{{4}})?)?\s*[-–]\s*{DATE}", re.IGNORECASE
+    rf"(\d{{1,2}})\s*(?:({MONTH_OR_ABBREVIATION})\b\.?\s*(\d{{4}})?)?\s*[-–]\s*"
+    rf"(\d{{1,2}})\s*({MONTH_OR_ABBREVIATION})\b\.?\s*(\d{{4}})",
+    re.IGNORECASE,
 )
 
 SECTION_MINISTERS = "ministers"
 SECTION_STATE_SECRETARIES = "staatssecretarissen"
 
 
-def iso(day: str | int, month: str, year: str | int) -> str | None:
-    """``2025-06-03`` of ``3``, ``juni``, ``2025``; ``None`` for a day that does not exist."""
-    number = MONTHS.get(month.lower().rstrip("."))
-    if number is None or not 1 <= int(day) <= 31:
-        return None
-    return f"{int(year):04d}-{number:02d}-{int(day):02d}"
-
-
-def parse_date(text: str | None) -> str | None:
-    """The first day written in *text*, as ``YYYY-MM-DD``."""
-    match = _DATE.search(text or "")
-    return iso(*match.groups()) if match else None
+def _date(text: str) -> str | None:
+    return dutch_day(text, abbreviations=True)
 
 
 def _range(match: re.Match[str]) -> tuple[str | None, str | None]:
     d1, m1, y1, d2, m2, y2 = match.groups()
-    return iso(d1, m1 or m2, y1 or y2), iso(d2, m2, y2)
+    return _date(f"{d1} {m1 or m2} {y1 or y2}"), _date(f"{d2} {m2} {y2}")
 
 
 def _lines(fragment: str) -> list[str]:
@@ -128,15 +95,15 @@ def intro_period(intro: str) -> tuple[str | None, str | None]:
     match = _RANGE.search(intro)
     if match and match.start() < 5:
         return _range(match)
-    governed = re.search(rf"regeerde van ({DATE}) tot ({DATE})", intro, re.IGNORECASE)
+    governed = re.search(rf"regeerde van ({_DAY}) tot ({_DAY})", intro, re.IGNORECASE)
     if governed:
-        return parse_date(governed.group(1)), parse_date(governed.group(5))
-    sworn = re.search(rf"Op ({DATE}) was de beëdiging", intro, re.IGNORECASE)
-    return (parse_date(sworn.group(1)) if sworn else None), None
+        return _date(governed[1]), _date(governed[2])
+    sworn = re.search(rf"Op ({_DAY}) was de beëdiging", intro, re.IGNORECASE)
+    return (_date(sworn[1]) if sworn else None), None
 
 
 # A line ``<label>: <day>``: ``Tweede Kamerverkiezingen: 15 mei 2002``.
-_FACT = re.compile(rf"^([^:]{{3,60}}?)\s*:\s*({DATE})\s*\.?$", re.IGNORECASE)
+_FACT = re.compile(rf"^([^:]{{3,60}}?)\s*:\s*({_DAY})\s*\.?$", re.IGNORECASE)
 
 
 def _facts(heading: str, body: str) -> list[dict[str, Any]]:
@@ -149,7 +116,7 @@ def _facts(heading: str, body: str) -> list[dict[str, Any]]:
                 {
                     "label": match.group(1).strip(),
                     "text": line,
-                    "date": parse_date(match.group(2)),
+                    "date": _date(match[2]),
                     "block": heading,
                 }
             )
@@ -176,7 +143,7 @@ def _resignations(text: str) -> list[dict[str, Any]]:
         for match in _DATE.finditer(sentence):
             if _NOT_THE_DAY.search(sentence[: match.start()]):
                 continue
-            found.append({"label": sentence.strip(), "date": iso(*match.groups())})
+            found.append({"label": sentence.strip(), "date": _date(match[0])})
             break
     return found
 
@@ -211,7 +178,7 @@ def parse_page(page: str) -> dict[str, Any]:
 # ``Van 3 februari 1987 tot 6 mei 1987 ... werden de volgende tijdelijke voorzieningen
 # getroffen:``: the items after it stood in for that period.
 _TEMPORARY = re.compile(
-    rf"\bVan ({DATE}) tot ({DATE}).*tijdelijke voorziening", re.IGNORECASE
+    rf"\bVan ({_DAY}) tot ({_DAY}).*tijdelijke voorziening", re.IGNORECASE
 )
 
 
@@ -262,8 +229,8 @@ def _seats(section: str, body: str) -> list[dict[str, Any]]:
             match = _TEMPORARY.search(note)
             if match:
                 temporary = {
-                    "from_date": parse_date(match.group(1)),
-                    "to_date": parse_date(match.group(5)),
+                    "from_date": _date(match[1]),
+                    "to_date": _date(match[2]),
                     "note": note,
                 }
     return seats
@@ -323,10 +290,10 @@ _BRACKET = re.compile(r"\(([^()]*)\)")
 _AFTER_INITIALS = re.compile(r"(?:\b[A-Z][a-z]{0,2}\.|\b[A-Z])\s*$")
 _ACTING = re.compile(r"\ba\.\s?i\b\.?", re.IGNORECASE)
 _STARTS = re.compile(
-    rf"\b(?:vanaf|per|aangetreden|sinds)\s*(?:op\s+)?{DATE}", re.IGNORECASE
+    rf"\b(?:vanaf|per|aangetreden|sinds)\s*(?:op\s+)?{_DAY}", re.IGNORECASE
 )
-_ENDS = re.compile(rf"\b(tot|afgetreden|overleden)\s+(?:op\s+)?{DATE}", re.IGNORECASE)
-_DEFINITIVE = re.compile(rf"\bdefinitief\s+{DATE}", re.IGNORECASE)
+_ENDS = re.compile(rf"\b(tot|afgetreden|overleden)\s+(?:op\s+)?{_DAY}", re.IGNORECASE)
+_DEFINITIVE = re.compile(rf"\bdefinitief\s+{_DAY}", re.IGNORECASE)
 _KEYWORD_BEFORE = re.compile(
     r"(vanaf|per|aangetreden|sinds|tot|afgetreden|overleden|definitief|op)\s*$",
     re.IGNORECASE,
@@ -372,16 +339,16 @@ def _period(text: str) -> dict[str, Any]:
         text = text[: span.start()] + text[span.end() :]
     start = _STARTS.search(text)
     if start:
-        period["from_date"] = iso(*start.groups())
+        period["from_date"] = _date(start[0])
     end = _ENDS.search(text)
     if end:
         period["ended"] = end.group(1).lower()
-        period["to_date"] = iso(*end.groups()[1:])
+        period["to_date"] = _date(end[0])
     if period["from_date"] is None:
         # a bare day is the start: ``Dr. B.R. Bot, 3 december 2003``
         for bare in _DATE.finditer(text):
             if not _KEYWORD_BEFORE.search(text[: bare.start()]):
-                period["from_date"] = iso(*bare.groups())
+                period["from_date"] = _date(bare[0])
                 break
     return period
 
@@ -426,8 +393,8 @@ def parse_holder(line: str) -> dict[str, Any] | None:
         "periods": [p for p in periods if p["from_date"] or p["to_date"]]
         or [periods[0]],
         "acting": bool(_ACTING.search(rest)),
-        "until_acting": iso(*definitive.groups()) if definitive else None,
-        "portfolio": re.sub(rf",?\s*{DATE}.*$", "", own.group(1)).strip()
+        "until_acting": _date(definitive[0]) if definitive else None,
+        "portfolio": re.sub(rf",?\s*{_DAY}.*$", "", own.group(1)).strip()
         if own
         else None,
         "also_deputy": bool(_ALSO_DEPUTY.search(rest)),
