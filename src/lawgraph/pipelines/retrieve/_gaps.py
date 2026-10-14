@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.dossier_numbers import first_reading_dossiers
-from lawgraph.core.identifiers import kamerstuk_identifier
+from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -79,22 +79,36 @@ class Gaps(list):  # type: ignore[type-arg]
 
     note: str | None = None
 
+    @classmethod
+    def capped(cls, rows: list[Any], what: str, limit: int = MAX_GAPS_PER_RUN) -> Gaps:
+        """The first *limit* of *rows*; a longer list is said out loud, and in the ``note``
+        the table of ``retrieve all`` shows."""
+        if len(rows) <= limit:
+            return cls(rows)
+        logger.warning(
+            "%d %s found; this run takes the first %d (`retrieve all --mode gaps` or "
+            "expand-graph again for the rest).",
+            len(rows),
+            what,
+            limit,
+        )
+        gaps = cls(rows[:limit])
+        gaps.note = f"{limit:,} of {len(rows):,} {what}, again for the rest"
+        return gaps
 
-def _capped(rows: list[Any], what: str) -> Gaps:
-    """The first ``MAX_GAPS_PER_RUN`` of *rows*; a longer list is said out loud, and in the
-    ``note`` the table of ``retrieve all`` shows."""
-    if len(rows) <= MAX_GAPS_PER_RUN:
-        return Gaps(rows)
-    logger.warning(
-        "%d %s found; this run takes the first %d (`retrieve all --mode gaps` or expand-graph "
-        "again for the rest).",
-        len(rows),
-        what,
-        MAX_GAPS_PER_RUN,
-    )
-    gaps = Gaps(rows[:MAX_GAPS_PER_RUN])
-    gaps.note = f"{MAX_GAPS_PER_RUN:,} of {len(rows):,} {what}, again for the rest"
-    return gaps
+
+def waiting_for_retry(store: Store, source: str, kind: str) -> set[str]:
+    """The ids of the *kind* documents *source* answered HTTP 404 for whose
+    ``retry_after`` has not passed yet."""
+    return {
+        str(external_id)
+        for external_id in raw_queries.ids_waiting_for_retry(
+            store,
+            source=source,
+            kind=kind + RAW_KIND_MISSING_SUFFIX,
+            now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+        )
+    }
 
 
 def noted(result: PipelineResult, *work: Sequence[Any]) -> PipelineResult:
@@ -113,18 +127,11 @@ def rechtspraak_gaps(store: Store) -> Gaps:
     # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
     # where they sort, and a first 50,000 full of judgments that are not published would
     # keep every later one from ever being asked for.
-    missing = set(
-        raw_queries.ids_waiting_for_retry(
-            store,
-            source=SOURCE_RECHTSPRAAK,
-            kind=RAW_KIND_RS_CONTENT + RAW_KIND_MISSING_SUFFIX,
-            now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
-        )
-    )
+    missing = waiting_for_retry(store, SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
     eclis = [
         ecli for ecli in gap_queries.stub_dutch_eclis(store) if ecli not in missing
     ]
-    return _capped(eclis, "stub judgments")
+    return Gaps.capped(eclis, "stub judgments")
 
 
 def unanswered_referrals(store: Store) -> list[Referral]:
@@ -168,6 +175,7 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
         paper["identifier"] = kamerstuk_identifier(
             paper["number"], paper.get("suffix"), paper["sequence"]
         )
+    papers = [p for p in papers if KST_ID_PATTERN.fullmatch(p["identifier"])]
     stored = _with_raw_record(store, papers, RAW_KIND_TK_KAMERSTUK_XML)
     waiting = _with_raw_record(
         store,
@@ -175,7 +183,7 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
         RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX,
         retry_ahead=True,
     )
-    return _capped(
+    return Gaps.capped(
         [p for p in papers if p["identifier"] not in stored | waiting],
         "Kamerstukken without XML",
     )
@@ -252,6 +260,6 @@ def tk_dossier_gaps(store: Store) -> Gaps:
         RAW_KIND_TK_DOCUMENT + RAW_KIND_MISSING_SUFFIX,
         retry_ahead=True,
     )
-    return _capped(
+    return Gaps.capped(
         [n for n in numbers if n not in waiting], "dossiers named or incomplete"
     )

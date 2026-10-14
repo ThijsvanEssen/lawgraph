@@ -53,6 +53,6 @@ class StaatsbladClient(BaseClient):
             default_title_prefix="Staatsblad",
         )
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
-        """The XML of a Staatsblad publication, or ``None`` when the repository has none."""
+    def fetch_publication_xml(self, identifier: str) -> str:
+        """The XML of a Staatsblad publication (``_sru.fetch_publication_xml``)."""
         return fetch_publication_xml(self, "stb", STB_ID_PATTERN, identifier)

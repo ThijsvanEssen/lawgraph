@@ -7,8 +7,6 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
 from typing import Any
 
-import requests
-
 from lawgraph.clients.base import BaseClient, UnexpectedAnswer, xml_text
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import find_own_text, local_name
@@ -198,28 +196,21 @@ def fetch_publication_xml(
     id_pattern: re.Pattern[str],
     identifier: str,
     group: str | None = None,
-) -> str | None:
+) -> str:
     """The XML of a publication (``stb``, ``stcrt``, ``kst``) from the repository.
 
     The repository files a publication under a group: the year for the Staatsblad and the
     Staatscourant (the default), the dossier for a Kamerstuk (``37020`` or ``37020-X``).
 
-    ``None`` when the identifier is malformed or the repository has no XML for it (404); any
-    other failure raises, after the retries of ``BaseClient``, and so does a page that is
-    not XML (``UnexpectedAnswer``).
+    A failed request raises (``requests.HTTPError``, 404 when the repository has no XML),
+    after the retries of ``BaseClient``; so does a malformed identifier, which is not asked
+    for, and a page that is not XML (``UnexpectedAnswer``).
     """
     if not id_pattern.search(identifier) or not _IDENTIFIER_RE.fullmatch(identifier):
-        logger.warning("Cannot parse %s identifier: %s", kind, identifier)
-        return None
+        raise UnexpectedAnswer(f"not a {kind} identifier: {identifier!r}")
     group = group or identifier.split("-")[1]
     url = (
         f"{client.base_url.rstrip('/')}/frbr/officielepublicaties/{kind}/{group}/"
         f"{identifier}/1/xml/{identifier}.xml"
     )
-    try:
-        return xml_text(client._get_raw_absolute_with_retry(url, timeout=60))
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 404:
-            logger.debug("%s XML not found at %s (404)", kind, url)
-            return None
-        raise
+    return xml_text(client._get_raw_absolute_with_retry(url, timeout=60))

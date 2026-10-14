@@ -14,7 +14,7 @@ import io
 import zipfile
 from typing import Any
 
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, UnexpectedAnswer
 from lawgraph.config.settings import ECHR_HUDOC_BASE_URL
 from lawgraph.core.logging import get_logger
 
@@ -149,7 +149,7 @@ class EchrClient(BaseClient):
         """The ``word/document.xml`` of the DOCX of item *item_id* (``001-252192``).
 
         A failing request raises (HUDOC answers HTTP 500 for an unknown item); an answer
-        that is no DOCX raises ``ValueError``.
+        that is no DOCX raises ``UnexpectedAnswer``.
         """
         resp = self._get_raw_with_retry(
             "/app/conversion/docx/",
@@ -160,4 +160,4 @@ class EchrClient(BaseClient):
             with zipfile.ZipFile(io.BytesIO(resp.content)) as docx:
                 return docx.read(_DOCX_BODY).decode("utf-8")
         except (zipfile.BadZipFile, KeyError, UnicodeDecodeError) as exc:
-            raise ValueError(f"HUDOC {item_id}: no DOCX ({exc})") from exc
+            raise UnexpectedAnswer(f"HUDOC {item_id}: no DOCX ({exc})") from exc
