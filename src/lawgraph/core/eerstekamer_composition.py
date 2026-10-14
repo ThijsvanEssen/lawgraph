@@ -24,7 +24,7 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.dutch_dates import dutch_day
 
 FACTIONS_PATH = "/fracties"
 COMMITTEES_PATH = "/commissies"
@@ -185,7 +185,7 @@ def page(html: str) -> Page:
                 function=function.strip(),
                 path=path,
                 name=text(name),
-                since=parse_date(since),
+                since=dutch_day(since, abbreviations=True),
             )
             for function, path, name, since in _BOARD.findall(main)
         ],

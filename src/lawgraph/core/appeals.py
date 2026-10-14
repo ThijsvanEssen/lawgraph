@@ -22,9 +22,9 @@ from lawgraph.config.constants import (
     RELATION_CONTINUES,
     RELATION_REFERRED_BY,
 )
+from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.judgments import (
     PROCEDURE_PRELIMINARY_RULING,
-    _dutch_date,
     same_case_number,
 )
 from lawgraph.core.xml import collapse_ws
@@ -105,7 +105,6 @@ def earlier_instance_relation(later: Instance, earlier: Instance) -> str | None:
 
 # The paragraphs an appeal names the decision it appeals in: the kop and the procedure.
 APPEAL_TARGET_PARAGRAPHS = 12
-_DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 # "tegen de uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811";
 # "tegen het vonnis van de rechtbank te Rotterdam van 12 december 2002 in de strafzaak onder
 # parketnummer 10/123456-01"; "tegen een arrest van het gerechtshof Den Haag van 2 februari
@@ -114,7 +113,7 @@ _DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 _APPEALED = re.compile(
     r"\btegen\s+(?:de|het|een)\s+"
     r"(?:uitspraak|vonnis|beschikking|beslissing|arrest|tussenuitspraak|einduitspraak)\s+"
-    rf"van\s+(?P<court>(?:de|het)\s+.{{3,80}}?)\s+van\s+(?P<date>{_DATE})"
+    rf"van\s+(?P<court>(?:de|het)\s+.{{3,80}}?)\s+van\s+(?P<date>{DATE})"
     r"(?:,?\s+(?:in\s+(?:de\s+)?(?:straf)?zaak\s+)?(?:onder\s+|met\s+)?"
     r"(?:(?:zaak|parket|rol|registratie)?nummers?|nrs?\.|nr|kenmerk|reg\.\s*nrs?\.)"
     r"\s*:?\s*(?P<number>(?:[A-Z]{1,6}\s)?[A-Z]{0,3}\d[\w./-]*\d[A-Z]{0,4}))?",
@@ -162,7 +161,7 @@ def read_appeal_targets(paragraphs: list[dict[str, Any]]) -> list[AppealTarget]:
         targets: list[AppealTarget] = []
         for match in _APPEALED.finditer(text):
             court = _SOFT_HYPHEN.sub("-", _ARTICLE.sub("", match["court"])).rstrip(" ,")
-            date = _dutch_date(match["date"])
+            date = dutch_day(match["date"])
             if not date or not _COURT_WORD.search(court):
                 continue
             target = AppealTarget(court=court, date=date, case_number=match["number"])

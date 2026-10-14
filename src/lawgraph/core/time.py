@@ -111,31 +111,15 @@ def format_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
-MONTHS = (
-    "januari",
-    "februari",
-    "maart",
-    "april",
-    "mei",
-    "juni",
-    "juli",
-    "augustus",
-    "september",
-    "oktober",
-    "november",
-    "december",
-)
+# The last day of a period that has not ended: it sorts after every real day.
+OPEN_END = "9999-12-31"
 
 
-def long_date(iso: Any) -> str:
-    """``2019-12-20`` as the explorer writes a day (``langeDatum``): ``20 december 2019``;
-    empty for anything that is no date."""
-    m = re.match(
-        r"^(\d{4})-(\d{2})-(\d{2})", iso.strip() if isinstance(iso, str) else ""
-    )
-    if not m:
-        return ""
-    year, month, day = int(m[1]), int(m[2]), int(m[3])
-    if not (1 <= month <= 12 and 1 <= day <= 31):
-        return ""
-    return f"{day} {MONTHS[month - 1]} {year}"
+def shift_day(day: str, days: int) -> str:
+    """The ISO day *days* after *day* (before it when negative)."""
+    return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
+
+
+def day_before(day: str) -> str:
+    """The ISO day before *day*."""
+    return shift_day(day, -1)

@@ -28,8 +28,7 @@ from lawgraph.core.cabinet_posts import (
     SEAT_DEPUTY,
     seat_gaps,
 )
-
-_OPEN = "9999-12-31"
+from lawgraph.core.time import OPEN_END
 
 
 def _by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -38,7 +37,7 @@ def _by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]
         if post.get("seat") != SEAT_DEPUTY:
             seats[post.get("seat") or ""].append(post)
     for held in seats.values():
-        held.sort(key=lambda p: (p["from_date"] or "", p["to_date"] or _OPEN))
+        held.sort(key=lambda p: (p["from_date"] or "", p["to_date"] or OPEN_END))
     return seats
 
 
@@ -47,10 +46,10 @@ def _who(post: dict[str, Any]) -> str:
 
 
 def _post_violations(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> list[str]:
-    start, end = cabinet["from_date"], cabinet["to_date"] or _OPEN
+    start, end = cabinet["from_date"], cabinet["to_date"] or OPEN_END
     found = []
     for post in posts:
-        to = post["to_date"] or _OPEN
+        to = post["to_date"] or OPEN_END
         if not post["from_date"] or post["from_date"] < start or to > end:
             found.append(
                 f"{cabinet['key']}: {_who(post)} in {post['seat']} "
@@ -69,7 +68,7 @@ def _post_violations(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> li
             for b in held[i + 1 :]:
                 if _who(a) == _who(b):
                     continue
-                if b["from_date"] < (a["to_date"] or _OPEN) and not (
+                if b["from_date"] < (a["to_date"] or OPEN_END) and not (
                     a.get("overlaps_with") and b.get("overlaps_with")
                 ):
                     found.append(

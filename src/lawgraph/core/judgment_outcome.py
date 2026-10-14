@@ -39,6 +39,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from lawgraph.core.display import shorten
 from lawgraph.core.judgments import KIND_CONCLUSIE
 
 # The outcomes of a judgment.
@@ -220,12 +221,6 @@ def _clauses(
     return clauses
 
 
-def _cut(sentence: str) -> str:
-    if len(sentence) <= SENTENCE_CHARS:
-        return sentence
-    return sentence[: SENTENCE_CHARS - 1].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-
-
 def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome | None:
     """The outcome of a judgment with these *paragraphs* (``{id, kind, text}``, as
     ``core.judgments.judgment_text`` reads them); None when its decision does not say one
@@ -246,7 +241,7 @@ def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome 
         and _REFERRED.search(rest)
     ):
         label = QUASHED_REFERRED
-    return Outcome(label, _cut(clause), paragraph.get("id"))
+    return Outcome(label, shorten(clause, SENTENCE_CHARS), paragraph.get("id"))
 
 
 def _sentence_at(text: str, at: int) -> str:
@@ -284,7 +279,9 @@ def conclusion_outcome(
             # middel gegrond achtend, tot verwerping")
             label = _proposal(text[match.end() : match.end() + len(sentence)])
             if label is not None:
-                return Outcome(label, _cut(sentence), paragraph.get("id"))
+                return Outcome(
+                    label, shorten(sentence, SENTENCE_CHARS), paragraph.get("id")
+                )
     return None
 
 

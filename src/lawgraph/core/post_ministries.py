@@ -21,7 +21,6 @@ Infrastructuur en Waterstaat 50, BZK 32), ``no_source`` when no source had enoug
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 import unicodedata
 from collections import Counter
@@ -35,6 +34,7 @@ from lawgraph.core.ministries import (
     classify_function,
     ministry_of,
 )
+from lawgraph.core.time import shift_day
 
 SOURCE_PAGE = "page"
 SOURCE_TK_SIGNATURES = "tk_signatures"
@@ -107,12 +107,6 @@ def _kind(post: dict[str, Any]) -> str:
     )
 
 
-def _plus_days(day: str | None, days: int) -> str:
-    if not day:
-        return ""
-    return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
-
-
 # A letter signed just after the post ended still belongs to it.
 SIGNED_AFTER_POST_DAYS = 14
 
@@ -123,7 +117,8 @@ def signature_counts(
     """Per ministry: the months in which the holder signed Tweede Kamer papers in a function
     of the post's kind that names that ministry, while holding the post. *signed* are the
     holder's signatures in government, ``{function, first, last}`` per function and month."""
-    grace = _plus_days(post.get("to_date"), SIGNED_AFTER_POST_DAYS)
+    ended = post.get("to_date")
+    grace = shift_day(ended, SIGNED_AFTER_POST_DAYS) if ended else ""
     return count_by(
         classify_function(row.get("function"), on=row.get("first"))[1]
         for row in signed

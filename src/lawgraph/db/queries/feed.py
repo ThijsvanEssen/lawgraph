@@ -64,6 +64,7 @@ from lawgraph.core.feed import (
     FeedCursor,
 )
 from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.time import day_before
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
@@ -1659,7 +1660,7 @@ def _page_items(
         if len(items) > limit or since is None:
             return items[: limit + 1], None
         searched_from = since
-        until = (dt.date.fromisoformat(since) - dt.timedelta(days=1)).isoformat()
+        until = day_before(since)
     return items, None
 
 

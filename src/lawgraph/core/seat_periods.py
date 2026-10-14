@@ -24,9 +24,10 @@ dates say how (nothing here comes from a name or a guess):
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable
 from typing import Any
+
+from lawgraph.core.time import day_before
 
 Period = dict[str, Any]
 Holding = tuple[str, str, Period]  # (person, faction, period)
@@ -38,10 +39,6 @@ MEMBER = "Lid"
 # From the Kamer installed on this day FractieZetelPersoon holds every seat (148-150 on any
 # day); before it, the seats of the members who also sat later (92 on 2002-05-23).
 SEATS_COMPLETE_FROM = "2006-11-30"
-
-
-def day_before(day: str) -> str:
-    return (dt.date.fromisoformat(day) - dt.timedelta(days=1)).isoformat()
 
 
 def mend_reversed_ends(holdings: list[Holding]) -> list[Holding]:

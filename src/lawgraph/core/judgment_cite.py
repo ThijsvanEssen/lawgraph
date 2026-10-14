@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from lawgraph.core.time import long_date
+from lawgraph.core.dutch_dates import long_date
 
 _FIXED = {
     "HR": "HR",

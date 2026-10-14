@@ -23,8 +23,8 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.eerstekamer_composition import text
-from lawgraph.core.rijksoverheid import parse_date
 
 _BILL_LIST = re.compile(r"/wetsvoorstellen_bij_commissie\?key=[a-z0-9]+")
 _HEADING = re.compile(r'<h2><a id="p\d+"></a>([^<]+)</h2>')
@@ -127,7 +127,7 @@ def _paper(url: str, title: str, content: str) -> Paper:
     number = _DOC_NUMBER.search(html_lib.unescape(content))
     return Paper(
         kind=text(kind or day),
-        date=parse_date(day) if kind else None,
+        date=dutch_day(day, abbreviations=True) if kind else None,
         number=number[1].strip() if number else None,
         url=html_lib.unescape(url),
     )
@@ -153,6 +153,8 @@ def bill(page: str) -> Bill:
     submitted = _SUBMITTED.search(page)
     return Bill(
         label=ek_dossier_label(number[1]) if number else None,
-        submitted_on=parse_date(text(submitted[1])) if submitted else None,
+        submitted_on=dutch_day(text(submitted[1]), abbreviations=True)
+        if submitted
+        else None,
         progress=[_step(block) for block in _BLOCK.findall(page)],
     )

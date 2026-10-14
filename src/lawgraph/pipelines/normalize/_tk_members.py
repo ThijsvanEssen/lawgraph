@@ -24,6 +24,7 @@ from lawgraph.core import seat_periods, tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
+from lawgraph.core.time import OPEN_END
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
@@ -327,9 +328,7 @@ def _write_timelines(
         node = member_nodes.get(person_id)
         if node is None:
             continue
-        memberships.sort(
-            key=lambda m: (m["from_date"] or "", m["to_date"] or "9999-12-31")
-        )
+        memberships.sort(key=lambda m: (m["from_date"] or "", m["to_date"] or OPEN_END))
         node.props["faction_memberships"] = memberships
         current = next(
             (m for m in reversed(memberships) if not m["to_date"]), memberships[-1]
@@ -374,7 +373,7 @@ def keep_faction_vacancies(
     for node in {n.key: n for n in faction_nodes.values() if n.key}.values():
         periods = sorted(
             found.get(node.key or "", []),
-            key=lambda p: (p["from_date"], p["to_date"] or "9999-12-31"),
+            key=lambda p: (p["from_date"], p["to_date"] or OPEN_END),
         )
         if (node.props.get("vacancies") or []) != periods:
             node.props["vacancies"] = periods or None

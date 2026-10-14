@@ -50,6 +50,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
+from lawgraph.core.dutch_dates import DATE_ABBREVIATED, dutch_day
 from lawgraph.core.ministries import (
     MINISTRY_BY_KEY,
     POST_DEPUTY_PRIME_MINISTER,
@@ -63,12 +64,11 @@ from lawgraph.core.ministries import (
     ministry_of,
 )
 from lawgraph.core.rijksoverheid import (
-    DAY,
     SECTION_STATE_SECRETARIES,
-    parse_date,
     parse_holder,
     split_name,
 )
+from lawgraph.core.time import day_before
 
 SEAT_DEPUTY = "viceminister-president"
 SEAT_PRIME_MINISTER = "az/minister-president"
@@ -105,19 +105,19 @@ def person_key(name: str) -> str:
 
 _DEPUTY = re.compile(r"^vice-?\s?minister-?\s?president", re.IGNORECASE)
 _QUALIFIER = re.compile(
-    rf"(?:,\s*|\(\s*)?\b(tot|vanaf|per|sinds|met ingang van)\s+({DAY})\s*\)?",
+    rf"(?:,\s*|\(\s*)?\b(tot|vanaf|per|sinds|met ingang van)\s+({DATE_ABBREVIATED})\s*\)?",
     re.IGNORECASE,
 )
-_BARE_QUALIFIER = re.compile(rf"\(\s*({DAY})\s*\)")
+_BARE_QUALIFIER = re.compile(rf"\(\s*({DATE_ABBREVIATED})\s*\)")
 # Where a heading names a further post: ``, minister``, `` en minister``, ``, tevens minister``,
 # `` en vanaf 11 okt. 1947 tevens minister``, ``; minister``.
 _NEXT_PART = re.compile(
-    rf"(?:,|;|\s+en)\s+(?=(?:(?:vanaf|tot|sinds|per)\s+{DAY}\s+)?(?:tevens\s+|ook\s+)?"
+    rf"(?:,|;|\s+en)\s+(?=(?:(?:vanaf|tot|sinds|per)\s+{DATE_ABBREVIATED}\s+)?(?:tevens\s+|ook\s+)?"
     r"(?:vice-?\s?)?minister\b)",
     re.IGNORECASE,
 )
 _RENAMED = re.compile(
-    rf"\((?:vanaf|met ingang van)\s+{DAY}\s+(?:aangeduid met:\s*)?([^)]*)\)",
+    rf"\((?:vanaf|met ingang van)\s+{DATE_ABBREVIATED}\s+(?:aangeduid met:\s*)?([^)]*)\)",
     re.IGNORECASE,
 )
 _CHARGED_WITH = re.compile(
@@ -130,7 +130,7 @@ def _qualifiers(text: str) -> tuple[str, str | None, str | None]:
     """*text* without its ``tot``/``vanaf`` days, and those days: ``(text, from, to)``."""
     start = end = None
     for match in _QUALIFIER.finditer(text):
-        day = parse_date(match.group(2))
+        day = dutch_day(match.group(2), abbreviations=True)
         if match.group(1).lower() == "tot":
             end = day
         else:
@@ -138,7 +138,7 @@ def _qualifiers(text: str) -> tuple[str, str | None, str | None]:
     text = _QUALIFIER.sub(" ", text)
     bare = _BARE_QUALIFIER.search(text)
     if bare:
-        start = parse_date(bare.group(1))
+        start = dutch_day(bare.group(1), abbreviations=True)
         text = _BARE_QUALIFIER.sub(" ", text)
     return re.sub(r"\s+", " ", text).strip(" ,.;"), start, end
 
@@ -155,7 +155,9 @@ def heading_parts(heading: str, section: str) -> list[dict[str, Any]]:
         return [_part(text)]
     parts: list[dict[str, Any]] = []
     for raw in _NEXT_PART.split(heading.strip(" .")):
-        renaming = bool(re.match(rf"^(?:vanaf|per)\s+{DAY}\s+minister", raw, re.I))
+        renaming = bool(
+            re.match(rf"^(?:vanaf|per)\s+{DATE_ABBREVIATED}\s+minister", raw, re.I)
+        )
         part = _part(re.sub(r"^(?:tevens|ook)\s+", "", raw.strip(), flags=re.I))
         if (
             renaming
@@ -465,7 +467,7 @@ def _seats_by_their_last_name(
     ends: dict[str, str] = {}
     for post in posts:
         end = post["to_date"] or cabinet.get("to_date") or dt.date.today().isoformat()
-        last = (dt.date.fromisoformat(end) - dt.timedelta(days=1)).isoformat()
+        last = day_before(end)
         last = max(last, post["from_date"])
         ends[post["seat"]] = max(ends.get(post["seat"], ""), last)
     for post in posts:
