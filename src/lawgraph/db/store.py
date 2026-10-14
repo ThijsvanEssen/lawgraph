@@ -755,13 +755,26 @@ class GraphStore:
         none (a table emptied and filled again). Sent again when the database was
         unreachable."""
 
-        def run() -> None:
-            with self.pool.connection() as conn:
-                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
-                for statement, params in statements:
-                    conn.execute(_query(statement), params)
+        def run(conn: psycopg.Connection[Any]) -> None:
+            for statement, params in statements:
+                conn.execute(_query(statement), params)
 
-        _retry_write("statements together", run)
+        self.in_transaction("statements together", run)
+
+    def in_transaction(
+        self, what: str, write: Callable[[psycopg.Connection[Any]], T]
+    ) -> T:
+        """Run *write* on a connection in one transaction, each statement under the ceiling
+        of a write: for a write that needs the connection itself (a table built aside and
+        swapped in, the rows a statement changed). A reader sees all of it or none. Run
+        again when the database was unreachable; *what* names it in the log."""
+
+        def run() -> T:
+            with self.pool.connection() as conn, conn.transaction():
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
+                return write(conn)
+
+        return _retry_write(what, run)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
@@ -904,17 +917,14 @@ class GraphStore:
             """
         ).format(table=table)
         rows = [split_node(doc, collection) for doc in docs]
-        return self._upsert_rounds(f"documents of {collection}", statement, rows, "id")
+        return self._upsert_rounds(statement, rows, "id")
 
     def _upsert_rounds(
-        self, what: str, statement: Statement, rows: list[dict[str, Any]], key: str
+        self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
         created = updated = 0
         for batch in _rounds(rows, key):
-            answer = _retry_write(
-                f"{len(batch)} {what}",
-                lambda batch=batch: self.execute(statement, {"rows": Json(batch)}),  # type: ignore[misc]
-            )
+            answer = self.execute(statement, {"rows": Json(batch)})
             new = sum(1 for was_new in answer if was_new)
             created += new
             updated += len(answer) - new
@@ -1024,7 +1034,7 @@ class GraphStore:
             """
         )
         rows = [split_edge(doc) for doc in docs]
-        return self._upsert_rounds("edges", statement, rows, "key")
+        return self._upsert_rounds(statement, rows, "key")
 
 
 def _text(statement: Statement) -> str:

@@ -36,6 +36,8 @@ _NEXT = re.compile(r'<li class="plus volgende">\s*<a href="([^"]+)"')
 # The number in a bill's title, with the addition it may have: a chapter (``36.600 VII``) or,
 # of a Rijkswet, its R-number in parentheses (``36.455 (R2188)``).
 NUMBER_SUFFIX = r"(?:\s+(?:\([A-Za-z0-9-]+\)|[A-Za-z0-9-]+))?"
+# The number of a bill as the Kamer writes it: ``36.791``, ``36.600 VII``, ``36.455 (R2188)``.
+_EK_NUMBER = re.compile(r"^(\d{1,3})\.(\d{3})(?: (\S.*))?$")
 _TITLE_NUMBER = re.compile(rf"<title>[^<]*\(([0-9.]+{NUMBER_SUFFIX})\)")
 _SUBMITTED = re.compile(r"<h3[^>]*>\s*ingediend\s*</h3>\s*([^<]+)")
 _BLOCK = re.compile(
@@ -60,7 +62,7 @@ class ListedBill:
     """A bill as a committee's list names it."""
 
     path: str  # /wetsvoorstel/36791_wet_toekomstbestendige
-    label: str  # 36791, 36945-XXII
+    label: str | None  # 36791, 36945-XXII
     status: str  # the heading it is under, in the Kamer's words
 
 
@@ -93,11 +95,15 @@ class Bill:
     progress: list[Step] = field(default_factory=list)
 
 
-def label(number: str) -> str:
-    """``36.945 XXII`` -> ``36945-XXII``, ``36.791`` -> ``36791``: a dossier label."""
-    digits, _, suffix = number.strip().partition(" ")
-    digits = digits.replace(".", "")
-    return f"{digits}-{suffix.strip()}" if suffix.strip() else digits
+def ek_dossier_label(number: str) -> str | None:
+    """The dossier label of the Tweede Kamer of a number as the Eerste Kamer writes it:
+    ``36.791`` -> ``36791``, ``36.600 VII`` -> ``36600-VII``, ``36.455 (R2188)`` ->
+    ``36455-(R2188)``; None for anything else."""
+    match = _EK_NUMBER.match(" ".join(number.split()))
+    if not match:
+        return None
+    base = match[1] + match[2]
+    return f"{base}-{match[3]}" if match[3] else base
 
 
 def bill_lists(committee_page: str) -> list[str]:
@@ -111,7 +117,7 @@ def listed_bills(page: str) -> tuple[list[ListedBill], str | None]:
     headings = [(m.start(), text(m[1])) for m in _HEADING.finditer(page)]
     for match in _LISTED.finditer(page):
         status = next((h for at, h in reversed(headings) if at < match.start()), "")
-        found.append(ListedBill(match[1], label(text(match[2])), status))
+        found.append(ListedBill(match[1], ek_dossier_label(text(match[2])), status))
     following = _NEXT.search(page)
     return found, html_lib.unescape(following[1]) if following else None
 
@@ -146,7 +152,7 @@ def bill(page: str) -> Bill:
     number = _TITLE_NUMBER.search(page)
     submitted = _SUBMITTED.search(page)
     return Bill(
-        label=label(number[1]) if number else None,
+        label=ek_dossier_label(number[1]) if number else None,
         submitted_on=parse_date(text(submitted[1])) if submitted else None,
         progress=[_step(block) for block in _BLOCK.findall(page)],
     )

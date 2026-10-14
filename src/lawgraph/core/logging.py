@@ -33,6 +33,11 @@ def current_step() -> str:
     return _step.get()
 
 
+def describe(exc: BaseException) -> str:
+    """``Type: message``: how a failure is named in a log line and in ``result.errors``."""
+    return f"{type(exc).__name__}: {exc}"
+
+
 class _StepFilter(logging.Filter):
     """Adds the current step and the short logger name to every record."""
 
@@ -115,7 +120,7 @@ class LiveStatusHandler(logging.Handler):
             return
         try:
             text = self.format(record)
-        except Exception:
+        except Exception:  # noqa: BLE001 — logging.Handler reports a line it cannot write
             self.handleError(record)
             return
         with self._screen:

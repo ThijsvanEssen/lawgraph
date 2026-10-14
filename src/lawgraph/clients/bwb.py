@@ -122,6 +122,8 @@ class BWBClient(BaseClient):
                 local_name(e.tag) == "record" for e in root.iter()
             ):
                 return root
+            if attempt + 1 == len(EMPTY_PAGE_SIZES):
+                break
             logger.warning(
                 "BWB SRU returned an empty page at startRecord=%d of type=%s "
                 "(%d records asked); trying again with a smaller page.",

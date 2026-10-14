@@ -210,7 +210,8 @@ def _write_chains(conn: psycopg.Connection) -> int:
 def write_all(store: GraphStore) -> int:
     """Write every event into a new table with its indexes, which then takes the place of
     the old one in one transaction: a reader sees the old rows or the new, never none."""
-    with store.pool.connection() as conn, conn.transaction():
+
+    def swap(conn: psycopg.Connection) -> int:
         conn.execute(f"DROP TABLE IF EXISTS {_NEW}")
         conn.execute(f"CREATE TABLE {_NEW} ({FEED_EVENTS_COLUMNS})")
         written = _execute(conn, insert_query(_NEW), {"since": "0"})
@@ -224,20 +225,25 @@ def write_all(store: GraphStore) -> int:
         conn.execute(f"ANALYZE {FEED_EVENTS_TABLE}")
         _write_chains(conn)
         conn.execute(_STATE, {"since": None})
-    return written
+        return written
+
+    return store.in_transaction("the feed events", swap)
 
 
 def write_since(store: GraphStore, since: str) -> int:
     """Write the events dated from *since* again, in place: those of the days a poll
     changes, between two writes of all of them."""
-    with store.pool.connection() as conn, conn.transaction():
+
+    def rewrite(conn: psycopg.Connection) -> int:
         conn.execute(
             f"DELETE FROM {FEED_EVENTS_TABLE} WHERE date >= %(since)s", {"since": since}
         )
         written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
         _write_chains(conn)
         conn.execute(_STATE, {"since": since})
-    return written
+        return written
+
+    return store.in_transaction("the feed events since", rewrite)
 
 
 def _execute(conn: psycopg.Connection, statement: str, bind: dict[str, Any]) -> int:
@@ -270,9 +276,7 @@ def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
     for n, word in enumerate(words):
         bind[f"q_{n}"] = word
         bind[f"w_{n}"] = _words.whole(word)
-    with store.pool.connection() as conn:
-        row = conn.execute(f"SELECT {statement}", bind).fetchone()
-    return list(row or ())
+    return list(next(iter(store.query(f"SELECT ARRAY[{statement}]", bind))))
 
 
 def _words_filter(
