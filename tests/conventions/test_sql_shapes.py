@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from tests.conventions._scan import DB
+from tests.source_scan import DB
 
 _QUERIES = DB / "queries"
 

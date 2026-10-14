@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core import ek_motions
+from tests.paths import fixture_text
 
-PAGE = (Path(__file__).parent / "fixtures" / "ek_motion_37020_m.html").read_text()
+PAGE = fixture_text("ek_motion_37020_m.html")
 
 
 def test_a_motion_page_is_read_as_the_kamer_writes_it() -> None:

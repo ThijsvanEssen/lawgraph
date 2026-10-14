@@ -6,6 +6,7 @@ from lawgraph.api.app import app
 from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 from lawgraph.db.queries.instruments import LawOnADate
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -39,17 +40,12 @@ _PAYLOAD = ArticleDetailData(
 
 def test_get_article_detail_returns_expected_fields(monkeypatch):
     """Verifiëren dat het artikel endpoint de summarisatievelden teruggeeft."""
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: _PAYLOAD,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_citations",
-        lambda store, article_doc: [],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.article_terms",
-        lambda store, instrument_id, props, citations: ([], {}, []),
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_with_relations=_PAYLOAD,
+        get_article_citations=[],
+        article_terms=([], {}, []),
     )
     response = client.get("/api/articles/BWBR0001854/287")
     assert response.status_code == 200
@@ -68,9 +64,10 @@ def test_get_article_detail_returns_expected_fields(monkeypatch):
 
 
 def test_get_article_detail_exposes_citations(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: _PAYLOAD,
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_with_relations=_PAYLOAD,
     )
     citation_target = {
         "_id": "articles/BWBR0001854-24c",
@@ -89,10 +86,7 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         text="Artikel 24c",
         confidence=0.92,
     )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_citations",
-        lambda store, article_doc: [entry],
-    )
+    stub_route(monkeypatch, "articles", get_article_citations=[entry])
     definition = {
         "article_key": "bwbr0001854_1",
         "article_number": "1",
@@ -103,9 +97,10 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         "scope": {"kind": "wet", "path": ""},
         "refers_to": "BWBR0001854",
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.article_terms",
-        lambda store, instrument_id, props, citations: (
+    stub_route(
+        monkeypatch,
+        "articles",
+        article_terms=(
             [
                 {
                     "start": 30,
@@ -242,7 +237,7 @@ def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
         asked.append((bwb_id, article_number, limit, offset))
         return {"total": 41, "items": [_EXPLANATION_ROW]}
 
-    monkeypatch.setattr("lawgraph.api.routes.articles.get_article_explanations", fake)
+    stub_route(monkeypatch, "articles", get_article_explanations=fake)
 
     response = client.get(
         "/api/articles/BWBR0002/5/explained-by", params={"limit": 5, "offset": 10}
@@ -260,9 +255,10 @@ def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
 def test_explained_by_of_an_unknown_article_is_an_empty_page_not_a_404(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_explanations",
-        lambda store, bwb_id, article_number, *, limit, offset: {
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_explanations={
             "total": 0,
             "items": [],
         },
@@ -312,7 +308,7 @@ def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
         asked.append((bwb_id, at_date, limit, offset))
         return LawOnADate(items=[version], total=41, first_version_from="2002-04-01")
 
-    monkeypatch.setattr("lawgraph.api.routes.instruments.get_articles_at", fake)
+    stub_route(monkeypatch, "instruments", get_articles_at=fake)
     body = client.get(
         "/api/instruments/BWBR0001854/articles/at/2024-01-01",
         params={"limit": 1, "offset": 40, "text_preview_chars": 3},

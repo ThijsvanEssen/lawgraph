@@ -6,11 +6,12 @@ import pytest
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from tests.api.stubs import LOADERS, MockStore, route_modules
 
 
 @pytest.fixture(autouse=True)
 def stub_store_override() -> Generator[None, None, None]:
-    app.dependency_overrides[get_store] = lambda: None
+    app.dependency_overrides[get_store] = MockStore
     yield
     app.dependency_overrides.pop(get_store, None)
 
@@ -28,22 +29,10 @@ def stub_article_relationship_data(monkeypatch) -> None:
     )
 
 
-# The names of the dossiers the routes put next to a bare number, as ``load_dossier_names``
-# reads them: one budget chapter and one bill.
-DOSSIER_NAMES = {
-    "36000": {
-        "number": "36000",
-        "short_title": "Wet beter voorbeeld",
-        "title": "Wijziging van de Wet X (Wet beter voorbeeld)",
-    },
-}
-
-
 @pytest.fixture(autouse=True)
-def stub_dossier_names(monkeypatch) -> None:
-    """The routes read ``DOSSIER_NAMES``, not a database."""
-    for module in ("committees", "decisions", "documents", "nodes"):
-        monkeypatch.setattr(
-            f"lawgraph.api.routes.{module}.load_dossier_names",
-            lambda store: DOSSIER_NAMES,
-        )
+def stub_loaders(monkeypatch) -> None:
+    """The routes read the loaders' stand-ins (``LOADERS``), not a database."""
+    for module in route_modules():
+        for name, stand_in in LOADERS.items():
+            if hasattr(module, name):
+                monkeypatch.setattr(module, name, stand_in)

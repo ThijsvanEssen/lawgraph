@@ -9,6 +9,7 @@ from lawgraph.db.queries.judgments import (
     JudgmentDetailData,
     JudgmentFilters,
 )
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -49,9 +50,10 @@ _PAYLOAD = JudgmentDetailData(
 
 def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     """Verifiëren dat het judgment endpoint metadata en artikelrelaties levert."""
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgment_with_relations",
-        lambda store, ecli: _PAYLOAD,
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgment_with_relations=_PAYLOAD,
     )
 
     response = client.get("/api/judgments/ECLI:NL:HR:2020:123")
@@ -85,9 +87,10 @@ def test_get_judgment_detail_names_its_series(monkeypatch):
         "_key": "ecli_nl_hr_2020_122",
         "props": {"display_name": "HR 2020/122", "ecli": "ECLI:NL:HR:2020:122"},
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgment_with_relations",
-        lambda store, ecli: JudgmentDetailData(
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgment_with_relations=lambda store, ecli: JudgmentDetailData(
             judgment=judgment, articles=[], series=[other]
         ),
     )
@@ -110,9 +113,10 @@ def test_the_detail_names_its_conclusions(monkeypatch):
         "outcome": "verwerping",
         "outcome_text": "De conclusie strekt tot verwerping van het cassatieberoep.",
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgment_with_relations",
-        lambda store, ecli: JudgmentDetailData(
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgment_with_relations=lambda store, ecli: JudgmentDetailData(
             judgment=_JUDGMENT_DOC, articles=[], conclusions=[conclusion]
         ),
     )
@@ -195,9 +199,10 @@ def _detail(monkeypatch, meta):
         ],
         metadata={"article_count": 1},
     )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgment_with_relations",
-        lambda store, ecli: payload,
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgment_with_relations=lambda store, ecli: payload,
     )
     return client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
 
@@ -313,7 +318,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         asked.append((filters, kwargs))
         return {"total": 8, "items": [_LIST_ROW], "facets": facets}
 
-    monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
+    stub_route(monkeypatch, "judgments", get_judgments_list=fake)
     body = client.get(
         "/api/judgments",
         params={
@@ -347,9 +352,8 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
 
 def test_a_judgment_without_subjects_lists_none(monkeypatch):
     row = {k: v for k, v in _LIST_ROW.items() if k != "subjects"}
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgments_list",
-        lambda store, filters, **kwargs: {"total": 1, "items": [row]},
+    stub_route(
+        monkeypatch, "judgments", get_judgments_list={"total": 1, "items": [row]}
     )
     body = client.get("/api/judgments").json()
     assert body["items"][0]["subjects"] == []
@@ -394,9 +398,10 @@ def test_a_judgment_without_names_or_kind_has_none():
 
 def test_the_judgment_list_carries_names_and_kind(monkeypatch):
     row = {**_LIST_ROW, "names": ["Haviltex"], "decision_kind": "arrest"}
-    monkeypatch.setattr(
-        "lawgraph.api.routes.judgments.get_judgments_list",
-        lambda store, filters, **kwargs: {"total": 1, "items": [row, _LIST_ROW]},
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgments_list={"total": 1, "items": [row, _LIST_ROW]},
     )
     first, second = client.get("/api/judgments").json()["items"]
     assert (first["names"], first["decision_kind"]) == (["Haviltex"], "arrest")
@@ -419,7 +424,7 @@ def test_facets_false_asks_for_none_and_answers_null(monkeypatch) -> None:
         asked.append(options)
         return {"total": 3, "items": [], "facets": None}
 
-    monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
+    stub_route(monkeypatch, "judgments", get_judgments_list=fake)
     response = client.get("/api/judgments", params={"facets": "false"})
     assert response.status_code == 200
     assert response.json()["facets"] is None and response.json()["total"] == 3

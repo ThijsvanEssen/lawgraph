@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import pathlib
-
 import pytest
 
 from lawgraph.clients.bwb import EMPTY_PAGE_SIZES, SRU_PAGE_SIZE, BWBClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from tests.fakes import ScriptedSession
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-PAGE = (FIXTURES / "bwb_sru_grondwet_page.xml").read_text()  # 3 toestanden, 1 BWBR id
-DIAGNOSTIC = (FIXTURES / "bwb_sru_diagnostic.xml").read_text()
+PAGE = fixture_text("bwb_sru_grondwet_page.xml")  # 3 toestanden, 1 BWBR id
+DIAGNOSTIC = fixture_text("bwb_sru_diagnostic.xml")
 
 
 def _client(responses: list[str], calls: list[dict]) -> BWBClient:

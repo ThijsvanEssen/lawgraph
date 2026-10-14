@@ -15,6 +15,7 @@ import pytest
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db.queries import raw as raw_queries
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
 
 def _written(store: InMemoryStore) -> Node:
@@ -75,11 +76,10 @@ def test_staatsblad_normalize_creates_publication():
 def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
     """stb-2025-263 as the repository serves it: the note is ``<nota-toelichting>``. Read
     as none, every Staatsblad note had an empty text and no EXPLAINS (web-1, 9,875)."""
-    from pathlib import Path
 
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    xml = (Path(__file__).parents[1] / "fixtures" / "stb_2025_263.xml").read_text()
+    xml = fixture_text("stb_2025_263.xml")
     store = InMemoryStore()
     StaatsbladNormalizePipeline(store=store).normalize_nodes(
         [_raw("stb-2025-263", payload_text=xml)], PipelineResult()

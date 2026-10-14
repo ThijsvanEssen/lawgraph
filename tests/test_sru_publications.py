@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import re
 
 import pytest
@@ -17,10 +16,10 @@ from lawgraph.clients.koop_publications import (
 )
 from lawgraph.core.identifiers import STB_ID_PATTERN
 from tests.fakes import ScriptedSession, Sent, http_error
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-AMVB_PAGE = (FIXTURES / "sru_staatsblad_amvb_page.xml").read_text()  # 1 real record
-UNKNOWN_INDEX = (FIXTURES / "sru_unknown_index_diagnostic.xml").read_text()
+AMVB_PAGE = fixture_text("sru_staatsblad_amvb_page.xml")  # 1 real record
+UNKNOWN_INDEX = fixture_text("sru_unknown_index_diagnostic.xml")
 
 
 def _page(identifiers: list[str], total: int | None = None) -> str:

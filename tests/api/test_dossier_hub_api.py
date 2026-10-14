@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.committees import ActorDossierDTO
+from tests.api.stubs import MockStore, stub_route
 
 client = TestClient(app)
 
@@ -67,52 +68,19 @@ _HUB = {
 }
 
 
-class _MockStore:
-    def get_document(self, collection: str, key: str) -> Any:
-        return None
-
-
-@pytest.fixture(autouse=True)
-def _mock_store() -> Any:
-    app.dependency_overrides[get_store] = lambda: _MockStore()
-    yield
-    app.dependency_overrides.pop(get_store, None)
-
-
 def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_by_number",
-        lambda store, number: _DOSSIER,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.count_dossier_members",
-        lambda store, dossier_id: {"documents": 5},
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_hub",
-        lambda store, dossier_id: hub,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.enrich_dossier_docs",
-        lambda store, dossiers: dossiers,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_relations",
-        lambda store, dossier_id: [],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_implements",
-        lambda store, dossier_id: [],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_instrument_names", lambda store, ids: {}
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_next_activity",
-        lambda store, dossier_id, today: None,
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        count_dossier_members={"documents": 5},
+        get_dossier_hub=lambda store, dossier_id: hub,
+        enrich_dossier_docs=lambda store, dossiers: dossiers,
+        get_dossier_relations=[],
+        get_laws_named=[],
+        get_dossier_implements=[],
+        get_instrument_names={},
+        get_next_activity=None,
     )
 
 
@@ -188,7 +156,7 @@ def test_the_committee_detail_pages_its_dossiers(
             "dossier_total": 240,
         }
 
-    monkeypatch.setattr("lawgraph.api.routes.committees.get_committee_detail", detail)
+    stub_route(monkeypatch, "committees", get_committee_detail=detail)
 
     body = client.get("/api/committees/a?status=closed&limit=1&offset=5").json()
 
@@ -208,9 +176,10 @@ def test_the_committee_dossier_paging_has_bounds(query: str) -> None:
 def test_committee_activities_are_paged_with_a_total(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_committee_activities",
-        lambda store, slug, **kwargs: {
+    stub_route(
+        monkeypatch,
+        "committees",
+        get_committee_activities={
             "total": 41,
             "items": [
                 {
@@ -253,10 +222,7 @@ def test_committee_activities_are_paged_with_a_total(
 def test_the_activities_of_an_unknown_committee_are_a_404(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_committee_activities",
-        lambda store, slug, **kwargs: None,
-    )
+    stub_route(monkeypatch, "committees", get_committee_activities=None)
     assert client.get("/api/committees/nope/activities").status_code == 404
 
 
@@ -274,7 +240,7 @@ def test_an_actor_dossier_is_a_dossier_summary_with_roles_and_a_count() -> None:
     assert ActorDossierDTO.from_row({"dossier": _DOSSIER}).roles == []
 
 
-class _FoundStore(_MockStore):
+class _FoundStore(MockStore):
     def get_document(self, collection: str, key: str) -> Any:
         return {"_id": f"{collection}/{key}", "_key": key, "type": collection[:-1],
                 "labels": [], "props": {}}  # fmt: skip
@@ -303,7 +269,7 @@ def test_members_and_factions_list_their_dossiers(
             ],
         }
 
-    monkeypatch.setattr("lawgraph.api.routes.committees.get_actor_dossiers", dossiers)
+    stub_route(monkeypatch, "committees", get_actor_dossiers=dossiers)
 
     body = client.get(f"/api/{path}/dossiers?limit=5&offset=10").json()
 

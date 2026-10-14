@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from collections.abc import Iterator
 from typing import Any
 
@@ -14,11 +13,11 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("edge_removals")
 
-FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "fixtures"
-AMVB_XML = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
+AMVB_XML = fixture_text("bwb_amvb_toestand.xml")
 
 AMVB_ID = "BWBR0001950"  # the fixture's regulation
 BASIS_ID = "BWBR0001947"  # "Gelet op artikel 125 en 133 van de Ambtenarenwet 1929"

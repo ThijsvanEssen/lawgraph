@@ -8,15 +8,14 @@
 from __future__ import annotations
 
 import importlib
-import pathlib
 import re
 
 import pytest
 
 from lawgraph.config.constants import COLLECTION_EDGES, DOCUMENT_COLLECTIONS
+from tests.paths import ROOT, SRC
+from tests.source_scan import python_files
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "lawgraph"
 SETTINGS = SRC / "config" / "settings.py"
 CONSTANTS = SRC / "config" / "constants.py"
 
@@ -27,14 +26,10 @@ _AQL_COLLECTION_LITERAL = re.compile(
 )
 
 
-def _modules() -> list[pathlib.Path]:
-    return sorted(SRC.rglob("*.py"))
-
-
 def test_only_settings_reads_the_environment() -> None:
     offenders = [
         str(path.relative_to(SRC))
-        for path in _modules()
+        for path in python_files()
         if path != SETTINGS and _ENVIRONMENT_ACCESS.search(path.read_text())
     ]
     assert offenders == []
@@ -43,7 +38,7 @@ def test_only_settings_reads_the_environment() -> None:
 def test_aql_names_collections_through_constants() -> None:
     offenders = [
         (str(path.relative_to(SRC)), match.group(1))
-        for path in _modules()
+        for path in python_files()
         if path != CONSTANTS
         for match in _AQL_COLLECTION_LITERAL.finditer(path.read_text())
     ]

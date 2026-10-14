@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from lawgraph.core.judgment_counsel import read_counsel, same_person
@@ -14,14 +13,14 @@ from lawgraph.core.judgments import (
     parse_judgment,
 )
 from lawgraph.core.props import JudgmentProps
+from tests.paths import fixture_text
 
-FIXTURES = Path(__file__).parent / "fixtures"
 CRIMINAL = ["Strafrecht"]
 ADMINISTRATIVE = ["Bestuursrecht; Omgevingsrecht"]
 
 
 def _from_fixture(name: str) -> list[dict[str, Any]]:
-    root = parse_judgment((FIXTURES / name).read_text())
+    root = parse_judgment(fixture_text(name))
     _, subjects = extract_rdf_metadata(root)
     paragraphs, _ = judgment_text(root)
     return read_counsel(read_parties(kop_lines(root), subjects), paragraphs, subjects)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
-
 import pytest
 
 from lawgraph.core.bwb_xml import (
@@ -18,18 +16,17 @@ from lawgraph.core.bwb_xml import (
     parse_jci,
     parse_toestand,
 )
-
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 @pytest.fixture(scope="module")
 def grondwet():
-    return parse_toestand((FIXTURES / "bwb_grondwet_toestand.xml").read_text())
+    return parse_toestand(fixture_text("bwb_grondwet_toestand.xml"))
 
 
 @pytest.fixture(scope="module")
 def amvb():
-    return parse_toestand((FIXTURES / "bwb_amvb_toestand.xml").read_text())
+    return parse_toestand(fixture_text("bwb_amvb_toestand.xml"))
 
 
 def _by_path(toestand, path):
@@ -66,7 +63,7 @@ def test_the_dossier_of_a_regulation_is_that_of_the_bill_that_enacted_it(
     grondwet,
 ) -> None:
     # the <wetgeving> of the Awb names Stb. 2012, 682 of dossier 32450, a later change
-    awb = parse_toestand((FIXTURES / "bwb_awb_annexes_toestand.xml").read_text())
+    awb = parse_toestand(fixture_text("bwb_awb_annexes_toestand.xml"))
     assert instrument_props(awb, "BWBR0005537")["dossier_numbers"] == ["21221"]
     # the Grondwet of 1840 names no dossier: an empty list replaces a stale one
     assert instrument_props(grondwet, "BWBR0001840")["dossier_numbers"] == []
@@ -212,7 +209,7 @@ def test_no_paragraph_text_is_lost(fixture: str) -> None:
 
     from lawgraph.core.xml import local_name
 
-    xml = (FIXTURES / fixture).read_text()
+    xml = fixture_text(fixture)
     parsed = parse_toestand(xml)
     by_path = {a.path: a for a in parsed.articles}
 
@@ -240,7 +237,7 @@ def test_list_items_are_kept_on_their_own_lines(grondwet) -> None:
 
 def test_a_paragraph_next_to_the_leden_is_part_of_the_article() -> None:
     """Real case: a 'not yet in force' note sits beside the leden, before them in the source."""
-    parsed = parse_toestand((FIXTURES / "bwb_wet_not_in_force.xml").read_text())
+    parsed = parse_toestand(fixture_text("bwb_wet_not_in_force.xml"))
 
     art5 = next(a for a in parsed.articles if a.path == "/Paragraaf1/Artikel5")
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import DB
+from tests.source_scan import DB
 
 _QUERIES = DB / "queries"
 

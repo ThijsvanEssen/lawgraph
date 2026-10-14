@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -32,9 +33,7 @@ def _answering(
         return answer
 
     monkeypatch.setattr(f"lawgraph.api.routes.{target}", fake)
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.enrich_dossier_docs", lambda store, docs: None
-    )
+    stub_route(monkeypatch, "dossiers", enrich_dossier_docs=None)
     return asked
 
 

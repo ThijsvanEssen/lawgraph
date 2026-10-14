@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 
 def test_every_pipeline_reports_progress() -> None:

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
-XML = (
-    pathlib.Path(__file__).parent.parent / "fixtures" / "bwb_grondwet_toestand.xml"
-).read_text()
+from tests.paths import fixture_text
+
+XML = fixture_text("bwb_grondwet_toestand.xml")
 
 
 GRONDWET = "BWBR0001840"

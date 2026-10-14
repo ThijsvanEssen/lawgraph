@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
 import pytest
@@ -11,10 +10,10 @@ import requests
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from tests.fakes import ScriptedSession, answer
+from tests.paths import fixture_text
 
-PAGE = (
-    pathlib.Path(__file__).parent / "fixtures" / "sru_verdragenbank_nl_page.xml"
-).read_text()  # 2 real treaties (001610, ...), Dutch records, total 7769
+# 2 real treaties (001610, ...), Dutch records, total 7769
+PAGE = fixture_text("sru_verdragenbank_nl_page.xml")
 
 
 def _dutch(total: int = 2) -> str:

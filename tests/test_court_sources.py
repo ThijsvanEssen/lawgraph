@@ -6,7 +6,6 @@ The fixture is the value list as read on 29 September 2026.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -20,8 +19,9 @@ from lawgraph.core.court_sources import (
 )
 from lawgraph.core.courts import COURT_KINDS, COURTS, DATA, TIERS, court_of
 from lawgraph.core.curated import LISTS
+from tests.paths import fixture_text
 
-LIST = (Path(__file__).parent / "fixtures" / "rechtspraak_instanties.xml").read_text()
+LIST = fixture_text("rechtspraak_instanties.xml")
 COURTS_LISTED = parse_instanties(LIST)
 PLACES = places(COURTS_LISTED)
 

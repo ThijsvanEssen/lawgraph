@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
 from lawgraph.db._rows import CANVAS_PROPS, CANVAS_PROPS_EVERY
 from lawgraph.db.schema import JUDGMENT_LIGHT_PROPS, statements
+from tests.paths import FIXTURES
 
-GOLDEN = Path(__file__).parent / "fixtures" / "schema_objects.json"
+GOLDEN = FIXTURES / "schema_objects.json"
 
 _TRIGGER = re.compile(r"CREATE OR REPLACE TRIGGER (\w+ [^\n]*?EXECUTE FUNCTION [\w.]+)")
 _FUNCTION = re.compile(r"CREATE OR REPLACE FUNCTION (?:public\.)?(\w+)\(")

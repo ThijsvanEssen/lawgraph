@@ -6,8 +6,6 @@ inside a line, where the flattened text before it ran on with the indentation of
 
 from __future__ import annotations
 
-import pathlib
-
 from lawgraph.core.citations import strip_xml
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.pipelines.normalize.tk_content import document_props
@@ -16,8 +14,7 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
     amendments_per_law,
     detect_amendment_citations,
 )
-
-FIXTURES = pathlib.Path(__file__).parents[1] / "fixtures"
+from tests.paths import fixture_text
 
 _PAPER = """<kamerwrk><body><stuk>
 <tuskop letat="vet">II. ARTIKELSGEWIJZE TOELICHTING</tuskop>
@@ -46,7 +43,7 @@ def test_amendment_language_is_found_in_the_text_of_a_paper() -> None:
 
 
 def test_the_line_breaks_of_a_real_paper_change_no_amendment_hit() -> None:
-    xml = (FIXTURES / "kst_24507_3.xml").read_text(encoding="utf-8")
+    xml = fixture_text("kst_24507_3.xml")
     text = parse_kamerstuk(xml).text
     assert "\n" in text  # the paper is lines now
     assert detect_amendment_citations(strip_xml(text)) == detect_amendment_citations(
@@ -118,7 +115,7 @@ def test_each_law_of_a_bill_gets_only_the_articles_of_its_own_part() -> None:
 def test_the_memorandum_of_a_verzamelwet_explains_each_law_in_its_own_article() -> None:
     """Kamerstuk 34 468, nr. 3: every change it words is to the Woningwet (ARTIKEL IX), none
     to the Huisvestingswet 2014 (ARTIKEL II)."""
-    xml = (FIXTURES / "kst_34468_3.xml").read_text(encoding="utf-8")
+    xml = fixture_text("kst_34468_3.xml")
     assert _per_law(xml, ["BWBR0035303", "BWBR0005181"]) == {
         "BWBR0035303": set(),
         "BWBR0005181": {("37", "AMENDS"), ("45", "AMENDS"), ("120b", "AMENDS")},

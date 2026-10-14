@@ -3,8 +3,6 @@ from when until when, as the page says it (real pages)."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core.ek_persons import (
     Period,
     bare_name,
@@ -12,8 +10,9 @@ from lawgraph.core.ek_persons import (
     match_member,
     person_page,
 )
+from tests.paths import FIXTURES
 
-EK = Path(__file__).parent / "fixtures" / "eerstekamer"
+EK = FIXTURES / "eerstekamer"
 
 
 def _page(slug: str):
