@@ -33,10 +33,12 @@ from typing import Any
 from lawgraph.core.judgment_parties import (
     REPRESENTATIVE_AGENT,
     REPRESENTATIVE_COUNSEL,
-    REPRESENTATIVE_LAWYER,
-    ROLE_PARTY,
     ROLE_WORDS,
+    SIDE_OTHER,
+    Party,
+    Role,
     representative,
+    representative_role,
 )
 from lawgraph.core.judgments import AREA_CRIMINAL, area_of_law
 
@@ -156,26 +158,12 @@ def fold(text: str) -> str:
 # ── the persons of one list ──────────────────────────────────────────────────
 
 
-def _role_of(word: str | None, default: str, criminal: bool) -> str:
-    """The role the text's *word* gives ("advocaat te X", "zijn gemachtigde"), else
-    *default*; a raadsman outside a criminal case is a gemachtigde."""
-    word = (word or "").lower()
-    if word.startswith("advoca"):
-        return REPRESENTATIVE_LAWYER
-    if word.startswith("gemachtig"):
-        return REPRESENTATIVE_AGENT
-    if word.startswith("raads"):
-        return REPRESENTATIVE_COUNSEL if criminal else REPRESENTATIVE_AGENT
-    if default == REPRESENTATIVE_COUNSEL and not criminal:
-        return REPRESENTATIVE_AGENT
-    return default
-
-
 def _persons(
     text: str, start: int, default: str, criminal: bool
 ) -> tuple[list[dict[str, Any]], int]:
     """The persons listed from *start* ("mr. A, advocaat te X, en mr. B"), each with its
-    role, place and capacity, and where the list ends."""
+    role (the word before it gives, else *default*), place and capacity, and where the
+    list ends."""
     found: list[dict[str, Any]] = []
     without: list[dict[str, Any]] = []  # those no capacity was given yet
     excluded: list[dict[str, Any]] = []
@@ -189,7 +177,8 @@ def _persons(
         if not person:
             break
         name = re.sub(r"\s+", " ", person[0]).strip()
-        current = representative(name, _role_of(word, default, criminal))
+        role = representative_role(word, criminal=criminal) or default
+        current = representative(name, role)
         found.append(current)
         without.append(current)
         pos = end = person.end()
@@ -222,7 +211,7 @@ def _give(
     if re.match(r"kantoor\s*houdend", said, re.IGNORECASE):
         return  # where they practise, no capacity
     word = said.split()[0]
-    named = _role_of(word, "", criminal)
+    named = representative_role(word, criminal=criminal)
     if named:
         person["role"] = named
         rest = _PLACE.sub("", said).strip(" ,")
@@ -347,15 +336,9 @@ def _heard_party(
         )
         if fuller:
             name, alias = f"{short} van {fuller[1]}", short
-    return {
-        "name": name,
-        "role": ROLE_PARTY,
-        "roles": [ROLE_PARTY],
-        "role_stated": True,
-        "side": "other",
-        "alias": alias,
-        "representatives": [],
-    }
+    party = Party(name=name, side=SIDE_OTHER, alias=alias)
+    party.state(Role.PARTY)
+    return party.as_dict()
 
 
 def _initials_and_surname(name: str) -> tuple[list[str], list[str]]:
@@ -391,7 +374,7 @@ def _resolve(
             return found
     found = _party_in(parties, window)
     if not found and criminal:
-        suspects = [i for i, p in enumerate(parties) if "Verdachte" in _labels(p)]
+        suspects = [i for i, p in enumerate(parties) if Role.SUSPECT in _labels(p)]
         found = suspects if len(suspects) == 1 else []
     return found
 
@@ -410,10 +393,9 @@ def _read_paragraph(
             else REPRESENTATIVE_AGENT
         )
         anchors.append((match.start(), match.end(), None, default, False))
+    counsel = REPRESENTATIVE_COUNSEL if criminal else REPRESENTATIVE_AGENT
     for match in _COUNSEL.finditer(text):
-        anchors.append(
-            (match.start(), match.end(), match["who"], REPRESENTATIVE_COUNSEL, False)
-        )
+        anchors.append((match.start(), match.end(), match["who"], counsel, False))
     for match in _ON_BEHALF.finditer(text):
         default = REPRESENTATIVE_COUNSEL if criminal else REPRESENTATIVE_AGENT
         anchors.append(

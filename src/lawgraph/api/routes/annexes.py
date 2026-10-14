@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.annexes import (
@@ -19,6 +19,7 @@ from lawgraph.db.queries.annexes import (
     get_annex,
     get_annex_referenced_by,
 )
+from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -50,9 +51,7 @@ def get_annex_detail(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> AnnexDetailResponse:
-    doc = get_annex(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Annex not found")
+    doc = require(get_annex(store, key), "Annex", key)
     rows = get_annex_referenced_by(store, key)
     return AnnexDetailResponse(
         annex=AnnexDTO.from_document(doc),

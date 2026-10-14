@@ -24,7 +24,7 @@ from lawgraph.pipelines.retrieve.base import (
     spread_days,
 )
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
-from tests.fakes import InMemoryStore, external_ids, raw_record
+from tests.fakes import InMemoryStore, external_ids, http_error, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -63,9 +63,11 @@ class _Client:
         self.fetched: list[str] = []
         self.missing = missing or set()
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
-        return None if identifier in self.missing else f"<xml>{identifier}</xml>"
+        if identifier in self.missing:
+            raise http_error(404)
+        return f"<xml>{identifier}</xml>"
 
 
 def _row(bwb_id: str, xml: str | None, kind: str = RAW_KIND_BWB_TOESTAND) -> dict:
@@ -183,12 +185,10 @@ class _Failing(_Client):
         super().__init__()
         self.broken = broken
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         if identifier in self.broken:
             self.fetched.append(identifier)
-            response = requests.Response()
-            response.status_code = 500
-            raise requests.HTTPError("500 Server Error", response=response)
+            raise http_error(500)
         return super().fetch_publication_xml(identifier)
 
 

@@ -378,6 +378,30 @@ def test_without_pages_there_are_no_cabinets() -> None:
     assert build_cabinets([], lambda text: None) == []
 
 
+def test_two_cabinets_of_one_name_keep_their_own_phases() -> None:
+    # Rutte IV under the name of Kabinet-Schoof: the later cabinet gets the key with its
+    # start year, and neither gets the resignation or the elections of the other
+    def page(slug: str, name: str | None = None) -> dict[str, Any]:
+        parsed = parse_page((FIXTURES / "rijksoverheid" / f"{slug}.html").read_text())
+        return {
+            "slug": slug,
+            "url": f"https://www.rijksoverheid.nl/.../{slug}",
+            "read_on": "2026-09-25",
+            "page": {**parsed, "name": name or parsed["name"]},
+        }
+
+    schoof = page("kabinet-schoof")
+    twins = build_cabinets(
+        [page("kabinet-rutte-iv", schoof["page"]["name"]), schoof], lambda text: None
+    )
+    alone = build_cabinets([page("kabinet-rutte-iv"), schoof], lambda text: None)
+    assert [c["key"] for c in twins] == ["schoof", "schoof_2024"]
+    for twin, own in zip(twins, alone, strict=True):
+        assert twin["phases"] == own["phases"], twin["key"]
+        assert twin["demissionary_from"] == own["demissionary_from"]
+        assert {p["cabinet_key"] for p in twin["posts"]} == {twin["key"]}
+
+
 def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> None:
     # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
     # Douane", his line naming the post as it was then

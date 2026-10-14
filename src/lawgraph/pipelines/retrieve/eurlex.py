@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
-from lawgraph.core.logging import describe, get_logger
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 
 from .base import (
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
-    is_not_found,
+    listed,
     missing_record,
 )
 
@@ -51,86 +49,57 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
             RAW_KIND_EU_CELEX,
             [celex for celex in celex_ids if celex not in done],
         )
-        self.progress.expect(len(todo))
-        streak = FailureStreak("EUR-Lex")
-        for celex in todo:
-            try:
-                html = self.eu.fetch_celex_html(celex, lang=lang)
-            except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
-                if is_not_found(exc):
-                    self.progress.skip("no HTML text (HTTP 404)", celex)
-                    streak.ok()
-                    yield missing_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex)
-                else:
-                    # An error of the step, not a skip (see retrieve rechtspraak).
-                    self.progress.fail(
-                        f"download failed ({failure_reason(exc)})", celex
-                    )
-                    streak.failed(celex, exc)
-                continue
-            streak.ok()
-            yield RetrieveRecord(
-                source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_CELEX,
-                external_id=celex,
-                payload_text=html,
-                meta={"celex": celex, "lang": lang},
-            )
+        yield from self._download_each(
+            todo,
+            lambda celex: self.eu.fetch_celex_html(celex, lang=lang),
+            lambda celex, html: [
+                RetrieveRecord(
+                    source=SOURCE_EURLEX,
+                    kind=RAW_KIND_EU_CELEX,
+                    external_id=celex,
+                    payload_text=html,
+                    meta={"celex": celex, "lang": lang},
+                )
+            ],
+            source="EUR-Lex",
+            missing=lambda celex, status: missing_record(
+                SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex, status=status
+            ),
+        )
+
+    def _fetch_listed(
+        self, listing: Callable[[], list[str]], what: str, lang: str
+    ) -> Iterator[RetrieveRecord]:
+        """The acts *listing* names (every *what*), inside the run: a listing that fails or
+        is empty is an error of the step."""
+        celex_ids = listed(listing(), what)
+        logger.info("EUR-Lex: %d %s listed; starting retrieval.", len(celex_ids), what)
+        yield from self._fetch_acts(celex_ids, lang)
+
+    def _run_listed(
+        self, listing: Callable[[], list[str]], what: str, lang: str
+    ) -> PipelineResult:
+        return self._store_all(self._fetch_listed(listing, what, lang), what="acts")
 
     def run_full(
         self, *, lang: str = "NL", cdm_types: tuple[str, ...] = ("directive",)
     ) -> PipelineResult:
-        """Full-load mode: list the acts of *cdm_types* via CELLAR SPARQL, then fetch each.
-
-        Uses ``EUClient.enumerate_all_ids()`` (which leaves out corrigenda and is incomplete
-        for recent years) and then ``run(celex_ids=...)``. Safe to interrupt and re-run.
-        """
-        logger.info("EUR-Lex full-load: listing %s via CELLAR SPARQL.", cdm_types)
-        try:
-            all_ids = self.eu.enumerate_all_ids(cdm_types=cdm_types)
-        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
-            result = PipelineResult()
-            msg = f"EUR-Lex SPARQL enumeration failed: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
-            return result
-
-        logger.info(
-            "EUR-Lex full-load: %d IDs found; starting retrieval.", len(all_ids)
+        """Full-load mode: the acts of *cdm_types* CELLAR SPARQL lists
+        (``EUClient.enumerate_all_ids``, which leaves out corrigenda and is incomplete for
+        recent years). Safe to interrupt and re-run."""
+        return self._run_listed(
+            lambda: self.eu.enumerate_all_ids(cdm_types=cdm_types),
+            f"EU acts of type {', '.join(cdm_types)}",
+            lang,
         )
-        return self.run(celex_ids=all_ids, lang=lang)
 
     def run_nim(self, *, country_code: str = "NLD", lang: str = "NL") -> PipelineResult:
-        """NIM mode: enumerate EU acts with national implementation measures for a country,
-        then fetch each.
-
-        Uses ``EUClient.enumerate_nim_ids()`` to discover CELEX IDs, then calls
-        ``run(celex_ids=...)`` to fetch and store each.
-        Safe to interrupt and re-run — the upsert pattern ensures idempotency.
-        """
-        logger.info(
-            "EUR-Lex NIM-load: enumerating CELEX IDs with NIM for country=%s.",
-            country_code,
+        """NIM mode: the EU acts with national implementation measures of *country_code*."""
+        return self._run_listed(
+            lambda: self.eu.enumerate_nim_ids(country_code=country_code),
+            f"EU acts with national implementation measures of {country_code}",
+            lang,
         )
-        try:
-            all_ids = self.eu.enumerate_nim_ids(country_code=country_code)
-        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
-            result = PipelineResult()
-            msg = f"EUR-Lex NIM SPARQL enumeration failed: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
-            return result
-
-        if not all_ids:
-            result = PipelineResult()
-            result.add_error(
-                f"EUR-Lex NIM enumeration found no acts for {country_code}: the SPARQL "
-                "endpoint holds no national implementation measures."
-            )
-            return result
-
-        logger.info("EUR-Lex NIM-load: %d IDs found; starting retrieval.", len(all_ids))
-        return self.run(celex_ids=all_ids, lang=lang)
 
     def run_cjeu(
         self,
@@ -139,43 +108,22 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         country_code: str = "NLD",
         lang: str = "NL",
     ) -> PipelineResult:
-        """CJEU mode: enumerate relevant CJEU judgment CELEX IDs, then fetch each.
-
-        If ``celex_ids`` is provided, finds judgments citing those instruments.
-        Otherwise enumerates NL-party judgments via ``country_code``.
-        """
-        logger.info("EUR-Lex CJEU: enumerating relevant judgment CELEX IDs.")
-        all_ids = self.eu.enumerate_cjeu_ids(
-            celex_ids=celex_ids, country_code=country_code
+        """CJEU mode: the judgments that cite the acts *celex_ids*, or without them the
+        judgments related to *country_code*."""
+        return self._run_listed(
+            lambda: self.eu.enumerate_cjeu_ids(
+                celex_ids=celex_ids, country_code=country_code
+            ),
+            "CJEU judgments",
+            lang,
         )
-        logger.info(
-            "EUR-Lex CJEU: %d judgment IDs found; starting retrieval.", len(all_ids)
-        )
-        return self.run(celex_ids=all_ids, lang=lang)
 
-    def run_com(
-        self,
-        *,
-        celex_ids: list[str] | None = None,
-        lang: str = "NL",
-    ) -> PipelineResult:
-        """COM mode: enumerate COM proposal CELEX IDs for the given instruments, then fetch each.
-
-        ``celex_ids`` should be the CELEX IDs of the instruments already in the graph.
-        If not provided, a warning is logged and an empty result is returned.
-        """
-        if not celex_ids:
-            logger.warning(
-                "run_com() called without celex_ids — cannot enumerate COM proposals."
-            )
-            return PipelineResult()
-
-        logger.info(
-            "EUR-Lex COM: enumerating proposal CELEX IDs for %d instruments.",
-            len(celex_ids),
+    def run_com(self, *, celex_ids: list[str], lang: str = "NL") -> PipelineResult:
+        """COM mode: the COM proposals of the acts *celex_ids* (those in the graph)."""
+        return self._run_listed(
+            lambda: self.eu.enumerate_com_ids(
+                celex_ids=listed(celex_ids, "EU acts in the graph")
+            ),
+            "COM proposals",
+            lang,
         )
-        all_ids = self.eu.enumerate_com_ids(celex_ids=celex_ids)
-        logger.info(
-            "EUR-Lex COM: %d COM proposal IDs found; starting retrieval.", len(all_ids)
-        )
-        return self.run(celex_ids=all_ids, lang=lang)

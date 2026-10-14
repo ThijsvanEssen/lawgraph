@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-import requests
 
 from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.bwb import ToestandMeta
@@ -21,13 +20,7 @@ from lawgraph.pipelines.retrieve.base import (
 )
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
-from tests.fakes import FakeResponse, InMemoryStore, external_ids
-
-
-def _http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status}", response=response)
+from tests.fakes import FakeResponse, InMemoryStore, external_ids, http_error
 
 
 def _record(one: str, text: str) -> list[RetrieveRecord]:
@@ -38,7 +31,7 @@ def _download(answers: dict[str, Any], **kwargs: Any) -> tuple[list, Progress]:
     pipeline = RetrievePipelineBase(store=object())  # type: ignore[arg-type]
     pipeline.progress = Progress()
 
-    def fetch(one: str) -> str | None:
+    def fetch(one: str) -> str:
         answer = answers[one]
         if isinstance(answer, Exception):
             raise answer
@@ -61,22 +54,22 @@ def _download(answers: dict[str, Any], **kwargs: Any) -> tuple[list, Progress]:
 
 
 def test_ok_404_and_a_run_of_500s() -> None:
-    answers: dict[str, Any] = {"ok": "<a/>", "gone": _http_error(404), "none": None}
-    answers.update({f"bad{n}": _http_error(500) for n in range(MAX_FAILURES_IN_A_ROW)})
+    answers: dict[str, Any] = {"ok": "<a/>", "gone": http_error(404)}
+    answers.update({f"bad{n}": http_error(500) for n in range(MAX_FAILURES_IN_A_ROW)})
     records, progress = _download(answers)
 
-    assert [r.external_id for r in records[:3]] == ["ok", "gone", "none"]
+    assert [r.external_id for r in records[:2]] == ["ok", "gone"]
     assert records[0].kind == "k"
-    assert records[1].kind == records[2].kind == "k" + RAW_KIND_MISSING_SUFFIX
+    assert records[1].kind == "k" + RAW_KIND_MISSING_SUFFIX
     assert records[1].meta == {**records[1].meta, "status": 404}  # type: ignore[union-attr]
     assert isinstance(records[-1], SourceDown)
-    assert progress.skipped == 2
+    assert progress.skipped == 1
     assert progress.failed == MAX_FAILURES_IN_A_ROW
 
 
 def test_a_failure_can_be_a_skip_that_is_asked_again_next_run() -> None:
     records, progress = _download(
-        {"bad": _http_error(500), "ok": "<a/>"}, failed_is_skipped=True
+        {"bad": http_error(500), "ok": "<a/>"}, failed_is_skipped=True
     )
     assert [r.external_id for r in records] == ["ok"]
     assert (progress.skipped, progress.failed) == (1, 0)
@@ -127,7 +120,7 @@ IDS = [f"BWBR{n:07d}" for n in range(100)]
 
 @pytest.mark.parametrize("history", [False, True])
 def test_bwb_stops_when_the_source_is_down(raw_reads: None, history: bool) -> None:
-    client = _BWBClient(_http_error(503))
+    client = _BWBClient(http_error(503))
     pipeline = BWBRetrievePipeline(store=InMemoryStore(), client=client)  # type: ignore[arg-type]
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 

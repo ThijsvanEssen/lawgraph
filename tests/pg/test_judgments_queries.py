@@ -11,6 +11,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+from lawgraph.db.queries.not_found import NotFound
 from tests.fakes import PATIENCE
 
 HR1 = "ECLI:NL:HR:2020:1"
@@ -492,7 +493,7 @@ def test_the_series_by_ecli_number(detail: GraphStore) -> None:
 
 
 def test_an_unknown_judgment(detail: GraphStore) -> None:
-    with pytest.raises(ValueError, match="judgment not found"):
+    with pytest.raises(NotFound):
         judgment_queries.get_judgment_with_relations(detail, "ECLI:NL:XX:0000:0")
 
 

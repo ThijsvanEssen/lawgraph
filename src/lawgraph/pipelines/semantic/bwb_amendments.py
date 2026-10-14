@@ -49,9 +49,8 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import EdgeWriter, NodeWriter, edge_key
+from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 
 from .base import SemanticPipelineBase
 
@@ -128,7 +127,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         nodes = NodeWriter(self.store)
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         self._known_dossiers = {}
         self._removed = 0
 
@@ -180,14 +179,12 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 self._keep_earliest(chunk, row, pair, kind)
 
         to_link = self._write_documents(chunk, nodes)
-        kept = self._write_amendments(chunk, targets, edges)
+        self._write_amendments(chunk, targets, edges)
         self._write_dossier_links(to_link, edges)
-        self._removed += semantic_edges.remove_edges_to(
-            self.store,
+        self._removed += edges.remove_stale_to(
             list(_RELATION_OF_KIND.values()),
             SEMANTIC_SOURCE,
             [f"{COLLECTION_ARTICLES}/{key}" for key in targets.values()],
-            kept,
         )
 
     @staticmethod
@@ -289,9 +286,8 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         chunk: _Chunk,
         targets: dict[tuple[str, str], str],
         edges: EdgeWriter,
-    ) -> dict[str, set[str]]:
-        """Write the amendments; the keys of the edges per article id."""
-        kept: dict[str, set[str]] = {}
+    ) -> None:
+        """Write the amendments."""
         for (publication, pair, kind), amendment in chunk.amendments.items():
             source_id = _instrument_id(publication)
             target_id = f"{COLLECTION_ARTICLES}/{targets[pair]}"
@@ -304,10 +300,6 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 confidence=1.0,
                 meta=amendment.meta(),
             )
-            kept.setdefault(target_id, set()).add(
-                edge_key(source_id, relation, target_id)
-            )
-        return kept
 
     def _link_regulation_dossiers(self, edges: EdgeWriter) -> None:
         """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks); the
@@ -317,32 +309,28 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         )
         removed = 0
         for chunk in chunked(rows, self._CHUNK):
-            kept = self._write_dossier_links(
+            self._write_dossier_links(
                 {r["key"]: {str(d) for d in r["dossiers"] if d} for r in chunk}, edges
             )
-            removed += semantic_edges.remove_edges_from(
-                self.store,
+            removed += edges.remove_stale(
                 RELATION_LEGISLATED_IN,
                 SEMANTIC_SOURCE,
                 [_instrument_id(r["key"]) for r in chunk],
-                kept,
             )
         logger.info("Removed %d regulation dossiers the BWB no longer names.", removed)
 
     def _write_dossier_links(
         self, dossiers_by_instrument: dict[str, set[str]], edges: EdgeWriter
-    ) -> dict[str, set[str]]:
-        """LEGISLATED_IN for every dossier that exists: one existence check per call.
-        Returns the keys of the edges per instrument id."""
+    ) -> None:
+        """LEGISLATED_IN for every dossier that exists: one existence check per call."""
         wanted = {
             number: make_node_key(number)
             for numbers in dossiers_by_instrument.values()
             for number in numbers
         }
         if not wanted:
-            return {}
+            return
         existing = self.store.existing_keys(COLLECTION_DOSSIERS, set(wanted.values()))
-        kept: dict[str, set[str]] = {}
         for instrument, numbers in dossiers_by_instrument.items():
             for number in sorted(numbers):
                 if wanted[number] not in existing:
@@ -357,7 +345,3 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                     confidence=1.0,
                     meta={"dossier_number": number},
                 )
-                kept.setdefault(source_id, set()).add(
-                    edge_key(source_id, RELATION_LEGISLATED_IN, target_id)
-                )
-        return kept

@@ -15,7 +15,6 @@ from lawgraph.core.mentions import ArticleMentions, find_mentions, footnote_para
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -88,9 +87,8 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
-        kept: dict[str, set[str]] = {}
         with NodeWriter(self.store) as nodes:
             for judgment, paragraphs in self._judgment_paragraphs(
                 since_iso, after=self.after, limit=self.limit
@@ -109,23 +107,20 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                     article = self._resolve_article(cited)
                     if article is None:
                         continue
-                    doc = self._make_edge_doc(
-                        from_node=judgment,
-                        to_node=article,
-                        relation=RELATION_REFERS_TO,
-                        source=SEMANTIC_SOURCE,
-                        confidence=cited.confidence,
-                        meta=cited.meta(),
+                    edges.add_doc(
+                        self._make_edge_doc(
+                            from_node=judgment,
+                            to_node=article,
+                            relation=RELATION_REFERS_TO,
+                            source=SEMANTIC_SOURCE,
+                            confidence=cited.confidence,
+                            meta=cited.meta(),
+                        )
                     )
-                    if doc:
-                        edges.add_doc(doc)
-                        kept.setdefault(doc["_from"], set()).add(doc["_key"])
                 self._keep_unresolved(judgment, unresolved, nodes, result)
 
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
-        )
+        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info("Removed %d article citations the text no longer makes.", removed)
         if self.after or self.limit is not None:
             last = self.last_judgment_read

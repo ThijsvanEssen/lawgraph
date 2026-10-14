@@ -143,17 +143,23 @@ def test_the_note_reaches_the_table_of_retrieve_all(graph, caplog) -> None:
 
 def test_a_list_cut_at_the_cap_carries_a_note() -> None:
     rows = [f"ECLI:{n}" for n in range(_gaps.MAX_GAPS_PER_RUN + 5)]
-    taken = _gaps._capped(rows, "stub judgments")
+    taken = _gaps.Gaps.capped(rows, "stub judgments")
     assert taken.note == "50,000 of 50,005 stub judgments, again for the rest"
 
 
+def test_a_list_cut_at_a_limit_of_its_own_carries_that_limit() -> None:
+    taken = _gaps.Gaps.capped(list(range(1500)), "Kamerstukken without XML", 1000)
+    assert len(taken) == 1000
+    assert taken.note == "1,000 of 1,500 Kamerstukken without XML, again for the rest"
+
+
 def test_a_list_below_the_cap_carries_none() -> None:
-    assert _gaps._capped(["a"], "stub judgments").note is None
+    assert _gaps.Gaps.capped(["a"], "stub judgments").note is None
 
 
 def test_the_note_of_a_cut_list_goes_on_the_result() -> None:
-    cut = _gaps._capped(list(range(_gaps.MAX_GAPS_PER_RUN + 1)), "dossiers")
-    whole = _gaps._capped([1, 2], "dossiers")
+    cut = _gaps.Gaps.capped(list(range(_gaps.MAX_GAPS_PER_RUN + 1)), "dossiers")
+    whole = _gaps.Gaps.capped([1, 2], "dossiers")
     result = _gaps.noted(PipelineResult(created=3), cut, whole)
     assert result.notes == ["50,000 of 50,001 dossiers, again for the rest"]
 

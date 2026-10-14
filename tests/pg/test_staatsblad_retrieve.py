@@ -4,10 +4,9 @@ run does not ask for it; one it could not serve (HTTP 500) is asked again."""
 
 from __future__ import annotations
 
-import requests
-
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from tests.fakes import http_error
 
 
 class _Client:
@@ -22,13 +21,13 @@ class _Client:
             for i in ("stb-2020-404", "stb-2015-29246", "stb-2020-1")
         ]
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         self.asked.append(identifier)
         if identifier == "stb-2015-29246":
-            response = requests.Response()
-            response.status_code = 500
-            raise requests.HTTPError("500 Server Error", response=response)
-        return None if identifier.endswith("404") else f"<xml>{identifier}</xml>"
+            raise http_error(500)
+        if identifier.endswith("404"):
+            raise http_error(404)
+        return f"<xml>{identifier}</xml>"
 
 
 def test_a_known_404_is_not_asked_again_and_a_500_is(store: GraphStore) -> None:
