@@ -193,22 +193,27 @@ def _as_text(value: str) -> str:
     return f"coalesce({value} #>> '{{}}', '')"
 
 
-# The documents of one dossier (``%(dossier_id)s``): directly PART_OF it, or PART_OF a
-# case that is PART_OF it; each once.
-_DOSSIER_DOCUMENT_IDS = f"""
+def _in_dossier(relation: str, collection: str) -> str:
+    """SQL: the ``id`` of the nodes of *collection* with an edge *relation* (a parameter)
+    to the dossier ``%(dossier_id)s``, or to a case PART_OF it; each once."""
+    return f"""
     SELECT e.from_id AS id
     FROM {COLLECTION_EDGES} e
-    WHERE e.to_id = %(dossier_id)s AND e.relation = %(part_of)s
-      AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    WHERE e.to_id = %(dossier_id)s AND e.relation = {relation}
+      AND e.from_collection = '{collection}'
     UNION
     SELECT e2.from_id
     FROM {COLLECTION_EDGES} e1
     JOIN {COLLECTION_EDGES} e2
-      ON e2.to_id = e1.from_id AND e2.relation = %(part_of)s
-     AND e2.from_collection = '{COLLECTION_DOCUMENTS}'
+      ON e2.to_id = e1.from_id AND e2.relation = {relation}
+     AND e2.from_collection = '{collection}'
     WHERE e1.to_id = %(dossier_id)s AND e1.relation = %(part_of)s
       AND e1.from_collection = '{COLLECTION_CASES}'
 """
+
+
+# The documents of one dossier: directly PART_OF it, or PART_OF a case that is PART_OF it.
+_DOSSIER_DOCUMENT_IDS = _in_dossier("%(part_of)s", COLLECTION_DOCUMENTS)
 
 
 @dataclass
@@ -709,20 +714,7 @@ links AS (
 hub_instruments AS (
     SELECT DISTINCT l.instrument_id, l.relation, l.status FROM links l
 ),
-activity_ids AS (
-    SELECT e.from_id AS id
-    FROM {COLLECTION_EDGES} e
-    WHERE e.to_id = %(dossier_id)s AND e.relation = %(about)s
-      AND e.from_collection = '{COLLECTION_ACTIVITIES}'
-    UNION
-    SELECT e2.from_id
-    FROM {COLLECTION_EDGES} e1
-    JOIN {COLLECTION_EDGES} e2
-      ON e2.to_id = e1.from_id AND e2.relation = %(about)s
-     AND e2.from_collection = '{COLLECTION_ACTIVITIES}'
-    WHERE e1.to_id = %(dossier_id)s AND e1.relation = %(part_of)s
-      AND e1.from_collection = '{COLLECTION_CASES}'
-),
+activity_ids AS ({_in_dossier("%(about)s", COLLECTION_ACTIVITIES)}),
 lead_ids AS (
     SELECT DISTINCT led.to_id AS id
     FROM activity_ids a

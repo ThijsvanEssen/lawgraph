@@ -7,10 +7,8 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
-    COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
-    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -1083,12 +1081,7 @@ _FACTION_AUTHORED = f"""
     FROM {COLLECTION_EDGES} seat
     JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
     JOIN {COLLECTION_EDGES} a ON a.from_id = m.id AND a.relation = %(authored)s
-    CROSS JOIN LATERAL (
-        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-            THEN (SELECT x.date FROM {COLLECTION_DOCUMENTS} x WHERE x.id = a.to_id)
-            ELSE (SELECT lg_str(x.props -> 'date') FROM nodes x WHERE x.id = a.to_id)
-        END AS date
-    ) d
+    CROSS JOIN LATERAL (SELECT lg_signed_date(a.to_id) AS date) d
     WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
       AND d.date IS NOT NULL
       AND EXISTS (
@@ -1111,24 +1104,11 @@ def _distinct(field: str, condition: str) -> str:
 
 # The dossiers of the papers of ``authored`` (``document_id``, ``meta``): directly, or through
 # a case.
-_WALKED_FOUND = f"""
+_WALKED_FOUND = """
         found AS (
             SELECT ids.dossier_id, a.document_id, a.meta
             FROM authored a
-            CROSS JOIN LATERAL (
-                SELECT p.to_id AS dossier_id
-                FROM {COLLECTION_EDGES} p
-                WHERE p.from_id = a.document_id AND p.relation = %(part_of)s
-                  AND p.to_collection = '{COLLECTION_DOSSIERS}'
-                UNION
-                SELECT p2.to_id
-                FROM {COLLECTION_EDGES} p1
-                JOIN {COLLECTION_EDGES} p2
-                  ON p2.from_id = p1.to_id AND p2.relation = %(part_of)s
-                 AND p2.to_collection = '{COLLECTION_DOSSIERS}'
-                WHERE p1.from_id = a.document_id AND p1.relation = %(part_of)s
-                  AND p1.to_collection = '{COLLECTION_CASES}'
-            ) ids
+            CROSS JOIN LATERAL unnest(lg_dossiers_of(a.document_id)) AS ids(dossier_id)
         ),
 """
 # The same, of a faction, from ``lg_authored``: of each member who sat in it its periods in
@@ -1216,7 +1196,6 @@ def get_actor_dossiers(
             "limit": limit,
             "offset": offset,
             "authored": RELATION_AUTHORED,
-            "part_of": RELATION_PART_OF,
             "member_of": RELATION_MEMBER_OF,
         },
     )
