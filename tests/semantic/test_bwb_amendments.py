@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.config.constants import (
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REPEALS,
@@ -196,6 +197,39 @@ def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
     assert {e["_to"] for e in _edges(store, RELATION_AMENDS)} == {_art("2")}
     assert [e["_to"] for e in _edges(store, RELATION_REPEALS)] == [_art("4")]
     assert all(e["confidence"] == 1.0 for e in store.edges.values())
+
+
+def test_a_new_regulation_is_established_by_the_publication_that_enacted_it() -> None:
+    """The Cyberbeveiligingswet: its articles came with Stb. 2026, 187 (effect
+    ``nieuwe-regeling``), legislated in 36764; the act changed the Telecommunicatiewet in
+    the same publication."""
+    cbw, tw = "BWBR0052872", "BWBR0009950"
+    enacted = {
+        **_pub("187", dossiers=["36764"], year=2026),
+        "effect": "nieuwe-regeling",
+    }
+    store = _FakeStore(
+        [
+            _version("1", "a", effect="nieuwe-regeling", origin=enacted, bwb_id=cbw),
+            _version("16", "b", effect="nieuwe-regeling", origin=enacted, bwb_id=cbw),
+            _version("7", "c", effect="wijziging", origin=enacted, bwb_id=tw),
+        ],
+        dossiers={"36764"},
+    )
+
+    _run(store)
+
+    stb = f"instruments/{publication_key('stb-2026-187')}"
+    established = _edges(store, RELATION_ESTABLISHES)
+    assert {e["_to"] for e in established} == {_art("1", cbw), _art("16", cbw)}
+    assert {e["_from"] for e in established} == {stb}
+    assert established[0]["meta"]["effect"] == "nieuwe-regeling"
+    # an enactment is no change of the law: no AMENDS or INTRODUCES into the Cbw
+    assert [e["_to"] for e in _edges(store, RELATION_AMENDS)] == [_art("7", tw)]
+    assert _edges(store, RELATION_INTRODUCES) == []
+    assert [e["_to"] for e in _edges(store, RELATION_LEGISLATED_IN)] == [
+        "dossiers/36764"
+    ]
 
 
 def test_documents_become_instruments_with_their_metadata() -> None:

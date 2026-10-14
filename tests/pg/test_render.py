@@ -856,6 +856,33 @@ def test_a_publication_has_its_title_and_what_it_changes(
     assert page["data"]["@graph"][0]["legislationIdentifier"] == "stb-2025-263"
 
 
+def test_the_publication_that_enacted_a_law_establishes_it(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Stb. 2026, 187 enacted the Cyberbeveiligingswet: it sets the law's articles
+    (``ESTABLISHES``) and changes another law in the same act."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("stb_2026_187", "instrument", kind="publicatie",
+               citation_title="Stb. 2026, 187", official_id="stb-2026-187",
+               publication_kind="Stb", publication_year=2026, publication_number=187,
+               date_published="2026-07-20"),
+         _node("bwbr0052872", "instrument", bwb_id="BWBR0052872",
+               citation_title="Cyberbeveiligingswet"),
+         _node("bwbr0009950", "instrument", bwb_id="BWBR0009950",
+               citation_title="Telecommunicatiewet")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("e1", "instruments/stb_2026_187", "articles/bwbr0052872_1", "ESTABLISHES"),
+         _edge("e2", "instruments/stb_2026_187", "articles/bwbr0009950_7", "AMENDS")]
+    )  # fmt: skip
+    page = _head(_get(client, "/stb/2026/187").text)
+    assert page["robots"] is None
+    assert 'href="/wetten/BWBR0052872"' in page["main"]
+    assert "(stelt vast)" in page["main"]
+    assert "(wijzigt)" in page["main"]
+
+
 def test_a_publication_without_a_title_or_a_change_is_not_indexed(
     client: TestClient, store: GraphStore
 ) -> None:

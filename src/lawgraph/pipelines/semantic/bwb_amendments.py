@@ -1,15 +1,16 @@
-"""Semantic pipeline: amending publications → AMENDS / INTRODUCES / REPEALS → articles.
+"""Semantic pipeline: publications → ESTABLISHES / AMENDS / INTRODUCES / REPEALS → articles.
 
 Everything here is read straight from the BWB XML (as stored by the normalize
 pipelines), nothing is guessed:
 
 * every article version says which publication created it (``origin_publication``,
-  e.g. ``Stb. 2019, 33``) and what that did (``effect``: nieuw / wijziging /
-  vervallen). The publication is an ``Instrument``; the edge goes from it to the
-  article identity the version belongs to (``stam-id``), as
-  ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` carrying the effective date and the
-  article version. A republication (``tekstplaatsing``) changes nothing and has no edge;
-  the edges of this step into an article that it no longer derives go;
+  e.g. ``Stb. 2019, 33``) and what that did (``effect``: nieuwe-regeling / nieuw /
+  wijziging / vervallen). The publication is an ``Instrument``; the edge goes from it to
+  the article identity the version belongs to (``stam-id``), as ``ESTABLISHES`` (the
+  publication that enacted the regulation) / ``AMENDS`` / ``INTRODUCES`` / ``REPEALS``
+  carrying the effective date and the article version. A republication
+  (``tekstplaatsing``) changes nothing and has no edge; the edges of this step into an
+  article that it no longer derives go;
 * a publication (and a regulation) lists the parliamentary dossier(s) of the bill
   behind it, which becomes ``LEGISLATED_IN`` (instrument → dossier) when that
   dossier is in the graph.
@@ -31,6 +32,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REPEALS,
@@ -38,6 +40,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.batching import chunked, chunked_aligned
 from lawgraph.core.bwb_xml import (
     EFFECT_AMENDS,
+    EFFECT_ESTABLISHES,
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
     effect_kind,
@@ -57,6 +60,7 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "bwb-amendments"
 
 _RELATION_OF_KIND = {
+    EFFECT_ESTABLISHES: RELATION_ESTABLISHES,
     EFFECT_INTRODUCES: RELATION_INTRODUCES,
     EFFECT_AMENDS: RELATION_AMENDS,
     EFFECT_REPEALS: RELATION_REPEALS,
@@ -110,7 +114,8 @@ class _Chunk:
 
 
 class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
-    """Create amendment edges and LEGISLATED_IN edges from the BWB metadata."""
+    """Create enactment and amendment edges and LEGISLATED_IN edges from the BWB
+    metadata."""
 
     _CHUNK = 500
 

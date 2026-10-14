@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_AUTHORED,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_MADE_IN,
@@ -627,7 +628,13 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 # ── publications, commitments and decisions ───────────────────────────────────
 
 # What a publication does to a regulation, and what its nota van toelichting does.
-_CHANGES = (RELATION_INTRODUCES, RELATION_AMENDS, RELATION_REPEALS, RELATION_EXPLAINS)
+_CHANGES = (
+    RELATION_ESTABLISHES,
+    RELATION_INTRODUCES,
+    RELATION_AMENDS,
+    RELATION_REPEALS,
+    RELATION_EXPLAINS,
+)
 
 
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -692,7 +699,7 @@ def changed(store: GraphStore, sources: tuple[str, ...]) -> list[dict[str, Any]]
 
 
 def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
-    """The regulations *sources* introduce, amend, repeal or explain (themselves or in
+    """The regulations *sources* enact, introduce, amend, repeal or explain (themselves or in
     their articles), by name: ``id``, ``props`` (to their address), ``name`` and
     ``relations``."""
     rows = store.query(

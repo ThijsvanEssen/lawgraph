@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_IMPLEMENTS,
     RELATION_INTRODUCES,
@@ -70,9 +71,10 @@ MUTATION_RELATIONS = (
 EXPLANATION_RELATIONS = (RELATION_EXPLAINS,)
 
 # How an instrument is tied to a dossier, in the order the hub lists them: legislated in
-# it, then changed by it.
+# it, enacted by a publication of it, then changed by it.
 HUB_INSTRUMENT_RELATIONS = (
     RELATION_LEGISLATED_IN,
+    RELATION_ESTABLISHES,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
     RELATION_REPEALS,
@@ -789,10 +791,10 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     """What a dossier is linked to, in one query: instruments, committees, documents.
 
     *instruments* are the parent instruments the dossier is tied to, one row per
-    ``(instrument, relation, status)``: a regulation ``LEGISLATED_IN`` the dossier; an
-    instrument that an amending publication legislated in this dossier, or a bill of
-    the dossier, ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or
-    directly). *committees* lead an activity about the dossier, directly or through a
+    ``(instrument, relation, status)``: a regulation ``LEGISLATED_IN`` the dossier; a
+    regulation that a publication legislated in this dossier enacted (``ESTABLISHES`` its
+    articles); an instrument that such a publication, or a bill of the dossier,
+    ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or directly). *committees* lead an activity about the dossier, directly or through a
     case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``
     (by the kinds in their order); *senate* the Eerste Kamer papers among them.
     """
@@ -802,7 +804,12 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
         "about": RELATION_ABOUT,
         "led_by": RELATION_LED_BY,
         "legislated_in": RELATION_LEGISLATED_IN,
-        "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+        "changes": [
+            RELATION_ESTABLISHES,
+            RELATION_AMENDS,
+            RELATION_INTRODUCES,
+            RELATION_REPEALS,
+        ],
         "canonical": EDGE_STATUS_CANONIEK,
         "relation_order": [r.lower() for r in HUB_INSTRUMENT_RELATIONS],
     }

@@ -624,7 +624,11 @@ class LegislativeHistoryEntry(BaseModel):
         None,
         description="Document kind of a bill, publication kind (`Stb`) of a publication.",
     )
-    change: Literal["amends", "introduces", "repeals"]
+    change: Literal["establishes", "amends", "introduces", "repeals"] = Field(
+        ...,
+        description="`establishes`: the publication that enacted the regulation set the "
+        "article; else the change it made or a bill proposes.",
+    )
     status: str | None = Field(
         None, description="`canoniek` (enacted) or `voorgesteld` (proposed)."
     )
@@ -898,8 +902,9 @@ class ArticleVersionDTO(BaseModel):
     change: str | None = Field(
         None,
         description=(
-            "Normalised effect: 'introduces', 'amends', 'repeals', 'republishes' (the text "
-            "placed again, unchanged: a republication, as of the Grondwet) or null."
+            "Normalised effect: 'establishes' (the regulation as it was enacted), "
+            "'introduces', 'amends', 'repeals', 'republishes' (the text placed again, "
+            "unchanged: a republication, as of the Grondwet) or null."
         ),
     )
     source_publication: str | None = None

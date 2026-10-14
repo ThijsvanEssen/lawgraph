@@ -16,6 +16,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_REPEALS,
@@ -1292,6 +1293,7 @@ def committee_page(row: dict[str, Any]) -> Page:
 _SERIES = {"stb": "Stb.", "trb": "Trb.", "stcrt": "Stcrt."}
 # What a publication or its nota van toelichting does to a regulation.
 _VERBS = {
+    RELATION_ESTABLISHES: "stelt vast",
     RELATION_INTRODUCES: "voert in",
     RELATION_AMENDS: "wijzigt",
     RELATION_REPEALS: "trekt in",

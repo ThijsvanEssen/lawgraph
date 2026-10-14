@@ -8,6 +8,7 @@ import pytest
 
 from lawgraph.core.bwb_xml import (
     EFFECT_AMENDS,
+    EFFECT_ESTABLISHES,
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
     EFFECT_REPUBLISHES,
@@ -112,6 +113,7 @@ def test_repealed_and_new_articles(grondwet) -> None:
     assert repealed.is_repealed and repealed.text == "Vervallen"
     assert effect_kind(new.effect) == EFFECT_INTRODUCES
     assert effect_kind("vervallen") == EFFECT_REPEALS
+    assert effect_kind("nieuwe-regeling") == EFFECT_ESTABLISHES
     assert effect_kind("iets-nieuws") is None
 
 

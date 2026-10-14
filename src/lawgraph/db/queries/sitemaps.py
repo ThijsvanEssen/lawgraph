@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_MADE_IN,
@@ -252,9 +253,10 @@ def publications(
 ) -> Iterator[dict[str, Any]]:
     """The publications in the Staatsblad and the Tractatenblad since *since* that have a
     page to find (``api/seo/pages.publication_page``): a title of their own (their nota
-    van toelichting) or a regulation they change. The day they were published is their
+    van toelichting) or a regulation they enact or change. The day they were published is their
     lastmod."""
     changes = [
+        RELATION_ESTABLISHES,
         RELATION_INTRODUCES,
         RELATION_AMENDS,
         RELATION_REPEALS,

@@ -377,6 +377,11 @@ class AmendingInstrumentDTO(BaseModel):
     date_published: str | None = None
     official_url: str | None = Field(None, description=OFFICIAL_URL)
     dossiers: list[DossierRefDTO] = Field(default_factory=list)
+    establishes: int = Field(
+        0,
+        description="Number of ESTABLISHES edges into the regulation: the articles it set "
+        "as the publication that enacted it.",
+    )
     amends: int = Field(0, description="Number of AMENDS edges into the regulation.")
     introduces: int = Field(
         0, description="Number of INTRODUCES edges into the regulation."
@@ -414,6 +419,7 @@ class AmendingInstrumentDTO(BaseModel):
                 for n in props.get("dossier_numbers") or []
                 if n is not None and str(n).strip()
             ],
+            establishes=int(row.get("establishes") or 0),
             amends=int(row.get("amends") or 0),
             introduces=int(row.get("introduces") or 0),
             repeals=int(row.get("repeals") or 0),

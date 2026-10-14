@@ -1106,8 +1106,10 @@ Every run reads all of them, also under `--since`.
 1. upserts each originating and commencement publication as an Instrument (`stb_2019_33`),
    merging the dossier numbers of every version that mentions it;
 2. resolves each `(bwb_id, stam_id)` to its Article, one query per chunk;
-3. writes `Instrument(publication) -> AMENDS | INTRODUCES | REPEALS -> Article` from the
-   version `effect` (`nieuw` introduces; `wijziging` amends; `vervallen` repeals), confidence
+3. writes `Instrument(publication) -> ESTABLISHES | AMENDS | INTRODUCES | REPEALS -> Article`
+   from the version `effect` (`nieuwe-regeling` establishes: the publication that enacted the
+   regulation, Stb. 2026, 187 for the Cbw; `nieuw` introduces; `wijziging` amends;
+   `vervallen` repeals), confidence
    1.0, `meta` = `effective_date`, `article_version`, `effect`, `source_publication`; one edge
    per publication, article and kind, with the earliest effective date. A republication
    (`tekstplaatsing-wijziging`, `tekstplaatsing-vernummering`: the Grondwet placed again as a

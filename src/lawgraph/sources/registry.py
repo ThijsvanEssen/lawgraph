@@ -906,8 +906,9 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBAmendmentsSemanticPipeline,
         (
-            "AMENDS, INTRODUCES and REPEALS from amending publications, and LEGISLATED_IN from "
-            "dossier references."
+            "ESTABLISHES from the publication that enacted a regulation, AMENDS, INTRODUCES "
+            "and REPEALS from amending publications, and LEGISLATED_IN from dossier "
+            "references."
         ),
     ),
     _pipeline(
