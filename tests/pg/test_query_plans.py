@@ -719,6 +719,43 @@ def test_the_search_ranks_and_counts_with_indexes_only(
     assert [text for text in ranking if text not in INDEXES_ONLY] == []
 
 
+def _index_reads(node: dict[str, Any]) -> list[list[str]]:
+    """Per ``BitmapOr`` in the plan *node*: the indexes its scans read, one per scan."""
+    found = [
+        [child.get("Index Name", "") for child in node.get("Plans", [])]
+        if node["Node Type"] == "BitmapOr"
+        else []
+    ]
+    return [
+        names for child in node.get("Plans", []) for names in _index_reads(child)
+    ] + [names for names in found if names]
+
+
+def test_the_live_search_reads_the_trigrams_of_a_field_once_per_word(
+    planned: GraphStore, statements: list[tuple[str, Any, Any]]
+) -> None:
+    """A word typed is found at the start of a value of a name or title, or of a word in
+    it: one lookup in the trigram index of the field. Its trigrams are those of the word
+    wherever it starts, so a lookup per place reads the same posting lists again (prod,
+    14 Oct: "kamer" in 727,000 papers, each past the 250 ms of the live search)."""
+    read_again = []
+    with planned.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_seqscan = off")
+        for url, statement, params in statements:
+            if "mode=live" not in url:
+                continue
+            explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
+            (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
+            for names in _index_reads(plan[0]["Plan"]):
+                again = sorted(
+                    {n for n in names if n.endswith("_g") and names.count(n) > 1}
+                )
+                if again:
+                    read_again.append(f"{url}: {', '.join(again)}")
+        conn.rollback()
+    assert not read_again, "\n".join(sorted(set(read_again)))
+
+
 def test_a_page_read_whole_is_found() -> None:
     scan = {
         "Node Type": "Index Scan",

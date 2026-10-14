@@ -1814,6 +1814,13 @@ _LIVE_ORDER = {
 
 # The query typed so far as the start of a folded value (``_live_query``).
 _LIVE_START = "lg_like(lg_fold(%(_live_q)s)) || '%%'"
+# The token in the parameter ``word`` folded, at the start of a value of an ``ngram``
+# column, of a word in it or of a value after the separator of its values: a regular
+# expression, every character but a letter or a digit escaped (``_live_clause``).
+_WORD_START = (
+    "('(^|[ ' || chr(31) || '])' || "
+    r"regexp_replace(lg_fold(%({word})s), '([^[:alnum:]])', '\\\1', 'g'))"
+)
 
 
 def _live_query(
@@ -1912,13 +1919,10 @@ def _live_clause(
                     f"doc.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
                 )
             if "ngram" in analyzers and len(token) >= 3:
+                # at the start of the value, of a word in it or of a value after it: one
+                # lookup, the trigrams of the token are the same at each
                 column = f"doc.{search_column(field, 'ngram')}"
-                start = f"lg_like(lg_fold(%({word})s)) || '%%'"
-                per_field += [
-                    f"{column} LIKE {start}",
-                    f"{column} LIKE '%% ' || {start}",
-                    f"{column} LIKE '%%' || chr(31) || {start}",
-                ]
+                per_field.append(f"{column} ~ {_WORD_START.format(word=word)}")
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"doc.id = ANY(%(_termed_{i})s::text[])")
