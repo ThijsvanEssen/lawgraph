@@ -1,0 +1,358 @@
+{
+ "tk": {
+  "chamber": "TK",
+  "cabinet": {
+   "key": "k",
+   "name": "kabinet-K"
+  },
+  "total_seats": 150,
+  "assigned_seats": 31,
+  "as_of": "2026-07-01",
+  "factions": [
+   {
+    "id": "factions/sp",
+    "key": "sp",
+    "abbreviation": "SP",
+    "name": "Partij SP",
+    "seats": 5,
+    "vacant": 0,
+    "color": "#DA3230",
+    "colors": [
+     "#DA3230"
+    ],
+    "order": 0,
+    "coalition": false,
+    "path": "/fracties/sp"
+   },
+   {
+    "id": "factions/vvd",
+    "key": "vvd",
+    "abbreviation": "VVD",
+    "name": "Partij VVD",
+    "seats": 24,
+    "vacant": 0,
+    "color": "#E48230",
+    "colors": [
+     "#E48230"
+    ],
+    "order": 10,
+    "coalition": true,
+    "path": "/fracties/vvd"
+   },
+   {
+    "id": "factions/nieuw",
+    "key": "nieuw",
+    "abbreviation": "NIEUW",
+    "name": "Partij NIEUW",
+    "seats": 2,
+    "vacant": 0,
+    "color": null,
+    "colors": [],
+    "order": 17,
+    "coalition": false,
+    "path": "/fracties/nieuw"
+   }
+  ],
+  "seating_plan": {
+   "title": "Zetelverdeling plenaire zaal, juni 2026",
+   "dated": "2026-06-01",
+   "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+   "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar"
+  },
+  "source": null,
+  "hall": null,
+  "hall_read_on": null,
+  "checked": null
+ },
+ "tk on a day": {
+  "chamber": "TK",
+  "cabinet": null,
+  "total_seats": 150,
+  "assigned_seats": 31,
+  "as_of": "2009-05-05",
+  "factions": [
+   {
+    "id": "factions/sp",
+    "key": "sp",
+    "abbreviation": "SP",
+    "name": "Partij SP",
+    "seats": 1,
+    "vacant": 0,
+    "color": "#DA3230",
+    "colors": [
+     "#DA3230"
+    ],
+    "order": 0,
+    "coalition": null,
+    "path": "/fracties/sp"
+   },
+   {
+    "id": "factions/vvd",
+    "key": "vvd",
+    "abbreviation": "VVD",
+    "name": "Partij VVD",
+    "seats": 30,
+    "vacant": 0,
+    "color": "#E48230",
+    "colors": [
+     "#E48230"
+    ],
+    "order": 10,
+    "coalition": null,
+    "path": "/fracties/vvd"
+   },
+   {
+    "id": "factions/nieuw",
+    "key": "nieuw",
+    "abbreviation": "NIEUW",
+    "name": "Partij NIEUW",
+    "seats": 0,
+    "vacant": 1,
+    "color": null,
+    "colors": [],
+    "order": 17,
+    "coalition": null,
+    "path": "/fracties/nieuw"
+   }
+  ],
+  "seating_plan": {
+   "title": "Zetelverdeling plenaire zaal, juni 2026",
+   "dated": "2026-06-01",
+   "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+   "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar"
+  },
+  "source": null,
+  "hall": null,
+  "hall_read_on": null,
+  "checked": null
+ },
+ "ek": {
+  "chamber": "EK",
+  "cabinet": {
+   "key": "k",
+   "name": "kabinet-K"
+  },
+  "total_seats": 75,
+  "assigned_seats": 13,
+  "as_of": "2026-06-01",
+  "factions": [
+   {
+    "id": "factions/ek_vvd",
+    "key": "ek_vvd",
+    "abbreviation": "VVD",
+    "name": "Partij VVD",
+    "seats": 10,
+    "vacant": 0,
+    "color": "#F47621",
+    "colors": [
+     "#F47621"
+    ],
+    "order": 0,
+    "coalition": true,
+    "path": "/fracties/ek_vvd"
+   },
+   {
+    "id": "factions/ek_sp",
+    "key": "ek_sp",
+    "abbreviation": "SP",
+    "name": "Partij SP",
+    "seats": 3,
+    "vacant": 0,
+    "color": "#A00000",
+    "colors": [
+     "#A00000"
+    ],
+    "order": 1,
+    "coalition": false,
+    "path": "/fracties/ek_sp"
+   }
+  ],
+  "seating_plan": null,
+  "source": {
+   "url": "https://www.eerstekamer.nl/fracties",
+   "retrieved_on": "2026-06-01",
+   "composition_date": "2026-06-01",
+   "data_since": "2003",
+   "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+  },
+  "hall": {
+   "url": "https://www.eerstekamer.nl/wie_zit_waar",
+   "seats": [
+    {
+     "block": "chair",
+     "row": 0,
+     "column": 0,
+     "faction": "ek_sp",
+     "abbreviation": null,
+     "member": "m2",
+     "name": "B. Voorzitter"
+    },
+    {
+     "block": "right",
+     "row": 1,
+     "column": 2,
+     "faction": "ek_vvd",
+     "abbreviation": "VVD",
+     "member": "m1",
+     "name": "A. Lid"
+    }
+   ]
+  },
+  "hall_read_on": "2026-06-01",
+  "checked": null
+ },
+ "ek on a day before the hall was read": {
+  "chamber": "EK",
+  "cabinet": {
+   "key": "k",
+   "name": "kabinet-K"
+  },
+  "total_seats": 75,
+  "assigned_seats": 17,
+  "as_of": "2024-01-01",
+  "factions": [
+   {
+    "id": "factions/ek_vvd",
+    "key": "ek_vvd",
+    "abbreviation": "VVD",
+    "name": "Partij VVD",
+    "seats": 10,
+    "vacant": 0,
+    "color": "#F47621",
+    "colors": [
+     "#F47621"
+    ],
+    "order": 0,
+    "coalition": true,
+    "path": "/fracties/ek_vvd"
+   },
+   {
+    "id": null,
+    "key": null,
+    "abbreviation": "OUD",
+    "name": "OUD",
+    "seats": 4,
+    "vacant": 0,
+    "color": null,
+    "colors": [],
+    "order": 1,
+    "coalition": false,
+    "path": null
+   },
+   {
+    "id": "factions/ek_sp",
+    "key": "ek_sp",
+    "abbreviation": "SP",
+    "name": "Partij SP",
+    "seats": 3,
+    "vacant": 0,
+    "color": "#A00000",
+    "colors": [
+     "#A00000"
+    ],
+    "order": 2,
+    "coalition": false,
+    "path": "/fracties/ek_sp"
+   }
+  ],
+  "seating_plan": null,
+  "source": {
+   "url": "https://www.eerstekamer.nl/personele_mutaties",
+   "retrieved_on": "2023-06-01",
+   "composition_date": "2023-06-13",
+   "data_since": null,
+   "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+  },
+  "hall": null,
+  "hall_read_on": "2026-06-01",
+  "checked": true
+ },
+ "ek on a day after the hall was read": {
+  "chamber": "EK",
+  "cabinet": {
+   "key": "k",
+   "name": "kabinet-K"
+  },
+  "total_seats": 75,
+  "assigned_seats": 17,
+  "as_of": "2026-07-01",
+  "factions": [
+   {
+    "id": "factions/ek_vvd",
+    "key": "ek_vvd",
+    "abbreviation": "VVD",
+    "name": "Partij VVD",
+    "seats": 10,
+    "vacant": 0,
+    "color": "#F47621",
+    "colors": [
+     "#F47621"
+    ],
+    "order": 0,
+    "coalition": true,
+    "path": "/fracties/ek_vvd"
+   },
+   {
+    "id": null,
+    "key": null,
+    "abbreviation": "OUD",
+    "name": "OUD",
+    "seats": 4,
+    "vacant": 0,
+    "color": null,
+    "colors": [],
+    "order": 1,
+    "coalition": false,
+    "path": null
+   },
+   {
+    "id": "factions/ek_sp",
+    "key": "ek_sp",
+    "abbreviation": "SP",
+    "name": "Partij SP",
+    "seats": 3,
+    "vacant": 0,
+    "color": "#A00000",
+    "colors": [
+     "#A00000"
+    ],
+    "order": 2,
+    "coalition": false,
+    "path": "/fracties/ek_sp"
+   }
+  ],
+  "seating_plan": null,
+  "source": {
+   "url": "https://www.eerstekamer.nl/personele_mutaties",
+   "retrieved_on": "2023-06-01",
+   "composition_date": "2023-06-13",
+   "data_since": null,
+   "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+  },
+  "hall": {
+   "url": "https://www.eerstekamer.nl/wie_zit_waar",
+   "seats": [
+    {
+     "block": "chair",
+     "row": 0,
+     "column": 0,
+     "faction": "ek_sp",
+     "abbreviation": null,
+     "member": "m2",
+     "name": "B. Voorzitter"
+    },
+    {
+     "block": "right",
+     "row": 1,
+     "column": 2,
+     "faction": "ek_vvd",
+     "abbreviation": "VVD",
+     "member": "m1",
+     "name": "A. Lid"
+    }
+   ]
+  },
+  "hall_read_on": "2026-06-01",
+  "checked": true
+ }
+}
