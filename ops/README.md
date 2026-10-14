@@ -41,4 +41,7 @@ going on from `out/<script>.after`: `renormalize-judgments.sh`, `relink-judgment
 A script here is a temporary correction: it does once what a complete rebuild plus the regular nightly and weekly
 runs would do too, and it goes once its run on the server is done.
 
-A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write.
+A `.sql` here only reads: the session is `default_transaction_read_only`, so PostgreSQL refuses a write. Both the `sql` action
+and `counts` run it through `read_only_sql` of `_sql.sh`: a read-only session with a 600 s statement time-out, on
+`LAWGRAPH_DB_CONTAINER` and `LAWGRAPH_DB_NAME` of `scheduler.env`, stopping at the first failing statement
+(`ON_ERROR_STOP`), so a broken query makes the run red and `counts` print `FAILED`.

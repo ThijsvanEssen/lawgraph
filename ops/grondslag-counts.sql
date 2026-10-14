@@ -1,7 +1,7 @@
 -- Read-only counts for the BASED_ON changes of `semantic bwb-grondslagen` (ranges, text,
 -- basis_kind) and the regulations `/delegated` shows one level down (`sub_delegated`).
 -- Run before and after the first run of the step on the new release:
---   psql "$LAWGRAPH_DB" -f ops/grondslag-counts.sql
+--   psql -v ON_ERROR_STOP=1 "$LAWGRAPH_DB" -f ops/grondslag-counts.sql
 -- Read only; counts only.
 SET default_transaction_read_only = on;
 SET statement_timeout = '300s';
