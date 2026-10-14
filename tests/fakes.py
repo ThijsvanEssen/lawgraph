@@ -102,40 +102,57 @@ def until(condition: Callable[[], bool], seconds: float = PATIENCE) -> bool:
 
 class ManualClock:
     """A clock that stands still until the test moves it. A wait on it ends when it is
-    notified or once the clock is moved past its deadline; ``waiting_until`` is that
-    deadline while a wait lasts."""
+    notified or when the test moves the clock to its deadline (``move_to_wait``); the test
+    learns of each wait that starts (``waits_until``), with no polling on either side."""
 
     def __init__(self) -> None:
         self._now = 0.0
         self.waiting_until: float | None = None
+        self._condition: threading.Condition | None = None
+        self._waits = threading.Condition()  # tells the test a wait started or ended
 
     def now(self) -> float:
         return self._now
 
     def wait(self, condition: threading.Condition, timeout: float) -> bool:
+        """Like ``condition.wait(timeout)`` (*condition* held), in the time of this clock.
+        It waits without a timeout of its own: a notify that comes as a short wait ends is
+        lost (``Condition.wait`` then says it timed out)."""
         deadline = self._now + timeout
-        self.waiting_until = deadline
+        with self._waits:
+            self._condition = condition
+            self.waiting_until = deadline
+            self._waits.notify_all()
         try:
-            while self._now < deadline:
-                if condition.wait(timeout=0.005):
-                    return True
-            return False
+            condition.wait()  # notified: by another thread, or by ``move_to_wait``
+            return self._now < deadline
         finally:
-            self.waiting_until = None
+            with self._waits:
+                self.waiting_until = None
+                self._waits.notify_all()
 
     def waits_until(self, deadline: float) -> bool:
-        """Whether a wait until *deadline* starts (another thread waits)."""
-        return until(
-            lambda: (
-                self.waiting_until is not None
-                and math.isclose(self.waiting_until, deadline)
+        """Whether a wait until *deadline* starts (another thread waits) within
+        ``PATIENCE``."""
+        with self._waits:
+            return self._waits.wait_for(
+                lambda: (
+                    self.waiting_until is not None
+                    and math.isclose(self.waiting_until, deadline)
+                ),
+                timeout=PATIENCE,
             )
-        )
 
     def move_to_wait(self, deadline: float) -> None:
-        """Once a wait until *deadline* lasts, move the clock to its end."""
-        assert self.waits_until(deadline), f"no wait until {deadline}"
-        self._now = max(self._now, deadline, self.waiting_until or deadline)
+        """Once a wait until *deadline* lasts, move the clock to its end, which ends it."""
+        assert self.waits_until(deadline), (
+            f"no wait until {deadline} (waiting until {self.waiting_until})"
+        )
+        condition = self._condition
+        assert condition is not None
+        with condition:
+            self._now = max(self._now, self.waiting_until or deadline)
+            condition.notify_all()
 
 
 # What a computation that is linear in its input may take at most (seconds): one that is
