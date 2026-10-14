@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from fastapi import HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 
+from lawgraph.config.constants import COLLECTION_ARTICLES
+from lawgraph.core.code_families import native_number
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
+from lawgraph.core.models import make_node_key
 
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
@@ -56,3 +60,24 @@ def parse_choices(
             ),
         )
     return chosen
+
+
+@dataclass(frozen=True)
+class ArticleRef:
+    """An article as its path names it: ``number`` is its own number in its book
+    (``162`` for ``6:162`` under BW Boek 6), ``key`` and ``id`` its node."""
+
+    bwb_id: str
+    number: str
+    key: str
+    id: str
+
+
+def article_ref(bwb_id: str, article_number: str) -> ArticleRef:
+    """The article of ``/{bwb_id}/{article_number}``, cited or own numbering alike."""
+    number = native_number(bwb_id, article_number)
+    key = make_node_key(bwb_id, number)
+    return ArticleRef(bwb_id, number, key, f"{COLLECTION_ARTICLES}/{key}")
+
+
+ArticleAddress = Annotated[ArticleRef, Depends(article_ref)]
