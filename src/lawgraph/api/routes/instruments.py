@@ -510,9 +510,10 @@ def get_instrument_dossiers_route(
     response_model=AmendedByResponse,
     summary="Amending publications of a regulation",
     description=(
-        "The amending publications (Staatsblad, Staatscourant, Tractatenblad, ...) "
-        "that change, introduce or repeal articles of this regulation (AMENDS / "
-        "INTRODUCES / REPEALS), newest first. Per publication: the edge count per "
+        "The publications (Staatsblad, Staatscourant, Tractatenblad, ...) that enacted "
+        "this regulation (ESTABLISHES its articles) or change, introduce or repeal "
+        "articles of it (AMENDS / INTRODUCES / REPEALS), newest first. Per publication: "
+        "the edge count per "
         "kind, the number of articles affected, the first effective date and the "
         "dossiers. ``total`` is the absolute count, independent of ``limit`` "
         "and ``offset``. Apart from them, in ``proposals``, the papers of the "

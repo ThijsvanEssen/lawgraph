@@ -471,6 +471,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
     p1 = data.items[1]
     assert list(p1) == [
         "instrument",
+        "establishes",
         "amends",
         "introduces",
         "repeals",
@@ -478,6 +479,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "first_effective_date",
     ]
     assert {k: v for k, v in p1.items() if k != "instrument"} == {
+        "establishes": 0,
         "amends": 2,
         "introduces": 1,
         "repeals": 1,
@@ -617,6 +619,71 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
         "path": adopted["path"],
     }
     assert adopted["path"]
+
+
+CBW = "BWBR0052872"
+
+
+def test_the_publication_that_enacted_a_law_establishes_it(store: GraphStore) -> None:
+    """The Cyberbeveiligingswet: Stb. 2026, 187 enacted it (``ESTABLISHES`` its articles)
+    and a later publication amends one of them; both are publications of the law, the
+    first as the one that established it."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _doc("bwbr0052872_1", "article", bwb_id=CBW, article_number="1"),
+            _doc("bwbr0052872_16", "article", bwb_id=CBW, article_number="16"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc("stb_2026_187", "instrument", date_published="2026-07-20"),
+            _doc("stb_2026_300", "instrument", date_published="2026-11-01"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "instruments/stb_2026_187",
+                f"articles/bwbr0052872_{n}",
+                "ESTABLISHES",
+                effective_date="2026-08-15",
+                effect="nieuwe-regeling",
+            )
+            for n in ("1", "16")
+        ]
+        + [_edge("instruments/stb_2026_300", "articles/bwbr0052872_16", "AMENDS")]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/instruments/{CBW}/amended-by").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert body["total"] == 2
+    counts = [
+        {k: i[k] for k in ("key", "establishes", "amends", "introduces", "repeals")}
+        for i in body["items"]
+    ]
+    assert counts == [
+        {
+            "key": "stb_2026_300",
+            "establishes": 0,
+            "amends": 1,
+            "introduces": 0,
+            "repeals": 0,
+        },
+        {
+            "key": "stb_2026_187",
+            "establishes": 2,
+            "amends": 0,
+            "introduces": 0,
+            "repeals": 0,
+        },
+    ]
+    assert body["items"][1]["articles_affected"] == 2
+    assert body["items"][1]["first_effective_date"] == "2026-08-15"
 
 
 def test_amended_by_of_nothing_asks_no_titles(store: GraphStore) -> None:

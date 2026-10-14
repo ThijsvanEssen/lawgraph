@@ -115,6 +115,7 @@ they are out of date. Do not edit inside the markers.
 |----------|------|----|---------|
 | `PART_OF` | Article / Annex / Document / Case / Instrument | Instrument / Case / Dossier | Containment. Article/Annex → Instrument; Document → Case or Dossier; Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers it (a Protocol → its Convention, `Moederverdrag`). |
 | `VERSION_OF` | InstrumentVersion / ArticleVersion | Instrument / Article | A dated version of an instrument or article. An article keeps one identity across versions (BWB `stam-id`); each version has valid_from / valid_until. |
+| `ESTABLISHES` | Instrument | Article | A publication enacts a new regulation and so sets its articles: the BWB effect `nieuwe-regeling` of the article version it made (effective date and version in `meta`). No change of existing law: a regulation names its enacting publication in `props.enacted_publication` as well. |
 | `AMENDS` | Instrument / Document | Instrument / Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument / Document | Instrument / Article | An instrument adds a new article or instrument; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument / Document | Instrument / Article | An instrument withdraws an article or instrument; a bill proposing it is `voorgesteld`. |
@@ -263,7 +264,7 @@ statutes made by the legislator:
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
-  are the source of `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
+  are the source of `ESTABLISHES`, `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
   lists and `/api/stats` keep them apart.
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a

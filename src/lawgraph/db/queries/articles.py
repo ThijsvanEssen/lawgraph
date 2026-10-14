@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
@@ -320,10 +321,12 @@ def get_article_legislative_history(
     article_number: str,
     article_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """The dossiers that introduced, amended or repealed an article, or propose to.
+    """The dossiers that established, introduced, amended or repealed an article, or
+    propose to.
 
-    A change is an ``AMENDS``, ``INTRODUCES`` or ``REPEALS`` edge to the article: from an
-    amending publication (enacted, ``canoniek``), whose dossiers are those it is
+    A change is an ``ESTABLISHES`` (the publication that enacted its regulation),
+    ``AMENDS``, ``INTRODUCES`` or ``REPEALS`` edge to the article: from a publication
+    (enacted, ``canoniek``), whose dossiers are those it is
     ``LEGISLATED_IN`` and those its ``dossier_numbers`` name (a dossier that is not in the
     graph has no ``dossier_id``), or from a bill (``voorgesteld``), whose dossier it is
     ``PART_OF``, directly or through its case, while it is pending (``queries.proposals``:
@@ -343,7 +346,12 @@ def get_article_legislative_history(
             _CHANGES_SQL,
             {
                 "article_id": article_id,
-                "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+                "changes": [
+                    RELATION_ESTABLISHES,
+                    RELATION_AMENDS,
+                    RELATION_INTRODUCES,
+                    RELATION_REPEALS,
+                ],
                 "direct": [RELATION_PART_OF, RELATION_LEGISLATED_IN],
                 "part_of": RELATION_PART_OF,
             },

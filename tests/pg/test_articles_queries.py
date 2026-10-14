@@ -440,6 +440,63 @@ def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     assert get_article_legislative_history(store, BWB, "99") == []
 
 
+def test_the_dossier_of_the_publication_that_enacted_the_law_established_it(
+    store: GraphStore,
+) -> None:
+    """Art. 16 Cbw came with Stb. 2026, 187, legislated in 36764: its history names that
+    dossier, as the one that established the article (``establishes``, not ``amends``)."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    cbw = "BWBR0052872"
+    article = "articles/bwbr0052872_16"
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node("bwbr0052872_16", "article", bwb_id=cbw, article_number="16")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [_node("36764", "dossier", label="36764", title="Cyberbeveiligingswet")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "stb_2026_187",
+                "instrument",
+                publication_kind="Stb",
+                date_published="2026-07-20",
+                display_name="Stb. 2026, 187",
+                dossier_numbers=["36764"],
+            )
+        ],
+    )
+    stb = "instruments/stb_2026_187"
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "c1", stb, article, "ESTABLISHES", meta={"effect": "nieuwe-regeling"}
+            ),
+            _edge("c2", stb, "dossiers/36764", "LEGISLATED_IN"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/articles/{cbw}/16/legislative-history").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    (entry,) = body["entries"]
+    assert (entry["dossier_number"], entry["change"], entry["status"]) == (
+        "36764",
+        "establishes",
+        "canoniek",
+    )
+    assert entry["document_id"] == stb
+
+
 def test_the_legislative_history_holds_no_proposal_that_was_decided(
     store: GraphStore,
 ) -> None:

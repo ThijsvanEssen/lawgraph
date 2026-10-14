@@ -637,7 +637,9 @@ class DossierFacetsDTO(BaseModel):
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
-DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
+DossierInstrumentRelation = Literal[
+    "legislated_in", "establishes", "amends", "introduces", "repeals"
+]
 DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
 
 
@@ -654,7 +656,8 @@ class DossierInstrumentDTO(BaseModel):
     """An instrument a dossier is tied to, once, and every way it is.
 
     ``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this
-    dossier; ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
+    dossier; ``establishes``: a publication legislated in it enacted the regulation;
+    ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
     the article or instrument that is changed to the parent instrument) with its
     ``status`` (``canoniek`` for what an amending publication enacted, ``voorgesteld`` for
     what a bill of the dossier proposes). ``relation`` and ``status`` are the first link:

@@ -127,6 +127,7 @@ def test_the_dossier_hub_and_the_authorship_lists_are_in_the_schema() -> None:
     instrument = schemas["DossierInstrumentDTO"]["properties"]
     assert set(instrument["relation"]["enum"]) == {
         "legislated_in",
+        "establishes",
         "amends",
         "introduces",
         "repeals",

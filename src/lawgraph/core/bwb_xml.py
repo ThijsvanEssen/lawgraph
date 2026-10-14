@@ -41,13 +41,17 @@ from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
 # ``effect`` values on an article version, mapped to what the version did. A
+# ``nieuwe-regeling`` is an article of a regulation as it was enacted (art. 1 Cbw, Stb.
+# 2026, 187), a ``nieuw`` one an article added to an existing regulation. A
 # ``tekstplaatsing`` places the text of the article again (the Grondwet as a whole after a
 # revision, Stb. 2019, 33): a republication, which changes no text of its own.
+EFFECT_ESTABLISHES = "establishes"
 EFFECT_INTRODUCES = "introduces"
 EFFECT_AMENDS = "amends"
 EFFECT_REPEALS = "repeals"
 EFFECT_REPUBLISHES = "republishes"
 _EFFECT_KIND = {
+    "nieuwe-regeling": EFFECT_ESTABLISHES,
     "nieuw": EFFECT_INTRODUCES,
     "wijziging": EFFECT_AMENDS,
     "tekstplaatsing-wijziging": EFFECT_REPUBLISHES,
@@ -57,8 +61,8 @@ _EFFECT_KIND = {
 
 
 def effect_kind(effect: str | None) -> str | None:
-    """``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a BWB ``effect``,
-    else None."""
+    """``establishes`` / ``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a
+    BWB ``effect``, else None."""
     return _EFFECT_KIND.get(effect or "")
 
 

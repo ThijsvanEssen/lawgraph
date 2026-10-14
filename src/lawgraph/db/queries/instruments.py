@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
     RELATION_BASED_ON,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
@@ -37,8 +38,13 @@ from lawgraph.db.queries.search import build_search_clause, tokenize_search_quer
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
-# Edges from an amending instrument to the articles it changes.
-_MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
+# Edges from a publication to the articles it sets (enacting their regulation) or changes.
+_MUTATION_RELATIONS = [
+    RELATION_ESTABLISHES,
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+]
 
 
 @dataclass
@@ -536,10 +542,11 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 def get_instrument_amended_by(
     store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
-    """The publications that changed a regulation, newest first, and the pending proposals
-    to change it (3 queries at most).
+    """The publications that enacted or changed a regulation, newest first, and the pending
+    proposals to change it (3 queries at most).
 
-    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose ``_to`` is an
+    One aggregating query over the ESTABLISHES / AMENDS / INTRODUCES / REPEALS edges whose
+    ``_to`` is an
     article of the regulation (the ``edges_to_cover`` index is used with the article ids),
     grouped per publication that made them; one the same per paper of the Tweede Kamer that
     proposes them and is still pending (``queries.proposals``), up to
@@ -619,6 +626,8 @@ def _amending_ctes(collection: str, prop: str) -> str:
     return f"""
         WITH hits AS (
             SELECT e.from_id,
+                   (count(*) FILTER (WHERE e.relation = %(establishes)s))::int
+                       AS establishes,
                    (count(*) FILTER (WHERE e.relation = %(amends)s))::int AS amends,
                    (count(*) FILTER (WHERE e.relation = %(introduces)s))::int AS introduces,
                    (count(*) FILTER (WHERE e.relation = %(repeals)s))::int AS repeals,
@@ -633,7 +642,7 @@ def _amending_ctes(collection: str, prop: str) -> str:
             -- each amending node looked up by its id (a join with the view would read
             -- every table whole; LIMIT keeps the planner from turning it into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
-                   h.amends, h.introduces, h.repeals, h.articles_affected,
+                   h.establishes, h.amends, h.introduces, h.repeals, h.articles_affected,
                    h.first_effective_date, {outcome}
             FROM hits h
             CROSS JOIN LATERAL (
@@ -650,6 +659,7 @@ def _amending_bind(bwb: str) -> dict[str, Any]:
     return {
         "bwb": bwb,
         "mutations": _MUTATION_RELATIONS,
+        "establishes": RELATION_ESTABLISHES,
         "amends": RELATION_AMENDS,
         "introduces": RELATION_INTRODUCES,
         "repeals": RELATION_REPEALS,
@@ -659,6 +669,7 @@ def _amending_bind(bwb: str) -> dict[str, Any]:
 def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "instrument": node_doc(row),
+        "establishes": row["establishes"],
         "amends": row["amends"],
         "introduces": row["introduces"],
         "repeals": row["repeals"],

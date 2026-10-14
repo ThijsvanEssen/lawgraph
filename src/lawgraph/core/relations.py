@@ -107,6 +107,15 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     # ── legislation ──────────────────────────────────────────────────────────
     RelationSpec(
+        "ESTABLISHES",
+        (_I,),
+        (_A,),
+        "A publication enacts a new regulation and so sets its articles: the BWB effect "
+        "`nieuwe-regeling` of the article version it made (effective date and version in "
+        "`meta`). No change of existing law: a regulation names its enacting publication "
+        "in `props.enacted_publication` as well.",
+    ),
+    RelationSpec(
         "AMENDS",
         (_I, _DOC),
         (_I, _A),

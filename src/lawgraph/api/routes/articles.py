@@ -294,8 +294,9 @@ def get_article_version_history(
     response_model=ArticleLegislativeHistoryResponse,
     summary="Legislative history of an article",
     description=(
-        "The dossiers that introduced, amended or repealed this article, or propose "
-        "to: one entry per change and dossier, with the amending publication "
+        "The dossiers that established (enacted its regulation), introduced, amended or "
+        "repealed this article, or propose to: one entry per change and dossier, with "
+        "the publication "
         "(enacted, `canoniek`) or the bill (proposed, `voorgesteld`) that carries "
         "it; proposed first, then newest first. What only cites the article "
         "(a judgment, another article) is not history. The explanatory documents "
