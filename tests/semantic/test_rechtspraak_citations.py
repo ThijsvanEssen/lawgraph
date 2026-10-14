@@ -246,7 +246,7 @@ def test_an_unreadable_judgment_fails_the_step_and_names_its_ecli(
     ]
     with caplog.at_level(logging.WARNING):
         result = RechtspraakCitationsSemanticPipeline(
-            store=_FakeStore(judgment_docs=docs)
+            store=_Store(judgment_docs=docs)
         ).run()
 
     assert result.skipped == 1
@@ -259,8 +259,8 @@ def test_a_judgment_without_stored_xml_is_counted_as_skipped(
     reads: list[str | None],
 ) -> None:
     ecli = "ECLI:NL:HR:2020:1"
-    store = _FakeStore(judgment_docs=[_make_judgment(make_node_key(ecli), ecli, "")])
-    store.payload_rows = lambda: [{"ecli": ecli, "payload_text": None}]  # type: ignore[method-assign]
+    store = _Store(judgment_docs=[_make_judgment(make_node_key(ecli), ecli, "")])
+    store.payload_rows = [{"ecli": ecli, "payload_text": None}]
 
     result = RechtspraakCitationsSemanticPipeline(store=store).run()
 

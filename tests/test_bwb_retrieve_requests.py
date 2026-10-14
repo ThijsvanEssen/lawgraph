@@ -377,7 +377,7 @@ def test_a_toestand_the_sru_lists_without_a_start_date_is_skipped() -> None:
     client.history["BWBR2"].append(
         {**_meta("BWBR2", "x"), "geldigheidsperiode_startdatum": None}
     )
-    store = _Store()
+    store = InMemoryStore()
 
     result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
         bwb_ids=["BWBR2"]
