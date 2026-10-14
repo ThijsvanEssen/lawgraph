@@ -1267,6 +1267,12 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "display_name",
         "source",
         "actors",
+        "dictum",
+        "explanation",
+        "outcome",
+        "decided_on",
+        "tally",
+        "decision",
         "labels",
     ]
     assert (a["id"], a["title"], a["sequence"], a["labels"]) == (

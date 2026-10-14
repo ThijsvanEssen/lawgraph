@@ -43,6 +43,12 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
         "date_eff",
         "advocate_general",  # of a conclusion (BE-47/BE-48)
         "advocate_general_role",
+        # how it ended, from its light row
+        "outcome",
+        "outcome_text",
+        "conclusion_outcome",
+        "conclusion_outcome_text",
+        "echr_findings",
     }
     assert items[0]["cited_articles"][0]["article_number"] == "1"
 
