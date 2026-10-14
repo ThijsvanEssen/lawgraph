@@ -150,6 +150,11 @@ URLS = [
     "/render/stb/2025/263",
     "/render/toezeggingen/TZ202609-124",
     "/render/stemmingen/b1",
+    "/render/activiteiten/2026A01323",
+    # a debate, and what was made in it: by the edges into it, a paper by its light row
+    "/api/activities/act1",
+    "/api/activities/act1/records",
+    "/api/commitments/tz1",
     # the events per month of a topic, by the index on their words
     "/api/feed/periods?q=proef&chamber=TK",
     "/api/dossiers/36000/changed-articles",
@@ -376,9 +381,19 @@ def _seed(store: GraphStore) -> None:
         "decisions",
         [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
     )
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [_node("act1", "activity", number="2026A01323", kind="Wetgevingsoverleg",
+               date="2026-03-23", status="Uitgevoerd", dossier_numbers=["36000"])],
+    )  # fmt: skip
     article = f"articles/{BWB.lower()}_1"
     store.bulk_insert_or_update_edges(
         [
+            # a debate: its committee, a paper and a commitment made in it, a vote taken
+            _edge("al", "activities/act1", "committees/c1", "LED_BY"),
+            _edge("ad", "documents/d1", "activities/act1", "MADE_IN"),
+            _edge("at", "commitments/tz1", "activities/act1", "MADE_IN"),
+            _edge("ab", "decisions/b1", "activities/act1", "MADE_IN"),
             _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
             _edge("mc", "members/m1", "committees/c1", "MEMBER_OF"),
             _edge("mk", "members/m1", "cabinets/k1", "SERVED_IN"),
@@ -720,7 +735,7 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
     assert not differ, "\n".join(sorted(set(differ)))
 
 
-def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
+def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statistics(
     planned: GraphStore,
 ) -> None:
     """An expression index made after the last ANALYZE has no statistics: the planner then
@@ -737,6 +752,7 @@ def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
             for index, table, expression in (
                 ("cases_number", "cases", "public.lg_str(props -> 'number')"),
                 ("members_slug", "members", "public.lg_str(props -> 'slug')"),
+                ("activities_number", "activities", "public.lg_str(props -> 'number')"),
             ):
                 # made again in this transaction: no statistics, as a new index has
                 conn.execute(f"DROP INDEX {index}")
@@ -751,11 +767,14 @@ def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
     try:
         lookup.find_case(planned, "2025Z15468")
         lookup.find_member(planned, "a-lid")
+        lookup.find_activity(planned, "2026A01323")
     finally:
         planned.query = original  # type: ignore[method-assign]
-    case, member = found
+    case, member, activity = found
     assert any("cases_number" in line for line in case), case
     assert any("members_slug" in line for line in member), member
+    assert any("activities_number" in line for line in activity), activity
     assert not any(
-        line.endswith(("cases_key", "members_key")) for line in case + member
+        line.endswith(("cases_key", "members_key", "activities_key"))
+        for line in case + member + activity
     )

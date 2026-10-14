@@ -201,6 +201,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "text",
         "actors",
         "dossier_numbers",
+        # its readable address (``/activiteiten/2026A01323``)
+        "number",
     ),
     "commitments": ("kind", "agenda_title", "title", "text", "actors", "number"),
     "cases": ("kind", "agenda_title", "title", "text", "actors", "number"),

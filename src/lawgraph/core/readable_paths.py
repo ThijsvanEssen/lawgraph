@@ -8,6 +8,8 @@
     /kamerstukken/36799/31               a Kamerstuk, by its dossier and number
     /kamerstukken/36600-VIII/AB          one of the Eerste Kamer, by its letter
     /zaken/2025Z15468                    a zaak of the Tweede Kamer, by its number
+    /activiteiten/2026A01323             an activity of the Tweede Kamer (a debate), by its
+                                         number
     /stb/2026/94                         a publication, by series, year and number
     /leden/rob-jetten                    a lid or bewindspersoon, by its slug
     /kabinetten/rutte_iv                 a cabinet, by its key
@@ -43,6 +45,8 @@ COMMITMENT_NUMBER = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
 STUK = re.compile(r"^(\d+|[A-Z]{1,3})$", re.IGNORECASE)
 # The number of a zaak of the Tweede Kamer: ``2025Z15468``.
 CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
+# The number of an activity of the Tweede Kamer: ``2026A01323``.
+ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
@@ -98,6 +102,7 @@ _ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
     "stemmingen": ("stemming", SLEUTEL, False),
     "toezeggingen": ("toezegging", COMMITMENT_NUMBER, True),
     "zaken": ("zaak", CASE_NUMBER, True),
+    "activiteiten": ("activiteit", ACTIVITY_NUMBER, True),
 }
 
 
@@ -163,6 +168,7 @@ def pad_href(pad: Pad) -> str:
         "toezegging": "toezeggingen",
         "stemming": "stemmingen",
         "zaak": "zaken",
+        "activiteit": "activiteiten",
     }[s]
     return f"/{prefix}/{pad.a}"
 
@@ -278,6 +284,14 @@ def _case(key: str, props: dict[str, Any]) -> str | None:
     return pad_href(Pad("zaak", number.upper()))
 
 
+def _activity(key: str, props: dict[str, Any]) -> str | None:
+    # One of the Eerste Kamer (``ek_…``) has no number: no address of its own.
+    number = _text(props.get("number"))
+    if not number or not ACTIVITY_NUMBER.match(number):
+        return None
+    return pad_href(Pad("activiteit", number.upper()))
+
+
 def _paper(key: str, props: dict[str, Any]) -> str | None:
     # Dossier and number as the stuk is cited: 36600-VIII, and 31 in the Tweede Kamer or
     # AB in the Eerste (``number``, the letter).
@@ -310,12 +324,14 @@ _PATHS: dict[str, Any] = {
     "documents": _paper,
     "annexes": _annex,
     "cases": _case,
+    "activities": _activity,
 }
 
 
 def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
     """The readable address of a node, from its key or the props of its node; None
-    where it has none (an activity, an annex without a label: still /explore)."""
+    where it has none (an activity of the Eerste Kamer, an annex without a label: still
+    /explore)."""
     collection, _, key = node_id.partition("/")
     build = _PATHS.get(collection)
     return build(key, props or {}) if key and build else None

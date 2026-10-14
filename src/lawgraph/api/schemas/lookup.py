@@ -19,6 +19,7 @@ LookupKind = Literal[
     "official",
     "commitment",
     "case",
+    "activity",
     "faction",
     "committee",
     "cabinet",
@@ -36,8 +37,8 @@ class LookupResponse(WithPath):
     collection: str
     kind: str = Field(
         description="What the node is: `document`, `dossier`, `article`, `annex`, "
-        "`instrument`, `judgment`, `commitment`, `case`, `faction`, `committee`, "
-        "`cabinet`."
+        "`instrument`, `judgment`, `commitment`, `case`, `activity`, `faction`, "
+        "`committee`, `cabinet`."
     )
     display_name: str | None = None
     chamber: str | None = Field(
@@ -52,7 +53,7 @@ class LookupResponse(WithPath):
         default_factory=dict,
         description="The props a URL is built back from, those the node has: `ecli`; "
         "`bwb_id` or `celex` with `article_number`; `bwb_id` and `label` of an annex; "
-        "`number` of a zaak; `dossier_number`, `dossier_suffix`, "
+        "`number` of a zaak or an activity; `dossier_number`, `dossier_suffix`, "
         "`sequence` (a paper of the Tweede Kamer) or `number` (the letter of one of the "
         "Eerste Kamer); `number` and `suffix` of a dossier; `official_id` or "
         "`identifier` (the id of officielebekendmakingen.nl); `replaced_by` and `same_as` "
