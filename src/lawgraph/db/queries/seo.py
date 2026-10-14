@@ -131,8 +131,9 @@ def _first(store: GraphStore, statement: str, params: dict[str, Any]) -> Any:
 
 
 def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A law: its props, and its articles in their order (key, number), without their
-    text; the repealed ones left out."""
+    """A law of the BWB or an EU act: its props, and its articles in their order (key,
+    number), without their text; the repealed ones left out. An article names its law by
+    the same id: its BWB id, else its CELEX number."""
     row = _first(
         store,
         f"SELECT id, key, props FROM {COLLECTION_INSTRUMENTS} WHERE id = %(id)s",
@@ -140,32 +141,39 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     )
     if row is None:
         return None
+    props = row["props"] or {}
+    column = "bwb_id" if props.get("bwb_id") else "celex"
     articles = list(
         store.query(
             f"""
             SELECT a.key, a.article_number
             FROM {COLLECTION_ARTICLES} a
-            WHERE a.bwb_id = %(bwb)s AND a.repealed IS NOT TRUE
+            WHERE a.{column} = %(law)s AND a.repealed IS NOT TRUE
               AND a.stub IS NOT TRUE AND a.article_number IS NOT NULL
             ORDER BY a.position ASC NULLS LAST, a.key ASC
             LIMIT %(limit)s
             """,
-            {"bwb": (row["props"] or {}).get("bwb_id"), "limit": ARTICLES},
+            {"law": props.get(column), "limit": ARTICLES},
         )
     )
     return {**row, "articles": articles}
 
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """An article (its props, its text too), its law and the judgments that cite it (the
-    most cited first); without those (``judgments`` empty) while they are not kept yet and
-    take past ``CITED_BUDGET`` (``cited``)."""
+    """An article (its props, its text too), its law (by its BWB id, else its CELEX
+    number) and the judgments that cite it (the most cited first); without those
+    (``judgments`` empty) while they are not kept yet and take past ``CITED_BUDGET``
+    (``cited``)."""
     row = _first(
         store,
         f"""
         SELECT a.id, a.key, a.props,
-               (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
-                WHERE i.bwb_id = a.bwb_id ORDER BY i.key LIMIT 1) AS law
+               coalesce(
+                   (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
+                    WHERE i.bwb_id = a.bwb_id ORDER BY i.key LIMIT 1),
+                   (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
+                    WHERE i.celex = a.celex ORDER BY i.key LIMIT 1)
+               ) AS law
         FROM {COLLECTION_ARTICLES} a
         WHERE a.id = %(id)s
         """,

@@ -43,6 +43,7 @@ pytestmark = pytest.mark.xdist_group("query_plans")
 BWB = "BWBR0001"
 FILLER = 10_000
 ECLI = "ECLI:NL:HR:2020:1"
+CELEX = "32022L2555"
 
 # The routes of the front end that are read most, with the parameters they take.
 URLS = [
@@ -155,6 +156,10 @@ URLS = [
     "/render/toezeggingen/TZ202609-124",
     "/render/stemmingen/b1",
     "/render/activiteiten/2026A01323",
+    # an EU act by its CELEX number: its articles by the index of its CELEX number; an
+    # article of it, its act by the same
+    f"/render/wetten/{CELEX}",
+    f"/render/wetten/{CELEX}/artikel/21",
     # a debate, and what was made in it: by the edges into it, a paper by its light row
     "/api/activities/act1",
     "/api/activities/act1/records",
@@ -253,6 +258,13 @@ def _seed(store: GraphStore) -> None:
                 bwb_id="BWBR0003",
                 kind="ministeriele-regeling",
             ),
+            _node(
+                CELEX.lower(),
+                "instrument",
+                celex=CELEX,
+                citation_title="Richtlijn (EU) 2022/2555",
+                jurisdiction="eu",
+            ),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -274,6 +286,15 @@ def _seed(store: GraphStore) -> None:
         + [
             _node(f"{law}_1", "article", bwb_id=law.upper(), article_number="1")
             for law in ("bwbr0002", "bwbr0003")
+        ]
+        + [
+            _node(
+                f"{CELEX.lower()}_21",
+                "article",
+                celex=CELEX,
+                article_number="21",
+                text="De lidstaten zorgen ervoor dat …",
+            )
         ],
     )
     store.bulk_insert_or_update_nodes(
