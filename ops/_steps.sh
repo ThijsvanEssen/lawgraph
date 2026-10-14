@@ -1,11 +1,13 @@
 # Sourced by an ops script that writes: the venv and environment of the scheduled runs, a wait until no
 # scheduled run is busy, the lock of the scheduled runs (let go on exit), and two helpers:
-#   counts <block> <before|after> <file.sql>   a read-only query from ops/, printed and kept in out/<script>/
+#   counts <block> <before|after> <file.sql>   a read-only query from ops/ (read_only_sql of _sql.sh), printed and
+#                                                kept in out/<script>/; a failing query prints FAILED, the script goes on
 #   step <label> <lawgraph args...>              one lawgraph command, its log in out/<script>/; exits on failure
 OPS=$(cd "$(dirname "$0")" && pwd)
 OUT="$OPS/out/$(basename "$0" .sh)"
 cd /srv/lawgraph/app || exit 1
 set -a && . /srv/lawgraph/scheduler.env && set +a
+. "$OPS/_sql.sh"
 mkdir -p "$OUT"
 L=.venv/bin/lawgraph
 
@@ -17,9 +19,9 @@ trap 'exit 130' INT TERM
 echo "== lock $LOCK taken $(date -u +%T), version $(curl -s http://127.0.0.1:8000/api/health | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
 
 counts() {
-  docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' lawgraph-postgres \
-    psql -X -U lawgraph -d lawgraph < "$OPS/$3" > "$OUT/$1-$2.txt" 2>&1
-  echo "== $1 counts $2 rc $?"
+  read_only_sql < "$OPS/$3" > "$OUT/$1-$2.txt" 2>&1
+  rc=$?
+  echo "== $1 counts $2 rc $rc$([ $rc -eq 0 ] || echo ' FAILED')"
   cat "$OUT/$1-$2.txt"
 }
 step() {
