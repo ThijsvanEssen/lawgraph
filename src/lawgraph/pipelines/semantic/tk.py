@@ -18,13 +18,13 @@ from lawgraph.core.citations import (
     LAW_CONNECTOR_RE,
     CitationHit,
     DutchCitationExtractor,
-    coerce_text,
     hit_reason,
     make_snippet,
 )
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.paper_text import PaperText
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -120,6 +120,8 @@ def _instrument_hit(
         confidence=0.6,
         raw_match=text[start:end],
         snippet=make_snippet(text, (start, end)),
+        start=start,
+        end=end,
     )
 
 
@@ -157,7 +159,11 @@ class TKSemanticPipeline(SemanticPipelineBase):
     """Pipeline connecting TK documents to the articles and instruments they cite.
 
     The edges of a document are derived in full each time it is read: one its words no
-    longer make (an earlier rule, an earlier text) goes."""
+    longer make (an earlier rule, an earlier text) goes. An edge says where its citation
+    stands in what ``/api/documents/{key}`` serves (``core.paper_text``): ``meta.place``,
+    ``{part, start, end}`` with ``part`` ``title``, ``text`` (and ``section_id``) or
+    ``footnote`` (and ``footnote``, ``footnote_id``), and ``meta.snippet`` from that part
+    alone."""
 
     def __init__(
         self, *, store: Any, after: str | None = None, limit: int | None = None
@@ -196,13 +202,13 @@ class TKSemanticPipeline(SemanticPipelineBase):
         for document in self._track(documents, "TK documents"):
             self.last_document_read = document.key
             read.append(str(document.node_id))
-            text = self._extract_document_text(document)
-            if not text:
+            words = PaperText.of(document.props)
+            if not words.text:
                 result.skipped += 1
                 continue
 
-            for hit in _collect_tk_hits(text, extractor, named_acts):
-                edge_doc = self._edge_of(document, hit)
+            for hit in _collect_tk_hits(words.text, extractor, named_acts):
+                edge_doc = self._edge_of(document, hit, words)
                 if edge_doc:
                     edges.add_doc(edge_doc)
                     kept.setdefault(edge_doc["_from"], set()).add(edge_doc["_key"])
@@ -217,8 +223,11 @@ class TKSemanticPipeline(SemanticPipelineBase):
             logger.info("The last read was %s (go on with --after %s).", last, last)
         return result
 
-    def _edge_of(self, document: Node, hit: CitationHit) -> dict[str, Any] | None:
-        """The REFERS_TO edge of one hit, or None when its target is not in the graph."""
+    def _edge_of(
+        self, document: Node, hit: CitationHit, words: PaperText
+    ) -> dict[str, Any] | None:
+        """The REFERS_TO edge of one hit, or None when its target is not in the graph;
+        *words*: what was read of the paper, which places the hit."""
         target_node = self._resolve_target_node(hit)
         if not target_node:
             return None
@@ -233,6 +242,11 @@ class TKSemanticPipeline(SemanticPipelineBase):
             }.items()
             if v
         }
+        place, snippet = words.place(hit.start, hit.end)
+        # null for a citation over two parts: a relink clears an earlier place
+        meta["place"] = place
+        if snippet:
+            meta["snippet"] = snippet
         return self._make_edge_doc(
             from_node=document,
             to_node=target_node,
@@ -294,26 +308,3 @@ class TKSemanticPipeline(SemanticPipelineBase):
             return node
 
         return None
-
-    @staticmethod
-    def _extract_document_text(document: Node) -> str | None:
-        """The words of the paper: its title (its own subject), its text and its footnotes
-        (``normalize tk-content`` keeps a footnote out of ``text``, and it cites laws as
-        much as the text does). Not the record of the Tweede Kamer it came with: its
-        ``Titel`` is the dossier's title, and its actors, ids and kinds are no text ("VVD"
-        in "Bikkers VVD Tweede Kamerlid" names no regulation)."""
-        notes = "\n".join(
-            str(note.get("text") or "")
-            for note in document.props.get("footnotes") or []
-            if isinstance(note, dict)
-        )
-        fragments = [
-            text
-            for text in (
-                coerce_text(document.props.get("title")),
-                coerce_text(document.props.get("text")),
-                coerce_text(notes),
-            )
-            if text
-        ]
-        return "\n".join(fragments) or None
