@@ -37,6 +37,7 @@ from typing import Literal, NamedTuple
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
 from lawgraph.core.logging import get_logger
+from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
 from lawgraph.core.xml import XML_TAG_RE
 
 logger = get_logger(__name__)
@@ -187,16 +188,9 @@ _BOOK_CODE_RE = re.compile(r"^(?P<family>[A-Z]{2,})(?P<book>\d{1,2}[A-Z]?)$")
 # family and the book.
 _BOOK_NAME_RE = re.compile(r"^(?P<family>.+?)\s+boek\s+(?P<book>\d{1,2}[a-z]?)$")
 
-# Ordinal words used in "lid" qualifiers
-_ORDINALS_PAT = (
-    r"eerste|tweede|derde|vierde|vijfde|zesde|zevende|achtste|negende|tiende|\d+e"
-)
-
 # Qualifiers of an article: "derde lid", "eerste en tweede lid", "lid 5", "leden 1 en 2",
 # "aanhef en onder a", "onder 1°", "onderdeel b", "sub c", "tweede volzin", "eerste zin"
-_LID_ORD_PAT = (
-    rf"(?:{_ORDINALS_PAT})(?:\s*(?:,|en|of)\s*(?:{_ORDINALS_PAT}))*\s+lid(?:en)?"
-)
+_LID_ORD_PAT = rf"{ORDINAL}(?:\s*(?:,|en|of)\s*{ORDINAL})*\s+lid(?:en)?"
 _LID_NUM_PAT = (
     r"(?:lid|leden)\s+\d+[a-z]?"
     r"(?:\s*(?:,|en|of|t/m|tot en met)\s*(?:lid\s+)?\d+[a-z]?)*"
@@ -207,7 +201,7 @@ _SUB_PAT = (
     rf"|(?:onder(?:deel)?|sub)\s+{_SUB_TOKEN}"
     rf"(?:\s+(?:en|of)\s+(?:onder(?:deel)?\s+)?{_SUB_TOKEN})?)"
 )
-_ZIN_PAT = rf"(?:(?:{_ORDINALS_PAT}|laatste)\s+(?:volzin|zin)|volzin)"
+_ZIN_PAT = rf"(?:(?:{ORDINAL}|laatste)\s+(?:volzin|zin)|volzin)"
 _QUALIFIER_PAT = (
     rf"(?:\s*,?\s*(?:{_LID_ORD_PAT}|{_LID_NUM_PAT}|{_SUB_PAT}|{_ZIN_PAT}))*"
 )
@@ -220,11 +214,15 @@ _NUM_PAREN_PAT = rf"{ARTICLE_NUMBER_PATTERN}(?:\s*\((?:lid|leden|of|en)[^)]{{1,2
 _ART_RANGE_PAT = (
     rf"{ARTICLE_NUMBER_PATTERN}\s+tot\s+en\s+met\s+{ARTICLE_NUMBER_PATTERN}"
 )
+# A further number of an enumeration. The "2e" of "artikel 5, 2e lid" (and "2e en 3e lid") is a
+# lid, the "257e" of "artikelen 255a en 257e, achtste lid" an article.
+_DIGIT_LID_PAT = rf"{DIGIT_ORDINAL}(?:\s*(?:,|en|of)\s*{DIGIT_ORDINAL})*\s+lid"
+_NEXT_NUM_PAT = rf"(?!{_DIGIT_LID_PAT}){_NUM_PAREN_PAT}"
 # Enumeration: "36e", "36e en 36f", "282a, 282b en 282c", "338 (lid 2) en 339"
 _ART_ENUM_PAT = (
     rf"{_NUM_PAREN_PAT}"
-    rf"(?:\s*,\s*{_NUM_PAREN_PAT})*"
-    rf"(?:\s+(?:en|of)\s+{_NUM_PAREN_PAT})?"
+    rf"(?:\s*,\s*{_NEXT_NUM_PAT})*"
+    rf"(?:\s+(?:en|of)\s+{_NEXT_NUM_PAT})?"
 )
 # Range takes priority over enum to avoid "2 tot" being parsed as just "2"
 ARTICLE_NUMBERS_PATTERN = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"

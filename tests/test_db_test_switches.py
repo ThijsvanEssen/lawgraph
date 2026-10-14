@@ -43,4 +43,5 @@ def test_a_requested_database_that_does_not_answer_fails_the_run(suite: str) -> 
 def test_without_the_switch_the_database_suites_are_skipped() -> None:
     done = _pytest(*SUITES)
     assert done.returncode == 0, done.stdout
-    assert f"{len(SUITES)} skipped" in done.stdout
+    assert "skipped" in done.stdout
+    assert "passed" not in done.stdout

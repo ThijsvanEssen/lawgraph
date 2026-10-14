@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.routes import committees as committee_routes
 from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_EDGES,
@@ -104,13 +103,11 @@ def _keys(docs: list[dict[str, Any]]) -> list[str]:
 
 @pytest.fixture()
 def client(store: GraphStore) -> Iterator[TestClient]:
-    committee_routes._faction_dossiers_cache.clear()
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_store, None)
-        committee_routes._faction_dossiers_cache.clear()
 
 
 # ── committees ───────────────────────────────────────────────────────────────
@@ -1403,6 +1400,36 @@ def test_the_routes_answer_from_the_real_graph(
     faction = client.get("/api/factions/vvd/dossiers").json()
     assert faction["total"] == 1 and faction["items"][0]["document_count"] == 2
     assert [f["key"] for f in client.get("/api/factions").json()] == ["d66", "vvd"]
+
+
+def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
+    store: GraphStore, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two equal requests read the dossiers once; another page, or a write to a table they
+    read, reads again; an unknown faction is a 404."""
+    from lawgraph.api.routes import committees as committee_routes
+
+    _authorship_graph(store)
+    reads: list[tuple[str, int, int]] = []
+    read = committee_routes.get_actor_dossiers
+
+    def counted(store_: Any, actor_id: str, *, limit: int, offset: int) -> Any:
+        reads.append((actor_id, limit, offset))
+        return read(store_, actor_id, limit=limit, offset=offset)
+
+    monkeypatch.setattr(committee_routes, "get_actor_dossiers", counted)
+    first = client.get("/api/factions/vvd/dossiers").json()
+    assert client.get("/api/factions/vvd/dossiers").json() == first
+    assert reads == [("factions/vvd", 100, 0)]
+
+    client.get("/api/factions/vvd/dossiers?offset=1")
+    assert reads[-1] == ("factions/vvd", 100, 1)
+    g = Graph(store)
+    g.node("dossiers", "39999", number="39999")
+    g.write()
+    assert client.get("/api/factions/vvd/dossiers").json() == first
+    assert len(reads) == 3
+    assert client.get("/api/factions/nobody/dossiers").status_code == 404
 
 
 def test_walking_the_pages_of_the_members_finds_every_row_once(

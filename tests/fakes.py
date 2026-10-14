@@ -371,7 +371,10 @@ def patch_alias_rows(monkeypatch: pytest.MonkeyPatch) -> None:
 class FakeResponse:
     """What a client reads of a ``requests.Response``: the body as text and as bytes."""
 
-    def __init__(self, text: str, content_type: str = "text/xml") -> None:
+    def __init__(
+        self, text: str, content_type: str = "text/xml", url: str = "https://fake"
+    ) -> None:
+        self.url = url
         self.text = text
         self.content = text.encode("utf-8")
         self.headers = {"Content-Type": content_type}

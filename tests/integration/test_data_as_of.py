@@ -20,7 +20,6 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
-from lawgraph.core.cache import TTLCache
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 TODAY = dt.date.today()
@@ -69,7 +68,6 @@ def _seed(store: GraphStore) -> None:
 def test_each_source_says_how_current_it_is(database: str) -> None:
     store = GraphStore()
     _seed(store)
-    TTLCache.clear_all()
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

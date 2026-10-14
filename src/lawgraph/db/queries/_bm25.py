@@ -18,18 +18,10 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.core.logging import get_logger
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget, read_time_left
 from lawgraph.db.version_cache import lasting, stale_wait
-
-logger = get_logger(__name__)
 
 K1 = 1.2
 B = 0.75
@@ -131,14 +123,9 @@ def _stats_now(store: Any, table: str) -> dict[str, float]:
     the statistics are kept. Outside a request (the warm-up, a pipeline) it waits for them."""
     if read_time_left() is None:
         return _stats(store, table)
-    token = set_read_deadline(0.0)
-    try:
-        with stale_wait(0.0):
-            return _stats(store, table)
-    except ReadTimedOut:
-        pass  # computed on, for the next search
-    finally:
-        reset_read_deadline(token)
+    # computed on, for the next search
+    with read_budget(0.0, f"The statistics of {table}"), stale_wait(0.0):
+        return _stats(store, table)
     return {"N": max(_estimated_rows(store, table), 1.0)}
 
 
@@ -247,14 +234,9 @@ def _frequencies(
 
     if read_time_left() is None:
         return lasting(store, key, count, STATS_MAX_AGE)
-    token = set_read_deadline(0.0)
-    try:
-        with stale_wait(0.0):
-            return lasting(store, key, count, STATS_MAX_AGE)
-    except ReadTimedOut:
-        pass  # counted on, for the next search
-    finally:
-        reset_read_deadline(token)
+    # counted on, for the next search
+    with read_budget(0.0, f"The frequencies of a search of {table}"), stale_wait(0.0):
+        return lasting(store, key, count, STATS_MAX_AGE)
     return _estimated_frequencies(terms, params, common, rows)
 
 
@@ -305,19 +287,12 @@ def _counted(
         # the search ends first: its ReadTimedOut goes up, and nothing is kept
         row = next(store.query(statement, params, indexes_only=True))
         return {n: float(row[f"d{n}"]) for n in counted}
-    token = set_read_deadline(DF_TIMEOUT)
-    try:
+    with read_budget(
+        DF_TIMEOUT, f"The frequencies of a search of {table} (taken as every row)"
+    ):
         row = next(store.query(statement, params, indexes_only=True))
-    except ReadTimedOut:
-        logger.info(
-            "The frequencies of a search of %s took over %s s: taken as every row.",
-            table,
-            DF_TIMEOUT,
-        )
-        return dict.fromkeys(counted, rows)
-    finally:
-        reset_read_deadline(token)
-    return {n: float(row[f"d{n}"]) for n in counted}
+        return {n: float(row[f"d{n}"]) for n in counted}
+    return dict.fromkeys(counted, rows)
 
 
 def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
