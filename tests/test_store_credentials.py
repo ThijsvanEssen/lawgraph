@@ -6,7 +6,7 @@ import psycopg
 import pytest
 
 from lawgraph.db import store
-from lawgraph.db.store import GraphStore, redacted
+from lawgraph.db.store import DatabaseUnavailable, GraphStore, redacted
 
 _PASSWORD = "pa:ss@w/rd"  # characters that a URL has to quote
 _URL = "postgresql://lawgraph:pa%3Ass%40w%2Frd@db.example:5433"
@@ -22,7 +22,7 @@ def test_a_failed_connection_names_the_server_without_its_credentials(
     monkeypatch.setattr(store, "_create_database_if_missing", lambda: None)
     monkeypatch.setattr(store, "ConnectionPool", refuse)
 
-    with pytest.raises(ConnectionError) as caught:
+    with pytest.raises(DatabaseUnavailable) as caught:
         GraphStore()
 
     message = str(caught.value)

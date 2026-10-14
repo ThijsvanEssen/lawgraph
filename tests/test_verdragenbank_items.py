@@ -15,12 +15,12 @@ from lawgraph.config.constants import (
     RAW_KIND_VERDRAG,
     RAW_KIND_VERDRAG_XML,
 )
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from tests.fakes import FakeResponse, RawSourcesFake
+from tests.fakes import FakeResponse, InMemoryStore
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # Convention for the protection of the architectural heritage of Europe (Granada, 1985)
@@ -196,7 +196,7 @@ def _retrieve(
     items: dict[str, Any], unchanged: set[str] = frozenset()
 ) -> tuple[list, _Client]:
     client = _Client(items)
-    pipeline = VerdragenbankRetrievePipeline(RawSourcesFake(), client=client)  # type: ignore[arg-type]
+    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
     pipeline._changed = lambda source, kind, listed: [  # type: ignore[method-assign]
         t["identifier"] for t in listed if t["identifier"] not in unchanged
     ]
@@ -231,7 +231,7 @@ def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
 
 def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
     client = _Client({"000004": GRANADA, "004630": PROTOCOL_2})
-    pipeline = VerdragenbankRetrievePipeline(RawSourcesFake(), client=client)  # type: ignore[arg-type]
+    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
     pipeline.progress = Progress("Verdragenbank")
     pipeline._stored_at = lambda source, kind: {"004630": None}  # type: ignore[method-assign,assignment]
     pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]  # type: ignore[method-assign]
@@ -246,16 +246,17 @@ def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
 # ── the normalize ────────────────────────────────────────────────────────────
 
 
-class _Store(RawSourcesFake):
-    def __init__(self) -> None:
-        self.docs: list[dict[str, Any]] = []
+def _written(store: InMemoryStore) -> list[dict[str, Any]]:
+    """The node documents *store* is given from now on, write by write."""
+    written: list[dict[str, Any]] = []
+    write = store.bulk_insert_or_update_nodes
 
-    def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict[str, Any]]):
-        self.docs.extend(docs)
-        return len(docs), 0
+    def spy(collection: str, docs: list[dict[str, Any]]) -> tuple[int, int]:
+        written.extend(docs)
+        return write(collection, docs)
 
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return None
+    store.bulk_insert_or_update_nodes = spy  # type: ignore[method-assign]
+    return written
 
 
 def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
@@ -275,14 +276,15 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
         "kind": RAW_KIND_VERDRAG_XML,
         "payload_text": GRANADA,
     }
-    store = _Store()
+    store = InMemoryStore()
+    written = _written(store)
 
     count = VerdragenbankNormalizePipeline(store=store).normalize_nodes(
         [summary, item], PipelineResult()
     )
 
     assert count == 2
-    [doc] = store.docs  # one batch, one node
+    [doc] = written  # one batch, one node
     assert doc["props"]["title"].startswith(
         "Verdrag tot bescherming van het architectonisch"
     )
@@ -299,7 +301,7 @@ def test_an_item_that_cannot_be_read_is_skipped() -> None:
         "payload_text": "<html>",
     }
 
-    count = VerdragenbankNormalizePipeline(store=_Store()).normalize_nodes(
+    count = VerdragenbankNormalizePipeline(store=InMemoryStore()).normalize_nodes(
         [item], result
     )
 
