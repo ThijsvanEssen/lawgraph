@@ -13,7 +13,7 @@ from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
-from lawgraph.core.tk_records import NO_DUE_DATE
+from lawgraph.core.tk_records import due_date
 
 _STATUS = (
     "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when "
@@ -165,7 +165,7 @@ class ActivityCommitmentDTO(WithPath):
             text=row.get("text"),
             status=row.get("status"),
             registered_on=row.get("made_on"),
-            expected_resolution=due if due and due != NO_DUE_DATE else None,
+            expected_resolution=due_date(due),
             minister_name=row.get("minister_name"),
             minister_role=row.get("minister_role"),
         )

@@ -51,7 +51,7 @@ from lawgraph.core.dossier_relations import (
 )
 from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
@@ -103,8 +103,8 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 to_key = make_node_key(link.to_label)
                 if from_key in keys and to_key in keys and from_key != to_key:
                     edges.add(
-                        f"{COLLECTION_DOSSIERS}/{from_key}",
-                        f"{COLLECTION_DOSSIERS}/{to_key}",
+                        node_id(COLLECTION_DOSSIERS, from_key),
+                        node_id(COLLECTION_DOSSIERS, to_key),
                         relation,
                         source=SEMANTIC_SOURCE,
                         meta=link.meta,
@@ -136,8 +136,8 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
             from_key, to_key = make_node_key(case), make_node_key(other)
             if from_key in stored and to_key in stored:
                 edges.add(
-                    f"{COLLECTION_CASES}/{from_key}",
-                    f"{COLLECTION_CASES}/{to_key}",
+                    node_id(COLLECTION_CASES, from_key),
+                    node_id(COLLECTION_CASES, to_key),
                     RELATION_RELATED_TO,
                     source=SEMANTIC_SOURCE,
                     meta=meta,

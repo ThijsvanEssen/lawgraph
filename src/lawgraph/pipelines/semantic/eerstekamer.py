@@ -48,16 +48,8 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
             seen.add(pair)
             edges.add_doc(
                 self._make_edge_doc(
-                    from_node=Node(
-                        collection=COLLECTION_DOCUMENTS,
-                        key=row["document_key"],
-                        props={},
-                    ),
-                    to_node=Node(
-                        collection=COLLECTION_DOSSIERS,
-                        key=row["dossier_key"],
-                        props={},
-                    ),
+                    from_node=Node.skeleton(COLLECTION_DOCUMENTS, row["document_key"]),
+                    to_node=Node.skeleton(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
                     source=SEMANTIC_SOURCE,
                     confidence=0.95,

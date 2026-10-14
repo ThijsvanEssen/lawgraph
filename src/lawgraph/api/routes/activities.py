@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.activities import ActivityDTO, ActivityRecordsResponse
 from lawgraph.config.constants import COLLECTION_ACTIVITIES
+from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -60,7 +61,7 @@ def get_activity_records_route(
 ) -> ActivityRecordsResponse:
     if not store.has_node(COLLECTION_ACTIVITIES, key):
         raise NotFound("Activity", key)
-    activity_id = f"{COLLECTION_ACTIVITIES}/{key}"
+    activity_id = node_id(COLLECTION_ACTIVITIES, key)
     return ActivityRecordsResponse.from_row(
         activity_id, get_activity_records(store, activity_id)
     )

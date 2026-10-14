@@ -6,7 +6,7 @@ motion is about) give ``outcome`` (``aangenomen``, ``verworpen``, ``ingetrokken`
 ``aangehouden``, ``vervallen``; without a decision the status the page of a motion of the
 Eerste Kamer states, else ``vervangen`` for a paper a newer one replaces), ``decided_on``,
 ``tally`` (the seats per choice) and ``decision`` (the key of the decision):
-``core/paper_outcomes.py``. A decision comes days after its paper and can change it again
+``core/votes.py``. A decision comes days after its paper and can change it again
 (held, then voted), so every run reads every decision on a motion or an amendment (some
 60,000) and writes only the papers whose outcome changed, compared with what
 ``lg_document_light`` keeps of them; a paper that lost its outcome gets nulls. The trigger on
@@ -20,8 +20,8 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import NodeType, PipelineResult
-from lawgraph.core.paper_outcomes import paper_outcome
+from lawgraph.core.models import NodeType, PipelineResult, key_of
+from lawgraph.core.votes import paper_outcome
 from lawgraph.db.queries import paper_outcomes as queries
 
 from .base import SemanticPipelineBase
@@ -51,7 +51,7 @@ class TKPaperOutcomesSemanticPipeline(SemanticPipelineBase):
             if props != kept.get(paper, dict.fromkeys(props)):
                 changed.append(
                     {
-                        "_key": paper.split("/", 1)[1],
+                        "_key": key_of(paper),
                         "type": NodeType.DOCUMENT.value,
                         "labels": [],
                         "props": props,

@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, make_node_key
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
@@ -256,6 +256,6 @@ def _voter_id(
 ) -> str | None:
     if cast.person_id:
         key = make_node_key(cast.person_id)
-        return f"{COLLECTION_MEMBERS}/{key}" if key in known_members else None
+        return node_id(COLLECTION_MEMBERS, key) if key in known_members else None
     faction = faction_nodes.get(cast.faction_id or "")
     return faction.node_id if faction else None

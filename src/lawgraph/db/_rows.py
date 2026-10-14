@@ -11,6 +11,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 from lawgraph.core.mentions import Mention
+from lawgraph.core.models import node_id
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
 # every node, the node itself too: its text and its raw payloads, which the detail routes
@@ -79,7 +80,7 @@ def edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     """An edge row (``key``, ``from_id``, ``to_id``, ``doc``) as its document."""
     return {
         "_key": row["key"],
-        "_id": f"{COLLECTION_EDGES}/{row['key']}",
+        "_id": node_id(COLLECTION_EDGES, row["key"]),
         "_from": row["from_id"],
         "_to": row["to_id"],
         **(row["doc"] or {}),
@@ -347,7 +348,7 @@ def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A raw_sources row (``key``, ``doc``) as its document."""
     return {
         "_key": row["key"],
-        "_id": f"{COLLECTION_RAW_SOURCES}/{row['key']}",
+        "_id": node_id(COLLECTION_RAW_SOURCES, row["key"]),
         **row["doc"],
     }
 
