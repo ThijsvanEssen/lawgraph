@@ -15,20 +15,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import has_length, keep_props, truthy_or
 
 # The role of the one who signs a document first.
 ROLE_FIRST_SIGNATORY = "Eerste ondertekenaar"
-
-
-def _keep(props: str, *fields: str) -> str:
-    """SQL: AQL ``KEEP(props, fields)``, the fields *props* has with their keys in byte
-    order (probe P1)."""
-    names = ", ".join(f"'{field}'" for field in fields)
-    return f"""coalesce(
-        (SELECT json_object_agg(k, v ORDER BY k COLLATE "C")
-         FROM json_each({props}) AS p(k, v) WHERE k IN ({names})),
-        '{{}}'::json
-    )"""
 
 
 # These read whole collections, and the step that reads them looks each row up on its own:
@@ -46,20 +36,11 @@ def government_people(store: Store) -> Iterator[dict[str, Any]]:
         f"""
         SELECT json_build_object(
             'id', m.key,
-            'name', CASE WHEN lg_truthy({government_name}) THEN {government_name}
-                         ELSE m.props -> 'name' END,
+            'name', {truthy_or(government_name, "m.props -> 'name'")},
             'posts', {posts}
         )
         FROM members m
-        -- LENGTH(posts) > 0: an array or object with something in it, a string that is
-        -- not empty, any number, true
-        WHERE CASE json_typeof({posts})
-            WHEN 'array' THEN json_array_length({posts}) > 0
-            WHEN 'object' THEN EXISTS (SELECT 1 FROM json_object_keys({posts}))
-            WHEN 'string' THEN ({posts} #>> '{{}}') <> ''
-            WHEN 'number' THEN true
-            WHEN 'boolean' THEN ({posts} #>> '{{}}') = 'true'
-            ELSE false END
+        WHERE {has_length(posts)}
         ORDER BY m.key COLLATE "C"
         """
     )
@@ -95,7 +76,7 @@ def commitment_makers(
             'ministry_name', c.props -> 'ministry_name',
             'text', c.props -> 'text',
             'date', c.props -> 'made_on',
-            'props', {_keep("c.props", "member_key", "post", "ministry", "cabinet")}
+            'props', {keep_props("c.props", "member_key", "post", "ministry", "cabinet")}
         )
         FROM commitments c
         WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
@@ -152,7 +133,7 @@ firsts AS (
 SELECT json_build_object(
     'key', dossier.key,
     'first', firsts.first,
-    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
+    'props', {keep_props("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
 )
 FROM dossiers dossier
 LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */

@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import collection_from_id, make_node_key
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import GraphStore
+from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
 from lawgraph.db.queries.search import load_notation_parser
 from lawgraph.db.schema import search_column
 
@@ -44,18 +45,7 @@ _LAW_CONFIDENCE = {
 }
 
 
-def _not_null(*fields: str) -> str:
-    """``NOT_NULL(doc.props.a, …)``: the first of the props that is neither missing nor
-    null."""
-    cases = " ".join(
-        f"WHEN coalesce(json_typeof(doc.props -> '{f}'), 'null') <> 'null'"
-        f" THEN doc.props -> '{f}'"
-        for f in fields
-    )
-    return f"(CASE {cases} END)"
-
-
-_DEFAULT_NAME = _not_null("display_name", "title")
+_DEFAULT_NAME = first_present("doc.props -> 'display_name'", "doc.props -> 'title'")
 # An article that has no name of its own (a stub: a citation named it before, or without,
 # its law's text) is named by its number and its law: "Artikel 162 Burgerlijk Wetboek Boek 7".
 _ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
@@ -71,7 +61,11 @@ _ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
     WHERE lg_str(doc.props -> 'article_number') IS NOT NULL
 ))"""
 _NAME_OF = {
-    COLLECTION_INSTRUMENTS: _not_null("citation_title", "display_name", "title"),
+    COLLECTION_INSTRUMENTS: first_present(
+        "doc.props -> 'citation_title'",
+        "doc.props -> 'display_name'",
+        "doc.props -> 'title'",
+    ),
     COLLECTION_ARTICLES: _ARTICLE_NAME,
 }
 
@@ -234,8 +228,8 @@ def _headed_article(
             SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
             FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
             JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
-            WHERE coalesce(json_typeof(doc.props -> 'article_number'), 'null') = 'null'
-              AND coalesce(json_typeof(doc.props -> 'label'), 'null') <> 'null'
+            WHERE {is_absent("doc.props -> 'article_number'")}
+              AND {is_present("doc.props -> 'label'")}
               AND lower(doc.props ->> 'label') = %(heading)s
             ORDER BY law.n, doc.key
             """

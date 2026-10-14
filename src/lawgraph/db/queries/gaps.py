@@ -15,24 +15,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db.counting import Store
-
-
-def _truthy(value: str) -> str:
-    """Whether the json *value* is truthy as ArangoDB's ``||`` takes it: not missing, null,
-    false, 0 or "" (an empty array or object is truthy)."""
-    return f"coalesce(({value})::jsonb NOT IN ('null', 'false', '0', '\"\"'), false)"
-
-
-def _first_truthy(*values: str) -> str:
-    """``a || b || c``: the first truthy one of the json *values*, else the last."""
-    whens = " ".join(f"WHEN {_truthy(v)} THEN {v}" for v in values[:-1])
-    return f"CASE {whens} ELSE {values[-1]} END"
-
-
-def _given(value: str) -> str:
-    """``x != null`` for the json *value*: present and not null."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
+from lawgraph.db.queries._json_sql import array_or_empty, is_present, truthy_or
 
 # ── laws ─────────────────────────────────────────────────────────────────────
 
@@ -43,10 +26,8 @@ def basis_bwb_ids(store: Store) -> Iterator[Any]:
         f"""
         SELECT upper(b.v ->> 'bwb_id') AS bwb_id
         FROM instruments i
-        CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(i.props -> 'basis') = 'array' THEN i.props -> 'basis' END
-        ) AS b(v)
-        WHERE lg_str(i.props -> 'source') = %(source)s AND {_given("b.v -> 'bwb_id'")}
+        CROSS JOIN LATERAL json_array_elements({array_or_empty("i.props -> 'basis'")}) AS b(v)
+        WHERE lg_str(i.props -> 'source') = %(source)s AND {is_present("b.v -> 'bwb_id'")}
         GROUP BY 1
         ORDER BY count(*) DESC NULLS LAST, bwb_id NULLS FIRST
         """,
@@ -79,7 +60,7 @@ def stub_article_counts(store: Store) -> Iterator[dict[str, Any]]:
 
 def instrument_titles(store: Store) -> Iterator[dict[str, Any]]:
     """``{bwb_id, title}`` of every instrument with a BWB id: its best available title."""
-    title = _first_truthy(
+    title = truthy_or(
         "props -> 'citation_title'", "props -> 'title'", "props -> 'display_name'"
     )
     return store.query(
@@ -110,12 +91,10 @@ def unanswered_preliminary_rulings(
 ) -> Iterator[dict[str, Any]]:
     """``{ecli, paragraphs}`` of the preliminary rulings without an ANSWERS edge, with their
     first *paragraphs* paragraphs (where they say who asked their questions)."""
-    first = """(
+    first = f"""(
         SELECT coalesce(json_agg(p.v ORDER BY p.n), '[]'::json)
-        FROM json_array_elements(
-            CASE WHEN json_typeof(j.props -> 'paragraphs') = 'array'
-                 THEN j.props -> 'paragraphs' END
-        ) WITH ORDINALITY AS p(v, n)
+        FROM json_array_elements({array_or_empty("j.props -> 'paragraphs'")})
+            WITH ORDINALITY AS p(v, n)
         WHERE p.n <= %(paragraphs)s
     )"""
     return store.query(
@@ -196,7 +175,7 @@ def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, An
     """The Tweede Kamer papers whose kind contains one of *kinds* (lower case), with the
     dossier they are numbered in and their number there: ``{key, title, number, suffix,
     sequence, date}``."""
-    title = _first_truthy("props -> 'title'", "props -> 'display_name'", "to_json(key)")
+    title = truthy_or("props -> 'title'", "props -> 'display_name'", "to_json(key)")
     return store.query(
         f"""
         SELECT key,
@@ -207,7 +186,7 @@ def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, An
                props -> 'date' AS date
         FROM documents
         WHERE 'TK' = ANY(labels)
-          AND {_given("props -> 'dossier_number'")} AND {_given("props -> 'sequence'")}
+          AND {is_present("props -> 'dossier_number'")} AND {is_present("props -> 'sequence'")}
           AND EXISTS (
             SELECT 1 FROM unnest(%(kinds)s::text[]) AS w
             WHERE strpos(lower(coalesce(kind, '')), w) > 0

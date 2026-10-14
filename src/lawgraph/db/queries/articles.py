@@ -43,6 +43,7 @@ from lawgraph.db.queries._helpers import (
     _resolve_target_from_entry,
     run_together,
 )
+from lawgraph.db.queries._json_sql import array_or_empty, first_present
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.not_found import require_node
@@ -260,15 +261,6 @@ def get_article_citations(
     return citations
 
 
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, ...)`` of json values: the first that is neither missing nor a
-    json null."""
-    cases = ", ".join(
-        f"CASE WHEN json_typeof({v}) <> 'null' THEN {v} END" for v in values
-    )
-    return f"coalesce({cases})"
-
-
 # The key of a dossier from its id (``PARSE_IDENTIFIER(id).key``).
 _DOSSIER_KEY_FROM = len(COLLECTION_DOSSIERS) + 2
 
@@ -295,9 +287,9 @@ SELECT
     ) AS dossier_keys,
     CASE WHEN s.collection = '{COLLECTION_INSTRUMENTS}'
         THEN s.props -> 'dossier_numbers' END AS numbers,
-    {_not_null("s.props -> 'date'", "s.props -> 'date_published'", "s.props -> 'date_signed'")}
+    {first_present("s.props -> 'date'", "s.props -> 'date_published'", "s.props -> 'date_signed'")}
         AS date,
-    {_not_null("s.props -> 'kind'", "s.props -> 'publication_kind'")} AS kind,
+    {first_present("s.props -> 'kind'", "s.props -> 'publication_kind'")} AS kind,
     lower(e.relation) AS change,
     e.doc -> 'status' AS status,
     s.props -> 'display_name' AS summary,
@@ -593,8 +585,7 @@ FROM picked p
 JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.document_id
 CROSS JOIN LATERAL (
     SELECT k.p, k.p ->> 'text' AS text,
-           CASE WHEN json_typeof(k.p -> 'sections') = 'array' THEN k.p -> 'sections'
-                ELSE '[]'::json END AS sections
+           {array_or_empty("k.p -> 'sections'")} AS sections
     FROM (
         SELECT json_object_agg(j.key, j.value) AS p
         FROM json_each(d.props) j
@@ -689,8 +680,7 @@ def _cited_by_sql(order: str) -> str:
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
-                THEN e.doc -> 'meta' -> 'mentions' END
+            {array_or_empty("e.doc -> 'meta' -> 'mentions'")}
         ) WITH ORDINALITY AS m(mention, position)
         WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
           AND e.from_collection = '{COLLECTION_JUDGMENTS}'

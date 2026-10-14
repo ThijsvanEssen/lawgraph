@@ -1,0 +1,113 @@
+"""SQL fragments over json values, each the one spelling of what it tests or gives.
+
+A value is an SQL expression of type ``json``. A prop the node does not have is SQL NULL, a
+prop set to null the json ``null``; the tests here treat both as null and never give SQL
+NULL themselves, so they hold under ``NOT`` and in a column as in a ``WHERE``.
+"""
+
+from __future__ import annotations
+
+# The json text of an empty array.
+EMPTY_ARRAY = "'[]'::json"
+
+
+def is_present(value: str) -> str:
+    """*value* is there and not null."""
+    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
+
+
+def is_absent(value: str) -> str:
+    """*value* is missing or null."""
+    return f"coalesce(json_typeof({value}), 'null') = 'null'"
+
+
+def first_present(*values: str) -> str:
+    """The first of *values* that is present (``is_present``); SQL NULL when none is."""
+    cases = " ".join(f"WHEN {is_present(v)} THEN {v}" for v in values)
+    return f"(CASE {cases} END)"
+
+
+def truthy_or(*values: str) -> str:
+    """The first of *values* that is true (``lg_truthy``: not missing, null, false, 0 or
+    ""; an array or object, even empty, is), else the last."""
+    whens = " ".join(f"WHEN lg_truthy({v}) THEN {v}" for v in values[:-1])
+    return f"CASE {whens} ELSE {values[-1]} END"
+
+
+def array_or_empty(value: str) -> str:
+    """*value* when it is an array, else an empty one: what a walk over it reads."""
+    return (
+        f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE {EMPTY_ARRAY} END"
+    )
+
+
+def has_length(value: str) -> str:
+    """*value* has a length above 0: an array or object with an element, a string with a
+    character, any number, ``true``; null, missing and ``false`` have none."""
+    return (
+        f"CASE json_typeof({value})"
+        f" WHEN 'array' THEN json_array_length({value}) > 0"
+        f" WHEN 'object' THEN EXISTS (SELECT 1 FROM json_object_keys({value}))"
+        f" WHEN 'string' THEN {value} #>> '{{}}' <> ''"
+        f" WHEN 'number' THEN true"
+        f" WHEN 'boolean' THEN {value} #>> '{{}}' = 'true'"
+        f" ELSE false END"
+    )
+
+
+def json_length(value: str) -> str:
+    """The length of *value*: of an array, string or object its size, of a number the
+    length of its text, of ``true`` 1; of null, missing and ``false`` 0."""
+    return f"""CASE json_typeof({value})
+        WHEN 'array' THEN json_array_length({value})
+        WHEN 'string' THEN char_length({value} #>> '{{}}')
+        WHEN 'object' THEN (SELECT count(*)::int FROM json_object_keys({value}))
+        WHEN 'boolean' THEN ({value} #>> '{{}}')::boolean::int
+        WHEN 'number' THEN char_length({value} #>> '{{}}')
+        ELSE 0 END"""
+
+
+def as_text(value: str) -> str:
+    """*value* as text: a string as it is, a number or a boolean as written, null and
+    missing ``''``."""
+    return f"coalesce(({value}) #>> '{{}}', '')"
+
+
+def keep_props(props: str, *fields: str) -> str:
+    """The json object *props* with only *fields*: those it has (one set to null too), in
+    the byte order of their names; ``{}`` when it has none of them."""
+    names = ", ".join(f"'{field}'" for field in fields)
+    return f"""coalesce((
+        SELECT json_object_agg(k, v ORDER BY k COLLATE "C")
+        FROM json_each({props}) AS kept(k, v)
+        WHERE k IN ({names})
+    ), '{{}}'::json)"""
+
+
+def differs(stored: str, wanted: str) -> str:
+    """Two json values differ by value (``1`` equals ``1.0``, arrays and objects element by
+    element), a missing value null."""
+    return (
+        f"coalesce(({stored})::jsonb, 'null')"
+        f" IS DISTINCT FROM coalesce(({wanted})::jsonb, 'null')"
+    )
+
+
+def period_holds(start: str, end: str, day: str) -> str:
+    """The period from the json *start* to the json *end* (both inclusive; no start: from
+    the first day, no end: still going on) holds on *day* (text, ``YYYY-MM-DD``)."""
+    return (
+        f"({is_absent(start)} OR lg_str({start}) <= {day})"
+        f" AND ({is_absent(end)} OR lg_str({end}) >= {day})"
+    )
+
+
+def period_overlaps(start: str, end: str, first: str, last: str) -> str:
+    """The period from the json *start* to the json *end* (inclusive; no start: from the
+    first day, no end: still going on) overlaps the one from *first* to *last* (text,
+    inclusive; NULL: open on that side)."""
+    return (
+        f"({last}::text IS NULL OR coalesce(lg_str({start}), '') <= {last})"
+        f" AND ({first}::text IS NULL OR {is_absent(end)}"
+        f" OR lg_str({end}) >= {first})"
+    )

@@ -9,6 +9,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_DECISIONS, RELATION_REVISES
 from lawgraph.core.batching import chunked
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import is_present
 from lawgraph.db.queries.decisions import MOTION_KINDS, motion_papers
 
 # Decisions whose papers are looked up in one query.
@@ -50,11 +51,11 @@ WHERE d.source = 'eerstekamer' AND starts_with(d.kind, 'Motie')
 """
 
 # The outcomes kept before, from the light rows of the papers (``lg_document_light``).
-_KEPT = """
+_KEPT = f"""
 SELECT l.id, l.props -> 'outcome' AS outcome, l.props -> 'decided_on' AS decided_on,
        l.props -> 'tally' AS tally, l.props -> 'decision' AS decision
 FROM lg_document_light l
-WHERE coalesce(json_typeof(l.props -> 'outcome'), 'null') <> 'null'
+WHERE {is_present("l.props -> 'outcome'")}
 """
 
 

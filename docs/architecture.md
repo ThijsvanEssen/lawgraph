@@ -214,6 +214,7 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | A command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when its `run` takes it | `tests/test_pipeline_cli.py` |
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
 | SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/test_conventions.py` |
+| A test of, or fallback for, a json value in SQL (present, absent, truthy `||`, array or `[]`, length, kept props, a period) is spelled once, in `db/queries/_json_sql.py`; its tests never give SQL NULL | `tests/test_json_sql_once.py`, `tests/pg/test_json_sql.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |
 | No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/test_conventions.py` |
 | A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/test_conventions.py` |

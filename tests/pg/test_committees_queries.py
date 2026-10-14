@@ -33,10 +33,9 @@ from lawgraph.core.models import Node
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, make_edge_doc, version_cache
 from lawgraph.db.queries import committees as committee_queries
+from lawgraph.db.queries._json_sql import array_or_empty, is_absent
 from lawgraph.db.queries.committees import (
     _IN_MEMBERSHIP,
-    _array,
-    _is_null,
     count_members,
     get_actor_dossiers,
     get_actor_touched_instruments,
@@ -851,13 +850,13 @@ _OLD_MEMBER_VOTES = f"""
               ON e.from_id = %(member_id)s AND e.relation = %(voted)s
             UNION ALL
             SELECT e.to_id, e.doc -> 'meta',
-                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
+                   CASE WHEN {is_absent("f.period -> 'abbreviation'")}
                         THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
                    f.period -> 'faction_key', f.period ->> 'faction_key',
                    'faction'::text
             FROM member
             CROSS JOIN LATERAL json_array_elements(
-                {_array("member.props -> 'faction_memberships'")}
+                {array_or_empty("member.props -> 'faction_memberships'")}
             ) AS f(period)
             JOIN {COLLECTION_EDGES} e
               ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
