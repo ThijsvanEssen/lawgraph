@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 import pytest
@@ -90,7 +91,13 @@ class _Store(RawSourcesFake):
 
     def state_urls(self) -> list[dict[str, Any]]:
         return [
-            {"id": d["external_id"], "url": d["meta"].get("state_url")}
+            {
+                "id": d["external_id"],
+                "url": d["meta"].get("state_url"),
+                "end_date": d["meta"].get("end_date"),
+                # stored now, unless a test says when
+                "at": d.get("at") or dt.datetime.now(dt.timezone.utc).isoformat(),
+            }
             for d in self._of(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
         ]
 
@@ -117,8 +124,6 @@ def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_current_toestand_is_the_one_in_force_today() -> None:
-    import datetime as dt
-
     today = dt.date(2026, 9, 20)
     old = _meta("BWBR1", "2020-01-01", "2023-12-31")
     in_force = _meta("BWBR1", "2024-01-01", "2026-12-31")
@@ -182,6 +187,39 @@ def test_an_unchanged_toestand_is_not_downloaded_again() -> None:
         store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR2")]["meta"]["start_date"]
         == "2026-01-01"
     )
+
+
+def test_a_toestand_whose_period_changed_or_ended_is_stored_again() -> None:
+    """The same file, but the SRU ends its period now (a toestand to come was registered),
+    or its end has passed since it was stored (the regulation was repealed): the record
+    says so again (``bwb_xml.expiry_date`` reads its end and when it was stored)."""
+    client = _Client(
+        {
+            "BWBR1": _meta("BWBR1", "2024-01-01"),
+            "BWBR2": _meta("BWBR2", "2023-07-01", "2025-06-30"),
+            "BWBR3": _meta("BWBR3", "2002-01-01", "2003-07-31"),
+        }
+    )
+    store = _Store()
+    BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
+    # BWBR2 was stored before its end; BWBR3, repealed in 2003, long after it
+    for (kind, external_id), doc in store.docs.items():
+        doc["old"] = kind == RAW_KIND_BWB_TOESTAND
+        if external_id == "BWBR2":
+            doc["at"] = "2025-01-05T03:00:00Z"
+    client.current["BWBR1"] = _meta("BWBR1", "2024-01-01", "2026-12-31")
+    client.requests.clear()
+    BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
+
+    assert client.requests == [
+        "listing",
+        "xml BWBR1",
+        "wti BWBR1",
+        "xml BWBR2",
+        "wti BWBR2",
+    ]
+    meta = store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR1")]["meta"]
+    assert meta["end_date"] == "2026-12-31"
 
 
 def test_the_wti_of_an_unchanged_toestand_is_read_again_after_a_month() -> None:
