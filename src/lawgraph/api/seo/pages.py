@@ -36,11 +36,12 @@ from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url, publication_url
-from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.publications import (
     instrument_key,
     koop_citation,
     official_of_note_key,
+    own_title,
+    publication_indexed,
 )
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import due_date, is_motion_or_amendment, submitters
@@ -52,6 +53,9 @@ SITE = "Concordans"
 LINKS = 20
 # The length a title is cut to before ", Concordans": what a search result shows.
 DESCRIPTION_MAX = 155
+# The image of a page when it is shared (``og:image``, ``static/og`` of the front end) that
+# has none of its own kind.
+SITE_IMAGE = "/og/concordans.png"
 
 
 @dataclass
@@ -69,7 +73,7 @@ class Page:
     index: bool = True
     lang: str = "nl"
     # the image of the page when it is shared (``og:image``): one per kind
-    image: str = "/og/concordans.png"
+    image: str = SITE_IMAGE
     # whether ``title`` is the whole ``<title>`` already (a page of the app), without the
     # name of the site to add
     whole_title: bool = False
@@ -1366,18 +1370,9 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
     return koop_citation(official) or official
 
 
-def _note_title(note: dict[str, Any]) -> str:
-    """The title of a publication as its own text gives it; none when its text gave none
-    (the normalizer's ``Staatsblad <year>/<number>``) or only the name of its series (the
-    masthead ``Staatsblad`` a note normalized before its ``DC.title`` was read holds)."""
-    title = _text(note.get("title"))
-    generic = re.fullmatch(r"Staatsblad \d{4}/\d+", title) or is_series_name(title)
-    return "" if generic else title
-
-
 def publication_title(props: dict[str, Any], note: dict[str, Any], key: str) -> str:
     """``Stb. 2026, 94: Besluit van … tot wijziging van …``; the name alone without one."""
-    name, title = _publication_name(props, note, key), _note_title(note)
+    name, title = _publication_name(props, note, key), own_title(note.get("title"))
     return f"{name}: {title}" if title else name
 
 
@@ -1485,7 +1480,7 @@ def publication_page(row: dict[str, Any]) -> Page:
             ),
         },
         body=body,
-        index=bool(_note_title(note) or laws),
+        index=publication_indexed(note.get("title"), bool(laws)),
     )
 
 
@@ -1693,26 +1688,6 @@ def decision_page(row: dict[str, Any]) -> Page:
         # the page of the motion or amendment holds the vote, and is the one to find
         index=False,
     )
-
-
-# The page of each kind of address that has one; the others get the shell.
-PAGES = {
-    "wet": law_page,
-    "artikel": article_page,
-    "uitspraak": judgment_page,
-    "kamerstuk": paper_page,
-    "dossier": dossier_page,
-    "lid": member_page,
-    "fractie": faction_page,
-    "kabinet": cabinet_page,
-    "commissie": committee_page,
-    "publicatie": publication_page,
-    "toezegging": commitment_page,
-    "stemming": decision_page,
-    "bijlage": annex_page,
-    "zaak": case_page,
-    "activiteit": activity_page,
-}
 
 
 # The title of a node of each collection whose description is its title.
