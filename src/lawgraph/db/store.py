@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import contextvars
+import dataclasses
 import datetime as dt
 import hashlib
 import os
@@ -377,6 +378,35 @@ class ReadTimedOut(RuntimeError):
 
 class RequestCancelled(ReadTimedOut):
     """The client of the request went away: its reads were cancelled."""
+
+
+@dataclasses.dataclass
+class Budget:
+    """Whether the reads of a ``read_budget`` block ran past it."""
+
+    ran_out: bool = False
+
+
+@contextlib.contextmanager
+def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[Budget]:
+    """The reads of the block end within *seconds*, or within what the request has left
+    less *reserve* when that ends first. A block that runs past it ends there, logged:
+    ``ran_out``, and the caller answers without what it read (a computation of the cache
+    it waited for goes on). A request whose client went away (``RequestCancelled``) ends
+    as ever."""
+    left = read_time_left()
+    capped = seconds if left is None else min(seconds, left - reserve)
+    token = set_read_deadline(max(0.0, capped))
+    budget = Budget()
+    try:
+        yield budget
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        budget.ran_out = True
+        logger.info("%s took over %s s: answered without it.", what, seconds)
+    finally:
+        reset_read_deadline(token)
 
 
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:

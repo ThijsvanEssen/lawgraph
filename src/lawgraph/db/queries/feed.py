@@ -67,6 +67,7 @@ from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.feed_relations import (
     CITATIONS_OF_LAW,
@@ -87,13 +88,7 @@ from lawgraph.db.schema import (
     feed_title,
     search_words,
 )
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget, read_time_left
 from lawgraph.db.version_cache import lasting
 
 # The instruments a publication names at most.
@@ -1601,20 +1596,13 @@ def get_feed(
         shown.update(partial=True, searched_from=searched_from)
     if not facets:
         return {**shown, "total": None, "facets": None}
-    left = read_time_left()
-    token = set_read_deadline(
-        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
-    )
-    try:
+    with read_budget(COUNTS_BUDGET, "The counts of the feed"):
         return {
             **shown,
             **(_counts_of_events(store, filters) or feed_counts(store, filters)),
         }
-    except ReadTimedOut:
-        # counted on for the next request (``lasting``); this one shows the page now
-        return {**shown, "total": None, "facets": None, "partial": True}
-    finally:
-        reset_read_deadline(token)
+    # counted on for the next request (``lasting``); this one shows the page now
+    return {**shown, "total": None, "facets": None, "partial": True}
 
 
 # Words, a faction or a law without a first day (``q``, ``faction`` or ``instrument``, and no
@@ -1651,15 +1639,12 @@ def _page_items(
     for days in (*WORDS_WINDOWS, None):
         since = (end - dt.timedelta(days=days)).isoformat() if days else None
         window = replace(filters, since=since, until=until)
-        token = set_read_deadline(max(deadline - time.monotonic(), 0.0))
-        try:
+        with read_budget(
+            deadline - time.monotonic(), "The words of the feed"
+        ) as budget:
             items += _rows(store, window, cursor, limit - len(items))
-        except RequestCancelled:
-            raise
-        except ReadTimedOut:
+        if budget.ran_out:
             return items, searched_from
-        finally:
-            reset_read_deadline(token)
         if len(items) > limit or since is None:
             return items[: limit + 1], None
         searched_from = since
@@ -1732,9 +1717,6 @@ def _widely_cited(store: GraphStore, filters: FeedFilters) -> bool:
 # the data does: each reads every event of every kind (a minute on the full graph), and a
 # run of the pipelines hardly moves them. The page itself is read fresh.
 COUNTS_MAX_AGE = 3600.0
-# How long a request waits for them (seconds): under a filter not counted yet (a minute or
-# more, cold) it answers its page without them, ``partial``, and they are counted on.
-COUNTS_BUDGET = 3.0
 
 
 def _counts_of_events(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:

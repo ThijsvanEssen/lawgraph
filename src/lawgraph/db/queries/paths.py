@@ -26,12 +26,7 @@ from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
 from lawgraph.db.queries.path_groups import Children, children_of, is_group
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 
 LEVEL_CAP = 5000  # the nodes a side keeps of one level
 _ROWS_PER_LEVEL = LEVEL_CAP * 20  # the edges read for one level, at most
@@ -257,20 +252,13 @@ def _search(
     ran past ``PATHS_BUDGET`` (the paths found by then)."""
     found: list[Path] = []
     capped = False
-    left = read_time_left()
-    budget = PATHS_BUDGET if left is None else min(PATHS_BUDGET, left - PATHS_RESERVE)
-    token = set_read_deadline(max(0.0, budget))
-    try:
+    with read_budget(PATHS_BUDGET, "The paths", reserve=PATHS_RESERVE) as budget:
         for source, target in combinations(chosen, 2):
             path, cut = _shortest(levels, source, target, max_depth, groups)
             capped |= cut
             if path is not None:
                 found.append(path)
-    except ReadTimedOut:
-        return found, capped, True
-    finally:
-        reset_read_deadline(token)
-    return found, capped, False
+    return found, capped, budget.ran_out
 
 
 def get_paths(

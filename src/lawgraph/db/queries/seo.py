@@ -46,13 +46,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
 T = TypeVar("T")
@@ -220,16 +214,9 @@ def law_of(store: GraphStore, bwb_id: str) -> dict[str, Any] | None:
 def _within_budget(read: Callable[[], T], instead: T) -> T:
     """What *read* gives within ``CITED_BUDGET``, else *instead*: what is not kept yet goes
     on computing in the background for the next page."""
-    left = read_time_left()
-    token = set_read_deadline(CITED_BUDGET if left is None else min(CITED_BUDGET, left))
-    try:
+    with read_budget(CITED_BUDGET, "The citing or authored nodes of a page"):
         return read()
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
-        return instead
-    finally:
-        reset_read_deadline(token)
+    return instead
 
 
 def cited(store: GraphStore, node_id: str) -> list[str]:
