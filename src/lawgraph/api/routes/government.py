@@ -16,7 +16,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey
+from lawgraph.api.params import MinistryKey, iso_day
 from lawgraph.api.schemas.government import (
     CabinetDetailDTO,
     CabinetSeatsResponse,
@@ -215,14 +215,14 @@ def list_commitments(
         cabinet=cabinet,
         ministry=ministry.value if ministry else None,
         dossier=dossier,
-        due_before=due_before.isoformat() if due_before else None,
+        due_before=iso_day(due_before),
         overdue=overdue,
         q=q,
         sort=sort,
         limit=limit,
         offset=offset,
-        made_from=date_from.isoformat() if date_from else None,
-        made_to=date_to.isoformat() if date_to else None,
+        made_from=iso_day(date_from),
+        made_to=iso_day(date_to),
         facets=facets,
     )
     slugs = load_member_slugs(store)

@@ -33,6 +33,7 @@ step() { "$L" "$@" || { failed=1; echo "test-database: lawgraph $* failed" >&2; 
 set --
 for id in $GRONDWET $AWB $SR $BW $WOM $UAVG $PROCESKOSTEN; do set -- "$@" --bwb-id "$id"; done
 step retrieve bwb "$@"
+# shellcheck disable=SC2086  # BW is a list of ids, one argument each
 step retrieve bwb-history $GRONDWET $AWB $SR $BW $WOM $UAVG $PROCESKOSTEN
 step retrieve tk --since 14d
 step retrieve tk-dossiers --since 14d

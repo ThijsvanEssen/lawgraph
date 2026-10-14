@@ -47,8 +47,13 @@ from lawgraph.core.appeals import (
     read_appeal_targets,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
-from lawgraph.core.relations import BASIS_FORMAL
+from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.provenance import (
+    BASIS_APPEAL_TEXT,
+    BASIS_FORMAL,
+    BASIS_LATER_INSTANCE,
+    Basis,
+)
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -58,16 +63,14 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-appeal-linker"
-BASIS_LATER = "later_instance"
-BASIS_TEXT = "appeal_text"
-CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER: 0.95, BASIS_TEXT: 0.9}
+CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER_INSTANCE: 0.95, BASIS_APPEAL_TEXT: 0.9}
 RELATIONS = (RELATION_APPEAL_OF, RELATION_CONTINUES, RELATION_REFERRED_BY)
 
 # (from id, relation, to ECLI, basis, procedure type)
-Link = tuple[str, str, str, str, str]
+Link = tuple[str, str, str, Basis, str]
 
 
-def _link(from_id: str, later: Instance, earlier: Instance, basis: str) -> list[Link]:
+def _link(from_id: str, later: Instance, earlier: Instance, basis: Basis) -> list[Link]:
     """The edge from *later* (node *from_id*) to *earlier*, if any: ``CONTINUES`` whatever
     the procedure of *later*, the others only from a judgment on appeal, in cassation or
     after referral (``APPEAL_PROCEDURE``)."""
@@ -153,7 +156,9 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
             for ecli in row["later_eclis"]:
                 later = known.get(ecli.upper())
                 if later is not None and later.ecli in ids:
-                    later_links += _link(ids[later.ecli], later, this, BASIS_LATER)
+                    later_links += _link(
+                        ids[later.ecli], later, this, BASIS_LATER_INSTANCE
+                    )
             for ecli in row["related_eclis"]:
                 earlier = known.get(ecli.upper()) or Instance(ecli=ecli.upper())
                 links += _link(row["j_id"], this, earlier, BASIS_FORMAL)
@@ -194,7 +199,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         for (key, target), eclis in matched.items():
             found = sorted({e.upper() for e in eclis} - conclusions)
             links += [
-                (by_key[key]["j_id"], RELATION_APPEAL_OF, ecli, BASIS_TEXT, "")
+                (by_key[key]["j_id"], RELATION_APPEAL_OF, ecli, BASIS_APPEAL_TEXT, "")
                 for ecli in found
             ]
             if not found:
@@ -239,7 +244,6 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                 writer.add(
                     Node(
                         collection=COLLECTION_JUDGMENTS,
-                        type=NodeType.JUDGMENT,
                         key=row["key"],
                         props={"unresolved_appeal_targets": targets},
                     )

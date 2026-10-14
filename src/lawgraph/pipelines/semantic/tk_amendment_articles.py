@@ -23,6 +23,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NamedTuple
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
@@ -34,7 +35,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.kamerstuk_xml import KIND_ARTICLE, SCHEME_ROMAN
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
+from lawgraph.core.provenance import REASON_AMENDMENT_TEXT
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
@@ -208,7 +210,8 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
             laws = [
                 bwb_id
                 for bwb_id in self._laws_of(document, amends_index)
-                if f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}" not in own_acts
+                if node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id))
+                not in own_acts
             ]
             if not laws:
                 result.skipped += 1
@@ -232,7 +235,10 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                             relation=hit.relation,
                             source=SEMANTIC_SOURCE,
                             confidence=hit.confidence,
-                            meta={"reason": "amendment_text", "snippet": hit.snippet},
+                            meta={
+                                "reason": REASON_AMENDMENT_TEXT,
+                                "snippet": hit.snippet,
+                            },
                             status=EDGE_STATUS_VOORGESTELD,
                         )
                     )
@@ -240,7 +246,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         edges.flush_into(result)
         removed = sum(
             edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
-            for relation in (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+            for relation in CHANGE_RELATIONS
         )
         logger.info("Removed %d article changes no longer derived.", removed)
         return result

@@ -9,8 +9,7 @@ linked by a later run.
 
 from __future__ import annotations
 
-import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -18,25 +17,15 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_MEMBERS,
     RAW_KIND_TK_CASE_ACTORS,
-    RELATION_AUTHORED,
     RELATION_LED_BY,
-    SOURCE_TK,
 )
 from lawgraph.core import tk_records
-from lawgraph.core.batching import chunked
-from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import EdgeWriter, Store
-from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize._tk_deleted import kept
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
-
-logger = get_logger(__name__)
-
-EDGE_SOURCE = "tk-case-actors"
-
-# Actor records written as edges at a time: the existence lookups are per batch.
-_BATCH = 5000
+from lawgraph.pipelines.normalize._tk_cases import (
+    LinkRecordsPipelineBase,
+    authored_edge,
+)
 
 
 def link_case_actors(
@@ -65,22 +54,19 @@ def link_case_actors(
         for submitter in of["submitters"]:
             member = make_node_key(submitter["person_id"])
             if member in members:
-                writer.add(
-                    f"{COLLECTION_MEMBERS}/{member}",
-                    f"{COLLECTION_CASES}/{case}",
-                    RELATION_AUTHORED,
-                    source=source,
-                    meta={
-                        "role": submitter["role"],
-                        "function": submitter["function"],
-                        "capacity": submitter["capacity"],
-                    },
+                writer.add_doc(
+                    authored_edge(
+                        member,
+                        node_id(COLLECTION_CASES, case),
+                        submitter,
+                        source=source,
+                    )
                 )
         for committee in map(make_node_key, of["committee_ids"]):
             if committee in committees:
                 writer.add(
-                    f"{COLLECTION_CASES}/{case}",
-                    f"{COLLECTION_COMMITTEES}/{committee}",
+                    node_id(COLLECTION_CASES, case),
+                    node_id(COLLECTION_COMMITTEES, committee),
                     RELATION_LED_BY,
                     source=source,
                 )
@@ -88,38 +74,11 @@ def link_case_actors(
     return writer.added
 
 
-class TKCaseActorsNormalizePipeline(NormalizePipelineBase):
+class TKCaseActorsNormalizePipeline(LinkRecordsPipelineBase):
     """Write AUTHORED and LED_BY edges from the stored actors of TK cases."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
-    def fetch_raw(
-        self, *, since: dt.datetime | None = None
-    ) -> Iterator[dict[str, Any]]:
-        return self._iter_raw_sources(
-            source=SOURCE_TK,
-            kinds=[RAW_KIND_TK_CASE_ACTORS],
-            since=since,
-            batch_size=_BATCH,
-        )
-
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """No nodes: the actors are edges, written batch by batch as they are read."""
-        count = edges = 0
-        for payloads in chunked(kept(self, raw), _BATCH):
-            actors = [
-                (str(payload["Id"]), tk_records.case_actors(payload))
-                for payload in payloads
-            ]
-            edges += link_case_actors(self.store, actors, source=EDGE_SOURCE)
-            count += len(actors)
-        logger.info(
-            "Case actors: %d cases read, %d edges (AUTHORED, LED_BY).", count, edges
-        )
-        return count
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """Written in ``normalize_nodes``, batch by batch."""
+    kind = RAW_KIND_TK_CASE_ACTORS
+    read = tk_records.case_actors
+    link = link_case_actors
+    edge_source = "tk-case-actors"
+    what = "Case actors"

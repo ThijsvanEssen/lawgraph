@@ -9,8 +9,8 @@ import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import (
     TKSemanticPipeline,
@@ -49,7 +49,7 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         return iter(store.nodes["documents"].values())
 
     monkeypatch.setattr(semantic_tk, "tk_documents", tk_documents)
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     patch_alias_rows(monkeypatch)
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])

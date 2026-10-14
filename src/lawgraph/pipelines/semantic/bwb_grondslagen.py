@@ -38,7 +38,7 @@ from lawgraph.core.delegations import (
     basis_text,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -105,8 +105,8 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
             text = basis_text(str(ref.get("text") or ""))
             leden = () if in_range else basis_qualifier(text).leden
             edges.add(
-                f"{COLLECTION_INSTRUMENTS}/{source}",
-                f"{COLLECTION_ARTICLES}/{target}",
+                node_id(COLLECTION_INSTRUMENTS, source),
+                node_id(COLLECTION_ARTICLES, target),
                 RELATION_BASED_ON,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,

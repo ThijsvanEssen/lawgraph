@@ -49,7 +49,7 @@ from lawgraph.core.cabinets import faction_of
 from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.post_ministries import (
     SOURCE_PAGE,
     SOURCE_TK_COMMITMENTS,
@@ -67,7 +67,7 @@ from lawgraph.core.rijksoverheid import parse_page, split_name
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
 from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
@@ -146,7 +146,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         for record in raw:
             html = self._payload_text(record)
             if not html:
-                result.skipped += 1
+                self.progress.skip("no page", record.get("external_id"))
                 continue
             about = meta(record)
             pages.append(
@@ -350,7 +350,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         )
         return Node(
             collection=COLLECTION_CABINETS,
-            type=NodeType.CABINET,
             key=cabinet["key"],
             labels=[],
             props={
@@ -380,7 +379,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             props.update({"external_id": key, "name": name, "display_name": name})
         return Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[LABEL_RIJKSOVERHEID] if key in own else [],
             props=props,
@@ -390,7 +388,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
     def _cleared(key: str) -> Node:
         return Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[],
             props={
@@ -409,7 +406,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             if key not in own
         ]
         removed = normalize_tk.remove_members(self.store, gone) if gone else 0
-        return removed + normalize_edges.remove_nodes_except(
+        return removed + removals.remove_nodes_except(
             self.store, COLLECTION_CABINETS, sorted(cabinets)
         )
 
@@ -428,8 +425,8 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         the edges no post supports any more are removed."""
         docs = [
             make_edge_doc(
-                f"{COLLECTION_MEMBERS}/{member}",
-                f"{COLLECTION_CABINETS}/{cabinet}",
+                node_id(COLLECTION_MEMBERS, member),
+                node_id(COLLECTION_CABINETS, cabinet),
                 RELATION_SERVED_IN,
                 source=SOURCE_RIJKSOVERHEID,
                 meta={"posts": posts},
@@ -439,7 +436,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         with EdgeWriter(self.store, what=None) as writer:
             for doc in docs:
                 writer.add_doc(doc)
-        removed = normalize_edges.remove_edges_except(
+        removed = removals.remove_edges_except(
             self.store, RELATION_SERVED_IN, [doc["_key"] for doc in docs]
         )
         logger.info(

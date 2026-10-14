@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import is_present
 
 # A moment that may be absent: absent, every record is after it (as ArangoDB compared a
 # string with null).
@@ -329,7 +330,7 @@ def judgment_payload_refs(
         f"""
         SELECT key, {_ECLI} AS ecli, doc -> 'payload_ref' AS payload_ref FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND {_SINCE} {past}
-          AND coalesce(json_typeof(doc -> 'payload_ref'), 'null') <> 'null'
+          AND {is_present("doc -> 'payload_ref'")}
         {_ORDER}
         LIMIT %(limit)s
         """,

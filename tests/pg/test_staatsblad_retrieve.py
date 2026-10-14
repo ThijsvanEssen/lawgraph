@@ -15,7 +15,7 @@ class _Client:
     def __init__(self) -> None:
         self.asked: list[str] = []
 
-    def search_amvbs(self) -> list[dict[str, str]]:
+    def search(self) -> list[dict[str, str]]:
         return [
             {"identifier": i, "modified": "2020-01-01"}
             for i in ("stb-2020-404", "stb-2015-29246", "stb-2020-1")

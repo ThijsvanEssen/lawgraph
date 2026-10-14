@@ -7,6 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY
+
 
 def where(clauses: Iterable[str]) -> str:
     """SQL: ``WHERE`` each of *clauses*; empty without one."""
@@ -36,7 +38,7 @@ class FacetFilters:
 # first, then by value.
 FACET_AGG = (
     "coalesce(json_agg(json_build_object('value', value, 'count', count)"
-    " ORDER BY count DESC, value ASC NULLS FIRST), '[]'::json)"
+    f" ORDER BY count DESC, value ASC NULLS FIRST), {EMPTY_ARRAY})"
 )
 
 

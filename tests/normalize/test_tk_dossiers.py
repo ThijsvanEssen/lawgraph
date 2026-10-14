@@ -35,8 +35,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
-from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
@@ -69,19 +69,11 @@ def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
 @pytest.fixture(autouse=True)
 def _no_stale_votes(monkeypatch: pytest.MonkeyPatch) -> None:
     """``link_votes`` removes the VOTED edges it did not write: there are none here."""
-    monkeypatch.setattr(
-        normalize_edges, "remove_edges_into_except", lambda *_a, **_kw: 0
-    )
+    monkeypatch.setattr(removals, "remove_edges_into_except", lambda *_a, **_kw: 0)
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(
-        collection=collection,
-        type=node_type,
-        key=key,
-        props=props,
-        _skip_validation=True,
-    )
+    return Node.skeleton(collection, key, props)
 
 
 def _document(key: str, **props: Any) -> Node:
@@ -295,7 +287,10 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
         ),
     }
 
-    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+    # as the run keeps them after the write (``link_node``)
+    written = {key: tk_cases.link_node(node) for key, node in activities.items()}
+
+    tk_cases.link_commitments(store, commitments, written, source=SOURCE)
 
     assert set(_edge_meta(store)) == {
         # made in the activity it names, about what the replacement discussed
@@ -396,10 +391,24 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
                 ],
             }
         ),
-        _raw({"Id": "c-missing", "CommissieZetel": []}),
+        _raw({"Id": "c-empty", "CommissieZetel": []}),
+        _raw(
+            {
+                "Id": "c-missing",
+                "CommissieZetel": [
+                    {"CommissieZetelVastPersoon": [{"Persoon_Id": "p1", "Van": None}]}
+                ],
+            }
+        ),
     ]
 
-    tk_members.link_members_to_committees(store, raws, source=SOURCE)
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    tk_members.link_members_to_committees(pipeline, raws, source=SOURCE)
+
+    assert pipeline.progress.skips == {
+        "member not in the graph": 1,
+        "committee not in the graph": 1,
+    }
 
     assert _edge_meta(store) == {
         (
@@ -617,7 +626,8 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    assert decision.props["vote_kind"] == "member"
+    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    assert written["vote_kind"] == "member"
     assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p_1",
@@ -643,7 +653,8 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    assert decision.props["vote_kind"] == "faction"
+    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    assert written["vote_kind"] == "faction"
     target = f"{COLLECTION_DECISIONS}/{decision.key}"
     assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, target): {
@@ -694,7 +705,7 @@ def _count_queries(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
         return recorded
 
-    for module in (normalize_bwb, normalize_edges, normalize_rechtspraak, normalize_tk):
+    for module in (normalize_bwb, removals, normalize_rechtspraak, normalize_tk):
         for name, function in inspect.getmembers(module, inspect.isfunction):
             if function.__module__ == module.__name__:
                 monkeypatch.setattr(module, name, recorder(name))
@@ -939,8 +950,8 @@ _GONE = {"Id": "gone", "Verwijderd": True}
 @pytest.fixture
 def _no_removals(monkeypatch: pytest.MonkeyPatch) -> None:
     """What an earlier run made of a deleted record: nothing here."""
-    monkeypatch.setattr(normalize_edges, "remove_nodes", lambda *_a: 0)
-    monkeypatch.setattr(normalize_edges, "remove_nodes_of_records", lambda *_a: 0)
+    monkeypatch.setattr(removals, "remove_nodes", lambda *_a: 0)
+    monkeypatch.setattr(removals, "remove_nodes_of_records", lambda *_a: 0)
 
 
 @pytest.mark.usefixtures("_no_removals")
@@ -983,18 +994,15 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
 
     links = importlib.import_module(f"lawgraph.pipelines.normalize.{module}")
     written: list[Any] = []
-    if module == "tk_document_links":
-        monkeypatch.setattr(
-            links.tk_cases, "link_documents", lambda _s, rows, **_: written.extend(rows)
-        )
-        pipeline = links.TKDocumentLinksNormalizePipeline(store=_store())
-    else:
-        monkeypatch.setattr(
-            links,
-            "link_case_actors",
-            lambda _s, rows, **_: written.extend(rows) or 0,
-        )
-        pipeline = links.TKCaseActorsNormalizePipeline(store=_store())
+    kind = getattr(
+        links,
+        {
+            "tk_document_links": "TKDocumentLinksNormalizePipeline",
+            "tk_case_actors": "TKCaseActorsNormalizePipeline",
+        }[module],
+    )
+    monkeypatch.setattr(kind, "link", lambda _s, rows, **_: written.extend(rows) or 0)
+    pipeline = kind(store=_store())
     result = PipelineResult()
 
     count = pipeline.normalize_nodes(
@@ -1010,7 +1018,7 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
 
 @pytest.fixture
 def _no_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(normalize_edges, "remove_edges_of_records", lambda *_a: 0)
+    monkeypatch.setattr(removals, "remove_edges_of_records", lambda *_a: 0)
 
 
 @pytest.mark.usefixtures("_no_removals")

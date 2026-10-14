@@ -17,8 +17,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.normalize import edges as normalize_edges
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
@@ -183,16 +182,15 @@ class EdgeWriter:
     def remove_stale(self, relation: str, source: str, from_ids: list[str]) -> int:
         """Remove the *relation* edges of *source* from *from_ids* that this writer did not
         write: the edges of those nodes are derived in full. How many went."""
-        return semantic_edges.remove_edges_from(
-            self._store, relation, source, from_ids, self._keys_from(relation, from_ids)
-        )
+        return len(self.removed_stale(relation, source, from_ids))
 
     def removed_stale(
         self, relation: str, source: str, from_ids: list[str]
     ) -> list[tuple[str, str]]:
         """``remove_stale``, answering ``(from_id, to_id)`` of every edge that went."""
-        return semantic_edges.removed_edges_from(
-            self._store, relation, source, from_ids, self._keys_from(relation, from_ids)
+        keep = self._keys_from(relation, from_ids)
+        return removals.remove_edges_at(
+            self._store, "from_id", [relation], from_ids, keep, source=source
         )
 
     def remove_stale_to(
@@ -206,9 +204,10 @@ class EdgeWriter:
             for to_id in to_ids:
                 if to_id in into:
                     keep.setdefault(to_id, set()).update(into[to_id])
-        return semantic_edges.remove_edges_to(
-            self._store, relations, source, to_ids, keep
+        removed = removals.remove_edges_at(
+            self._store, "to_id", relations, to_ids, keep, source=source
         )
+        return len(removed)
 
     def remove_stale_of_source(self, relation: str, source: str | None) -> int:
         """Remove the *relation* edges of *source* (of any source: None) that this writer
@@ -218,11 +217,7 @@ class EdgeWriter:
             for targets in self._remembered(relation).values()
             for key in targets.values()
         ]
-        if source is None:
-            return normalize_edges.remove_edges_except(self._store, relation, keep)
-        return semantic_edges.remove_edges_of_source_except(
-            self._store, relation, source, keep
-        )
+        return removals.remove_edges_except(self._store, relation, keep, source=source)
 
     def _keys_from(self, relation: str, from_ids: list[str]) -> dict[str, set[str]]:
         written = self._remembered(relation)

@@ -10,12 +10,14 @@ from typing import Any
 import pytest
 import requests
 
+from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
-from tests.fakes import InMemoryStore, external_ids, raw_record
+from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -77,17 +79,18 @@ def test_an_entry_without_a_time_has_none() -> None:
 
 
 def _client(pages: list[Any], calls: list[dict]) -> RechtspraakClient:
-    client = RechtspraakClient.__new__(RechtspraakClient)
+    """A client answered *pages* in turn (or an exception); the path and parameters of
+    every request go into *calls*."""
 
-    def fake_get_text(path, *, params=None, timeout=30):
-        calls.append({"path": path, "params": dict(params)})
-        page = pages.pop(0)
-        if isinstance(page, Exception):
-            raise page
-        return page
+    def step(page: Any):
+        def answer(sent: Sent) -> Any:
+            path = sent.url.removeprefix(RECHTSPRAAK.base_url)
+            calls.append({"path": path, "params": dict(sent.params)})
+            return page
 
-    client._get_text = fake_get_text  # type: ignore[method-assign]
-    return client
+        return answer
+
+    return RechtspraakClient(session=ScriptedSession(*map(step, pages)))
 
 
 def _page(entries: int, total: int | None = None, offset: int = 0) -> str:
@@ -154,8 +157,9 @@ def test_an_index_that_changed_while_it_was_read_is_only_a_warning(caplog) -> No
     assert any("the index changed" in m for m in caplog.messages)
 
 
-def test_a_failing_page_raises_after_the_earlier_ones_were_yielded() -> None:
-    client = _client([_page(1000, 5000), requests.ConnectionError("dropped")], [])
+def test_a_failing_page_raises_after_the_earlier_ones_were_yielded(slept) -> None:
+    dropped = [requests.ConnectionError("dropped")] * ATTEMPTS
+    client = _client([_page(1000, 5000), *dropped], [])
     seen = []
     with pytest.raises(requests.ConnectionError):
         for entry in client.iter_index(courts=["Raad_van_State"]):
@@ -388,6 +392,7 @@ def test_an_ecli_that_is_also_in_the_index_is_fetched_once() -> None:
 @pytest.fixture
 def cli(monkeypatch):
     from lawgraph.pipelines import retrieve_commands
+    from lawgraph.sources.registry import find
 
     seen: dict[str, Any] = {}
 
@@ -403,7 +408,8 @@ def cli(monkeypatch):
 
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
-    return lambda argv: (retrieve_commands.retrieve_rechtspraak(argv), seen)[1]
+    command = find("retrieve", "rechtspraak").command  # type: ignore[union-attr]
+    return lambda argv: (command(argv), seen)[1]
 
 
 def test_the_default_is_every_court(cli) -> None:
@@ -457,16 +463,13 @@ def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_d
 
 def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
     calls: list[dict] = []
-    client = RechtspraakClient.__new__(RechtspraakClient)
-
-    def fake_get_text(path, *, params=None, timeout=30):
-        calls.append(dict(params or {}))
-        return (
+    client = RechtspraakClient(
+        session=ScriptedSession(
             "<feed xmlns='http://www.w3.org/2005/Atom'>"
-            "<subtitle>Aantal gevonden ECLI's: 0</subtitle></feed>"
+            "<subtitle>Aantal gevonden ECLI's: 0</subtitle></feed>",
+            asked=calls,
         )
-
-    client._get_text = fake_get_text  # type: ignore[method-assign]
+    )
     list(
         client.iter_index(
             courts=["Hoge_Raad_der_Nederlanden"],

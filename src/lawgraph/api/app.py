@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import faulthandler
 import ipaddress
-import logging
 import signal
 import sys
 import time
@@ -46,16 +45,16 @@ from lawgraph.api.routes import (
 )
 from lawgraph.api.schemas.health import HealthDTO
 from lawgraph.config.settings import (
-    API_ALLOWED_ORIGINS,
+    ALLOWED_ORIGINS,
     API_HOST,
     API_PORT,
-    API_RATE_LIMIT_CALLS,
-    API_RATE_LIMIT_PERIOD,
     API_REQUEST_TIMEOUT_MS,
-    API_TRUSTED_PROXIES,
     API_WARM_UP,
+    RATE_LIMIT_CALLS,
+    RATE_LIMIT_PERIOD,
+    TRUSTED_PROXIES,
 )
-from lawgraph.core.logging import describe, setup_logging
+from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.queries.not_found import NotFound
@@ -73,7 +72,7 @@ from lawgraph.db.store import (
 
 setup_logging()
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 # How long a browser or proxy may use a response without asking again. Short: after a
 # migration the new data shows within a minute, and asking again is cheap (``ETag``).
@@ -289,11 +288,11 @@ class _RateLimitMiddleware:
     def __init__(self, app, clock: Callable[[], float] = time.monotonic) -> None:
         self._app = app
         self._clock = clock
-        self._calls = API_RATE_LIMIT_CALLS
-        self._period = API_RATE_LIMIT_PERIOD
+        self._calls = RATE_LIMIT_CALLS
+        self._period = RATE_LIMIT_PERIOD
         # X-Forwarded-For is honoured only from these hops; loopback is always trusted so
         # a reverse proxy on the same host works.
-        self._trusted_proxies = API_TRUSTED_PROXIES | self._LOOPBACK_PROXIES
+        self._trusted_proxies = TRUSTED_PROXIES | self._LOOPBACK_PROXIES
         self._history: dict[str, list[float]] = {}
         self._swept_at = clock()
 
@@ -435,7 +434,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=API_ALLOWED_ORIGINS,
+    allow_origins=ALLOWED_ORIGINS,
     # no allow_credentials: the API has no cookies and no authentication to send along
     allow_methods=["GET", "HEAD", "OPTIONS"],
     allow_headers=["*"],

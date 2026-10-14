@@ -103,6 +103,43 @@ def test_the_own_text_of_a_unit_is_one_paragraph_and_a_nested_unit_another() -> 
     ]
 
 
+def test_a_unit_ends_at_the_next_number_its_text_opens_with() -> None:
+    """Rb. Den Haag 2026:29643 writes 4.100 to 4.128 as paragraphs inside the unit of
+    4.99: each is a consideration of its own, 4.100 after 4.99 (compared part by part,
+    as numbers), and the heading before it ends 4.99."""
+    paragraphs = _fixture("rechtspraak_rbdha_2026_29643.xml")
+    numbered = [p["id"] for p in paragraphs if p["number"]]
+
+    assert [i for i in numbered if i.startswith("rov-4.")] == [
+        f"rov-4.{n}" for n in range(98, 129)
+    ]
+    assert numbered[-1] == "rov-5.1"
+    by_id = {p["id"]: p for p in paragraphs}
+    assert "4.100" not in by_id["rov-4.99"]["text"]
+    assert by_id["rov-4.100"]["text"].startswith("MSD heeft nog betoogd")
+    heading = paragraphs[paragraphs.index(by_id["rov-4.100"]) - 1]
+    assert (heading["kind"], heading["text"]) == (
+        "subheading",
+        "Geen strijd met redelijke rechtszekerheid",
+    )
+
+
+def test_a_number_of_another_level_in_a_unit_stays_its_text() -> None:
+    """A quoted list (``1.``) or a number of another chapter inside a unit is no next
+    consideration: only a later number of the same level ends it."""
+    paragraphs = _paragraphs(
+        "<uitspraak><section><title><nr>4</nr>Beoordeling</title>"
+        "<paragroup><nr>4.9</nr><para>Eerst.</para><para>1. Geciteerd.</para>"
+        "<para>5.1 Elders.</para><para>4.10. Volgende.</para></paragroup>"
+        "</section></uitspraak>"
+    )
+
+    assert [(p["id"], p["text"]) for p in paragraphs[1:]] == [
+        ("rov-4.9", "Eerst.\n\n1. Geciteerd.\n\n5.1 Elders."),
+        ("rov-4.10", "Volgende."),
+    ]
+
+
 def test_a_date_or_an_amount_at_the_start_of_a_sentence_is_no_number() -> None:
     paragraphs = _paragraphs(
         "<uitspraak><para>1 februari 2013 kwam hij thuis.</para>"

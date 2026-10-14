@@ -29,7 +29,7 @@ from lawgraph.core.dossier_stages import (
     outcome_props,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.core.models import NodeType, PipelineResult, key_of
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from . import _touched as touched
@@ -106,5 +106,5 @@ def _bill_decisions(
         decided = vote["id"] == chosen
         props = {"bill_decision": decided, "kind": kind if decided else None}
         if any(vote.get(name) != value for name, value in props.items()):
-            changed.append(_node(vote["id"].split("/", 1)[1], NodeType.DECISION, props))
+            changed.append(_node(key_of(vote["id"]), NodeType.DECISION, props))
     return changed

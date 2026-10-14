@@ -52,7 +52,7 @@ from lawgraph.core.dossier_stages import (
     select_title,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -165,9 +165,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         def step() -> None:
             records = self._every(RAW_KIND_TK_COMMISSIE)
             tk_members.normalize_committees(self, records)
-            tk_members.link_members_to_committees(
-                self.store, records, source=EDGE_SOURCE
-            )
+            tk_members.link_members_to_committees(self, records, source=EDGE_SOURCE)
 
         return self._alone(step)
 
@@ -199,7 +197,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 self.store,
                 votes.by_decision,
                 decisions,
-                self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                self._stored(COLLECTION_FACTIONS),
                 source=EDGE_SOURCE,
             )
 
@@ -379,7 +377,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             store,
             normalized["commitments"],
             {
-                **self._stored(COLLECTION_ACTIVITIES, NodeType.ACTIVITY),
+                **self._stored(COLLECTION_ACTIVITIES),
                 **normalized["activities"],
             },
             source=EDGE_SOURCE,
@@ -394,7 +392,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             source=EDGE_SOURCE,
         )
         tk_members.link_members_to_committees(
-            store, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
+            self, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
         tk_members.link_members_to_factions(
             self, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
@@ -406,7 +404,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             self._every(RAW_KIND_TK_FRACTIEZETELVACATURE),
             self._every_seat(),
             {
-                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION, ["vacancies"]),
+                **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
                 **normalized["factions"],
             },
         )
@@ -415,7 +413,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             normalized["votes"],
             normalized["decisions"],
             {
-                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                **self._stored(COLLECTION_FACTIONS),
                 **normalized["factions"],
             },
             source=EDGE_SOURCE,
@@ -444,7 +442,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             kind=RAW_KIND_TK_ZAAK,
             cutoff_iso=iso_timestamp(self._since),
         )
-        return [f"{COLLECTION_CASES}/{make_node_key(str(r))}" for r in records if r]
+        return [node_id(COLLECTION_CASES, make_node_key(str(r))) for r in records if r]
 
     def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
         """On a run over a window, the stored dossiers (by label) that a paper, activity
@@ -514,16 +512,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """The stored members and factions by TK ``Id``, with the props
         ``link_members_to_factions`` reads."""
         return (
-            self._stored(COLLECTION_MEMBERS, NodeType.MEMBER, ["name"]),
+            self._stored(COLLECTION_MEMBERS, ["name"]),
             self._stored(
                 COLLECTION_FACTIONS,
-                NodeType.FACTION,
                 ["name", "abbreviation", "aliases", "seats_changed_on"],
             ),
         )
 
     def _stored(
-        self, collection: str, node_type: NodeType, names: list[str] | None = None
+        self, collection: str, names: list[str] | None = None
     ) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read
         (or *names*). A faction is reached by the id of each of its Fractie records
@@ -537,13 +534,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         for row in rows:
             props = row["props"]
             ids = props.pop(EXTERNAL_IDS, None) or []
-            node = Node(
-                collection=collection,
-                type=node_type,
-                key=row["key"],
-                props=props,
-                _skip_validation=True,
-            )
+            node = Node.skeleton(collection, row["key"], props)
             for external_id in {row["id"], *ids}:
                 found[external_id] = node
         return found
@@ -569,7 +560,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             key, label, props = parsed
             node = Node(
                 collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
                 key=key,
                 labels=[CHAMBER_TK],
                 props=props,
@@ -671,12 +661,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         if not nodes:
             return
 
-        signals = self._dossier_signals(
-            [f"{COLLECTION_DOSSIERS}/{node.key}" for node in nodes]
-        )
+        signals = self._dossier_signals([str(node.node_id) for node in nodes])
         titles = phases = 0
         for node in nodes:
-            row = signals.get(f"{COLLECTION_DOSSIERS}/{node.key}") or {}
+            row = signals.get(str(node.node_id)) or {}
             titles += self._apply_title(node, row.get("docs") or [])
             phases += self._apply_phases(node, row)
 

@@ -18,12 +18,8 @@ from lawgraph.config.constants import (
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.schema import NODE_COLLECTIONS
-
-
-def _absent(field: str) -> str:
-    """``props.<field> == null``: missing or null."""
-    return f"coalesce(json_typeof(props -> '{field}'), 'null') = 'null'"
 
 
 def count_nodes_of_source(store: Store, collection: str, source: str) -> int:
@@ -80,7 +76,7 @@ def echr_article_fields(store: Store) -> Iterator[Any]:
     return store.query(
         f"""
         SELECT props -> 'articles' FROM judgments
-        WHERE source = %(source)s AND NOT {_absent("articles")}
+        WHERE source = %(source)s AND NOT {is_absent("props -> 'articles'")}
         ORDER BY key
         """,
         {"source": SOURCE_ECHR},
@@ -118,8 +114,8 @@ def count_regulations_without_derived_props(store: Store) -> int:
         SELECT count(*)::int FROM instruments
         WHERE lg_str(props -> 'source') = %(source)s AND stub IS NOT TRUE
           AND NOT ('Publication' = ANY(labels))
-          AND ({_absent("basis")} OR {_absent("celex_refs")}
-               OR {_absent("implements_celex")})
+          AND ({is_absent("props -> 'basis'")} OR {is_absent("props -> 'celex_refs'")}
+               OR {is_absent("props -> 'implements_celex'")})
         """
     return next(store.query(statement, {"source": SOURCE_BWB}), 0)
 

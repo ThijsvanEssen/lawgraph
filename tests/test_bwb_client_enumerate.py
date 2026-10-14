@@ -8,7 +8,7 @@ import pytest
 
 from lawgraph.clients.bwb import EMPTY_PAGE_SIZES, SRU_PAGE_SIZE, BWBClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
-from tests.fakes import FakeResponse
+from tests.fakes import ScriptedSession
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 PAGE = (FIXTURES / "bwb_sru_grondwet_page.xml").read_text()  # 3 toestanden, 1 BWBR id
@@ -16,14 +16,7 @@ DIAGNOSTIC = (FIXTURES / "bwb_sru_diagnostic.xml").read_text()
 
 
 def _client(responses: list[str], calls: list[dict]) -> BWBClient:
-    client = BWBClient.__new__(BWBClient)  # no HTTP session needed
-
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append(dict(params))
-        return FakeResponse(responses.pop(0))
-
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+    return BWBClient(session=ScriptedSession(*responses, asked=calls))
 
 
 def _page(records: int, total: int, *, first: int = 0) -> str:

@@ -8,6 +8,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     RELATION_SCOPED_BY,
 )
+from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.schema import node_of
@@ -36,7 +37,7 @@ def get_annex_referenced_by(
         WHERE e.to_id = %(annex_id)s AND e.relation = %(scoped_by)s
         ORDER BY e.from_id, e.key
         """,
-        {"annex_id": f"{COLLECTION_ANNEXES}/{key}", "scoped_by": RELATION_SCOPED_BY},
+        {"annex_id": node_id(COLLECTION_ANNEXES, key), "scoped_by": RELATION_SCOPED_BY},
     )
     return [
         {"edge": edge_doc({**row, "key": row["edge_key"]}), "article": node_doc(row)}

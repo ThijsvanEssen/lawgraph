@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_COMPOSITION,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import ek_seats
 
@@ -68,7 +68,6 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         writer.add(
             Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key="dittrich",
                 labels=["TK"],
                 props={

@@ -27,16 +27,17 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_ECHR,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
+from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.schema import node_of
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
 # BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
 # kind of the instrument is what decides in the end.
 _TREATY_ARTICLE_PREFIXES = [
-    f"{COLLECTION_ARTICLES}/{make_node_key(BWB_TREATY_ID_PREFIX)}",
+    node_id(COLLECTION_ARTICLES, make_node_key(BWB_TREATY_ID_PREFIX)),
 ]
 
 
@@ -231,13 +232,7 @@ SELECT
     (SELECT count(*)::int FROM judgment_edges) AS judgments_total,
     (
         SELECT coalesce(json_agg(json_build_object(
-            'judgment', json_build_object(
-                '_id', j.id,
-                '_key', j.key,
-                'props', json_build_object(
-                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name
-                )
-            ),
+            'judgment', {slim_judgment("j")},
             'own_article', CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
                 THEN {_article_ref("target")} END,
             'edge', {_edge_json("e", relation=False)}

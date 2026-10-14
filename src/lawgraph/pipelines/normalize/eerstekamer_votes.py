@@ -49,15 +49,16 @@ from lawgraph.core.eerstekamer_votes import (
     Vote,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
-from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -66,15 +67,13 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "eerstekamer-votes"
 
 
-# The choice of a faction in each list of a vote, as the VOTED edge carries it.
+# Each list of a vote: the choice of a faction in it, as the VOTED edge carries it, and
+# the prop of the decision that names its factions.
 CHOICES = {
-    LABEL_FOR: "Voor",
-    LABEL_AGAINST: "Tegen",
-    LABEL_NOTED: "Aantekening gevraagd",
+    LABEL_FOR: (VOTE_FOR, "factions_for"),
+    LABEL_AGAINST: (VOTE_AGAINST, "factions_against"),
+    LABEL_NOTED: (VOTE_NOTED, "factions_noted"),
 }
-
-# Decisions whose other VOTED edges are removed in one query.
-_DECISION_CHUNK = 500
 
 
 def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
@@ -93,7 +92,6 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
         number, motion = vote.number, {}
     return Node(
         collection=COLLECTION_DECISIONS,
-        type=NodeType.DECISION,
         key=key,
         labels=[CHAMBER_EK],
         props={
@@ -106,9 +104,10 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
             "result": vote.result,
             "passed": vote.result == RESULT_ADOPTED,
             "method": vote.method,
-            "factions_for": vote.factions.get(LABEL_FOR) or [],
-            "factions_against": vote.factions.get(LABEL_AGAINST) or [],
-            "factions_noted": vote.factions.get(LABEL_NOTED) or [],
+            **{
+                field: vote.factions.get(label) or []
+                for label, (_, field) in CHOICES.items()
+            },
             "bill_url": ek_url(vote.bill_path),
             "source_url": ek_url(vote.report_path),
             "retrieved_on": retrieved_on,
@@ -178,7 +177,7 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             for key in normalize_ek.ek_vote_keys_on(self.store, sorted(set(days)))
             if key not in made
         ]
-        normalize_edges.remove_nodes(self.store, COLLECTION_DECISIONS, gone)
+        removals.remove_nodes(self.store, COLLECTION_DECISIONS, gone)
         per_day: dict[str, list[int]] = {}
         for node in decisions:
             per_day.setdefault(str(node.props["date"]), [0, 0])[0] += 1
@@ -210,13 +209,8 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             on[key] = max(on.get(key, ""), bill.date)
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(on))
         nodes = [
-            Node(
-                collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
-                key=key,
-                labels=[],
-                props={"ek_rejected": {"date": on[key], **source}},
-                _skip_validation=True,
+            Node.skeleton(
+                COLLECTION_DOSSIERS, key, {"ek_rejected": {"date": on[key], **source}}
             )
             for key in sorted(known)
         ]
@@ -251,80 +245,54 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
         tk_cases.link_subjects(
             self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
         )
-        link_motions(self.store, normalized, source=EDGE_SOURCE)
-        link_faction_votes(self.store, normalized, source=EDGE_SOURCE)
+        link_motions(self, normalized, source=EDGE_SOURCE)
+        link_faction_votes(self, normalized, source=EDGE_SOURCE)
 
 
-def link_motions(store: Store, decisions: list[Node], *, source: str) -> None:
+def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) -> None:
     """``ABOUT`` from the decision on a motion to the motion, the Kamerstuk of the Eerste
-    Kamer with its letter in its dossier; one not in the graph is counted."""
+    Kamer with its letter in its dossier; one not in the graph is skipped."""
+    store = pipeline.store
     motions = [node for node in decisions if node.props.get("letter")]
     numbers = sorted(
         {str(node.props["dossier_numbers"][0]).split("-")[0] for node in motions}
     )
     papers = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
     writer = EdgeWriter(store, what="EK motions")
-    missing = 0
     for node in motions:
         paper = papers.get((node.props["dossier_numbers"][0], node.props["letter"]))
         if paper is None or not node.node_id:
-            missing += 1
+            pipeline.progress.skip("motion not in the graph", node.key)
             continue
         writer.add_doc(
             make_edge_doc(node.node_id, paper, RELATION_ABOUT, source=source)
         )
     writer.flush()
-    logger.info(
-        "Eerste Kamer votes on motions: %d about their motion, %d whose motion is not in "
-        "the graph.",
-        len(motions) - missing,
-        missing,
-    )
+    logger.info("Eerste Kamer votes on motions: %d about their motion.", writer.added)
 
 
-def observed_on(faction: dict[str, Any], date: str | None) -> bool:
-    """Whether the composition observed *faction* on *date* (its seats are of that time)."""
-    day = date or ""
-    until = faction["observed_until"]
-    return (faction["observed_from"] or "") <= day and (not until or day < until)
-
-
-def faction_of(
-    factions: dict[str, list[dict[str, Any]]], name: str, date: str | None
-) -> dict[str, Any] | None:
-    """The faction the list of votes names *name* on *date*: of the factions with that
-    abbreviation, the one observed that day, else the last observed before it, else the
-    only one."""
-    candidates = factions.get(name) or []
-    seen = [f for f in candidates if observed_on(f, date)]
-    if seen:
-        return seen[0]
-    before = [f for f in candidates if (f["observed_from"] or "") <= (date or "")]
-    if before:
-        return max(before, key=lambda f: f["observed_from"] or "")
-    return candidates[0] if len(candidates) == 1 else None
-
-
-def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> None:
+def link_faction_votes(
+    pipeline: PipelineBase, decisions: list[Node], *, source: str
+) -> None:
     """VOTED from each faction a vote names to its decision; derived in full per decision,
     so a faction the list no longer names loses its edge. A name no faction of the Eerste
-    Kamer has (one gone before the composition was first read) makes none and is counted."""
+    Kamer has (one gone before the composition was first read) makes none and is skipped."""
+    store = pipeline.store
     factions: dict[str, list[dict[str, Any]]] = {}
     for row in normalize_ek.ek_factions(store):
         factions.setdefault(row["abbreviation"], []).append(row)
     writer = EdgeWriter(store, what="EK faction votes")
     written: dict[str, list[str]] = {}
-    unknown: dict[str, int] = {}
     for node in decisions:
         if not node.node_id:
             continue
         keys = written.setdefault(node.node_id, [])
         date = node.props.get("date")
-        for label, choice in CHOICES.items():
-            for name in node.props.get(f"factions_{_FIELD[label]}") or []:
-                faction = faction_of(factions, name, date)
+        for choice, field in CHOICES.values():
+            for name in node.props.get(field) or []:
+                faction = eerstekamer_votes.faction_of(factions, name, date)
                 if faction is None:
-                    unknown[name] = unknown.get(name, 0) + 1
+                    pipeline.progress.skip("name of no faction", f"{name} ({date})")
                     continue
                 edge = make_edge_doc(
                     faction["id"],
@@ -334,33 +302,14 @@ def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> N
                     meta={
                         "choice": choice,
                         "seats": (faction["seats"] or 0)
-                        if observed_on(faction, date)
+                        if eerstekamer_votes.observed_on(faction, date)
                         else 0,
                     },
                 )
                 keys.append(edge["_key"])
                 writer.add_doc(edge)
     writer.flush()
-    removed = sum(
-        normalize_edges.remove_edges_into_except(
-            store,
-            RELATION_VOTED,
-            chunk,
-            [key for decision in chunk for key in written[decision]],
-        )
-        for chunk in _chunks(sorted(written))
-    )
+    removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)
     logger.info(
-        "Wrote %d VOTED edges of EK factions; removed %d; %d names of no faction: %s.",
-        writer.added,
-        removed,
-        sum(unknown.values()),
-        ", ".join(sorted(unknown)[:20]),
+        "Wrote %d VOTED edges of EK factions; removed %d.", writer.added, removed
     )
-
-
-_FIELD = {LABEL_FOR: "for", LABEL_AGAINST: "against", LABEL_NOTED: "noted"}
-
-
-def _chunks(ids: list[str]) -> list[list[str]]:
-    return [ids[i : i + _DECISION_CHUNK] for i in range(0, len(ids), _DECISION_CHUNK)]

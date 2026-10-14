@@ -20,7 +20,8 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.provenance import BASIS_APPNO_AND_DATE
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -29,7 +30,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "echr-version-linker"
-BASIS = "appno_and_date"
 
 # The language of the version that is kept, best first (as normalize keeps a decision with
 # an ECLI).
@@ -90,7 +90,7 @@ class ECHRVersionsSemanticPipeline(SemanticPipelineBase):
                     RELATION_SAME_AS,
                     source=SEMANTIC_SOURCE,
                     confidence=1.0,
-                    meta={"basis": BASIS},
+                    meta={"basis": BASIS_APPNO_AND_DATE},
                 )
         edges.flush_into(result)
         removed = edges.remove_stale(
@@ -122,7 +122,6 @@ class ECHRVersionsSemanticPipeline(SemanticPipelineBase):
                 writer.add(
                     Node(
                         collection=COLLECTION_JUDGMENTS,
-                        type=NodeType.JUDGMENT,
                         key=row["key"],
                         props={"same_as": same_as},
                     )

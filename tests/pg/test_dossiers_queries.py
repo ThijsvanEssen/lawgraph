@@ -77,9 +77,7 @@ def _node(
     labels: list[str],
     **props: Any,
 ) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _document(key: str, kind: str, date: str, **props: Any) -> Node:
@@ -873,7 +871,6 @@ def _dossier(number: str, suffix: str, **props: Any) -> Node:
     label = f"{number}-{suffix}" if suffix else number
     return Node(
         collection=COLLECTION_DOSSIERS,
-        type=NodeType.DOSSIER,
         key=label.lower().replace("-", "_"),
         labels=["TK"],
         props={
@@ -994,7 +991,7 @@ LAW = f"{COLLECTION_INSTRUMENTS}/bwbr0001854"
 
 
 def _bare(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(collection=collection, type=node_type, key=key, labels=[], props=props)
+    return Node(collection=collection, key=key, labels=[], props=props)
 
 
 def _laws_seed(store: GraphStore) -> None:

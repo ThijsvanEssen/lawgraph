@@ -26,13 +26,7 @@ ARTICLE = f"{COLLECTION_ARTICLES}/BWBR0001854_1"
 
 
 def _node(collection: str, node_type: NodeType, key: str) -> Node:
-    return Node(
-        collection=collection,
-        type=node_type,
-        key=key,
-        props={},
-        _skip_validation=True,
-    )
+    return Node.skeleton(collection, key)
 
 
 # ── writers ──────────────────────────────────────────────────────────────────

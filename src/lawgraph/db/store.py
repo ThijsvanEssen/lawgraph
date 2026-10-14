@@ -51,7 +51,7 @@ from lawgraph.config.settings import (
     WRITE_TIMEOUT_MS,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node
+from lawgraph.core.models import TYPE_OF_COLLECTION, Node
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
@@ -1000,7 +1000,6 @@ class GraphStore:
         self,
         collection: str,
         key: str,
-        node_type: Any,
         props: dict[str, Any],
     ) -> Node | None:
         """Return the node if it exists, otherwise insert a minimal stub.
@@ -1011,9 +1010,6 @@ class GraphStore:
         the frontend can surface it as a pending import.
         """
         table = self._node_table(collection)
-        node_type_val = (
-            node_type.value if hasattr(node_type, "value") else str(node_type)
-        )
         statement = sql.SQL(
             """
             INSERT INTO {} (id, type, labels, props)
@@ -1024,7 +1020,7 @@ class GraphStore:
         ).format(table)
         params = {
             "id": f"{collection}/{key}",
-            "type": node_type_val,
+            "type": TYPE_OF_COLLECTION[collection].value,
             "props": Json({**props, "stub": True}),
         }
         inserted = self.execute(statement, params)

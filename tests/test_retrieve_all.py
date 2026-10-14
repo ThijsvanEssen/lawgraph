@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 import pytest
 
+from lawgraph.config import sources
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
 from lawgraph.pipelines.command import Outcome, State, combined_result
@@ -17,6 +18,7 @@ from lawgraph.pipelines.orchestration import (
     retrieve_all,
     run_pipelines,
 )
+from lawgraph.pipelines.retrieve_commands import RetrieveMode
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
@@ -28,7 +30,7 @@ WINDOW = "2024-09-20T00:00:00+00:00"
 
 
 def test_full_mode_without_a_window_loads_everything() -> None:
-    ctx = RetrieveCtx(since="1d", mode="full")
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL)
     assert registry._windowed_argv(ctx) == ["--mode", "full"]
     assert registry._tk_dossiers_argv(ctx) == []
 
@@ -36,7 +38,7 @@ def test_full_mode_without_a_window_loads_everything() -> None:
 def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
     """``--window all``: no source gets the ``--since`` of ``retrieve all`` (1d), which its
     start line would show while a full load reads none."""
-    ctx = RetrieveCtx(since="1d", mode="full")
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL)
     argvs = {
         p.name: p.argv_for_all(ctx) for p in PIPELINES["retrieve"] if p.argv_for_all
     }
@@ -44,14 +46,14 @@ def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
 
 
 def test_full_mode_with_a_window_limits_only_the_tweede_kamer() -> None:
-    ctx = RetrieveCtx(since="1d", mode="full", window=WINDOW)
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL, window=WINDOW)
     assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", WINDOW]
     assert registry._tk_dossiers_argv(ctx) == ["--since", WINDOW]
     assert registry._mode_argv(ctx) == ["--mode", "full"]
 
 
 def test_incremental_mode_ignores_the_window() -> None:
-    ctx = RetrieveCtx(since="7d", mode="incremental", window=WINDOW)
+    ctx = RetrieveCtx(since="7d", mode=RetrieveMode.INCREMENTAL, window=WINDOW)
     assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", "7d"]
     assert registry._tk_dossiers_argv(ctx) == ["--since", "7d", "--skip-members"]
 
@@ -300,7 +302,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["tk-document-links"]
         == lanes["tk-case-actors"]
     )
-    assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
+    assert lanes["bwb"] == lanes["bwb-history"] == sources.BWB_SEARCH.lane
     assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
     assert lanes["eurlex"] == lanes["eurlex-nim"]
     koop = {
@@ -311,7 +313,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "tk-content",
         "staatscourant-posts",
     }
-    assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
+    assert {lanes[name] for name in koop} == {sources.KOOP_REPOSITORY.lane}
     assert (
         lanes["eerstekamer-votes"]
         == lanes["eerstekamer-composition"]
@@ -334,9 +336,9 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         if p.argv_for_all is not None
     ]
     koop, bwb, tk = (
-        registry.LANE_KOOP_REPOSITORY,
-        registry.LANE_BWB,
-        registry.LANE_TWEEDE_KAMER,
+        sources.KOOP_REPOSITORY.lane,
+        sources.BWB_SEARCH.lane,
+        sources.TWEEDE_KAMER.lane,
     )
     assert plan == [
         ("tk", tk, ()),
@@ -353,16 +355,16 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatsblad", koop, ("bwb",)),
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
-        ("eerstekamer-votes", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-composition", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-mutations", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-votes", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-composition", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-mutations", sources.EERSTEKAMER_SITE.lane, ()),
         # after the composition and the changes in its lane: the members they link
-        ("eerstekamer-persons", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-persons", sources.EERSTEKAMER_SITE.lane, ()),
         # the motions the votes named, in the lane of the site
-        ("eerstekamer-motions", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-motions", sources.EERSTEKAMER_SITE.lane, ()),
         ("kiesraad", "kiesraad", ()),
-        ("eerstekamer-agenda", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-bills", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-agenda", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-bills", sources.EERSTEKAMER_SITE.lane, ()),
         ("echr", "echr", ()),
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),

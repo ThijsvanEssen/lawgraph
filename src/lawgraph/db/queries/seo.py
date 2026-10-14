@@ -26,22 +26,24 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_AUTHORED,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core import models
+from lawgraph.core.models import key_of, parse_node_id
+from lawgraph.core.publications import (
+    note_key,
+    official_of_instrument_key,
+    official_of_note_key,
+)
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
@@ -117,7 +119,11 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     if s == "publicatie":
         return lookup.find_publication(store, pad.a, pad.b, pad.c)
     if s == "stemming":
-        return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
+        return (
+            models.node_id(COLLECTION_DECISIONS, pad.a)
+            if store.has_node(COLLECTION_DECISIONS, pad.a)
+            else None
+        )
     return focus_of_pad(pad)
 
 
@@ -622,34 +628,23 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 # ── publications, commitments and decisions ───────────────────────────────────
 
-# What a publication does to a regulation, and what its nota van toelichting does.
-_CHANGES = (
-    RELATION_ESTABLISHES,
-    RELATION_INTRODUCES,
-    RELATION_AMENDS,
-    RELATION_REPEALS,
-    RELATION_EXPLAINS,
-)
-
 
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A publication in the Staatsblad or Tractatenblad: the instrument the BWB names, its
     nota van toelichting (the document of its own source, whose title is its title; the
     page of one without such an instrument) and the regulations they change, by name. The
     note is read light (``lg_document_light``): its props hold its whole text."""
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     if collection == COLLECTION_INSTRUMENTS:
         row = _node(store, COLLECTION_INSTRUMENTS, node_id)
         if row is None:
             return None
-        official = str((row["props"] or {}).get("official_id") or key.replace("_", "-"))
-        note_id = (
-            f"{COLLECTION_DOCUMENTS}/{make_node_key(official.split('-')[0], official)}"
-        )
+        props = row["props"] or {}
+        official = str(props.get("official_id") or official_of_instrument_key(key))
+        note_id = models.node_id(COLLECTION_DOCUMENTS, note_key(official))
     else:
-        # the document of its own source: ``stb_stb_2026_94`` is stb-2026-94
         row, note_id = None, node_id
-        official = key.partition("_")[2].replace("_", "-")
+        official = official_of_note_key(key)
     note = _first(
         store,
         f"""
@@ -693,16 +688,17 @@ def changed(store: GraphStore, sources: tuple[str, ...]) -> list[dict[str, Any]]
     )
 
 
-def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
-    """The regulations *sources* enact, introduce, amend, repeal or explain (themselves or in
-    their articles), by name: ``id``, ``props`` (to their address), ``name`` and
-    ``relations``."""
-    rows = store.query(
-        f"""
+def named_changes_sql(sources: str) -> str:
+    """SQL: the regulations the nodes *sources* (an expression, a text array) enact,
+    introduce, amend, repeal or explain (themselves or in their articles) and that have a
+    name: ``id``, ``bwb_id``, ``name`` and ``relation``, a row per relation. Its parameter
+    ``changes`` is ``PUBLICATION_RELATIONS``. What a publication changes on its page
+    (``changed``) and whether the sitemap lists it (``sitemaps.publications``)."""
+    return f"""
         WITH targets AS (
             SELECT e.to_id, e.to_collection, e.relation
             FROM edges e
-            WHERE e.from_id = ANY(%(sources)s::text[])
+            WHERE e.from_id = ANY({sources})
               AND e.relation = ANY(%(changes)s::text[])
               AND e.to_collection IN ('{COLLECTION_INSTRUMENTS}', '{COLLECTION_ARTICLES}')
         ),
@@ -731,21 +727,35 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
             SELECT i.id, al.relation
             FROM article_laws al
             JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = al.bwb_id
+        ),
+        named AS (
+            SELECT i.id, i.bwb_id, laws.relation,
+                   coalesce(lg_str(i.props -> 'citation_title'),
+                            lg_str(i.props -> 'title')) AS name
+            FROM laws
+            JOIN {COLLECTION_INSTRUMENTS} i ON i.id = laws.id
         )
-        SELECT i.id, json_build_object('bwb_id', i.bwb_id) AS props,
-               coalesce(lg_str(i.props -> 'citation_title'),
-                        lg_str(i.props -> 'title')) AS name,
-               array_agg(DISTINCT laws.relation ORDER BY laws.relation ASC NULLS LAST)
+        SELECT id, bwb_id, name, relation FROM named WHERE name IS NOT NULL
+    """
+
+
+def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
+    """The regulations *sources* change by name (``named_changes_sql``): ``id``,
+    ``props`` (to their address), ``name`` and ``relations``."""
+    return list(
+        store.query(
+            f"""
+        SELECT c.id, json_build_object('bwb_id', c.bwb_id) AS props, c.name,
+               array_agg(DISTINCT c.relation ORDER BY c.relation ASC NULLS LAST)
                    AS relations
-        FROM laws
-        JOIN {COLLECTION_INSTRUMENTS} i ON i.id = laws.id
-        GROUP BY i.id
-        ORDER BY name ASC NULLS LAST, i.id
+        FROM ({named_changes_sql("%(sources)s::text[]")}) c
+        GROUP BY c.id, c.bwb_id, c.name
+        ORDER BY c.name ASC NULLS LAST, c.id
         LIMIT %(limit)s
         """,
-        {"sources": sources, "changes": list(_CHANGES), "limit": LAWS},
+            {"sources": sources, "changes": list(PUBLICATION_RELATIONS), "limit": LAWS},
+        )
     )
-    return [r for r in rows if r["name"]]
 
 
 def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -838,7 +848,7 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A decision with its votes (``get_decision_detail``) and the papers it was taken on:
     of each case it is about the oldest paper, the case it names first; a vote of the
     Eerste Kamer on a motion is about the motion itself."""
-    detail = get_decision_detail(store, node_id.partition("/")[2])
+    detail = get_decision_detail(store, key_of(node_id))
     if detail is None:
         return None
     papers = list(
@@ -893,27 +903,7 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 def activity(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An activity (``get_activity``) with what was made in it and its agenda
     (``get_activity_records``): light, a paper without its text."""
-    head = get_activity(store, node_id.partition("/")[2])
+    head = get_activity(store, key_of(node_id))
     if head is None:
         return None
     return {**head, "records": get_activity_records(store, head["id"])}
-
-
-# The reads of each kind of page.
-READS = {
-    "wet": law,
-    "artikel": article,
-    "uitspraak": judgment,
-    "kamerstuk": paper,
-    "dossier": dossier,
-    "lid": member,
-    "fractie": faction,
-    "kabinet": cabinet,
-    "commissie": committee,
-    "publicatie": publication,
-    "toezegging": commitment,
-    "stemming": decision,
-    "bijlage": annex,
-    "zaak": case,
-    "activiteit": activity,
-}

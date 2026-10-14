@@ -11,9 +11,12 @@ from typing import Any
 import pytest
 
 from lawgraph.api.seo import shell
+from lawgraph.api.seo.pages import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
+from lawgraph.core.publications import note_key
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import seo
 from lawgraph.db.queries import sitemaps as queries
 
 
@@ -285,7 +288,24 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             publication("stb-2017-5", "2017-01-10"),  # before 2018
             publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
             publication("stb-2026-187", "2026-07-20"),  # enacts a law: establishes it
-            _node("bwbr0005289", "instrument", bwb_id="BWBR0005289", kind="wet"),
+            # changes only what has no name: a law without a title, a paper
+            publication("stb-2025-302", "2025-10-03"),
+            publication("stb-2025-303", "2025-10-04"),
+            _node("bwbr0077777", "instrument", bwb_id="BWBR0077777", kind="wet"),
+            _node(
+                "bwbr0005289",
+                "instrument",
+                bwb_id="BWBR0005289",
+                kind="wet",
+                citation_title="Burgerlijk Wetboek Boek 6",
+            ),
+            _node(
+                "bwbr0052872",
+                "instrument",
+                bwb_id="BWBR0052872",
+                kind="wet",
+                citation_title="Wet een",
+            ),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -308,6 +328,10 @@ def test_publications_and_commitments(store: GraphStore) -> None:
                   "AMENDS"),
             _edge("c4", "instruments/stb_2026_187", "articles/bwbr0052872_1",
                   "ESTABLISHES"),
+            _edge("c5", "instruments/stb_2025_302", "instruments/bwbr0077777",
+                  "AMENDS"),
+            _edge("c6", "instruments/stb_2025_303", "documents/stb_stb_2025_263",
+                  "AMENDS"),
         ]
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -350,6 +374,14 @@ def test_publications_and_commitments(store: GraphStore) -> None:
     assert _paths(kinds, "toezeggingen") == [
         ("/toezeggingen/TZ202609-124", "2026-09-10")
     ]
+    # the sitemap names exactly the publications (of its series) whose page is indexed
+    listed = {row["id"] for row in queries.publications(store)}
+    for official in ("stb-2025-263", "stb-2025-300", "trb-2024-12", "stb-2025-301",
+                     "stb-2026-94", "stb-2026-187", "stb-2025-302",
+                     "stb-2025-303"):  # fmt: skip
+        node_id = f"instruments/{official.replace('-', '_')}"
+        page = publication_page(seo.publication(store, node_id) or {})
+        assert page.index == (node_id in listed), official
 
 
 def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None:
@@ -390,3 +422,10 @@ def test_the_command_writes_the_index_and_its_parts(
     pages = (out / "sitemap-paginas.xml").read_text(encoding="utf-8")
     assert "<loc>https://concordans.nl/actueel</loc>" in pages
     assert "gemarkeerd" not in pages
+
+
+@pytest.mark.parametrize("official", ["stb-2026-94", "trb-2024-12", "stcrt-2020-00012"])
+def test_the_note_id_in_sql_is_the_note_key(store: GraphStore, official: str) -> None:
+    (note_id,) = store.query(f"SELECT {queries.note_id_sql('%(official)s')}",
+                             {"official": official})  # fmt: skip
+    assert note_id == f"documents/{note_key(official)}"

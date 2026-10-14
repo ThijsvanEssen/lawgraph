@@ -24,20 +24,17 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_PART_OF,
-    RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
-from lawgraph.core.publication_xml import SERIES_NAMES
+from lawgraph.core.publications import publication_indexed
 from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import member_role
+from lawgraph.db.queries import member_role, seo
+from lawgraph.db.queries._json_sql import array_or_empty
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
@@ -233,8 +230,7 @@ def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
                    lg_str(props -> 'to_date'),
                    (SELECT max(lg_str(p -> 'from_date'))
                     FROM json_array_elements(
-                        CASE json_typeof(props -> 'phases')
-                            WHEN 'array' THEN props -> 'phases' ELSE '[]'::json END) p),
+                        {array_or_empty("props -> 'phases'")}) p),
                    lg_str(props -> 'from_date')
                ) AS lastmod
         FROM {COLLECTION_CABINETS}
@@ -256,21 +252,23 @@ def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
+def note_id_sql(official: str) -> str:
+    """SQL: the id of the nota van toelichting of the KOOP id *official* (an expression),
+    as ``core.publications.note_key`` makes its key: ``documents/stb_stb_2026_94``."""
+    return (
+        f"'{COLLECTION_DOCUMENTS}/' || split_part({official}, '-', 1)"
+        f" || '_' || replace({official}, '-', '_')"
+    )
+
+
 def publications(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The publications in the Staatsblad and the Tractatenblad since *since* that have a
-    page to find (``api/seo/pages.publication_page``): a title of their own (their nota
-    van toelichting) or a regulation they enact or change. The day they were published is their
-    lastmod."""
-    changes = [
-        RELATION_ESTABLISHES,
-        RELATION_INTRODUCES,
-        RELATION_AMENDS,
-        RELATION_REPEALS,
-        RELATION_EXPLAINS,
-    ]
-    yield from store.query(
+    """The publications in the Staatsblad and the Tractatenblad since *since* whose page is
+    indexed (``core.publications.publication_indexed``): a title of their own (their nota
+    van toelichting) or a regulation they change by name (``seo.named_changes_sql``). The
+    day they were published is their lastmod."""
+    rows = store.query(
         f"""
         WITH listed AS (
             SELECT i.id, lg_str(i.props -> 'official_id') AS official,
@@ -281,29 +279,26 @@ def publications(
                   = ANY(%(series)s::text[])
         )
         SELECT l.id, json_build_object('official_id', l.official) AS props,
-               l.date_published AS lastmod
+               l.date_published AS lastmod,
+               lg_str(light.props -> 'title') AS title,
+               EXISTS (
+                   SELECT 1
+                   FROM ({seo.named_changes_sql("ARRAY[l.id, note.id]")}) c
+               ) AS changes_a_named_regulation
         FROM listed l
-        LEFT JOIN {COLLECTION_DOCUMENTS} note
-            ON note.id = '{COLLECTION_DOCUMENTS}/' || split_part(l.official, '-', 1)
-                         || '_' || replace(l.official, '-', '_')
+        LEFT JOIN {COLLECTION_DOCUMENTS} note ON note.id = {note_id_sql("l.official")}
         LEFT JOIN lg_document_light light ON light.id = note.id
-        WHERE (lg_str(light.props -> 'title') IS NOT NULL
-               AND lg_str(light.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$'
-               AND lower(lg_str(light.props -> 'title')) <> ALL(%(series_names)s::text[]))
-           OR EXISTS (
-               SELECT 1 FROM edges e
-               WHERE e.from_id = ANY(ARRAY[l.id, note.id])
-                 AND e.relation = ANY(%(changes)s::text[])
-           )
         ORDER BY l.id
         """,
         {
             "since": since,
             "series": list(SERIES),
-            "changes": changes,
-            "series_names": sorted(SERIES_NAMES),
+            "changes": list(PUBLICATION_RELATIONS),
         },
     )
+    for row in rows:
+        if publication_indexed(row["title"], row["changes_a_named_regulation"]):
+            yield row
 
 
 def commitments(

@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.display import shorten
 from lawgraph.core.identifiers import STCRT_ID_PATTERN, find_bwb_id
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.time import iso_date
 from lawgraph.core.xml import find_text, text_of
@@ -52,15 +52,11 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
             identifier = record.get("external_id") or record.get("identifier") or ""
             payload_text = self._payload_text(record)
             if not payload_text:
-                logger.warning(
-                    "Staatscourant record %s has no text payload; skipping.", identifier
-                )
-                result.skipped += 1
+                self.progress.skip("no payload", identifier or record.get("_key"))
                 continue
 
             node = self._parse_publication(identifier, payload_text)
             if node is None:
-                result.skipped += 1
                 continue
 
             writer.add(node)
@@ -75,9 +71,7 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as exc:
-            logger.warning(
-                "Failed to parse Staatscourant XML for %s: %s", identifier, exc
-            )
+            self.progress.fail("publication not XML", f"{identifier}: {exc}")
             return None
 
         m = STCRT_ID_PATTERN.search(identifier)
@@ -116,7 +110,6 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
         key = make_node_key("stcrt", identifier)
         return Node(
             collection=COLLECTION_DOCUMENTS,
-            type=NodeType.DOCUMENT,
             key=key,
             labels=["Staatscourant", "Regeling"],
             props=props,

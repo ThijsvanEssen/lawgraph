@@ -24,6 +24,7 @@ from lawgraph.core.time import day_before
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
+from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.cabinets import (
     cabinet_on,
     cabinet_posts,
@@ -58,7 +59,7 @@ def coalition_of_day(store: GraphStore, day: str) -> Coalition:
     return Coalition(
         cabinet={"key": cabinet["key"], "name": cabinet.get("name")},
         factions=factions,
-        names=_names(store, posts, factions),
+        names=_names(posts, factions, faction_abbreviations(store, factions)),
     )
 
 
@@ -78,18 +79,17 @@ def cabinet_seats(
     posts = cabinet_posts(store, cabinet["_key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
-        tk = seat_timeline(
-            posts,
-            memberships_between(store, start, end),
-            start,
-            end,
-            vacancies_between(store, start, end),
-        )
-        abbreviations = faction_abbreviations(
-            store, {f["key"] for segment in tk for f in segment["factions"]}
-        )
         memberships = memberships_between(store, start, end)
         vacancies = vacancies_between(store, start, end)
+        tk = seat_timeline(posts, memberships, start, end, vacancies)
+    # the abbreviations of the factions of both: of the Tweede Kamer's seats and of the
+    # cabinet's parties, by which the Eerste Kamer's are matched
+    abbreviations = faction_abbreviations(
+        store,
+        {f["key"] for segment in tk or [] for f in segment["factions"]}
+        | _post_factions(posts),
+    )
+    if tk is not None:
         previous: set[str] | None = None
         for segment in tk:
             for faction in segment["factions"]:
@@ -99,7 +99,7 @@ def cabinet_seats(
                 segment["from_date"], memberships, vacancies, previous, now
             )
             previous = now
-    return {"tk": tk, "ek": _ek_stretches(store, posts, start, end)}
+    return {"tk": tk, "ek": _ek_stretches(store, posts, abbreviations, start, end)}
 
 
 def _last_day(store: GraphStore, key: str, to_date: str) -> str:
@@ -115,7 +115,11 @@ def _last_day(store: GraphStore, key: str, to_date: str) -> str:
 
 
 def _ek_stretches(
-    store: GraphStore, posts: list[dict[str, Any]], start: str, end: str
+    store: GraphStore,
+    posts: list[dict[str, Any]],
+    abbreviations: dict[str, str],
+    start: str,
+    end: str,
 ) -> list[dict[str, Any]] | None:
     """The stretches of the Eerste Kamer in *start*..*end* (``lg_ek_seats``), clipped to it,
     in the shape of the Tweede Kamer's: each faction with its seats and whether it is of the
@@ -133,7 +137,7 @@ def _ek_stretches(
     for row in rows:
         first = max(row["from_date"], start)
         last = min(row["to_date"] or end, end)
-        names = _names(store, posts, coalition_on(posts, first))
+        names = _names(posts, coalition_on(posts, first), abbreviations)
         ranked = sorted(
             (
                 (name, n, name.upper() in names)
@@ -184,18 +188,27 @@ def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _post_factions(posts: list[dict[str, Any]]) -> set[str]:
+    """The factions of the parties of *posts*: those ``coalition_on`` can name."""
+    return {
+        str(faction)
+        for post in posts
+        if (faction := (post.get("party") or {}).get("faction"))
+    }
+
+
 def _names(
-    store: GraphStore, posts: list[dict[str, Any]], factions: set[str]
+    posts: list[dict[str, Any]], factions: set[str], abbreviations: dict[str, str]
 ) -> set[str]:
     """The names the parties of *factions* go by, upper case: the short name of each post's
-    party and the abbreviation of each faction; what a faction of the Eerste Kamer is
-    matched by."""
+    party and the abbreviation of each faction (of *abbreviations*, faction key -> its
+    abbreviation); what a faction of the Eerste Kamer is matched by."""
     names = {
         str((post.get("party") or {}).get("short") or "").upper()
         for post in posts
         if (post.get("party") or {}).get("faction") in factions
     }
-    names |= {str(a).upper() for a in faction_abbreviations(store, factions).values()}
+    names |= {str(abbreviations[f]).upper() for f in factions if f in abbreviations}
     names.discard("")
     return names
 
@@ -222,15 +235,14 @@ def cabinets_with_posts(store: Store) -> list[dict[str, Any]]:
     """``{key, from_date, to_date, posts}`` of every cabinet, newest first: the posts held in
     it (``meta.posts`` of its ``SERVED_IN`` edges)."""
     rows = store.query(
-        """
+        f"""
         SELECT c.key, lg_str(c.props -> 'from_date') AS from_date,
                lg_str(c.props -> 'to_date') AS to_date,
                coalesce((
                    SELECT json_agg(p.post ORDER BY e.key, p.n)
                    FROM edges e
                    CROSS JOIN LATERAL json_array_elements(
-                       CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
-                            THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+                       {array_or_empty("e.doc -> 'meta' -> 'posts'")}
                    ) WITH ORDINALITY AS p(post, n)
                    WHERE e.to_id = c.id AND e.relation = %(served_in)s
                ), '[]'::json) AS posts
@@ -314,13 +326,12 @@ def vacancies_between(store: Store, start: str, end: str) -> list[dict[str, Any]
     """``{faction_key, from_date, to_date}`` of every vacant seat of a faction of the
     Tweede Kamer (``vacancies``, FractieZetelVacature) that overlaps *start*..*end*."""
     rows = store.query(
-        """
+        f"""
         SELECT f.key AS faction_key, lg_str(v.period -> 'from_date') AS from_date,
                lg_str(v.period -> 'to_date') AS to_date
         FROM factions f
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(f.props -> 'vacancies') = 'array'
-                 THEN f.props -> 'vacancies' ELSE '[]'::json END
+            {array_or_empty("f.props -> 'vacancies'")}
         ) AS v(period)
         WHERE lg_str(v.period -> 'from_date') <= %(end)s
           AND (lg_str(v.period -> 'to_date') IS NULL

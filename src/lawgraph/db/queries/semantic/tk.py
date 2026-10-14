@@ -22,16 +22,14 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    ENACTING_RELATIONS,
     EXPLANATORY_KIND_MARKER,
     RELATION_ABOUT,
     RELATION_AMENDS,
-    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_MADE_IN,
     RELATION_PART_OF,
-    RELATION_REPEALS,
     RELATION_REVISES,
     RELATION_SAME_AS,
     RELATION_SECOND_READING_OF,
@@ -41,21 +39,15 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.semantic import (
-    absent_sql,
-    nonempty_sql,
-    present_sql,
-    slim_sql,
+from lawgraph.db.queries._json_sql import (
+    has_length,
+    is_absent,
+    is_present,
+    keep_props,
+    truthy_or,
 )
+from lawgraph.db.queries.semantic import slim_sql
 from lawgraph.db.schema import feed_title
-
-# What a dossier did to an article: changed it, or set it by enacting a new law.
-_CHANGE_RELATIONS = (
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-    RELATION_ESTABLISHES,
-)
 
 # ``CONTAINS(LOWER(doc.props.kind || ""), marker)`` of the document ``d``: the kind column
 # holds a string kind without reading the payload; another kind is read as its text.
@@ -63,17 +55,6 @@ _EXPLANATORY = (
     "strpos(lower(coalesce(d.kind, d.props ->> 'kind')),"
     f" '{EXPLANATORY_KIND_MARKER}') > 0"
 )
-
-
-def _keep(props: str, *fields: str) -> str:
-    """SQL: AQL ``KEEP(props, fields)``, the fields *props* has with their keys in byte
-    order (probe P1)."""
-    names = ", ".join(f"'{field}'" for field in fields)
-    return f"""coalesce(
-        (SELECT json_object_agg(key, v ORDER BY key COLLATE "C")
-         FROM json_each({props}) AS p(key, v) WHERE key IN ({names})),
-        '{{}}'::json
-    )"""
 
 
 def _cut(alias: str, *fields: str) -> str:
@@ -97,7 +78,8 @@ def _to_string(value: str) -> str:
 
 def _or_empty_string(value: str) -> str:
     """SQL: AQL ``value || ""`` of a json value, as jsonb to compare by value."""
-    return f"(CASE WHEN lg_truthy({value}) THEN {value} ELSE '\"\"'::json END)::jsonb"
+    empty = """'""'::json"""
+    return f"({truthy_or(value, empty)})::jsonb"
 
 
 def _column_or_prop(alias: str, field: str) -> str:
@@ -122,7 +104,7 @@ FROM (
     FROM {COLLECTION_DOCUMENTS} d
     CROSS JOIN LATERAL (SELECT d.props -> 'text' AS text OFFSET 0) c
     WHERE '{CHAMBER_TK}' = ANY(d.labels) AND {_EXPLANATORY}
-      AND {present_sql("c.text")}
+      AND {is_present("c.text")}
       AND strpos(lower(c.text #>> '{{}}'), 'eerste lezing') > 0
 ) m
 ORDER BY m.key
@@ -196,7 +178,7 @@ def tk_document_titles(
 # title the feed shows (``documents_feed_title_g``), which is that text folded.
 _NAMING_KAMERSTUKKEN_SQL = f"""
 SELECT d.id, d.kind,
-       (CASE WHEN lg_truthy(d.pj_subject) THEN d.pj_subject ELSE d.pj_title END) #>> '{{}}'
+       ({truthy_or("d.pj_subject", "d.pj_title")}) #>> '{{}}'
            AS subject
 FROM {COLLECTION_DOCUMENTS} d
 WHERE {feed_title("d")} LIKE '%%kamerstuk%%'
@@ -309,9 +291,9 @@ FROM (
     ) p
     WHERE '{CHAMBER_TK}' = ANY(d.labels)
 ) c
-WHERE {present_sql("c.props -> 'text'")}
+WHERE {is_present("c.props -> 'text'")}
   AND lg_str(c.props -> 'text') IS DISTINCT FROM ''
-  AND ({present_sql("c.props -> 'bwb_id'")} OR c.id = ANY(%(amending)s::text[]))
+  AND ({is_present("c.props -> 'bwb_id'")} OR c.id = ANY(%(amending)s::text[]))
 ORDER BY c.key
 """
 
@@ -331,7 +313,7 @@ JOIN {COLLECTION_INSTRUMENTS} i ON i.id = e.to_id
 WHERE e.relation = %(relation)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
   AND e.to_collection = '{COLLECTION_INSTRUMENTS}'
-  AND {present_sql("i.props -> 'bwb_id'")}
+  AND {is_present("i.props -> 'bwb_id'")}
 ORDER BY e.key
 """
 
@@ -368,7 +350,7 @@ CROSS JOIN LATERAL (
     ORDER BY ds.key
     LIMIT 1
 ) dossier
-WHERE {present_sql("c.p -> 'dossier_number'")}
+WHERE {is_present("c.p -> 'dossier_number'")}
 ORDER BY c.key
 """
 
@@ -469,7 +451,7 @@ FROM (
                  AND e.source = %(sections_source)s
            ) AS upgraded,
            lg_array_union(ARRAY(
-               SELECT CASE WHEN {absent_sql(_VERSION)} THEN e.to_id
+               SELECT CASE WHEN {is_absent(_VERSION)} THEN e.to_id
                            ELSE '{COLLECTION_ARTICLE_VERSIONS}/' || {_to_string(_VERSION)}
                       END
                {_CHANGE_EDGES}
@@ -493,7 +475,7 @@ def memorandum_targets(store: Store, *, sections_source: str) -> Iterator[Any]:
         "second_reading_of": RELATION_SECOND_READING_OF,
         "explains": RELATION_EXPLAINS,
         "sections_source": sections_source,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
     }
     return store.query(MEMORANDUM_TARGETS_SQL, params)
 
@@ -551,7 +533,7 @@ FROM (
         OFFSET 0
     ) c
     WHERE {papers}
-      AND {present_sql("c.p -> 'text'")}
+      AND {is_present("c.p -> 'text'")}
 ) d
 {_LEGISLATED}
 -- the bill the memorandum explains: the first Voorstel van wet of its own dossier (its
@@ -574,7 +556,7 @@ CROSS JOIN LATERAL (
         FROM unnest(l.legislated) WITH ORDINALITY AS u(instrument, n)
         JOIN {COLLECTION_INSTRUMENTS} i ON i.id = u.instrument
     ) x
-    WHERE {present_sql("x.bwb_id")}
+    WHERE {is_present("x.bwb_id")}
 ) own
 CROSS JOIN LATERAL (
     SELECT coalesce(json_agg(g.change ORDER BY g.ord), '[]'::json) AS changes
@@ -597,7 +579,7 @@ CROSS JOIN LATERAL (
                 FROM {COLLECTION_ARTICLES} art
                 WHERE art.id = e.to_id
             ) a
-            WHERE {present_sql("a.bwb_id")} AND {present_sql("a.number")}
+            WHERE {is_present("a.bwb_id")} AND {is_present("a.number")}
         ) x
         GROUP BY x.change::jsonb
     ) g
@@ -650,7 +632,7 @@ def memoranda_with_sections(
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
         "second_reading_of": RELATION_SECOND_READING_OF,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
     }
     return store.query(
         _papers_with_sections_sql(_MEMORANDA), params, batch_size=batch_size
@@ -666,7 +648,7 @@ def adopted_amendments_with_sections(
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
         "second_reading_of": RELATION_SECOND_READING_OF,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
         "revises": RELATION_REVISES,
         "about": RELATION_ABOUT,
     }
@@ -680,7 +662,7 @@ def dossier_ids(store: Store) -> Iterator[str]:
     return store.query(f"SELECT id FROM {COLLECTION_DOSSIERS} ORDER BY key")
 
 
-_DOSSIER_PROPS = _keep(
+_DOSSIER_PROPS = keep_props(
     "ds.props",
     "closed",
     "closed_on",
@@ -690,10 +672,10 @@ _DOSSIER_PROPS = _keep(
     "ek_rejected",
     "kind",
 )
-_BILL_DECISION_PROPS = _keep(
+_BILL_DECISION_PROPS = keep_props(
     "dc.props", "date", "passed", "decision_kind", "decision_text"
 )
-_EK_VOTE_PROPS = _keep(
+_EK_VOTE_PROPS = keep_props(
     "dc.props",
     "date",
     "result",
@@ -773,7 +755,7 @@ def dossier_refs(store: Store) -> Iterator[dict[str, Any]]:
     """``{label, number, suffix, title}`` of every dossier: what the relation rules read."""
     return store.query(
         f"""
-        SELECT {_keep("props", "label", "number", "suffix", "title")}
+        SELECT {keep_props("props", "label", "number", "suffix", "title")}
         FROM {COLLECTION_DOSSIERS}
         ORDER BY key
         """
@@ -788,7 +770,7 @@ SELECT json_build_object(
     'related_cases', props -> 'related_cases'
 )
 FROM {COLLECTION_CASES}
-WHERE {nonempty_sql("props -> 'related_cases'")}
+WHERE {has_length("props -> 'related_cases'")}
 ORDER BY key
 """
 
@@ -876,7 +858,7 @@ def replacing_cases(store: Store) -> Iterator[dict[str, Any]]:
         f"""
         SELECT id, props -> 'replaces_cases' AS replaces
         FROM {COLLECTION_CASES}
-        WHERE {nonempty_sql("props -> 'replaces_cases'")}
+        WHERE {has_length("props -> 'replaces_cases'")}
         ORDER BY key
         """
     )

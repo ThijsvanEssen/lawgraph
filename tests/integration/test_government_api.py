@@ -38,9 +38,7 @@ PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=["TK"], props=props
-    )
+    return Node(collection=collection, key=key, labels=["TK"], props=props)
 
 
 def _member(key: str, name: str, family_name: str, birth_date: str) -> Node:

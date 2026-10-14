@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.core.coalition import (
     TK_MAJORITY,
     coalition_on,
@@ -11,6 +13,7 @@ from lawgraph.core.coalition import (
     vote_pattern,
 )
 from lawgraph.core.seat_periods import one_faction_at_a_time
+from lawgraph.pipelines.semantic.tk_coalition_votes import _decision_row, _per_decision
 
 
 def _post(faction: str | None, start: str, end: str | None = None) -> dict:
@@ -299,3 +302,80 @@ def test_each_coalition_faction_with_its_choice_most_seats_first() -> None:
         # a roll call whose members went both ways: no one choice
         {"key": "nsc", "choice": None, "seats_for": 3, "seats_against": 2},
     ]
+
+
+# ── The cabinet and coalition of a vote (``semantic tk-coalition-votes``) ───
+
+
+def _cabinet(key: str, start: str, end: str | None, faction: str) -> dict:
+    return {
+        "key": key,
+        "from_date": start,
+        "to_date": end,
+        "posts": [_post(faction, start, end)],
+    }
+
+
+# Rutte IV hands over to Schoof on 2 July 2024; oldest first, whatever the query sorts
+HANDOVER = [
+    _cabinet("rutte_iv", "2022-01-10", "2024-07-02", "d66"),
+    _cabinet("schoof", "2024-07-02", None, "pvv"),
+]
+
+
+def _vote(day: str, voter: str, choice: str, seats: int = 0) -> dict:
+    return {
+        "date": day,
+        "voter_collection": "factions",
+        "voter": voter,
+        "choice": choice,
+        "seats": seats,
+    }
+
+
+def test_a_vote_on_the_handover_day_is_one_of_the_new_cabinet() -> None:
+    votes = [
+        _vote("2024-07-02", "pvv", "Voor", 37),
+        _vote("2024-07-02", "d66", "Tegen", 9),
+    ]
+    row = _decision_row("d1", votes, HANDOVER, {})
+    assert row is not None
+    assert row["cabinet"] == "schoof"
+    assert [f["key"] for f in row["factions"]] == ["pvv"]
+    # the day before, the old one
+    before = [
+        _vote("2024-07-01", "pvv", "Voor", 17),
+        _vote("2024-07-01", "d66", "Tegen", 24),
+    ]
+    assert (_decision_row("d0", before, HANDOVER, {}) or {})["cabinet"] == "rutte_iv"
+
+
+def test_a_member_votes_with_the_faction_they_sat_in_that_day() -> None:
+    member = {
+        "date": "2024-07-02",
+        "voter_collection": "members",
+        "voter": "m1",
+        "choice": "Voor",
+        "seats": None,
+    }
+    factions_of = {
+        "m1": [
+            {"faction_key": "d66", "from_date": "2021-03-31", "to_date": "2024-07-01"},
+            {"faction_key": "pvv", "from_date": "2024-07-02", "to_date": None},
+        ]
+    }
+    row = _decision_row("d1", [member], HANDOVER, factions_of)
+    assert row is not None
+    assert row["factions"] == [
+        {"key": "pvv", "choice": "Voor", "seats_for": 1, "seats_against": 0}
+    ]
+
+
+def test_votes_are_grouped_per_decision_only_when_sorted_by_it() -> None:
+    rows = [{"id": "a"}, {"id": "a"}, {"id": "b"}]
+    assert [(key, len(group)) for key, group in _per_decision(rows)] == [
+        ("a", 2),
+        ("b", 1),
+    ]
+    with pytest.raises(ValueError, match="sorted"):
+        list(_per_decision([{"id": "a"}, {"id": "b"}, {"id": "a"}]))

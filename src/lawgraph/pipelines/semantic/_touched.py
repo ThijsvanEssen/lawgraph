@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
     SOURCE_TK,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.core.tk_records import decision_key
 from lawgraph.db.counting import Store
@@ -96,7 +96,7 @@ def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
     ]
     if votes:
         ids += [
-            f"{COLLECTION_DECISIONS}/{row['key']}"
+            node_id(COLLECTION_DECISIONS, row["key"])
             for row in normalize_tk.decisions_of_vote_records(store, votes)
         ]
     return sorted(set(ids))

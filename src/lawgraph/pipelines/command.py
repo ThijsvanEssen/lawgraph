@@ -2,9 +2,15 @@
 
 A command is a function ``(argv) -> PipelineResult``: it parses its options, does its work
 and returns what it did. Every ``lawgraph <...>`` is one: the hand-written ones
-(``retrieve_commands``, ``commands/``), the ``<phase> all`` of ``orchestration`` and a
-``PipelineCommand`` of a pipeline class. A command does not set up logging, measure time,
-catch what goes wrong or end the process.
+(``commands/``), the ``<phase> all`` of ``orchestration``, a ``RetrieveCommand``
+(``retrieve_commands``) and a ``PipelineCommand`` of a pipeline class. A command does not
+set up logging, measure time, catch what goes wrong or end the process.
+
+A command of the registry is a ``Command``: it also says whether it takes ``--since`` and
+``--touched-since`` (``accepts_since``, ``accepts_touched_since``), which is all ``<phase>
+all`` and a poll ask before they pass the option on. A ``PipelineCommand`` reads it from the
+``run`` of its class, a ``RetrieveCommand`` from the options it adds; a hand-written command
+of the registry (``HandWritten``) takes neither.
 
 ``run_command`` does that, for whoever runs one: ``__main__`` for what was typed, a
 composite command for its parts::
@@ -38,7 +44,7 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
 
 from lawgraph.core.logging import current_step, describe, get_logger, log_step
 from lawgraph.core.models import PipelineResult
@@ -49,7 +55,20 @@ from lawgraph.pipelines.watermark import LAST
 
 logger = get_logger(__name__)
 
-Command = Callable[..., PipelineResult]  # ``command(argv)``
+Main = Callable[..., PipelineResult]  # ``command(argv)``: what ``run_command`` runs
+
+
+class Command(Protocol):
+    """A command of the registry: ``command(argv)``, and the options of a window it takes."""
+
+    @property
+    def accepts_since(self) -> bool: ...
+
+    @property
+    def accepts_touched_since(self) -> bool: ...
+
+    def __call__(self, argv: list[str] | None = None) -> PipelineResult: ...
+
 
 _SINCE_HELP = (
     "Only records since this moment: ISO 8601 ('2024-01-01') or relative ('7d', '2h', "
@@ -112,8 +131,7 @@ class PipelineCommand:
     """The command of a pipeline class whose ``run`` takes ``since`` or nothing.
 
     Whether the command has ``--since`` is read from ``run`` itself, the one place that
-    knows: ``<phase> all`` asks ``accepts_since`` before it passes the option on.
-    ``add_args`` adds options to the parser; ``make_extra_kwargs`` turns the parsed options
+    knows. ``add_args`` adds options to the parser; ``make_extra_kwargs`` turns the parsed options
     into constructor arguments of the pipeline.
     """
 
@@ -150,14 +168,22 @@ class PipelineCommand:
         return pipeline.run(**options)
 
 
-def accepts_since(command: Command) -> bool:
-    """Whether *command* takes ``--since``; a hand-written command says so itself."""
-    return bool(getattr(command, "accepts_since", False))
+@dataclass(frozen=True)
+class HandWritten:
+    """A command of the registry written as a function ``main(argv)``: it takes no window.
+    One that would is a pipeline class whose ``run`` takes it."""
+
+    main: Main
+    accepts_since: bool = field(default=False, init=False)
+    accepts_touched_since: bool = field(default=False, init=False)
+
+    def __call__(self, argv: list[str] | None = None) -> PipelineResult:
+        return self.main(argv)
 
 
-def accepts_touched_since(command: Command) -> bool:
-    """Whether *command* takes ``--touched-since`` (``<phase> all`` never passes it)."""
-    return bool(getattr(command, "accepts_touched_since", False))
+def takes_option(parser: argparse.ArgumentParser, flag: str) -> bool:
+    """Whether *parser* has the option *flag*."""
+    return flag in parser._option_string_actions
 
 
 # ── running one ──────────────────────────────────────────────────────────────
@@ -180,7 +206,7 @@ class Outcome:
 
 
 def run_command(
-    label: str, command: Command, argv: list[str], *, description: str = ""
+    label: str, command: Main, argv: list[str], *, description: str = ""
 ) -> Outcome:
     """Run ``command(argv)`` as the step *label*; never raises for what the step did wrong.
     While it runs, the watchdog names it in the log every ``LAWGRAPH_WATCHDOG_MINUTES``."""

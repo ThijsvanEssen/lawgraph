@@ -151,7 +151,7 @@ def test_the_status_line_carries_the_step_in_plain_and_json_mode() -> None:
     line = progress.line()
 
     with lg.log_step("retrieve rechtspraak"):
-        plain = _format(logging.Formatter(lg.LOG_FORMAT), line)
+        plain = _format(logging.Formatter(lg.LINE_FORMAT), line)
         entry = json.loads(_format(lg._JsonFormatter(), line))
 
     assert "[retrieve rechtspraak] core.progress: 40 / 100 (40%) judgments" in plain

@@ -16,11 +16,13 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.ecli import is_ecli
 from lawgraph.core.judgments import case_number_keys
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.queries._lists import FacetFilters, facet_rows, without_page
+from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.queries.not_found import require
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
@@ -128,7 +130,7 @@ def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
     named = [str(e) for e in eclis or [] if e]
     if not named:
         return []
-    ids = {f"{COLLECTION_JUDGMENTS}/{make_node_key(ecli)}": ecli for ecli in named}
+    ids = {node_id(COLLECTION_JUDGMENTS, make_node_key(ecli)): ecli for ecli in named}
     light = {
         row["id"]: row["light"] or {}
         for row in store.query(
@@ -163,16 +165,8 @@ def _cited_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]
     """The judgments *judgment_id* cites (``REFERS_TO``), as ``_linked_judgments`` gives
     them, each with the ``meta`` and ``confidence`` of its edge: where it is cited."""
     rows = store.query(
-        """
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
-            ),
-            'meta', e.doc -> 'meta',
-            'confidence', e.doc -> 'confidence'
-        )
+        f"""
+        SELECT {slim_judgment("j", "'meta', e.doc -> 'meta'", "'confidence', e.doc -> 'confidence'")}
         FROM edges e
         JOIN judgments j ON j.id = e.to_id
         WHERE e.from_id = %(jid)s AND e.relation = %(relation)s
@@ -192,14 +186,8 @@ def _linked_judgments(
     ``ecli`` of its props, newest first. Only those columns are read: a judgment is its
     text."""
     rows = store.query(
-        """
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
-            )
-        )
+        f"""
+        SELECT {slim_judgment("j")}
         FROM judgments j
         WHERE j.id IN (
             SELECT e.to_id FROM edges e
@@ -216,13 +204,25 @@ def _linked_judgments(
     return list(rows)
 
 
+# The edges of a connected case to show with it: per edge its direction, and the basis and
+# text of its meta (``l`` of ``_related_judgments``).
+_LINKS = """'links', (
+                SELECT json_agg(json_build_object(
+                    'direction', l.direction,
+                    'basis', l.meta -> 'basis',
+                    'text', l.meta -> 'text'
+                ) ORDER BY l.direction DESC NULLS LAST)
+                FROM l WHERE l.id = j.id
+            )"""
+
+
 def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]]:
     """The connected cases (``RELATED_TO``) of *judgment_id*, both ways, as
     ``_linked_judgments`` gives them, each with its ``links``: per edge the ``direction``
     (``outbound``: this judgment's summary names it; ``inbound``: its summary names this
     one) and the ``basis`` and ``text`` of the edge's meta, the sentence that names it."""
     rows = store.query(
-        """
+        f"""
         WITH l AS (
             SELECT e.to_id AS id, 'outbound' AS direction, e.doc -> 'meta' AS meta
             FROM edges e
@@ -234,21 +234,7 @@ def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, An
             WHERE e.to_id = %(jid)s AND e.relation = %(relation)s
               AND e.from_collection = 'judgments'
         )
-        SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
-            'props', json_build_object(
-                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
-            ),
-            'links', (
-                SELECT json_agg(json_build_object(
-                    'direction', l.direction,
-                    'basis', l.meta -> 'basis',
-                    'text', l.meta -> 'text'
-                ) ORDER BY l.direction DESC NULLS LAST)
-                FROM l WHERE l.id = j.id
-            )
-        )
+        SELECT {slim_judgment("j", _LINKS)}
         FROM judgments j
         WHERE j.id IN (SELECT id FROM l)
         ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
@@ -387,10 +373,10 @@ _SORTS: dict[str, str] = {
 _SEARCH_FIELDS = ["display_name", "names", "summary", "ecli"]
 
 # A row of the list, in the order of its keys; ``ecli`` is the key when it has none.
-_ITEM = """json_build_object(
+_ITEM = f"""json_build_object(
     '_id', j.id,
     '_key', j.key,
-    'ecli', CASE WHEN coalesce(json_typeof(j.pj_ecli), 'null') = 'null'
+    'ecli', CASE WHEN {is_absent("j.pj_ecli")}
                  THEN to_json(j.key) ELSE j.pj_ecli END,
     'display_name', j.pj_display_name,
     'summary', j.pj_summary,

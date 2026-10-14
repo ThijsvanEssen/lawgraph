@@ -24,8 +24,10 @@ import psycopg
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
 from lawgraph.core.tk_records import KIND_AMENDMENT
+from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._json_sql import array_or_empty, as_text
 from lawgraph.db.queries._lists import FacetFilters
 from lawgraph.db.queries.feed import (
     _CABINET_PERIOD,
@@ -40,7 +42,6 @@ from lawgraph.db.queries.feed import (
     _kinds_to_read,
     _lit,
     _Plan,
-    _text,
     _words_of,
     coalition_of,
 )
@@ -88,11 +89,11 @@ _COALITION = coalition_of("e.id")
 def _rows_of_kind(kind: _Kind) -> str:
     """SQL: the rows of one kind (``COLUMNS``), dated from ``%(since)s``."""
     source = kind.source
-    title = f"lower({_text('t.title')})"
+    title = f"lower({as_text('t.title')})"
     if source.laws:
         # with the names of its laws, which the feed matches as its title
-        title = f"lower(concat_ws(' ', {_text('t.title')}, {source.laws}))"
-    dossier_title = f"lower({_text('fd.title')})" if kind.first_dossier else "NULL"
+        title = f"lower(concat_ws(' ', {as_text('t.title')}, {source.laws}))"
+    dossier_title = f"lower({as_text('fd.title')})" if kind.first_dossier else "NULL"
     values = (
         _lit(source.kind),
         "n.id",
@@ -183,13 +184,12 @@ chosen AS (
 ),
 outcome AS (
     SELECT DISTINCT ON (f.chain_id) f.chain_id,
-           CASE ch.passed WHEN true THEN 'aangenomen' WHEN false THEN 'verworpen'
+           CASE ch.passed WHEN true THEN '{ADOPTED}' WHEN false THEN '{REJECTED}'
                 ELSE 'other' END AS outcome
     FROM first f
     JOIN documents doc ON doc.id = f.chain_id
     CROSS JOIN LATERAL json_array_elements_text(
-        CASE WHEN json_typeof(doc.props -> 'case_ids') = 'array'
-             THEN doc.props -> 'case_ids' ELSE '[]' END) WITH ORDINALITY AS k(case_id, n)
+        {array_or_empty("doc.props -> 'case_ids'")}) WITH ORDINALITY AS k(case_id, n)
     JOIN chosen ch ON ch.case_id = k.case_id
     ORDER BY f.chain_id ASC NULLS LAST, k.n ASC
 )
@@ -541,7 +541,7 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
     ]
 
 
-OUTCOMES = ("aangenomen", "verworpen", "other")
+OUTCOMES = (ADOPTED, REJECTED, "other")
 
 
 def _no_chains() -> dict[str, int]:

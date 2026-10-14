@@ -18,10 +18,10 @@ from lawgraph.core.documents import (
 )
 from lawgraph.core.feed import SubmitterRole
 from lawgraph.core.models import NodeType
-from lawgraph.core.paper_outcomes import PaperOutcome
 from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity, submitters
+from lawgraph.core.votes import PaperOutcome
 
 ExplainedCollection = Literal["articles", "instruments"]
 
@@ -244,7 +244,7 @@ _DICTUM = (
 
 class PaperOutcomeFields(BaseModel):
     """How a motion or an amendment ended, and what it says in a line (``semantic
-    tk-paper-outcomes``, ``core/paper_outcomes.py``); every field null for any other paper."""
+    tk-paper-outcomes``, ``core/votes.py``); every field null for any other paper."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -358,7 +358,7 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         """From the stored document and what ``get_document_links`` found for it;
         *replacements* its own of ``get_replacements``."""
         from lawgraph.config.constants import SOURCE_TK
-        from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
+        from lawgraph.config.sources import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
         from lawgraph.core.time import strip_time_component
 
         props: dict[str, Any] = doc.get("props") or {}

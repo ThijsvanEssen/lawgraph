@@ -230,7 +230,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     assert graph[0]["isPartOf"]["legislationIdentifier"] == "BWBR0005289"
     assert [i["name"] for i in graph[1]["itemListElement"]] == [
         "Concordans",
-        "Burgerlijk Wetboek Boek 6 (BW 6)",
+        "Boek 6 BW",
         "Art. 6:162 BW, Onrechtmatige daad",
     ]
     # the shell's own head and body stay: the app starts over it
@@ -327,7 +327,7 @@ def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> 
 
 def test_a_law_lists_its_articles(client: TestClient) -> None:
     page = _head(_get(client, "/wetten/BWBR0005289").text)
-    assert page["title"] == "Burgerlijk Wetboek Boek 6 (BW 6), Concordans"
+    assert page["title"] == "Boek 6 BW, Concordans"
     assert "geldend sinds 1 januari 1992" in page["description"]
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert 'href="/wetten/BWBR0005289/artikel/6:163"' in page["main"]
@@ -476,7 +476,8 @@ def test_a_dossier_with_a_suffix_by_its_label(
     client: TestClient, store: GraphStore
 ) -> None:
     """The key of a dossier is its label made a key (36600_viii): the page, its address
-    and the redirect from the explorer go by the label."""
+    and the redirect from the explorer go by the label; its title writes the number as a
+    citation does (36600 VIII), here and in the API."""
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [_node("36600_viii", "dossier", label="36600-VIII", number="36600",
@@ -484,10 +485,12 @@ def test_a_dossier_with_a_suffix_by_its_label(
     )  # fmt: skip
     page = _head(_get(client, "/dossiers/36600-VIII").text)
     assert page["canonical"] == "https://concordans.nl/dossiers/36600-VIII"
+    assert page["title"] == "36600 VIII Begroting Onderwijs, Concordans"
     focus = _get(client, "/explore?focus=dossiers/36600_viii")
     assert focus.headers["location"] == "/dossiers/36600-VIII"
     node = client.get("/api/nodes/dossiers/36600_viii").json()
     assert node["path"] == "/dossiers/36600-VIII"
+    assert node["title"] == "36600 VIII Begroting Onderwijs"
 
 
 def test_a_paper_of_a_dossier_with_a_suffix_links_its_dossier(
@@ -509,7 +512,7 @@ def test_a_paper_of_a_dossier_with_a_suffix_links_its_dossier(
         item for item in page["data"]["@graph"] if item["@type"] == "BreadcrumbList"
     )["itemListElement"]
     # after the home of the site, the dossier, then the paper
-    assert [c["name"] for c in crumbs][:2] == ["Concordans", "Dossier 36600-VIII"]
+    assert [c["name"] for c in crumbs][:2] == ["Concordans", "Dossier 36600 VIII"]
     assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36600-VIII"
 
 
@@ -1338,3 +1341,26 @@ def test_an_article_of_an_eu_act_links_its_act(
     assert article["legislationIdentifier"] == "32022L2555 artikel 21"
     assert article["legislationJurisdiction"] == "EU"
     assert article["isPartOf"]["legislationIdentifier"] == "32022L2555"
+
+
+def test_the_image_of_a_page_is_that_of_its_kind(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    _seed_annex_and_case(store)
+    _seed_debate(store)
+    images = {
+        "/wetten/BWBR0005289": "wet",
+        "/wetten/BWBR0005289/artikel/6:162": "artikel",
+        "/uitspraken/ECLI:NL:HR:2019:2006": "uitspraak",
+        "/kamerstukken/36496/71": "kamerstuk",
+        "/dossiers/36496": "dossier",
+        "/wetten/BWBR0001941/bijlage/II": "wet",
+        "/zaken/2025Z15468": "dossier",
+        "/activiteiten/2026A01323": "dossier",
+        "/leden/rob-jetten": "concordans",
+        "/stemmingen/s_1": "concordans",
+    }
+    for path, image in images.items():
+        page = _head(_get(client, path).text)
+        assert page["og_image"] == f"https://concordans.nl/og/{image}.png", path

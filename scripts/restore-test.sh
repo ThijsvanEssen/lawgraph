@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2016,SC2329  # the single-quoted scripts expand in the container; run calls the functions
 # Is the newest dump a backup? Restore it into a scratch database on another PostgreSQL
 # server and compare what it holds with the `counts` written at dump time
 # (scripts/_counts.sql): the rows of every table, the edges per relation, and the shape of

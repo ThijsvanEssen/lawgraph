@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml
 from lawgraph.db import NodeWriter
@@ -133,7 +133,6 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             key = make_node_key("verdrag", external_id)
             node = Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key=key,
                 labels=["Verdrag", "NL"],
                 props=props,
@@ -161,7 +160,6 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             return None
         return Node(
             collection=COLLECTION_INSTRUMENTS,
-            type=NodeType.INSTRUMENT,
             key=make_node_key("verdrag", external_id),
             labels=["Verdrag", "NL"],
             props=props,

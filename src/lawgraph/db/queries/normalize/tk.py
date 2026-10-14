@@ -32,15 +32,23 @@ from lawgraph.config.constants import (
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.normalize import edges as normalize_edges
-from lawgraph.db.queries.semantic import absent_sql, present_sql
+from lawgraph.db.queries import removals
+from lawgraph.db.queries._json_sql import (
+    EMPTY_ARRAY,
+    array_or_empty,
+    first_present,
+    is_absent,
+    is_present,
+    json_length,
+    truthy_or,
+)
 
 # ``dossier_numbers`` read once per case (a case holds its API payload).
 _CASE_NUMBERS_SQL = f"""
 SELECT c.id, x.numbers AS dossier_numbers
 FROM {COLLECTION_CASES} c
 CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
-WHERE {present_sql("x.numbers")}
+WHERE {is_present("x.numbers")}
 ORDER BY c.key COLLATE "C"
 """
 
@@ -69,7 +77,7 @@ def case_dossier_numbers_of(store: Store, ids: list[str]) -> Iterator[dict[str, 
         SELECT c.id, x.numbers AS dossier_numbers
         FROM {COLLECTION_CASES} c
         CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
-        WHERE c.id = ANY(%(ids)s::text[]) AND {present_sql("x.numbers")}
+        WHERE c.id = ANY(%(ids)s::text[]) AND {is_present("x.numbers")}
         ORDER BY c.key COLLATE "C"
         """,
         {"ids": ids},
@@ -86,14 +94,12 @@ def case_dossier_numbers_naming(
         SELECT c.id, x.numbers AS dossier_numbers
         FROM {COLLECTION_CASES} c
         CROSS JOIN LATERAL (SELECT c.props -> 'dossier_numbers' AS numbers OFFSET 0) x
-        WHERE {present_sql("x.numbers")}
+        WHERE {is_present("x.numbers")}
           AND (
               (json_typeof(x.numbers) = 'string'
                AND x.numbers #>> '{{}}' = ANY(%(labels)s::text[]))
               OR EXISTS (
-                  SELECT 1 FROM json_array_elements_text(
-                      CASE WHEN json_typeof(x.numbers) = 'array' THEN x.numbers END
-                  ) AS n(label)
+                  SELECT 1 FROM json_array_elements_text({array_or_empty("x.numbers")}) AS n(label)
                   WHERE n.label = ANY(%(labels)s::text[])
               )
           )
@@ -125,7 +131,7 @@ def nodes_by_external_id(
     """``{key, id, props}`` of the nodes of *collection* with a TK ``Id``; the props only
     *names*."""
     statement = sql.SQL(_BY_EXTERNAL_ID_SQL).format(
-        sql.Identifier(collection), sql.SQL(present_sql("x.external_id"))
+        sql.Identifier(collection), sql.SQL(is_present("x.external_id"))
     )
     return store.query(statement, {"names": names})
 
@@ -172,34 +178,11 @@ def _json_keys(value: str) -> str:
     return ", ".join([f"{rank} ASC", *keys])
 
 
-def _length(value: str) -> str:
-    """``LENGTH(value)`` of a json value as ArangoDB counts it."""
-    text = f"({value} #>> '{{}}')"
-    return f"""CASE json_typeof({value})
-        WHEN 'array' THEN json_array_length({value})
-        WHEN 'string' THEN char_length{text}
-        WHEN 'number' THEN char_length{text}
-        WHEN 'object' THEN (SELECT count(*) FROM json_each({value}))::int
-        WHEN 'boolean' THEN CASE WHEN {text}::boolean THEN 1 ELSE 0 END
-        ELSE 0 END"""
-
-
-def _present(value: str) -> str:
-    """``value != null`` of a json value."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
-
-def _first_present(*values: str) -> str:
-    """``NOT_NULL(a, b, ...)`` of json values."""
-    cases = " ".join(f"WHEN {_present(v)} THEN {v}" for v in values)
-    return f"CASE {cases} END"
-
-
-_SIGNAL_TITLE = _first_present(
+_SIGNAL_TITLE = first_present(
     "c.p -> 'dossier_title'", "c.p -> 'title'", "c.p -> 'display_name'"
 )
-_SIGNAL_NUMBERS = _length("c.p -> 'dossier_numbers'")
-_OWN_NUMBER = _present("c.p -> 'dossier_number'")
+_SIGNAL_NUMBERS = json_length("c.p -> 'dossier_numbers'")
+_OWN_NUMBER = is_present("c.p -> 'dossier_number'")
 _DOC_CUT = _cut("d", "doc_fields")
 _SUBJECT_CUT = _cut("t", "subject_fields")
 _STORED_KINDS = _spliced("ds.props -> 'case_kinds'")
@@ -304,7 +287,7 @@ SELECT
                 CROSS JOIN LATERAL {_DOC_KINDS} AS f
                 WHERE m.ord = a.ord
             ) flat
-            WHERE {_present("flat.x")}
+            WHERE {is_present("flat.x")}
         ) k
     ) AS case_kinds,
     (
@@ -416,18 +399,14 @@ _FACTION_KEY_ORDER = _json_keys("k.v::json")
 _IDENTITIES_SQL = f"""
 SELECT c.key,
        c.p -> 'family_name' AS family_name,
-       CASE WHEN lg_truthy(c.p -> 'full_name') THEN c.p -> 'full_name'
-            ELSE c.p -> 'name' END AS name,
+       {truthy_or("c.p -> 'full_name'", "c.p -> 'name'")} AS name,
        c.p -> 'initials' AS initials,
        c.p -> 'birth_date' AS birth_date,
        (
            SELECT coalesce(json_agg(k.v::json ORDER BY {_FACTION_KEY_ORDER}), '[]'::json)
            FROM (
                SELECT DISTINCT coalesce((f.x -> 'faction_key')::jsonb, 'null') AS v
-               FROM json_array_elements(
-                   CASE WHEN json_typeof(c.memberships) = 'array'
-                        THEN c.memberships ELSE '[]'::json END
-               ) AS f(x)
+               FROM json_array_elements({array_or_empty("c.memberships")}) AS f(x)
            ) k
        ) AS factions
 FROM (
@@ -436,7 +415,7 @@ FROM (
     WHERE %(tk)s = ANY(m.labels)
     OFFSET 0
 ) c
-WHERE {present_sql("c.p -> 'family_name'")}
+WHERE {is_present("c.p -> 'family_name'")}
 ORDER BY c.key COLLATE "C"
 """
 
@@ -491,7 +470,7 @@ signed AS (
     WHERE e.relation = %(authored)s
       AND e.from_collection = '{COLLECTION_MEMBERS}'
       AND lg_str(e.doc -> 'meta' -> 'capacity') = %(government)s
-      AND (x.date IS NOT NULL OR {present_sql("x.other")})
+      AND (x.date IS NOT NULL OR {is_present("x.other")})
 )"""
 
 # Per signature, every actor of the document that is the person (``person_id`` equal to
@@ -503,13 +482,11 @@ SELECT x.key, x.name::json AS name, x.function::json AS function,
 FROM (
     SELECT s.key, s.function, s.date, s.other, (a.v -> 'name')::jsonb AS name
     FROM signed s
-    CROSS JOIN LATERAL json_array_elements(
-        CASE WHEN lg_truthy(s.actors) THEN s.actors ELSE '[]'::json END
-    ) AS a(v)
-    WHERE {absent_sql("s.p -> 'family_name'")}
+    CROSS JOIN LATERAL json_array_elements({truthy_or("s.actors", EMPTY_ARRAY)}) AS a(v)
+    WHERE {is_absent("s.p -> 'family_name'")}
       AND coalesce((a.v -> 'person_id')::jsonb, 'null')
           = coalesce((s.p -> 'external_id')::jsonb, 'null')
-      AND {present_sql("a.v -> 'name'")}
+      AND {is_present("a.v -> 'name'")}
 ) x
 GROUP BY x.key, x.name, x.function
 ORDER BY x.key ASC, {_json_keys("x.name::json")}, {_json_keys("x.function::json")}
@@ -568,7 +545,7 @@ def government_members(store: Store) -> Iterator[str]:
     """The keys of the members that have ``government_functions``."""
     statement = f"""
     SELECT key FROM {COLLECTION_MEMBERS}
-    WHERE {present_sql("props -> 'government_functions'")}
+    WHERE {is_present("props -> 'government_functions'")}
     ORDER BY key COLLATE "C"
     """
     return store.query(statement)
@@ -593,7 +570,7 @@ def decisions_of_vote_records(
 
 def remove_members(store: Store, keys: list[str]) -> int:
     """Remove the members *keys* with every edge at them; how many members went."""
-    return normalize_edges.remove_nodes(store, COLLECTION_MEMBERS, keys)
+    return removals.remove_nodes(store, COLLECTION_MEMBERS, keys)
 
 
 def faction_names(store: Store) -> Iterator[dict[str, Any]]:

@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    ENACTING_RELATIONS,
     RELATION_AMENDS,
     RELATION_BASED_ON,
     RELATION_ESTABLISHES,
@@ -26,10 +27,12 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries._lists import (
     FacetFilters,
     facet_rows,
@@ -41,18 +44,10 @@ from lawgraph.db.queries._lists import (
 from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
-from lawgraph.db.queries.judgment_light import outcome_pairs
+from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
-
-# Edges from a publication to the articles it sets (enacting their regulation) or changes.
-_MUTATION_RELATIONS = [
-    RELATION_ESTABLISHES,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-]
 
 
 @dataclass
@@ -311,11 +306,17 @@ def get_instrument_judgment_years(
     return get_citing_judgments(store, identifier, limit=0).years
 
 
-# A prop only a conclusion has, read from its props for a conclusion alone: the props of a
-# judgment hold its text, and are parsed whole for one value.
-_OF_A_CONCLUSION = (
-    "CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s "
-    "THEN j.props -> '{prop}' END"
+# A citing judgment as a row of the list; of a conclusion also its advocate general, props
+# only a conclusion has, read from its props for a conclusion alone: the props of a judgment
+# hold its text, and are parsed whole for one value.
+_LISTED_JUDGMENT = listed_judgment(
+    "j",
+    "l",
+    *(
+        f"'{prop}', CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s"
+        f" THEN j.props -> '{prop}' END"
+        for prop in ("advocate_general", "advocate_general_role")
+    ),
 )
 
 
@@ -370,20 +371,7 @@ def _citing_judgments(
                 SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
                 FROM (
                     SELECT json_build_object(
-                        'judgment', json_build_object(
-                            '_id', j.id,
-                            '_key', j.key,
-                            'props', json_build_object(
-                                'ecli', j.pj_ecli, 'display_name', j.pj_display_name,
-                                'court_code', j.pj_court_code, 'tier', j.pj_tier,
-                                'court_kind', j.pj_court_kind, 'date_eff', j.pj_date_eff,
-                                'advocate_general',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general")},
-                                'advocate_general_role',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")},
-                                {outcome_pairs("l.props")}
-                            )
-                        ),
+                        'judgment', {_LISTED_JUDGMENT},
                         'cited_articles', coalesce(cited.articles, '[]')
                     ) AS item, top.n
                     FROM top
@@ -439,7 +427,7 @@ def get_instrument_dossiers(
     Returns ``(items, total)``; each item is ``{dossier, via, publication}``.
     """
     scope = scope_of(identifier)
-    instrument_id = f"{COLLECTION_INSTRUMENTS}/{scope.node_key}"
+    instrument_id = node_id(COLLECTION_INSTRUMENTS, scope.node_key)
     ctes = f"""
         WITH sources AS (
             SELECT %(instrument_id)s::text AS id
@@ -488,7 +476,7 @@ def get_instrument_dossiers(
         {
             "bwb": scope.value,
             "instrument_id": instrument_id,
-            "mutations": _MUTATION_RELATIONS,
+            "mutations": list(ENACTING_RELATIONS),
             "legislated_in": RELATION_LEGISLATED_IN,
             "dossiers": COLLECTION_DOSSIERS,
             "limit": limit,
@@ -644,7 +632,7 @@ def _amending_ctes(collection: str, prop: str) -> str:
 def _amending_bind(bwb: str) -> dict[str, Any]:
     return {
         "bwb": bwb,
-        "mutations": _MUTATION_RELATIONS,
+        "mutations": list(ENACTING_RELATIONS),
         "establishes": RELATION_ESTABLISHES,
         "amends": RELATION_AMENDS,
         "introduces": RELATION_INTRODUCES,
@@ -985,8 +973,7 @@ SELECT a ->> 'main_id' AS main_id, a ->> 'main_slug' AS main_slug, a ->> 'main' 
        GROUPING(a ->> 'specific') = 1 AS whole,
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
-CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
-    -> 'legal_areas') = 'array' THEN instruments.props -> 'legal_areas' END) AS a
+CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'legal_areas'")}) AS a
 {condition}
 GROUP BY GROUPING SETS (
     (a ->> 'main_id', a ->> 'main_slug', a ->> 'main'),
@@ -1003,8 +990,7 @@ def _policy_domain_facet(condition: str) -> str:
 SELECT d ->> 'id' AS id, d ->> 'slug' AS slug, d ->> 'label' AS label,
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
-CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
-    -> 'policy_domains') = 'array' THEN instruments.props -> 'policy_domains' END) AS d
+CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'policy_domains'")}) AS d
 {condition}
 GROUP BY 1, 2, 3
 ORDER BY count DESC, label NULLS FIRST, id NULLS FIRST
@@ -1251,7 +1237,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
     )
     display_name = props.get("display_name")
     return {
-        "_id": f"{COLLECTION_INSTRUMENTS}/{key}",
+        "_id": node_id(COLLECTION_INSTRUMENTS, key),
         "_key": key,
         "bwb_id": props.get("bwb_id"),
         "celex": props.get("celex"),

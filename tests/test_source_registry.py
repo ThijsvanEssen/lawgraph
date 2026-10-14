@@ -69,10 +69,23 @@ def test_a_class_that_is_not_named_after_its_address_is_refused() -> None:
 
 
 def test_a_hand_written_command_brings_its_own_options() -> None:
-    from lawgraph.pipelines.retrieve_commands import retrieve_tooi
+    from lawgraph.pipelines.semantic import tk_dictum
 
     with pytest.raises(ValueError, match="adds its own options"):
-        _pipeline(retrieve_tooi, "", options=registry.slice_args("x", "y"))
+        _pipeline(tk_dictum.main, "", options=registry.slice_args("x", "y"))
+
+
+def test_a_retrieve_function_takes_the_options_it_parsed() -> None:
+    """Constructor arguments are for a pipeline class; a function reads the options."""
+    from lawgraph.pipelines import retrieve_commands
+
+    with pytest.raises(ValueError, match="takes the options it parsed"):
+        registry._retrieve(
+            retrieve_commands.retrieve_tk,
+            "",
+            argv_for_all=registry._no_argv,
+            extra_kwargs=lambda args: {},
+        )
 
 
 def test_addresses_are_unique_and_belong_to_a_known_source() -> None:
@@ -100,6 +113,11 @@ def test_the_skip_variable_is_the_address_in_capitals(monkeypatch) -> None:
     monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "true")
     assert skip_step("normalize", "tk-dossiers")
     assert not skip_step("semantic", "tk-dossiers")
+    monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "1")
+    assert skip_step("normalize", "tk-dossiers")
+    monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "ja")
+    with pytest.raises(ValueError, match="LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS"):
+        skip_step("normalize", "tk-dossiers")
 
 
 def test_every_retrieve_pipeline_is_part_of_retrieve_all() -> None:
@@ -263,6 +281,10 @@ SLICE_HELP = {
     "normalize rechtspraak": (
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many judgments (a slice).",
+    ),
+    "semantic graph-light": (
+        "With --authored-dates: start past this member id.",
+        "With --authored-dates: the members of the slice (default 500).",
     ),
 }
 

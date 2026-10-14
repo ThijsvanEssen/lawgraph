@@ -52,8 +52,8 @@ def test_a_request_with_the_origin_of_our_front_end_counts_toward_the_limit(
 
     from lawgraph.api import app as app_module
 
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_CALLS", 2)
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_PERIOD", 60)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_CALLS", 2)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_PERIOD", 60)
 
     async def ok(scope, receive, send) -> None:
         await send({"type": "http.response.start", "status": 200, "headers": []})

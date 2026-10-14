@@ -14,15 +14,13 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
+    ENACTING_RELATIONS,
     RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
 )
+from lawgraph.core import models
 from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
@@ -43,8 +41,9 @@ from lawgraph.db.queries._helpers import (
     _resolve_target_from_entry,
     run_together,
 )
+from lawgraph.db.queries._json_sql import array_or_empty, first_present
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
-from lawgraph.db.queries.judgment_light import outcome_pairs
+from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.schema import dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
@@ -293,15 +292,6 @@ def get_article_citations(
     return citations
 
 
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, ...)`` of json values: the first that is neither missing nor a
-    json null."""
-    cases = ", ".join(
-        f"CASE WHEN json_typeof({v}) <> 'null' THEN {v} END" for v in values
-    )
-    return f"coalesce({cases})"
-
-
 # The key of a dossier from its id (``PARSE_IDENTIFIER(id).key``).
 _DOSSIER_KEY_FROM = len(COLLECTION_DOSSIERS) + 2
 
@@ -320,9 +310,9 @@ SELECT
     ) AS dossier_keys,
     CASE WHEN s.collection = '{COLLECTION_INSTRUMENTS}'
         THEN s.props -> 'dossier_numbers' END AS numbers,
-    {_not_null("s.props -> 'date'", "s.props -> 'date_published'", "s.props -> 'date_signed'")}
+    {first_present("s.props -> 'date'", "s.props -> 'date_published'", "s.props -> 'date_signed'")}
         AS date,
-    {_not_null("s.props -> 'kind'", "s.props -> 'publication_kind'")} AS kind,
+    {first_present("s.props -> 'kind'", "s.props -> 'publication_kind'")} AS kind,
     lower(e.relation) AS change,
     e.doc -> 'status' AS status,
     s.props -> 'display_name' AS summary,
@@ -360,19 +350,14 @@ def get_article_legislative_history(
     documents are found by ``get_article_explanations``.
     """
     if article_id is None:
-        article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+        article_id = models.article_id(bwb_id, article_number)
 
     changes = list(
         store.query(
             _CHANGES_SQL,
             {
                 "article_id": article_id,
-                "changes": [
-                    RELATION_ESTABLISHES,
-                    RELATION_AMENDS,
-                    RELATION_INTRODUCES,
-                    RELATION_REPEALS,
-                ],
+                "changes": list(ENACTING_RELATIONS),
                 "legislated_in": RELATION_LEGISLATED_IN,
             },
         )
@@ -611,8 +596,7 @@ FROM picked p
 JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.document_id
 CROSS JOIN LATERAL (
     SELECT k.p, k.p ->> 'text' AS text,
-           CASE WHEN json_typeof(k.p -> 'sections') = 'array' THEN k.p -> 'sections'
-                ELSE '[]'::json END AS sections
+           {array_or_empty("k.p -> 'sections'")} AS sections
     FROM (
         SELECT json_object_agg(j.key, j.value) AS p
         FROM json_each(d.props) j
@@ -700,8 +684,7 @@ def _cited_by_sql(order: str) -> str:
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
-                THEN e.doc -> 'meta' -> 'mentions' END
+            {array_or_empty("e.doc -> 'meta' -> 'mentions'")}
         ) WITH ORDINALITY AS m(mention, position)
         WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
           AND e.from_collection = '{COLLECTION_JUDGMENTS}'
@@ -730,20 +713,7 @@ def _cited_by_sql(order: str) -> str:
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(
-                'judgment', json_build_object(
-                    '_id', j.id,
-                    '_key', j.key,
-                    'props', json_build_object(
-                        'ecli', j.pj_ecli,
-                        'display_name', j.pj_display_name,
-                        'court_code', j.pj_court_code,
-                        'tier', j.pj_tier,
-                        'court_kind', j.pj_court_kind,
-                        'date_eff', j.pj_date_eff,
-                        'inbound_citation_count', j.pj_inbound_citation_count,
-                        {outcome_pairs("l.props")}
-                    )
-                ),
+                'judgment', {listed_judgment("j", "l", "'inbound_citation_count', j.pj_inbound_citation_count")},
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
             ) ORDER BY r.n), '[]'::json)
             FROM ranked r
