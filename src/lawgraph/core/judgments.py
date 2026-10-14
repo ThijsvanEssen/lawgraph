@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.core.courts import court_of
+from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
     child_named,
@@ -35,11 +36,10 @@ def derive_court(
     court table does not know."""
     if not ecli:
         return None, None, None
-    parts = ecli.split(":")
-    court_code = parts[2].upper() if len(parts) >= 3 else None
-    found = court_of(court_code, court)
+    code = court_code(ecli)
+    found = court_of(code, court)
     return (
-        court_code,
+        code,
         found.tier if found else None,
         found.court_kind if found else None,
     )
@@ -426,7 +426,6 @@ def case_number_keys(case_number: str | None) -> list[str]:
 # The paragraphs a ruling tells its referral in: the start ("1 De prejudiciële procedure"),
 # after the parties and, when two courts asked, the procedure of each.
 REFERRAL_PARAGRAPHS = 40
-_ECLI_IN_TEXT = re.compile(r"\bECLI:NL:[A-Z]{2,8}:\d{4}:[A-Z0-9]{1,8}\b", re.IGNORECASE)
 _DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 # "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 # rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
@@ -520,7 +519,7 @@ def _referral_of(text: str, referred: Referral | None) -> Referral | None:
     lowered = text.lower()
     if "prejudici" not in lowered or "gesteld" not in lowered:
         return None
-    eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
+    eclis = tuple(e for e in cited_eclis(text) if country_code(e) == "NL")
     if eclis:
         return Referral(eclis=eclis)
     match, numbers = _cases_and_date(text)

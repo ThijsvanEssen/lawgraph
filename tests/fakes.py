@@ -13,6 +13,7 @@ from itertools import islice
 from typing import Any
 
 import pytest
+import requests
 
 from lawgraph.core.models import Node
 from lawgraph.db.queries import raw as raw_queries
@@ -366,6 +367,13 @@ def patch_alias_rows(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ── HTTP ─────────────────────────────────────────────────────────────────────
+
+
+def http_error(status: int) -> requests.HTTPError:
+    """What a client raises for an answer with HTTP *status*, after its retries."""
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError(f"{status}", response=response)
 
 
 class FakeResponse:

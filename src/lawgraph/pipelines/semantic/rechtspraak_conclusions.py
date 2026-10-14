@@ -23,9 +23,7 @@ from lawgraph.core.judgments import CONCLUSION_BENCH, same_case_number
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
 
@@ -138,29 +136,21 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
             {e for pair in formal | by_number for e in pair}
             | {row["ecli"].upper() for row in rows}
         )
-        kept: dict[str, set[str]] = {}
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for basis, pairs in ((BASIS_FORMAL, formal), (BASIS_CASE_NUMBER, by_number)):
             for conclusion, judgment in sorted(pairs):
                 from_id, to_id = ids.get(conclusion), ids.get(judgment)
-                if edges.add(
+                edges.add(
                     from_id,
                     to_id,
                     RELATION_ADVISES_ON,
                     source=SEMANTIC_SOURCE,
                     confidence=CONFIDENCE[basis],
                     meta={"basis": basis},
-                ):
-                    kept.setdefault(str(from_id), set()).add(
-                        edge_key(str(from_id), RELATION_ADVISES_ON, str(to_id))
-                    )
+                )
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_from(
-            self.store,
-            RELATION_ADVISES_ON,
-            SEMANTIC_SOURCE,
-            sorted(set(ids.values())),
-            kept,
+        removed = edges.remove_stale(
+            RELATION_ADVISES_ON, SEMANTIC_SOURCE, sorted(set(ids.values()))
         )
         logger.info("Removed %d ADVISES_ON no longer derived.", removed)
         return result

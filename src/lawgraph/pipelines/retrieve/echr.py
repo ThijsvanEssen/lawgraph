@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.echr import EchrClient
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
@@ -17,12 +18,11 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
-    FailureStreak,
+    FETCH_WORKERS,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
-    fetched_side_by_side,
     is_not_found,
+    is_server_error,
     missing_record,
     status_of,
 )
@@ -53,11 +53,6 @@ def text_items(judgments: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]
     return {item_id: meta for _, item_id, meta in sorted(best.values())}
 
 
-def _server_error(exc: Exception) -> bool:
-    status = status_of(exc)
-    return status is not None and 500 <= status < 600
-
-
 def _no_text(exc: Exception) -> bool:
     """HUDOC has no text for this item: HTTP 404, HTTP 204 (an empty answer, for 001-168072
     and three more of the full load), an answer that is no DOCX, or an HTTP 5xx that
@@ -67,8 +62,8 @@ def _no_text(exc: Exception) -> bool:
     return (
         is_not_found(exc)
         or status_of(exc) == 204
-        or isinstance(exc, ValueError)
-        or _server_error(exc)
+        or isinstance(exc, UnexpectedAnswer)
+        or is_server_error(exc)
     )
 
 
@@ -160,33 +155,26 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
             wanted = [item_id for item_id in wanted if item_id not in have]
         wanted = self._without_missing(SOURCE_ECHR, RAW_KIND_ECHR_TEXT, wanted)
         logger.info("ECHR retrieve: %d judgment texts to fetch.", len(wanted))
-        streak = FailureStreak("HUDOC")
-        for item_id, answer in fetched_side_by_side(
-            wanted, self.client.fetch_document_xml
-        ):
-            if isinstance(answer, str):
-                streak.ok()
-                yield RetrieveRecord(
+        yield from self._download_each(
+            wanted,
+            self.client.fetch_document_xml,
+            lambda item_id, text: [
+                RetrieveRecord(
                     source=SOURCE_ECHR,
                     kind=RAW_KIND_ECHR_TEXT,
                     external_id=item_id,
-                    payload_text=answer,
+                    payload_text=text,
                     meta=items[item_id],
                 )
-            elif _no_text(answer):
-                if _server_error(answer):
-                    # One document HUDOC cannot convert; many in a row is the host.
-                    streak.failed(item_id, answer)
-                self.progress.skip(f"no text ({failure_reason(answer)})", item_id)
-                yield missing_record(
-                    SOURCE_ECHR,
-                    RAW_KIND_ECHR_TEXT,
-                    item_id,
-                    status=status_of(answer) or 200,
-                )
-            else:
-                streak.failed(item_id, answer)
-                self.progress.fail(failure_reason(answer), item_id)
+            ],
+            source="HUDOC",
+            missing=lambda item_id, status: missing_record(
+                SOURCE_ECHR, RAW_KIND_ECHR_TEXT, item_id, status=status
+            ),
+            # One document HUDOC cannot convert is missing; many in a row is the host.
+            is_missing=_no_text,
+            workers=FETCH_WORKERS,
+        )
 
     def run_full(self, respondent: str = "NLD") -> PipelineResult:
         """Fetch all available ECHR judgments for the respondent, and every text again."""

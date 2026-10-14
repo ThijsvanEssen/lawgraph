@@ -86,8 +86,8 @@ class StaatscourantClient(BaseClient):
             default_title_prefix="Staatscourant",
         )
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
-        """The XML of a Staatscourant publication, or ``None`` when the repository has none."""
+    def fetch_publication_xml(self, identifier: str) -> str:
+        """The XML of a Staatscourant publication (``_sru.fetch_publication_xml``)."""
         return fetch_publication_xml(self, "stcrt", STCRT_ID_PATTERN, identifier)
 
 

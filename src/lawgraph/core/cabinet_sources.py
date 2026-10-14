@@ -59,11 +59,20 @@ def _parties(posts: list[dict[str, Any]], start: str) -> list[dict[str, Any]]:
     ]
 
 
+def _unique_keys(cabinets: list[dict[str, Any]]) -> None:
+    """A key two cabinets would share gets the start year of the later one."""
+    taken: set[str] = set()
+    for cabinet in cabinets:
+        if cabinet["key"] in taken:
+            cabinet["key"] = f"{cabinet['key']}_{cabinet['from_date'][:4]}"
+        taken.add(cabinet["key"])
+
+
 def rijksoverheid_cabinets(
     pages: Iterable[dict[str, Any]], party_of: PartyOf
 ) -> list[dict[str, Any]]:
-    """The cabinets of the Rijksoverheid pages, oldest first. *pages* are ``{slug, url,
-    read_on, page}``, ``page`` a ``parse_page`` result."""
+    """The cabinets of the Rijksoverheid pages, oldest first, each under a key of its own.
+    *pages* are ``{slug, url, read_on, page}``, ``page`` a ``parse_page`` result."""
     cabinets = []
     for record in pages:
         page = record["page"]
@@ -88,6 +97,7 @@ def rijksoverheid_cabinets(
             }
         )
     cabinets.sort(key=lambda c: c["from_date"])
+    _unique_keys(cabinets)
     for i, cabinet in enumerate(cabinets):
         after = cabinets[i + 1] if i + 1 < len(cabinets) else None
         cabinet["to_date"] = after["from_date"] if after else cabinet["intro_to"]
@@ -124,16 +134,8 @@ def rijksoverheid_cabinets(
 def build_cabinets(
     pages: Iterable[dict[str, Any]], party_of: PartyOf
 ) -> list[dict[str, Any]]:
-    """Every cabinet, oldest first, each with ``previous`` the one before it. A key two
-    cabinets would share gets the start year of the later one."""
+    """Every cabinet, oldest first, each with ``previous`` the one before it."""
     cabinets = rijksoverheid_cabinets(pages, party_of)
-    taken: set[str] = set()
-    for cabinet in cabinets:
-        if cabinet["key"] in taken:
-            cabinet["key"] = f"{cabinet['key']}_{(cabinet['from_date'] or '')[:4]}"
-        taken.add(cabinet["key"])
     for cabinet, previous in zip(cabinets, [None, *cabinets], strict=False):
         cabinet["previous"] = previous["key"] if previous else None
-        for post in cabinet["posts"]:
-            post["cabinet_key"] = cabinet["key"]
     return cabinets

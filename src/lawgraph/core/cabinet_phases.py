@@ -109,10 +109,12 @@ def formation_start(
 def cabinet_events(
     events: Iterable[dict[str, Any]], cabinets: list[dict[str, Any]]
 ) -> dict[str, list[dict[str, Any]]]:
-    """Cabinet key -> the events in its term, by the day: a resignation or elections on
+    """Cabinet key -> the events in its term, by the day (*cabinets* each under a key of
+    its own): a resignation or elections on
     the page of the next cabinet belong to the one in office then. A beëdiging and the
     facts that open a formatie do not change the cabinet in office."""
-    found: dict[str, list[dict[str, Any]]] = {c["key"]: [] for c in cabinets}
+    by_key = {c["key"]: c for c in cabinets}
+    found: dict[str, list[dict[str, Any]]] = {key: [] for key in by_key}
     seen: set[tuple[str, str, str | None]] = set()
     for event in sorted(events, key=lambda e: e["date"]):
         if event["event"] == EVENT_SWORN_IN:
@@ -120,8 +122,7 @@ def cabinet_events(
         key = cabinet_on(event["date"], cabinets)
         if key is None:
             continue
-        cabinet = next(c for c in cabinets if c["key"] == key)
-        if event["date"] <= cabinet["from_date"]:
+        if event["date"] <= by_key[key]["from_date"]:
             continue
         mark = (key, event["date"], event["event"])
         if mark in seen:
@@ -151,13 +152,16 @@ def cabinet_phases(
     events: Iterable[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """The phases of *cabinet* (``{from_date, to_date}``): *sworn_in* the event that opens
-    its term, *formation* the one that opened its formatie, *events* those of its term."""
+    its term, *formation* the one that opened its formatie, *events* those of its term; an
+    event before its start is not one of its phases."""
     phases: list[dict[str, Any]] = []
     if formation:
         phases.append(_phase(KIND_FORMATION, formation))
     phases.append(_phase(KIND_IN_OFFICE, {**sworn_in, "date": cabinet["from_date"]}))
     current: str | None = KIND_IN_OFFICE
     for event in sorted(events, key=lambda e: e["date"]):
+        if event["date"] < cabinet["from_date"]:
+            continue
         if cabinet["to_date"] and event["date"] >= cabinet["to_date"]:
             break
         kind = _next_kind(current, event["event"])

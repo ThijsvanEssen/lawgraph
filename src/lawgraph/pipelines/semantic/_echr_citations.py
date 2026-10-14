@@ -15,10 +15,8 @@ from typing import Any
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.echr_citations import Cited, Unresolved, decisions_by_appno, resolve
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter, Store
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
 
@@ -40,21 +38,18 @@ def decisions_index(store: Store) -> dict[str, list[tuple[str | None, str]]]:
 
 
 def link(
-    store: Store,
+    edges: EdgeWriter,
     cited: Iterable[tuple[str, Cited]],
     decisions: dict[str, list[tuple[str | None, str]]],
     *,
     source: str,
-    result: PipelineResult,
     places: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
-) -> dict[str, set[str]]:
-    """Write ``REFERS_TO`` from each citing node to the decision it cites; the keys of the
-    edges written, per citing node. A citation of the citing decision itself is none.
-    *places*: per ``(citing id, application number)`` where the text cites it, as the edge
-    keeps it (``rechtspraak_citations.places_meta``)."""
-    kept: dict[str, set[str]] = {}
+) -> None:
+    """Queue ``REFERS_TO`` from each citing node to the decision it cites. A citation of
+    the citing decision itself is none. *places*: per ``(citing id, application number)``
+    where the text cites it, as the edge keeps it (``rechtspraak_citations.places_meta``)."""
     left: Counter[str] = Counter()
-    edges = EdgeWriter(store, what=None)
+    before = edges.written(RELATION_REFERS_TO)
     for from_id, citation in cited:
         to_id = resolve(citation, decisions)
         if isinstance(to_id, Unresolved):
@@ -66,23 +61,18 @@ def link(
         if citation.date:
             meta["cited_date"] = citation.date
         meta.update((places or {}).get((from_id, citation.appno)) or {})
-        if edges.add(
+        edges.add(
             from_id,
             to_id,
             RELATION_REFERS_TO,
             source=source,
             confidence=confidence(citation),
             meta=meta,
-        ):
-            kept.setdefault(from_id, set()).add(
-                edge_key(from_id, RELATION_REFERS_TO, to_id)
-            )
-    edges.flush_into(result)
+        )
     logger.info(
         "ECHR decisions cited by application number: %d linked; %d not loaded; %d "
         "ambiguous (several decisions of the number and no date to choose).",
-        sum(len(keys) for keys in kept.values()),
+        edges.written(RELATION_REFERS_TO) - before,
         left[Unresolved.MISSING.value],
         left[Unresolved.AMBIGUOUS.value],
     )
-    return kept
