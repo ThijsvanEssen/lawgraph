@@ -482,7 +482,8 @@ read it there. A release:
 4. `release` moved forward to that commit, which starts the deploy:
    `gh api -X PATCH repos/ThijsvanEssen/lawgraph/git/refs/heads/release -f sha=<commit> -F force=false`.
 
-The deploy (`.github/workflows/deploy.yml`, the unit suite first) checks out exactly that
+The deploy (`.github/workflows/deploy.yml`) first waits for the run of `tests.yaml` on that
+commit to be green (`.github/scripts/green-on.sh`; red, cancelled or no run stops it), then checks out exactly that
 commit on the server over SSH, fetching the tags, runs `uv pip install -e .` into its venv,
 and restarts the API, which has to answer `/api/health` within 30 seconds. It then waits, up to 20 minutes, until `/api/health` has `"warm": true` (the warm-up of the current data
 done; the most cited articles it warms after that are not waited for), or a `warm_version` and
@@ -653,6 +654,7 @@ The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes
 query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
 `tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
 catalogue, props). CI (`.github/workflows`) runs `mypy` and
-`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format,
-end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict checks; it does
-not run `tests/integration` (no server available there).
+`pytest` on Python 3.11 and 3.14, the database shards, and the pre-commit hooks: ruff `--fix`,
+ruff format, end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict
+checks, and shellcheck (settings in `.shellcheckrc`). `pre-commit install` also runs `mypy`
+before a push.

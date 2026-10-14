@@ -124,8 +124,8 @@ left out: `expand-graph` fetches those acts. A step that ends `ok` is marked in
 `scripts/backup.sh` dumps the database. They share one lock (`scripts/_run.sh`), so two never
 write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
 
-**Release.** A push to the branch `release` deploys that commit: CI runs mypy and the tests,
-then on the server checks it out, installs it and restarts the API, under the lock of the
+**Release.** A push to the branch `release` deploys that commit once `tests.yaml` is green on it:
+on the server it checks it out, installs it and restarts the API, under the lock of the
 scheduled runs (`docs/operations.md`, "Deploy").
 
 **The API** (`api/`) reads only. A route calls functions of `db/queries/` and answers with the

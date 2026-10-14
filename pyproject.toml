@@ -29,10 +29,11 @@ dependencies = [
 dev = [
   "pytest>=8.0.0",
   "pytest-xdist>=3.6",  # CI runs the database tests side by side (-n auto)
-  "ruff>=0.5.0",
+  "ruff==0.15.13",  # the rev of the ruff hook in .pre-commit-config.yaml
   "mypy>=2.1",
   "httpx>=0.28.1",
   "pre-commit>=3.0",
+  "pyyaml>=6",  # tests/conventions/test_ci_shards.py reads the shards of tests.yaml
   "psycopg[binary]>=3.2",  # the probes of tests/parity/ ask PostgreSQL
 ]
 
