@@ -17,7 +17,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import Payload
 from lawgraph.db import Store
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.pipelines.base import PipelineBase
 
 DELETED = "deleted by the Kamer"
@@ -69,8 +69,8 @@ class Deleted:
         if not ids:
             return 0
         if self.collection == COLLECTION_EDGES:
-            return normalize_edges.remove_edges_of_records(store, ids)
+            return removals.remove_edges_of_records(store, ids)
         if self.key is None:
-            return normalize_edges.remove_nodes_of_records(store, self.collection, ids)
+            return removals.remove_nodes_of_records(store, self.collection, ids)
         keys = sorted({self.key(record_id) for record_id in ids})
-        return normalize_edges.remove_nodes(store, self.collection, keys)
+        return removals.remove_nodes(store, self.collection, keys)

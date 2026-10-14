@@ -12,24 +12,21 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_ABOUT,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
 )
 from lawgraph.core.documents import chamber_of, paper_number
 from lawgraph.db import GraphStore
 
 STAGE_ENACTED = "enacted"
 STAGE_PROPOSED = "proposed"
-CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
 
 # One row per change: the article, the relation, the stage, and what makes it (the
 # publication or the paper). Both halves start from the dossier on ``edges_to_cover`` and

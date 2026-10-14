@@ -14,14 +14,11 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
+    ENACTING_RELATIONS,
     RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
 )
 from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
@@ -367,12 +364,7 @@ def get_article_legislative_history(
             _CHANGES_SQL,
             {
                 "article_id": article_id,
-                "changes": [
-                    RELATION_ESTABLISHES,
-                    RELATION_AMENDS,
-                    RELATION_INTRODUCES,
-                    RELATION_REPEALS,
-                ],
+                "changes": list(ENACTING_RELATIONS),
                 "legislated_in": RELATION_LEGISLATED_IN,
             },
         )

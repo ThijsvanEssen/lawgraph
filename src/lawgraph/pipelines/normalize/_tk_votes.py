@@ -24,7 +24,7 @@ from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_cases import link_node
@@ -146,7 +146,7 @@ def remove_deleted_votes(
     }
     edges = votes.deleted.remove(store)
     empty = sorted(voted_on - {node.key for node in decision_nodes.values()})
-    removed = normalize_edges.remove_nodes(store, COLLECTION_DECISIONS, empty)
+    removed = removals.remove_nodes(store, COLLECTION_DECISIONS, empty)
     removed += votes.struck.remove(store)
     logger.info("Removed %d votes and %d decisions the Kamer deleted.", edges, removed)
 
@@ -232,9 +232,7 @@ def _remove_other_votes(store: Store, written: dict[str, list[str]]) -> int:
     for start in range(0, len(decisions), _DECISION_CHUNK):
         chunk = decisions[start : start + _DECISION_CHUNK]
         keep = [key for decision in chunk for key in written[decision]]
-        removed += normalize_edges.remove_edges_into_except(
-            store, RELATION_VOTED, chunk, keep
-        )
+        removed += removals.remove_edges_into_except(store, RELATION_VOTED, chunk, keep)
     return removed
 
 

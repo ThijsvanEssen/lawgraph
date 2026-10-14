@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
+    CHANGE_RELATIONS,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -21,19 +22,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
+    ENACTING_RELATIONS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_IMPLEMENTS,
-    RELATION_INTRODUCES,
     RELATION_LED_BY,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
-    RELATION_REPEALS,
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
@@ -63,23 +61,12 @@ from lawgraph.db.version_cache import cached
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
-MUTATION_RELATIONS = (
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-    RELATION_REFERS_TO,
-)
+MUTATION_RELATIONS = (*CHANGE_RELATIONS, RELATION_REFERS_TO)
 EXPLANATION_RELATIONS = (RELATION_EXPLAINS,)
 
 # How an instrument is tied to a dossier, in the order the hub lists them: legislated in
 # it, enacted by a publication of it, then changed by it.
-HUB_INSTRUMENT_RELATIONS = (
-    RELATION_LEGISLATED_IN,
-    RELATION_ESTABLISHES,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-)
+HUB_INSTRUMENT_RELATIONS = (RELATION_LEGISLATED_IN, *ENACTING_RELATIONS)
 
 # The relations between two dossiers, in the order the detail lists them.
 DOSSIER_RELATIONS = (
@@ -800,12 +787,7 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
         "about": RELATION_ABOUT,
         "led_by": RELATION_LED_BY,
         "legislated_in": RELATION_LEGISLATED_IN,
-        "changes": [
-            RELATION_ESTABLISHES,
-            RELATION_AMENDS,
-            RELATION_INTRODUCES,
-            RELATION_REPEALS,
-        ],
+        "changes": list(ENACTING_RELATIONS),
         "canonical": EDGE_STATUS_CANONIEK,
         "relation_order": [r.lower() for r in HUB_INSTRUMENT_RELATIONS],
     }

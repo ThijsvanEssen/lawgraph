@@ -9,7 +9,7 @@ import pytest
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import NamedActs
 from lawgraph.pipelines.semantic.tk_amends import (
@@ -78,7 +78,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         "tk_document_titles",
         lambda store, since_date: iter(list(store.pub_docs)),
     )
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     monkeypatch.setattr(semantic_tk, "remove_own_act_edges", lambda *_a, **_k: 0)
     monkeypatch.setattr(semantic_tk, "acts_of_dossiers", lambda store: store.acts)
 

@@ -30,7 +30,11 @@ from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
-from lawgraph.core.publications import koop_citation
+from lawgraph.core.publications import (
+    instrument_key,
+    koop_citation,
+    official_of_note_key,
+)
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
 from lawgraph.core.xml import collapse_ws
@@ -1325,7 +1329,7 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
     name = _text(props.get("citation_title"))
     if name:
         return name
-    official = _text(note.get("identifier")) or key.partition("_")[2].replace("_", "-")
+    official = _text(note.get("identifier")) or official_of_note_key(key)
     return koop_citation(official) or official
 
 
@@ -1358,7 +1362,7 @@ def publication_page(row: dict[str, Any]) -> Page:
     title = publication_title(props, note, key)
     path = (
         path_of(row["id"], props)
-        or path_of("instruments/" + _text(note.get("identifier")).replace("-", "_"), {})
+        or path_of(f"instruments/{instrument_key(_text(note.get('identifier')))}", {})
         or ""
     )
     laws = row.get("laws") or []
