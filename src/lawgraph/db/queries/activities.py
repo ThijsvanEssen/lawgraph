@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MADE_IN,
 )
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import GraphStore
 
 _HEAD_SQL = f"""
@@ -144,9 +145,6 @@ SELECT
     ) AS cases
 """
 
-# The kinds of a motion start with it: "Motie", "Motie (gewijzigd/nader)".
-MOTION = "Motie"
-
 
 def get_activity_records(store: GraphStore, node_id: str) -> dict[str, Any]:
     """What was made in the activity *node_id* (``MADE_IN``): its papers (a stenogram, a
@@ -158,7 +156,7 @@ def get_activity_records(store: GraphStore, node_id: str) -> dict[str, Any]:
             "id": node_id,
             "made_in": RELATION_MADE_IN,
             "about": RELATION_ABOUT,
-            "motion": MOTION,
+            "motion": KIND_MOTION,
         },
     )
     return dict(next(iter(rows)))

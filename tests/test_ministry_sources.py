@@ -13,8 +13,8 @@ import pytest
 
 from lawgraph.clients.tooi import latest_version
 from lawgraph.core.cabinet_sources import build_cabinets
+from lawgraph.core.curated import LISTS
 from lawgraph.core.ministries import (
-    CURATED,
     DATA,
     MINISTRY_BY_KEY,
     classify_function,
@@ -56,7 +56,7 @@ def test_the_data_file_is_what_the_sources_give() -> None:
     """``data/ministries.json`` is the build of the fixtures and the curated list: nothing
     in it was edited by hand, and every curated name has a source."""
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    curated = json.loads(CURATED.read_text(encoding="utf-8"))
+    curated = LISTS["ministries"].document()
     rebuilt, dropped = build_ministries(
         curated, TOOI, build_cabinets(_pages(), lambda text: None)
     )

@@ -77,3 +77,20 @@ def test_the_article_text_is_written_and_not_kept() -> None:
     assert len(written) == len(kept) == 2 and all(written.values())
     assert [node.props for node in kept] == [{}, {}]
     assert {node.key for node in kept} == set(written)
+
+
+def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
+    pipeline = EurlexNormalizePipeline(store=InMemoryStore())
+    progress = pipeline.progress
+    result = PipelineResult()
+    records = [
+        {"_key": "nameless", "payload_text": HTML, "meta": {"lang": "NL"}},
+        {"payload_text": HTML, "meta": {"celex": "32010L0064", "lang": "NL"}},
+    ]
+
+    normalized = pipeline.normalize_nodes(records, result)
+    pipeline.add_outcomes(result)
+
+    assert progress.skips == {"no CELEX": 1}
+    assert (result.skipped, result.errors) == (1, [])
+    assert list(normalized["instruments_by_celex"]) == ["32010L0064"]

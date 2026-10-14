@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.lookup import LookupKind, LookupResponse
+from lawgraph.core.readable_paths import SERIES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 
@@ -71,7 +72,7 @@ def _finder(
         return lambda: lookup.find_judgment(store, a["ecli"])
     if kind == "publication":
         a = _need(series=p["series"], year=p["year"], number=p["number"])
-        if a["series"].lower() not in lookup.SERIES or not (
+        if a["series"].lower() not in SERIES or not (
             a["year"].isdigit() and a["number"].isdigit()
         ):
             raise HTTPException(

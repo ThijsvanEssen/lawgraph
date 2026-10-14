@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
 from lawgraph.api.schemas.common import WithPath
+from lawgraph.config.constants import Chamber
 
 
 class FactionSeatsDTO(WithPath):
@@ -94,7 +93,7 @@ class ParliamentSeatsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    chamber: Literal["TK", "EK"] = "TK"
+    chamber: Chamber = "TK"
     cabinet: dict[str, str | None] | None = Field(
         None,
         description="The cabinet in office on `as_of` (`key`, `name`), whose coalition "

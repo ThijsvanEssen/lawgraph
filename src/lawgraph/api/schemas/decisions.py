@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
+from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, numbered_in, paper_number
+from lawgraph.core.tk_records import VoteChoice
 
 _KIND = (
     "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "
@@ -126,7 +128,7 @@ class CoalitionVoteDTO(BaseModel):
     coalition_against: int
     opposition_for: int
     opposition_against: int
-    pattern: Literal["together", "split", "wissel"] = Field(
+    pattern: CoalitionPattern = Field(
         ...,
         description="`together`: every coalition seat on one side; `split`: on both; "
         "`wissel`: split, and the side with the most coalition seats lost (a "
@@ -149,7 +151,7 @@ class CoalitionFactionDTO(BaseModel):
 
     key: str
     short: str | None = Field(None, description="Its abbreviation, else its name.")
-    choice: Literal["Voor", "Tegen"] | None = Field(
+    choice: VoteChoice | None = Field(
         None,
         description="``Voor`` or ``Tegen``; null when its seats went both ways (a "
         "roll call).",

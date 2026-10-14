@@ -18,7 +18,8 @@ from lawgraph.core.court_sources import (
     parse_instanties,
     places,
 )
-from lawgraph.core.courts import COURT_KINDS, COURTS, DATA, OUTSIDE, TIERS, court_of
+from lawgraph.core.courts import COURT_KINDS, COURTS, DATA, TIERS, court_of
+from lawgraph.core.curated import LISTS
 
 LIST = (Path(__file__).parent / "fixtures" / "rechtspraak_instanties.xml").read_text()
 COURTS_LISTED = parse_instanties(LIST)
@@ -116,6 +117,6 @@ def test_a_court_has_its_official_name_and_days() -> None:
 
 def test_a_curated_court_is_one_the_list_does_not_hold() -> None:
     listed = {c["code"] for c in build_courts(LIST)}
-    curated = json.loads(OUTSIDE.read_text(encoding="utf-8"))["courts"]
-    assert all(c.get("court") or c["code"] not in listed for c in curated)
-    assert all(c["tier"] in TIERS for c in curated)
+    curated = LISTS["courts-outside"].entries()
+    assert all(":" in key or key not in listed for key in curated)
+    assert all(c["tier"] in TIERS for c in curated.values())

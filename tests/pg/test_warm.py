@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.api import warm
 from lawgraph.db import GraphStore
+from tests.fakes import ManualClock, until
 
 
 def test_the_warm_up_is_done_for_the_data_as_it_was(
@@ -125,38 +126,33 @@ def test_a_write_waits_for_the_least_time_between_two_warm_ups(
 ) -> None:
     """On a real database: a write raises the data version, and the warm-up of the new
     data waits until ``LAWGRAPH_WARM_UP_MIN_INTERVAL`` has gone by since the last began."""
-    import time
-
     from lawgraph.db import version_cache
 
+    clock = ManualClock()
+    interval = 1.0
     done: list[tuple[float, str]] = []
+    monkeypatch.setattr(version_cache, "_clock", clock)
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0)
     monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.05)
-    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", 1.0)
+    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", interval)
     monkeypatch.setattr(
         version_cache,
         "_warmers",
-        [lambda s: done.append((time.monotonic(), s.data_version()))],
+        [lambda s: done.append((clock.now(), s.data_version()))],
     )
-
-    def until(count: int, seconds: float) -> bool:
-        end = time.monotonic() + seconds
-        while time.monotonic() < end and len(done) < count:
-            time.sleep(0.02)
-        return len(done) >= count
 
     version_cache._version(store)  # the version this process knows
     version_cache.warm(store, settle=0)
-    assert until(1, 2.0)
+    assert until(lambda: len(done) == 1)
     store.bulk_insert_or_update_nodes(
         "instruments",
         [{"_key": "z", "type": "instrument", "labels": [], "props": {"title": "z"}}],
     )
     version_cache._version(store)  # a request sees the new version: a warm-up is wanted
     assert version_cache.computing(store)  # it waits, and health says so
-    assert not until(2, 0.6)
-    assert until(2, 2.0)
-    assert done[1][0] - done[0][0] >= 1.0
+    clock.move_to_wait(interval)  # not the settle: it is held back
+    assert until(lambda: len(done) == 2)
+    assert done[1][0] - done[0][0] == pytest.approx(interval)
     assert done[1][1] == store.data_version()  # of the new data
 
 

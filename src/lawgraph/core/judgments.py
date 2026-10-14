@@ -5,15 +5,14 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import itertools
-import json
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.courts import court_of
+from lawgraph.core.curated import LISTS
 from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
@@ -266,36 +265,31 @@ def area_of_law(subjects: list[str] | None) -> str | None:
 # answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
 # rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
-KIND_ARREST = "arrest"
-KIND_VONNIS = "vonnis"
-KIND_BESCHIKKING = "beschikking"
-KIND_UITSPRAAK = "uitspraak"
-KIND_CONCLUSIE = "conclusie"
-KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
-KIND_BESLISSING = "beslissing"
-DECISION_KINDS: tuple[str, ...] = (
-    KIND_ARREST,
-    KIND_VONNIS,
-    KIND_BESCHIKKING,
-    KIND_UITSPRAAK,
-    KIND_BESLISSING,
-    KIND_CONCLUSIE,
-    KIND_PRELIMINARY_RULING,
-)
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "beslissing",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
+KIND_ARREST: Final[DecisionKind] = "arrest"
+KIND_VONNIS: Final[DecisionKind] = "vonnis"
+KIND_BESCHIKKING: Final[DecisionKind] = "beschikking"
+KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
+KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
+KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
+KIND_BESLISSING: Final[DecisionKind] = "beslissing"
 
-# The curated kinds (``data/curated/decision_kinds.json``): the kind a procedure
-# (``psi:procedure``) names where the kop does not; the kind a kind of court gives when
-# nothing else tells (by ``court_kind``: a tier of one kind of court is its own); the kinds
-# of court of every area of law, which give an uitspraak in administrative law (tax law too).
-DECISION_KINDS_FILE = (
-    Path(__file__).resolve().parents[1] / "data" / "curated" / "decision_kinds.json"
-)
-_CURATED_KINDS: dict[str, Any] = json.loads(
-    DECISION_KINDS_FILE.read_text(encoding="utf-8")
-)
-KIND_OF_PROCEDURE: dict[str, str] = _CURATED_KINDS["procedures"]
-KIND_OF_COURT_KIND: dict[str, str] = _CURATED_KINDS["kinds"]
-_GENERAL_COURTS = frozenset(_CURATED_KINDS["general_courts"])
+# The curated kinds: the kind a procedure (``psi:procedure``) names where the kop does not;
+# the kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
+# kind of court is its own); the kinds of court of every area of law, which give an
+# uitspraak in administrative law (tax law too).
+KIND_OF_PROCEDURE: dict[str, str] = LISTS["procedure-kinds"].entries()
+KIND_OF_COURT_KIND: dict[str, str] = LISTS["decision-kinds"].entries()
+_GENERAL_COURTS = frozenset(LISTS["general-courts"].entries())
 
 # A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
 # van:", "beschikking van de meervoudige kamer", "Tussenvonnis", "beslissing van de

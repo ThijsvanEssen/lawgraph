@@ -19,9 +19,9 @@ from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.raw_records import payload_json
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
+from lawgraph.pipelines.normalize._tk_deleted import kept
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -53,15 +53,11 @@ class TKDocumentLinksNormalizePipeline(NormalizePipelineBase):
     ) -> int:
         """No nodes: the links are edges, written batch by batch as they are read."""
         count = 0
-        for records in chunked(raw, _BATCH):
+        for payloads in chunked(kept(self, raw), _BATCH):
             links = [
                 (str(payload["Id"]), tk_records.document_links(payload))
-                for record in records
-                if (payload := payload_json(record))
-                and payload.get("Id")
-                and not tk_records.is_deleted(payload)
+                for payload in payloads
             ]
-            result.skipped += len(records) - len(links)
             tk_cases.link_documents(self.store, links, source=EDGE_SOURCE)
             count += len(links)
         logger.info("Document links: %d documents read.", count)

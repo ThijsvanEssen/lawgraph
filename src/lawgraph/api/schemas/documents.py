@@ -9,20 +9,21 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.api.schemas.decisions import DecisionDTO
+from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import (
     chamber_of,
     document_sender,
     is_explanatory,
     paper_number,
 )
+from lawgraph.core.feed import SubmitterRole
 from lawgraph.core.models import NodeType
+from lawgraph.core.paper_outcomes import PaperOutcome
 from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.tk_links import tk_url
-from lawgraph.core.tk_records import submitters
+from lawgraph.core.tk_records import SigningCapacity, submitters
 
-Chamber = Literal["TK", "EK"]
 ExplainedCollection = Literal["articles", "instruments"]
-SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
 
 
 class SenderDTO(BaseModel):
@@ -208,7 +209,7 @@ class SubmitterDTO(WithPath):
     member_key: str | None = Field(
         None, description="Their member (`/api/nodes/members/{key}`)."
     )
-    role: Literal["indiener", "medeindiener"] = Field(
+    role: SubmitterRole = Field(
         description="`indiener` (the first signatory) or `medeindiener`."
     )
 
@@ -233,10 +234,6 @@ _REPLACED_BY = (
     "empty for most."
 )
 
-
-PaperOutcome = Literal[
-    "aangenomen", "verworpen", "ingetrokken", "aangehouden", "vervallen", "vervangen"
-]
 
 _DICTUM = (
     "Of a motion, what it asks or says, as it writes it: the lines from ``verzoekt``, "
@@ -481,7 +478,7 @@ class DocumentListItemDTO(PaperOutcomeFields, WithPath):
 
     id: str
     key: str
-    chamber: Literal["TK", "EK"] | None = None
+    chamber: Chamber | None = None
     kind: str | None = Field(
         None, description="As the chamber writes it: ``Memorie van toelichting``."
     )

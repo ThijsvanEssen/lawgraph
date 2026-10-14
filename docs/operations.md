@@ -159,7 +159,7 @@ passed to the pipelines that accept it and the others run in full.
 | `bwb-captions` | `--since`: the regulations whose toestand was fetched since then (the daily run); without it every one, also in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps per article its `caption`, what its title says it is about |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
-| `staatscourant` | `--since`: publications dated since then |
+| `staatscourant` | `--since`: publications dated since then, their edges derived again; without it every publication, and the edges no longer derived go (weekly) |
 | `rechtspraak-appeal` | `--since`: only the judgments whose raw record was fetched since then (the daily run): their edges, and those from the later instances they name, are added, none removed. Three things wait for a run without it (`weekly.sh`): an older judgment that names a judgment fetched since as an earlier or later instance, an older appeal whose text names a decision fetched since, and the removal of edges and `unresolved_appeal_targets` no longer derived |
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (every regulation that names or implements an EU act, and every retrieved national implementing measure, on every run) |
