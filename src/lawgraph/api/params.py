@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Collection
 from dataclasses import dataclass
 from enum import StrEnum
@@ -36,6 +37,11 @@ EdgeMeta = Annotated[
         "place in each of its first three paragraphs; `light` (the default) none."
     ),
 ]
+
+
+def iso_day(day: dt.date | None) -> str | None:
+    """A day as the queries take it, ``YYYY-MM-DD``; None stays None."""
+    return day.isoformat() if day else None
 
 
 def parse_choices(

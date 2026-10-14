@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, parse_choices
+from lawgraph.api.params import MinistryKey, iso_day, parse_choices
 from lawgraph.api.schemas.feed import (
     FeedFacetsDTO,
     FeedItemDTO,
@@ -206,11 +206,7 @@ def feed_filters(
     ] = None,
 ) -> FeedFilters:
     """The filters of the feed and its Atom version."""
-    return replace(
-        scope,
-        since=since.isoformat() if since else None,
-        until=until.isoformat() if until else None,
-    )
+    return replace(scope, since=iso_day(since), until=iso_day(until))
 
 
 def _page(
@@ -531,11 +527,9 @@ def get_feed_periods_route(
                 detail=f"`per=day` needs `since`, at most {feed_events.MAX_DAYS} days "
                 "before `until`.",
             )
-    filters = replace(
-        scope,
-        since=since.isoformat() if since else None,
-        until=until.isoformat() if until else None,
-    )
+    # the days of the feed, read as ``feed_filters`` reads them; declared here so the
+    # parameters keep their order (``per`` after the days)
+    filters = feed_filters(scope, since, until)
     raw: dict[str, Any] = {"periods": [], "written_at": None}
     with read_budget(COUNTS_BUDGET, "The feed per period"):
         raw = feed_events.get_periods(store, filters, per)

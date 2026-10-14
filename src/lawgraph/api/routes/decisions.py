@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import iso_day, parse_choices
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
@@ -147,8 +147,8 @@ def list_decisions(
         choice=_VOTE_CHOICES[vote] if vote else None,
         chamber=chamber,
         dossier=dossier,
-        date_from=date_from.isoformat() if date_from else None,
-        date_to=date_to.isoformat() if date_to else None,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         q=tuple(word.strip() for word in q or () if word.strip()),
         party_votes=tuple(
             party.strip() for party in (party_votes or "").split(",") if party.strip()
