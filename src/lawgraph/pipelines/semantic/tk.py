@@ -243,9 +243,8 @@ class TKSemanticPipeline(SemanticPipelineBase):
             if v
         }
         place, snippet = words.place(hit.start, hit.end)
-        meta["place"] = (
-            place  # null for one over two parts: a relink clears an old place
-        )
+        # null for a citation over two parts: a relink clears an earlier place
+        meta["place"] = place
         if snippet:
             meta["snippet"] = snippet
         return self._make_edge_doc(

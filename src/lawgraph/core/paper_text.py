@@ -66,8 +66,10 @@ class PaperText:
 
     @classmethod
     def of(cls, props: Mapping[str, Any]) -> PaperText:
-        """The title, the text and the footnotes of *props*, one per line; a part without
-        words is left out."""
+        """The title (the paper's own subject), the text and the footnotes of *props*, one
+        per line; a part without words is left out. Not the record of the Tweede Kamer it
+        came with: its ``Titel`` is the dossier's title, and its actors, ids and kinds are
+        no text ("VVD" in "Bikkers VVD Tweede Kamerlid" names no regulation)."""
         builder = _Builder()
         for place in (PLACE_TITLE, PLACE_TEXT):
             value = props.get(place)
