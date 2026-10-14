@@ -10,7 +10,7 @@ with its addition (``37020-X`` for a budget chapter).
 from __future__ import annotations
 
 from lawgraph.clients._sru import fetch_publication_xml
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, UnexpectedAnswer
 from lawgraph.config.settings import KAMERSTUK_REPO_BASE
 from lawgraph.core.identifiers import KST_ID_PATTERN
 
@@ -21,14 +21,11 @@ class KamerstukClient(BaseClient):
     def __init__(self, session=None) -> None:
         super().__init__(base_url=KAMERSTUK_REPO_BASE, session=session)
 
-    def fetch_kamerstuk_xml(self, identifier: str) -> str | None:
-        """The XML of ``kst-<dossier>-<number>``, or ``None`` when the repository has none.
-
-        Any other failure raises, after the retries of ``BaseClient``.
-        """
+    def fetch_kamerstuk_xml(self, identifier: str) -> str:
+        """The XML of ``kst-<dossier>-<number>`` (``_sru.fetch_publication_xml``)."""
         match = KST_ID_PATTERN.fullmatch(identifier)
         if not match:
-            return None
+            raise UnexpectedAnswer(f"not a Kamerstuk identifier: {identifier!r}")
         return fetch_publication_xml(
             self, "kst", KST_ID_PATTERN, identifier, group=match.group(1)
         )

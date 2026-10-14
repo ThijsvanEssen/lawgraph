@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import MinistryKey
@@ -39,6 +39,7 @@ from lawgraph.db.queries.cabinets import (
 )
 from lawgraph.db.queries.coalition import cabinet_seats
 from lawgraph.db.queries.committees import load_member_slugs
+from lawgraph.db.queries.not_found import require, require_node
 
 ministries_router = APIRouter()
 cabinets_router = APIRouter()
@@ -119,9 +120,7 @@ def get_cabinet_detail(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CabinetDetailDTO:
-    row = get_cabinet(store, key)
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
+    row = require(get_cabinet(store, key), "Cabinet", key)
     return CabinetDetailDTO.from_detail(row, load_member_slugs(store))
 
 
@@ -143,9 +142,7 @@ def get_cabinet_seats(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CabinetSeatsResponse:
     # the cabinet node alone: its detail counts every paper its members signed
-    cabinet = store.get_document(COLLECTION_CABINETS, key)
-    if cabinet is None:
-        raise HTTPException(status_code=404, detail=f"Cabinet '{key}' not found.")
+    cabinet = require_node(store, COLLECTION_CABINETS, key, "Cabinet")
     props = cabinet.get("props") or {}
     seats = cabinet_seats(store, cabinet, dt.date.today().isoformat())
     return CabinetSeatsResponse(
@@ -246,7 +243,5 @@ def get_commitment_detail(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CommitmentDTO:
-    row = get_commitment(store, key)
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Commitment '{key}' not found.")
+    row = require(get_commitment(store, key), "Commitment", key)
     return CommitmentDTO.from_row(row, load_member_slugs(store))

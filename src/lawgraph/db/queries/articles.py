@@ -45,6 +45,7 @@ from lawgraph.db.queries._helpers import (
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_light import outcome_pairs
+from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached, lasting
 
@@ -113,10 +114,7 @@ def get_article_with_relations(
     """Fetch an article with its parent instrument and the number of judgments citing it
     (``metadata.judgment_count``; ``get_article_cited_by`` pages them)."""
     article_key = make_node_key(bwb_id, article_number)
-    article_doc = store.get_document(COLLECTION_ARTICLES, article_key)
-    article_doc = _ensure_doc(article_doc)
-    if article_doc is None:
-        raise ValueError("article not found")
+    article_doc = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
     article_id = article_doc["_id"]
     found = run_together(
@@ -158,16 +156,14 @@ def get_article_history(
 ) -> ArticleHistoryData:
     """All versions of one article identity, oldest first, plus dossier titles.
 
-    The current article is resolved by key (``ValueError`` when unknown). Its
+    The current article is resolved by key (``NotFound`` when unknown). Its
     identity inside the regulation is ``(bwb_id, stam_id)``; an article without a
     ``stam_id`` is matched on ``(bwb_id, article_number)``. Query budget: one for
     the versions and, when the publications name dossiers, one for their titles —
     independent of the number of versions.
     """
     article_key = make_node_key(bwb_id, article_number)
-    article = _ensure_doc(store.get_document(COLLECTION_ARTICLES, article_key))
-    if article is None:
-        raise ValueError("article not found")
+    article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
     identity, bind = _version_identity(article, bwb_id, article_number)
     rows = store.query(
