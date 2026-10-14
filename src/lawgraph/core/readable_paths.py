@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
 
-from lawgraph.core.identifiers import CELEX_MATCH_LETTERS
+from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
 
 ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
@@ -46,8 +46,6 @@ LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}", re.IGNORECASE)
 # A key or slug as the API gives it: ``rutte_iv``, ``ek_democraten_1966``.
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-# The number of a toezegging: ``TZ202609-124``.
-COMMITMENT_NUMBER = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
 # The number of a stuk: a figure in the Tweede Kamer, letters in the Eerste (A, AB).
 STUK = re.compile(r"^(\d+|[A-Z]{1,3})$", re.IGNORECASE)
 # The number of a zaak of the Tweede Kamer: ``2025Z15468``.
@@ -57,7 +55,7 @@ ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
-_JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9.]+$")
+_JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9]+$")
 _PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
 
 # The boeken of the Burgerlijk Wetboek and their BWB ids: an article is cited with its
@@ -180,11 +178,6 @@ def pad_href(pad: Pad) -> str:
     return f"/{prefix}/{pad.a}"
 
 
-def judgment_key(ecli: str) -> str:
-    """A judgment's node key from its ECLI: ``ecli_nl_hr_2019_2006``."""
-    return ecli.lower().replace(":", "_")
-
-
 def key_ecli(key: str) -> str | None:
     """The ECLI of a judgment's node key, or None."""
     return key.upper().replace("_", ":") if _JUDGMENT_KEY.match(key) else None
@@ -194,7 +187,7 @@ def focus_of_pad(pad: Pad) -> str | None:
     """The node id an address names without a lookup: a judgment, a law, a dossier, a
     cabinet and a fractie (their key is their id); None for the others."""
     if pad.soort == "uitspraak":
-        return f"judgments/{judgment_key(pad.a)}"
+        return f"judgments/{make_node_key(pad.a)}"
     if pad.soort == "wet":
         return f"instruments/{pad.a.lower()}"
     if pad.soort == "dossier":
