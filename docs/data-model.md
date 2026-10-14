@@ -217,7 +217,8 @@ statutes made by the legislator:
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`), `celex_refs` (the EU acts its
   text names) and `implements_celex` (the EU acts its considerans says it implements);
   `retrieve eurlex --mode gaps` fetches the acts of `celex_refs` and `implements_celex`.
-  `enacted_publication` is the publication that enacted it (`stb-2018-144`). Its `title` is the
+  `enacted_publication` is the publication that enacted it (`stb-2018-144`; indexed, for the
+  laws a publication of the feed enacts). Its `title` is the
   citeertitel, else the intitule; `kind` is `wetgeving@soort`. `date_signed`, `date_published`
   and `dossier_numbers` are those of that publication, `date_in_force` the
   `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
@@ -832,8 +833,9 @@ it names the node's table (`n.collection = 'documents'`), or reads the node thro
 (`tests/test_nodes_view_joins.py` keeps it so).
 
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
-`ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
-with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
+`ministry`, `factions`, `labels`, and its title (of a publication with the names of the laws it
+changes or enacts, and the official title of a law it enacts) and that of its first dossier in
+lower case, with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
 feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
 /api/feed` under `q` its total and facets.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a

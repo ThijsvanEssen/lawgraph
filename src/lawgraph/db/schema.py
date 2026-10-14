@@ -1127,6 +1127,10 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         # the publications of a dossier, for the words (``q``) of the feed in its title
         "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
         f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",
+        # the regulations a publication enacted (``props.enacted_publication``): the laws a
+        # publication of the feed establishes (``queries/feed_relations``)
+        "CREATE INDEX IF NOT EXISTS instruments_enacted_publication"
+        f" ON instruments ((public.lg_str(props -> 'enacted_publication'))) WHERE {_LISTED}",
     ),
     # /api/documents, newest first: a page without a kind or dossier reads only itself.
     COLLECTION_DOCUMENTS: (

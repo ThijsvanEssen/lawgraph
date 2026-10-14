@@ -5,6 +5,7 @@ filter, the facets under the other filters, pages that neither repeat nor skip),
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any, cast
@@ -524,6 +525,8 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
                 "key": "bwbr0000001",
                 "title": "Wet voorbeeld",
                 "official_url": "https://wetten.overheid.nl/BWBR0000001",
+                "effect": "amends",
+                "article_count": 1,
             }
         ],
     }
@@ -543,6 +546,11 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         },
         "article_count": 12,
         "changed_articles": 2,
+        # versions without a number; a law without its day in force, nor a basis
+        "articles": [],
+        "new": False,
+        "publication": None,
+        "based_on": None,
     }
     assert commencement["dossier"] is None
 
@@ -991,6 +999,14 @@ ITEM_KEYS = [
     "instrument",
     "changed_articles",
     "changed_instruments",
+    "commenced",
+    "answers",
+    "answered_by",
+    "amends_articles",
+    "replaces",
+    "cites",
+    "matched",
+    "via",
     "coalition",
     "coalition_factions",
 ]
@@ -1042,12 +1058,16 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
         "title",
         "bwb_id",
         "article_count",
+        "date_in_force",
+        "kind",
     ]
     assert commencement["instrument"]["article_count"] == 12
     assert list(items["publicatie"]["changed_instruments"][0]) == [
         "key",
         "title",
         "bwb_id",
+        "effect",
+        "article_count",
     ]
     person = items["Amendement"]["persons"][0]
     assert {"member_key", "member_name", "faction"} <= set(person)
@@ -1517,7 +1537,9 @@ def _limit_over_index(plan: dict[str, Any], table: str) -> bool:
 
     def ordered(node: dict[str, Any]) -> bool:
         if node["Node Type"] in _INDEX_SCANS:
-            return bool(node.get("Relation Name") == table)
+            # a probe of one row by its id (a source an item names) reads no order
+            probe = re.search(r"\bid = ", node.get("Index Cond") or "")
+            return bool(node.get("Relation Name") == table) and not probe
         # an incremental sort orders what the index gives in date order, by id within a
         # day: it reads one day at a time
         if node["Node Type"] in ("Sort", "Bitmap Heap Scan", "Hash", "Aggregate"):
