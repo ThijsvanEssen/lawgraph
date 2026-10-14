@@ -484,3 +484,47 @@ def test_an_unreadable_toestand_fails_the_step_and_names_the_record() -> None:
     (error,) = result.errors
     assert "not XML" in error and f"{GRONDWET}@2002-03-21" in error
     assert len(store.nodes["instrument_versions"]) == 1
+
+
+def test_a_current_toestand_without_payload_is_skipped_and_one_not_xml_fails() -> None:
+    pipeline = BWBNormalizePipeline(store=_Store())
+    progress = pipeline.progress
+    empty = {**_record(XML, "2023-02-22", "9999-12-31"), "payload_text": ""}
+    broken = _record("<toestand><bad", "2023-02-22", "9999-12-31")
+    result = PipelineResult()
+
+    pipeline.normalize_nodes(
+        [empty, broken, _record(XML, "2023-02-22", "9999-12-31")], result
+    )
+    pipeline.add_outcomes(result)
+
+    assert progress.skips == {"no payload or BWB id": 1}
+    assert progress.failures == {"toestand not XML": 1}
+    assert result.skipped == 2
+    (error,) = result.errors
+    assert "toestand not XML" in error and GRONDWET in error
+
+
+def test_a_wti_record_without_payload_is_skipped_and_one_not_xml_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL
+
+    wti = [
+        {"_key": "w-1", "external_id": "BWBR0002656", "payload_text": ""},
+        {"_key": "w-2", "external_id": GRONDWET, "payload_text": "<wti><bad"},
+    ]
+
+    def iter_raw_records(store: Any, *, kinds: list[str], **_: Any) -> Iterator:
+        return iter(wti if kinds == [RAW_KIND_BWB_WTI_GENERAL] else [])
+
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    pipeline = BWBNormalizePipeline(store=_Store())
+    result = PipelineResult()
+
+    pipeline.normalize_nodes([], result)
+    pipeline.add_outcomes(result)
+
+    assert result.skipped == 2
+    (error,) = result.errors
+    assert "WTI not XML" in error and GRONDWET in error

@@ -423,14 +423,16 @@ class RetrievePipelineBase(PipelineBase):
         """``{external_id: fetched_at}`` of every stored record of *kind*.
 
         For sources that say when a record last changed: what is stored and newer than that
-        does not have to be fetched again.
+        does not have to be fetched again. ``fetched_at`` is always written as a moment
+        (``iso_timestamp``): one that is not fails the step, naming its record.
         """
         stored: dict[str, dt.datetime] = {}
         for row in raw_queries.fetch_times(self.store, source=source, kind=kind):
             try:
                 at = dt.datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
-            except (KeyError, ValueError):
-                continue
+            except ValueError as exc:
+                exc.add_note(f"fetched_at of {source} {kind} {row['id']}")
+                raise
             if row.get("id"):
                 stored[str(row["id"])] = (
                     at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)

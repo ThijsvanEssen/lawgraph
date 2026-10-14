@@ -127,6 +127,39 @@ def test_recently_stored_asks_for_the_last_24_hours(
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
 
 
+def test_stored_at_reads_fetched_at_as_utc() -> None:
+    store = InMemoryStore(
+        raw=[
+            raw_record("src", "kind", "a", fetched_at="2026-10-14T08:00:00Z"),
+            raw_record("src", "kind", "b", fetched_at="2026-10-14T09:00:00+00:00"),
+        ]
+    )
+
+    stored = _Pipeline(store, iter([]))._stored_at("src", "kind")
+
+    utc = dt.timezone.utc
+    assert stored == {
+        "a": dt.datetime(2026, 10, 14, 8, tzinfo=utc),
+        "b": dt.datetime(2026, 10, 14, 9, tzinfo=utc),
+    }
+
+
+def test_stored_at_fails_on_a_fetched_at_that_is_no_moment() -> None:
+    """``fetched_at`` is always written by ``iso_timestamp``: another value is a bug, not
+    a record to fetch again."""
+    store = InMemoryStore(
+        raw=[
+            raw_record("src", "kind", "a", fetched_at="2026-10-14T08:00:00Z"),
+            raw_record("src", "kind", "b", fetched_at="yesterday"),
+        ]
+    )
+
+    with pytest.raises(ValueError) as raised:
+        _Pipeline(store, iter([]))._stored_at("src", "kind")
+
+    assert "src kind b" in "\n".join(raised.value.__notes__)
+
+
 class _Staatscourant:
     def __init__(self, identifiers: list[str], failing: str | None = None) -> None:
         self.identifiers = identifiers
