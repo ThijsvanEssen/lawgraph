@@ -5,7 +5,7 @@
 Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (default
 ``LAWGRAPH_SITEMAP_DIR``), each address on ``--base`` (default ``LAWGRAPH_SITE_URL``):
 
-- ``wetten``: every law with a BWB id that is no stub;
+- ``wetten``: every law with a BWB id that is no stub, and every EU act with an article;
 - ``artikelen``: the articles in force of the 150 laws whose articles are cited most;
 - ``bijlagen``: the annexes of the laws listed, with a label and something to read;
 - ``moties``, ``amendementen``: those with a decision since 2018;

@@ -144,38 +144,60 @@ def version_title(props: dict[str, Any]) -> str:
     return f"{name}, geldend vanaf {since}" if since else name
 
 
+def _law_id(props: dict[str, Any]) -> tuple[str, str]:
+    """The id a law is known by and its jurisdiction: its BWB id (NL), else the CELEX
+    number of an EU act (EU)."""
+    bwb = _text(props.get("bwb_id"))
+    return (bwb, "NL") if bwb else (_text(props.get("celex")), "EU")
+
+
 def law_page(row: dict[str, Any]) -> Page:
+    """A law of the BWB or an EU act: its articles; an EU act also its whole title and its
+    text on EUR-Lex. An EU act whose text was not read (no articles) is not indexed: its
+    title is all there is."""
     props = row["props"] or {}
-    bwb = _text(props.get("bwb_id")) or row["key"].upper()
-    name = law_name(props) or bwb
-    path = path_of(row["id"], props) or f"/wetten/{bwb}"
+    law_id, jurisdiction = _law_id(props)
+    law_id = law_id or row["key"].upper()
+    eu = jurisdiction == "EU"
+    name = law_name(props) or _text(props.get("display_name")) or law_id
+    path = path_of(row["id"], props) or f"/wetten/{law_id}"
     since = _day(props.get("date_in_force"))
     count = len(row["articles"])
+    # an EU act by its whole title: what it is about ("NIS 2-richtlijn") is in it alone
+    full = _text(props.get("title")) if eu else ""
     description = ", ".join(
         part
         for part in (
-            _text(props.get("citation_title")) or name,
+            full or _text(props.get("citation_title")) or name,
             f"geldend sinds {since}" if since else "",
             f"{count} artikelen" if count else "",
         )
         if part
     )
     short = _law_short(props)
+    article_law = {"celex" if eu else "bwb_id": law_id}
     toc = _list(
         [
             _link(
                 path_of(
                     f"articles/{a['key']}",
-                    {"bwb_id": bwb, "article_number": a["article_number"]},
+                    {**article_law, "article_number": a["article_number"]},
                 ),
-                article_name(bwb, a["article_number"], short),
+                article_name(law_id, a["article_number"], short),
             )
             for a in row["articles"]
         ]
     )
+    eur_lex = instrument_url(props) if eu else None
     body = (
         f"<h1>{escape(name)}</h1>"
+        + (f"<p>{escape(full)}</p>" if full else "")
         + (f"<p>Geldend sinds {escape(since)}.</p>" if since else "")
+        + (
+            f'<p><a href="{escape(eur_lex)}">De tekst op EUR-Lex</a></p>'
+            if eur_lex
+            else ""
+        )
         + _section("Inhoud", toc)
     )
     return Page(
@@ -186,8 +208,8 @@ def law_page(row: dict[str, Any]) -> Page:
         data={
             "@type": "Legislation",
             "name": name,
-            "legislationIdentifier": bwb,
-            "legislationJurisdiction": "NL",
+            "legislationIdentifier": law_id,
+            "legislationJurisdiction": jurisdiction,
             **(
                 {"legislationDate": props["date_in_force"]}
                 if props.get("date_in_force")
@@ -195,7 +217,7 @@ def law_page(row: dict[str, Any]) -> Page:
             ),
         },
         body=body,
-        index=not props.get("stub"),
+        index=not props.get("stub") and (not eu or count > 0),
     )
 
 
@@ -222,9 +244,8 @@ def article_page(row: dict[str, Any]) -> Page:
     text = _text(props.get("text"))
     # its text alone: the same whether the judgments citing it are kept yet or not
     description = text or title
-    law_path = (
-        path_of(f"instruments/{_text(law.get('bwb_id')).lower()}", law) if law else None
-    )
+    law_id, jurisdiction = _law_id(law or props)
+    law_path = path_of(f"instruments/{law_id.lower()}", law) if law else None
     law_label = law_name(law) if law else ""
     judgments = _list(
         [
@@ -252,15 +273,15 @@ def article_page(row: dict[str, Any]) -> Page:
         data={
             "@type": "Legislation",
             "name": title,
-            "legislationIdentifier": f"{_text(props.get('bwb_id'))} artikel "
+            "legislationIdentifier": f"{law_id} artikel "
             f"{_text(props.get('article_number'))}",
-            "legislationJurisdiction": "NL",
+            "legislationJurisdiction": jurisdiction,
             **(
                 {
                     "isPartOf": {
                         "@type": "Legislation",
                         "name": law_label,
-                        "legislationIdentifier": _text(law.get("bwb_id")),
+                        "legislationIdentifier": law_id,
                     }
                 }
                 if law_label

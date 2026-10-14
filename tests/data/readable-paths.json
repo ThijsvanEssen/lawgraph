@@ -19,6 +19,18 @@
       "path": "/wetten/BWBR0005289"
     },
     {
+      "focus": "instruments/32022l2555",
+      "props": {
+        "celex": "32022L2555"
+      },
+      "path": "/wetten/32022L2555"
+    },
+    {
+      "focus": "instruments/32016r0679",
+      "props": {},
+      "path": "/wetten/32016R0679"
+    },
+    {
       "focus": "articles/bwbr0005289_162",
       "props": {
         "bwb_id": "BWBR0005289",
@@ -41,6 +53,14 @@
         "article_number": "7:658"
       },
       "path": "/wetten/BWBR0005290/artikel/7:658"
+    },
+    {
+      "focus": "articles/32022l2555_21",
+      "props": {
+        "celex": "32022L2555",
+        "article_number": "21"
+      },
+      "path": "/wetten/32022L2555/artikel/21"
     },
     {
       "focus": "dossiers/36496",
@@ -222,6 +242,14 @@
       "canonical": "/wetten/BWBR0005289"
     },
     {
+      "path": "/wetten/32022l2555",
+      "pad": {
+        "soort": "wet",
+        "a": "32022L2555"
+      },
+      "canonical": "/wetten/32022L2555"
+    },
+    {
       "path": "/wetten/BWBR0005289/artikel/6%3A162",
       "pad": {
         "soort": "artikel",
@@ -288,6 +316,9 @@
     "/explore",
     "/actueel",
     "/wetten/xyz",
+    "/wetten/22022L2555",
+    "/wetten/32022X2555",
+    "/wetten/32022L2555/bijlage/I",
     "/wetten/BWBR0005289/hoofdstuk/1",
     "/uitspraken/geen-ecli",
     "/dossiers/12",

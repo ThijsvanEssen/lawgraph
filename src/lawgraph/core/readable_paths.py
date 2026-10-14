@@ -2,6 +2,7 @@
 
     /uitspraken/ECLI:NL:HR:2019:2006     a judgment, by its ECLI (as rechtspraak.nl)
     /wetten/BWBR0005289                  a law, by its BWB id
+    /wetten/32022L2555                   an EU act, by its CELEX number
     /wetten/BWBR0005289/artikel/6:162    an article, by its law and number
     /wetten/BWBR0002741/bijlage/II       an annex, by its law and label
     /dossiers/36600-VIII                 a dossier, by its number
@@ -30,12 +31,18 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
 
+from lawgraph.core.identifiers import CELEX_MATCH_LETTERS
 from lawgraph.core.models import make_node_key
 
 ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
 BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
+# An EU act by its CELEX number (sector 3, its year, its kind and its number), its node key
+# too in lower case: 32022L2555 (``core/identifiers.parse_celex``).
+CELEX = re.compile(rf"^3\d{{4}}[{CELEX_MATCH_LETTERS}]\d+$", re.IGNORECASE)
+# A law at ``/wetten``: one of the BWB or an EU act.
+LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}", re.IGNORECASE)
 # A key or slug as the API gives it: ``rutte_iv``, ``ek_democraten_1966``.
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -73,9 +80,9 @@ _BOOK_OF = {bwb: book.upper() for book, bwb in BW_BOOKS.items()}
 @dataclass(frozen=True)
 class Pad:
     """A readable address: its kind (``soort``) and its parts, as the front end has them.
-    ``a``, ``b`` and ``c`` are, per kind: an ECLI; a law; a law and a number; a law and
-    the label of an annex; a dossier; a dossier and a number; a series, a year and a
-    number; a slug or key; a number."""
+    ``a``, ``b`` and ``c`` are, per kind: an ECLI; a law (a BWB id or a CELEX number); a
+    law and a number; a law and the label of an annex; a dossier; a dossier and a number;
+    a series, a year and a number; a slug or key; a number."""
 
     soort: str
     a: str
@@ -93,7 +100,7 @@ def book_number(bwb_id: str | None, number: str) -> str:
 # and whether it is written in capitals (an ECLI, a BWB id, a number).
 _ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
     "uitspraken": ("uitspraak", ECLI, True),
-    "wetten": ("wet", BWB, True),
+    "wetten": ("wet", LAW, True),
     "dossiers": ("dossier", DOSSIER, True),
     "leden": ("lid", SLUG, False),
     "kabinetten": ("kabinet", SLEUTEL, False),
@@ -241,6 +248,9 @@ def _article(key: str, props: dict[str, Any]) -> str | None:
 def _instrument(key: str, props: dict[str, Any]) -> str | None:
     if BWB.match(key):
         return pad_href(Pad("wet", key.upper()))
+    celex = _text(props.get("celex")) or key
+    if CELEX.match(celex):
+        return pad_href(Pad("wet", celex.upper()))
     official = _text(props.get("official_id")) or key.replace("_", "-")
     m = _PUBLICATION_ID.match(official.lower())
     return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None

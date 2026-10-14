@@ -1262,3 +1262,81 @@ def test_a_debate_has_its_page_with_what_was_made_in_it(
     )
     assert "Geregistreerd op 10 april 2026" in commitment["main"]
     assert commitment["data"]["@graph"][0]["dateCreated"] == "2026-03-23"
+
+
+def _seed_eu(store: GraphStore) -> None:
+    title = (
+        "Richtlijn (EU) 2022/2555 van het Europees Parlement en de Raad van 14 december "
+        "2022 betreffende maatregelen voor een hoog gezamenlijk niveau van "
+        "cyberbeveiliging in de Unie (NIS 2-richtlijn)"
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("32022l2555", "instrument", celex="32022L2555", jurisdiction="eu",
+                  citation_title="Richtlijn (EU) 2022/2555",
+                  display_name="Richtlijn (EU) 2022/2555", title=title),
+            # an act whose text was not read: its title alone
+            _node("32019r0881", "instrument", celex="32019R0881", jurisdiction="eu",
+                  citation_title="Verordening (EU) 2019/881",
+                  display_name="Verordening (EU) 2019/881"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("32022l2555_21", "article", celex="32022L2555", article_number="21",
+                  heading="Maatregelen voor het beheer van cyberbeveiligingsrisico's",
+                  position=21, text="1. De lidstaten zorgen ervoor dat …"),
+            _node("32022l2555_2", "article", celex="32022L2555", article_number="2",
+                  heading="Toepassingsgebied", position=2, text="1. Deze richtlijn …"),
+        ],
+    )  # fmt: skip
+
+
+def test_an_eu_act_by_its_celex_number_lists_its_articles(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_eu(store)
+    response = _get(client, "/wetten/32022L2555")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == "Richtlijn (EU) 2022/2555, Concordans"
+    assert page["description"].startswith("Richtlijn (EU) 2022/2555 van het Europees")
+    assert page["canonical"] == "https://concordans.nl/wetten/32022L2555"
+    assert page["robots"] is None
+    assert page["og_image"] == "https://concordans.nl/og/wet.png"
+    main = page["main"]
+    # its articles in their order, at the address they already had
+    assert main.index('href="/wetten/32022L2555/artikel/2"') < main.index(
+        'href="/wetten/32022L2555/artikel/21"'
+    )
+    assert "Artikel 21 Richtlijn (EU) 2022/2555" in main
+    assert "eur-lex.europa.eu" in main and "CELEX:32022L2555" in main
+    law = page["data"]["@graph"][0]
+    assert law["legislationIdentifier"] == "32022L2555"
+    assert law["legislationJurisdiction"] == "EU"
+    assert _focus(response.text) == "instruments/32022l2555"
+    # another spelling, and the explorer of the act, to its readable address
+    lower = _get(client, "/wetten/32022l2555")
+    assert (lower.status_code, lower.headers["location"]) == (301, "/wetten/32022L2555")
+    focus = _get(client, "/explore?focus=instruments/32022l2555")
+    assert (focus.status_code, focus.headers["location"]) == (301, "/wetten/32022L2555")
+    # an act whose text was not read has no content of its own: not indexed
+    bare = _get(client, "/wetten/32019R0881")
+    assert bare.status_code == 200
+    assert _head(bare.text)["robots"] == "noindex"
+    assert _get(client, "/wetten/32099L9999").status_code == 404
+
+
+def test_an_article_of_an_eu_act_links_its_act(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_eu(store)
+    page = _head(_get(client, "/wetten/32022L2555/artikel/21").text)
+    assert page["title"].startswith("Art. 21 Richtlijn (EU) 2022/2555, Maatregelen")
+    assert 'href="/wetten/32022L2555"' in page["main"]
+    article = page["data"]["@graph"][0]
+    assert article["legislationIdentifier"] == "32022L2555 artikel 21"
+    assert article["legislationJurisdiction"] == "EU"
+    assert article["isPartOf"]["legislationIdentifier"] == "32022L2555"
