@@ -257,6 +257,23 @@ def test_leden_onderdelen_and_ad_headings_hang_under_their_article() -> None:
     assert all(s.char_end <= article.char_end for s in sections[1:])
 
 
+@pytest.mark.parametrize(
+    ("heading", "number"),
+    [
+        ("Eerste lid", "1"),
+        ("Tiende lid", "10"),
+        ("Elfde lid", "11"),
+        ("Twintigste lid", "20"),
+        ("2e lid", "2"),
+    ],
+)
+def test_a_lid_heading_reads_every_ordinal_a_citation_reads(
+    heading: str, number: str
+) -> None:
+    lid = _outline("Artikel 3", heading)[2]
+    assert (lid.kind, lid.number) == ("lid", number)
+
+
 def test_a_lid_heading_outside_an_article_is_a_heading_like_any_other() -> None:
     sections = _outline("Eerste lid", "Hoofdstuk 2", "Artikel 9")
     kinds = [s.kind for s in sections]
