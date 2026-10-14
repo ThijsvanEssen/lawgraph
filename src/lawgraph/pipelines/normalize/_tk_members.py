@@ -184,12 +184,14 @@ def normalize_factions(
 
 
 def link_members_to_committees(
-    store: Store,
+    pipeline: PipelineBase,
     committee_raws: Iterable[dict[str, Any]],
     *,
     source: str,
 ) -> None:
-    """MEMBER_OF edges from Persoon to Commissie, with the seat's period."""
+    """MEMBER_OF edges from Persoon to Commissie, with the seat's period. A seat of a
+    committee or a member not in the graph is skipped."""
+    store = pipeline.store
     seats = [
         (
             make_node_key(str(payload.get("Id") or "")),
@@ -207,11 +209,15 @@ def link_members_to_committees(
 
     writer = EdgeWriter(store, what="committee seat edges")
     for committee_key, held in seats:
-        if committee_key not in known_committees:
+        if held and committee_key not in known_committees:
+            pipeline.progress.skip(
+                "committee not in the graph", committee_key, count=len(held)
+            )
             continue
         for person_id, periods in held.items():
             member_key = make_node_key(person_id)
             if member_key not in known_members:
+                pipeline.progress.skip("member not in the graph", person_id)
                 continue
             writer.add(
                 node_id(COLLECTION_MEMBERS, member_key),

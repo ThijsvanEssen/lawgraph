@@ -4,8 +4,8 @@ of the member says them (``core.ek_persons``).
 
 A page is the member's whom the composition gave it (``ek.path``), else the member of the
 Tweede Kamer born on the day the page gives whose surname ends its name, when exactly one
-is; else none, and its periods are counted, not written (a former member of the Eerste
-Kamer who never sat in the Tweede Kamer has no member, and no page to show them on). A
+is (``ek_persons.match_member``); else none, and the page is skipped (a former member of the
+Eerste Kamer who never sat in the Tweede Kamer has no member, and no page to show them on). A
 period's faction is the faction of the Eerste Kamer of that abbreviation or name observed
 on its first day (as the votes match it, ``eerstekamer_votes.faction_of``); a faction gone
 before the composition was first read has none (its votes have no edges either). Every
@@ -17,7 +17,7 @@ counted and named in the log, not changed.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -27,17 +27,16 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_persons
+from lawgraph.core.eerstekamer_votes import faction_of
 from lawgraph.core.ek_changes import member_key
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter
-from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._ek_members import members_of_pages
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
-from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of
 
 logger = get_logger(__name__)
 
@@ -60,15 +59,20 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
     def normalize_nodes(
         self, raw: Iterable[dict[str, Any]], result: PipelineResult
     ) -> dict[str, Any]:
-        pages = {
-            str(r["external_id"]): page
-            for r in raw
-            if (page := ek_persons.person_page(self._payload_text(r) or ""))
-        }
+        pages: dict[str, ek_persons.PersonPage] = {}
+        for record in raw:
+            path = str(record["external_id"])
+            page = ek_persons.person_page(self._payload_text(record) or "")
+            if page is None:
+                self.progress.skip("no member's page", path)
+            else:
+                pages[path] = page
         members = members_of_pages(self.store, pages)
         factions = self._factions()
         events = _by_member(ek_seats.events(self.store))
         unmatched = sorted(path for path in pages if path not in members)
+        for path in unmatched:
+            self.progress.skip("page of no member", path)
         no_faction, off = 0, []
         with NodeWriter(self.store) as writer:
             for path, key in members.items():
@@ -116,35 +120,6 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
         return factions
 
 
-def members_of_pages(
-    store: Store, pages: Mapping[str, ek_persons.PersonPage | None]
-) -> dict[str, str]:
-    """The key of the member of each page of a person of the Eerste Kamer (by its path) that
-    has one: the member the composition gave the page (``ek.path``), else the one member of
-    the Tweede Kamer born on the day the page gives whose surname ends its name. Shared by
-    every step that names a person by their page (the periods here, the signers of a motion
-    in ``normalize eerstekamer-motions``). A path whose page is not stored (None) is matched
-    by the composition's path alone."""
-    found = normalize_ek.members_by_ek_path(store, sorted(pages))
-    dates = sorted({p.birth_date for p in pages.values() if p and p.birth_date})
-    born: dict[str, list[dict[str, Any]]] = {}
-    for row in normalize_tk.members_born_on(store, dates):
-        born.setdefault(str(row["birth_date"]), []).append(row)
-    for path, page in pages.items():
-        if path in found or page is None or not page.birth_date:
-            continue
-        name = page.name.rsplit("(", 1)[0].strip().casefold()
-        same = [
-            row
-            for row in born.get(page.birth_date, [])
-            if row.get("family_name")
-            and name.endswith(str(row["family_name"]).casefold())
-        ]
-        if len(same) == 1:
-            found[path] = str(same[0]["key"])
-    return found
-
-
 def _period(
     period: ek_persons.Period, faction: dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -173,7 +148,7 @@ def _by_member(rows: list[dict[str, Any]]) -> dict[str, list[str]]:
 def _dated(day: str, name: str, events: dict[str, list[str]]) -> bool:
     """Whether a change of the member named *name*, or a term's first day, dates *day*
     within ``CHECK_DAYS`` (a last day: the day after it)."""
-    who = member_key(name.rsplit("(", 1)[0])
+    who = member_key(ek_persons.bare_name(name))
     wanted = dt.date.fromisoformat(day)
     for other in events.get(who, []) + events.get("", []):
         try:
