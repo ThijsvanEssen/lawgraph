@@ -315,7 +315,7 @@ SELECT
             FROM {COLLECTION_EDGES} e2
             WHERE e2.from_id = e.from_id AND e2.relation = %(legislated_in)s
               AND e2.to_collection = '{COLLECTION_DOSSIERS}'
-        ) found
+        ) found(id)
         ORDER BY k
     ) AS dossier_keys,
     CASE WHEN s.collection = '{COLLECTION_INSTRUMENTS}'
