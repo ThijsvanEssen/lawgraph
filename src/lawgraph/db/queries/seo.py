@@ -688,16 +688,17 @@ def changed(store: GraphStore, sources: tuple[str, ...]) -> list[dict[str, Any]]
     )
 
 
-def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
-    """The regulations *sources* enact, introduce, amend, repeal or explain (themselves or in
-    their articles), by name: ``id``, ``props`` (to their address), ``name`` and
-    ``relations``."""
-    rows = store.query(
-        f"""
+def named_changes_sql(sources: str) -> str:
+    """SQL: the regulations the nodes *sources* (an expression, a text array) enact,
+    introduce, amend, repeal or explain (themselves or in their articles) and that have a
+    name: ``id``, ``bwb_id``, ``name`` and ``relation``, a row per relation. Its parameter
+    ``changes`` is ``PUBLICATION_RELATIONS``. What a publication changes on its page
+    (``changed``) and whether the sitemap lists it (``sitemaps.publications``)."""
+    return f"""
         WITH targets AS (
             SELECT e.to_id, e.to_collection, e.relation
             FROM edges e
-            WHERE e.from_id = ANY(%(sources)s::text[])
+            WHERE e.from_id = ANY({sources})
               AND e.relation = ANY(%(changes)s::text[])
               AND e.to_collection IN ('{COLLECTION_INSTRUMENTS}', '{COLLECTION_ARTICLES}')
         ),
@@ -726,21 +727,35 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
             SELECT i.id, al.relation
             FROM article_laws al
             JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = al.bwb_id
+        ),
+        named AS (
+            SELECT i.id, i.bwb_id, laws.relation,
+                   coalesce(lg_str(i.props -> 'citation_title'),
+                            lg_str(i.props -> 'title')) AS name
+            FROM laws
+            JOIN {COLLECTION_INSTRUMENTS} i ON i.id = laws.id
         )
-        SELECT i.id, json_build_object('bwb_id', i.bwb_id) AS props,
-               coalesce(lg_str(i.props -> 'citation_title'),
-                        lg_str(i.props -> 'title')) AS name,
-               array_agg(DISTINCT laws.relation ORDER BY laws.relation ASC NULLS LAST)
+        SELECT id, bwb_id, name, relation FROM named WHERE name IS NOT NULL
+    """
+
+
+def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
+    """The regulations *sources* change by name (``named_changes_sql``): ``id``,
+    ``props`` (to their address), ``name`` and ``relations``."""
+    return list(
+        store.query(
+            f"""
+        SELECT c.id, json_build_object('bwb_id', c.bwb_id) AS props, c.name,
+               array_agg(DISTINCT c.relation ORDER BY c.relation ASC NULLS LAST)
                    AS relations
-        FROM laws
-        JOIN {COLLECTION_INSTRUMENTS} i ON i.id = laws.id
-        GROUP BY i.id
-        ORDER BY name ASC NULLS LAST, i.id
+        FROM ({named_changes_sql("%(sources)s::text[]")}) c
+        GROUP BY c.id, c.bwb_id, c.name
+        ORDER BY c.name ASC NULLS LAST, c.id
         LIMIT %(limit)s
         """,
-        {"sources": sources, "changes": list(PUBLICATION_RELATIONS), "limit": LAWS},
+            {"sources": sources, "changes": list(PUBLICATION_RELATIONS), "limit": LAWS},
+        )
     )
-    return [r for r in rows if r["name"]]
 
 
 def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -892,23 +907,3 @@ def activity(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if head is None:
         return None
     return {**head, "records": get_activity_records(store, head["id"])}
-
-
-# The reads of each kind of page.
-READS = {
-    "wet": law,
-    "artikel": article,
-    "uitspraak": judgment,
-    "kamerstuk": paper,
-    "dossier": dossier,
-    "lid": member,
-    "fractie": faction,
-    "kabinet": cabinet,
-    "commissie": committee,
-    "publicatie": publication,
-    "toezegging": commitment,
-    "stemming": decision,
-    "bijlage": annex,
-    "zaak": case,
-    "activiteit": activity,
-}
