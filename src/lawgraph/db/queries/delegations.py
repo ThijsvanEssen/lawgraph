@@ -123,13 +123,15 @@ def get_delegated_regulations(
 
 
 # The articles in force of the regulations of ``regulations`` (``id``, ``bwb_id``), each with
-# the id of its regulation: by the ``(bwb_id, …)`` index of the articles.
+# the id of its regulation: by the ``(bwb_id, …)`` index of the articles. A part of a ``WITH``
+# that has ``regulations`` before it.
 _REGULATION_ARTICLES = f"""
+regulation_articles AS MATERIALIZED (
     SELECT g.id AS reg_id, ra.id, ra.key, ra.article_number, ra.position, ra.props
     FROM regulations g
     JOIN {COLLECTION_ARTICLES} ra ON ra.bwb_id = g.bwb_id
     WHERE ra.repealed IS NOT TRUE AND ra.stub IS NOT TRUE
-"""
+)"""
 
 # Per pair of ``based`` (``from_id``: the regulation, ``id``: the article it names) the
 # articles of the regulation that refer to that article, in the order of the regulation: each
@@ -244,7 +246,7 @@ regulations AS MATERIALIZED (
     JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
     WHERE {_in_force("i")}
 ),
-regulation_articles AS MATERIALIZED ({_REGULATION_ARTICLES}),
+{_REGULATION_ARTICLES},
 {_REFERRING},
 {_ALSO_BASED_ON},
 {_SUB_DELEGATED},
@@ -315,7 +317,7 @@ based AS (
     WHERE x.repealed IS NOT TRUE
     ORDER BY x.id, e.key
 ),
-regulation_articles AS MATERIALIZED ({_REGULATION_ARTICLES}),
+{_REGULATION_ARTICLES},
 {_REFERRING},
 laws AS (
     SELECT b.law, json_agg(json_build_object(
