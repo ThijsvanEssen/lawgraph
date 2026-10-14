@@ -10,11 +10,11 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, TextIO
 
-from lawgraph.config.settings import LOG_FILE, LOG_JSON, LOG_LEVEL, LOG_NO_COLOR
+from lawgraph.config.settings import LOG_FILE, LOG_FORMAT, LOG_LEVEL, NO_COLOR
 
 # ``step`` is the command a line belongs to ("retrieve staatscourant"), so lines of steps that
 # run side by side can be told apart; ``short_name`` is the logger without ``lawgraph.``.
-LOG_FORMAT = "%(asctime)s [%(levelname)s] %(step_tag)s%(short_name)s: %(message)s"
+LINE_FORMAT = "%(asctime)s [%(levelname)s] %(step_tag)s%(short_name)s: %(message)s"
 
 _step: contextvars.ContextVar[str] = contextvars.ContextVar("lawgraph_step", default="")
 
@@ -59,8 +59,12 @@ LEVEL_COLORS = {
 }
 
 
+def _stderr_is_tty() -> bool:
+    return getattr(sys.stderr, "isatty", lambda: False)()
+
+
 def _use_color() -> bool:
-    return not LOG_NO_COLOR and getattr(sys.stderr, "isatty", lambda: False)()
+    return not NO_COLOR and _stderr_is_tty()
 
 
 class ColorFormatter(logging.Formatter):
@@ -170,29 +174,26 @@ def live_status(step: str, line: str | None) -> bool:
 
 
 def _terminal_is_live() -> bool:
-    return not LOG_JSON and getattr(sys.stderr, "isatty", lambda: False)()
+    return LOG_FORMAT != "json" and _stderr_is_tty()
 
 
 _LAWGRAPH_HANDLER_ATTR = "_lawgraph_handler_installed"
 
 
-def setup_logging(level: int | None = None) -> None:
+def setup_logging() -> None:
     """Configure the root logger once. No-ops when a LawGraph handler is already attached."""
     root = logging.getLogger()
     if getattr(root, _LAWGRAPH_HANDLER_ATTR, False):
         return
 
-    if level is None:
-        level = getattr(logging, LOG_LEVEL, logging.INFO)
+    root.setLevel(LOG_LEVEL)
 
-    root.setLevel(level)
-
-    if LOG_JSON:
+    if LOG_FORMAT == "json":
         formatter: logging.Formatter = _JsonFormatter()
     elif _use_color():
-        formatter = ColorFormatter(LOG_FORMAT)
+        formatter = ColorFormatter(LINE_FORMAT)
     else:
-        formatter = logging.Formatter(LOG_FORMAT)
+        formatter = logging.Formatter(LINE_FORMAT)
 
     global _live
     handler: logging.Handler
@@ -208,7 +209,7 @@ def setup_logging(level: int | None = None) -> None:
         log_file = logging.FileHandler(LOG_FILE, encoding="utf-8")
         log_file.addFilter(_StepFilter())
         log_file.setFormatter(
-            _JsonFormatter() if LOG_JSON else logging.Formatter(LOG_FORMAT)
+            formatter if LOG_FORMAT == "json" else logging.Formatter(LINE_FORMAT)
         )
         root.addHandler(log_file)
     setattr(root, _LAWGRAPH_HANDLER_ATTR, True)

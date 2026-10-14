@@ -22,7 +22,7 @@ from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator
 from typing import TypeVar
 
-from lawgraph.core.logging import current_step, live_status
+from lawgraph.core.logging import current_step, get_logger, live_status
 from lawgraph.core.time import format_duration
 
 T = TypeVar("T")
@@ -33,7 +33,7 @@ LIVE_INTERVAL_SECONDS = 1.0
 # The speed is that of the last minute: what was fetched an hour ago says little about now.
 RATE_WINDOW_SECONDS = 60.0
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class PeriodicLog:
