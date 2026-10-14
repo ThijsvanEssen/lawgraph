@@ -22,11 +22,20 @@ _IMITATED = re.compile(
 )
 
 
+# Where the feed keeps the cheap spelling of a GUID's key (``feed_relations.bwb_key`` that
+# of a BWB id): ``lg_node_key`` in its place turns the plan of the feed's page.
+_KEPT = {"feed.py": ("_PERSON_KEY = ",)}
+
+
 def test_a_query_makes_a_node_key_with_lg_node_key() -> None:
     offenders = [
-        f"{path.relative_to(_QUERIES)}:{text[: match.start()].count(chr(10)) + 1}"
+        f"{path.relative_to(_QUERIES)}:{line}"
         for path in sorted(_QUERIES.rglob("*.py"))
         for text in [path.read_text()]
         for match in _IMITATED.finditer(text)
+        for line in [text[: match.start()].count(chr(10)) + 1]
+        if not text.splitlines()[line - 1].startswith(
+            _KEPT.get(path.relative_to(_QUERIES).as_posix(), ("\0",))
+        )
     ]
     assert not offenders, offenders

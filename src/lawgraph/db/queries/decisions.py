@@ -757,11 +757,11 @@ def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, A
         ) AS coalition
         FROM decisions d
         WHERE d.key = ANY(%(keys)s)
-        ORDER BY array_position(%(keys)s::text[], d.key)
         """,
         {"keys": keys, "voted": RELATION_VOTED},
     )
-    return [_decision_detail(row) for row in rows]
+    found = {row["key"]: _decision_detail(row) for row in rows}
+    return [found[key] for key in keys if key in found]
 
 
 def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:

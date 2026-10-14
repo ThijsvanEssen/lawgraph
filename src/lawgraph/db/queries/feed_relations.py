@@ -66,6 +66,14 @@ def _kinds(*kinds: str) -> str:
     return ", ".join(f"'{kind}'" for kind in kinds)
 
 
+def bwb_key(bwb: str) -> str:
+    """SQL: the key of the instrument of the BWB id *bwb*: the id in lower case. A BWB id is
+    letters and digits, so ``lg_node_key`` makes the same of it, but the planner prices that
+    higher and turns the plan of the feed's page (an index scan of the instruments for the
+    scan it reads them by)."""
+    return f"lower({bwb})"
+
+
 # The identifier of the publication ``n`` as a regulation names the one that enacted it
 # (``props.enacted_publication``): its id on officielebekendmakingen.nl, else made of its
 # series, year and number as the BWB makes it (``core.bwb_xml._publication``).
@@ -245,7 +253,7 @@ COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_objec
                         FROM {COLLECTION_EDGES} e
                         JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
                         WHERE {_BWB} IS NOT NULL
-                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lg_node_key({_BWB})
+                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
                           AND e.relation = '{RELATION_BASED_ON}'
                           AND e.to_collection = '{COLLECTION_ARTICLES}'
                           AND a.bwb_id IS NOT NULL
@@ -468,7 +476,7 @@ def via(article: bool) -> str:
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind = '{EVENT_COMMENCEMENT}' AND {_BWB} IS NOT NULL
-              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lg_node_key({_BWB})
+              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
               AND e.relation = '{RELATION_BASED_ON}'
               AND e.to_collection = '{COLLECTION_ARTICLES}' AND {_of_law("a", article)}
             UNION ALL

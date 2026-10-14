@@ -90,6 +90,7 @@ from lawgraph.db.queries.feed_relations import (
     FOLLOWS,
     PUBLICATION_IDENTIFIER,
     RELATIONS,
+    bwb_key,
     followed_ctes,
     via,
 )
@@ -384,10 +385,7 @@ _PUBLICATION_LAWS = f"""(
 
 _CITATION_TITLE = truthy_or("i.props -> 'citation_title'", "i.props -> 'title'")
 _BWB_ID = as_text("n.props -> 'bwb_id'")
-# The key of the instrument of that BWB id: the id in lower case (all letters and digits, so
-# ``lg_node_key`` makes the same of it, but the planner prices that higher here and turns the
-# join of the page; tests/pg/test_node_key_sql.py).
-_BWB_KEY = f"lower({_BWB_ID})"
+_BWB_KEY = bwb_key(_BWB_ID)
 
 _SOURCES: dict[str, _Source] = {
     source.kind: source
@@ -1133,6 +1131,10 @@ _SIGNATURES = f"""CASE pg.kind
 # A signature as an item shows it: with the key and name of its member (a member's key is
 # its TK GUID made a node key) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
+# The key of the member of a signature's TK GUID: the GUID in lower case with ``_`` for
+# ``-`` (what ``lg_node_key`` makes of a GUID; in its place the planner turns the join of
+# the page).
+_PERSON_KEY = "replace(lower(s.p ->> 'person_id'), '-', '_')"
 # The member's name is the expression of ``members.list_name`` on its props: read as the
 # column, the planner turns the join of the page.
 _MEMBER_NAME = truthy_or(
@@ -1154,7 +1156,7 @@ _PERSONS = f"""CROSS JOIN LATERAL (
             CROSS JOIN LATERAL (SELECT CASE
                 WHEN lg_truthy(s.p -> 'member_key') THEN s.p -> 'member_key'
                 WHEN {is_present("s.p -> 'person_id'")}
-                    THEN to_json(lg_node_key(s.p ->> 'person_id'))
+                    THEN to_json({_PERSON_KEY})
             END AS key) who
             LEFT JOIN LATERAL (
                 SELECT props FROM {COLLECTION_MEMBERS} WHERE key = (who.key {_JSON_TEXT})
