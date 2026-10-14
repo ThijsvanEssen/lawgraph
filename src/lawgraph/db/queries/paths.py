@@ -280,6 +280,7 @@ def get_paths(
     followed: Followed = EVERY_EDGE_BUT_THROUGH_LAWS,
     *,
     expand_cap: int = 0,
+    passages: bool = False,
 ) -> dict[str, Any]:
     """For every pair of *ids*, the shortest path between them within *max_depth* edges
     along the edges *followed* lets through: ``{paths, nodes, edges, capped, partial,
@@ -290,7 +291,8 @@ def get_paths(
     With *expand_cap* a group of *ids* (a law, a faction, a committee, a cabinet, a
     dossier: ``path_groups``) starts from its *expand_cap* most telling children too:
     ``expanded`` says per group how many of how many, ``membership`` the keys of the edges
-    that make a child. ``partial``: the search ran past ``PATHS_BUDGET``."""
+    that make a child. ``partial``: the search ran past ``PATHS_BUDGET``. With *passages* an
+    edge's ``meta`` has its ``passages`` (``_rows.mentioned_passages``)."""
     chosen = list(dict.fromkeys(ids))
     groups = (
         {i: children_of(store, i, expand_cap) for i in chosen if is_group(i)}
@@ -311,7 +313,10 @@ def get_paths(
     found = [p for p in found if all(n in nodes for n in p.nodes)]
     edge_keys = sorted({e for p in found for e in p.edges})
     edges = (
-        [light_edge_doc(row) for row in store.query(_EDGES_SQL, {"keys": edge_keys})]
+        [
+            light_edge_doc(row, passages)
+            for row in store.query(_EDGES_SQL, {"keys": edge_keys})
+        ]
         if edge_keys
         else []
     )

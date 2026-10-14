@@ -507,7 +507,7 @@ def test_the_commitments_newest_first_with_their_facets(
         }
     )
     k1 = page["items"][1]
-    assert list(k1) == ["commitment", "member", "dossiers", "activity"]
+    assert list(k1) == ["commitment", "member", "dossiers", "activity", "fulfilled_by"]
     assert list(k1["commitment"]) == ["_key", "_id", "type", "labels", "props"]
     assert k1["commitment"]["props"]["text"] == "Een brief over Box 3"
     assert json.dumps(k1["member"]) == json.dumps({"key": "m1", "name": "Eelco Heinen"})
@@ -519,8 +519,15 @@ def test_the_commitments_newest_first_with_their_facets(
         ]
     )
     assert json.dumps(k1["activity"]) == json.dumps(
-        {"key": "a1", "date": "2026-04-01", "number": "2026A01"}
+        {
+            "key": "a1",
+            "date": "2026-04-01",
+            "number": "2026A01",
+            "kind": None,
+            "agenda_title": None,
+        }
     )
+    assert k1["fulfilled_by"] == []
     k3 = page["items"][2]
     assert (k3["member"], k3["activity"]) == (None, None)
     assert get_commitment(government, "k1") == k1

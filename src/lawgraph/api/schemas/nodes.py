@@ -225,6 +225,27 @@ class NodeGraphResponse(BaseModel):
     )
 
 
+class EdgePassage(BaseModel):
+    """A place where a judgment cites, as the edge keeps it: to show without the judgment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    paragraph_id: str = Field(
+        description="The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`; of a "
+        "footnote the paragraph that refers to it."
+    )
+    paragraph_number: str | None = Field(
+        description="Its printed number (`5.3`), null when it has none."
+    )
+    footnote: str | None = Field(
+        description="The label of the footnote it stands in, null in the paragraph itself."
+    )
+    snippet: str = Field(description="The text around the citation.")
+    text: str = Field(description="The citation as written: `snippet[start:end]`.")
+    start: int
+    end: int
+
+
 class NodeNeighborhoodEdge(BaseModel):
     """Edge in a BFS-neighborhood response."""
 
@@ -236,6 +257,30 @@ class NodeNeighborhoodEdge(BaseModel):
     relation: str | None
     confidence: float | None = None
     status: str | None = None
+    passages: list[EdgePassage] | None = Field(
+        None,
+        exclude_if=lambda value: value is None,
+        description="With `edge_meta=passages`: where a judgment cites the article or the "
+        "judgment the edge reaches (absent otherwise, and for an edge without them).",
+    )
+
+    @classmethod
+    def from_doc(cls, edge: dict[str, Any]) -> NodeNeighborhoodEdge:
+        """From an edge (``_rows.light_edge_doc``), with the passages of its ``meta``."""
+        confidence = edge.get("confidence")
+        meta = edge.get("meta")
+        passages = meta.get("passages") if isinstance(meta, dict) else None
+        return cls(
+            id=edge["_id"],
+            source=edge["_from"],
+            target=edge["_to"],
+            relation=edge.get("relation"),
+            confidence=(
+                float(confidence) if isinstance(confidence, int | float) else None
+            ),
+            status=edge.get("status"),
+            **({"passages": passages} if passages else {}),
+        )
 
 
 class NeighborhoodCollectionDTO(BaseModel):

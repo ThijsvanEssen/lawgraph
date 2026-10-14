@@ -13,6 +13,7 @@ from typing import Any
 from psycopg import sql
 
 from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
@@ -210,6 +211,22 @@ def find_official(store: GraphStore, official_id: str) -> str | None:
     if paper := _PAPER_ID.match(official_id):
         return find_document(store, paper["dossier"], paper["number"])
     return None
+
+
+def find_activity(store: GraphStore, number: str) -> str | None:
+    """The activity of the Tweede Kamer numbered *number* (``2026A01323``), found first by
+    ``activities_number`` (as ``find_case``)."""
+    return _one(
+        store,
+        f"""
+        WITH numbered AS MATERIALIZED (
+            SELECT a.id, a.key FROM {COLLECTION_ACTIVITIES} a
+            WHERE lg_str(a.props -> 'number') = %(number)s
+        )
+        SELECT id FROM numbered ORDER BY key LIMIT 1
+        """,
+        {"number": number.strip().upper()},
+    )
 
 
 def find_commitment(store: GraphStore, number: str) -> str | None:

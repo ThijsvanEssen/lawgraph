@@ -22,6 +22,7 @@ from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
@@ -617,7 +618,7 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def motion_papers(
-    store: GraphStore, decisions: list[dict[str, Any]]
+    store: Store, decisions: list[dict[str, Any]]
 ) -> list[tuple[dict[str, Any] | None, Any]]:
     """Per decision of *decisions* (``{id, primary_case_kind, primary_case_id}``) the
     motion or amendment it was taken on (``{collection, key, path}``) and the dictum of a
@@ -848,6 +849,51 @@ def get_decision_document(
     )
     row = next(rows, None)
     return node_doc(row) if row else None
+
+
+# The paper a decision was taken on, as ``get_decision_document`` picks it (of the cases in
+# their order the oldest paper, the key settling a tie), read light: one row.
+_DECISION_PAPER = f"""
+SELECT doc.id, l.props AS light
+FROM {COLLECTION_EDGES} e
+JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
+LEFT JOIN lg_document_light l ON l.id = doc.id
+WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
+  AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+ORDER BY array_position(%(case_ids)s::text[], e.to_id), doc.date ASC NULLS FIRST,
+         doc.key ASC
+LIMIT 1
+"""
+
+
+def decision_paper(
+    store: GraphStore, decision: dict[str, Any]
+) -> dict[str, Any] | None:
+    """``{id, light, number}`` of the paper *decision* (a stored decision) was taken on: of
+    the case it singled out, then of its other cases, the oldest paper (as
+    ``get_decision_document``); else the Kamerstuk it is ABOUT (a vote of the Eerste Kamer,
+    whose letter, ``number``, is no light prop). None without either."""
+    props = decision.get("props") or {}
+    primary = props.get("primary_case_id")
+    cases = [primary] if primary else []
+    cases += [c for c in props.get("case_ids") or [] if c != primary]
+    if cases:
+        rows = store.query(
+            _DECISION_PAPER,
+            {
+                "case_ids": [
+                    f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in cases
+                ],
+                "part_of": RELATION_PART_OF,
+            },
+        )
+        row = next(rows, None)
+        if row is not None:
+            return {**row, "number": None}
+    about = store.query(
+        _ABOUT_PAPERS, {"ids": [decision["_id"]], "about": RELATION_ABOUT}
+    )
+    return next(about, None)
 
 
 def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str, Any]]:

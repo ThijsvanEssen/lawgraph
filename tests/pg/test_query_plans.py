@@ -114,6 +114,10 @@ URLS = [
     f"/api/instruments/{BWB}/related-instruments",
     # the regulations issued under the law: its articles, then their BASED_ON edges
     f"/api/instruments/{BWB}/delegated",
+    # the basis of a regulation: its edges, then the articles of it that refer to each
+    f"/api/instruments/{BWB}/basis",
+    # the references between the articles of two laws: those of each, by its edges
+    f"/api/instruments/{BWB}/references/BWBR0002",
     f"/api/instruments/{BWB}/versions",
     f"/api/articles/{BWB}/1",
     f"/api/articles/{BWB}/1/cited-by",
@@ -150,6 +154,11 @@ URLS = [
     "/render/stb/2025/263",
     "/render/toezeggingen/TZ202609-124",
     "/render/stemmingen/b1",
+    "/render/activiteiten/2026A01323",
+    # a debate, and what was made in it: by the edges into it, a paper by its light row
+    "/api/activities/act1",
+    "/api/activities/act1/records",
+    "/api/commitments/tz1",
     # the events per month of a topic, by the index on their words
     "/api/feed/periods?q=proef&chamber=TK",
     "/api/dossiers/36000/changed-articles",
@@ -235,7 +244,15 @@ def _seed(store: GraphStore) -> None:
                 jurisdiction="nl",
                 kind="wet",
                 article_count=2,
-            )
+            ),
+            # an AMvB issued under the law, and a regulation issued under the AMvB
+            _node("bwbr0002", "instrument", bwb_id="BWBR0002", kind="amvb"),
+            _node(
+                "bwbr0003",
+                "instrument",
+                bwb_id="BWBR0003",
+                kind="ministeriele-regeling",
+            ),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -253,6 +270,10 @@ def _seed(store: GraphStore) -> None:
                 breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
             )
             for n in (1, 2)
+        ]
+        + [
+            _node(f"{law}_1", "article", bwb_id=law.upper(), article_number="1")
+            for law in ("bwbr0002", "bwbr0003")
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -376,9 +397,19 @@ def _seed(store: GraphStore) -> None:
         "decisions",
         [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
     )
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [_node("act1", "activity", number="2026A01323", kind="Wetgevingsoverleg",
+               date="2026-03-23", status="Uitgevoerd", dossier_numbers=["36000"])],
+    )  # fmt: skip
     article = f"articles/{BWB.lower()}_1"
     store.bulk_insert_or_update_edges(
         [
+            # a debate: its committee, a paper and a commitment made in it, a vote taken
+            _edge("al", "activities/act1", "committees/c1", "LED_BY"),
+            _edge("ad", "documents/d1", "activities/act1", "MADE_IN"),
+            _edge("at", "commitments/tz1", "activities/act1", "MADE_IN"),
+            _edge("ab", "decisions/b1", "activities/act1", "MADE_IN"),
             _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
             _edge("mc", "members/m1", "committees/c1", "MEMBER_OF"),
             _edge("mk", "members/m1", "cabinets/k1", "SERVED_IN"),
@@ -417,6 +448,10 @@ def _seed(store: GraphStore) -> None:
                 "BASED_ON",
                 meta={"text": "1, eerste lid"},
             ),
+            _edge("b2", "instruments/bwbr0002", article, "BASED_ON"),
+            _edge("b3", "instruments/bwbr0003", "articles/bwbr0002_1", "BASED_ON"),
+            _edge("r3", "articles/bwbr0002_1", article, "REFERS_TO"),
+            _edge("r4", "articles/bwbr0003_1", article, "REFERS_TO"),
             _edge("s1", article, "annexes/a1", "SCOPED_BY"),
             # a bill: the publication that enacts it, and a paper that proposes a change
             _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),
@@ -720,7 +755,7 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
     assert not differ, "\n".join(sorted(set(differ)))
 
 
-def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
+def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statistics(
     planned: GraphStore,
 ) -> None:
     """An expression index made after the last ANALYZE has no statistics: the planner then
@@ -737,6 +772,7 @@ def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
             for index, table, expression in (
                 ("cases_number", "cases", "public.lg_str(props -> 'number')"),
                 ("members_slug", "members", "public.lg_str(props -> 'slug')"),
+                ("activities_number", "activities", "public.lg_str(props -> 'number')"),
             ):
                 # made again in this transaction: no statistics, as a new index has
                 conn.execute(f"DROP INDEX {index}")
@@ -751,11 +787,27 @@ def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
     try:
         lookup.find_case(planned, "2025Z15468")
         lookup.find_member(planned, "a-lid")
+        lookup.find_activity(planned, "2026A01323")
     finally:
         planned.query = original  # type: ignore[method-assign]
-    case, member = found
+    case, member, activity = found
     assert any("cases_number" in line for line in case), case
     assert any("members_slug" in line for line in member), member
+    assert any("activities_number" in line for line in activity), activity
     assert not any(
-        line.endswith(("cases_key", "members_key")) for line in case + member
+        line.endswith(("cases_key", "members_key", "activities_key"))
+        for line in case + member + activity
+    )
+
+
+def test_an_article_reads_the_definitions_its_regulation_takes(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """The article route reads the regulations its regulation is issued under (two levels
+    of ``BASED_ON``) for the definitions it takes: planned above with the rest."""
+    from lawgraph.db.queries.definitions import _BASES_SQL
+
+    assert any(
+        url == f"/api/articles/{BWB}/1" and _text(statement) == _text(_BASES_SQL)
+        for url, statement, _ in statements
     )

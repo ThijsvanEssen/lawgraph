@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.echr_docx import read_judgment
+from lawgraph.core.echr_findings import echr_outcome_props
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
@@ -111,6 +112,8 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             "originating_body": payload.get("originatingbody") or "",
             "articles": articles if isinstance(articles, list) else [articles],
             "conclusion": payload.get("conclusion") or "",
+            # what it found per article, and whether it found a violation
+            **echr_outcome_props(payload.get("conclusion")),
             # of the record: a decision is in HUDOC once per language (``echr-versions``)
             "language": payload.get("languageisocode") or None,
         }

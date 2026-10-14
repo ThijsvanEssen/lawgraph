@@ -110,6 +110,7 @@ def client(store: GraphStore) -> Iterator[TestClient]:
         [_node("bwbr0002741_annex_ii", "annex", bwb_id="BWBR0002741", label="II")],
     )
     put("cases", [_node("0a1b2c3d", "case", number="2025Z15468", kind="Motie")])
+    put("activities", [_node("18f47274", "activity", number="2026A01323")])
     app.dependency_overrides[get_store] = lambda: store
     try:
         yield TestClient(app)
@@ -188,6 +189,12 @@ def client(store: GraphStore) -> Iterator[TestClient]:
             "annex",
         ),
         ({"kind": "case", "number": "2025z15468"}, "cases/0a1b2c3d", "case"),
+        # an activity (a debate) by its number
+        (
+            {"kind": "activity", "number": "2026a01323"},
+            "activities/18f47274",
+            "activity",
+        ),
     ],
 )
 def test_each_kind_finds_its_node(
@@ -259,6 +266,7 @@ def test_a_stub_and_a_replaced_judgment_are_answered(client: TestClient) -> None
         {"kind": "annex", "law": "BWBR0002741", "label": "IX"},
         {"kind": "annex", "law": "xyz", "label": "II"},
         {"kind": "case", "number": "2025Z99999"},
+        {"kind": "activity", "number": "2026A99999"},
     ],
 )
 def test_what_is_not_in_the_data_is_404_not_in_data(

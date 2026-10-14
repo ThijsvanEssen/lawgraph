@@ -172,6 +172,9 @@ from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_paper_outcomes import (
+    TKPaperOutcomesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
 )
@@ -1002,7 +1005,8 @@ SEMANTIC: list[Pipeline] = [
         (
             "RELATED_TO, REVISES, ACCOMPANIES and SECOND_READING_OF between dossiers: the cases "
             "the Kamer relates, the budget a budget change revises and the nota it comes with, "
-            "and the first reading of a change in the Grondwet."
+            "and the first reading of a change in the Grondwet; MADE_IN from a motion to the "
+            "debate it was submitted in."
         ),
     ),
     _pipeline(
@@ -1010,7 +1014,7 @@ SEMANTIC: list[Pipeline] = [
         (
             "ANSWERS and REFERS_TO to the Kamerstukken a paper's subject names by dossier "
             'and number, "(Kamerstuk 25424-795)": ANSWERS from a letter of the government '
-            "to a motion."
+            "to a motion, also one its text or a footnote names."
         ),
     ),
     _pipeline(
@@ -1052,7 +1056,13 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         tk_dictum.main,
-        "Keeps the dictum of every motion with text (what it asks or says).",
+        "Keeps the dictum of every motion with text (what it asks or says) and the opening "
+        "of the Toelichting of every amendment with text.",
+    ),
+    _pipeline(
+        TKPaperOutcomesSemanticPipeline,
+        "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
+        "aangehouden, vervallen, vervangen), when, and by how many seats.",
     ),
     _pipeline(
         graph_light.main,

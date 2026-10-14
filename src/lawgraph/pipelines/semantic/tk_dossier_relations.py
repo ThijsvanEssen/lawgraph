@@ -12,7 +12,9 @@ within one dossier or without one: a letter of the government and the motion it 
 moved activity is ``CONTINUES``d by the one that replaced it (``Activiteit.VervangenDoor``;
 ``meta.reason`` ``verplaatst``). A paper of a case that replaces another (an amended amendment
 or motion, ``Zaak.VervangenVanuit``) ``REVISES`` the papers of that case (``meta.rule``
-``vervanging``).
+``vervanging``). A motion is ``MADE_IN`` the debate it was submitted in: the debate held on
+the day its case started that has the case on its agenda and took no decision on it
+(``meta.reason`` ``ingediend``).
 
 Runs over every dossier, every related case and every activity, since a node loaded today can be
 the other end of a relation stated earlier. Writes an edge only where both ends are in the graph.
@@ -28,6 +30,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     RELATION_ACCOMPANIES,
     RELATION_CONTINUES,
+    RELATION_MADE_IN,
     RELATION_RELATED_TO,
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
@@ -38,14 +41,17 @@ from lawgraph.core.dossier_relations import (
     budget_amendments,
     first_readings,
     moved_activities,
+    related_case_ids,
     related_case_pairs,
     related_dossiers,
     replaced_cases,
     replaced_papers,
 )
+from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
-from lawgraph.db import EdgeWriter
+from lawgraph.db import EdgeWriter, edge_key
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
@@ -53,6 +59,8 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-dossier-relations"
+# The kinds of a motion start with it: "Motie", "Motie (gewijzigd/nader)".
+MOTION = "Motie"
 
 
 class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
@@ -68,8 +76,9 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         cases = list(
             self._track(semantic_tk.related_cases(self.store), "related cases")
         )
+        papers = semantic_tk.case_papers(self.store, related_case_ids(cases))
         found = (
-            (RELATION_RELATED_TO, related_dossiers(cases)),
+            (RELATION_RELATED_TO, related_dossiers(cases, papers)),
             (RELATION_REVISES, budget_amendments(dossiers)),
             (RELATION_ACCOMPANIES, accompanied_notas(dossiers)),
             (
@@ -96,7 +105,12 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         written["RELATED_TO between cases"] = self._relate_cases(cases, edges)
         written["moved activities"] = self._continue_moved(edges)
         written["replaced papers"] = self._revise_replaced(edges)
+        made_in = self._motions_made_in(edges)
+        written["motions submitted in a debate"] = len(made_in)
         edges.flush_into(result)
+        written["MADE_IN removed"] = semantic_edges.remove_edges_of_source_except(
+            self.store, RELATION_MADE_IN, SEMANTIC_SOURCE, made_in
+        )
         logger.info(
             "Dossier relations: %s.",
             ", ".join(f"{count} {what}" for what, count in written.items()),
@@ -141,6 +155,22 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
             )
             count += 1
         return count
+
+    def _motions_made_in(self, edges: EdgeWriter) -> list[str]:
+        """``MADE_IN`` from each motion to the debate it was submitted in
+        (``semantic_tk.motions_submitted``; ``meta.reason`` ``ingediend``); the keys of the
+        edges, so that one no longer derived goes."""
+        keys = []
+        for row in semantic_tk.motions_submitted(self.store, MOTION, ACTIVITY_HELD):
+            edges.add(
+                row["paper"],
+                row["activity"],
+                RELATION_MADE_IN,
+                source=SEMANTIC_SOURCE,
+                meta={"reason": "ingediend"},
+            )
+            keys.append(edge_key(row["paper"], RELATION_MADE_IN, row["activity"]))
+        return keys
 
     def _continue_moved(self, edges: EdgeWriter) -> int:
         """``CONTINUES`` from the activity that replaced a moved one to it."""

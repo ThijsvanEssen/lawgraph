@@ -10,7 +10,12 @@ from xml.etree import ElementTree
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import FacetCountDTO, WithPath
+from lawgraph.api.schemas.common import (
+    FacetCountDTO,
+    JudgmentOutcomeFields,
+    WithPath,
+    judgment_outcome_fields,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import (
@@ -298,9 +303,9 @@ class FeedCommencementDTO(BaseModel):
     )
 
 
-class FeedJudgmentDTO(WithPath):
+class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
-    publicatie``), of the highest courts unless a ``tier`` is asked for."""
+    publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
     model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
@@ -740,6 +745,7 @@ def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
         decided_on=props.get("date_eff"),
         advocate_general=props.get("advocate_general"),
         advocate_general_role=props.get("advocate_general_role"),
+        **judgment_outcome_fields(props),
     )
 
 

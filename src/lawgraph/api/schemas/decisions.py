@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
-from lawgraph.core.documents import chamber_of
+from lawgraph.core.documents import chamber_of, numbered_in, paper_number
 
 _KIND = (
     "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "
@@ -50,6 +50,45 @@ class DecisionMotionDTO(BaseModel):
     collection: str
     key: str
     path: str | None = None
+
+
+class DecisionPaperDTO(WithPath):
+    """The Kamerstuk a decision was taken on: the motion, the amendment or the bill."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "documents"
+
+    id: str
+    key: str
+    kind: str | None = Field(None, description="As the chamber writes it: ``Motie``.")
+    title: str | None = None
+    number: str | None = Field(
+        None,
+        description="Its number in its dossier: the nr. of a Tweede Kamer paper (``31``), "
+        "the letter of an Eerste Kamer one (``C``).",
+    )
+    dossier_number: str | None = Field(
+        None, description="The dossier it is numbered in (``36764``, ``37020-XV``)."
+    )
+    date: str | None = None
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any], chamber: str | None) -> DecisionPaperDTO:
+        """From a row of ``decision_paper`` and the chamber of the decision."""
+        light = row.get("light") or {}
+        props = {**light, "number": row.get("number")}
+        return cls(
+            id=row["id"],
+            key=row["id"].partition("/")[2],
+            kind=light.get("kind"),
+            title=light.get("title") or light.get("display_name"),
+            number=paper_number(chamber, props),
+            dossier_number=numbered_in(
+                light.get("dossier_number"), light.get("dossier_suffix")
+            ),
+            date=light.get("date"),
+            path_props=props,
+        )
 
 
 class VoteDTO(WithPath):
@@ -185,6 +224,14 @@ class DecisionDTO(WithPath):
     )
     dictum: str | None = Field(None, description=_DICTUM)
     motion: DecisionMotionDTO | None = Field(None, description=_MOTION)
+    primary_document: DecisionPaperDTO | None = Field(
+        None,
+        description="The Kamerstuk the vote was taken on, as ``/api/decisions/{key}/"
+        "document`` finds it: the oldest paper of the case it singled out (a motion, an "
+        "amendment, a bill), else of its other cases, else the Kamerstuk it is about (a "
+        "vote of the Eerste Kamer); with its kind, title, number and dossier. Null without "
+        "one.",
+    )
 
     @classmethod
     def from_document(
@@ -227,9 +274,11 @@ class DecisionDTO(WithPath):
                 for v in doc.get("votes") or []
             ],
             coalition=doc.get("coalition"),
-            # of the motion it decided on, which the route reads (``motion_papers``)
+            # of the motion it decided on, which the route reads (``motion_papers``,
+            # ``decision_paper``)
             dictum=None,
             motion=None,
+            primary_document=None,
         )
 
 

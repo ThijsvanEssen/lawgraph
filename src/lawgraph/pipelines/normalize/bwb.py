@@ -36,6 +36,7 @@ from lawgraph.core.bwb_xml import (
     article_key,
     article_props,
     celex_refs,
+    expiry_date,
     instrument_props,
     parse_toestand,
 )
@@ -99,8 +100,14 @@ class BWBNormalizePipeline(NormalizePipelineBase):
 
                 instrument = instruments_by_bwb.get(bwb_id)
                 if instrument is None:
+                    meta = self._meta(record)
                     props = instrument_props(
-                        toestand, bwb_id, celex_refs=celex_refs(payload_text)
+                        toestand,
+                        bwb_id,
+                        celex_refs=celex_refs(payload_text),
+                        date_expired=expiry_date(
+                            meta.get("end_date"), record.get("fetched_at")
+                        ),
                     )
                     # Through the writer, like the articles: one request per regulation
                     # was 42,000 round trips, and a write also when nothing changed.

@@ -9,8 +9,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.config.constants import (
+    RAW_KIND_BWB_TOESTAND,
+    RELATION_BASED_ON,
+    SOURCE_BWB,
+)
+from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -71,7 +75,7 @@ def test_the_definitions_of_each_regulation_are_kept(database: str, cli: Any) ->
     cli("semantic", "bwb-definitions")
     assert list(_kept(store)) == ["BWBR0020368"]
     assert json.dumps(_kept(store)["BWBR0020368"][0]["scope"]) == json.dumps(
-        {"kind": "wet", "path": ""}
+        {"kind": "wet", "path": "", "reach": "own_and_based"}
     )
 
 
@@ -239,3 +243,171 @@ def test_a_run_that_changes_definitions_raises_the_data_version(
     assert {d["place"] for d in _kept(store)["BWBR0047689"]} == {None}
     cli("semantic", "bwb-definitions")
     assert store.data_version() == after
+
+
+def _regulation(bwb_id: str, sentence: str, *terms: tuple[str, str]) -> str:
+    """The toestand of a regulation whose art. 1 announces *terms* in an unmarked list."""
+    items = "".join(
+        f"<li><li.nr>–</li.nr><al><nadruk>{term}:</nadruk> {text};</al></li>"
+        for term, text in terms
+    )
+    return (
+        f'<toestand bwb-id="{bwb_id}"><wetgeving><wettekst>'
+        '<artikel label="Artikel 1" bwb-ng-variabel-deel="/Artikel1"><kop><nr>1</nr></kop>'
+        f'<al>{sentence}</al><lijst type="ongemarkeerd">{items}</lijst>'
+        "</artikel></wettekst></wetgeving></toestand>"
+    )
+
+
+def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
+    database: str, cli: Any
+) -> None:
+    """Cbw art. 1 defines its terms "in deze wet en de daarop berustende bepalingen": the
+    Cyberbeveiligingsbesluit, issued under art. 16 of it, marks "CSIRT" with the definition
+    of the Cbw, its own "wet" with its own; a regulation issued under art. 19 of the besluit
+    takes both (two levels), its own definition of a term first. A regulation whose
+    definitions hold "in deze regeling" alone gives none to the one under it."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    store = GraphStore()
+    _toestand(store, "BWBR0052872", (FIXTURES / "bwb_definitions_cbw.xml").read_text())
+    _toestand(
+        store,
+        "BWBR0052875",
+        _regulation(
+            "BWBR0052875",
+            "In dit besluit en de daarop berustende bepalingen wordt verstaan onder:",
+            ("wet", "Cyberbeveiligingswet"),
+        ),
+    )
+    _toestand(
+        store,
+        "BWBR0052900",
+        _regulation(
+            "BWBR0052900",
+            "In deze regeling wordt verstaan onder:",
+            ("risico", "het risico van deze regeling"),
+        ),
+    )
+    _toestand(
+        store,
+        "BWBR0052901",
+        _regulation(
+            "BWBR0052901",
+            "In deze regeling wordt verstaan onder:",
+            ("melding", "een melding"),
+        ),
+    )
+    cli("semantic", "bwb-definitions")
+
+    def instrument(bwb_id: str, title: str, **props: Any) -> dict[str, Any]:
+        return {
+            "_key": bwb_id.lower(),
+            "type": "instrument",
+            "labels": ["BWB"],
+            "props": {
+                "bwb_id": bwb_id,
+                "title": title,
+                "citation_title": title,
+                **props,
+            },
+        }
+
+    def article(bwb_id: str, number: str, path: str, text: str) -> dict[str, Any]:
+        return {
+            "_key": f"{bwb_id.lower()}_{number}",
+            "type": "article",
+            "labels": ["BWB"],
+            "props": {
+                "bwb_id": bwb_id,
+                "article_number": number,
+                "text": text,
+                "path": path,
+            },
+        }
+
+    cbb_text = "Het CSIRT informeert de essentiële entiteit over de wet."
+    regeling_text = "Het CSIRT weegt het risico naar de wet."
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            instrument("BWBR0052872", "Cyberbeveiligingswet"),
+            instrument("BWBR0052875", "Cyberbeveiligingsbesluit"),
+            instrument("BWBR0052900", "Regeling melding"),
+            instrument("BWBR0052901", "Regeling onder de regeling"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            article("BWBR0052872", "16", "/Hoofdstuk3/Artikel16", "Er is een CSIRT."),
+            article("BWBR0052875", "2", "/Artikel2", cbb_text),
+            article("BWBR0052875", "19", "/Artikel19", "Bij regeling."),
+            article("BWBR0052900", "3", "/Artikel3", regeling_text),
+            article("BWBR0052900", "4", "/Artikel4", "Bij regeling."),
+            article("BWBR0052901", "2", "/Artikel2", "Het risico van een CSIRT."),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            make_edge_doc(f"instruments/{regulation}", f"articles/{basis}",
+                          RELATION_BASED_ON, source="bwb-grondslagen-linker")
+            for regulation, basis in [
+                ("bwbr0052875", "bwbr0052872_16"),
+                ("bwbr0052900", "bwbr0052875_19"),
+                ("bwbr0052901", "bwbr0052900_4"),
+            ]
+        ]
+    )  # fmt: skip
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        cbb = client.get("/api/articles/BWBR0052875/2").json()
+        regeling = client.get("/api/articles/BWBR0052900/3").json()
+        under = client.get("/api/articles/BWBR0052901/2").json()
+        listed = client.get("/api/instruments/BWBR0052875/definitions").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    def marked(answer: dict[str, Any], text: str) -> list[tuple[str, str, str | None]]:
+        by_ref = {d["ref"]: d for d in answer["definitions"]}
+        return [
+            (
+                text[s["start"] : s["end"]],
+                by_ref[s["definition_ref"]]["text"][:12],
+                (by_ref[s["definition_ref"]]["given_by"] or {}).get("bwb_id"),
+            )
+            for s in answer["term_spans"]
+        ]
+
+    assert marked(cbb, cbb_text) == [
+        ("CSIRT", "een Computer", "BWBR0052872"),
+        ("essentiële entiteit", "een entiteit", "BWBR0052872"),
+        ("wet", "Cyberbeveili", None),
+    ]
+    (csirt,) = [d for d in cbb["definitions"] if d["term"] == "CSIRT"]
+    assert csirt["ref"] == "bwbr0052872_1:CSIRT"
+    assert (csirt["article_number"], csirt["scope"]["reach"]) == ("1", "own_and_based")
+    assert csirt["given_by"] == {
+        "key": "bwbr0052872",
+        "bwb_id": "BWBR0052872",
+        "citation_title": "Cyberbeveiligingswet",
+        "short_title": None,
+        "abbreviation": None,
+        "path": "/wetten/BWBR0052872",
+    }
+    # two levels: the Cbw through the besluit; its own "risico" first
+    assert marked(regeling, regeling_text) == [
+        ("CSIRT", "een Computer", "BWBR0052872"),
+        ("risico", "het risico v", None),
+        ("wet", "Cyberbeveili", "BWBR0052875"),
+    ]
+    # "In deze regeling": its "risico" holds in it alone; the Cbw is three levels up
+    assert [s["term"] for s in under["term_spans"]] == []
+    # the instrument lists its own alone
+    assert [d["term"] for d in listed["definitions"]] == ["wet"]
+    assert all(d["given_by"] is None for d in listed["definitions"])

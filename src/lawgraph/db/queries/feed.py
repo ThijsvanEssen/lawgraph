@@ -80,6 +80,7 @@ from lawgraph.db.queries.feed_relations import (
     followed_ctes,
     via,
 )
+from lawgraph.db.queries.judgment_light import OUTCOME_KEYS
 from lawgraph.db.schema import (
     FEED_EVENTS_TABLE,
     INSTRUMENT_DOSSIER_NUMBERS,
@@ -137,6 +138,9 @@ _ITEM_PROPS = (
     "summary",
     "advocate_general",
     "advocate_general_role",
+    # how a judgment ended, what a conclusion proposes, what the ECHR found
+    # (``queries/judgment_light.OUTCOME_KEYS``)
+    *OUTCOME_KEYS,
     "source",
 )
 # The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven."

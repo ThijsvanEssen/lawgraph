@@ -43,6 +43,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached, lasting
 
@@ -407,7 +408,10 @@ found AS (
            t.id AS target_id, e.doc -> 'confidence' AS confidence,
            -- a missing anchor and a json null are one group, as in a COLLECT
            nullif((e.doc -> 'meta' -> 'section_anchor')::jsonb, 'null'::jsonb)
-               AS section_anchor
+               AS section_anchor,
+           e.doc -> 'meta' -> 'heading' AS heading,
+           lg_num(e.doc -> 'meta' -> 'char_start')::int AS char_start,
+           lg_num(e.doc -> 'meta' -> 'char_end')::int AS char_end
     FROM targets t
     JOIN {COLLECTION_EDGES} e
       ON e.to_id = t.id AND e.relation = %(explains)s
@@ -449,14 +453,30 @@ SELECT
                 ORDER BY ds.label
                 LIMIT 1
             ),
+            -- its own number, which its address is made of
+            'paper', json_build_object(
+                'dossier_number', d.props -> 'dossier_number',
+                'dossier_suffix', d.props -> 'dossier_suffix',
+                'sequence', d.props -> 'sequence'),
             'target_id', r.target_id,
             'confidence', r.confidence,
-            'section_anchor', r.section_anchor
+            'section_anchor', r.section_anchor,
+            'heading', r.heading,
+            'char_start', r.char_start,
+            'char_end', r.char_end,
+            -- the start of the passage, which the answer cuts to an excerpt
+            'opening', CASE WHEN r.char_start IS NOT NULL AND r.char_end > r.char_start
+                THEN substr(d.props ->> 'text', r.char_start + 1,
+                            least(r.char_end - r.char_start, %(opening)s)) END
         ) ORDER BY r.n), '[]'::json)
         FROM ranked r JOIN {COLLECTION_DOCUMENTS} d ON d.id = r.document_id
         WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
     ) AS items
 """
+
+
+# The characters of a passage read for its excerpt: its heading and some 300 after it.
+EXPLANATION_OPENING = 600
 
 
 def get_article_explanations(
@@ -495,6 +515,7 @@ def get_article_explanations(
             "explains": RELATION_EXPLAINS,
             "limit": limit,
             "offset": offset,
+            "opening": EXPLANATION_OPENING,
         }
     )
     rows = list(store.query(_EXPLANATIONS_SQL.replace("{identity}", identity), bind))
@@ -704,7 +725,8 @@ def _cited_by_sql(order: str) -> str:
                         'tier', j.pj_tier,
                         'court_kind', j.pj_court_kind,
                         'date_eff', j.pj_date_eff,
-                        'inbound_citation_count', j.pj_inbound_citation_count
+                        'inbound_citation_count', j.pj_inbound_citation_count,
+                        {outcome_pairs("l.props")}
                     )
                 ),
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
@@ -712,6 +734,7 @@ def _cited_by_sql(order: str) -> str:
             FROM ranked r
             JOIN {COLLECTION_EDGES} e ON e.key = r.edge
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
             WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
         ) AS items
     """
