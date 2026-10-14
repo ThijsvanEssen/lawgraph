@@ -3,6 +3,7 @@ history, explanations and the passages that cite an article."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -638,9 +639,14 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
         "source",
         "labels",
         "dossier_number",
+        "paper",
         "target_id",
         "confidence",
         "section_anchor",
+        "heading",
+        "char_start",
+        "char_end",
+        "opening",
     ]
     assert first == {
         "document_id": "documents/mvt_2025",
@@ -651,9 +657,14 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
         "source": "tk",
         "labels": ["TK"],
         "dossier_number": "36000",
+        "paper": {"dossier_number": None, "dossier_suffix": None, "sequence": None},
         "target_id": AV_NEW,
         "confidence": 1.0,
         "section_anchor": None,
+        "heading": None,
+        "char_start": None,
+        "char_end": None,
+        "opening": None,
     }
     by_key = {(r["key"], r["section_anchor"]): r for r in page["items"]}
     # the lowest label of its dossiers
@@ -663,6 +674,52 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     ek = by_key[("ek_nota", None)]
     assert ek["labels"] == ["EersteKamer", "EK"]
     assert ek["date"] is None and ek["dossier_number"] is None
+
+
+def test_the_passage_of_an_explanation_has_its_heading_and_opening(
+    store: GraphStore,
+) -> None:
+    """The section the edge names: its heading and offsets from the edge, the start of its
+    text from the paper, and the paper's own number."""
+    _seed_explanations(store)
+    text = "Inleiding.\nArtikel 5\nDit artikel regelt de zorgplicht. " + "Meer. " * 200
+    start = text.index("Artikel 5")
+    store.execute(
+        "UPDATE documents SET props = (props::jsonb || %(more)s::jsonb)::json"
+        " WHERE id = 'documents/mvt_anchor'",
+        {"more": json.dumps({"text": text, "dossier_number": "36000", "sequence": 3})},
+    )
+    store.execute(
+        "UPDATE edges SET doc = (doc::jsonb || %(meta)s::jsonb)::json"
+        " WHERE from_id = 'documents/mvt_anchor' AND to_id = %(to)s",
+        {
+            "meta": json.dumps(
+                {
+                    "meta": {
+                        "section_anchor": "artikel-5",
+                        "heading": "Artikel 5",
+                        "char_start": start,
+                        "char_end": len(text),
+                    }
+                }
+            ),
+            "to": AV_OLD,
+        },
+    )
+    page = _explanations(store)
+    row = next(r for r in page["items"] if r["section_anchor"] == "artikel-5")
+    assert (row["heading"], row["char_start"], row["char_end"]) == (
+        "Artikel 5",
+        start,
+        len(text),
+    )
+    assert row["opening"].startswith("Artikel 5\nDit artikel regelt de zorgplicht.")
+    assert len(row["opening"]) == 600
+    assert row["paper"] == {
+        "dossier_number": "36000",
+        "dossier_suffix": None,
+        "sequence": 3,
+    }
 
 
 def test_the_page_of_explanations_is_cut_and_the_total_is_not(
