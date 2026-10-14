@@ -886,7 +886,10 @@ _IN_OFFICE = f"""(
       AND ({_is_null("g.post -> 'to_date'")} OR lg_str(g.post -> 'to_date') >= d.date)
 )"""
 
-_MEMBER_VOTES_TEMPLATE = f"""
+
+def _member_votes(candidates: str) -> str:
+    """SQL: the votes of a member, a page, with ``candidates`` read by *candidates*."""
+    return f"""
     WITH member AS (
         SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
     ),
@@ -926,8 +929,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
     -- nearly every decision while it is seated, so few are read past the page (from the
     -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
     -- member of seven periods)
-    -- CANDIDATES --
-    -- of those, the votes no roll-call made
+{candidates}    -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
         WHERE c.vote_kind IS DISTINCT FROM %(roll_call)s
@@ -1007,12 +1009,10 @@ _MEMBER_VOTES_TEMPLATE = f"""
             LEFT JOIN lg_decision_coalition co ON co.id = page.decision_id
         ), '[]'::json) AS votes
 """
-_MEMBER_VOTES = _MEMBER_VOTES_TEMPLATE.replace(
-    "    -- CANDIDATES --\n", _WALK_CANDIDATES
-)
-_MEMBER_VOTES_LIGHT = _MEMBER_VOTES_TEMPLATE.replace(
-    "    -- CANDIDATES --\n", _LIGHT_CANDIDATES
-)
+
+
+_MEMBER_VOTES = _member_votes(_WALK_CANDIDATES)
+_MEMBER_VOTES_LIGHT = _member_votes(_LIGHT_CANDIDATES)
 
 
 def get_actor_touched_instruments(

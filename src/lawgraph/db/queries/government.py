@@ -106,20 +106,31 @@ def commitment_makers(
     )
 
 
-# The first signature of the earliest document of a dossier (directly or through a case)
-# that a Kamerlid or a bewindspersoon signed first, each paper on its own day.
-_FIRST_SIGNATURES_SQL = f"""
+def _first_signatures_sql(*, some: bool) -> str:
+    """SQL: the first signature of the earliest document of a dossier (directly or through
+    a case) that a Kamerlid or a bewindspersoon signed first, each paper on its own day;
+    with *some* of the dossiers of ``%(ids)s`` alone: their papers, by index."""
+    papers, cases, dossiers = (
+        (
+            " AND p.to_id = ANY(%(ids)s::text[])",
+            " AND c.to_id = ANY(%(ids)s::text[])",
+            " WHERE dossier.id = ANY(%(ids)s::text[])",
+        )
+        if some
+        else ("", "", "")
+    )
+    return f"""
 WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
     FROM edges p
     WHERE p.relation = %(part_of)s AND p.to_collection = '{COLLECTION_DOSSIERS}'
-      AND p.from_collection <> '{COLLECTION_CASES}' /* papers */
+      AND p.from_collection <> '{COLLECTION_CASES}'{papers}
     UNION
     SELECT c.to_id, p.from_id
     FROM edges c
     JOIN edges p ON p.to_id = c.from_id AND p.relation = %(part_of)s
     WHERE c.relation = %(part_of)s AND c.to_collection = '{COLLECTION_DOSSIERS}'
-      AND c.from_collection = '{COLLECTION_CASES}' /* cases */
+      AND c.from_collection = '{COLLECTION_CASES}'{cases}
 ),
 signatures AS (
     SELECT papers.dossier_id, papers.paper_id, a.key, a.from_id, a.doc -> 'meta' AS meta,
@@ -149,15 +160,9 @@ SELECT json_build_object(
     'props', {_keep("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
 )
 FROM dossiers dossier
-LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */
+LEFT JOIN firsts ON firsts.dossier_id = dossier.id{dossiers}
 ORDER BY dossier.key COLLATE "C"
 """
-# The same for the dossiers of ``%(ids)s`` alone: their papers, by index.
-_ONLY_SOME = {
-    " /* papers */": " AND p.to_id = ANY(%(ids)s::text[])",
-    " /* cases */": " AND c.to_id = ANY(%(ids)s::text[])",
-    " /* dossiers */": " WHERE dossier.id = ANY(%(ids)s::text[])",
-}
 
 
 def dossier_first_signatures(
@@ -172,11 +177,8 @@ def dossier_first_signatures(
     for a few dozen rows where there are a hundred thousand, and loops over them for every
     paper; on the server that ran for hours. A few dossiers are read by index instead."""
     some = ids is not None
-    statement = _FIRST_SIGNATURES_SQL
-    for marker, condition in _ONLY_SOME.items() if some else ():
-        statement = statement.replace(marker, condition)
     return store.query(
-        statement,
+        _first_signatures_sql(some=some),
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
@@ -190,7 +192,7 @@ def dossier_first_signatures(
 
 # Of the dossiers *ids*, those whose first signature a window can have changed: the papers
 # it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
-# written since *since*; a case is no paper, ``_FIRST_SIGNATURES_SQL``), walked up to their
+# written since *since*; a case is no paper, ``_first_signatures_sql``), walked up to their
 # dossiers (directly or through a case), and of those the dossiers that keep no first
 # signature yet, or whose touched paper is dated on or before the one kept, or is the one
 # kept. A paper that comes later than the first, as almost every new one, changes nothing.
