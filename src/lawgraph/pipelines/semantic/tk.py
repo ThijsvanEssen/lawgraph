@@ -29,7 +29,6 @@ from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
@@ -194,9 +193,8 @@ class TKSemanticPipeline(SemanticPipelineBase):
             describe_since(since),
         )
 
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
-        kept: dict[str, set[str]] = {}
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
@@ -208,15 +206,10 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 continue
 
             for hit in _collect_tk_hits(words.text, extractor, named_acts):
-                edge_doc = self._edge_of(document, hit, words)
-                if edge_doc:
-                    edges.add_doc(edge_doc)
-                    kept.setdefault(edge_doc["_from"], set()).add(edge_doc["_key"])
+                edges.add_doc(self._edge_of(document, hit, words))
 
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
-        )
+        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info("Removed %d citations the documents no longer make.", removed)
         if self.after or self.limit is not None:
             last = self.last_document_read

@@ -21,8 +21,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
-from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
 
@@ -40,8 +38,7 @@ class BWBPublicationsSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        kept: list[str] = []
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for source, prefix in PAPERS:
             pairs = semantic_bwb.same_publications(self.store, source, prefix)
             for pair in self._track(pairs, f"papers of {source}", total=len(pairs)):
@@ -53,15 +50,12 @@ class BWBPublicationsSemanticPipeline(SemanticPipelineBase):
                     confidence=1.0,
                     meta={"basis": "official_id"},
                 )
-                kept.append(edge_key(pair["doc_id"], RELATION_SAME_AS, pair["inst_id"]))
             logger.info(
                 "%s: %d papers SAME_AS the BWB publication of their id.",
                 source,
                 len(pairs),
             )
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_of_source_except(
-            self.store, RELATION_SAME_AS, SEMANTIC_SOURCE, kept
-        )
+        removed = edges.remove_stale_of_source(RELATION_SAME_AS, SEMANTIC_SOURCE)
         logger.info("Removed %d SAME_AS no longer derived.", removed)
         return result

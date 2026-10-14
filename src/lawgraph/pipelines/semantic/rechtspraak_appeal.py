@@ -50,9 +50,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
 
@@ -124,12 +122,10 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
             len(unresolved),
         )
 
-        kept = self._write_edges(links, result)
+        edges = self._write_edges(links, result)
         if eclis is None:
             removed = sum(
-                semantic_edges.remove_edges_from(
-                    self.store, relation, SEMANTIC_SOURCE, read, kept.get(relation, {})
-                )
+                edges.remove_stale(relation, SEMANTIC_SOURCE, read)
                 for relation in RELATIONS
             )
             logger.info("Removed %d edges no longer derived.", removed)
@@ -205,13 +201,10 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                 unresolved.setdefault(key, []).append(target)
         return unresolved
 
-    def _write_edges(
-        self, links: list[Link], result: PipelineResult
-    ) -> dict[str, dict[str, set[str]]]:
-        """Write the edges; the keys of those written, per relation and judgment."""
+    def _write_edges(self, links: list[Link], result: PipelineResult) -> EdgeWriter:
+        """Write the edges; the writer, which remembers them."""
         ids = self._resolve_eclis({link[2] for link in links})
-        kept: dict[str, dict[str, set[str]]] = {}
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for from_id, relation, ecli, basis, procedure_type in links:
             to_id = ids.get(ecli)
             if not to_id:
@@ -227,11 +220,8 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                 confidence=CONFIDENCE[basis],
                 meta=meta,
             )
-            kept.setdefault(relation, {}).setdefault(from_id, set()).add(
-                edge_key(from_id, relation, to_id)
-            )
         edges.flush_into(result)
-        return kept
+        return edges
 
     def _write_targets(
         self,
