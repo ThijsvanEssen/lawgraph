@@ -1,45 +1,43 @@
-"""The closed vocabularies of the graph and the API: their values, pinned.
+"""The closed vocabularies of the graph and the API: each written once, its values pinned.
 
-The API's ``Literal`` types and the runtime tuples of ``core`` are the same words; the
-values the API answers are pinned in ``tests/api/openapi_enums.json``.
+A ``Literal`` of two or more words is declared in one place; ``core`` (or
+``config.constants``) holds what the graph stores, the API imports it, and the runtime
+tuple is ``get_args`` of it. The values the API answers are pinned in
+``tests/api/openapi_enums.json``.
 """
 
 from __future__ import annotations
 
+import ast
+import importlib
+import pathlib
 from typing import Any, get_args
 
 import pytest
 
-from lawgraph.api.schemas import (
-    committees,
-    common,
-    documents,
-    dossiers,
-    feed,
-    government,
-    instruments,
-    judgments,
-)
 from lawgraph.config import constants
 from lawgraph.core import (
     cabinet_phases,
     cabinet_posts,
     coalition,
-    curated,
-    dossier_stages,
     echr_findings,
     eerstekamer_votes,
     judgment_outcome,
+    models,
+    paper_outcomes,
     post_ministries,
+    readable_paths,
     tk_records,
 )
 from lawgraph.core import documents as core_documents
 from lawgraph.core import feed as core_feed
 from lawgraph.core import judgments as core_judgments
 
+SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "lawgraph"
+
 PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
-    ("chambers by label", core_documents.CHAMBERS, ("EK", "TK")),
-    ("curated chambers", curated.CHAMBERS, ("TK", "EK")),
+    ("chambers by label", core_documents.CHAMBER_PRECEDENCE, ("EK", "TK")),
+    ("chambers", constants.CHAMBERS, ("TK", "EK")),
     (
         "feed kinds",
         core_feed.FEED_KINDS,
@@ -106,7 +104,21 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
             echr_findings.VIOLATION,
             echr_findings.NO_VIOLATION,
         ),
-        get_args(common.JudgmentOutcome),
+        (
+            "verworpen",
+            "vernietigd",
+            "gedeeltelijk vernietigd",
+            "vernietigd en verwezen",
+            "bekrachtigd",
+            "bevestigd",
+            "gegrond",
+            "ongegrond",
+            "niet-ontvankelijk",
+            "afgewezen",
+            "toegewezen",
+            "schending",
+            "geen schending",
+        ),
     ),
     (
         "conclusion outcomes",
@@ -119,7 +131,15 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
             judgment_outcome.TO_UNFOUNDED,
             judgment_outcome.TO_ANSWER,
         ),
-        get_args(common.ConclusionOutcome),
+        (
+            "verwerping",
+            "vernietiging",
+            "vernietiging en verwijzing",
+            "niet-ontvankelijkverklaring",
+            "gegrondverklaring",
+            "ongegrondverklaring",
+            "beantwoording",
+        ),
     ),
     (
         "ministry sources",
@@ -155,10 +175,30 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
         ("kamerlid", "bewindspersoon", "overig"),
     ),
     (
-        "dossier outcomes",
-        (dossier_stages.OUTCOME_ENACTED, dossier_stages.OUTCOME_REJECTED),
-        ("aangenomen", "verworpen"),
+        "paper outcomes",
+        paper_outcomes.OUTCOMES,
+        (
+            "aangenomen",
+            "verworpen",
+            "ingetrokken",
+            "aangehouden",
+            "vervallen",
+            "vervangen",
+        ),
     ),
+    (
+        "committee kinds",
+        get_args(tk_records.CommitteeKind),
+        ("vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"),
+    ),
+    ("vote choices", (tk_records.VOTE_FOR, tk_records.VOTE_AGAINST), ("Voor", "Tegen")),
+    (
+        "vote kinds",
+        (tk_records.VOTE_KIND_MEMBER, tk_records.VOTE_KIND_FACTION),
+        ("member", "faction"),
+    ),
+    ("directions", models.DIRECTIONS, ("outbound", "inbound")),
+    ("publication series", readable_paths.SERIES, ("stb", "stcrt", "trb")),
     (
         "edge statuses",
         (constants.EDGE_STATUS_CANONIEK, constants.EDGE_STATUS_VOORGESTELD),
@@ -184,27 +224,93 @@ def test_a_vocabulary_keeps_its_values(name: str, values: Any, pinned: Any) -> N
     assert tuple(values) == tuple(pinned)
 
 
-# Each ``Literal`` of the API and the vocabulary of ``core`` it answers.
-ANSWERED: list[tuple[str, Any, Any]] = [
-    ("chamber", documents.Chamber, (constants.CHAMBER_TK, constants.CHAMBER_EK)),
-    ("feed kind", feed.FeedKind, core_feed.FEED_KINDS),
-    ("person role", feed.PersonRole, core_feed.PERSON_ROLES),
-    ("decision kind", judgments.DecisionKind, core_judgments.DECISION_KINDS),
-    ("phase kind", government.PhaseKind, cabinet_phases.PHASE_KINDS),
-    (
-        "committee kind",
-        committees.CommitteeKind,
-        (*(kind for kind, _ in tk_records._COMMITTEE_KINDS), "overig"),
-    ),
-    ("signing capacity", documents.SigningCapacity, PINNED[14][2]),
-    ("dossier outcome", dossiers.DossierOutcome, PINNED[15][2]),
-    ("edge status", dossiers.DossierInstrumentStatus, PINNED[16][2]),
-    ("implements basis", instruments.ImplementsBasis, PINNED[17][2]),
-]
+# ── each vocabulary written once ─────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    ("name", "literal", "core"), ANSWERED, ids=[a[0] for a in ANSWERED]
-)
-def test_the_api_answers_the_words_of_core(name: str, literal: Any, core: Any) -> None:
-    assert set(get_args(literal)) == set(core)
+def _literals(source: str) -> list[tuple[int, frozenset[str]]]:
+    """The words of each ``Literal[...]`` of two or more words *source* spells out: the
+    quoted ones (a ``Literal`` built from another lists only its own)."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "Literal"
+        ):
+            parts = (
+                node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+            )
+            words = [
+                part.value
+                for part in parts
+                if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            ]
+            if len(words) >= 2:
+                found.append((node.lineno, frozenset(words)))
+    return found
+
+
+def _declared(source: str) -> list[str]:
+    """The names *source* declares as a ``Literal`` at module level: ``X = Literal[...]``."""
+    return [
+        node.targets[0].id
+        for node in ast.parse(source).body
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Name)
+        and isinstance(node.value, ast.Subscript)
+        and isinstance(node.value.value, ast.Name)
+        and node.value.value.id == "Literal"
+    ]
+
+
+def _module(path: pathlib.Path) -> str:
+    return ".".join(("lawgraph", *path.relative_to(SRC).with_suffix("").parts))
+
+
+def _written() -> dict[frozenset[str], list[str]]:
+    """Where each set of words is spelled out as a ``Literal``: ``module:line``."""
+    written: dict[frozenset[str], list[str]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        for line, words in _literals(path.read_text()):
+            written.setdefault(words, []).append(f"{path.relative_to(SRC)}:{line}")
+    return written
+
+
+def test_a_vocabulary_is_spelled_out_once() -> None:
+    twice = {
+        ", ".join(sorted(words)): where
+        for words, where in _written().items()
+        if len(where) > 1
+    }
+    assert twice == {}, "declare it once and import it"
+
+
+def test_a_vocabulary_built_from_another_is_not_spelled_out_again() -> None:
+    """``PersonRole`` is ``SubmitterRole`` and ``bewindspersoon``: a ``Literal`` that lists
+    all three words copies it."""
+    written = _written()
+    copies = {}
+    for path in sorted(SRC.rglob("*.py")):
+        source = path.read_text()
+        names = _declared(source)
+        if not names:
+            continue
+        module = importlib.import_module(_module(path))
+        here = str(path.relative_to(SRC))
+        for name in names:
+            words = frozenset(get_args(getattr(module, name)))
+            own = {f"{here}:{line}" for line, w in _literals(source) if w == words}
+            others = [where for where in written.get(words, []) if where not in own]
+            if others:
+                copies[f"{_module(path)}.{name}"] = others
+    assert copies == {}, "import the Literal instead"
+
+
+def test_the_scan_reads_the_words_of_a_literal() -> None:
+    source = (
+        'A = Literal["x", "y"]\n'
+        'B = Literal[A, "z"]\n'
+        'def f(c: Literal["one"]) -> None: ...\n'
+    )
+    assert _literals(source) == [(1, frozenset({"x", "y"}))]
+    assert _declared(source) == ["A", "B"]

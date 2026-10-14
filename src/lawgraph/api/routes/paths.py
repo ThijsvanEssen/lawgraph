@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -13,7 +13,7 @@ from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NodeNeighborhoodEdge,
 )
-from lawgraph.api.schemas.paths import PathDTO, PathsResponse
+from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.paths import Followed, Path, get_paths
@@ -79,7 +79,7 @@ def get_paths_route(
         bool, Query(description="Let a path pass through a law by its articles.")
     ] = False,
     expand: Annotated[
-        Literal["none", "members"],
+        PathExpand,
         Query(
             description="`members`: a group of `ids` (a law, a faction, a committee, a "
             "cabinet, a dossier) is joined through its children too (articles, members, "

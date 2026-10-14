@@ -33,7 +33,6 @@ from lawgraph.api.schemas.dossiers import (
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
-    DossierOutcome,
     DossierSummaryDTO,
     DossierTimelineResponse,
     legal_effect,
@@ -41,6 +40,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
+from lawgraph.core.paper_outcomes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
@@ -49,6 +49,7 @@ from lawgraph.db.queries.dossier_changes import (
 )
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
+    TimelineOrder,
     count_dossier_members,
     enrich_dossier_docs,
     get_dossier_by_number,
@@ -106,7 +107,7 @@ class _ListParams:
             Literal["open", "closed", "all"],
             Query(description="Open dossiers, closed ones (with an outcome) or both."),
         ] = "all",
-        outcome: Annotated[DossierOutcome | None, Query()] = None,
+        outcome: Annotated[VoteOutcome | None, Query()] = None,
         kind: Annotated[
             str | None,
             Query(
@@ -321,7 +322,7 @@ def list_dossier_documents(
 def get_timeline(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
-    order: Annotated[Literal["asc", "desc"], Query(description="Date order.")] = "desc",
+    order: Annotated[TimelineOrder, Query(description="Date order.")] = "desc",
     kind: Annotated[
         str | None, Query(description="Comma-separated document kinds.")
     ] = None,

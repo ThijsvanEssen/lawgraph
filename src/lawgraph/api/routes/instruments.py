@@ -53,7 +53,9 @@ from lawgraph.api.schemas.instruments import (
     InstrumentRelatedResponse,
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
+    InternationalKind,
     InternationalLinkDTO,
+    JudgmentSort,
     LinkedInstrumentDTO,
     SubDelegatedDTO,
     summary_basis_kind,
@@ -242,9 +244,7 @@ def get_instrument(
     return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
 
 
-def _international_link(
-    row: dict, kind: Literal["treaty", "echr_judgment"]
-) -> InternationalLinkDTO:
+def _international_link(row: dict, kind: InternationalKind) -> InternationalLinkDTO:
     """One `international` item from a treaty row or an ECHR judgment row."""
     edge = row.get("edge") or {}
     own = row.get("own_article")
@@ -439,7 +439,7 @@ def get_instrument_judgments_route(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
-    sort: Annotated[Literal["date", "cited"], Query()] = "date",
+    sort: Annotated[JudgmentSort, Query()] = "date",
     year: Annotated[
         str | None,
         Query(

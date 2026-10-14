@@ -323,11 +323,14 @@ _TIMELINE_BODY = f"""(
         )"""
 
 
+TimelineOrder = Literal["asc", "desc"]
+
+
 def get_dossier_timeline(
     store: GraphStore,
     dossier_id: str,
     *,
-    order: Literal["desc", "asc"] = "desc",
+    order: TimelineOrder = "desc",
     kind_filter: list[str] | None = None,
     include_planned: bool = True,
     limit: int = 200,

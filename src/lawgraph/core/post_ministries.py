@@ -26,7 +26,7 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Final, Literal
 
 from lawgraph.core.government import post_kind, surname_in
 from lawgraph.core.ministries import (
@@ -36,25 +36,27 @@ from lawgraph.core.ministries import (
     ministry_of,
 )
 
-SOURCE_PAGE = "page"
-SOURCE_TK_SIGNATURES = "tk_signatures"
-SOURCE_TK_COMMITMENTS = "tk_commitments"
-SOURCE_STAATSCOURANT = "staatscourant"
+MinistrySource = Literal["page", "tk_signatures", "tk_commitments", "staatscourant"]
+SOURCE_PAGE: Final[MinistrySource] = "page"
+SOURCE_TK_SIGNATURES: Final[MinistrySource] = "tk_signatures"
+SOURCE_TK_COMMITMENTS: Final[MinistrySource] = "tk_commitments"
+SOURCE_STAATSCOURANT: Final[MinistrySource] = "staatscourant"
 # In the order they are asked.
-SOURCES: tuple[str, ...] = (
+SOURCES: tuple[MinistrySource, ...] = (
     SOURCE_TK_SIGNATURES,
     SOURCE_TK_COMMITMENTS,
     SOURCE_STAATSCOURANT,
 )
 
-MISSING_NO_SOURCE = "no_source"
-MISSING_AMBIGUOUS = "ambiguous"
+MinistryMissing = Literal["no_source", "ambiguous"]
+MISSING_NO_SOURCE: Final[MinistryMissing] = "no_source"
+MISSING_AMBIGUOUS: Final[MinistryMissing] = "ambiguous"
 
 # The share of its counts the largest ministry of a source must have.
 MIN_SHARE = 0.6
 # The least count a source needs: one signature or commitment says what it says; a
 # publication can name a post in passing, so a handful is needed there.
-MIN_COUNT = {
+MIN_COUNT: dict[str, int] = {
     SOURCE_TK_SIGNATURES: 1,
     SOURCE_TK_COMMITMENTS: 1,
     SOURCE_STAATSCOURANT: 5,

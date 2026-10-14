@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -19,6 +19,7 @@ from lawgraph.api.schemas.parliament import (
     PartyColorsResponse,
     SeatingPlanDTO,
 )
+from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.coalition import vacant_on
 from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
@@ -72,7 +73,7 @@ def get_seats(
         dt.date | None, Query(description="The day, YYYY-MM-DD; today when left out.")
     ] = None,
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the seats of the Eerste Kamer, in the order of their "
             "size (no plan): without ``date`` as eerstekamer.nl shows them on the day it "

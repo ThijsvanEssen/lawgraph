@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.curated import LISTS
+from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
 
 # ── What a dossier is ─────────────────────────────────────────────────────────
 
@@ -263,10 +264,6 @@ def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
 
 # ── How a dossier ended ───────────────────────────────────────────────────────
 
-OUTCOME_ENACTED = "aangenomen"
-OUTCOME_REJECTED = "verworpen"
-
-
 # The outcome of a bill in the Eerste Kamer, as it writes it.
 EK_ADOPTED = "Aangenomen"
 EK_REJECTED = "Verworpen"
@@ -278,7 +275,7 @@ class DossierOutcome:
     the Tweede Kamer on its bill, and its outcome in the Eerste Kamer."""
 
     closed: bool
-    outcome: str | None = None
+    outcome: VoteOutcome | None = None
     closed_on: str | None = None
     tk_decision: dict[str, Any] | None = None
     ek_outcome: dict[str, Any] | None = None
@@ -377,16 +374,16 @@ def derive_outcome(
             )
         ]
         return DossierOutcome(
-            True, OUTCOME_ENACTED, min(dates) if dates else None, decision, shown
+            True, ADOPTED, min(dates) if dates else None, decision, shown
         )
     if ek:
-        outcome = OUTCOME_REJECTED if ek["outcome"] == EK_REJECTED else OUTCOME_ENACTED
+        outcome = REJECTED if ek["outcome"] == EK_REJECTED else ADOPTED
         return DossierOutcome(True, outcome, ek.get("date"), decision, shown)
     votes = [d for d in bill_decisions if isinstance(d.get("passed"), bool)]
     if votes:
         last = max(votes, key=lambda vote: vote.get("date") or "")
         if last["passed"] is False:
-            return DossierOutcome(True, OUTCOME_REJECTED, last.get("date"), decision)
+            return DossierOutcome(True, REJECTED, last.get("date"), decision)
     return DossierOutcome(False, tk_decision=decision)
 
 

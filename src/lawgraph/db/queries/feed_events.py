@@ -518,7 +518,7 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
         if not filters.kinds or AMENDMENT in filters.kinds
         else None
     )
-    order = {kind: n for n, kind in enumerate(FEED_KINDS)}
+    order: dict[str, int] = {kind: n for n, kind in enumerate(FEED_KINDS)}
     periods = sorted(set(by_period) | set(chains or {}))
     return [
         {

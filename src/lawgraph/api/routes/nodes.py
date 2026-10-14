@@ -22,7 +22,7 @@ from lawgraph.api.schemas.nodes import (
 from lawgraph.api.seo.pages import title_of
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import NodeType
+from lawgraph.core.models import Direction, NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore, version_cache
@@ -47,6 +47,10 @@ from lawgraph.db.queries.overlay import (
     get_in_flux_counts,
     stored_heat,
 )
+
+# How much of a node's props a neighbor carries.
+PropsView = Literal["full", "canvas"]
+
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -168,7 +172,7 @@ def neighbor_filter(
         ),
     ] = None,
     direction: Annotated[
-        Literal["outbound", "inbound"] | None,
+        Direction | None,
         Query(description="Keep the edges that leave (`outbound`) or reach the node."),
     ] = None,
     status: Annotated[
@@ -230,7 +234,7 @@ def get_node_graph(
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
     props: Annotated[
-        Literal["full", "canvas"],
+        PropsView,
         Query(
             description=(
                 "`canvas`: of a neighbour only the props the canvas of the explorer "
@@ -350,7 +354,7 @@ def get_node_neighborhood_route(
         ),
     ] = 200,
     props: Annotated[
-        Literal["full", "canvas"],
+        PropsView,
         Query(
             description=(
                 "`canvas`: of a node but the focal one only the props the canvas of the "

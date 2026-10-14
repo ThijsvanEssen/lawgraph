@@ -11,7 +11,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, EXPLANATORY_KIND_MARKER
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    EXPLANATORY_KIND_MARKER,
+    Chamber,
+)
 from lawgraph.core.ministries import classify_function
 from lawgraph.core.models import make_node_key
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, dossier_label
@@ -21,17 +26,17 @@ from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, dossier_label
 # (``db/queries/_helpers.chamber_sql``). A node carries the label of each chamber whose
 # source wrote it (labels are merged): of a paper both wrote, the Eerste Kamer's counts,
 # as /api/documents always read it. No document carries both (lawgraph_small, 2026-10-02).
-CHAMBERS: tuple[str, ...] = (CHAMBER_EK, CHAMBER_TK)
+CHAMBER_PRECEDENCE: tuple[Chamber, ...] = (CHAMBER_EK, CHAMBER_TK)
 
 
-def chamber_of(labels: Iterable[str] | None) -> str | None:
-    """The chamber a node belongs to, read from its labels (``CHAMBERS``).
+def chamber_of(labels: Iterable[str] | None) -> Chamber | None:
+    """The chamber a node belongs to, read from its labels (``CHAMBER_PRECEDENCE``).
 
     ``"TK"`` (Tweede Kamer) or ``"EK"`` (Eerste Kamer); ``None`` for a node that belongs
     to neither, such as a Staatsblad or Staatscourant publication.
     """
     found = set(labels or ())
-    for chamber in CHAMBERS:
+    for chamber in CHAMBER_PRECEDENCE:
         if chamber in found:
             return chamber
     return None

@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from lawgraph.config.constants import CHAMBERS
+
 CURATED = Path(__file__).resolve().parents[1] / "data" / "curated"
 
 Entries = dict[str, Any]
@@ -128,9 +130,6 @@ def _outside_courts() -> tuple[Callable[..., Entries], Callable[..., None]]:
 
 _COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 _ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9.]{1,7}:\d{4}:[A-Z0-9.]{1,25}$")
-
-
-CHAMBERS = ("TK", "EK")
 
 
 def _party_colors(entries: Entries) -> list[str]:

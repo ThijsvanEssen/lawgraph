@@ -11,8 +11,9 @@ import base64
 import binascii
 import json
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal, get_args
 
+from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.court_sources import (
     TIER_CBB,
     TIER_CENTRALE_RAAD,
@@ -22,30 +23,30 @@ from lawgraph.core.court_sources import (
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 
-EVENT_COMMITMENT: Final = "toezegging"
-EVENT_BILL: Final = "Voorstel van wet"
-EVENT_AMENDMENT_NOTE: Final = "Nota van wijziging"
-EVENT_AMENDMENT: Final = "Amendement"
-EVENT_MOTION: Final = "Motie"
-EVENT_VOTE: Final = "stemming"
-EVENT_PUBLICATION: Final = "publicatie"
-EVENT_COMMENCEMENT: Final = "inwerkingtreding"
-EVENT_GOVERNMENT_LETTER: Final = "Brief regering"
-EVENT_JUDGMENT: Final = "uitspraak"
-
 # The kinds, in the order the facets and the documentation list them.
-FEED_KINDS: Final = (
-    EVENT_COMMITMENT,
-    EVENT_BILL,
-    EVENT_AMENDMENT_NOTE,
-    EVENT_AMENDMENT,
-    EVENT_MOTION,
-    EVENT_VOTE,
-    EVENT_PUBLICATION,
-    EVENT_COMMENCEMENT,
-    EVENT_GOVERNMENT_LETTER,
-    EVENT_JUDGMENT,
-)
+FeedKind = Literal[
+    "toezegging",
+    "Voorstel van wet",
+    "Nota van wijziging",
+    "Amendement",
+    "Motie",
+    "stemming",
+    "publicatie",
+    "inwerkingtreding",
+    "Brief regering",
+    "uitspraak",
+]
+FEED_KINDS: Final[tuple[FeedKind, ...]] = get_args(FeedKind)
+EVENT_COMMITMENT: Final[FeedKind] = "toezegging"
+EVENT_BILL: Final[FeedKind] = "Voorstel van wet"
+EVENT_AMENDMENT_NOTE: Final[FeedKind] = "Nota van wijziging"
+EVENT_AMENDMENT: Final[FeedKind] = "Amendement"
+EVENT_MOTION: Final[FeedKind] = "Motie"
+EVENT_VOTE: Final[FeedKind] = "stemming"
+EVENT_PUBLICATION: Final[FeedKind] = "publicatie"
+EVENT_COMMENCEMENT: Final[FeedKind] = "inwerkingtreding"
+EVENT_GOVERNMENT_LETTER: Final[FeedKind] = "Brief regering"
+EVENT_JUDGMENT: Final[FeedKind] = "uitspraak"
 
 # The kinds of a feed that asks for none: parliament and legislation. A judgment is in the
 # feed only when ``uitspraak`` or a ``tier`` is asked for.
@@ -79,7 +80,8 @@ FEED_TIERS: Final = (
 # What the coalition did on a vote of the Tweede Kamer, as the feed filters and counts it
 # (``lg_decision_coalition``): ``split`` holds ``wissel`` (a wisselmeerderheid is a split),
 # ``decisive`` is apart from the pattern. A vote counts for each that holds.
-FEED_COALITION: Final = ("together", "split", "wissel", "decisive")
+FeedCoalition = Literal[CoalitionPattern, "decisive"]
+FEED_COALITION: Final[tuple[FeedCoalition, ...]] = get_args(FeedCoalition)
 
 KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_ORDER)}
 
@@ -100,10 +102,12 @@ DOCUMENT_EVENTS: Final = (
 
 # What a person was to an event: the first signatory submitted it, the others signed with
 # them; a bewindspersoon signed for the government (or made the commitment).
-ROLE_SUBMITTER: Final = "indiener"
-ROLE_CO_SUBMITTER: Final = "medeindiener"
-ROLE_GOVERNMENT: Final = "bewindspersoon"
-PERSON_ROLES: Final = (ROLE_SUBMITTER, ROLE_CO_SUBMITTER, ROLE_GOVERNMENT)
+SubmitterRole = Literal["indiener", "medeindiener"]
+PersonRole = Literal[SubmitterRole, "bewindspersoon"]
+PERSON_ROLES: Final[tuple[PersonRole, ...]] = get_args(PersonRole)
+ROLE_SUBMITTER: Final[SubmitterRole] = "indiener"
+ROLE_CO_SUBMITTER: Final[SubmitterRole] = "medeindiener"
+ROLE_GOVERNMENT: Final[PersonRole] = "bewindspersoon"
 
 # The ``kind`` of a memorie van toelichting (also ``… (initiatiefvoorstel)``): a bill's
 # signatories sign it where they leave the voorstel unsigned.
@@ -115,7 +119,7 @@ FIRST_SIGNATORY: Final = "Eerste ondertekenaar"
 
 def person_role(
     role: str | None, capacity: str | None, kind: str | None = None
-) -> str | None:
+) -> PersonRole | None:
     """The role in the feed of a signature of an event of *kind*: its ``role`` (``Eerste
     ondertekenaar``) and ``capacity``; None for one that is neither a Kamerlid nor a
     bewindspersoon (the griffier, the Raad van State). Who signs a bill or a note of change

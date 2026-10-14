@@ -120,8 +120,11 @@ def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
     return normalized
 
 
+EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
+
+
 def format_celex(
-    kind: Literal["directive", "regulation", "decision", "framework_decision"],
+    kind: EUInstrumentKind,
     year: str,
     number: str,
 ) -> str:

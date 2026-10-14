@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBERS,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -153,8 +154,6 @@ def get_document_passages(
     return list(best.values())
 
 
-# The chambers a paper can be of: its label (``TK``; ``EK`` with ``EersteKamer``).
-_CHAMBERS = ("TK", "EK")
 _CHAMBER_OF = chamber_sql("d")
 
 # ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
@@ -216,7 +215,7 @@ def _facet(value: str, where: str) -> str:
 def list_documents(
     store: GraphStore,
     *,
-    chambers: tuple[str, ...] = _CHAMBERS,
+    chambers: tuple[str, ...] = CHAMBERS,
     kinds: tuple[str, ...] | None = None,
     dossier: str | None = None,
     date_from: str | None = None,
@@ -234,7 +233,7 @@ def list_documents(
     """
     bind: dict[str, Any] = {
         "chambers": list(chambers),
-        "all_chambers": list(_CHAMBERS),
+        "all_chambers": list(CHAMBERS),
         "from": date_from or "0",
         "to": date_to or "9",
         "limit": limit,

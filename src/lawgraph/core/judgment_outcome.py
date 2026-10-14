@@ -37,31 +37,55 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
 
+from lawgraph.core.echr_findings import EchrFinding
 from lawgraph.core.judgments import KIND_CONCLUSIE
 
-# The outcomes of a judgment.
-REJECTED = "verworpen"
-QUASHED = "vernietigd"
-PARTLY_QUASHED = "gedeeltelijk vernietigd"
-QUASHED_REFERRED = "vernietigd en verwezen"
-AFFIRMED = "bekrachtigd"
-CONFIRMED = "bevestigd"
-WELL_FOUNDED = "gegrond"
-UNFOUNDED = "ongegrond"
-INADMISSIBLE = "niet-ontvankelijk"
-DISMISSED = "afgewezen"
-GRANTED = "toegewezen"
+# The outcomes of a judgment; of the ECHR its finding (``core.echr_findings``).
+JudgmentOutcome = Literal[
+    "verworpen",
+    "vernietigd",
+    "gedeeltelijk vernietigd",
+    "vernietigd en verwezen",
+    "bekrachtigd",
+    "bevestigd",
+    "gegrond",
+    "ongegrond",
+    "niet-ontvankelijk",
+    "afgewezen",
+    "toegewezen",
+    EchrFinding,
+]
+REJECTED: Final[JudgmentOutcome] = "verworpen"
+QUASHED: Final[JudgmentOutcome] = "vernietigd"
+PARTLY_QUASHED: Final[JudgmentOutcome] = "gedeeltelijk vernietigd"
+QUASHED_REFERRED: Final[JudgmentOutcome] = "vernietigd en verwezen"
+AFFIRMED: Final[JudgmentOutcome] = "bekrachtigd"
+CONFIRMED: Final[JudgmentOutcome] = "bevestigd"
+WELL_FOUNDED: Final[JudgmentOutcome] = "gegrond"
+UNFOUNDED: Final[JudgmentOutcome] = "ongegrond"
+INADMISSIBLE: Final[JudgmentOutcome] = "niet-ontvankelijk"
+DISMISSED: Final[JudgmentOutcome] = "afgewezen"
+GRANTED: Final[JudgmentOutcome] = "toegewezen"
 
 # What a conclusion proposes.
-TO_REJECT = "verwerping"
-TO_QUASH = "vernietiging"
-TO_QUASH_REFER = "vernietiging en verwijzing"
-TO_INADMISSIBLE = "niet-ontvankelijkverklaring"
-TO_WELL_FOUNDED = "gegrondverklaring"
-TO_UNFOUNDED = "ongegrondverklaring"
-TO_ANSWER = "beantwoording"
+ConclusionOutcome = Literal[
+    "verwerping",
+    "vernietiging",
+    "vernietiging en verwijzing",
+    "niet-ontvankelijkverklaring",
+    "gegrondverklaring",
+    "ongegrondverklaring",
+    "beantwoording",
+]
+TO_REJECT: Final[ConclusionOutcome] = "verwerping"
+TO_QUASH: Final[ConclusionOutcome] = "vernietiging"
+TO_QUASH_REFER: Final[ConclusionOutcome] = "vernietiging en verwijzing"
+TO_INADMISSIBLE: Final[ConclusionOutcome] = "niet-ontvankelijkverklaring"
+TO_WELL_FOUNDED: Final[ConclusionOutcome] = "gegrondverklaring"
+TO_UNFOUNDED: Final[ConclusionOutcome] = "ongegrondverklaring"
+TO_ANSWER: Final[ConclusionOutcome] = "beantwoording"
 
 # The characters of the sentence kept at most.
 SENTENCE_CHARS = 300

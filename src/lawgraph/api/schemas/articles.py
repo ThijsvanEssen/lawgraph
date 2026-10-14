@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
     VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
+    ChangeEffect,
     DefinitionDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
@@ -624,7 +625,7 @@ class LegislativeHistoryEntry(BaseModel):
         None,
         description="Document kind of a bill, publication kind (`Stb`) of a publication.",
     )
-    change: Literal["establishes", "amends", "introduces", "repeals"] = Field(
+    change: ChangeEffect = Field(
         ...,
         description="`establishes`: the publication that enacted the regulation set the "
         "article; else the change it made or a bill proposes.",

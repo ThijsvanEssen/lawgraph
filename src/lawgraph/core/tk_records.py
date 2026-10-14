@@ -16,7 +16,7 @@ import sys
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
 
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.display import shorten
@@ -35,11 +35,14 @@ COMMITMENT_OPEN = "Openstaand"
 
 # Stemming.Soort values that mean the vote was cast in favour / against; any
 # other value ("Onthouden", "Niet deelgenomen") is kept as the source wrote it.
-VOTE_FOR = "Voor"
-VOTE_AGAINST = "Tegen"
+VoteChoice = Literal["Voor", "Tegen"]
+VOTE_FOR: Final[VoteChoice] = "Voor"
+VOTE_AGAINST: Final[VoteChoice] = "Tegen"
 
-VOTE_KIND_MEMBER = "member"
-VOTE_KIND_FACTION = "faction"
+# Who the votes of a decision come from: the members (a roll call), else the factions.
+VoteKind = Literal["member", "faction"]
+VOTE_KIND_MEMBER: Final[VoteKind] = "member"
+VOTE_KIND_FACTION: Final[VoteKind] = "faction"
 
 # Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
 # votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
@@ -333,7 +336,11 @@ def committee(payload: Payload) -> Record | None:
 
 # The kind of a committee, by its name, else by the group the Kamer lists it in
 # (``Commissie.Inhoudsopgave``): an enquête or ondervraging before "Parlementaire".
-_COMMITTEE_KINDS = (
+CommitteeKind = Literal[
+    "vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"
+]
+COMMITTEE_OTHER: Final[CommitteeKind] = "overig"
+_COMMITTEE_KINDS: tuple[tuple[CommitteeKind, re.Pattern[str]], ...] = (
     ("enquete", re.compile(r"(?:enqu[eê]te|ondervragings)commissie", re.IGNORECASE)),
     ("vast", re.compile(r"^vaste commissie\b", re.IGNORECASE)),
     ("algemeen", re.compile(r"^algemene commissie\b", re.IGNORECASE)),
@@ -346,7 +353,7 @@ _COMMITTEE_KINDS = (
         ),
     ),
 )
-_COMMITTEE_GROUPS = {
+_COMMITTEE_GROUPS: dict[str, CommitteeKind] = {
     "Vaste commissies": "vast",
     "Algemene commissies": "algemeen",
     "Tijdelijke commissies": "tijdelijk",
@@ -354,12 +361,12 @@ _COMMITTEE_GROUPS = {
 }
 
 
-def committee_kind(name: str, group: str | None) -> str:
+def committee_kind(name: str, group: str | None) -> CommitteeKind:
     """``vast``, ``algemeen``, ``tijdelijk``, ``enquete``, ``delegatie`` or ``overig``."""
     for kind, pattern in _COMMITTEE_KINDS:
         if pattern.search(name):
             return kind
-    return _COMMITTEE_GROUPS.get(group or "", "overig")
+    return _COMMITTEE_GROUPS.get(group or "", COMMITTEE_OTHER)
 
 
 def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
@@ -833,9 +840,10 @@ def commitment(payload: Payload) -> Record | None:
 
 
 # The capacity a document is signed in (see ``signing_capacity``).
-CAPACITY_MEMBER = "kamerlid"
-CAPACITY_GOVERNMENT = "bewindspersoon"
-CAPACITY_OTHER = "overig"
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
+CAPACITY_MEMBER: Final[SigningCapacity] = "kamerlid"
+CAPACITY_GOVERNMENT: Final[SigningCapacity] = "bewindspersoon"
+CAPACITY_OTHER: Final[SigningCapacity] = "overig"
 
 # What a Toezegging holds as ``DatumNakoming`` when the Kamer names no date it is due.
 NO_DUE_DATE = "0001-01-01"
@@ -1239,7 +1247,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
 def _in_vote_order(counts: dict[str, int]) -> dict[str, int]:
     """*counts* per choice as a tally is read: for, against, then the others in alphabetical
     order (``Niet deelgenomen``)."""
-    order = {VOTE_FOR: 0, VOTE_AGAINST: 1}
+    order: dict[str, int] = {VOTE_FOR: 0, VOTE_AGAINST: 1}
     return dict(
         sorted(counts.items(), key=lambda item: (order.get(item[0], 2), item[0]))
     )
