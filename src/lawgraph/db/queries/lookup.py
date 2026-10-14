@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.publications import instrument_key, note_key, parse_koop_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import _committee
@@ -264,7 +264,7 @@ def find_cabinet(store: GraphStore, key: str) -> str | None:
 def answer(store: GraphStore, node_id: str) -> dict[str, Any]:
     """``{id, key, collection, type, chamber, props}`` of the node, its props only those of
     ``ANSWER_PROPS`` it has."""
-    collection, _ = node_id.split("/", 1)
+    collection, _ = parse_node_id(node_id)
     picked = sql.SQL(", ").join(
         sql.SQL("{name}, t.props -> {name}").format(name=sql.Literal(name))
         for name in ANSWER_PROPS

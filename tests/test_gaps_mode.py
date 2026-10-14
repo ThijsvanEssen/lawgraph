@@ -10,6 +10,13 @@ from lawgraph.core.judgments import Referral
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps
+from lawgraph.sources.registry import find
+
+
+def _retrieve(name: str, argv: list[str]) -> PipelineResult:
+    pipeline = find("retrieve", name)
+    assert pipeline is not None
+    return pipeline.command(argv)
 
 
 @pytest.fixture
@@ -34,7 +41,7 @@ def test_bwb_fetches_the_laws_with_enough_referred_articles(monkeypatch, ran) ->
     monkeypatch.setattr(
         _gaps, "bwb_gaps", lambda store, min_stubs: asked.append(min_stubs) or ["BWBR1"]
     )
-    retrieve_commands.retrieve_bwb(["--mode", "gaps", "--min-stubs", "5"])
+    _retrieve("bwb", ["--mode", "gaps", "--min-stubs", "5"])
     assert asked == [5] and ran["BWB"] == {"bwb_ids": ["BWBR1"]}
 
 
@@ -44,7 +51,7 @@ def test_rechtspraak_fetches_the_cited_judgments_of_any_court(monkeypatch, ran) 
         _gaps, "rechtspraak_gaps", lambda store: ["ECLI:NL:RBAMS:2020:1"]
     )
     monkeypatch.setattr(_gaps, "unanswered_referrals", lambda store: [referral])
-    retrieve_commands.retrieve_rechtspraak(["--mode", "gaps"])
+    _retrieve("rechtspraak", ["--mode", "gaps"])
     assert ran["Rechtspraak"] == {
         "courts": [],
         "eclis": ["ECLI:NL:RBAMS:2020:1"],
@@ -55,8 +62,8 @@ def test_rechtspraak_fetches_the_cited_judgments_of_any_court(monkeypatch, ran) 
 def test_eurlex_and_echr_fetch_what_is_named(monkeypatch, ran) -> None:
     monkeypatch.setattr(_gaps, "eurlex_gaps", lambda store: ["32016R0679"])
     monkeypatch.setattr(_gaps, "echr_gaps", lambda store: ["ECLI:CE:ECHR:2020:1"])
-    retrieve_commands.retrieve_eurlex(["--mode", "gaps"])
-    retrieve_commands.retrieve_echr(["--mode", "gaps"])
+    _retrieve("eurlex", ["--mode", "gaps"])
+    _retrieve("echr", ["--mode", "gaps"])
     assert ran["Eurlex"]["celex_ids"] == ["32016R0679"]
     assert ran["ECHR"] == {"eclis": ["ECLI:CE:ECHR:2020:1"]}
 
@@ -65,9 +72,9 @@ def test_the_treaty_register_is_read_again_only_when_a_treaty_is_missing(
     monkeypatch, ran
 ) -> None:
     monkeypatch.setattr(_gaps, "verdragenbank_gaps", lambda store: [])
-    assert retrieve_commands.retrieve_verdragenbank(["--mode", "gaps"]).created == 0
+    assert _retrieve("verdragenbank", ["--mode", "gaps"]).created == 0
     assert "Verdragenbank" not in ran
 
     monkeypatch.setattr(_gaps, "verdragenbank_gaps", lambda store: ["trb-1"])
-    retrieve_commands.retrieve_verdragenbank(["--mode", "gaps"])
+    _retrieve("verdragenbank", ["--mode", "gaps"])
     assert "Verdragenbank" in ran

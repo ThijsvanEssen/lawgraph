@@ -41,7 +41,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -191,7 +191,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 )
             for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
                 writer.add(
-                    f"{COLLECTION_ANNEXES}/{annex_key}",
+                    node_id(COLLECTION_ANNEXES, annex_key),
                     instrument.node_id,
                     RELATION_PART_OF,
                     source=ANNEX_EDGE_SOURCE,

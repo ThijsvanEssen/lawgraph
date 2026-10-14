@@ -10,7 +10,6 @@ import pytest
 
 from lawgraph import __main__ as cli
 from lawgraph.core.logging import log_step
-from lawgraph.pipelines import inputs
 from lawgraph.pipelines.command import (
     add_since_argument,
     command_parser,
@@ -78,7 +77,6 @@ def test_every_option_of_a_retrieve_says_what_it_does(monkeypatch) -> None:
         raise _Parsed(parser)
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", caught)
-    monkeypatch.setattr(inputs, "missing", lambda reads, argv: [])
     for pipeline in PIPELINES["retrieve"]:
         with log_step(pipeline.address), pytest.raises(_Parsed) as built:
             pipeline.command([])

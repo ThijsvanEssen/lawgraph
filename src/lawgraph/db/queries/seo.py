@@ -37,6 +37,8 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
+from lawgraph.core import models
+from lawgraph.core.models import key_of, parse_node_id
 from lawgraph.core.publications import (
     note_key,
     official_of_instrument_key,
@@ -117,7 +119,11 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     if s == "publicatie":
         return lookup.find_publication(store, pad.a, pad.b, pad.c)
     if s == "stemming":
-        return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
+        return (
+            models.node_id(COLLECTION_DECISIONS, pad.a)
+            if store.has_node(COLLECTION_DECISIONS, pad.a)
+            else None
+        )
     return focus_of_pad(pad)
 
 
@@ -628,14 +634,14 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     nota van toelichting (the document of its own source, whose title is its title; the
     page of one without such an instrument) and the regulations they change, by name. The
     note is read light (``lg_document_light``): its props hold its whole text."""
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     if collection == COLLECTION_INSTRUMENTS:
         row = _node(store, COLLECTION_INSTRUMENTS, node_id)
         if row is None:
             return None
         props = row["props"] or {}
         official = str(props.get("official_id") or official_of_instrument_key(key))
-        note_id = f"{COLLECTION_DOCUMENTS}/{note_key(official)}"
+        note_id = models.node_id(COLLECTION_DOCUMENTS, note_key(official))
     else:
         row, note_id = None, node_id
         official = official_of_note_key(key)
@@ -827,7 +833,7 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A decision with its votes (``get_decision_detail``) and the papers it was taken on:
     of each case it is about the oldest paper, the case it names first; a vote of the
     Eerste Kamer on a motion is about the motion itself."""
-    detail = get_decision_detail(store, node_id.partition("/")[2])
+    detail = get_decision_detail(store, key_of(node_id))
     if detail is None:
         return None
     papers = list(
@@ -882,7 +888,7 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 def activity(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An activity (``get_activity``) with what was made in it and its agenda
     (``get_activity_records``): light, a paper without its text."""
-    head = get_activity(store, node_id.partition("/")[2])
+    head = get_activity(store, key_of(node_id))
     if head is None:
         return None
     return {**head, "records": get_activity_records(store, head["id"])}

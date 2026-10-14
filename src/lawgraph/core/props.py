@@ -418,7 +418,7 @@ class DocumentProps(_CommonProps):
     # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)
     explanation: str | None = None
     # how a motion or an amendment ended (``semantic tk-paper-outcomes``,
-    # ``core/paper_outcomes.py``): the outcome, the day and votes of the decision that gave
+    # ``core/votes.py``): the outcome, the day and votes of the decision that gave
     # it, and its key
     outcome: str | None = None
     decided_on: str | None = None

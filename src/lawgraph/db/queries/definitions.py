@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db.counting import Store
 from lawgraph.db.schema import DEFINITIONS_TABLE
 from lawgraph.db.version_cache import cached
@@ -56,7 +56,7 @@ def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> No
         return
     rows = [
         {
-            "instrument_id": f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}",
+            "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
             "bwb_id": bwb_id,
             "definitions": definitions,
         }

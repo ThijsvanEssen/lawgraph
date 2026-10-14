@@ -37,9 +37,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers, motion_papers
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.core.time import describe_since, iso_timestamp
-from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, is_motion
+from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, dossier_label, is_motion
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -115,7 +115,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         dossiers = semantic_tk.dossier_labels(self.store)
 
         def is_dossier(number: str, suffix: str | None) -> bool:
-            return f"{number}-{suffix}" in dossiers
+            return dossier_label(number, suffix) in dossiers
 
         named: list[tuple[dict[str, Any], PaperRef]] = []
         for row in self._track(
@@ -156,13 +156,13 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
             return None
         return sorted(
             {
-                f"{COLLECTION_DOCUMENTS}/{make_node_key(str(guid))}"
+                node_id(COLLECTION_DOCUMENTS, make_node_key(str(guid)))
                 for guid in raw_queries.tk_document_ids_fetched_since(
                     self.store, since_iso
                 )
             }
             | {
-                f"{COLLECTION_DOCUMENTS}/{key}"
+                node_id(COLLECTION_DOCUMENTS, key)
                 for key in raw_queries.tk_papers_with_xml_fetched_since(
                     self.store, since_iso
                 )

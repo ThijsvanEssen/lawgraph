@@ -445,7 +445,7 @@ of decisions that no longer have one go (weekly, which also follows a change of 
 explanation of an amendment (`core/amendment_explanation.py`) whose text `normalize tk-content`
 read before it kept them; `normalize tk-content` keeps both of every paper it reads.
 
-**Semantic `tk-paper-outcomes`.** How each motion and amendment ended (`core/paper_outcomes.py`,
+**Semantic `tk-paper-outcomes`.** How each motion and amendment ended (`core/votes.py`,
 data model, Document): `outcome`, `decided_on`, `tally` and `decision` from the decisions taken
 on it, the status the page of a motion of the Eerste Kamer states, and `REVISES` for a paper a
 newer one replaces. A decision comes days after its paper and can change it again (held, then
