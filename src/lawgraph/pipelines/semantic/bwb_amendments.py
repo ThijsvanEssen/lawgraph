@@ -48,7 +48,7 @@ from lawgraph.core.bwb_xml import (
     publication_props,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -268,7 +268,6 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             nodes.add(
                 Node(
                     collection=COLLECTION_INSTRUMENTS,
-                    type=NodeType.INSTRUMENT,
                     key=key,
                     labels=["BWB", "Publication"],
                     props=node_props,

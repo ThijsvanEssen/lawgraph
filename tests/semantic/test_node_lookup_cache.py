@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from lawgraph.core.batching import chunked
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 ARTICLES = "articles"
@@ -21,13 +21,7 @@ class _Store:
         self.get_calls.append(key)
         if key not in self.existing:
             return None
-        return Node(
-            collection=collection,
-            type=NodeType.ARTICLE,
-            key=key,
-            props={"text": "large body"},
-            _skip_validation=True,
-        )
+        return Node.skeleton(collection, key, {"text": "large body"})
 
     def existing_keys(
         self, collection: str, keys: Iterable[str], *, chunk_size: int = 5000
@@ -90,15 +84,7 @@ def test_remember_node_makes_new_stub_visible() -> None:
     pipeline = _Pipeline(store=_Store(set()))
     assert pipeline._lookup_node(ARTICLES, "stub") is None
 
-    pipeline._remember_node(
-        Node(
-            collection=ARTICLES,
-            type=NodeType.ARTICLE,
-            key="stub",
-            props={"stub": True},
-            _skip_validation=True,
-        )
-    )
+    pipeline._remember_node(Node.skeleton(ARTICLES, "stub", {"stub": True}))
 
     assert pipeline._lookup_node(ARTICLES, "stub") is not None
 

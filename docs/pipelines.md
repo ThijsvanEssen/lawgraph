@@ -655,7 +655,9 @@ short line that opens with "De Procureur-Generaal" to the end ("Hoge Raad der Ne
 "A-G"; at most four short lines after it), are `signature`.
 
 Where the XML has no numbered units (`<paragroup>` with its `<nr>`), a `<para>` is a paragraph,
-and a number that its text opens with (`1. Bij het besluit`) is its number.
+and a number that its text opens with (`1. Bij het besluit`) is its number. Inside a numbered
+unit, a paragraph that opens with a later number of the same level (`4.100.` in the unit of
+`4.99`, compared part by part as numbers) begins a unit of its own.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches

@@ -20,6 +20,7 @@ from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.queries.not_found import require
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
@@ -386,10 +387,10 @@ _SORTS: dict[str, str] = {
 _SEARCH_FIELDS = ["display_name", "names", "summary", "ecli"]
 
 # A row of the list, in the order of its keys; ``ecli`` is the key when it has none.
-_ITEM = """json_build_object(
+_ITEM = f"""json_build_object(
     '_id', j.id,
     '_key', j.key,
-    'ecli', CASE WHEN coalesce(json_typeof(j.pj_ecli), 'null') = 'null'
+    'ecli', CASE WHEN {is_absent("j.pj_ecli")}
                  THEN to_json(j.key) ELSE j.pj_ecli END,
     'display_name', j.pj_display_name,
     'summary', j.pj_summary,

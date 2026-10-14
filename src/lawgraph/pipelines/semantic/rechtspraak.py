@@ -12,7 +12,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import ArticleMentions, find_mentions, footnote_paragraphs
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 
@@ -142,7 +142,6 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         nodes.add(
             Node(
                 collection=COLLECTION_JUDGMENTS,
-                type=NodeType.JUDGMENT,
                 key=judgment.key,
                 props={"unresolved_citations": kept},
             )

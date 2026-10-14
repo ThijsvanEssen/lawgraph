@@ -24,6 +24,7 @@ from lawgraph.core.time import day_before
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
+from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.cabinets import (
     cabinet_on,
     cabinet_posts,
@@ -222,15 +223,14 @@ def cabinets_with_posts(store: Store) -> list[dict[str, Any]]:
     """``{key, from_date, to_date, posts}`` of every cabinet, newest first: the posts held in
     it (``meta.posts`` of its ``SERVED_IN`` edges)."""
     rows = store.query(
-        """
+        f"""
         SELECT c.key, lg_str(c.props -> 'from_date') AS from_date,
                lg_str(c.props -> 'to_date') AS to_date,
                coalesce((
                    SELECT json_agg(p.post ORDER BY e.key, p.n)
                    FROM edges e
                    CROSS JOIN LATERAL json_array_elements(
-                       CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
-                            THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+                       {array_or_empty("e.doc -> 'meta' -> 'posts'")}
                    ) WITH ORDINALITY AS p(post, n)
                    WHERE e.to_id = c.id AND e.relation = %(served_in)s
                ), '[]'::json) AS posts
@@ -314,13 +314,12 @@ def vacancies_between(store: Store, start: str, end: str) -> list[dict[str, Any]
     """``{faction_key, from_date, to_date}`` of every vacant seat of a faction of the
     Tweede Kamer (``vacancies``, FractieZetelVacature) that overlaps *start*..*end*."""
     rows = store.query(
-        """
+        f"""
         SELECT f.key AS faction_key, lg_str(v.period -> 'from_date') AS from_date,
                lg_str(v.period -> 'to_date') AS to_date
         FROM factions f
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(f.props -> 'vacancies') = 'array'
-                 THEN f.props -> 'vacancies' ELSE '[]'::json END
+            {array_or_empty("f.props -> 'vacancies'")}
         ) AS v(period)
         WHERE lg_str(v.period -> 'from_date') <= %(end)s
           AND (lg_str(v.period -> 'to_date') IS NULL

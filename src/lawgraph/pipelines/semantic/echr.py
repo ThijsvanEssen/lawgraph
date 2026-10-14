@@ -143,7 +143,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
             read.append(row["j_id"])
-            judgment = Node.ref(COLLECTION_JUDGMENTS, row["j_key"])
+            judgment = Node.skeleton(COLLECTION_JUDGMENTS, row["j_key"])
             for target, confidence, meta in self._targets(row, instruments, treaties):
                 edges.add_doc(
                     self._make_edge_doc(
@@ -243,5 +243,5 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         for doc in semantic_bwb.instrument_keys_by_bwb_id(self.store, sorted(named)):
             bwb_id = str((doc.get("props") or {}).get("bwb_id") or "").upper()
             if bwb_id:
-                found[bwb_id] = Node.ref(COLLECTION_INSTRUMENTS, doc["_key"])
+                found[bwb_id] = Node.skeleton(COLLECTION_INSTRUMENTS, doc["_key"])
         return found

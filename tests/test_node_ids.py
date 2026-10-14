@@ -11,7 +11,6 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import (
     Node,
-    NodeType,
     article_id,
     key_of,
     node_id,
@@ -44,15 +43,5 @@ def test_article_id() -> None:
 
 
 def test_node_node_id_uses_node_id() -> None:
-    assert Node(COLLECTION_ARTICLES, NodeType.ARTICLE, key="k").node_id == "articles/k"
-    assert Node(COLLECTION_ARTICLES, NodeType.ARTICLE).node_id is None
-
-
-def test_ref_is_an_unvalidated_skeleton_with_the_type_of_its_collection() -> None:
-    ref = Node.ref(COLLECTION_JUDGMENTS, "ecli_nl_hr_2020_1")
-    assert ref.collection == COLLECTION_JUDGMENTS
-    assert ref.type is NodeType.JUDGMENT
-    assert ref.key == "ecli_nl_hr_2020_1"
-    assert ref.props == {}
-    assert ref.labels == []
-    assert ref.node_id == "judgments/ecli_nl_hr_2020_1"
+    assert Node.skeleton(COLLECTION_ARTICLES, "k").node_id == "articles/k"
+    assert Node.skeleton(COLLECTION_ARTICLES, None).node_id is None

@@ -27,9 +27,9 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
-from lawgraph.core.code_families import cited_number, family_of
+from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.display import shorten
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_numbers import official_number, short_title
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
@@ -120,7 +120,12 @@ def _section(title: str, html: str) -> str:
 
 
 def law_name(props: dict[str, Any]) -> str:
-    """``Burgerlijk Wetboek Boek 6 (BW 6)``: the citation title, its short title after it."""
+    """``Opiumwet (Ow)``: the citation title, its short title after it; a book of a code as
+    it is cited, ``Boek 6 BW``."""
+    bwb_id = _text(props.get("bwb_id"))
+    family, book = family_of(bwb_id), book_of(bwb_id)
+    if family and book:
+        return f"Boek {book} {family}"
     name = _text(props.get("citation_title")) or _text(props.get("title"))
     short = _text(props.get("short_title"))
     return f"{name} ({short})" if short and short.lower() not in name.lower() else name
@@ -565,16 +570,18 @@ def paper_page(row: dict[str, Any]) -> Page:
         + (f"<p>{escape(kind)}, {escape(day)}</p>" if kind and day else "")
         + (f"<p>Indieners: {escape(names)}</p>" if names else "")
         + (
-            f"<p>Dossier {_link(dossier_path, dossier_label)}</p>"
+            f"<p>Dossier {_link(dossier_path, official_number(dossier_label))}</p>"
             if dossier_label
             else ""
         )
         + (f"<blockquote>{escape(dictum)}</blockquote>" if dictum else "")
         + _section(f"Stemming: {outcome}" if outcome else "Stemming", votes)
     )
-    crumbs = ([(f"Dossier {dossier_label}", dossier_path)] if dossier_path else []) + [
-        (title, path)
-    ]
+    crumbs = (
+        [(f"Dossier {official_number(dossier_label)}", dossier_path)]
+        if dossier_path
+        else []
+    ) + [(title, path)]
     return Page(
         title=title,
         description=cut(description, DESCRIPTION_MAX),
@@ -595,9 +602,9 @@ def paper_page(row: dict[str, Any]) -> Page:
 
 
 def dossier_title(props: dict[str, Any], key: str) -> str:
-    """``36496 Wet betaalbare huur``, ``36600-VII Begroting Binnenlandse Zaken en
+    """``36496 Wet betaalbare huur``, ``36600 VII Begroting Binnenlandse Zaken en
     Koninkrijksrelaties 2025``: its number and the name it goes by."""
-    label = _text(props.get("label")) or key
+    label = official_number(_text(props.get("label")) or key)
     title = _text(props.get("title"))
     name = short_title(title) or title
     return f"{label} {name}" if name else f"Dossier {label}"
@@ -692,7 +699,7 @@ def case_page(row: dict[str, Any]) -> Page:
             f"zaak {number}",
             kind,
             f"gestart {started}" if started else "",
-            f"dossier {label}" if label else "",
+            f"dossier {official_number(label)}" if label else "",
             outcome,
             "afgedaan" if done is True else "",
         )
@@ -713,7 +720,9 @@ def case_page(row: dict[str, Any]) -> Page:
             for d in row.get("decisions") or []
         ]
     )
-    dossier_name = " ".join(p for p in (label, _text(dossier.get("title"))) if p)
+    dossier_name = " ".join(
+        p for p in (official_number(label), _text(dossier.get("title"))) if p
+    )
     body = (
         f"<h1>{escape(title)}</h1>"
         + (
@@ -725,9 +734,9 @@ def case_page(row: dict[str, Any]) -> Page:
         + _section("Stukken", papers)
         + _section("Stemmingen", votes)
     )
-    crumbs = ([(f"Dossier {label}", dossier_path)] if dossier_path else []) + [
-        (title, path)
-    ]
+    crumbs = (
+        [(f"Dossier {official_number(label)}", dossier_path)] if dossier_path else []
+    ) + [(title, path)]
     return Page(
         title=title,
         description=cut(description, DESCRIPTION_MAX),
@@ -785,7 +794,8 @@ def activity_page(row: dict[str, Any]) -> Page:
     dossiers = _list(
         [
             _link(
-                path_of(node_id(COLLECTION_DOSSIERS, n), {"label": n}), f"Dossier {n}"
+                path_of(node_id(COLLECTION_DOSSIERS, n), {"label": n}),
+                f"Dossier {official_number(n)}",
             )
             for n in props.get("dossier_numbers") or []
             if isinstance(n, str)
@@ -1445,7 +1455,12 @@ def publication_page(row: dict[str, Any]) -> Page:
         )
         + _section(
             "Dossiers",
-            _list([_link(path_of("dossiers/x", {"label": n}), n) for n in dossiers]),
+            _list(
+                [
+                    _link(path_of("dossiers/x", {"label": n}), official_number(n))
+                    for n in dossiers
+                ]
+            ),
         )
         + (
             f'<p><a href="{escape(url)}">De publicatie op officielebekendmakingen.nl</a></p>'
@@ -1535,13 +1550,19 @@ def commitment_page(row: dict[str, Any]) -> Page:
             _link(
                 path_of(d["id"], d.get("props") or {}),
                 " ".join(
-                    p for p in (_text((d.get("props") or {}).get("label")) or d["key"],
-                                _text(d.get("title"))) if p
+                    p
+                    for p in (
+                        official_number(
+                            _text((d.get("props") or {}).get("label")) or d["key"]
+                        ),
+                        _text(d.get("title")),
+                    )
+                    if p
                 ),
             )
             for d in row.get("dossiers") or []
         ]
-    )  # fmt: skip
+    )
     letters = _list(
         [
             _link(
@@ -1642,7 +1663,7 @@ def decision_page(row: dict[str, Any]) -> Page:
     )
     dossiers = _list(
         [
-            _link(path_of("dossiers/x", {"label": n}), f"Dossier {n}")
+            _link(path_of("dossiers/x", {"label": n}), f"Dossier {official_number(n)}")
             for n in props.get("dossier_numbers") or []
             if isinstance(n, str)
         ]

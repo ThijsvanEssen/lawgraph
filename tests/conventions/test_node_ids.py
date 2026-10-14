@@ -1,5 +1,5 @@
 """A node id is built and split by the helpers of ``core.models`` (``node_id``,
-``article_id``, ``Node.ref``; ``parse_node_id``, ``key_of``), never by hand."""
+``article_id``, ``Node.skeleton``; ``parse_node_id``, ``key_of``), never by hand."""
 
 from __future__ import annotations
 

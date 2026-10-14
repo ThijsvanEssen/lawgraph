@@ -272,8 +272,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             if (from_id, to_id) in tied:
                 left_out.add((from_id, to_id))
                 continue
-            from_node = Node.ref(*parse_node_id(from_id))
-            to_node = Node.ref(*parse_node_id(to_id))
+            from_node = Node.skeleton(*parse_node_id(from_id))
+            to_node = Node.skeleton(*parse_node_id(to_id))
             edges.add_doc(
                 self._make_edge_doc(
                     from_node=from_node,

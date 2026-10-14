@@ -49,7 +49,7 @@ from lawgraph.core.cabinets import faction_of
 from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.post_ministries import (
     SOURCE_PAGE,
     SOURCE_TK_COMMITMENTS,
@@ -350,7 +350,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         )
         return Node(
             collection=COLLECTION_CABINETS,
-            type=NodeType.CABINET,
             key=cabinet["key"],
             labels=[],
             props={
@@ -380,7 +379,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             props.update({"external_id": key, "name": name, "display_name": name})
         return Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[LABEL_RIJKSOVERHEID] if key in own else [],
             props=props,
@@ -390,7 +388,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
     def _cleared(key: str) -> Node:
         return Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[],
             props={

@@ -26,6 +26,7 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
@@ -219,11 +220,14 @@ def _where(clauses: list[str]) -> str:
 
 def _object_or_empty(value: str) -> str:
     """SQL: AQL ``value != null ? value : {}``."""
-    return (
-        f"CASE WHEN coalesce(json_typeof({value}), 'null') <> 'null'"
-        f" THEN {value} ELSE '{{}}'::json END"
-    )
+    return f"CASE WHEN {is_present(value)} THEN {value} ELSE '{{}}'::json END"
 
+
+# The first of the chambers (``%(chambers)s``) whose label the decision carries.
+_CHAMBER_OF_LABELS = """to_json((
+    SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
+    WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
+))"""
 
 # A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
 # set (AQL ``||``), else the first of the chambers whose label the decision carries.
@@ -239,13 +243,7 @@ _ITEM = f"""json_build_object(
     'primary_case_kind', d.props -> 'primary_case_kind',
     'decision_kind', d.props -> 'decision_kind',
     'passed', d.props -> 'passed',
-    'chamber', CASE
-        WHEN lg_truthy(d.props -> 'chamber') THEN d.props -> 'chamber'
-        ELSE to_json((
-            SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
-            WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
-        ))
-    END,
+    'chamber', {truthy_or("d.props -> 'chamber'", _CHAMBER_OF_LABELS)},
     'result', d.props -> 'result',
     'method', d.props -> 'method',
     'bill_decision', d.props -> 'bill_decision',
@@ -375,7 +373,7 @@ _PARTY_VOTES = f"""(
 def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``_PARTY_VOTES`` of the factions *filters* asks for; ``[]`` when it asks none."""
     if not filters.party_votes:
-        return "'[]'::json"
+        return EMPTY_ARRAY
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
     if filters.party_votes == ("all",):
         # every faction that voted on one of them
@@ -722,15 +720,14 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
     by the voter's name and key.
     """
     rows = store.query(
-        """
+        f"""
         SELECT d.id, d.key, d.type, d.labels, d.props, (
             SELECT coalesce(json_agg(
                 json_build_object(
                     'voter_id', v.id,
                     'voter_key', v.key,
                     'name', CASE
-                        WHEN coalesce(json_typeof(v.props -> 'abbreviation'), 'null')
-                             <> 'null'
+                        WHEN {is_present("v.props -> 'abbreviation'")}
                         THEN v.props -> 'abbreviation' ELSE v.props -> 'name' END,
                     'choice', e.doc -> 'meta' -> 'choice',
                     'seats', e.doc -> 'meta' -> 'seats'

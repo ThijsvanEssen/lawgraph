@@ -53,6 +53,12 @@ from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries._json_sql import (
+    array_or_empty,
+    as_text,
+    first_present,
+    is_present,
+)
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -139,16 +145,6 @@ _SIGNATORY_ROLES = {
 # ── SQL pieces ────────────────────────────────────────────────────────────────
 
 
-def _present(value: str) -> str:
-    """``value != null`` of a json value: neither missing nor a json null."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
-
-def _not_null(first: str, second: str) -> str:
-    """``first != null ? first : second`` of two json values."""
-    return f"CASE WHEN {_present(first)} THEN {first} ELSE {second} END"
-
-
 def _type_rank(value: str) -> str:
     """The place of a json value's type in ArangoDB's order of types."""
     return (
@@ -172,12 +168,6 @@ def _json_order(value: str, direction: str) -> str:
     """ORDER BY items that sort a json value as ArangoDB does (``_json_keys``)."""
     nulls = "NULLS FIRST" if direction == "ASC" else "NULLS LAST"
     return ", ".join(f"{key} {direction} {nulls}" for key in _json_keys(value))
-
-
-def _as_text(value: str) -> str:
-    """``TO_STRING`` of a json value as ``LOWER`` and ``LEFT`` read it: a string as it is,
-    a number or a boolean as written, null as ''."""
-    return f"coalesce({value} #>> '{{}}', '')"
 
 
 def _in_dossier(relation: str, collection: str) -> str:
@@ -351,11 +341,11 @@ def get_dossier_timeline(
     }
     kind_clause = ""
     if kind_filter:
-        kind_clause = f"AND lower({_as_text('x.kind')}) = ANY(%(kind_filter)s)"
+        kind_clause = f"AND lower({as_text('x.kind')}) = ANY(%(kind_filter)s)"
         bind["kind_filter"] = [k.lower() for k in kind_filter]
     direction = "DESC" if order == "desc" else "ASC"
-    date = _not_null("m.props -> 'date'", "m.props -> 'made_on'")
-    kind = _not_null(
+    date = first_present("m.props -> 'date'", "m.props -> 'made_on'")
+    kind = first_present(
         "m.props -> 'kind'",
         "to_json(CASE m.type WHEN 'activity' THEN 'Activiteit'"
         " WHEN 'decision' THEN 'Stemming' WHEN 'commitment' THEN 'Toezegging'"
@@ -383,7 +373,7 @@ def get_dossier_timeline(
     page AS (
         SELECT x.*
         FROM entries x
-        WHERE x.date IS NOT NULL AND {_present("x.date")}
+        WHERE x.date IS NOT NULL AND {is_present("x.date")}
           AND (%(include_planned)s OR NOT x.planned)
           {kind_clause}
         ORDER BY {_json_order("x.date", direction)}, x.id {direction}
@@ -403,9 +393,9 @@ def get_dossier_timeline(
         ),
         json_build_object(
             'after_closure', coalesce(
-                {_present("closing.closed_on")}
-                AND left({_as_text("p.date")}, 10)
-                    > left({_as_text("closing.closed_on")}, 10),
+                {is_present("closing.closed_on")}
+                AND left({as_text("p.date")}, 10)
+                    > left({as_text("closing.closed_on")}, 10),
                 false
             ),
             'coalition', {coalition_object("co")},
@@ -571,7 +561,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'id', d.id,
             'key', d.key,
             'kind', dp.props -> 'kind',
-            'title', {_not_null("dp.props -> 'title'", "dp.props -> 'display_name'")},
+            'title', {first_present("dp.props -> 'title'", "dp.props -> 'display_name'")},
             'sequence', dp.props -> 'sequence',
             'number', dp.props -> 'number',
             'dossier_number', dp.props -> 'dossier_number',
@@ -665,7 +655,7 @@ WITH docs AS MATERIALIZED (
     WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
 ),
 legislated AS (
-    SELECT s.id, {_present("s.props -> 'publication_kind'")} AS publication
+    SELECT s.id, {is_present("s.props -> 'publication_kind'")} AS publication
     FROM {COLLECTION_EDGES} e
     JOIN {COLLECTION_INSTRUMENTS} s ON s.id = e.from_id
     WHERE e.to_id = %(dossier_id)s AND e.relation = %(legislated_in)s
@@ -802,7 +792,7 @@ def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str,
     rows = store.query(
         f"""
         SELECT DISTINCT m.to_id AS id,
-               CASE WHEN {_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
+               CASE WHEN {is_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
                     ELSE 'wet' END AS basis
         FROM {COLLECTION_EDGES} l
         JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
@@ -962,8 +952,8 @@ class _MutationGraph:
         }
 
 
-_TITLE = _as_text("ds.pj_title")
-_SUFFIX = _as_text("ds.props -> 'suffix'")
+_TITLE = as_text("ds.pj_title")
+_SUFFIX = as_text("ds.props -> 'suffix'")
 
 
 def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
@@ -1082,12 +1072,9 @@ _OPENED_BELOW = (
 _OPENED_ABOVE = f"json_typeof({_OPENED_ON}) IN ('array', 'object')"
 
 # ``@has_phase ALL IN (phases OR [])[* FILTER CURRENT.done].name``
-_HAS_PHASE = """%(has_phase)s::text[] <@ ARRAY(
+_HAS_PHASE = f"""%(has_phase)s::text[] <@ ARRAY(
             SELECT lg_str(p -> 'name')
-            FROM json_array_elements(
-                CASE WHEN json_typeof(ds.pj_phases) = 'array'
-                     THEN ds.pj_phases ELSE '[]'::json END
-            ) AS p
+            FROM json_array_elements({array_or_empty("ds.pj_phases")}) AS p
             WHERE json_typeof(p) = 'object' AND lg_truthy(p -> 'done')
         )"""
 
@@ -1312,9 +1299,9 @@ def get_dossier_titles(
 _LAW_NAMES_SQL = f"""
 SELECT i.key, to_json(i.bwb_id) AS bwb_id,
        lower(coalesce(i.citation_title, '')) AS citation_title,
-       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'title'")}
+       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'title'")}
                   ELSE n.title END) AS title,
-       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'short_title'")}
+       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'short_title'")}
                   ELSE n.short_title END) AS short_title
 FROM {COLLECTION_INSTRUMENTS} i
 LEFT JOIN lg_instrument_names n ON n.id = i.id

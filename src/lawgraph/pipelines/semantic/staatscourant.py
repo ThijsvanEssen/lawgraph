@@ -79,8 +79,8 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
                 raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
-            pub_node = Node.ref(*parse_node_id(pub_id))
-            inst_node = Node.ref(*parse_node_id(inst_id))
+            pub_node = Node.skeleton(*parse_node_id(pub_id))
+            inst_node = Node.skeleton(*parse_node_id(inst_id))
 
             edges.add_doc(
                 self._make_edge_doc(

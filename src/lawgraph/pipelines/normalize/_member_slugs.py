@@ -6,7 +6,7 @@ from __future__ import annotations
 from lawgraph.config.constants import COLLECTION_MEMBERS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.member_slugs import new_slugs
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -21,7 +21,6 @@ def assign_member_slugs(store: Store) -> int:
         writer.add_all(
             Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key=key,
                 labels=[],
                 props={"slug": slug},

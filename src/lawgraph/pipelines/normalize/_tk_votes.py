@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key, node_id
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
@@ -118,7 +118,6 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
         )
         nodes[decision_id] = Node(
             collection=COLLECTION_DECISIONS,
-            type=NodeType.DECISION,
             key=key,
             labels=[CHAMBER_TK],
             props=props,

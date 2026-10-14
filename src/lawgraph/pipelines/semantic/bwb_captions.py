@@ -19,7 +19,7 @@ from itertools import groupby
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.article_caption import captions
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -64,13 +64,8 @@ class BWBCaptionsSemanticPipeline(SemanticPipelineBase):
                     with_caption += caption is not None
                     if caption != kept.get(key):
                         changed.append(
-                            Node(
-                                collection=COLLECTION_ARTICLES,
-                                type=NodeType.ARTICLE,
-                                key=key,
-                                labels=[],
-                                props={"caption": caption},
-                                _skip_validation=True,
+                            Node.skeleton(
+                                COLLECTION_ARTICLES, key, {"caption": caption}
                             )
                         )
             with NodeWriter(self.store) as writer:

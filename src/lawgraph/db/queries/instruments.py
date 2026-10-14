@@ -32,6 +32,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
@@ -984,29 +985,27 @@ _SEARCH_FIELDS = [
 
 # The legal areas of the instruments under the filters (BE-14): each main area, and each of
 # its specific areas, with the number of instruments filed under it.
-_LEGAL_AREA_FACET = """
+_LEGAL_AREA_FACET = f"""
 SELECT a ->> 'main_id' AS main_id, a ->> 'main_slug' AS main_slug, a ->> 'main' AS main,
        a ->> 'specific_id' AS specific_id, a ->> 'specific_slug' AS specific_slug,
        a ->> 'specific' AS specific,
        GROUPING(a ->> 'specific') = 1 AS whole,
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
-CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
-    -> 'legal_areas') = 'array' THEN instruments.props -> 'legal_areas' END) AS a
-{where}
+CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'legal_areas'")}) AS a
+{{where}}
 GROUP BY GROUPING SETS (
     (a ->> 'main_id', a ->> 'main_slug', a ->> 'main'),
     (a ->> 'main_id', a ->> 'main_slug', a ->> 'main',
      a ->> 'specific_id', a ->> 'specific_slug', a ->> 'specific')
 )
 """
-_POLICY_DOMAIN_FACET = """
+_POLICY_DOMAIN_FACET = f"""
 SELECT d ->> 'id' AS id, d ->> 'slug' AS slug, d ->> 'label' AS label,
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
-CROSS JOIN LATERAL json_array_elements(CASE WHEN json_typeof(instruments.props
-    -> 'policy_domains') = 'array' THEN instruments.props -> 'policy_domains' END) AS d
-{where}
+CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'policy_domains'")}) AS d
+{{where}}
 GROUP BY 1, 2, 3
 ORDER BY count DESC, label NULLS FIRST, id NULLS FIRST
 """

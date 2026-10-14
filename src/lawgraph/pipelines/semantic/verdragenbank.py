@@ -36,7 +36,6 @@ from lawgraph.core.bwb_xml import publication_key, publication_props
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import (
     Node,
-    NodeType,
     PipelineResult,
     key_of,
     make_node_key,
@@ -74,7 +73,6 @@ def trb_node(official_id: str) -> Node | None:
     )
     return Node(
         collection=COLLECTION_INSTRUMENTS,
-        type=NodeType.INSTRUMENT,
         key=publication_key(official_id),
         labels=["Verdrag", "Publication"],
         props={**props, "source": EDGE_SOURCE_VERDRAGENBANK},

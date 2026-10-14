@@ -15,7 +15,7 @@ from __future__ import annotations
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.motion_dictum import papers_with_text
@@ -41,16 +41,7 @@ def run(store: GraphStore, every: bool = False) -> int:
                 else {"explanation": read_explanation(row["text"], row["sections"])}
             )
             found += any(value is not None for value in props.values())
-            nodes.append(
-                Node(
-                    collection=COLLECTION_DOCUMENTS,
-                    type=NodeType.DOCUMENT,
-                    key=row["key"],
-                    labels=[],
-                    props=props,
-                    _skip_validation=True,
-                )
-            )
+            nodes.append(Node.skeleton(COLLECTION_DOCUMENTS, row["key"], props))
         with NodeWriter(store) as writer:
             writer.add_all(nodes)
         after, read = batch[-1]["id"], read + len(batch)

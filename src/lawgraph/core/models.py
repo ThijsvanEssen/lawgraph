@@ -4,7 +4,7 @@ from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Literal, get_args
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -24,17 +24,8 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core import props
 from lawgraph.core.text_fold import ascii_slug
-
-# Collections in which a pipeline creates a stub for a record it has not loaded.
-STUB_COLLECTIONS = frozenset(
-    {
-        COLLECTION_ANNEXES,
-        COLLECTION_ARTICLES,
-        COLLECTION_INSTRUMENTS,
-        COLLECTION_JUDGMENTS,
-    }
-)
 
 
 @dataclass
@@ -106,80 +97,137 @@ class NodeType(str, Enum):
     ANNEX = "annex"  # annex (bijlage) of an instrument
 
 
-# The collection of every node type: one collection per type and one type per collection, so
-# the collection in an id says the type without reading the node.
+@dataclass(frozen=True)
+class CollectionSpec:
+    """A node collection: its table, the one type of its nodes (so the collection in an id
+    says the type without reading the node), the concept the docs and the API name it by,
+    the schema of its props, and whether a pipeline makes a stub in it for a record it has
+    not loaded."""
+
+    name: str
+    node_type: NodeType
+    concept: str
+    props_schema: type[BaseModel]
+    stub: bool = False
+
+
+# In the order of the tables of the schema (``db.schema.NODE_COLLECTIONS``).
+COLLECTIONS: tuple[CollectionSpec, ...] = (
+    CollectionSpec(
+        COLLECTION_INSTRUMENTS,
+        NodeType.INSTRUMENT,
+        "Instrument",
+        props.InstrumentProps,
+        stub=True,
+    ),
+    CollectionSpec(
+        COLLECTION_ARTICLES, NodeType.ARTICLE, "Article", props.ArticleProps, stub=True
+    ),
+    CollectionSpec(
+        COLLECTION_INSTRUMENT_VERSIONS,
+        NodeType.INSTRUMENT_VERSION,
+        "InstrumentVersion",
+        props.InstrumentVersionProps,
+    ),
+    CollectionSpec(
+        COLLECTION_ARTICLE_VERSIONS,
+        NodeType.ARTICLE_VERSION,
+        "ArticleVersion",
+        props.ArticleVersionProps,
+    ),
+    CollectionSpec(COLLECTION_CASES, NodeType.CASE, "Case", props.CaseProps),
+    CollectionSpec(
+        COLLECTION_DOCUMENTS, NodeType.DOCUMENT, "Document", props.DocumentProps
+    ),
+    CollectionSpec(
+        COLLECTION_JUDGMENTS,
+        NodeType.JUDGMENT,
+        "Judgment",
+        props.JudgmentProps,
+        stub=True,
+    ),
+    CollectionSpec(
+        COLLECTION_DOSSIERS, NodeType.DOSSIER, "Dossier", props.DossierProps
+    ),
+    CollectionSpec(
+        COLLECTION_ACTIVITIES, NodeType.ACTIVITY, "Activity", props.ActivityProps
+    ),
+    CollectionSpec(
+        COLLECTION_DECISIONS, NodeType.DECISION, "Decision", props.DecisionProps
+    ),
+    CollectionSpec(
+        COLLECTION_COMMITMENTS, NodeType.COMMITMENT, "Commitment", props.CommitmentProps
+    ),
+    CollectionSpec(
+        COLLECTION_COMMITTEES, NodeType.COMMITTEE, "Committee", props.CommitteeProps
+    ),
+    CollectionSpec(COLLECTION_MEMBERS, NodeType.MEMBER, "Member", props.MemberProps),
+    CollectionSpec(
+        COLLECTION_FACTIONS, NodeType.FACTION, "Faction", props.FactionProps
+    ),
+    CollectionSpec(
+        COLLECTION_CABINETS, NodeType.CABINET, "Cabinet", props.CabinetProps
+    ),
+    CollectionSpec(
+        COLLECTION_ANNEXES, NodeType.ANNEX, "Annex", props.AnnexProps, stub=True
+    ),
+)
+COLLECTION_SPECS: dict[str, CollectionSpec] = {spec.name: spec for spec in COLLECTIONS}
 COLLECTION_OF_TYPE: dict[NodeType, str] = {
-    NodeType.INSTRUMENT: COLLECTION_INSTRUMENTS,
-    NodeType.ARTICLE: COLLECTION_ARTICLES,
-    NodeType.INSTRUMENT_VERSION: COLLECTION_INSTRUMENT_VERSIONS,
-    NodeType.ARTICLE_VERSION: COLLECTION_ARTICLE_VERSIONS,
-    NodeType.ANNEX: COLLECTION_ANNEXES,
-    NodeType.JUDGMENT: COLLECTION_JUDGMENTS,
-    NodeType.DOSSIER: COLLECTION_DOSSIERS,
-    NodeType.CASE: COLLECTION_CASES,
-    NodeType.DOCUMENT: COLLECTION_DOCUMENTS,
-    NodeType.ACTIVITY: COLLECTION_ACTIVITIES,
-    NodeType.DECISION: COLLECTION_DECISIONS,
-    NodeType.COMMITMENT: COLLECTION_COMMITMENTS,
-    NodeType.MEMBER: COLLECTION_MEMBERS,
-    NodeType.FACTION: COLLECTION_FACTIONS,
-    NodeType.CABINET: COLLECTION_CABINETS,
-    NodeType.COMMITTEE: COLLECTION_COMMITTEES,
+    spec.node_type: spec.name for spec in COLLECTIONS
 }
 TYPE_OF_COLLECTION: dict[str, NodeType] = {
-    collection: node_type for node_type, collection in COLLECTION_OF_TYPE.items()
+    spec.name: spec.node_type for spec in COLLECTIONS
 }
+# Collections in which a pipeline creates a stub for a record it has not loaded.
+STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
 
 
 @dataclass
 class Node:
-    """
-    Basic node abstraction for documents stored in ArangoDB.
+    """A node of the graph as a pipeline writes it.
 
-      - collection: the ArangoDB collection the document lives in
-      - key: deterministic `_key` (set via `make_node_key`)
-      - type: semantic node type (NodeType enum)
-      - labels: domain tags (e.g. ["Strafrecht", "TK"])
-      - props: domain-specific metadata (should always include `display_name`)
-      - _skip_validation: pass True to bypass props schema validation. Only use
-        this for internal copies (from_document, with_key) or trusted tools that
-        write partial/arbitrary props outside the normalize pipeline contract.
+    - collection: the table it lives in, which says its type (``type``)
+    - key: deterministic key (set via `make_node_key`)
+    - labels: domain tags (e.g. ["Strafrecht", "TK"])
+    - props: domain-specific metadata, validated against the schema of the collection
+    - _skip_validation: pass True to bypass props schema validation. Only use
+      this for internal copies (from_document, with_key) or trusted tools that
+      write partial/arbitrary props outside the normalize pipeline contract.
     """
 
     collection: str
-    type: NodeType
     key: str | None = None
     labels: list[str] = field(default_factory=list)
     props: dict[str, Any] = field(default_factory=dict)
     _skip_validation: InitVar[bool] = False
 
     def __post_init__(self, _skip_validation: bool) -> None:
+        spec = COLLECTION_SPECS.get(self.collection)
+        if spec is None:
+            raise ValueError(f"Unknown node collection: {self.collection!r}")
         if _skip_validation:
             return
-        from lawgraph.core.props import (  # deferred to avoid circular import
-            COLLECTION_SCHEMAS,
-        )
-
-        schema = COLLECTION_SCHEMAS.get(self.collection)
-        if schema is None:
-            return
         try:
-            schema.model_validate(self.props)
+            spec.props_schema.model_validate(self.props)
         except ValidationError as exc:
             raise ValueError(
                 f"Invalid props for collection {self.collection!r}:\n{exc}"
             ) from exc
 
     @classmethod
-    def ref(cls, collection: str, key: str) -> Node:
-        """A skeleton of the node *key* in *collection*: no props, no validation; an upsert
-        of it creates or touches the node without changing what it holds."""
+    def skeleton(
+        cls, collection: str, key: str | None, props: dict[str, Any] | None = None
+    ) -> Node:
+        """A node with only the props given (none by default), for an update that merges
+        them into the stored node: not validated, a pipeline names only what it changes."""
         return cls(
-            collection=collection,
-            type=TYPE_OF_COLLECTION[collection],
-            key=key,
-            _skip_validation=True,
+            collection=collection, key=key, props=props or {}, _skip_validation=True
         )
+
+    @property
+    def type(self) -> NodeType:
+        return TYPE_OF_COLLECTION[self.collection]
 
     @property
     def node_id(self) -> str | None:
@@ -202,19 +250,9 @@ class Node:
 
     @classmethod
     def from_document(cls, collection: str, doc: dict[str, Any]) -> Node:
-        """Deserialise a raw ArangoDB document — bypasses props validation."""
-        key = doc.get("_key")
-        # One type per collection, so the collection says the type when the document does not.
-        try:
-            node_type = NodeType(doc["type"])
-        except (KeyError, ValueError):
-            if collection not in TYPE_OF_COLLECTION:
-                raise ValueError(
-                    f"Document {key!r} in collection {collection!r} has no known type"
-                ) from None
-            node_type = TYPE_OF_COLLECTION[collection]
-        labels = list(doc.get("labels", []))
-
+        """The node of a stored document of *collection*, its type that of the collection;
+        not validated (a stored document may carry fields the current schema does not
+        name)."""
         props_field = doc.get("props")
         if isinstance(props_field, dict):
             props = dict(props_field)
@@ -222,21 +260,17 @@ class Node:
             props = {
                 k: v for k, v in doc.items() if k not in {"_key", "type", "labels"}
             }
-
-        # Use object.__new__ to bypass __init__ (and __post_init__ validation).
-        # A stored document may carry fields the current schema does not name.
-        instance = object.__new__(cls)
-        instance.collection = collection
-        instance.key = key
-        instance.type = node_type
-        instance.labels = labels
-        instance.props = props
-        return instance
+        return cls(
+            collection=collection,
+            key=doc.get("_key"),
+            labels=list(doc.get("labels", [])),
+            props=props,
+            _skip_validation=True,
+        )
 
     def with_key(self, key: str) -> Node:
         return Node(
             collection=self.collection,
-            type=self.type,
             key=key,
             labels=list(self.labels),
             props=dict(self.props),
@@ -246,11 +280,6 @@ class Node:
 
 def _sanitize_key(value: str, *, fallback: str = "node") -> str:
     return ascii_slug(value, "_") or fallback
-
-
-def collection_from_id(node_id: str, fallback: str) -> str:
-    """Return the collection name from an ArangoDB document ID (collection/key)."""
-    return node_id.split("/")[0] if "/" in node_id else fallback
 
 
 def node_id(collection: str, key: str) -> str:

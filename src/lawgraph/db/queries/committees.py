@@ -29,6 +29,14 @@ from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import committee_led
+from lawgraph.db.queries._json_sql import (
+    EMPTY_ARRAY,
+    array_or_empty,
+    is_absent,
+    period_holds,
+    period_overlaps,
+    truthy_or,
+)
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
@@ -40,30 +48,8 @@ _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 _NODE = "{t}.id, {t}.key, {t}.type, {t}.labels, {t}.props"
 
 
-def _is_null(value: str) -> str:
-    """SQL: the JSON *value* is null or missing (AQL ``== null``)."""
-    return f"coalesce(json_typeof({value}), 'null') = 'null'"
-
-
-def _or_empty(value: str) -> str:
-    """SQL: AQL ``value OR []``."""
-    return f"CASE WHEN lg_truthy({value}) THEN {value} ELSE '[]'::json END"
-
-
-def _array(value: str) -> str:
-    """SQL: the JSON *value* when it is an array, else ``[]``: what a FOR walks."""
-    return f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE '[]'::json END"
-
-
-def _overlaps(start: str, end: str) -> str:
-    """SQL: the period from the JSON *start* to the JSON *end* (inclusive; none: from the
-    first day, or still going on) overlaps the one asked (``%(active_from)s`` to
-    ``%(active_to)s``, inclusive; null: open on that side)."""
-    return (
-        f"(%(active_to)s::text IS NULL OR coalesce(lg_str({start}), '') <= %(active_to)s)"
-        f" AND (%(active_from)s::text IS NULL OR {_is_null(end)}"
-        f" OR lg_str({end}) >= %(active_from)s)"
-    )
+# The period a list asks for (``_period``): open on a side it leaves out.
+_ASKED = ("%(active_from)s", "%(active_to)s")
 
 
 # The start and end of a period ``p.v`` of a list, and the posts a member held.
@@ -74,10 +60,10 @@ _GOVERNMENT_FUNCTIONS = "m.props -> 'government_functions'"
 
 def _a_period_overlaps(periods: str) -> str:
     """SQL: one of the periods of the JSON list *periods* (``from_date``, ``to_date``)
-    overlaps the one asked (``_overlaps``)."""
+    overlaps the one asked."""
     return (
-        f"EXISTS (SELECT 1 FROM json_array_elements({_array(periods)}) AS p(v)"
-        f" WHERE {_overlaps(_FROM_DATE, _TO_DATE)})"
+        f"EXISTS (SELECT 1 FROM json_array_elements({array_or_empty(periods)}) AS p(v)"
+        f" WHERE {period_overlaps(_FROM_DATE, _TO_DATE, *_ASKED)})"
     )
 
 
@@ -88,14 +74,6 @@ def _period(
     bind["active_from"] = active_from
     bind["active_to"] = active_to
     return bool(active_from or active_to)
-
-
-def _nonempty(value: str) -> str:
-    """SQL: AQL ``LENGTH(value) > 0`` of a list."""
-    return (
-        f"(CASE WHEN json_typeof({value}) = 'array'"
-        f" THEN json_array_length({value}) > 0 ELSE false END)"
-    )
 
 
 def _contains(text: str) -> str:
@@ -140,9 +118,9 @@ def get_committees(
     existed in it (``started_on`` to ``ended_on``), also the ones that ended since."""
     bind: dict[str, Any] = {"guid": _GUID_NAME}
     existing = (
-        _overlaps("c.props -> 'started_on'", "c.props -> 'ended_on'")
+        period_overlaps("c.props -> 'started_on'", "c.props -> 'ended_on'", *_ASKED)
         if _period(bind, active_from, active_to)
-        else _is_null("c.props -> 'observed_until'")
+        else is_absent("c.props -> 'observed_until'")
     )
     rows = store.query(
         f"""
@@ -389,7 +367,7 @@ def _led_activities(
             'kind', a.props -> 'kind',
             'agenda_title', a.props -> 'agenda_title',
             'status', a.props -> 'status',
-            'dossier_numbers', {_or_empty("a.props -> 'dossier_numbers'")}
+            'dossier_numbers', {truthy_or("a.props -> 'dossier_numbers'", EMPTY_ARRAY)}
         ) AS item
         FROM listed
         LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id
@@ -423,8 +401,8 @@ def _member_name(table: str) -> str:
 
 # A member who is seated: one of their faction memberships has no end date.
 _SEATED = f"""EXISTS (
-    SELECT 1 FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
-    WHERE {_is_null("f.period -> 'to_date'")}
+    SELECT 1 FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)
+    WHERE {is_absent("f.period -> 'to_date'")}
 )"""
 
 # The member's party, or an abbreviation, name or alias in their faction timeline (AQL
@@ -435,11 +413,11 @@ _PERIOD_OF_PARTY = f"""(
             lower(coalesce(f.period ->> 'abbreviation', '')) = %(party)s
             OR lower(coalesce(f.period ->> 'name', '')) = %(party)s
             OR EXISTS (
-                SELECT 1 FROM json_array_elements({_array("f.period -> 'aliases'")}) AS a(alias)
+                SELECT 1 FROM json_array_elements({array_or_empty("f.period -> 'aliases'")}) AS a(alias)
                 WHERE lower(coalesce(a.alias #>> '{{}}', '')) = %(party)s
             )
         )"""
-_TIMELINE = _array("m.props -> 'faction_memberships'")
+_TIMELINE = array_or_empty("m.props -> 'faction_memberships'")
 _PERIODS = f"json_array_elements({_TIMELINE}) AS f(period)"
 
 # The member is or was of the party: its current party, or any period of its timeline.
@@ -453,7 +431,7 @@ _PARTY = f"""
 _SEATED_FOR_PARTY = f"""
     EXISTS (
         SELECT 1 FROM {_PERIODS}
-        WHERE coalesce(json_typeof(f.period -> 'to_date'), 'null') = 'null'
+        WHERE {is_absent("f.period -> 'to_date'")}
           AND {_PERIOD_OF_PARTY}
     )
 """
@@ -575,7 +553,9 @@ def _member_filters(
     bind: dict[str, Any] = {"active": active}
 
     if government:
-        filters.append(_nonempty("m.props -> 'government_functions'"))
+        filters.append(
+            f"json_array_length({array_or_empty(_GOVERNMENT_FUNCTIONS)}) > 0"
+        )
     if cabinet:
         filters.append("m.cabinet_keys @> ARRAY[%(cabinet)s]::text[]")
         bind["cabinet"] = cabinet
@@ -631,12 +611,13 @@ def get_ek_members(
         bind["q"] = q.strip().lower()
     if _period(bind, active_from, active_to):
         filters.append(
-            _overlaps(
+            period_overlaps(
                 "m.props -> 'ek' -> 'observed_from'",
                 "m.props -> 'ek' -> 'observed_until'",
+                *_ASKED,
             )
         )
-    seated = _is_null("m.props -> 'ek' -> 'observed_until'")
+    seated = is_absent("m.props -> 'ek' -> 'observed_until'")
     return _members_page(store, filters, bind, seated, sort)
 
 
@@ -664,7 +645,9 @@ def get_factions(
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
     if _period(bind, active_from, active_to):
         filters.append(
-            _overlaps("f.props -> 'active_from'", "f.props -> 'active_until'")
+            period_overlaps(
+                "f.props -> 'active_from'", "f.props -> 'active_until'", *_ASKED
+            )
         )
     if active is not None:
         filters.append("f.active = %(active)s")
@@ -705,13 +688,13 @@ def get_seats_on(store: GraphStore, day: str) -> dict[str, int]:
         SELECT f.period ->> 'faction_key' AS faction, count(DISTINCT m.key)::int AS seats
         FROM {COLLECTION_MEMBERS} m
         CROSS JOIN LATERAL json_array_elements(
-            {_array("m.pj_faction_memberships")}
+            {array_or_empty("m.pj_faction_memberships")}
         ) AS f(period)
         -- only a member with faction memberships has any (``in_parliament``); the list is
         -- a column of its own, read without the rest of the props
         WHERE m.in_parliament
           AND lg_str(f.period -> 'from_date') <= %(day)s
-          AND ({_is_null("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= %(day)s)
+          AND ({is_absent("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= %(day)s)
         GROUP BY 1
         ORDER BY 1 ASC NULLS FIRST
         """,
@@ -721,10 +704,9 @@ def get_seats_on(store: GraphStore, day: str) -> dict[str, int]:
 
 
 # The membership ``f.period`` held on the day ``d.date``.
-_IN_MEMBERSHIP = f"""
-    ({_is_null("f.period -> 'from_date'")} OR lg_str(f.period -> 'from_date') <= d.date)
-    AND ({_is_null("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= d.date)
-"""
+_IN_MEMBERSHIP = period_holds(
+    "f.period -> 'from_date'", "f.period -> 'to_date'", "d.date"
+)
 
 
 # The faction votes of a period read first, the newest by date, before which of them were
@@ -798,11 +780,10 @@ def _in_office_on(date: str) -> str:
     return f"""(%(in_office)s IS NOT TRUE OR EXISTS (
     SELECT 1 FROM {COLLECTION_MEMBERS} om
     CROSS JOIN LATERAL json_array_elements(
-        {_array("om.props -> 'government_functions'")}
+        {array_or_empty("om.props -> 'government_functions'")}
     ) AS g(post)
     WHERE om.id = %(member_id)s
-      AND ({_is_null("g.post -> 'from_date'")} OR lg_str(g.post -> 'from_date') <= {date})
-      AND ({_is_null("g.post -> 'to_date'")} OR lg_str(g.post -> 'to_date') >= {date})
+      AND {period_holds("g.post -> 'from_date'", "g.post -> 'to_date'", date)}
 ))"""
 
 
@@ -879,10 +860,9 @@ _IN_OFFICE = f"""(
            ) ORDER BY lg_str(g.post -> 'from_date') ASC NULLS FIRST, g.n ASC), '[]'::json)
     FROM member
     CROSS JOIN LATERAL json_array_elements(
-        {_array("member.props -> 'government_functions'")}
+        {array_or_empty("member.props -> 'government_functions'")}
     ) WITH ORDINALITY AS g(post, n)
-    WHERE ({_is_null("g.post -> 'from_date'")} OR lg_str(g.post -> 'from_date') <= d.date)
-      AND ({_is_null("g.post -> 'to_date'")} OR lg_str(g.post -> 'to_date') >= d.date)
+    WHERE {period_holds("g.post -> 'from_date'", "g.post -> 'to_date'", "d.date")}
 )"""
 
 _MEMBER_VOTES_TEMPLATE = f"""
@@ -897,8 +877,8 @@ _MEMBER_VOTES_TEMPLATE = f"""
         -- the periods in the factions of the Tweede Kamer and of the Eerste Kamer
         -- (``normalize eerstekamer-persons``), numbered as one list
         CROSS JOIN LATERAL json_array_elements((
-            {_array("member.props -> 'faction_memberships'")}::jsonb
-            || {_array("member.props -> 'ek_faction_memberships'")}::jsonb
+            {array_or_empty("member.props -> 'faction_memberships'")}::jsonb
+            || {array_or_empty("member.props -> 'ek_faction_memberships'")}::jsonb
         )::json) WITH ORDINALITY AS f(period, n)
         CROSS JOIN LATERAL (
             SELECT coalesce(lg_str(f.period -> 'from_date'), '') AS first_day,
@@ -912,7 +892,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
             SELECT min(coalesce(lg_str(g.post -> 'from_date'), '')) AS first_day,
                    max(coalesce(lg_str(g.post -> 'to_date'), '9999-12-31')) AS last_day
             FROM json_array_elements(
-                {_array("member.props -> 'government_functions'")}
+                {array_or_empty("member.props -> 'government_functions'")}
             ) AS g(post)
             WHERE %(in_office)s
               AND coalesce(lg_str(g.post -> 'from_date'), '') <= s.last_day
@@ -940,7 +920,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
         -- where no period holds the day (an undated decision)
         SELECT e.to_id AS decision_id, e.key AS edge_key, d.key, d.date,
                CASE WHEN day.period IS NULL THEN member.props -> 'party'
-                    WHEN {_is_null("day.period -> 'abbreviation'")}
+                    WHEN {is_absent("day.period -> 'abbreviation'")}
                     THEN day.period -> 'name' ELSE day.period -> 'abbreviation'
                END AS party,
                day.period -> 'faction_key' AS faction_key, NULL::text AS faction_order,
@@ -960,7 +940,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
         WHERE {_in_office_on("d.date")}
         UNION ALL
         SELECT k.decision_id, k.edge_key, k.key, k.date,
-               CASE WHEN {_is_null("k.period -> 'abbreviation'")}
+               CASE WHEN {is_absent("k.period -> 'abbreviation'")}
                     THEN k.period -> 'name' ELSE k.period -> 'abbreviation' END,
                k.period -> 'faction_key', k.period ->> 'faction_key',
                'faction'::text
@@ -1084,7 +1064,7 @@ _FACTION_AUTHORED = f"""
       AND d.date IS NOT NULL
       AND EXISTS (
           SELECT 1
-          FROM json_array_elements({_array("m.props -> 'faction_memberships'")}) AS f(period)
+          FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)
           WHERE f.period ->> 'faction_id' = %(actor_id)s AND {_IN_MEMBERSHIP}
       )
 """
@@ -1118,7 +1098,7 @@ _FACTION_FOUND = f"""
             FROM {COLLECTION_EDGES} seat
             JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
             CROSS JOIN LATERAL json_array_elements(
-                {_array("m.props -> 'faction_memberships'")}
+                {array_or_empty("m.props -> 'faction_memberships'")}
             ) AS f(period)
             WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
               AND f.period ->> 'faction_id' = %(actor_id)s
@@ -1274,7 +1254,7 @@ def get_ek_faction_votes(
                     'decision_key', d.key,
                     'date', d.props -> 'date',
                     'subject', d.props -> 'subject',
-                    'dossier_numbers', {_or_empty("d.props -> 'dossier_numbers'")},
+                    'dossier_numbers', {truthy_or("d.props -> 'dossier_numbers'", EMPTY_ARRAY)},
                     'result', d.props -> 'result',
                     'method', d.props -> 'method',
                     'bill_decision', d.props -> 'bill_decision',

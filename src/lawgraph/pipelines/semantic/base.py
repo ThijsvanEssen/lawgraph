@@ -22,7 +22,7 @@ from lawgraph.core.aliases import (
 from lawgraph.core.citations import LawDates, number_shape
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -36,7 +36,6 @@ T = TypeVar("T")
 CodeMapping = dict[str, str]
 
 
-# The collections a citation points into, and the type of their nodes.
 @dataclass(frozen=True)
 class _LawArticles:
     """What the loaded articles of one law tell about a number cited of it."""
@@ -103,9 +102,7 @@ class SemanticPipelineBase(PipelineBase):
             ("celex" if celex else "bwb_id"): law_id,
             "article_number": number,
         }
-        node = self.store.ensure_stub_node(
-            COLLECTION_ARTICLES, key, NodeType.ARTICLE, props=props
-        )
+        node = self.store.ensure_stub_node(COLLECTION_ARTICLES, key, props=props)
         self._remember_node(node)
         return node
 
@@ -193,12 +190,8 @@ class SemanticPipelineBase(PipelineBase):
             if not ecli or row.get("payload_text") is None:
                 progress.skip("no judgment XML stored", ecli or row.get("key"))
                 continue
-            node = Node(
-                collection=COLLECTION_JUDGMENTS,
-                type=NodeType.JUDGMENT,
-                key=make_node_key(ecli),
-                props={"ecli": ecli},
-                _skip_validation=True,
+            node = Node.skeleton(
+                COLLECTION_JUDGMENTS, make_node_key(ecli), {"ecli": ecli}
             )
             yield node, str(row["payload_text"])
 
@@ -266,7 +259,7 @@ class SemanticPipelineBase(PipelineBase):
     def _remember_node(self, node: Node | None) -> None:
         """Record a node created during the run (e.g. a stub) in the lookup cache."""
         if node is not None and node.key is not None:
-            self._node_cache[(node.collection, node.key)] = Node.ref(
+            self._node_cache[(node.collection, node.key)] = Node.skeleton(
                 node.collection, node.key
             )
 
@@ -274,7 +267,7 @@ class SemanticPipelineBase(PipelineBase):
         """Resolve many keys with one bulk lookup so ``_lookup_node`` never hits the DB."""
         missing = {k for k in keys if (collection, k) not in self._node_cache}
         for key in self.store.existing_keys(collection, missing):
-            self._node_cache[(collection, key)] = Node.ref(collection, key)
+            self._node_cache[(collection, key)] = Node.skeleton(collection, key)
             missing.discard(key)
         for key in missing:
             self._node_cache[(collection, key)] = None
@@ -298,7 +291,6 @@ class SemanticPipelineBase(PipelineBase):
             node = self.store.ensure_stub_node(
                 COLLECTION_JUDGMENTS,
                 make_node_key(ecli),
-                NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
             if node and node.node_id:

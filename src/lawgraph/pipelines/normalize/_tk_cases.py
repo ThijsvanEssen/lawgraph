@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key, node_id
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -49,7 +49,6 @@ def normalize_activities(
         raw_records,
         tk_records.activity,
         COLLECTION_ACTIVITIES,
-        NodeType.ACTIVITY,
     )
     logger.info("Normalized %d activities.", len(nodes))
     return nodes
@@ -64,7 +63,6 @@ def normalize_commitments(
         raw_records,  # walked once: a second walk is a second read of every record
         tk_records.commitment,
         COLLECTION_COMMITMENTS,
-        NodeType.COMMITMENT,
     )
     logger.info("Normalized %d commitments.", len(nodes))
     return nodes
@@ -79,7 +77,6 @@ def normalize_documents(
         raw_records,
         tk_records.document,
         COLLECTION_DOCUMENTS,
-        NodeType.DOCUMENT,
         labels=[CHAMBER_TK, "Kamerstuk"],
     )
     logger.info("Normalized %d documents.", len(nodes))
@@ -377,12 +374,10 @@ LINK_PROPS = (
 
 def link_node(node: Node) -> Node:
     """*node* with only the props the edge builders read: what is kept after the write."""
-    return Node(
-        collection=node.collection,
-        type=node.type,
-        key=node.key,
-        props={name: node.props[name] for name in LINK_PROPS if name in node.props},
-        _skip_validation=True,
+    return Node.skeleton(
+        node.collection,
+        node.key,
+        {name: node.props[name] for name in LINK_PROPS if name in node.props},
     )
 
 
@@ -391,7 +386,6 @@ def _write_nodes(
     raw_records: Iterable[dict[str, Any]],
     read: Any,
     collection: str,
-    node_type: NodeType,
     *,
     labels: list[str] | None = None,
 ) -> dict[str, Node]:
@@ -418,7 +412,6 @@ def _write_nodes(
             key, props = parsed
             node = Node(
                 collection=collection,
-                type=node_type,
                 key=key,
                 labels=labels or [CHAMBER_TK],
                 props=props,

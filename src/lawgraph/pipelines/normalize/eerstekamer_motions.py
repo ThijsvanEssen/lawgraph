@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, key_of, node_id
+from lawgraph.core.models import Node, PipelineResult, key_of, node_id
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import (
     CO_SIGNATORY,
@@ -182,7 +182,6 @@ def _paper_node(
     ]
     return Node(
         collection=COLLECTION_DOCUMENTS,
-        type=NodeType.DOCUMENT,
         key=key_of(paper),
         labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
         props={

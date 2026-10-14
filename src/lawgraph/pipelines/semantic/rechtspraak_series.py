@@ -22,7 +22,7 @@ from lawgraph.core.judgment_series import (
     series_props,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -119,7 +119,6 @@ class RechtspraakSeriesSemanticPipeline(SemanticPipelineBase):
             writer.add(
                 Node(
                     collection=COLLECTION_JUDGMENTS,
-                    type=NodeType.JUDGMENT,
                     key=row["key"],
                     props={"series_id": series_id, "series_size": size},
                 )

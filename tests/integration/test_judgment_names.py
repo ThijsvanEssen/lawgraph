@@ -60,7 +60,6 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     store.ensure_stub_node(
         COLLECTION_JUDGMENTS,
         make_node_key(LINDENBAUM),
-        "judgment",
         props={"ecli": LINDENBAUM},
     )
     cli("normalize", "rechtspraak")
