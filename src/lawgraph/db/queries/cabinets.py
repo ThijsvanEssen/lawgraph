@@ -7,7 +7,6 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
-    COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     LABEL_RIJKSOVERHEID,
@@ -15,7 +14,6 @@ from lawgraph.config.constants import (
     RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_MADE_IN,
-    RELATION_PART_OF,
     RELATION_SERVED_IN,
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
@@ -23,6 +21,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import member_authored
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -93,44 +92,29 @@ def get_cabinets(store: GraphStore) -> list[dict[str, Any]]:
 # The dossiers a member ``m`` signed as a bewindspersoon within the period of the cabinet
 # ``c`` (from its ``period_start``, or from any day when it has none, to its ``period_end``:
 # its end or today; computed once per cabinet, as reading them from ``props`` parses the
-# whole json again on every comparison), directly
-# or through a case, each once; and how many of them are government bills. The date of a
-# paper is that of its document; an AUTHORED edge to a node of another collection reads
-# it from that node.
+# whole json again on every comparison), directly or through a case, each once; and how
+# many of them are government bills. Each paper on its own day.
 _SIGNED = f"""
 SELECT count(*)::int AS dossiers,
        (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s)
        )::int AS bills
 FROM (
-    SELECT DISTINCT CASE WHEN p.to_collection = '{COLLECTION_CASES}'
-                         THEN q.to_id ELSE p.to_id END AS target
+    SELECT DISTINCT x.dossier_id
     FROM (
         -- each date read once: OFFSET 0 keeps the subquery from being inlined into every
-        -- comparison of the date below, where it would be read again per comparison; a
-        -- case's from its own table by key, not through the view of every node
-        SELECT a.to_id,
-               CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}' THEN doc.date
-                    WHEN a.to_collection = '{COLLECTION_CASES}' THEN (
-                        SELECT lg_str(k.props -> 'date') FROM {COLLECTION_CASES} k
-                        WHERE k.id = a.to_id)
-                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
-               END AS date
+        -- comparison of the date below, where it would be read again per comparison
+        SELECT a.to_id, {signed_date_sql("a.to_id")} AS date
         FROM edges a
-        LEFT JOIN {COLLECTION_DOCUMENTS} doc
-            ON a.to_collection = '{COLLECTION_DOCUMENTS}' AND doc.id = a.to_id
         WHERE a.from_id = m.id AND a.relation = %(authored)s
           AND lg_str(a.doc -> 'meta' -> 'capacity') = %(government)s
         OFFSET 0
     ) a
-    JOIN edges p ON p.from_id = a.to_id AND p.relation = %(part_of)s
-    LEFT JOIN edges q ON p.to_collection = '{COLLECTION_CASES}' AND q.from_id = p.to_id
-        AND q.relation = %(part_of)s AND q.to_collection = '{COLLECTION_DOSSIERS}'
+    CROSS JOIN LATERAL ({dossiers_of_sql("a.to_id")}) AS x(dossier_id)
     WHERE a.date IS NOT NULL
       AND (c.period_start IS NULL OR a.date >= c.period_start)
       AND a.date <= c.period_end
 ) signed
-LEFT JOIN dossiers d ON d.id = signed.target
-WHERE starts_with(signed.target, '{COLLECTION_DOSSIERS}/')
+LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
 """
 
 
@@ -143,16 +127,8 @@ SELECT count(*)::int AS dossiers,
 FROM (
     SELECT DISTINCT x.dossier_id
     FROM (
-        SELECT a.dossiers,
-               CASE WHEN starts_with(a.document_id, '{COLLECTION_DOCUMENTS}/') THEN doc.date
-                    WHEN starts_with(a.document_id, '{COLLECTION_CASES}/') THEN (
-                        SELECT lg_str(k.props -> 'date') FROM {COLLECTION_CASES} k
-                        WHERE k.id = a.document_id)
-                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n
-                          WHERE n.id = a.document_id)
-               END AS date
+        SELECT a.dossiers, {signed_date_sql("a.document_id")} AS date
         FROM lg_authored a
-        LEFT JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = a.document_id
         WHERE a.member_id = m.id
           AND lg_str(a.meta -> 'capacity') = %(government)s
         OFFSET 0
@@ -162,7 +138,7 @@ FROM (
       AND (c.period_start IS NULL OR a.date >= c.period_start)
       AND a.date <= c.period_end
 ) signed
-LEFT JOIN dossiers d ON d.id = signed.dossier_id
+LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
 """
 
 
@@ -256,7 +232,6 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
             "served_in": RELATION_SERVED_IN,
             "authored": RELATION_AUTHORED,
             "government": CAPACITY_GOVERNMENT,
-            "part_of": RELATION_PART_OF,
             "bill": KIND_BILL,
             "open": COMMITMENT_OPEN,
         },
