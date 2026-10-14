@@ -22,6 +22,7 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
+from lawgraph.core.dutch_names import PARTICLE, PARTICLES
 from lawgraph.core.xml import html_text
 
 MONTHS = {
@@ -182,7 +183,7 @@ def faction_key(name: str) -> str:
 # A name as the texts write it: "Robert van Gasteren", "Marjolein Faber-van de Klashorst",
 # "Annabel Nanninga", "Cees van de Sanden".
 _NAME = (
-    r"[A-Z][\w'’.-]+(?: (?:van|de|der|den|het|ten|ter|op|in|'t)| [A-Z][\w'’.-]+)*?"
+    rf"[A-Z][\w'’.-]+(?: {PARTICLE}| [A-Z][\w'’.-]+)*?"
     r"(?: [A-Z][\w'’.-]+)?"
 )
 # A faction as a text names it: "(VVD)", "( Fractie-Beukering )", "voor de VVD", "de BBB-fractie",
@@ -212,7 +213,7 @@ def surname(name: str) -> str:
     words = _TITLE.sub("", name.strip()).split()
     if len(words) < 2:
         return name.strip()
-    if words[0] in ("Van", "De", "Der", "Den", "Ten", "Ter", "Het"):
+    if words[0].istitle() and words[0].lower() in PARTICLES:
         return " ".join(words)
     rest = " ".join(words[1:])
     return rest[:1].upper() + rest[1:]
@@ -1133,7 +1134,7 @@ _FROM = (
     r"(?:de ([\w-]+?)-fractie|de fractie van ([A-Z][^.(,]*?)"
     r"(?= \(| in de| stappen| maar| met|\s*[.,]))"
 )
-_INTO = r"(Fractie-[A-Z][\w']*(?:[ -](?:van|de|der|den|[A-Z][\w']*))*)"
+_INTO = rf"(Fractie-[A-Z][\w']*(?:[ -](?:{PARTICLE}|[A-Z][\w']*))*)"
 # "X en Y stappen uit de fractie van F … sluiten zich aan bij de Fractie-Z"
 _BOTH_JOIN = re.compile(
     rf"({_NAME}) en ({_NAME}) stappen uit {_FROM}\s*\..*?sluiten zich aan bij de {_INTO}"

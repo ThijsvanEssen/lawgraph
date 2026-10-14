@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.core.courts import court_of
+from lawgraph.core.dutch_names import INITIAL, INITIALS, LONG_WORD, TITLE, surname
 from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
@@ -837,27 +838,22 @@ def kop_lines(root: ET.Element) -> list[str]:
 # "Advocaat-Generaal", "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel", "Conclusie van den
 # Advocaat-Generaal Mr. Besier."; the signature at the end gives only the office.
 
-_INITIALS = r"(?:(?:[A-Z]|IJ|Th|Chr|Ph)\.\s?)+"
-_PARTICLE = r"(?:van|de|der|den|ten|ter|het|in\s+'t|'t)"
 # A word that follows a name on its line and is no part of it: "Mr. T.N.B.M. Spronken
-# Conclusie inzake:", "D.J.C. Aben Vordering tot cassatie".
+# Conclusie inzake:", "D.J.C. Aben Vordering tot cassatie", "S.V. de Jong te Amsterdam".
 _AFTER_NAME = (
     r"(?:conclusie|nadere|aanvullende|vordering|zitting|datum|advocaat|procureur|"
-    r"raadsheer|staatsraad|parket|en)"
+    r"raadsheer|staatsraad|parket|en|te|in|uit)"
 )
-_SURNAME = (
-    rf"(?:{_PARTICLE}\s+)*[A-Z][\w'’]+"
-    rf"(?:(?:-|\s+)(?!(?i:{_AFTER_NAME})\b)(?:{_PARTICLE}[\s-]+)*[A-Z][\w'’]+)*"
-)
-_PERSON = rf"(?:{_INITIALS})?\s*{_SURNAME}"
+_SURNAME = surname(LONG_WORD, stop=_AFTER_NAME)
+_PERSON = rf"(?:{INITIALS})?\s*{_SURNAME}"
 # All of a line: "T. Hartlief", "mr. Wattel", "F.F. Langemeijer en M.H. Wissink".
 _NAME_LINE = re.compile(
-    rf"^(?:(?P<mr>(?i:mr)\.?)\s*)?(?P<name>(?P<initials>{_INITIALS})?\s*{_SURNAME}"
+    rf"^(?P<mr>{TITLE}+)?(?P<name>(?P<initials>{INITIALS})?\s*{_SURNAME}"
     rf"(?:\s+en\s+{_PERSON})?)\.?$"
 )
-_NAME_IN_LINE = re.compile(rf"\b(?i:mr)\.?\s+(?P<name>{_PERSON})")
+_NAME_IN_LINE = re.compile(rf"\b{TITLE}(?P<name>{_PERSON})")
 # At the end of a line, with initials: "Zaaknr :26/00083 R.H. de Bock".
-_NAME_ENDS_LINE = re.compile(rf"\s(?P<name>{_INITIALS}\s*{_SURNAME})\.?$")
+_NAME_ENDS_LINE = re.compile(rf"\s(?P<name>{INITIALS}\s*{_SURNAME})\.?$")
 # Where the parties begin: a name after it is theirs, or their lawyer's. Not "inzake
 # prejudiciële vraag", which says what the conclusion is on.
 _PARTIES_BEGIN = re.compile(
@@ -1145,7 +1141,7 @@ def _marker_at(text: str, words: str, before: int) -> int | None:
 
 _NOT_IN_A_HEADING = re.compile(
     r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
-    r"|\b(?:[A-Z]{1,2}|IJ|Th|Chr|Ph)\.(?:[A-Z]{1,2}\.)*\s",
+    rf"|\b(?:[A-Z]{{1,2}}|{INITIAL})\.(?:[A-Z]{{1,2}}\.)*\s",
     re.IGNORECASE,
 )
 

@@ -29,6 +29,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from lawgraph.core.dutch_names import INITIALS, PLACE, TITLE, TITLES, surname
 from lawgraph.core.judgment_parties import (
     REPRESENTATIVE_AGENT,
     REPRESENTATIVE_COUNSEL,
@@ -45,19 +46,11 @@ from lawgraph.core.xml import collapse_ws
 
 # ── a person ─────────────────────────────────────────────────────────────────
 
-_TITLE = r"(?:(?i:mr|dr|drs|prof|ir|ing)(?:\.\s*|\s+))"
-_INITIALS = r"(?:(?:[A-Z]|IJ|Th|Chr|Ph|Ch|Joh|Jac|Fr|Wm)\.\s?(?:-\s?)?)+"
-_PARTICLE = (
-    r"(?:van|de|der|den|ten|ter|te|het|'t|in\s+'t|in\s+het|uit\s+den|uit|op|la|le|du|da|"
-    r"di|dos|von|el|al)"
-)
-_WORD = r"[A-ZÀ-ÖØ-Þ][\w'’]*"
-_SURNAME = rf"(?:{_PARTICLE}\s+)*{_WORD}(?:(?:-|\s+)(?:{_PARTICLE}[\s-]+)*{_WORD})*"
 # A person by a title or initials, never by a name alone: "mr. drs. R. van Gelder", "mr.
 # Wattel", "G. Veldhuisen", "mr. R. van der Meulen MPM".
-_PERSON = re.compile(rf"(?:{_TITLE}+(?:{_INITIALS}\s*)?|{_INITIALS}\s*){_SURNAME}")
+_PERSON = re.compile(rf"(?:{TITLE}+(?:{INITIALS}\s*)?|{INITIALS}\s*){surname()}")
 # "zijn gemachtigde mr. X", "haar advocaat, mr. Y": the word names the role.
-_AHEAD = rf"(?={_TITLE}|{_INITIALS})"  # a person follows
+_AHEAD = rf"(?={TITLE}|{INITIALS})"  # a person follows
 _NAMED_AS = re.compile(
     r"(?i:(?:(?:zijn|haar|hun|diens|de|een)\s+)?(?P<word>advoca(?:at|te|ten)|"
     r"gemachtigden?|raads(?:man|vrouw|lieden))\s*,?\s*)" + _AHEAD
@@ -86,10 +79,7 @@ _PLURAL = re.compile(
     r"adviseurs)\b",
     re.IGNORECASE,
 )
-_PLACE = re.compile(
-    r"\b(?:te|in)\s+(?P<place>(?:['’‘]s[-‑–\s])?[A-Z][\w'’-]*"
-    r"(?:\s+(?:(?:aan|den|de|der|op|bij|in|het|ter|ten|a/d)\s+)*[A-Z][\w'’-]*)*)"
-)
+_PLACE = re.compile(rf"\b(?:te|in)\s+(?P<place>{PLACE})")
 # Between two persons of one list: ", ", " en ", ", en door ".
 _NEXT = re.compile(r"\s*(?:,\s*)?(?:(?:en|alsmede)\s+)?(?:door\s+)?")
 
@@ -150,7 +140,7 @@ _PLURAL_ROLE = re.compile(r"(?:en|ers)$")
 
 def _person_words(text: str) -> str:
     """*text* in lower case, without accents and titles: what names one person."""
-    plain = re.sub(r"\b(?:mr|dr|drs|prof|ir|ing)\b\.?", " ", fold(text))
+    plain = re.sub(rf"\b(?:{'|'.join(TITLES)})\b\.?", " ", fold(text))
     return " ".join(re.findall(r"\w+", plain))
 
 
@@ -328,11 +318,7 @@ def _heard_party(
     short = heard["name"]
     name, alias = short, None
     if not short.startswith("["):
-        fuller = re.search(
-            rf"\b(?i:{re.escape(short)})\s+van\s+((?:'s[-\s])?[A-Z][\w'’-]*"
-            r"(?:\s+(?:(?:aan|den|de|der|op|bij|in|het|ter|ten)\s+)*[A-Z][\w'’-]*)*)",
-            context,
-        )
+        fuller = re.search(rf"\b(?i:{re.escape(short)})\s+van\s+({PLACE})", context)
         if fuller:
             name, alias = f"{short} van {fuller[1]}", short
     party = Party(name=name, side=SIDE_OTHER, alias=alias)

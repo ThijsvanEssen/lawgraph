@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.core.dutch_names import TITLES
 from lawgraph.core.xml import collapse_ws, html_text
 
 MONTHS: dict[str, int] = {
@@ -282,7 +283,7 @@ def _unique(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # Titles and degrees before or after a name.
 _TITLES = re.compile(
-    r"\b(?:mw|mevr|dhr|mr|mmr|dr|drs|ir|ing|prof|ds|jhr|jkvr|ds|bc|ba|ma|msc|mba|mpa|phd"
+    rf"\b(?:{'|'.join(TITLES)}|mw|mevr|dhr|mmr|ds|jhr|jkvr|bc|ba|ma|msc|mba|mpa|phd"
     r"|ll\.?\s?m|baron|viceadmiraal|generaal|luitenant-generaal)\b\.?",
     re.IGNORECASE,
 )

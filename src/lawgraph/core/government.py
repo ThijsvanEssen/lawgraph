@@ -27,12 +27,8 @@ import re
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from lawgraph.core.dutch_names import PARTICLES
 from lawgraph.core.text_fold import fold
-
-PARTICLES = frozenset(
-    {"van", "de", "der", "den", "het", "ter", "ten", "te", "t", "op", "in", "la", "le"}
-    | {"d", "des", "du", "l", "von", "zu", "vander", "vande", "vanden", "aan", "bij"}
-)
 
 # A signature on a letter sent just after the post ended still belongs to it.
 _SIGNED_AFTER_POST = dt.timedelta(days=14)

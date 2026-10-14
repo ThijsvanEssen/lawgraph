@@ -5,16 +5,16 @@
 "D.J.C. Aben Vordering tot cassatie": null,
 "De Hoge Raad": null,
 "F.F. Langemeijer en M.H. Wissink": "F.F. Langemeijer en M.H. Wissink",
-"Fr. de Wit": null,
+"Fr. de Wit": "Fr. de Wit",
 "IJ. van Oven": "IJ. van Oven",
 "ING Bank N.V.": null,
-"Jac. ten Brink": null,
-"Joh. van der Linden": null,
+"Jac. ten Brink": "Jac. ten Brink",
+"Joh. van der Linden": "Joh. van der Linden",
 "Mr. T.N.B.M. Spronken Conclusie inzake:": "T.N.B.M. Spronken",
 "Mr. Wattel": "Wattel",
 "T. Hartlief": "T. Hartlief",
 "Th. Bierens": "Th. Bierens",
-"Wm. Tak": null,
+"Wm. Tak": "Wm. Tak",
 "Zaaknr :26/00083 R.H. de Bock": "R.H. de Bock",
 "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel": "Wattel",
 "dr. P. Vlas": "P. Vlas",
@@ -23,12 +23,12 @@
 "mr. A. Jansen te Amsterdam": "A. Jansen",
 "mr. A. ter Horst": "A. ter Horst",
 "mr. A.E. Harteveld": "A.E. Harteveld",
-"mr. B. op de Beek": null,
-"mr. D. du Pré": null,
+"mr. B. op de Beek": "B. op de Beek",
+"mr. D. du Pré": "D. du Pré",
 "mr. E.M. Witteveen-van den Berg": "E.M. Witteveen-van den Berg",
 "mr. G.R.B. van Peursem": "G.R.B. van Peursem",
 "mr. J. in 't Veld": "J. in 't Veld",
-"mr. J. uit den Bogaard": null,
+"mr. J. uit den Bogaard": "J. uit den Bogaard",
 "mr. P.J. Wattel": "P.J. Wattel",
 "mr. R.J.B. Boonekamp en": "R.J.B. Boonekamp",
 "prof. mr. A. Hammerstein": "A. Hammerstein"
@@ -163,8 +163,8 @@
 "side": "other"
 },
 {
-"alias": null,
-"name": "de gemeenteraad",
+"alias": "de gemeenteraad",
+"name": "de gemeenteraad van ‘s-Hertogenbosch",
 "representatives": [
 {
 "capacity": null,
@@ -185,14 +185,7 @@
 {
 "alias": null,
 "name": "[appellant]",
-"representatives": [
-{
-"capacity": null,
-"name": "ING Bank",
-"place": null,
-"role": "gemachtigde"
-}
-],
+"representatives": [],
 "role": "Appellant",
 "role_stated": true,
 "roles": [
@@ -404,9 +397,9 @@
 "name": "[appellant]",
 "representatives": [
 {
-"capacity": "te 't Zandt",
+"capacity": null,
 "name": "mr. A. Jansen",
-"place": null,
+"place": "'t Zandt",
 "role": "advocaat"
 }
 ],
@@ -4535,7 +4528,7 @@
 "Van Gasteren": "gasteren"
 },
 "ek_surname": {
-"Al Jansen": "Jansen",
+"Al Jansen": "Al Jansen",
 "Annabel Nanninga": "Nanninga",
 "Cees van de Sanden": "Van de Sanden",
 "Dick de la Court": "De la Court",
@@ -4544,12 +4537,12 @@
 "Kemperman": "Kemperman",
 "Laura la Rivière": "La Rivière",
 "Marjolein Faber-van de Klashorst": "Faber-van de Klashorst",
-"Op de Beek": "De Beek",
+"Op de Beek": "Op de Beek",
 "Paul van Meenen": "Van Meenen",
 "Robert van Gasteren": "Van Gasteren",
 "Ruud op de Beek": "Op de Beek",
 "Senator Kemperman": "Senator Kemperman",
-"Te Velde": "Velde",
+"Te Velde": "Te Velde",
 "Ten Hoeve": "Ten Hoeve",
 "Tineke in 't Veld": "In 't Veld",
 "Van Gasteren": "Van Gasteren"
@@ -4562,7 +4555,7 @@
 "by": null,
 "date": "2024-07-04",
 "kind": "beëdiging",
-"member": "Court",
+"member": "De la Court",
 "source": null,
 "sources": [],
 "succeeds": null,
@@ -4580,7 +4573,7 @@
 "by": null,
 "date": "2024-07-04",
 "kind": "beëdiging",
-"member": "Rotterdam",
+"member": "Jansen te Rotterdam",
 "source": null,
 "sources": [],
 "succeeds": null,
@@ -14902,7 +14895,7 @@
 "representatives": [
 {
 "capacity": null,
-"name": "mr. C. van der Meer te Bergen op Zoom",
+"name": "mr. C. van der Meer",
 "place": "Bergen op Zoom",
 "role": "advocaat"
 }
@@ -14920,7 +14913,7 @@
 "representatives": [
 {
 "capacity": null,
-"name": "mr. D. du Pré te Nieuwerkerk aan den IJssel",
+"name": "mr. D. du Pré",
 "place": "Nieuwerkerk aan den IJssel",
 "role": "advocaat"
 }
@@ -14947,7 +14940,7 @@
 {
 "capacity": null,
 "name": "mr. F. uit den Bogaard",
-"place": null,
+"place": "‘s-Hertogenbosch",
 "role": "advocaat"
 }
 ],
@@ -14965,7 +14958,7 @@
 {
 "capacity": null,
 "name": "drs. G. ter Horst",
-"place": null,
+"place": "'t Zandt",
 "role": "advocaat"
 }
 ],
@@ -14984,8 +14977,8 @@
 "representatives": [
 {
 "capacity": null,
-"name": "Joh. van den Berg te Alphen a/d Rijn",
-"place": null,
+"name": "Joh. van den Berg",
+"place": "Alphen a/d Rijn",
 "role": "gemachtigde"
 }
 ],
@@ -15002,7 +14995,7 @@
 "representatives": [
 {
 "capacity": null,
-"name": "ir. H. Bij de Vaate te Wijk bij Duurstede",
+"name": "ir. H. Bij de Vaate",
 "place": "Wijk bij Duurstede",
 "role": "advocaat"
 }
@@ -15024,16 +15017,16 @@ true,
 false
 ],
 "telling": {
-"aan": true,
+"aan": false,
 "al": false,
-"bij": true,
+"bij": false,
 "da": false,
 "de": false,
 "den": false,
 "der": false,
-"des": true,
+"des": false,
 "di": false,
-"dos": true,
+"dos": false,
 "dr": false,
 "drs": false,
 "du": false,
@@ -15054,11 +15047,11 @@ false
 "ter": false,
 "uit": false,
 "van": false,
-"vande": true,
-"vanden": true,
-"vander": true,
+"vande": false,
+"vanden": false,
+"vander": false,
 "vermeulen": true,
-"von": true,
+"von": false,
 "zu": false
 }
 }
