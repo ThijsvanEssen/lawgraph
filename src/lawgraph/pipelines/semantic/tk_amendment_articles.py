@@ -28,7 +28,6 @@ from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
@@ -151,8 +150,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
             len(amends_index),
         )
 
-        edges = EdgeWriter(self.store, what=None)
-        kept: list[str] = []
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         acts = semantic_tk.acts_of_dossiers(self.store)
 
         documents = self._load_tk_documents(amends_index)
@@ -200,24 +198,21 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                         )
                         continue
 
-                    edge_doc = self._make_edge_doc(
-                        from_node=document,
-                        to_node=target_node,
-                        relation=relation,
-                        source=SEMANTIC_SOURCE,
-                        confidence=hit.confidence,
-                        meta={"reason": "amendment_text", "snippet": hit.snippet},
-                        status=EDGE_STATUS_VOORGESTELD,
+                    edges.add_doc(
+                        self._make_edge_doc(
+                            from_node=document,
+                            to_node=target_node,
+                            relation=relation,
+                            source=SEMANTIC_SOURCE,
+                            confidence=hit.confidence,
+                            meta={"reason": "amendment_text", "snippet": hit.snippet},
+                            status=EDGE_STATUS_VOORGESTELD,
+                        )
                     )
-                    if edge_doc:
-                        edges.add_doc(edge_doc)
-                        kept.append(edge_doc["_key"])
 
         edges.flush_into(result)
         removed = sum(
-            semantic_edges.remove_edges_of_source_except(
-                self.store, relation, SEMANTIC_SOURCE, kept
-            )
+            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
             for relation in (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
         )
         logger.info("Removed %d article changes no longer derived.", removed)

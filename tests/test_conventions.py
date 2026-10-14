@@ -488,3 +488,16 @@ def test_semantic_pipelines_end_their_edges_through_the_edge_writer() -> None:
         if needle in path.read_text()
     ]
     assert not offenders
+
+
+def test_semantic_pipelines_remove_stale_edges_through_the_edge_writer() -> None:
+    """Each linker kept its own list of the keys it wrote (`edge_key` again, or `doc["_key"]`)
+    beside the writer, in four shapes. The writer remembers what it wrote."""
+    semantic = SRC / "pipelines" / "semantic"
+    offenders = [
+        f"{path.name}: {needle}"
+        for path in sorted(semantic.glob("*.py"))
+        for needle in ("edge_key", "semantic_edges.remove", "semantic_edges.removed")
+        if needle in path.read_text()
+    ]
+    assert not offenders

@@ -30,7 +30,6 @@ from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
@@ -98,24 +97,23 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
             )
             return result
 
-        edges = EdgeWriter(self.store, what=None)
-        kept: dict[str, set[str]] = {}
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        read: set[str] = set()
         acts = semantic_tk.acts_of_dossiers(self.store)
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
-            keys = kept.setdefault(doc_node.node_id or "", set())
+            read.add(doc_node.node_id or "")
             own_acts = {
                 act
                 for label in doc_node.props.get("dossier_numbers") or []
                 for act in acts.get(str(label), ())
             }
             for edge_doc in self._amends_edges(doc_node, instrument_aliases, own_acts):
-                keys.add(edge_doc["_key"])
                 edges.add_doc(edge_doc)
 
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(kept), kept
+        removed = edges.remove_stale(
+            RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(read)
         )
         logger.info("Removed %d AMENDS edges no longer derived.", removed)
         # A paper read before its act was published (and not read since) still has them.

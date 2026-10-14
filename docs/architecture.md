@@ -163,6 +163,7 @@ and looks up by set.
 | Need | Use | Not |
 |------|-----|-----|
 | write edges | `EdgeWriter` (`db/edges.py`): `add(from, to, relation, ...)`, then `flush()` or `with` | one insert per edge |
+| remove the edges a step no longer derives | `EdgeWriter(remembers=True)`: after the writes, `remove_stale` (per node read, from its end), `remove_stale_to` (into it) or `remove_stale_of_source` (all of the step) | a list of kept keys beside the writer |
 | build an edge document | `make_edge_doc` (the one edge shape: key, `created_at`, confidence check) | a hand-built dict |
 | write raw records | `RawSourceWriter` (`db/raw.py`) through `RetrievePipelineBase._store_all`: one request per 500 records, 8 MB or 5 seconds, written on every exit | one insert per record |
 | write nodes | `NodeWriter` (`db/nodes.py`) or `NormalizePipelineBase._upsert_nodes` | `insert_or_update` per record |
