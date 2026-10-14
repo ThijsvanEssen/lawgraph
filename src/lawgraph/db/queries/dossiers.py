@@ -550,15 +550,21 @@ def _document_summary(
 _DOSSIER_DOCUMENT_KEYS = [
     "actors",
     "date",
+    "decided_on",
+    "decision",
+    "dictum",
     "display_name",
     "document_number",
     "dossier_number",
     "dossier_suffix",
+    "explanation",
     "kind",
     "number",
+    "outcome",
     "sequence",
     "session_year",
     "source",
+    "tally",
     "title",
 ]
 
@@ -578,6 +584,12 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'display_name', dp.props -> 'display_name',
             'source', dp.props -> 'source',
             'actors', dp.props -> 'actors',
+            'dictum', dp.props -> 'dictum',
+            'explanation', dp.props -> 'explanation',
+            'outcome', dp.props -> 'outcome',
+            'decided_on', dp.props -> 'decided_on',
+            'tally', dp.props -> 'tally',
+            'decision', dp.props -> 'decision',
             'labels', to_json(d.labels)
         )"""
 

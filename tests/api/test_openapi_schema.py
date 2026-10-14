@@ -265,5 +265,10 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "date",
         "display_name",
         "inbound_citation_count",
+        "outcome",
+        "outcome_text",
+        "conclusion_outcome",
+        "conclusion_outcome_text",
+        "echr_findings",
         "path",
     } == _properties("CitedByJudgment")
