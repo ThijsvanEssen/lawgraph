@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 import requests
@@ -25,7 +24,7 @@ from lawgraph.pipelines.semantic.rechtspraak import (
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 # ── a source that is down fails the step ─────────────────────────────────────
 
@@ -48,18 +47,6 @@ def test_a_success_ends_the_streak() -> None:
         streak.ok()  # never three in a row
 
 
-class _Store(RawSourcesFake):
-    def insert_raw_source(self, **kw: Any) -> None:
-        self.stored = getattr(self, "stored", []) + [kw["external_id"]]
-
-
-@pytest.fixture
-def nothing_stored(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No record stored before, none waiting for a retry."""
-    for name in ("fetch_times", "ids_stored_since", "ids_waiting_for_retry"):
-        monkeypatch.setattr(raw_queries, name, lambda store, **kw: iter([]))
-
-
 class _DeadRs:
     def __init__(self, error: Exception) -> None:
         self.error = error
@@ -71,10 +58,10 @@ class _DeadRs:
 
 
 def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing(
-    nothing_stored: None,
+    raw_reads: None,
 ) -> None:
     rs = _DeadRs(requests.ConnectionError("no route"))
-    pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
+    pipeline = RechtspraakRetrievePipeline(store=InMemoryStore(), rs_client=rs)
     result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(200)])
 
     assert result.created == 0
@@ -84,11 +71,11 @@ def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing(
 
 
 def test_rechtspraak_missing_judgments_are_not_a_dead_source(
-    nothing_stored: None,
+    raw_reads: None,
 ) -> None:
     not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
     rs = _DeadRs(not_found)
-    pipeline = RechtspraakRetrievePipeline(store=_Store(), rs_client=rs)
+    pipeline = RechtspraakRetrievePipeline(store=InMemoryStore(), rs_client=rs)
     result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(60)])
     assert result.errors == [] and rs.calls == 60
 
@@ -101,18 +88,18 @@ class _DeadEu:
         raise self.error
 
 
-def test_eurlex_that_is_down_fails_the_step(nothing_stored: None) -> None:
+def test_eurlex_that_is_down_fails_the_step(raw_reads: None) -> None:
     pipeline = EurlexRetrievePipeline(
-        store=_Store(), eu_client=_DeadEu(requests.ConnectionError("no route"))
+        store=InMemoryStore(), eu_client=_DeadEu(requests.ConnectionError("no route"))
     )
     result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(200)])
     assert "seems to be down" in result.errors[0]
     assert result.skipped == 25
 
 
-def test_eurlex_acts_without_html_are_not_a_dead_source(nothing_stored: None) -> None:
+def test_eurlex_acts_without_html_are_not_a_dead_source(raw_reads: None) -> None:
     error = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
-    pipeline = EurlexRetrievePipeline(store=_Store(), eu_client=_DeadEu(error))
+    pipeline = EurlexRetrievePipeline(store=InMemoryStore(), eu_client=_DeadEu(error))
     result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(60)])
     assert result.errors == [] and result.skipped == 60
 
@@ -169,7 +156,7 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records(
         lambda *a, **kw: calls.append({"count": True}),
     )
 
-    raw = RechtspraakNormalizePipeline(store=RawSourcesFake()).fetch_raw()  # type: ignore[arg-type]
+    raw = RechtspraakNormalizePipeline(store=InMemoryStore()).fetch_raw()  # type: ignore[arg-type]
     assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
     assert calls == []
     list(raw["content"])
@@ -178,10 +165,6 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records(
 
 
 def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
-    class Store:
-        def bulk_insert_or_update_nodes(self, collection, docs):
-            return len(docs), 0
-
     xml = "<open-rechtspraak><uitspraak><para>Tekst.</para></uitspraak></open-rechtspraak>"
     rows = iter(
         [
@@ -195,7 +178,7 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
         ]
     )
     result = PipelineResult()
-    out = RechtspraakNormalizePipeline(store=Store()).normalize_nodes(
+    out = RechtspraakNormalizePipeline(store=InMemoryStore()).normalize_nodes(
         {"content": rows}, result
     )
     assert out == {"judgments": 3}
@@ -254,7 +237,7 @@ def test_the_article_linker_reads_the_paragraphs_normalize_made(
 ) -> None:
     """Not the XML: the paragraphs it serves are the ones whose ids it records."""
     judgments = _Judgments(monkeypatch)
-    result = _linker(RawSourcesFake()).run()
+    result = _linker(InMemoryStore()).run()
     assert result.errors == [] and judgments.pulled == 3
     assert judgments.eclis == [None] and judgments.recent == []
 
@@ -263,7 +246,7 @@ def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     judgments = _Judgments(monkeypatch)
-    _linker(RawSourcesFake()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
     assert judgments.recent == ["2025-01-01T00:00:00Z"]
     assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]
 
@@ -317,11 +300,6 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
 def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
     from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 
-    class Store(RawSourcesFake):
-        def insert_raw_source(self, *, external_id, **kw):
-            if external_id == "d2":
-                raise RuntimeError("write failed")
-
     class Client:
         def fetch_dossiers(self, since=None):
             return iter([{"Id": "d1"}, {"Id": "d2"}, {"Id": "d3"}])
@@ -329,8 +307,8 @@ def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
         def __getattr__(self, name):
             return lambda *a, **k: iter([])
 
-    result = TKDossiersRetrievePipeline(store=Store(), client=Client()).run(
-        since=dt.datetime(2024, 1, 1), skip_members=True
-    )
+    result = TKDossiersRetrievePipeline(
+        store=InMemoryStore(refuse={"d2"}), client=Client()
+    ).run(since=dt.datetime(2024, 1, 1), skip_members=True)
     assert result.created == 2  # d1 and d3
-    assert any("d2" in e and "write failed" in e for e in result.errors)
+    assert any("d2 refused" in e for e in result.errors)

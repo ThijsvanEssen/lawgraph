@@ -16,6 +16,7 @@ from lawgraph.db.queries import _bm25, decisions, nodes, paths, search, seo
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries.feed import FeedFilters
 from lawgraph.db.store import ReadTimedOut, RequestCancelled
+from tests.fakes import InMemoryStore
 
 
 @pytest.fixture(autouse=True)
@@ -121,12 +122,10 @@ def _nodes(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 
 def _decision_total(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    class Store:
-        def data_version(self, tables: Any) -> str:
-            return "v"
-
+    store = InMemoryStore()
+    monkeypatch.setattr(store, "data_version", lambda *a: "v", raising=False)
     monkeypatch.setattr(decisions, "_kept_counts", _cancelled)
-    return lambda: decisions.counted_total(Store(), decisions.DecisionFilters())  # type: ignore[arg-type]
+    return lambda: decisions.counted_total(store, decisions.DecisionFilters())  # type: ignore[arg-type]
 
 
 def _seo(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
@@ -147,10 +146,9 @@ def _feed_periods(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 
 def _render_title(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    class Store:
-        get_document = staticmethod(_cancelled)
-
-    return lambda: render._title_page(Store(), "articles/x", "/x")  # type: ignore[arg-type]
+    store = InMemoryStore()
+    monkeypatch.setattr(store, "get_document", _cancelled)
+    return lambda: render._title_page(store, "articles/x", "/x")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -177,16 +175,17 @@ def test_a_client_that_went_away_is_not_answered_without_the_read(
         call(monkeypatch)()
 
 
-def test_the_title_of_a_page_reads_within_what_the_request_has_left() -> None:
+def test_the_title_of_a_page_reads_within_what_the_request_has_left(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: list[int] = []
-
-    class Store:
-        def get_document(self, collection: str, key: str) -> None:
-            seen.append(store_module._read_budget_ms())
-
+    store = InMemoryStore()
+    monkeypatch.setattr(
+        store, "get_document", lambda *a: seen.append(store_module._read_budget_ms())
+    )
     token = store_module.set_read_deadline(0.1)
     try:
-        render._title_page(Store(), "articles/x", "/x")  # type: ignore[arg-type]
+        render._title_page(store, "articles/x", "/x")  # type: ignore[arg-type]
     finally:
         store_module.reset_read_deadline(token)
     assert seen and seen[0] <= 100

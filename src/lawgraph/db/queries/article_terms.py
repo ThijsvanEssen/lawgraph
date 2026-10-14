@@ -106,11 +106,15 @@ def count_summary_stems(store: GraphStore) -> SummaryStems:
         row["stem"]: row["judgments"]
         for row in store.query(_COUNT_STEMS, {"min": MIN_CITERS, "all": _ALL})
     }
-    store.execute("TRUNCATE lg_summary_stems")
-    store.execute(
-        "INSERT INTO lg_summary_stems (stem, judgments)"
-        " SELECT * FROM unnest(%(stems)s::text[], %(counts)s::int[])",
-        {"stems": list(counts), "counts": list(counts.values())},
+    store.execute_together(
+        [
+            ("TRUNCATE lg_summary_stems", None),
+            (
+                "INSERT INTO lg_summary_stems (stem, judgments)"
+                " SELECT * FROM unnest(%(stems)s::text[], %(counts)s::int[])",
+                {"stems": list(counts), "counts": list(counts.values())},
+            ),
+        ]
     )
     total = counts.pop(_ALL, 0)
     return SummaryStems(total, counts)

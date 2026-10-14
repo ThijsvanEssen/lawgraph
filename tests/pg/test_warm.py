@@ -15,17 +15,17 @@ def test_the_warm_up_is_done_for_the_data_as_it_was(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(warm, "_warmed", None)
-    assert not warm.is_warm(store)
+    assert not warm.is_warm(store.data_version())
 
     warm.warm_up(store)
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
     assert warm.warmed_version() == store.data_version()
 
     store.bulk_insert_or_update_nodes(
         "instruments",
         [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
     )
-    assert not warm.is_warm(store)  # the data changed: warm again
+    assert not warm.is_warm(store.data_version())  # the data changed: warm again
 
 
 def test_a_warm_up_stops_when_newer_data_arrives(
@@ -47,7 +47,7 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     monkeypatch.setattr(warm, "coverage_data", lambda s: asked.append("coverage"))
     warm.warm_up(store)
     assert asked == ["stats"]  # stopped before the next part
-    assert not warm.is_warm(store)
+    assert not warm.is_warm(store.data_version())
 
 
 def test_the_warm_up_counts_the_largest_areas_of_law(
@@ -176,7 +176,7 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
         [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
     )
     warm.warm_up(store)  # a poll wrote: everything else is warmed again
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
     assert searched == [1]
 
     monkeypatch.setattr(warm, "SEARCH_TERMS_EVERY", 0.0)  # an hour later
@@ -208,7 +208,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     warm.warm_up(store)
     assert "coverage" in ran
     assert "instruments" not in ran and "search instruments" not in ran
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
 
     ran.clear()
     store.bulk_insert_or_update_nodes(
@@ -261,7 +261,9 @@ def test_the_articles_are_warmed_after_the_warm_up_is_done(
     monkeypatch.setattr(
         warm,
         "_warm_articles",
-        lambda store_, version: warm_while_warming.append(warm.is_warm(store_)),
+        lambda store_, version: warm_while_warming.append(
+            warm.is_warm(store_.data_version())
+        ),
     )
     warm.warm_up(store)
     assert warm_while_warming == [True]

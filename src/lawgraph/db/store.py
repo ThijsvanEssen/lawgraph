@@ -145,6 +145,16 @@ WRITE_RETRY_WAITS = (2.0, 10.0, 30.0)
 _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03", "08000", "08003", "08006"})
 
 
+class DatabaseUnavailable(ConnectionError):
+    """The database cannot be reached: not running, starting up or shutting down."""
+
+
+def _unavailable(exc: Exception) -> DatabaseUnavailable:
+    return DatabaseUnavailable(
+        redacted(f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}): {exc}")
+    )
+
+
 def _is_unreachable(exc: Exception) -> bool:
     if isinstance(exc, psycopg.OperationalError):
         return exc.sqlstate is None or exc.sqlstate in _UNREACHABLE_STATES
@@ -476,6 +486,8 @@ class GraphStore:
     def __init__(self) -> None:
         self.name = DB_NAME
         _create_database_if_missing()
+        self._background_pool: ConnectionPool | None = None
+        self._background_lock = threading.Lock()
         try:
             # Every connection is opened at the start: no request waits for a new one.
             self.pool = ConnectionPool(
@@ -488,19 +500,16 @@ class GraphStore:
                 configure=_configure,
                 kwargs={"application_name": APPLICATION_NAME},
             )
-            self._background_pool: ConnectionPool | None = None
-            self._background_lock = threading.Lock()
+        except psycopg.OperationalError as exc:
+            raise _unavailable(exc) from exc
+        try:
             with self.pool.connection() as conn:
                 ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
-        except Exception as exc:
-            if getattr(self, "pool", None) is not None:
-                self.pool.close()  # its workers would go on connecting
-            raise ConnectionError(
-                redacted(
-                    f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
-                    f"Original error: {exc}"
-                )
-            ) from exc
+        except BaseException as exc:
+            self.pool.close()  # its workers would go on connecting
+            if isinstance(exc, psycopg.OperationalError | PoolTimeout):
+                raise _unavailable(exc) from exc
+            raise
 
         self.payloads: PayloadStore = open_payload_store(
             PAYLOAD_STORE,
@@ -560,9 +569,12 @@ class GraphStore:
         }
 
     def ping(self) -> None:
-        """Raise when the database cannot be reached."""
-        with self.pool.connection() as conn:
-            conn.execute("SELECT 1")
+        """``DatabaseUnavailable`` when the database cannot be reached."""
+        try:
+            with self.pool.connection() as conn:
+                conn.execute("SELECT 1")
+        except (psycopg.OperationalError, PoolTimeout) as exc:
+            raise _unavailable(exc) from exc
 
     @staticmethod
     def _node_table(collection: str) -> sql.Identifier:
@@ -723,6 +735,10 @@ class GraphStore:
             raise ReadTimedOut(
                 "No connection of the pool came free before the deadline of the request."
             ) from exc
+        except psycopg.OperationalError as exc:
+            if _is_unreachable(exc):
+                raise _unavailable(exc) from exc
+            raise
 
     def _read(
         self,
@@ -785,13 +801,26 @@ class GraphStore:
         none (a table emptied and filled again). Sent again when the database was
         unreachable."""
 
-        def run() -> None:
-            with self.pool.connection() as conn:
-                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
-                for statement, params in statements:
-                    conn.execute(_query(statement), params)
+        def run(conn: psycopg.Connection[Any]) -> None:
+            for statement, params in statements:
+                conn.execute(_query(statement), params)
 
-        _retry_write("statements together", run)
+        self.in_transaction("statements together", run)
+
+    def in_transaction(
+        self, what: str, write: Callable[[psycopg.Connection[Any]], T]
+    ) -> T:
+        """Run *write* on a connection in one transaction, each statement under the ceiling
+        of a write: for a write that needs the connection itself (a table built aside and
+        swapped in, the rows a statement changed). A reader sees all of it or none. Run
+        again when the database was unreachable; *what* names it in the log."""
+
+        def run() -> T:
+            with self.pool.connection() as conn, conn.transaction():
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
+                return write(conn)
+
+        return _retry_write(what, run)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 

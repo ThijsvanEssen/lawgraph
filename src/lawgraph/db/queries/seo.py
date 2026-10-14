@@ -6,6 +6,7 @@ paper is never read; that of an article is (it is the page).
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -445,13 +446,6 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 # ── people and bodies of the chambers and the government ──────────────────────
 
-# A membership not ended: a seat of the Tweede Kamer without its last day, one of the
-# Eerste Kamer still on its page.
-_CURRENT = (
-    "lg_str(e.doc -> 'meta' -> 'to_date') IS NULL"
-    " AND lg_str(e.doc -> 'meta' -> 'observed_until') IS NULL"
-)
-
 
 def _node(store: GraphStore, table: str, node_id: str) -> dict[str, Any] | None:
     return _first(
@@ -523,11 +517,17 @@ def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
             WHERE e.to_id = %(id)s AND e.relation = %(member_of)s
-              AND e.from_collection = '{COLLECTION_MEMBERS}' AND {_CURRENT}
+              AND e.from_collection = '{COLLECTION_MEMBERS}'
+              AND lg_seated(e.doc -> 'meta', %(today)s)
             ORDER BY lg_str(m.props -> 'family_name') ASC NULLS LAST, name ASC NULLS LAST, m.id
             LIMIT %(limit)s
             """,
-            {"id": node_id, "member_of": RELATION_MEMBER_OF, "limit": MEMBERS},
+            {
+                "id": node_id,
+                "member_of": RELATION_MEMBER_OF,
+                "limit": MEMBERS,
+                "today": dt.date.today().isoformat(),
+            },
         )
     )
 

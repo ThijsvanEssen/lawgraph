@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import Annotated, Any
 from urllib.parse import unquote, urlencode
 
-import psycopg
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
@@ -172,20 +171,16 @@ def render_page(
     if unquote(canonical) != unquote(pathname):
         return _redirect(canonical + _query(request))
     node_id: str | None = None
-    try:
-        with read_budget(
-            RENDER_BUDGET, f"The render of {pathname} (its title alone)"
-        ) as budget:
-            node_id = seo.node_of(store, pad)
-            if node_id is None:
-                return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
-            if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
-                return _redirect(same + _query(request))
-            source = _source_page(store, pad, node_id)
-            stamp = store.data_version()
-    except psycopg.OperationalError:
-        # the database is gone: Caddy serves the static shell on a 503
-        return Response(status_code=503, headers={"Retry-After": "30"})
+    with read_budget(
+        RENDER_BUDGET, f"The render of {pathname} (its title alone)"
+    ) as budget:
+        node_id = seo.node_of(store, pad)
+        if node_id is None:
+            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
+        if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
+            return _redirect(same + _query(request))
+        source = _source_page(store, pad, node_id)
+        stamp = store.data_version()
     if budget.ran_out:
         return _html(
             request, _title_page(store, node_id, canonical), 200, "no-store", None
