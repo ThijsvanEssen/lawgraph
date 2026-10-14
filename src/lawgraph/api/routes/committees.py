@@ -22,6 +22,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import iso_day
 from lawgraph.api.schemas.committees import (
     ActorDossierDTO,
     ActorDossiersResponse,
@@ -83,10 +84,6 @@ ActiveTo = Annotated[
 ]
 
 
-def _day(day: dt.date | None) -> str | None:
-    return day.isoformat() if day else None
-
-
 @router.get(
     "",
     response_model=list[CommitteeDTO],
@@ -111,8 +108,8 @@ def list_committees(
         for doc in get_committees(
             store,
             chamber=chamber,
-            active_from=_day(active_from),
-            active_to=_day(active_to),
+            active_from=iso_day(active_from),
+            active_to=iso_day(active_to),
         )
     ]
 
@@ -263,8 +260,8 @@ def list_members(
             sort=sort,
             limit=limit,
             offset=offset,
-            active_from=_day(active_from),
-            active_to=_day(active_to),
+            active_from=iso_day(active_from),
+            active_to=iso_day(active_to),
         )
         return [_as_ek_member(MemberDTO.from_document(d)) for d in ek]
     docs = get_members(
@@ -279,8 +276,8 @@ def list_members(
         sort=sort,
         limit=limit,
         offset=offset,
-        active_from=_day(active_from),
-        active_to=_day(active_to),
+        active_from=iso_day(active_from),
+        active_to=iso_day(active_to),
     )
     return [MemberDTO.from_document(d) for d in docs]
 
@@ -426,8 +423,8 @@ def list_factions(
             active=active,
             q=q,
             chamber=chamber,
-            active_from=_day(active_from),
-            active_to=_day(active_to),
+            active_from=iso_day(active_from),
+            active_to=iso_day(active_to),
         )
     ]
 
@@ -520,8 +517,8 @@ def list_faction_votes(
     raw = get_ek_faction_votes(
         store,
         props.get("abbreviation") or "",
-        date_from=date_from.isoformat() if date_from else None,
-        date_to=date_to.isoformat() if date_to else None,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         limit=limit,
         offset=offset,
     )

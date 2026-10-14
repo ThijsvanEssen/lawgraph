@@ -1,4 +1,4 @@
-"""Shared SRU record parsing for KOOP publication clients."""
+"""The SRU of KOOP and of the BWB: the parameters of a search, its pages, its records."""
 
 from __future__ import annotations
 
@@ -7,15 +7,42 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
 from typing import Any
 
-from lawgraph.clients.base import BaseClient, UnexpectedAnswer, xml_text
+from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, UnexpectedAnswer
 from lawgraph.core.logging import get_logger
-from lawgraph.core.xml import find_own_text, local_name
+from lawgraph.core.xml import find_own_text, first_named, iter_named, local_name
 
 logger = get_logger(__name__)
 
 _IDENTIFIER_RE = re.compile(r"[\w.-]+")
 
 SRU_PAGE_SIZE = 100
+
+
+def sru_params(
+    query: str,
+    *,
+    size: int,
+    start: int | None = None,
+    schema: str | None = None,
+    connection: str | None = None,
+) -> dict[str, str]:
+    """The parameters of a ``searchRetrieve`` of *size* records from *start*; *connection*
+    picks the collection (``x-connection``: ``BWB``, ``ob``; none for the repository's
+    default)."""
+    params = {"operation": "searchRetrieve", "version": "1.2", "query": query}
+    params["maximumRecords"] = str(size)
+    if start is not None:
+        params["startRecord"] = str(start)
+    if schema:
+        params["recordSchema"] = schema
+    if connection:
+        params["x-connection"] = connection
+    return params
+
+
+def records(root: ET.Element) -> list[ET.Element]:
+    """The ``<record>`` elements of a result page."""
+    return list(iter_named(root, "record"))
 
 
 def parse_response(content: bytes, *, context: str) -> ET.Element:
@@ -29,17 +56,10 @@ def parse_response(content: bytes, *, context: str) -> ET.Element:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
         raise UnexpectedAnswer(f"not an SRU response ({context}): {exc}") from exc
-    for element in root.iter():
-        if local_name(element.tag) == "diagnostic":
-            message = next(
-                (
-                    (child.text or "").strip()
-                    for child in element.iter()
-                    if local_name(child.tag) == "message"
-                ),
-                "unknown SRU error",
-            )
-            raise UnexpectedAnswer(f"SRU error ({context}): {message}")
+    diagnostic = first_named(root, "diagnostic")
+    if diagnostic is not None:
+        message = find_own_text(diagnostic, "message") or "unknown SRU error"
+        raise UnexpectedAnswer(f"SRU error ({context}): {message}")
     # After the diagnostics: BWB answers an error as a bare <diagnostics>.
     if local_name(root.tag) != "searchRetrieveResponse":
         raise UnexpectedAnswer(
@@ -50,10 +70,7 @@ def parse_response(content: bytes, *, context: str) -> ET.Element:
 
 def number_of_records(root: ET.Element) -> int:
     """The total the service reports for the query (``numberOfRecords``)."""
-    for element in root.iter():
-        if local_name(element.tag) == "numberOfRecords":
-            return int((element.text or "0").strip())
-    return 0
+    return int(find_own_text(root, "numberOfRecords") or "0")
 
 
 def record_identifier(record: ET.Element) -> str | None:
@@ -68,6 +85,24 @@ def parse_record_fields(
 ) -> dict[str, str | None]:
     """``{name: text}`` of the single-valued elements of one record, by local element name."""
     return {name: find_own_text(record, element) for name, element in fields.items()}
+
+
+def record_dicts(
+    root: ET.Element,
+    fields: dict[str, str],
+    **derived: Callable[[ET.Element], Any],
+) -> list[dict[str, Any]]:
+    """``{identifier, **fields, **derived}`` of every record of a result page: the
+    single-valued *fields* by local element name, and each of *derived* computed from the
+    record."""
+    return [
+        {
+            "identifier": record_identifier(record),
+            **parse_record_fields(record, fields),
+            **{name: compute(record) for name, compute in derived.items()},
+        }
+        for record in records(root)
+    ]
 
 
 def iter_publications(
@@ -96,22 +131,19 @@ def iter_publications(
     last: str | None = None
     while True:
         after = "" if last is None else f' AND dt.identifier>"{last}"'
-        params = {
-            "operation": "searchRetrieve",
-            "version": "1.2",
-            "query": f"{query}{after} sortBy dt.identifier/sort.ascending",
-            "maximumRecords": str(page_size),
-            "startRecord": "1",
-            "recordSchema": "gzd",
-        }
-        if connection:
-            params["x-connection"] = connection
-        resp = client._get_raw_absolute_with_retry(endpoint, params=params, timeout=60)
+        params = sru_params(
+            f"{query}{after} sortBy dt.identifier/sort.ascending",
+            size=page_size,
+            start=1,
+            schema="gzd",
+            connection=connection,
+        )
+        resp = client.get(endpoint, params=params, timeout=PAGE_TIMEOUT)
         root = parse_response(resp.content, context=f"{context} after {last}")
 
         if total is None:
             total = number_of_records(root)
-        page = [e for e in root.iter() if local_name(e.tag) == "record"]
+        page = records(root)
         identifiers = [i for i in map(record_identifier, page) if i]
         if len(identifiers) != len(page):
             raise RuntimeError(f"SRU error ({context}): a record has no identifier")
@@ -131,63 +163,6 @@ def iter_publications(
             f"SRU error ({context}): the pages hold {fetched} records, the service "
             f"reports {total}"
         )
-
-
-def search_publications(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-    """Every record of a query as a list; see ``iter_publications``."""
-    return list(iter_publications(*args, **kwargs))
-
-
-def parse_sru_records(
-    root: ET.Element,
-    *,
-    id_pattern: re.Pattern[str],
-    extra_fields: tuple[str, ...] = (),
-    default_title_prefix: str = "Publicatie",
-) -> list[dict[str, Any]]:
-    """Parse SRU response XML into record dicts.
-
-    Each record gets at minimum: identifier, year, number, title, content_url (the ``url`` of
-    the record: its XML in the repository).
-    Pass extra field local names via ``extra_fields`` to pull in additional
-    single-valued elements (e.g. ``("date",)`` for Staatscourant records).
-    """
-    records: list[dict[str, Any]] = []
-
-    for record_elem in root.iter():
-        if local_name(record_elem.tag) != "record":
-            continue
-
-        identifier = record_identifier(record_elem)
-        if not identifier:
-            continue
-
-        m = id_pattern.search(identifier)
-        if not m:
-            continue
-
-        year = m.group(1)
-        number = m.group(2)
-        title = (
-            find_own_text(record_elem, "title")
-            or f"{default_title_prefix} {year}/{number}"
-        )
-        content_url = find_own_text(record_elem, "url")
-
-        record: dict[str, Any] = {
-            "identifier": identifier,
-            "year": year,
-            "number": number,
-            "title": title,
-            "content_url": content_url,
-        }
-        record["modified"] = find_own_text(record_elem, "modified")
-        for field_name in extra_fields:
-            record[field_name] = find_own_text(record_elem, field_name)
-
-        records.append(record)
-
-    return records
 
 
 def fetch_publication_xml(
@@ -213,4 +188,4 @@ def fetch_publication_xml(
         f"{client.base_url.rstrip('/')}/frbr/officielepublicaties/{kind}/{group}/"
         f"{identifier}/1/xml/{identifier}.xml"
     )
-    return xml_text(client._get_raw_absolute_with_retry(url, timeout=60))
+    return client.get_xml(url, timeout=PAGE_TIMEOUT)

@@ -14,8 +14,13 @@ import io
 import zipfile
 from typing import Any
 
-from lawgraph.clients.base import BaseClient, UnexpectedAnswer
-from lawgraph.config.settings import ECHR_HUDOC_BASE_URL
+from lawgraph.clients.base import (
+    PAGE_TIMEOUT,
+    QUERY_TIMEOUT,
+    BaseClient,
+    UnexpectedAnswer,
+)
+from lawgraph.config.sources import HUDOC
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -37,10 +42,7 @@ class EchrClient(BaseClient):
     """Client for HUDOC ECHR case law database."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(
-            base_url=ECHR_HUDOC_BASE_URL,
-            session=session,
-        )
+        super().__init__(base_url=HUDOC.base_url, session=session)
         self.session.headers.update({"Accept": "application/json"})
 
     def search_judgments(
@@ -83,13 +85,10 @@ class EchrClient(BaseClient):
                 "rankingModelId": "11111111-0000-0000-0000-000000000000",
             }
 
-            resp = self._get_raw_with_retry(
-                "/app/query/results",
-                params=params,
-                timeout=60,
-            )
             # HUDOC returns {"results": [{"columns": {"itemid": ..., ...}}, ...]}
-            answer = resp.json()
+            answer = self.get_json(
+                "/app/query/results", params=params, timeout=PAGE_TIMEOUT
+            )
             if expected is None:
                 expected = answer.get("resultcount")
             items = answer.get("results", [])
@@ -134,10 +133,10 @@ class EchrClient(BaseClient):
                 "start": "0",
                 "length": str(_PAGE_SIZE * 5),
             }
-            resp = self._get_raw_with_retry(
-                "/app/query/results", params=params, timeout=60
+            answer = self.get_json(
+                "/app/query/results", params=params, timeout=PAGE_TIMEOUT
             )
-            for item in resp.json().get("results", []):
+            for item in answer.get("results", []):
                 judgment = item["columns"]
                 ecli = str(judgment.get("ecli") or "").upper()
                 english = judgment.get("languageisocode") == "ENG"
@@ -151,10 +150,10 @@ class EchrClient(BaseClient):
         A failing request raises (HUDOC answers HTTP 500 for an unknown item); an answer
         that is no DOCX raises ``UnexpectedAnswer``.
         """
-        resp = self._get_raw_with_retry(
+        resp = self.get(
             "/app/conversion/docx/",
             params={"library": "ECHR", "id": item_id, "filename": f"{item_id}.docx"},
-            timeout=120,
+            timeout=QUERY_TIMEOUT,
         )
         try:
             with zipfile.ZipFile(io.BytesIO(resp.content)) as docx:

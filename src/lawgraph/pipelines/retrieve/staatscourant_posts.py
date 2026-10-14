@@ -15,7 +15,10 @@ import datetime as dt
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.clients.staatscourant import StaatscourantClient
+from lawgraph.clients.koop_publications import (
+    MINISTERIAL_REGULATION,
+    KoopPublicationClient,
+)
 from lawgraph.config.constants import (
     RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_STCRT_POST_CREATORS,
@@ -36,10 +39,10 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
     """Store per post without a named ministry the creators of the publications naming it."""
 
     def __init__(
-        self, store: GraphStore, client: StaatscourantClient | None = None
+        self, store: GraphStore, client: KoopPublicationClient | None = None
     ) -> None:
         super().__init__(store)
-        self.client = client or StaatscourantClient()
+        self.client = client or KoopPublicationClient(MINISTERIAL_REGULATION)
 
     def queries(self) -> list[dict[str, Any]]:
         """The queries of the stored cabinet pages, less those of ended posts already

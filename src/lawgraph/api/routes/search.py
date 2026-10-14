@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import iso_day
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import SEARCH_TYPES, SearchResponse, SearchResultItem
@@ -104,8 +105,8 @@ def search(
     if date_from and date_to and date_from > date_to:
         raise HTTPException(status_code=422, detail="`from` is after `to`.")
     period = Period(
-        date_from.isoformat() if date_from else None,
-        date_to.isoformat() if date_to else None,
+        iso_day(date_from),
+        iso_day(date_to),
     )
     search = search_live if mode == "live" else search_full
     raw, partial = search(

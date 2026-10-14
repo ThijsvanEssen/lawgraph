@@ -112,52 +112,11 @@ S3_SECRET_KEY = os.getenv("LAWGRAPH_S3_SECRET_KEY") or None
 
 # ── External sources ──────────────────────────────────────────────────────────
 
-BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")
-BWB_SRU_ENDPOINT = os.getenv(
-    "BWB_SRU_ENDPOINT", "https://zoekservice.overheid.nl/sru/Search"
-)
-EURLEX_BASE_URL = os.getenv("EURLEX_BASE", "https://eur-lex.europa.eu/")
-EURLEX_SPARQL_ENDPOINT = os.getenv(
-    "EURLEX_SPARQL_ENDPOINT", "https://publications.europa.eu/webapi/rdf/sparql"
-)
-RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", "https://data.rechtspraak.nl/")
-TK_BASE_URL = os.getenv(
-    "TK_API_BASE", "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"
-)
-TK_DOCUMENT_RESOURCE_URL_TEMPLATE = (
-    TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
-)
-# Staatsblad and Staatscourant share one SRU server and one repository; the collection is
-# chosen by a query parameter (x-connection) at request time.
-STAATSBLAD_SRU_ENDPOINT = os.getenv(
-    "STAATSBLAD_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
-)
-STAATSBLAD_REPO_BASE = os.getenv(
-    "STAATSBLAD_REPO_BASE", "https://repository.overheid.nl"
-)
-STAATSCOURANT_SRU_ENDPOINT = os.getenv(
-    "STAATSCOURANT_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
-)
-STAATSCOURANT_REPO_BASE = os.getenv(
-    "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
-)
-EERSTEKAMER_SRU_ENDPOINT = os.getenv(
-    "EERSTEKAMER_SRU", "https://repository.overheid.nl/sru"
-)
-KAMERSTUK_REPO_BASE = os.getenv("KAMERSTUK_REPO_BASE", "https://repository.overheid.nl")
-ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
-VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
-    "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"
-)
-RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
-# The website of the Eerste Kamer: its list of votes on bills and of rejected bills.
-EERSTEKAMER_SITE = os.getenv("EERSTEKAMER_SITE", "https://www.eerstekamer.nl")
 # How the API names the Eerste Kamer as the source of what it takes over from its website
 # (its terms allow reuse with the source and the day it was taken over).
 EK_ATTRIBUTION = os.getenv(
     "EK_ATTRIBUTION", "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
 )
-TOOI_BASE = os.getenv("TOOI_BASE", "https://identifier.overheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 

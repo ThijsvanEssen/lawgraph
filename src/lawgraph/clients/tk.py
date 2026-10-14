@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import TK_BASE_URL
+from lawgraph.config.sources import TWEEDE_KAMER
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import odata_datetime
+from lawgraph.core.values import next_page_link
 
 logger = get_logger(__name__)
 
@@ -38,19 +39,25 @@ def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
 
 
 class TKClient(BaseClient):
-    """
-    Client voor de OData API van het Gegevensmagazijn van de Tweede Kamer.
-
-    Docs: https://opendata.tweedekamer.nl/documentatie/odata-api
-    """
+    """Client for the OData API of the Gegevensmagazijn of the Tweede Kamer
+    (https://opendata.tweedekamer.nl/documentatie/odata-api)."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(
-            base_url=TK_BASE_URL,
-            session=session,
-        )
+        super().__init__(base_url=TWEEDE_KAMER.base_url, session=session)
         # Called with the ``@odata.count`` of a paged query when its first page arrives.
         self.on_total: Callable[[int | None], None] | None = None
+
+    def _paged_get(self, path: str, params: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        """The records of *path*, page by page, following the ``@odata.nextLink`` of
+        each page. A page without records (``value``) raises."""
+        page = self.get_json(path, params=params)
+        while True:
+            yield from page["value"]
+            next_link = next_page_link(page, "@odata.nextLink")
+            if not next_link:
+                return
+            logger.debug("Following pagination url=%s", next_link)
+            page = self.get_json(next_link)
 
     def _skip_paged_get(
         self,
@@ -72,9 +79,9 @@ class TKClient(BaseClient):
             page_params["$skip"] = skip
             if skip == 0:
                 page_params["$count"] = "true"
-            page = self._get_json(path, params=page_params)
-            entries = page.get("value", []) if isinstance(page, dict) else []
-            if skip == 0 and isinstance(page, dict):
+            page = self.get_json(path, params=page_params)
+            entries = page["value"]
+            if skip == 0:
                 expected = int(page.get("@odata.count") or 0) or None
                 if self.on_total:
                     self.on_total(expected)

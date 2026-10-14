@@ -13,7 +13,7 @@ from tests.fakes.clock import (
     calls_made,
     until,
 )
-from tests.fakes.http import FakeResponse, http_error
+from tests.fakes.http import ScriptedSession, Sent, answer, http_error
 from tests.fakes.queries import (
     patch_alias_rows,
     patch_edge_removals,
@@ -31,10 +31,12 @@ from tests.fakes.store import (
 __all__ = [
     "FAST",
     "PATIENCE",
-    "FakeResponse",
     "InMemoryStore",
     "ManualClock",
     "PipelineStateFake",
+    "ScriptedSession",
+    "Sent",
+    "answer",
     "assert_fast",
     "calls_made",
     "count_calls",

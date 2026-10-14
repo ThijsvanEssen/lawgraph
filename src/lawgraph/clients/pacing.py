@@ -3,8 +3,8 @@
 Every ``BaseClient`` uses a ``PacedSession``. Before a request the session waits until the
 host's interval has passed since the previous one; a host that answers HTTP 429 or 503 makes
 the interval double (or follow ``Retry-After``), and it shrinks back while requests succeed:
-to the base interval (``HOST_MIN_INTERVAL`` in the constants), or to just above the pace
-the host last pushed back at, which is forgotten slowly.
+to the base interval (the host's ``min_interval`` in ``config/sources.py``), or to just
+above the pace the host last pushed back at, which is forgotten slowly.
 
 The pacer is shared by the whole process and thread safe: ``retrieve all --jobs`` runs the
 sources of one host one after the other, but a host reached through two clients is still
@@ -28,7 +28,7 @@ from urllib.parse import urlsplit
 
 import requests
 
-from lawgraph.config.constants import DEFAULT_MIN_INTERVAL, HOST_MIN_INTERVAL
+from lawgraph.config.sources import USER_AGENT, min_interval
 from lawgraph.core.logging import get_logger
 from lawgraph.core.progress import PeriodicLog
 
@@ -163,7 +163,12 @@ class HostPacer:
 
 
 class PacedSession(requests.Session):
-    """A ``requests.Session`` that paces its requests per host."""
+    """A ``requests.Session`` that paces its requests per host and names Concordans in its
+    ``User-Agent``."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.headers["User-Agent"] = USER_AGENT
 
     def request(self, method, url, *args, **kwargs):  # type: ignore[override]
         pacer = pacer_for(str(url))
@@ -198,7 +203,7 @@ def pacer_for(url: str) -> HostPacer:
     host = (urlsplit(url).hostname or "").lower()
     with _registry_lock:
         if host not in _pacers:
-            pacer = HostPacer(host, HOST_MIN_INTERVAL.get(host, DEFAULT_MIN_INTERVAL))
+            pacer = HostPacer(host, min_interval(host))
             if not _take_lock(host):
                 pacer.holding = False
                 pacer.base_interval = pacer.interval = pacer.full_speed * 2

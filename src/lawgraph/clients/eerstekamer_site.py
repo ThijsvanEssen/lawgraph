@@ -4,17 +4,14 @@ pages of its factions and committees, and the pages of its bills.
 The Eerste Kamer publishes its votes only on its website; its terms allow reuse, also
 commercial, with the source and the day it was taken over. ``robots.txt`` allows these
 pages. The client asks for one page at a time, paced by the host's interval
-(``HOST_MIN_INTERVAL``), and names Concordans in its ``User-Agent``. What the pages hold is
-read by ``core.eerstekamer_votes``.
+(``config/sources.py``). What the pages hold is read by ``core.eerstekamer_votes``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Container, Iterator
 
-import requests
-
-from lawgraph.clients.base import BaseClient, response_text
+from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, response_text
 from lawgraph.core import (
     eerstekamer_bills,
     eerstekamer_composition,
@@ -25,8 +22,6 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_path, ek_url
 
 logger = get_logger(__name__)
-
-_USER_AGENT = "Concordans (https://github.com/ThijsvanEssen/lawgraph)"
 
 
 class EerstekamerSiteClient(BaseClient):
@@ -103,15 +98,10 @@ class EerstekamerSiteClient(BaseClient):
     def page(self, path: str) -> tuple[str, str]:
         """``(url, html)`` of the page at *path*."""
         url = ek_url(path)
-        return url, response_text(self._get(url))
+        return url, self.get_text(url, timeout=PAGE_TIMEOUT)
 
     def page_at(self, path: str) -> tuple[str, str]:
         """``(path, html)`` of a page, *path* the one it was served at after a redirect
         (``/menukeuze_plenair`` forwards to the next plenary sitting)."""
-        response = self._get(ek_url(path))
+        response = self.get(ek_url(path), timeout=PAGE_TIMEOUT)
         return ek_path(response.url or "") or path, response_text(response)
-
-    def _get(self, url: str) -> requests.Response:
-        return self._get_raw_absolute_with_retry(
-            url, timeout=60, headers={"User-Agent": _USER_AGENT}
-        )

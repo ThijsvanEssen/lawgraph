@@ -347,29 +347,6 @@ MAX_SEMANTIC_TEXT_LENGTH = 200_000
 # Longest title / display name stored on a node (longer source titles are truncated).
 MAX_TITLE_CHARS = 200
 
-# ── Request pacing ────────────────────────────────────────────────────────────
-# Minimum seconds between two requests to one host, in every client (clients/pacing.py).
-# A host that answers HTTP 429 or 503 makes the interval grow, and it shrinks back to this
-# value while requests succeed. repository.overheid.nl was measured on 2026-09-20: it
-# throttles from about 5 requests per second sustained (a bucket of about 20).
-DEFAULT_MIN_INTERVAL = 0.2
-HOST_MIN_INTERVAL: dict[str, float] = {
-    "repository.overheid.nl": 0.5,
-    "hudoc.echr.coe.int": 0.5,
-    "publications.europa.eu": 0.3,
-    # Rechtspraak allows "niet meer dan 10 requests per seconde" and asks to mind the others.
-    "data.rechtspraak.nl": 0.125,
-    "gegevensmagazijn.tweedekamer.nl": 0.1,
-    "zoekservice.overheid.nl": 0.1,
-    "repository.officiele-overheidspublicaties.nl": 0.1,
-    # a page at a time with a pause: 33 pages, read seldom
-    "www.rijksoverheid.nl": 2.0,
-    # the lists of eerstekamer.nl: 106 pages of votes, read seldom
-    "www.eerstekamer.nl": 2.0,
-    # six pages of the Kiesraad's databank, read once
-    "www.verkiezingsuitslagen.nl": 2.0,
-}
-
 # ── Rechtspraak courts ────────────────────────────────────────────────────────
 # A court to read is an ECLI code or a tier of the court table (``core.courts.owms_terms``).
 # Every court the index holds (no ``creator`` filter): the rechtbanken, the special courts
