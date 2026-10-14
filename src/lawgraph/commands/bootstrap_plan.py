@@ -38,7 +38,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import state as state_queries
-from lawgraph.pipelines.command import Command
+from lawgraph.pipelines.command import Main
 from lawgraph.pipelines.retrieve_commands import RetrieveCommand, RetrieveMode
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
@@ -54,7 +54,7 @@ class Step:
 
     label: str  # what one types after ``lawgraph``: retrieve tk, normalize tk, check
     lane: str
-    command: Command
+    command: Main
     argv: tuple[str, ...] = ()
     after: tuple[str, ...] = ()
 
