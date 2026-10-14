@@ -4,7 +4,7 @@ import datetime as dt
 from collections.abc import Iterator, Sequence
 from typing import Any
 
-from lawgraph.clients.base import BaseClient
+from lawgraph.clients.base import BaseClient, xml_text
 from lawgraph.config.settings import RECHTSPRAAK_BASE_URL
 from lawgraph.core.judgments import IndexEntry, parse_index
 from lawgraph.core.logging import get_logger
@@ -102,6 +102,9 @@ class RechtspraakClient(BaseClient):
             )
 
     def fetch_ecli_content(self, ecli: str) -> str:
-        """Retrieve the XML content for a single Rechtspraak ECLI."""
+        """The XML of the judgment *ecli*; a page that is not XML raises
+        (``UnexpectedAnswer``)."""
         logger.debug("Fetching Rechtspraak content for %s", ecli)
-        return self._get_text("uitspraken/content", params={"id": ecli})
+        return xml_text(
+            self._get_raw_with_retry("uitspraken/content", params={"id": ecli})
+        )

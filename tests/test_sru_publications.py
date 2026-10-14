@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pathlib
-from types import SimpleNamespace
 
 import pytest
 import requests
@@ -11,10 +10,11 @@ import requests
 from lawgraph.clients import staatsblad as staatsblad_module
 from lawgraph.clients import staatscourant as staatscourant_module
 from lawgraph.clients._sru import fetch_publication_xml
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.clients.staatscourant import StaatscourantClient
 from lawgraph.core.identifiers import STB_ID_PATTERN
-from tests.fakes import FakeResponse
+from tests.fakes import FakeResponse, http_error
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 AMVB_PAGE = (FIXTURES / "sru_staatsblad_amvb_page.xml").read_text()  # 1 real record
@@ -32,10 +32,6 @@ def _page(identifiers: list[str], total: int | None = None) -> str:
         "<sru:numberOfRecords>19858</sru:numberOfRecords>",
         f"<sru:numberOfRecords>{count}</sru:numberOfRecords>",
     )
-
-
-def _http_error(status: int) -> requests.HTTPError:
-    return requests.HTTPError(str(status), response=SimpleNamespace(status_code=status))
 
 
 def _client(cls, responses: list, calls: list[dict]):
@@ -170,27 +166,20 @@ def test_staatscourant_uses_the_same_layout() -> None:
     )
 
 
-def test_a_missing_xml_is_none_but_other_failures_raise() -> None:
-    assert (
-        _client(StaatsbladClient, [_http_error(404)], []).fetch_publication_xml(
-            "stb-2009-601"
-        )
-        is None
-    )
-    with pytest.raises(requests.HTTPError):
-        _client(StaatsbladClient, [_http_error(500)], []).fetch_publication_xml(
-            "stb-2009-601"
-        )
+@pytest.mark.parametrize("status", [404, 500])
+def test_a_failed_request_raises_with_its_status(status: int) -> None:
+    client = _client(StaatsbladClient, [http_error(status)], [])
+    with pytest.raises(requests.HTTPError) as raised:
+        client.fetch_publication_xml("stb-2009-601")
+    assert raised.value.response.status_code == status
 
 
-def test_a_malformed_identifier_is_not_requested() -> None:
+@pytest.mark.parametrize("identifier", ["stb-2009-601/../x", "not-an-id"])
+def test_a_malformed_identifier_is_not_requested(identifier: str) -> None:
     calls: list[dict] = []
     client = _client(StaatsbladClient, [], calls)
-    assert (
-        fetch_publication_xml(client, "stb", STB_ID_PATTERN, "stb-2009-601/../x")
-        is None
-    )
-    assert fetch_publication_xml(client, "stb", STB_ID_PATTERN, "not-an-id") is None
+    with pytest.raises(UnexpectedAnswer):
+        fetch_publication_xml(client, "stb", STB_ID_PATTERN, identifier)
     assert calls == []
 
 

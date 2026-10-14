@@ -20,7 +20,8 @@ RETRY_STATUSES = (429, 502, 503, 504)
 
 class UnexpectedAnswer(RuntimeError):
     """The source answered, but not with what was asked for: an SRU diagnostic, a
-    maintenance page with HTTP 200, a document that is not XML."""
+    maintenance page with HTTP 200, a document that is not XML; or it named a document by an
+    identifier that cannot be asked for."""
 
 
 _XML_ENCODING = re.compile(rb"""<\?xml[^>]*encoding=["']([A-Za-z0-9._-]+)""")

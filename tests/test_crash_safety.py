@@ -19,7 +19,13 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-from tests.fakes import FakeResponse, InMemoryStore, external_ids, raw_record
+from tests.fakes import (
+    FakeResponse,
+    InMemoryStore,
+    external_ids,
+    http_error,
+    raw_record,
+)
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -134,11 +140,13 @@ class _Staatscourant:
             for i in self.identifiers
         ]
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
         if identifier == self.failing:
             raise requests.ConnectionError("dropped")
-        return None if identifier == "stcrt-2020-404" else f"<xml>{identifier}</xml>"
+        if identifier == "stcrt-2020-404":
+            raise http_error(404)
+        return f"<xml>{identifier}</xml>"
 
 
 def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
