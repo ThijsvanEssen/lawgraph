@@ -21,7 +21,6 @@ from typing import Any, Final, Literal
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
-from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
@@ -51,8 +50,19 @@ PLENARY_VOORTOUW = "TK"
 
 _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 
+# Document.Soort (and Zaak.Soort) of the papers told apart, as the Kamer writes them. A
+# changed paper adds to it: ``Motie (gewijzigd/nader)`` is a motion (``is_motion``).
+KIND_MOTION: Final = "Motie"
+KIND_AMENDMENT: Final = "Amendement"
+KIND_BILL: Final = "Voorstel van wet"
+KIND_AMENDMENT_NOTE: Final = "Nota van wijziging"
+KIND_EXPLANATORY_MEMORANDUM: Final = "Memorie van toelichting"
+KIND_GOVERNMENT_LETTER: Final = "Brief regering"
+# The papers the Kamer decides on by a vote of their own.
+DECIDED_KINDS: Final = (KIND_MOTION, KIND_AMENDMENT)
+
 # The Soort prefixes of a motie or amendement (see ``is_motion_or_amendment``).
-_MOTION_OR_AMENDMENT_KINDS = ("motie", "amendement")
+_MOTION_OR_AMENDMENT_KINDS = tuple(kind.lower() for kind in DECIDED_KINDS)
 
 # The Soort prefixes of a Document or Zaak named by its own Onderwerp (see
 # ``is_named_by_subject``): a motie, an amendement, a letter, the report of a debate or a
@@ -76,10 +86,10 @@ _OWN_SUBJECT_KINDS = (
 # stands or as it was passed, and the memorandum, which sets out the changes article by
 # article (``semantic tk-amendment-articles`` reads them in its text).
 _AMENDING_KINDS = (
-    "amendement",
-    "voorstel van wet",
-    "memorie van toelichting",
-    "nota van wijziging",
+    KIND_AMENDMENT.lower(),
+    KIND_BILL.lower(),
+    KIND_EXPLANATORY_MEMORANDUM.lower(),
+    KIND_AMENDMENT_NOTE.lower(),
     "nota van verbetering",
     "wijzigingen voorgesteld door de regering",
     "oorspronkelijke tekst",
@@ -87,12 +97,16 @@ _AMENDING_KINDS = (
     "eindtekst",
 )
 
-# DocumentActor.Relatie of who submits a motie or amendement -> the role we give them.
-SUBMITTER_FIRST = "indiener"
-SUBMITTER_CO = "medeindiener"
-_SUBMITTER_ROLES = {
-    "Eerste ondertekenaar": SUBMITTER_FIRST,
-    "Mede ondertekenaar": SUBMITTER_CO,
+# DocumentActor.Relatie of who signs a paper first, and of who signs with them.
+FIRST_SIGNATORY: Final = "Eerste ondertekenaar"
+CO_SIGNATORY: Final = "Mede ondertekenaar"
+# The role we give who submits a motie or amendement, by their DocumentActor.Relatie.
+SubmitterRole = Literal["indiener", "medeindiener"]
+SUBMITTER_FIRST: Final[SubmitterRole] = "indiener"
+SUBMITTER_CO: Final[SubmitterRole] = "medeindiener"
+_SUBMITTER_ROLES: dict[str, SubmitterRole] = {
+    FIRST_SIGNATORY: SUBMITTER_FIRST,
+    CO_SIGNATORY: SUBMITTER_CO,
 }
 
 
@@ -122,6 +136,17 @@ def _external_id(payload: Payload) -> str:
 def is_deleted(payload: Payload) -> bool:
     """Whether the Kamer deleted the record: it then holds its id and nothing else."""
     return payload.get("Verwijderd") is True
+
+
+def is_motion(kind: str | None) -> bool:
+    """A ``Soort`` of a motion, also a changed one (``Motie (gewijzigd/nader)``)."""
+    return (kind or "").startswith(KIND_MOTION)
+
+
+def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
+    """``Kamerstukdossier 36554-I: <title>``."""
+    suffix = f"-{suffix}" if suffix else ""
+    return f"Kamerstukdossier {number}{suffix}: {title}"
 
 
 def is_motion_or_amendment(kind: str | None) -> bool:

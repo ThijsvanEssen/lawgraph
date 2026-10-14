@@ -28,6 +28,7 @@ from lawgraph.core.cabinet_posts import (
     SEAT_DEPUTY,
     seat_gaps,
 )
+from lawgraph.core.post_ministries import MISSING_AMBIGUOUS, MISSING_NO_SOURCE
 
 _OPEN = "9999-12-31"
 
@@ -135,9 +136,11 @@ def cabinet_row(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> dict[st
         "party": sum(1 for p in posts if p.get("party")),
         "no_party": sum(1 for p in posts if not p.get("party")),
         "no_ministry": sum(
-            1 for p in posts if p.get("ministry_missing") == "no_source"
+            1 for p in posts if p.get("ministry_missing") == MISSING_NO_SOURCE
         ),
-        "ambiguous": sum(1 for p in posts if p.get("ministry_missing") == "ambiguous"),
+        "ambiguous": sum(
+            1 for p in posts if p.get("ministry_missing") == MISSING_AMBIGUOUS
+        ),
         "own": sum(1 for p in posts if p.get("own")),
         "phases": len(phases),
         "demissionary_from": cabinet.get("demissionary_from"),

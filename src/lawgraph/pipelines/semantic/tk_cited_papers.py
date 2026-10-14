@@ -39,6 +39,7 @@ from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers, motion_papers
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, is_motion
 from lawgraph.db import EdgeWriter, edge_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -55,10 +56,6 @@ BASIS_FOOTNOTE = "footnote"
 # An answer read from the text: sure of the motion, less of what the letter does with it.
 TEXT_CONFIDENCE = 0.9
 RELATIONS = (RELATION_ANSWERS, RELATION_REFERS_TO)
-# The kind of a letter of the government, and the kinds of a motion start with "Motie"
-# ("Motie", "Motie (gewijzigd/nader)").
-LETTER_OF_GOVERNMENT = "Brief regering"
-MOTION = "Motie"
 
 PaperKey = tuple[str, str, int]  # dossier number, suffix ("" for none), sequence
 
@@ -78,7 +75,7 @@ Kept = dict[str, dict[str, set[str]]]  # relation -> paper -> keys of its edges
 
 def relation_of(source_kind: str | None, target_kind: str | None) -> str:
     """``ANSWERS`` from a letter of the government to a motion, else ``REFERS_TO``."""
-    if source_kind == LETTER_OF_GOVERNMENT and (target_kind or "").startswith(MOTION):
+    if source_kind == KIND_GOVERNMENT_LETTER and is_motion(target_kind):
         return RELATION_ANSWERS
     return RELATION_REFERS_TO
 
@@ -179,7 +176,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         """The papers each letter of the government names in its text and footnotes."""
         named: list[NamedInText] = []
         for row in self._track(
-            semantic_tk.letters_naming_motions(self.store, LETTER_OF_GOVERNMENT, ids),
+            semantic_tk.letters_naming_motions(self.store, KIND_GOVERNMENT_LETTER, ids),
             "letters",
         ):
             places = [(BASIS_TEXT, line) for line in str(row["text"] or "").split("\n")]
@@ -256,7 +253,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 or pair in by_subject
                 or pair in done
                 or target["id"] == item.letter
-                or relation_of(LETTER_OF_GOVERNMENT, target.get("kind"))
+                or relation_of(KIND_GOVERNMENT_LETTER, target.get("kind"))
                 != RELATION_ANSWERS
             ):
                 continue

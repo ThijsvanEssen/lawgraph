@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import CHAMBERS
+from lawgraph.core.coalition import TK_SEATS
 
 CURATED = Path(__file__).resolve().parents[1] / "data" / "curated"
 
@@ -187,8 +188,8 @@ def _seating(entries: Entries) -> list[str]:
         if not isinstance(seats, int) or seats < 1:
             found.append(f"{key}: seats {seats!r} is no number of seats on the plan")
     total = sum((v or {}).get("seats") or 0 for v in entries.values())
-    if total > 150:
-        found.append(f"the plan has {total} seats; the Kamer has 150")
+    if total > TK_SEATS:
+        found.append(f"the plan has {total} seats; the Kamer has {TK_SEATS}")
     source = LISTS["seating"].document().get("source") or {}
     dated = str(source.get("dated"))
     if not source.get("url") or not re.match(r"^\d{4}-\d{2}-\d{2}$", dated):

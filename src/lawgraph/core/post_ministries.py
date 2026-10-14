@@ -28,13 +28,17 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Final, Literal
 
-from lawgraph.core.government import post_kind, surname_in
+from lawgraph.core.government import SIGNED_AFTER_POST, post_kind, surname_in
 from lawgraph.core.ministries import (
     POST_DEPUTY_PRIME_MINISTER,
+    POST_MINISTER,
     POST_STATE_SECRETARY,
+    WITHOUT_PORTFOLIO,
     classify_function,
     ministry_of,
 )
+from lawgraph.core.ministry_sources import ministry_name
+from lawgraph.core.official_urls import FIRST_PUBLICATION_YEAR
 
 MinistrySource = Literal["page", "tk_signatures", "tk_commitments", "staatscourant"]
 SOURCE_PAGE: Final[MinistrySource] = "page"
@@ -105,18 +109,16 @@ def count_by(ministries: Iterable[str | None]) -> Counter[str]:
 
 def _kind(post: dict[str, Any]) -> str:
     return (
-        "staatssecretaris" if post.get("post") == POST_STATE_SECRETARY else "minister"
+        POST_STATE_SECRETARY
+        if post.get("post") == POST_STATE_SECRETARY
+        else POST_MINISTER
     )
 
 
-def _plus_days(day: str | None, days: int) -> str:
+def _after(day: str | None, span: dt.timedelta) -> str:
     if not day:
         return ""
-    return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
-
-
-# A letter signed just after the post ended still belongs to it.
-SIGNED_AFTER_POST_DAYS = 14
+    return (dt.date.fromisoformat(day) + span).isoformat()
 
 
 def signature_counts(
@@ -125,7 +127,7 @@ def signature_counts(
     """Per ministry: the months in which the holder signed Tweede Kamer papers in a function
     of the post's kind that names that ministry, while holding the post. *signed* are the
     holder's signatures in government, ``{function, first, last}`` per function and month."""
-    grace = _plus_days(post.get("to_date"), SIGNED_AFTER_POST_DAYS)
+    grace = _after(post.get("to_date"), SIGNED_AFTER_POST)
     return count_by(
         classify_function(row.get("function"), on=row.get("first"))[1]
         for row in signed
@@ -160,7 +162,7 @@ def staatscourant_counts(
     counts: Counter[str] = Counter()
     for creator, n in ((record or {}).get("creators") or {}).items():
         ministry = ministry_of(
-            re.sub(r"^ministerie\s+(?:van|voor)\s+", "", creator, flags=re.I),
+            ministry_name(creator),
             on=post.get("from_date"),
         )
         if ministry:
@@ -171,7 +173,7 @@ def staatscourant_counts(
 # ── The Staatscourant ────────────────────────────────────────────────────────
 
 # The KOOP repository holds the Staatscourant and the Staatsblad in full from 1995.
-STAATSCOURANT_FROM = "1995-01-01"
+STAATSCOURANT_FROM = f"{FIRST_PUBLICATION_YEAR}-01-01"
 
 
 def phrase_of(function: str) -> str:
@@ -190,7 +192,7 @@ def staatscourant_query(post: dict[str, Any]) -> dict[str, Any] | None:
     if post.get("ministry") or post.get("post") == POST_DEPUTY_PRIME_MINISTER:
         return None
     phrase = phrase_of(post.get("function") or "")
-    if not phrase or phrase.startswith("minister zonder portefeuille"):
+    if not phrase or phrase.startswith(WITHOUT_PORTFOLIO):
         return None
     end = post.get("to_date")
     if end is not None and end < STAATSCOURANT_FROM:

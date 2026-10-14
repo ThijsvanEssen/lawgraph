@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_composition as composition
 from lawgraph.core import ek_changes
+from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -170,7 +171,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
             last = walked.stretches[-1].seats
             if n + 1 == len(elections):
                 mismatches += _against(last, today) if today else []
-            elif sum(last.values()) != ek_changes.SEATS:
+            elif sum(last.values()) != EK_SEATS:
                 mismatches.append(
                     f"{end}: the term ends with {sum(last.values())} seats"
                 )

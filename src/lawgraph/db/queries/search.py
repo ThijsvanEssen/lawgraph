@@ -24,7 +24,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    COLLECTION_INSTRUMENTS,
+    RELATION_LEGISLATED_IN,
+)
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
@@ -1127,8 +1132,8 @@ def _search_documents(
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
                 'sequence', doc.props -> 'sequence',
                 'number', CASE {_CHAMBER}
-                              WHEN 'EK' THEN doc.props ->> 'number'
-                              WHEN 'TK' THEN doc.props ->> 'sequence'
+                              WHEN '{CHAMBER_EK}' THEN doc.props ->> 'number'
+                              WHEN '{CHAMBER_TK}' THEN doc.props ->> 'sequence'
                           END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}

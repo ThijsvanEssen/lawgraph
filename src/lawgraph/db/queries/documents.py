@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_VERSION_OF,
 )
+from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
@@ -301,17 +302,17 @@ def list_documents(
 # The papers an amended amendment or motion replaces, and those that replace it: ``REVISES``
 # with the rule ``vervanging`` (``Zaak.VervangenVanuit``, ``semantic tk-dossier-relations``),
 # each other paper with its number (``sequence``) from ``lg_document_light``, never its props.
-_REPLACEMENTS_SQL = """
+_REPLACEMENTS_SQL = f"""
 SELECT 'replaces' AS side, e.from_id AS paper, e.to_id AS other,
        lg_num(l.props -> 'sequence') AS sequence
 FROM edges e LEFT JOIN lg_document_light l ON l.id = e.to_id
 WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
-  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = '{RULE_REPLACEMENT}'
 UNION ALL
 SELECT 'replaced_by', e.to_id, e.from_id, lg_num(l.props -> 'sequence')
 FROM edges e LEFT JOIN lg_document_light l ON l.id = e.from_id
 WHERE e.to_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
-  AND e.from_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+  AND e.from_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = '{RULE_REPLACEMENT}'
 ORDER BY 1, 2, 4 NULLS LAST, 3
 """
 

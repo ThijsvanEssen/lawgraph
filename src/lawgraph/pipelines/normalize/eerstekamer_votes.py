@@ -29,6 +29,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
     RAW_KIND_EK_REJECTED,
@@ -49,6 +50,7 @@ from lawgraph.core.eerstekamer_votes import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
@@ -69,9 +71,6 @@ CHOICES = {
     LABEL_AGAINST: "Tegen",
     LABEL_NOTED: "Aantekening gevraagd",
 }
-
-# The kind of a decision on a motion, as the Tweede Kamer names the case of one.
-KIND_MOTION = "Motie"
 
 # Decisions whose other VOTED edges are removed in one query.
 _DECISION_CHUNK = 500
@@ -99,10 +98,10 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
         collection=COLLECTION_DECISIONS,
         type=NodeType.DECISION,
         key=key,
-        labels=["EK"],
+        labels=[CHAMBER_EK],
         props={
             **motion,
-            "chamber": "EK",
+            "chamber": CHAMBER_EK,
             "date": vote.date,
             "subject": vote.title,
             "display_name": f"Eerste Kamer {vote.date}: {vote.title} ({number})",

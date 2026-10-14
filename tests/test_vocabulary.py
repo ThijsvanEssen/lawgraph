@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import importlib
 import pathlib
+import re
 from typing import Any, get_args
 
 import pytest
@@ -32,6 +33,7 @@ from lawgraph.core import (
 from lawgraph.core import documents as core_documents
 from lawgraph.core import feed as core_feed
 from lawgraph.core import judgments as core_judgments
+from lawgraph.core.relations import BASIS_FORMAL, RELATIONS
 
 SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 
@@ -314,3 +316,47 @@ def test_the_scan_reads_the_words_of_a_literal() -> None:
     )
     assert _literals(source) == [(1, frozenset({"x", "y"}))]
     assert _declared(source) == ["A", "B"]
+
+
+# ── the words of the Kamer named once ────────────────────────────────────────
+
+# The chambers and the kinds of paper, as ``config.constants`` and ``core.tk_records`` name
+# them; the queries and the pipelines use those names (in SQL through an f-string).
+KAMER_WORDS = (
+    constants.CHAMBER_TK,
+    constants.CHAMBER_EK,
+    tk_records.KIND_MOTION,
+    tk_records.KIND_AMENDMENT,
+    tk_records.KIND_BILL,
+    tk_records.KIND_GOVERNMENT_LETTER,
+    tk_records.FIRST_SIGNATORY,
+)
+NAMED_ONCE = ("db", "pipelines")
+
+
+def _quoted(source: str) -> set[str]:
+    """The words of ``KAMER_WORDS`` *source* spells out between quotes."""
+    return {
+        word
+        for word in KAMER_WORDS
+        if re.search(rf"""['"]{re.escape(word)}['"]""", source)
+    }
+
+
+@pytest.mark.parametrize(
+    "path",
+    [path for part in NAMED_ONCE for path in sorted((SRC / part).rglob("*.py"))],
+    ids=lambda path: str(path.relative_to(SRC)),
+)
+def test_queries_and_pipelines_name_the_words_of_the_kamer(path: pathlib.Path) -> None:
+    assert _quoted(path.read_text()) == set()
+
+
+def test_the_scan_finds_a_quoted_word() -> None:
+    assert _quoted("WHERE lg_str(d.props -> 'kind') = 'Motie'") == {"Motie"}
+    assert _quoted('labels=["EK"]') == {"EK"}
+    assert _quoted("WHERE kind = '{KIND_MOTION}' -- TK documents") == set()
+
+
+def test_the_relations_name_the_basis_of_a_formal_relation() -> None:
+    assert any(f"`{BASIS_FORMAL}`" in spec.description for spec in RELATIONS)

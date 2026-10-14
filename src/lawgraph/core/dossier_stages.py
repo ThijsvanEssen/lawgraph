@@ -20,7 +20,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.curated import LISTS
+from lawgraph.core.eerstekamer_votes import RESULT_ADOPTED, RESULT_REJECTED
 from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
+from lawgraph.core.tk_records import KIND_BILL, KIND_EXPLANATORY_MEMORANDUM
 
 # ── What a dossier is ─────────────────────────────────────────────────────────
 
@@ -41,10 +43,6 @@ LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", "Begro
 
 # Where the kind comes from: a zaak of the dossier, the one source of it.
 KIND_BASIS_CASE = "case"
-
-# Document.Soort of a bill; its explanatory memorandum.
-BILL_DOCUMENT = "Voorstel van wet"
-MEMORANDUM_DOCUMENT = "Memorie van toelichting"
 
 # Activiteit.Status of an activity announced and not (yet) held, also when its date passed.
 ACTIVITY_PLANNED = "Gepland"
@@ -249,24 +247,14 @@ def select_title(
     number = props.get("number") or ""
     if stored and stored != number:
         return stored, "dossier"
-    for prefix in (BILL_DOCUMENT, MEMORANDUM_DOCUMENT, ""):
+    for prefix in (KIND_BILL, KIND_EXPLANATORY_MEMORANDUM, ""):
         for doc in docs:
             if doc.get("title") and (doc.get("kind") or "").startswith(prefix):
                 return doc["title"], "document"
     return None, None
 
 
-def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
-    """``Kamerstukdossier 36554-I: <title>``."""
-    suffix = f"-{suffix}" if suffix else ""
-    return f"Kamerstukdossier {number}{suffix}: {title}"
-
-
 # ── How a dossier ended ───────────────────────────────────────────────────────
-
-# The outcome of a bill in the Eerste Kamer, as it writes it.
-EK_ADOPTED = "Aangenomen"
-EK_REJECTED = "Verworpen"
 
 
 @dataclass(frozen=True)
@@ -315,12 +303,12 @@ def ek_outcome(
             (
                 v
                 for v in votes
-                if v.get("result") == EK_REJECTED and v.get("date") == day
+                if v.get("result") == RESULT_REJECTED and v.get("date") == day
             ),
             None,
         )
         return {
-            "outcome": EK_REJECTED,
+            "outcome": RESULT_REJECTED,
             "date": day,
             "method": (vote or {}).get("method"),
             "source_url": (vote or {}).get("source_url") or rejected.get("source_url"),
@@ -328,12 +316,12 @@ def ek_outcome(
             or rejected.get("retrieved_on"),
             "decision": (vote or {}).get("id"),
         }
-    adopted = [v for v in votes if v.get("result") == EK_ADOPTED]
+    adopted = [v for v in votes if v.get("result") == RESULT_ADOPTED]
     if not adopted:
         return None
     vote = max(adopted, key=lambda v: (v.get("date") or "", v.get("id") or ""))
     return {
-        "outcome": EK_ADOPTED,
+        "outcome": RESULT_ADOPTED,
         "date": vote.get("date"),
         "method": vote.get("method"),
         "source_url": vote.get("source_url"),
@@ -377,7 +365,7 @@ def derive_outcome(
             True, ADOPTED, min(dates) if dates else None, decision, shown
         )
     if ek:
-        outcome = REJECTED if ek["outcome"] == EK_REJECTED else ADOPTED
+        outcome = REJECTED if ek["outcome"] == RESULT_REJECTED else ADOPTED
         return DossierOutcome(True, outcome, ek.get("date"), decision, shown)
     votes = [d for d in bill_decisions if isinstance(d.get("passed"), bool)]
     if votes:

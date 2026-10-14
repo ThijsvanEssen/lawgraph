@@ -22,6 +22,7 @@ from lawgraph.config.constants import RELATION_ADVISES_ON
 from lawgraph.core.judgments import CONCLUSION_BENCH, same_case_number
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.relations import BASIS_FORMAL
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -32,7 +33,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-conclusion-linker"
-BASIS_FORMAL = "formal_relation"
 BASIS_CASE_NUMBER = "case_number"
 CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_CASE_NUMBER: 0.9}
 # How long after its conclusion a court that advises itself gives the judgment.

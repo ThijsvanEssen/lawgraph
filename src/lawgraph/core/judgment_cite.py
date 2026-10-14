@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.time import long_date
 
 _FIXED = {
@@ -32,7 +33,7 @@ def court_cite(ecli: str, court_name: str | None = None) -> str:
     parts = ecli.strip().upper().split(":")
     country = parts[1] if len(parts) > 1 else ""
     code = parts[2] if len(parts) > 2 else ""
-    if country == "CE" and code == "ECHR":
+    if country == "CE" and code == CODE_ECHR:
         return "EHRM"
     if country == "EU":
         return "Gerecht EU" if code == "T" else "HvJ EU"

@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.ministries import classify_function
 from lawgraph.core.models import make_node_key
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, dossier_label
+from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, FIRST_SIGNATORY, dossier_label
 
 # The chambers in the order a node's labels are read: the first it carries is its chamber.
 # One definition for the API (``chamber_of``) and the SQL built from it
@@ -53,7 +53,7 @@ def paper_number(chamber: str | None, props: dict[str, Any]) -> str | None:
 
 # The signature that says who sent a Tweede Kamer paper (``DocumentActor.Relatie``), the
 # first the paper has: its first signatory, else the one the source calls its sender.
-SENDER_ROLES: tuple[str, ...] = ("Eerste ondertekenaar", "Afzender")
+SENDER_ROLES: tuple[str, ...] = (FIRST_SIGNATORY, "Afzender")
 
 
 def document_sender(

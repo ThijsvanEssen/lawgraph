@@ -21,7 +21,19 @@ from lawgraph.core.court_sources import (
     TIER_PARKET,
     TIER_RAAD_VAN_STATE,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+    KIND_AMENDMENT,
+    KIND_AMENDMENT_NOTE,
+    KIND_BILL,
+    KIND_GOVERNMENT_LETTER,
+    KIND_MOTION,
+    SUBMITTER_CO,
+    SUBMITTER_FIRST,
+    SubmitterRole,
+)
 
 # The kinds, in the order the facets and the documentation list them.
 FeedKind = Literal[
@@ -38,14 +50,14 @@ FeedKind = Literal[
 ]
 FEED_KINDS: Final[tuple[FeedKind, ...]] = get_args(FeedKind)
 EVENT_COMMITMENT: Final[FeedKind] = "toezegging"
-EVENT_BILL: Final[FeedKind] = "Voorstel van wet"
-EVENT_AMENDMENT_NOTE: Final[FeedKind] = "Nota van wijziging"
-EVENT_AMENDMENT: Final[FeedKind] = "Amendement"
-EVENT_MOTION: Final[FeedKind] = "Motie"
+EVENT_BILL: Final[FeedKind] = KIND_BILL
+EVENT_AMENDMENT_NOTE: Final[FeedKind] = KIND_AMENDMENT_NOTE
+EVENT_AMENDMENT: Final[FeedKind] = KIND_AMENDMENT
+EVENT_MOTION: Final[FeedKind] = KIND_MOTION
 EVENT_VOTE: Final[FeedKind] = "stemming"
 EVENT_PUBLICATION: Final[FeedKind] = "publicatie"
 EVENT_COMMENCEMENT: Final[FeedKind] = "inwerkingtreding"
-EVENT_GOVERNMENT_LETTER: Final[FeedKind] = "Brief regering"
+EVENT_GOVERNMENT_LETTER: Final[FeedKind] = KIND_GOVERNMENT_LETTER
 EVENT_JUDGMENT: Final[FeedKind] = "uitspraak"
 
 # The kinds of a feed that asks for none: parliament and legislation. A judgment is in the
@@ -102,19 +114,9 @@ DOCUMENT_EVENTS: Final = (
 
 # What a person was to an event: the first signatory submitted it, the others signed with
 # them; a bewindspersoon signed for the government (or made the commitment).
-SubmitterRole = Literal["indiener", "medeindiener"]
 PersonRole = Literal[SubmitterRole, "bewindspersoon"]
 PERSON_ROLES: Final[tuple[PersonRole, ...]] = get_args(PersonRole)
-ROLE_SUBMITTER: Final[SubmitterRole] = "indiener"
-ROLE_CO_SUBMITTER: Final[SubmitterRole] = "medeindiener"
 ROLE_GOVERNMENT: Final[PersonRole] = "bewindspersoon"
-
-# The ``kind`` of a memorie van toelichting (also ``… (initiatiefvoorstel)``): a bill's
-# signatories sign it where they leave the voorstel unsigned.
-EXPLANATORY_MEMORANDUM: Final = "Memorie van toelichting"
-
-# ``DocumentActor.Relatie`` of the first signatory.
-FIRST_SIGNATORY: Final = "Eerste ondertekenaar"
 
 
 def person_role(
@@ -128,7 +130,7 @@ def person_role(
         return None
     if capacity == CAPACITY_GOVERNMENT and kind not in SUBMITTED_KINDS:
         return ROLE_GOVERNMENT
-    return ROLE_SUBMITTER if role == FIRST_SIGNATORY else ROLE_CO_SUBMITTER
+    return SUBMITTER_FIRST if role == FIRST_SIGNATORY else SUBMITTER_CO
 
 
 @dataclass(frozen=True)

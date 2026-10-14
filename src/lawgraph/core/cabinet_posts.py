@@ -52,6 +52,7 @@ from typing import Any, Final, Literal
 
 from lawgraph.core.ministries import (
     MINISTRY_BY_KEY,
+    MINISTRY_GENERAL_AFFAIRS,
     POST_DEPUTY_PRIME_MINISTER,
     POST_MINISTER,
     POST_MINISTER_WITHOUT_PORTFOLIO,
@@ -214,11 +215,15 @@ def seat_of(
             "named": True,
         }
     post, ministry = classify_function(function, on=on)
-    if post == POST_MINISTER and ministry == "az" or post == POST_PRIME_MINISTER:
+    if (
+        post == POST_MINISTER
+        and ministry == MINISTRY_GENERAL_AFFAIRS
+        or post == POST_PRIME_MINISTER
+    ):
         return {
             "seat": SEAT_PRIME_MINISTER,
             "post": POST_PRIME_MINISTER,
-            "ministry": "az",
+            "ministry": MINISTRY_GENERAL_AFFAIRS,
             "portfolio": None,
             "named": True,
         }

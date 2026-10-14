@@ -29,6 +29,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from lawgraph.core.bwb_xml import PART_LID
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 
 DelegationKind = Literal["amvb", "ministeriele_regeling"]
@@ -114,7 +115,7 @@ def delegation_clauses(
             continue
         inside = [p for p in spans if p["start"] <= match.start() < p["end"]]
         innermost = min(inside, key=lambda p: p["end"] - p["start"], default=None)
-        lid = next((p for p in inside if p.get("kind") == "lid"), None)
+        lid = next((p for p in inside if p.get("kind") == PART_LID), None)
         clauses.append(
             DelegationClause(
                 start=match.start(),
@@ -169,7 +170,9 @@ def basis_kind(
     article does not have counts as the whole article; no text: None."""
     if not text:
         return None
-    spans = [p for p in parts or () if _fits(p, len(text)) and p.get("kind") == "lid"]
+    spans = [
+        p for p in parts or () if _fits(p, len(text)) and p.get("kind") == PART_LID
+    ]
     named = set(leden)
     chosen = [p for p in spans if part_slug(p.get("number")) in named]
     windows = [(p["start"], p["end"]) for p in chosen] or [(0, len(text))]

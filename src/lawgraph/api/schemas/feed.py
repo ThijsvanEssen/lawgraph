@@ -36,7 +36,6 @@ from lawgraph.core.feed import (
     EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    ROLE_SUBMITTER,
     FeedKind,
     PersonRole,
     person_role,
@@ -46,7 +45,12 @@ from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
 from lawgraph.core.readable_paths import PublicationSeries, series_of
 from lawgraph.core.tk_links import document_page
-from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE, VoteKind
+from lawgraph.core.tk_records import (
+    CAPACITY_MEMBER,
+    NO_DUE_DATE,
+    SUBMITTER_FIRST,
+    VoteKind,
+)
 
 MatchedField = Literal["title", "dossier_title", "laws"]
 ViaRelation = Literal[
@@ -559,7 +563,7 @@ class FeedItemDTO(WithPath):
             persons=persons,
             headline=FeedHeadlineDTO(
                 surname=next(
-                    (p.surname for p in persons if p.role == ROLE_SUBMITTER), None
+                    (p.surname for p in persons if p.role == SUBMITTER_FIRST), None
                 ),
                 subject=_subject(title),
                 short_title=short,

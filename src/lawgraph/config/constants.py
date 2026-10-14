@@ -180,6 +180,11 @@ EXPLANATORY_KIND_MARKER = "toelichting"
 EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
 # The edge `source` of what `semantic verdragenbank` derives from the register of a treaty.
 EDGE_SOURCE_VERDRAGENBANK = "verdragenbank"
+# The kinds of a treaty instrument of the Verdragenbank, by the parties to it.
+KIND_TREATY = "verdrag"
+KIND_BILATERAL_TREATY = "bilateraalverdrag"
+KIND_MULTILATERAL_TREATY = "multilateraalverdrag"
+TREATY_KINDS = (KIND_TREATY, KIND_BILATERAL_TREATY, KIND_MULTILATERAL_TREATY)
 # What an IMPLEMENTS edge rests on (`meta.bases`).
 ImplementsBasis = Literal["national_implementing_measure", "considerans"]
 IMPLEMENTS_BASIS_NIM: Final[ImplementsBasis] = "national_implementing_measure"

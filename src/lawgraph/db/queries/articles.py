@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
+from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
@@ -719,7 +720,7 @@ def _cited_by_sql(order: str) -> str:
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
             WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = 'ECHR'
+              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = '{CODE_ECHR}'
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(

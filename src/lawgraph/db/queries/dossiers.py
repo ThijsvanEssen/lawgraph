@@ -138,7 +138,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
     ],
 }
 
-# TK writes 'Eerste ondertekenaar' / 'Mede ondertekenaar'; the frontend shows
+# TK writes ``Eerste ondertekenaar`` or ``Mede ondertekenaar``; the frontend shows
 # who submitted a document and who co-signed it.
 _SIGNATORY_ROLES = {
     "eerste ondertekenaar": "indiener",

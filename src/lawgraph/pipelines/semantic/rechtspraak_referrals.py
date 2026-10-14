@@ -17,6 +17,7 @@ from lawgraph.config.constants import RELATION_ANSWERS
 from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.relations import BASIS_FORMAL
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -25,7 +26,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-referral-linker"
-BASIS_FORMAL = "formal_relation"
 BASIS_TEXT = "referral_text"
 CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_TEXT: 0.9}
 
