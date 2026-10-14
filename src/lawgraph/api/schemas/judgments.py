@@ -18,7 +18,7 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
-from lawgraph.core.identifiers import ecli_source
+from lawgraph.core.ecli import ecli_source
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.official_urls import judgment_url
 
