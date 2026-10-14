@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 
 WET = "BWBR0052872"
@@ -51,7 +51,6 @@ def _instrument(bwb_id: str, kind: str, title: str, **props: Any) -> Node:
     # *kind* as `normalize bwb` stores it on prod: the `soort` of the toestand, `amvb`
     return Node(
         collection=COLLECTION_INSTRUMENTS,
-        type=NodeType.INSTRUMENT,
         key=bwb_id.lower(),
         labels=["BWB"],
         props={
@@ -68,7 +67,6 @@ def _instrument(bwb_id: str, kind: str, title: str, **props: Any) -> Node:
 def _article(bwb_id: str, number: str, **props: Any) -> Node:
     return Node(
         collection=COLLECTION_ARTICLES,
-        type=NodeType.ARTICLE,
         key=f"{bwb_id.lower()}_{number}",
         labels=["BWB"],
         props={
@@ -223,7 +221,6 @@ ON_REPEALED = "BWBR0052883"
 def _version(bwb_id: str, valid_from: str, *, current: bool) -> Node:
     return Node(
         collection=COLLECTION_INSTRUMENT_VERSIONS,
-        type=NodeType.INSTRUMENT_VERSION,
         key=f"{bwb_id.lower()}_{valid_from}",
         labels=["BWB"],
         props={"bwb_id": bwb_id, "valid_from": valid_from, "current": current},

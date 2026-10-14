@@ -45,17 +45,14 @@ def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) ->
 
 
 def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:
-    from lawgraph.core.models import Node, NodeType
+    from lawgraph.core.models import Node
 
     store = GraphStore()
-    node = Node(
-        collection="dossiers", type=NodeType.DOSSIER, key="2", props={"title": "x"}
-    )
+    node = Node(collection="dossiers", key="2", props={"title": "x"})
     store.insert_or_update(node)
     store.insert_or_update(
         Node(
             collection="dossiers",
-            type=NodeType.DOSSIER,
             key="2",
             props={"label": "2", "kind": "k"},
         )

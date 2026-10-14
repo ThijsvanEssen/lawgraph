@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -16,13 +16,7 @@ from tests.fakes import InMemoryStore, raw_record
 
 
 def _node(key: str, collection: str = "documents") -> Node:
-    return Node(
-        collection=collection,
-        type=NodeType.DOCUMENT,
-        key=key,
-        props={},
-        _skip_validation=True,
-    )
+    return Node.skeleton(collection, key)
 
 
 def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:

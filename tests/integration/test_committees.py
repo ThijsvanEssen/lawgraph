@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     SOURCE_TK,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import (
     EdgeWriter,
     GraphStore,
@@ -66,7 +66,6 @@ def _seed(store: GraphStore) -> None:
     nodes = [
         Node(
             collection=COLLECTION_DOSSIERS,
-            type=NodeType.DOSSIER,
             key=number,
             labels=["TK"],
             props={"number": number, "label": number, "closed": closed},
@@ -75,7 +74,6 @@ def _seed(store: GraphStore) -> None:
     ] + [
         Node(
             collection=COLLECTION_ACTIVITIES,
-            type=NodeType.ACTIVITY,
             key=f"a{i}",
             labels=["TK"],
             props={"date": "2025-01-01"},

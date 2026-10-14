@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult, key_of, node_id
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import (
     CO_SIGNATORY,
@@ -155,7 +155,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
                 if member is None:
                     continue
                 writer.add(
-                    f"{COLLECTION_MEMBERS}/{member['key']}",
+                    node_id(COLLECTION_MEMBERS, member["key"]),
                     paper,
                     RELATION_AUTHORED,
                     source=EDGE_SOURCE,
@@ -182,8 +182,7 @@ def _paper_node(
     ]
     return Node(
         collection=COLLECTION_DOCUMENTS,
-        type=NodeType.DOCUMENT,
-        key=paper.split("/", 1)[1],
+        key=key_of(paper),
         labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
         props={
             "summary": page.summary,

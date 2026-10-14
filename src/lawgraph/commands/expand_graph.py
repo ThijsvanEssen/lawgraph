@@ -26,7 +26,7 @@ from lawgraph.pipelines.command import (
     run_command,
 )
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
-from lawgraph.pipelines.retrieve_commands import GAPS
+from lawgraph.pipelines.retrieve_commands import RetrieveMode
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,9 @@ def _expand(max_iterations: int) -> list[Outcome]:
         # ``fetched_at`` has a precision of a second: the second this round began in.
         began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
         before = _count_records(store)
-        outcomes.append(run_command("retrieve all", retrieve_all, ["--mode", GAPS]))
+        outcomes.append(
+            run_command("retrieve all", retrieve_all, ["--mode", RetrieveMode.GAPS])
+        )
         retrieved = _count_records(store) - before
         if retrieved <= 0:
             logger.info("expand-graph: nothing new was retrieved; the graph is stable.")

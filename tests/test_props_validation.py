@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 
 # ---------------------------------------------------------------------------
 # Happy-path: valid props should construct without error
@@ -18,7 +18,6 @@ from lawgraph.core.models import Node, NodeType
 def test_instrument_valid_props():
     node = Node(
         collection="instruments",
-        type=NodeType.INSTRUMENT,
         props={"bwb_id": "BWBR0001854", "display_name": "Wetboek van Strafrecht"},
     )
     assert node.props["bwb_id"] == "BWBR0001854"
@@ -27,7 +26,6 @@ def test_instrument_valid_props():
 def test_judgment_valid_props():
     node = Node(
         collection="judgments",
-        type=NodeType.JUDGMENT,
         props={
             "ecli": "ECLI:NL:HR:2020:1234",
             "display_name": "HR 01-01-2020",
@@ -40,7 +38,6 @@ def test_judgment_valid_props():
 def test_judgment_accepts_the_rechtspraak_rdf_fields():
     node = Node(
         collection="judgments",
-        type=NodeType.JUDGMENT,
         props={
             "ecli": "ECLI:NL:HR:2020:1234",
             "court": "Hoge Raad",
@@ -54,7 +51,6 @@ def test_judgment_accepts_the_rechtspraak_rdf_fields():
 def test_publication_valid_props():
     node = Node(
         collection="documents",
-        type=NodeType.DOCUMENT,
         props={
             "source": "tk",
             "display_name": "Kamerstuk 36000 nr. 3",
@@ -67,7 +63,6 @@ def test_publication_valid_props():
 def test_dossier_valid_props():
     node = Node(
         collection="dossiers",
-        type=NodeType.DOSSIER,
         props={
             "external_id": "ext-1",
             "number": "36000",
@@ -81,7 +76,6 @@ def test_dossier_valid_props():
 def test_article_valid_props():
     node = Node(
         collection="articles",
-        type=NodeType.ARTICLE,
         props={
             "bwb_id": "BWBR0001854",
             "article_number": "91",
@@ -97,12 +91,10 @@ def test_article_and_version_props_take_parts_and_references():
 
     article = Node(
         collection="articles",
-        type=NodeType.ARTICLE,
         props={"text": "1. Tekst.", "parts": [part], "references": [reference]},
     )
     version = Node(
         collection="article_versions",
-        type=NodeType.ARTICLE_VERSION,
         props={"text": "1. Tekst.", "parts": [part]},
     )
 
@@ -113,7 +105,6 @@ def test_a_misspelled_parts_field_raises():
     with pytest.raises(ValueError, match="part"):
         Node(
             collection="article_versions",
-            type=NodeType.ARTICLE_VERSION,
             props={"text": "x", "part": []},
         )
 
@@ -128,7 +119,6 @@ def test_instrument_typo_field_raises():
     with pytest.raises(ValueError, match="bwbr_id"):
         Node(
             collection="instruments",
-            type=NodeType.INSTRUMENT,
             props={"bwbr_id": "BWBR0001854", "display_name": "Sr"},
         )
 
@@ -137,7 +127,6 @@ def test_judgment_unknown_field_raises():
     with pytest.raises(ValueError, match="raw_ecli"):
         Node(
             collection="judgments",
-            type=NodeType.JUDGMENT,
             props={"raw_ecli": "...", "display_name": "test"},
         )
 
@@ -146,7 +135,6 @@ def test_publication_unknown_field_raises():
     with pytest.raises(ValueError, match="dossier_nr"):
         Node(
             collection="documents",
-            type=NodeType.DOCUMENT,
             props={"source": "tk", "display_name": "test", "dossier_nr": "36000"},
         )
 
@@ -155,7 +143,6 @@ def test_article_typo_raises():
     with pytest.raises(ValueError, match="artikel_number"):
         Node(
             collection="articles",
-            type=NodeType.ARTICLE,
             props={"bwb_id": "BWBR0001854", "artikel_number": "1"},
         )
 
@@ -166,11 +153,8 @@ def test_article_typo_raises():
 
 
 def test_skip_validation_allows_arbitrary_props():
-    node = Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        props={"arbitrary_key": "value", "another_undeclared": 42},
-        _skip_validation=True,
+    node = Node.skeleton(
+        "instruments", None, {"arbitrary_key": "value", "another_undeclared": 42}
     )
     assert node.props["arbitrary_key"] == "value"
 
@@ -196,10 +180,7 @@ def test_from_document_bypasses_validation():
 # ---------------------------------------------------------------------------
 
 
-def test_unknown_collection_no_schema_passes():
-    node = Node(
-        collection="some_future_collection",
-        type=NodeType.MEMBER,
-        props={"anything": "goes"},
-    )
-    assert node.props["anything"] == "goes"
+def test_a_node_of_an_unknown_collection_is_refused():
+    # its type is that of its collection: without one it has none
+    with pytest.raises(ValueError, match="Unknown node collection"):
+        Node(collection="some_future_collection", props={"anything": "goes"})

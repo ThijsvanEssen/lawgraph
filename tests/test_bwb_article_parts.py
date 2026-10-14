@@ -13,7 +13,7 @@ from lawgraph.core.bwb_xml import (
     article_version_props,
     parse_toestand,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
@@ -396,7 +396,7 @@ def test_props_carry_the_parts_as_offsets_and_the_references_with_their_qualifie
         "aanhef": False,
     }
     # The schema accepts what the builders write (unknown fields would raise).
-    Node(collection="articles", type=NodeType.ARTICLE, key="k", props=props)
+    Node(collection="articles", key="k", props=props)
 
 
 def test_an_article_without_structure_writes_an_empty_list_so_a_stale_one_is_replaced() -> (

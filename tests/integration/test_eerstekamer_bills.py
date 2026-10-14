@@ -12,7 +12,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -27,7 +27,6 @@ def test_a_bill_page_tells_its_dossier_where_the_bill_is(
         writer.add(
             Node(
                 collection="dossiers",
-                type=NodeType.DOSSIER,
                 key="36791",
                 labels=["TK"],
                 props={"number": "36791", "label": "36791", "title": "Huurcommissie"},

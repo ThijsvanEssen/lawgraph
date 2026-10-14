@@ -19,7 +19,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -108,7 +108,6 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
                 writer.add(
                     Node(
                         collection=COLLECTION_JUDGMENTS,
-                        type=NodeType.JUDGMENT,
                         key=row["key"],
                         props={"same_as": same_as},
                     )

@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -201,7 +201,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 props.update(name=person.name, birth_date=person.birth_date)
             nodes[person.path] = Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key=key,
                 labels=[CHAMBER_EK],
                 props=props,
@@ -229,7 +228,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         return [
             Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key=row["key"],
                 labels=[CHAMBER_EK],
                 props={"ek": {**row["ek"], "observed_until": shot.day}},
@@ -251,7 +249,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             nodes.append(
                 Node(
                     collection=COLLECTION_FACTIONS,
-                    type=NodeType.FACTION,
                     key=key,
                     labels=[CHAMBER_EK],
                     props={
@@ -279,7 +276,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         nodes += [
             Node(
                 collection=COLLECTION_FACTIONS,
-                type=NodeType.FACTION,
                 key=key,
                 labels=[CHAMBER_EK],
                 props={"observed_until": shot.day, "active": False, "seats": 0},
@@ -298,7 +294,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             nodes.append(
                 Node(
                     collection=COLLECTION_COMMITTEES,
-                    type=NodeType.COMMITTEE,
                     key=key,
                     labels=[CHAMBER_EK],
                     props={
@@ -315,7 +310,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         nodes += [
             Node(
                 collection=COLLECTION_COMMITTEES,
-                type=NodeType.COMMITTEE,
                 key=key,
                 labels=[CHAMBER_EK],
                 props={"observed_until": shot.day},
@@ -354,14 +348,16 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         }
         wanted: dict[tuple[str, str], dict[str, Any]] = {}
         for listed, page in shot.factions:
-            target = f"{COLLECTION_FACTIONS}/{make_node_key('ek', _slug(listed.path))}"
+            target = node_id(
+                COLLECTION_FACTIONS, make_node_key("ek", _slug(listed.path))
+            )
             for person in page.members:
                 wanted[(members[person.path].node_id or "", target)] = {
                     "seniority_days": person.seniority_days
                 }
         for listed, page in shot.committees:
-            target = (
-                f"{COLLECTION_COMMITTEES}/{make_node_key('ek', _slug(listed.path))}"
+            target = node_id(
+                COLLECTION_COMMITTEES, make_node_key("ek", _slug(listed.path))
             )
             for person in page.members:
                 if person.path in members:

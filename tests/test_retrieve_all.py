@@ -18,6 +18,7 @@ from lawgraph.pipelines.orchestration import (
     retrieve_all,
     run_pipelines,
 )
+from lawgraph.pipelines.retrieve_commands import RetrieveMode
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
@@ -29,7 +30,7 @@ WINDOW = "2024-09-20T00:00:00+00:00"
 
 
 def test_full_mode_without_a_window_loads_everything() -> None:
-    ctx = RetrieveCtx(since="1d", mode="full")
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL)
     assert registry._windowed_argv(ctx) == ["--mode", "full"]
     assert registry._tk_dossiers_argv(ctx) == []
 
@@ -37,7 +38,7 @@ def test_full_mode_without_a_window_loads_everything() -> None:
 def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
     """``--window all``: no source gets the ``--since`` of ``retrieve all`` (1d), which its
     start line would show while a full load reads none."""
-    ctx = RetrieveCtx(since="1d", mode="full")
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL)
     argvs = {
         p.name: p.argv_for_all(ctx) for p in PIPELINES["retrieve"] if p.argv_for_all
     }
@@ -45,14 +46,14 @@ def test_full_mode_without_a_window_passes_no_since_to_any_source() -> None:
 
 
 def test_full_mode_with_a_window_limits_only_the_tweede_kamer() -> None:
-    ctx = RetrieveCtx(since="1d", mode="full", window=WINDOW)
+    ctx = RetrieveCtx(since="1d", mode=RetrieveMode.FULL, window=WINDOW)
     assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", WINDOW]
     assert registry._tk_dossiers_argv(ctx) == ["--since", WINDOW]
     assert registry._mode_argv(ctx) == ["--mode", "full"]
 
 
 def test_incremental_mode_ignores_the_window() -> None:
-    ctx = RetrieveCtx(since="7d", mode="incremental", window=WINDOW)
+    ctx = RetrieveCtx(since="7d", mode=RetrieveMode.INCREMENTAL, window=WINDOW)
     assert registry._windowed_argv(ctx) == ["--mode", "incremental", "--since", "7d"]
     assert registry._tk_dossiers_argv(ctx) == ["--since", "7d", "--skip-members"]
 

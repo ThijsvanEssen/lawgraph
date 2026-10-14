@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RELATION_VOTED,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from tests.integration.seed import seed
 
@@ -56,7 +56,6 @@ def test_normalize_stores_the_kind_of_the_case_a_decision_decided(
 def _decision(key: str, kind: str, passed: bool, date: str, subject: str) -> Node:
     return Node(
         collection=COLLECTION_DECISIONS,
-        type=NodeType.DECISION,
         key=key,
         labels=["TK"],
         props={
@@ -80,7 +79,6 @@ def _build_decisions(store: GraphStore) -> None:
         _decision("d5", "Motie", False, "2025-04-01", "Motie over water"),
         Node(
             collection=COLLECTION_FACTIONS,
-            type=NodeType.FACTION,
             key="f1",
             labels=["TK"],
             props={"name": "F1"},
@@ -171,7 +169,6 @@ def _judgment(
     ecli = f"ECLI:NL:{court}:2020:{number}"
     return Node(
         collection=COLLECTION_JUDGMENTS,
-        type=NodeType.JUDGMENT,
         key=f"j{number}",
         labels=["Rechtspraak"],
         props={

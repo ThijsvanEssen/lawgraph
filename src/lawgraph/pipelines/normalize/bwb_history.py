@@ -69,7 +69,7 @@ from lawgraph.core.bwb_xml import (
     read_toestand,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.time import OPEN_END, shift_day
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.counting import Store
@@ -419,7 +419,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     ) -> Node:
         return Node(
             collection=COLLECTION_INSTRUMENT_VERSIONS,
-            type=NodeType.INSTRUMENT_VERSION,
             key=key,
             labels=["BWB", "Version"],
             props={
@@ -449,7 +448,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         props["last_seen"] = start_date  # raised in build_edges
         return Node(
             collection=COLLECTION_ARTICLE_VERSIONS,
-            type=NodeType.ARTICLE_VERSION,
             key=key,
             labels=["BWB", "ArticleVersion"],
             props=props,
@@ -478,8 +476,8 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         writer = EdgeWriter(self.store, what="version edges")
         for bwb_id, version_key in normalized["instrument_versions"]:
             writer.add(
-                f"{COLLECTION_INSTRUMENT_VERSIONS}/{version_key}",
-                f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}",
+                node_id(COLLECTION_INSTRUMENT_VERSIONS, version_key),
+                node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
                 RELATION_VERSION_OF,
                 source=EDGE_SOURCE,
             )
@@ -504,7 +502,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         self._upsert_nodes(
             Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key=key,
                 labels=["BWB"],
                 props=seed[by_key[key]],
@@ -567,8 +564,8 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                     article_by_identity[(bwb_id, stam_id)] = article_key
                     historical.append(self._historical_article(article_key, row))
                 writer.add(
-                    f"{COLLECTION_ARTICLE_VERSIONS}/{version_key}",
-                    f"{COLLECTION_ARTICLES}/{article_key}",
+                    node_id(COLLECTION_ARTICLE_VERSIONS, version_key),
+                    node_id(COLLECTION_ARTICLES, article_key),
                     RELATION_VERSION_OF,
                     source=EDGE_SOURCE,
                 )
@@ -616,7 +613,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         label = row.get("label") or (article_label(number) if number else None)
         return Node(
             collection=COLLECTION_ARTICLES,
-            type=NodeType.ARTICLE,
             key=key,
             labels=["BWB", "Article"],
             props={

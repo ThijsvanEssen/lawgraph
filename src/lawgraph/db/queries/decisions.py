@@ -17,14 +17,16 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION, VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
@@ -109,8 +111,8 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
                 WHERE e.from_id = %(faction_id)s AND e.relation = %(voted)s {choice}
             )"""
         )
-        bind["faction_id"] = (
-            f"{COLLECTION_FACTIONS}/{make_node_key(filters.party.strip())}"
+        bind["faction_id"] = node_id(
+            COLLECTION_FACTIONS, make_node_key(filters.party.strip())
         )
         bind["voted"] = RELATION_VOTED
     return clauses
@@ -218,11 +220,14 @@ def _where(clauses: list[str]) -> str:
 
 def _object_or_empty(value: str) -> str:
     """SQL: AQL ``value != null ? value : {}``."""
-    return (
-        f"CASE WHEN coalesce(json_typeof({value}), 'null') <> 'null'"
-        f" THEN {value} ELSE '{{}}'::json END"
-    )
+    return f"CASE WHEN {is_present(value)} THEN {value} ELSE '{{}}'::json END"
 
+
+# The first of the chambers (``%(chambers)s``) whose label the decision carries.
+_CHAMBER_OF_LABELS = """to_json((
+    SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
+    WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
+))"""
 
 # A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
 # set (AQL ``||``), else the first of the chambers whose label the decision carries.
@@ -238,13 +243,7 @@ _ITEM = f"""json_build_object(
     'primary_case_kind', d.props -> 'primary_case_kind',
     'decision_kind', d.props -> 'decision_kind',
     'passed', d.props -> 'passed',
-    'chamber', CASE
-        WHEN lg_truthy(d.props -> 'chamber') THEN d.props -> 'chamber'
-        ELSE to_json((
-            SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
-            WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
-        ))
-    END,
+    'chamber', {truthy_or("d.props -> 'chamber'", _CHAMBER_OF_LABELS)},
     'result', d.props -> 'result',
     'method', d.props -> 'method',
     'bill_decision', d.props -> 'bill_decision',
@@ -374,7 +373,7 @@ _PARTY_VOTES = f"""(
 def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``_PARTY_VOTES`` of the factions *filters* asks for; ``[]`` when it asks none."""
     if not filters.party_votes:
-        return "'[]'::json"
+        return EMPTY_ARRAY
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
     if filters.party_votes == ("all",):
         # every faction that voted on one of them
@@ -386,7 +385,7 @@ def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
         parties = "true"
     else:
         bind["vote_parties"] = [
-            f"{COLLECTION_FACTIONS}/{make_node_key(party.strip())}"
+            node_id(COLLECTION_FACTIONS, make_node_key(party.strip()))
             for party in filters.party_votes
         ]
         votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
@@ -588,7 +587,7 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
     if row is None:
         return None
-    collection, _, key = row["id"].partition("/")
+    collection, key = parse_node_id(row["id"])
     props = {**(row.get("light") or {}), "number": row.get("number")}
     return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
 
@@ -603,7 +602,7 @@ def motion_papers(
     Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
     motion, or a motion without text."""
     cases = [
-        f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
+        node_id(COLLECTION_CASES, make_node_key(str(d["primary_case_id"])))
         if d.get("primary_case_kind") in DECIDED_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
@@ -721,15 +720,14 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
     by the voter's name and key.
     """
     rows = store.query(
-        """
+        f"""
         SELECT d.id, d.key, d.type, d.labels, d.props, (
             SELECT coalesce(json_agg(
                 json_build_object(
                     'voter_id', v.id,
                     'voter_key', v.key,
                     'name', CASE
-                        WHEN coalesce(json_typeof(v.props -> 'abbreviation'), 'null')
-                             <> 'null'
+                        WHEN {is_present("v.props -> 'abbreviation'")}
                         THEN v.props -> 'abbreviation' ELSE v.props -> 'name' END,
                     'choice', e.doc -> 'meta' -> 'choice',
                     'seats', e.doc -> 'meta' -> 'seats'
@@ -810,7 +808,7 @@ def get_decision_document(
         """,
         {
             "case_ids": [
-                f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in candidates
+                node_id(COLLECTION_CASES, make_node_key(str(c))) for c in candidates
             ],
             "part_of": RELATION_PART_OF,
         },
@@ -850,7 +848,7 @@ def decision_paper(
             _DECISION_PAPER,
             {
                 "case_ids": [
-                    f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in cases
+                    node_id(COLLECTION_CASES, make_node_key(str(c))) for c in cases
                 ],
                 "part_of": RELATION_PART_OF,
             },
@@ -916,7 +914,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         )
     )
     named = {
-        row["key"]: f"{COLLECTION_CASES}/{make_node_key(str(primary))}"
+        row["key"]: node_id(COLLECTION_CASES, make_node_key(str(primary)))
         for row in rows
         if (primary := (row["props"] or {}).get("primary_case_id"))
     }

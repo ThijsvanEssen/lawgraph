@@ -34,6 +34,7 @@ from lawgraph.core.publication_xml import SERIES_NAMES
 from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
+from lawgraph.db.queries._json_sql import array_or_empty
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
@@ -229,8 +230,7 @@ def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
                    lg_str(props -> 'to_date'),
                    (SELECT max(lg_str(p -> 'from_date'))
                     FROM json_array_elements(
-                        CASE json_typeof(props -> 'phases')
-                            WHEN 'array' THEN props -> 'phases' ELSE '[]'::json END) p),
+                        {array_or_empty("props -> 'phases'")}) p),
                    lg_str(props -> 'from_date')
                ) AS lastmod
         FROM {COLLECTION_CABINETS}

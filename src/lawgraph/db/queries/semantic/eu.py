@@ -14,30 +14,17 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
 )
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.semantic import nonempty_sql, slim_sql
-
-
-def _or_empty_list(value: str) -> str:
-    """SQL for ``value || []`` of the json *value*: the value when it is truthy (an array
-    or object, even an empty one; a non-empty string; a number other than 0; ``true``),
-    else ``[]``."""
-    return f"""coalesce(CASE json_typeof({value})
-        WHEN 'array' THEN {value}
-        WHEN 'object' THEN {value}
-        WHEN 'string' THEN CASE WHEN {value} #>> '{{}}' <> '' THEN {value} END
-        WHEN 'number' THEN CASE WHEN ({value} #>> '{{}}')::numeric <> 0 THEN {value} END
-        WHEN 'boolean' THEN CASE WHEN {value} #>> '{{}}' = 'true' THEN {value} END
-    END, '[]'::json)"""
-
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, has_length, is_present, truthy_or
+from lawgraph.db.queries.semantic import slim_sql
 
 _EU_REFERENCES_SQL = f"""
 SELECT props -> 'bwb_id' AS bwb_id,
-       {_or_empty_list("props -> 'celex_refs'")} AS named,
-       {_or_empty_list("props -> 'implements_celex'")} AS implements
+       {truthy_or("props -> 'celex_refs'", EMPTY_ARRAY)} AS named,
+       {truthy_or("props -> 'implements_celex'", EMPTY_ARRAY)} AS implements
 FROM instruments
 WHERE lg_str(props -> 'source') = %(source)s
-  AND ({nonempty_sql("props -> 'celex_refs'")}
-       OR {nonempty_sql("props -> 'implements_celex'")})
+  AND ({has_length("props -> 'celex_refs'")}
+       OR {has_length("props -> 'implements_celex'")})
 ORDER BY key
 """
 
@@ -52,10 +39,10 @@ def national_measures(store: Store) -> Iterator[Any]:
     """The national implementing measures of EUR-Lex as retrieved (``payload_json``), in
     the order of their records."""
     return store.query(
-        """
+        f"""
         SELECT doc -> 'payload_json' FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s
-          AND json_typeof(doc -> 'payload_json') <> 'null'
+          AND {is_present("doc -> 'payload_json'")}
         ORDER BY source, kind, key
         """,
         {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_NIM},

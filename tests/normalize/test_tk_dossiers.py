@@ -73,13 +73,7 @@ def _no_stale_votes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(
-        collection=collection,
-        type=node_type,
-        key=key,
-        props=props,
-        _skip_validation=True,
-    )
+    return Node.skeleton(collection, key, props)
 
 
 def _document(key: str, **props: Any) -> Node:

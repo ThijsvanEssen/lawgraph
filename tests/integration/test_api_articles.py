@@ -45,9 +45,7 @@ DOSSIER_36001 = f"{COLLECTION_DOSSIERS}/36001"
 def _node(
     collection: str, node_type: NodeType, key: str, labels: list[str], **props: Any
 ) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _document(key: str, date: str | None, labels: list[str] | None = None) -> Node:

@@ -14,8 +14,9 @@ A node is a document `{_key, type, labels, props}`:
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
   `member`, `faction`, `committee`, `cabinet`). Every type has its own collection and every
-  collection holds one type (`core.models.COLLECTION_OF_TYPE`), so the collection in an id
-  says the type.
+  collection holds one type, so the collection in an id says the type. Each collection is
+  declared once, with its type, concept, props schema and whether it takes stubs
+  (`core.models.COLLECTIONS`); `Node.type` is read from the collection.
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
@@ -95,21 +96,21 @@ they are out of date. Do not edit inside the markers.
 | Node type | Collection |
 |-----------|-----------|
 | Instrument | `instruments` |
-| InstrumentVersion | `instrument_versions` |
 | Article | `articles` |
+| InstrumentVersion | `instrument_versions` |
 | ArticleVersion | `article_versions` |
-| Annex | `annexes` |
-| Judgment | `judgments` |
-| Dossier | `dossiers` |
 | Case | `cases` |
 | Document | `documents` |
+| Judgment | `judgments` |
+| Dossier | `dossiers` |
 | Activity | `activities` |
 | Decision | `decisions` |
 | Commitment | `commitments` |
+| Committee | `committees` |
 | Member | `members` |
 | Faction | `factions` |
 | Cabinet | `cabinets` |
-| Committee | `committees` |
+| Annex | `annexes` |
 
 | Relation | From | To | Meaning |
 |----------|------|----|---------|
@@ -624,7 +625,7 @@ Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that 
 | `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
 | `identifier`, `year`, `bwb_id` | of a Staatsblad or Staatscourant publication |
 | `summary`, `submitted_on`, `debate`, `status`, `motion_url`, `pdf_url` | of a motion of the Eerste Kamer, from its page (`normalize eerstekamer-motions`): what it asks as the page opens ("In deze motie wordt de regering verzocht …"), the day it was submitted, the debate it was submitted at, its `behandelstatus` (`verworpen`, `aangenomen`, `aangehouden`, as the Kamer writes it), its page and its PDF; its signers are its `actors` (`Eerste ondertekenaar`, `Mede ondertekenaar`, with the `person_id` of their member) and `AUTHORED` from each member |
-| `outcome`, `decided_on`, `tally`, `decision` | of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/paper_outcomes.py`): of the decisions taken on it (the paper is the oldest of the case a decision singled out, or the Kamerstuk a vote of the Eerste Kamer is `ABOUT`) a vote before a decision without one, the latest first: `aangenomen` or `verworpen` by `passed`, else `ingetrokken`, `aangehouden` or `vervallen` by its `BesluitSoort` (`Stemmen - uitstellen` is none); without a decision the outcome its `status` names (a motion of the Eerste Kamer); else `vervangen` when a newer paper replaces it (`REVISES`, rule `vervanging`). `decided_on`, `tally` (seats per choice) and `decision` (its key) are those of the decision that gave it, null without one |
+| `outcome`, `decided_on`, `tally`, `decision` | of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): of the decisions taken on it (the paper is the oldest of the case a decision singled out, or the Kamerstuk a vote of the Eerste Kamer is `ABOUT`) a vote before a decision without one, the latest first: `aangenomen` or `verworpen` by `passed`, else `ingetrokken`, `aangehouden` or `vervallen` by its `BesluitSoort` (`Stemmen - uitstellen` is none); without a decision the outcome its `status` names (a motion of the Eerste Kamer); else `vervangen` when a newer paper replaces it (`REVISES`, rule `vervanging`). `decided_on`, `tally` (seats per choice) and `decision` (its key) are those of the decision that gave it, null without one |
 
 ### Activity (`activities`)
 

@@ -21,7 +21,6 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.models import NodeType
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.test_judgment_mentions import _judgment_xml
 
@@ -100,7 +99,6 @@ def test_a_citation_of_a_loaded_law_goes_to_an_article_it_has_or_had(
     store.ensure_stub_node(
         "articles",
         "bwbr0001840_140_1",
-        NodeType.ARTICLE,
         props={"bwb_id": LAW, "article_number": "140.1"},
     )
     cli("semantic", "rechtspraak")

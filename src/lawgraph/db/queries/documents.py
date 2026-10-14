@@ -18,9 +18,10 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.version_cache import cached_rows
 
@@ -136,21 +137,6 @@ def get_document_passages(
 
 _CHAMBER_OF = chamber_sql("d")
 
-# ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
-_NUMBERS = "d.props -> 'dossier_numbers'"
-_DOSSIER_NUMBERS = (
-    f"CASE WHEN lg_truthy({_NUMBERS}) THEN {_NUMBERS} ELSE '[]'::json END"
-)
-
-
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, ...)`` of json values: the first that is neither missing nor a
-    json null."""
-    cases = ", ".join(
-        f"CASE WHEN json_typeof({v}) <> 'null' THEN {v} END" for v in values
-    )
-    return f"coalesce({cases})"
-
 
 # What the list shows of a paper, in the order of the answer; how a motion or an amendment
 # ended and what an amendment is for from its light row (``lg_document_light``).
@@ -161,11 +147,11 @@ _ITEM = f"""json_build_object(
         'kind', d.props -> 'kind',
         'dossier_number', d.props -> 'dossier_number',
         'dossier_suffix', d.props -> 'dossier_suffix',
-        'dossier_numbers', {_DOSSIER_NUMBERS},
+        'dossier_numbers', {truthy_or("d.props -> 'dossier_numbers'", EMPTY_ARRAY)},
         'sequence', d.props -> 'sequence',
         'number', d.props -> 'number',
         'date', d.props -> 'date',
-        'title', {_not_null("d.props -> 'title'", "d.props -> 'display_name'")},
+        'title', {first_present("d.props -> 'title'", "d.props -> 'display_name'")},
         'session_year', d.props -> 'session_year',
         'actors', d.props -> 'actors',
         'dictum', d.props -> 'dictum',
@@ -313,7 +299,7 @@ def get_replacements(
         sides[row["side"]].append(
             {
                 "id": row["other"],
-                "key": row["other"].split("/", 1)[1],
+                "key": key_of(row["other"]),
                 "sequence": int(sequence) if sequence is not None else None,
             }
         )

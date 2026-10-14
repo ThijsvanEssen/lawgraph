@@ -32,7 +32,7 @@ from lawgraph.core.judgments import (
     translated_case_number,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -169,7 +169,6 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         key = make_node_key(ecli)
         node = Node(
             collection=COLLECTION_JUDGMENTS,
-            type=NodeType.JUDGMENT,
             key=key,
             labels=["Rechtspraak"],
             props=props,

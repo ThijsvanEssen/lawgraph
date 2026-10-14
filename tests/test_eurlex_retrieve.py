@@ -261,11 +261,12 @@ def test_a_store_failure_is_an_error() -> None:
 
 
 def test_retrieve_all_never_lists_eu_acts() -> None:
+    from lawgraph.pipelines.retrieve_commands import RetrieveMode
     from lawgraph.sources.registry import RetrieveCtx, find
 
     eurlex = find("retrieve", "eurlex")
     assert eurlex is not None and eurlex.argv_for_all is not None
-    assert eurlex.argv_for_all(RetrieveCtx(since="1d", mode="full")) == []
+    assert eurlex.argv_for_all(RetrieveCtx(since="1d", mode=RetrieveMode.FULL)) == []
 
 
 def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:

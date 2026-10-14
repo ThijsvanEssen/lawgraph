@@ -21,8 +21,8 @@ from typing import Any
 
 from lawgraph.core.curated import LISTS
 from lawgraph.core.eerstekamer_votes import RESULT_ADOPTED, RESULT_REJECTED
-from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
 from lawgraph.core.tk_records import KIND_BILL, KIND_EXPLANATORY_MEMORANDUM
+from lawgraph.core.votes import ADOPTED, REJECTED, VoteOutcome
 
 # ── What a dossier is ─────────────────────────────────────────────────────────
 

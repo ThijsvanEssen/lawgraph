@@ -21,7 +21,7 @@ from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.batching import chunked
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kamerstuk
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
@@ -105,7 +105,6 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
             return None
         return Node(
             collection=COLLECTION_DOCUMENTS,
-            type=NodeType.DOCUMENT,
             key=str(key),
             props=document_props(parsed),
         )

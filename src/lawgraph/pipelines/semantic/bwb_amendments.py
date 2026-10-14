@@ -48,7 +48,7 @@ from lawgraph.core.bwb_xml import (
     publication_props,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -67,7 +67,7 @@ _RELATION_OF_KIND = {
 
 
 def _instrument_id(key: str) -> str:
-    return f"{COLLECTION_INSTRUMENTS}/{key}"
+    return node_id(COLLECTION_INSTRUMENTS, key)
 
 
 def _article_identity(row: dict[str, Any]) -> Hashable:
@@ -184,7 +184,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._removed += edges.remove_stale_to(
             list(_RELATION_OF_KIND.values()),
             SEMANTIC_SOURCE,
-            [f"{COLLECTION_ARTICLES}/{key}" for key in targets.values()],
+            [node_id(COLLECTION_ARTICLES, key) for key in targets.values()],
         )
 
     @staticmethod
@@ -268,7 +268,6 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             nodes.add(
                 Node(
                     collection=COLLECTION_INSTRUMENTS,
-                    type=NodeType.INSTRUMENT,
                     key=key,
                     labels=["BWB", "Publication"],
                     props=node_props,
@@ -290,7 +289,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         """Write the amendments."""
         for (publication, pair, kind), amendment in chunk.amendments.items():
             source_id = _instrument_id(publication)
-            target_id = f"{COLLECTION_ARTICLES}/{targets[pair]}"
+            target_id = node_id(COLLECTION_ARTICLES, targets[pair])
             relation = _RELATION_OF_KIND[kind]
             edges.add(
                 source_id,
@@ -336,7 +335,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 if wanted[number] not in existing:
                     continue
                 source_id = _instrument_id(instrument)
-                target_id = f"{COLLECTION_DOSSIERS}/{wanted[number]}"
+                target_id = node_id(COLLECTION_DOSSIERS, wanted[number])
                 edges.add(
                     source_id,
                     target_id,
