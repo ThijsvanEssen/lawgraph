@@ -11,10 +11,14 @@ changed. Commit the file a build writes.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
+from lawgraph.commands._data_file import (
+    Document,
+    build_or_check,
+    keyed_differences,
+    stored_records,
+)
 from lawgraph.config.constants import (
     RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_TOOI_MINISTRIES,
@@ -29,47 +33,26 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.rijksoverheid import parse_page
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.command import command_parser, docstring_title
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = command_parser(docstring_title(__doc__))
-    parser.add_argument("action", choices=["build", "check"])
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=DATA,
-        help="Where build writes (default: %(default)s).",
+    return build_or_check(
+        argv,
+        doc=__doc__,
+        data=DATA,
+        name="ministries",
+        rebuild=_rebuilt_saying_what_was_dropped,
+        differences=lambda before, after: keyed_differences(
+            before["ministries"], after["ministries"], "key"
+        ),
     )
-    args = parser.parse_args(argv)
-    result = PipelineResult()
-    current = json.loads(DATA.read_text(encoding="utf-8"))
-    curated = LISTS["ministries"].document()
-    rebuilt, dropped = rebuild(GraphStore(), current, curated)
-    changes = differences(current["ministries"], rebuilt["ministries"])
+
+
+def _rebuilt_saying_what_was_dropped(store: GraphStore, current: Document) -> Document:
+    rebuilt, dropped = rebuild(store, current, LISTS["ministries"].document())
     for key in dropped:
         print(f"! {key}: curated, but no source names it; left out.")
-    for line in changes:
-        print(line)
-    print(f"{len(changes)} changes.")
-    if args.action == "build":
-        args.output.write_text(
-            json.dumps(rebuilt, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
-        )
-        print(f"Wrote {args.output}.")
-    elif changes:
-        result.add_error(
-            f"{len(changes)} changes against {DATA}: run `ministries build`."
-        )
-    return result
-
-
-def _records(store: GraphStore, source: str, kind: str) -> list[dict[str, Any]]:
-    rows = raw_queries.iter_raw_records(
-        store, source=source, kinds=[kind], since_iso=None, batch_size=50
-    )
-    return list(store.with_payloads(rows))
+    return rebuilt
 
 
 def rebuild(
@@ -78,8 +61,10 @@ def rebuild(
     """*current* (the content of ``data/ministries.json``) built again from the stored
     sources and *curated*, and the curated keys no source names. Raises when a source was
     never retrieved."""
-    tooi = _records(store, SOURCE_TOOI, RAW_KIND_TOOI_MINISTRIES)
-    pages = _records(store, SOURCE_RIJKSOVERHEID, RAW_KIND_RIJKSOVERHEID_CABINET)
+    tooi = list(stored_records(store, SOURCE_TOOI, RAW_KIND_TOOI_MINISTRIES))
+    pages = list(
+        stored_records(store, SOURCE_RIJKSOVERHEID, RAW_KIND_RIJKSOVERHEID_CABINET)
+    )
     if not tooi or not pages:
         raise RuntimeError("Run `retrieve tooi` and `retrieve rijksoverheid` first.")
     cabinets = build_cabinets(
@@ -109,18 +94,3 @@ def rebuild(
         },
         "ministries": table,
     }, dropped
-
-
-def differences(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[str]:
-    """One line per ministry added, removed or changed."""
-    old = {m["key"]: m for m in before}
-    new = {m["key"]: m for m in after}
-    lines = [f"+ {k}: {new[k]['name']}" for k in new if k not in old]
-    lines += [f"- {k}: {old[k]['name']}" for k in old if k not in new]
-    lines += [
-        f"~ {k}: {json.dumps(old[k], ensure_ascii=False)} -> "
-        f"{json.dumps(new[k], ensure_ascii=False)}"
-        for k in new
-        if k in old and new[k] != old[k]
-    ]
-    return lines

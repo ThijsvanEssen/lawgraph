@@ -8,62 +8,34 @@ nothing; a difference fails it. Commit the file a build writes.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any
-
+from lawgraph.commands._data_file import Document, build_or_check, stored_records
 from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL, SOURCE_BWB
 from lawgraph.core.bwb_wti import parse_abbreviations
 from lawgraph.core.code_families import DATA, families_from_wti
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.command import command_parser, docstring_title
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = command_parser(docstring_title(__doc__))
-    parser.add_argument("action", choices=["build", "check"])
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=DATA,
-        help="Where build writes (default: %(default)s).",
+    return build_or_check(
+        argv,
+        doc=__doc__,
+        data=DATA,
+        name="code-families",
+        rebuild=rebuild,
+        differences=lambda before, after: differences(
+            before["families"], after["families"]
+        ),
     )
-    args = parser.parse_args(argv)
-    result = PipelineResult()
-    current = json.loads(DATA.read_text(encoding="utf-8"))
-    rebuilt = rebuild(GraphStore(), current)
-    changes = differences(current["families"], rebuilt["families"])
-    for line in changes:
-        print(line)
-    print(f"{len(changes)} changes.")
-    if args.action == "build":
-        args.output.write_text(
-            json.dumps(rebuilt, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
-        )
-        print(f"Wrote {args.output}.")
-    elif changes:
-        result.add_error(
-            f"{len(changes)} changes against {DATA}: run `code-families build`."
-        )
-    return result
 
 
-def rebuild(store: GraphStore, current: dict[str, Any]) -> dict[str, Any]:
+def rebuild(store: GraphStore, current: Document) -> Document:
     """*current* (the content of ``data/code_families.json``) built again from the stored
     WTI records. Raises when none was stored."""
-    rows = raw_queries.iter_raw_records(
-        store,
-        source=SOURCE_BWB,
-        kinds=[RAW_KIND_BWB_WTI_GENERAL],
-        since_iso=None,
-        batch_size=1000,
-    )
     abbreviations: dict[str, list[str]] = {}
     read_on = ""
-    for record in store.with_payloads(rows):
+    for record in stored_records(store, SOURCE_BWB, RAW_KIND_BWB_WTI_GENERAL):
         text = payload_text(record)
         if text:
             abbreviations[record["external_id"]] = parse_abbreviations(text)

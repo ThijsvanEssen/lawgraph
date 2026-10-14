@@ -46,7 +46,7 @@ is one unit of work in one phase for one source, and it has an address:
 <phase> <source>[-<part>]                 normalize tk-dossiers
 lawgraph normalize tk-dossiers            what one types
 [normalize tk-dossiers]                   the label of its log lines, its row in the table
-pipelines/normalize/tk_dossiers.py        its module (retrieve: retrieve_tk_dossiers in retrieve_commands.py)
+pipelines/normalize/tk_dossiers.py        its module (a retrieve with options: retrieve_tk_dossiers in retrieve_commands.py)
 TKDossiersNormalizePipeline               its class
 LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS       its skip variable
 ```
