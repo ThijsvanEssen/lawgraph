@@ -65,23 +65,23 @@ def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> No
     store.execute_together(
         [
             (
-                """
-                INSERT INTO lg_instrument_definitions (instrument_id, bwb_id, definitions)
+                f"""
+                INSERT INTO {DEFINITIONS_TABLE} (instrument_id, bwb_id, definitions)
                 SELECT r.instrument_id, r.bwb_id, r.definitions
                 FROM json_to_recordset(%(rows)s::json)
                      AS r(instrument_id text, bwb_id text, definitions json)
                 WHERE json_array_length(r.definitions) > 0
                 ON CONFLICT (instrument_id) DO UPDATE SET
                     bwb_id = EXCLUDED.bwb_id, definitions = EXCLUDED.definitions
-                WHERE (lg_instrument_definitions.bwb_id,
-                       lg_instrument_definitions.definitions::text)
+                WHERE ({DEFINITIONS_TABLE}.bwb_id,
+                       {DEFINITIONS_TABLE}.definitions::text)
                       IS DISTINCT FROM (EXCLUDED.bwb_id, EXCLUDED.definitions::text)
                 """,
                 {"rows": json.dumps(rows)},
             ),
             (
-                """
-                DELETE FROM lg_instrument_definitions
+                f"""
+                DELETE FROM {DEFINITIONS_TABLE}
                 WHERE instrument_id = ANY(%(empty)s::text[])
                 """,
                 {"empty": [r["instrument_id"] for r in rows if not r["definitions"]]},
@@ -93,7 +93,7 @@ def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> No
 def definitions_of(store: Store, instrument_id: str) -> list[dict[str, Any]]:
     """The definitions kept for the instrument *instrument_id*, in the order of its text."""
     rows = store.query(
-        "SELECT definitions FROM lg_instrument_definitions WHERE instrument_id = %(id)s",
+        f"SELECT definitions FROM {DEFINITIONS_TABLE} WHERE instrument_id = %(id)s",
         {"id": instrument_id},
     )
     found = next(iter(rows), None)

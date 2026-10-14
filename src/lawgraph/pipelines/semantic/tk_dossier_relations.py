@@ -18,6 +18,7 @@ the day its case started that has the case on its agenda and took no decision on
 
 Runs over every dossier, every related case and every activity, since a node loaded today can be
 the other end of a relation stated earlier. Writes an edge only where both ends are in the graph.
+Derived in full on every run: an edge of these relations no rule gives any more goes.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from lawgraph.config.constants import (
     RELATION_SECOND_READING_OF,
 )
 from lawgraph.core.dossier_relations import (
+    RULE_REPLACEMENT,
     DossierRef,
     accompanied_notas,
     budget_amendments,
@@ -50,6 +52,7 @@ from lawgraph.core.dossier_relations import (
 from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -58,8 +61,14 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-dossier-relations"
-# The kinds of a motion start with it: "Motie", "Motie (gewijzigd/nader)".
-MOTION = "Motie"
+RELATIONS = (
+    RELATION_RELATED_TO,
+    RELATION_REVISES,
+    RELATION_ACCOMPANIES,
+    RELATION_SECOND_READING_OF,
+    RELATION_CONTINUES,
+    RELATION_MADE_IN,
+)
 
 
 class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
@@ -106,8 +115,9 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         written["replaced papers"] = self._revise_replaced(edges)
         written["motions submitted in a debate"] = self._motions_made_in(edges)
         edges.flush_into(result)
-        written["MADE_IN removed"] = edges.remove_stale_of_source(
-            RELATION_MADE_IN, SEMANTIC_SOURCE
+        written["removed"] = sum(
+            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+            for relation in RELATIONS
         )
         logger.info(
             "Dossier relations: %s.",
@@ -149,7 +159,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 replaced,
                 RELATION_REVISES,
                 source=SEMANTIC_SOURCE,
-                meta={"rule": "vervanging"},
+                meta={"rule": RULE_REPLACEMENT},
             )
             count += 1
         return count
@@ -158,7 +168,9 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         """``MADE_IN`` from each motion to the debate it was submitted in
         (``semantic_tk.motions_submitted``; ``meta.reason`` ``ingediend``); how many."""
         count = 0
-        for row in semantic_tk.motions_submitted(self.store, MOTION, ACTIVITY_HELD):
+        for row in semantic_tk.motions_submitted(
+            self.store, KIND_MOTION, ACTIVITY_HELD
+        ):
             edges.add(
                 row["paper"],
                 row["activity"],

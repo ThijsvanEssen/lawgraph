@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Literal, cast, get_args
+from typing import Any, Literal, get_args
 from xml.etree import ElementTree
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
+    ArticleChange,
+    ChangeEffect,
     FacetCountDTO,
     JudgmentOutcomeFields,
     WithPath,
@@ -22,6 +24,7 @@ from lawgraph.config.constants import (
     CHAMBER_TK,
     COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
+    Chamber,
 )
 from lawgraph.core.documents import paper_number
 from lawgraph.core.dossier_numbers import short_title
@@ -33,45 +36,36 @@ from lawgraph.core.feed import (
     EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    ROLE_SUBMITTER,
+    FeedKind,
+    PersonRole,
     person_role,
 )
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
+from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
+from lawgraph.core.readable_paths import PublicationSeries, series_of
 from lawgraph.core.tk_links import document_page
-from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
+from lawgraph.core.tk_records import (
+    CAPACITY_MEMBER,
+    NO_DUE_DATE,
+    SUBMITTER_FIRST,
+    VoteKind,
+)
+from lawgraph.core.xml import collapse_ws
 
-# The values of ``core.feed.FEED_KINDS`` and ``PERSON_ROLES``.
-FeedKind = Literal[
-    "toezegging",
-    "Voorstel van wet",
-    "Nota van wijziging",
-    "Amendement",
-    "Motie",
-    "stemming",
-    "publicatie",
-    "inwerkingtreding",
-    "Brief regering",
-    "uitspraak",
-]
-PersonRole = Literal["indiener", "medeindiener", "bewindspersoon"]
-PublicationSeries = Literal["stb", "stcrt", "trb"]
-PublicationEffect = Literal["establishes", "amends", "introduces", "repeals"]
 MatchedField = Literal["title", "dossier_title", "laws"]
 ViaRelation = Literal[
-    "establishes",
-    "amends",
-    "introduces",
-    "repeals",
+    ChangeEffect,
     "proposes",
     "version_of",
     "based_on",
     "refers_to",
     "legislated_in",
 ]
+PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
-_OUTCOME = {True: "aangenomen", False: "verworpen"}
+_OUTCOME: dict[bool, VoteOutcome] = {True: ADOPTED, False: REJECTED}
 
 
 class FeedNodeDTO(BaseModel):
@@ -144,14 +138,14 @@ class FeedVoteDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    chamber: Literal["TK", "EK"] = Field(
+    chamber: Chamber = Field(
         "TK",
         description="The chamber that voted; of the Eerste Kamer only the vote that decided "
         "the bill is an event.",
     )
     passed: bool | None = None
-    outcome: Literal["aangenomen", "verworpen"] | None = None
-    vote_kind: Literal["member", "faction"] | None = Field(
+    outcome: VoteOutcome | None = None
+    vote_kind: VoteKind | None = Field(
         None, description="``member`` for a roll-call, ``faction`` otherwise."
     )
     tally: dict[str, int] = Field(
@@ -210,7 +204,7 @@ class FeedInstrumentDTO(BaseModel):
 class FeedChangedInstrumentDTO(FeedInstrumentDTO):
     """A law a publication enacts or changes."""
 
-    effect: PublicationEffect = Field(
+    effect: ChangeEffect = Field(
         ...,
         description="``establishes``: the publication enacted the law (the law names it as "
         "the publication that enacted it); ``amends``, ``introduces`` or ``repeals``: every "
@@ -430,7 +424,7 @@ class FeedArticleDTO(WithPath):
     law_short: str | None = Field(
         None, description="The abbreviation its law is cited by: ``Awb``; null without."
     )
-    effect: Literal["amends", "introduces", "repeals"] | None = Field(
+    effect: ArticleChange | None = Field(
         None, description="Of an amendment: what it proposes to do with the article."
     )
 
@@ -570,7 +564,7 @@ class FeedItemDTO(WithPath):
             persons=persons,
             headline=FeedHeadlineDTO(
                 surname=next(
-                    (p.surname for p in persons if p.role == ROLE_SUBMITTER), None
+                    (p.surname for p in persons if p.role == SUBMITTER_FIRST), None
                 ),
                 subject=_subject(title),
                 short_title=short,
@@ -612,7 +606,7 @@ def _path_props(collection: str, props: dict[str, Any]) -> dict[str, Any] | None
 
 def _title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
     title = _source_title(kind, props, row)
-    return " ".join(title.split()) if title else None
+    return collapse_ws(title) if title else None
 
 
 def _source_title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
@@ -711,7 +705,7 @@ def _persons(
                 name=signature.get("member_name") or signature.get("name"),
                 surname=_surname(signature),
                 function=signature.get("function"),
-                role=cast(PersonRole, role),
+                role=role,
                 faction=(
                     FeedFactionDTO(**faction)
                     if faction and capacity == CAPACITY_MEMBER
@@ -754,7 +748,7 @@ def _vote(props: dict[str, Any], row: dict[str, Any]) -> FeedVoteDTO:
     return FeedVoteDTO(
         chamber=props.get("chamber") or "TK",
         passed=passed,
-        outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,  # type: ignore[arg-type]
+        outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
         method=props.get("method"),
@@ -790,9 +784,8 @@ def _changed(row: dict[str, Any]) -> FeedChangedInstrumentDTO:
 
 
 def _publication(props: dict[str, Any], row: dict[str, Any]) -> FeedPublicationDTO:
-    series = str(props.get("publication_kind") or "").lower()
     return FeedPublicationDTO(
-        series=series if series in ("stb", "stcrt", "trb") else None,  # type: ignore[arg-type]
+        series=series_of(props.get("publication_kind")),
         year=props.get("publication_year"),
         number=props.get("publication_number"),
         instruments=[_changed(i) for i in row.get("changed_instruments") or []],
@@ -829,11 +822,10 @@ def _publication_ref(found: dict[str, Any] | None) -> FeedPublicationRefDTO | No
     if not found:
         return None
     publication = found.get("publication") or {}
-    series = str(publication.get("kind") or "").lower()
     number = publication.get("number")
     return FeedPublicationRefDTO(
         key=found.get("key"),
-        series=series if series in get_args(PublicationSeries) else None,  # type: ignore[arg-type]
+        series=series_of(publication.get("kind")),
         year=publication.get("year")
         if isinstance(publication.get("year"), int)
         else None,
@@ -962,13 +954,13 @@ class FeedDossierCountDTO(BaseModel):
 class FeedVoteCountDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chamber: Literal["TK", "EK"] = "TK"
+    chamber: Chamber = "TK"
     subkind: str | None = Field(
         None,
         description="What was voted on, the ``Zaak.Soort``: ``Motie``, ``Amendement``, "
         "``Wetgeving``, ...",
     )
-    outcome: Literal["aangenomen", "verworpen"] | None = None
+    outcome: VoteOutcome | None = None
     count: int
 
 
@@ -1038,7 +1030,7 @@ class FeedSummaryResponse(BaseModel):
                         FeedVoteCountDTO(
                             chamber=v.get("chamber") or "TK",
                             subkind=v.get("subkind"),
-                            outcome=_OUTCOME.get(v["passed"])  # type: ignore[arg-type]
+                            outcome=_OUTCOME.get(v["passed"])
                             if isinstance(v.get("passed"), bool)
                             else None,
                             count=v["count"],
@@ -1184,7 +1176,7 @@ class FeedPeriodsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    per: Literal["month", "day"]
+    per: PeriodUnit
     since: str | None = None
     until: str | None = None
     periods: list[FeedPeriodDTO] = Field(

@@ -13,11 +13,12 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
     RELATION_PART_OF,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+)
 from lawgraph.db.counting import Store
-
-# The role of the one who signs a document first.
-ROLE_FIRST_SIGNATORY = "Eerste ondertekenaar"
 
 
 def _keep(props: str, *fields: str) -> str:
@@ -186,7 +187,7 @@ def dossier_first_signatures(
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
-            "first_role": ROLE_FIRST_SIGNATORY,
+            "first_role": FIRST_SIGNATORY,
             "capacities": [CAPACITY_MEMBER, CAPACITY_GOVERNMENT],
             "ids": ids,
         },

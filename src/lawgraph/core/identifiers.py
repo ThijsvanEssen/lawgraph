@@ -6,6 +6,7 @@ import datetime as dt
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal
 
 # BWB ids: BWBR + 7 digits for statutes and regulations, BWBV + 7 digits for treaties.
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
@@ -21,6 +22,8 @@ def is_bwb_id(value: str) -> bool:
 # CELEX
 # ---------------------------------------------------------------------------
 
+# The kinds of an EU act a citation names.
+EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
 # Sector-3 (legislation) CELEX type letters: 3 + year + letter + number.
 # R=regulation, L=directive, D=decision, F=framework decision, H=recommendation.
 CELEX_KIND_TO_LETTER: dict[str, str] = {

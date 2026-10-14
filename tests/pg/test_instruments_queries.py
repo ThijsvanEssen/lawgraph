@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.core.bwb_wti import slugify
+from lawgraph.core.text_fold import ascii_slug
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import instruments
 
@@ -1182,7 +1182,7 @@ def _area(
         "main": main,
         "main_id": main_id,
         "main_uri": f"https://identifier.overheid.nl/tooi/def/thes/bwb/{main_id}",
-        "main_slug": slugify(main),
+        "main_slug": ascii_slug(main),
         "specific": specific,
         "specific_id": specific_id,
         "specific_uri": None,

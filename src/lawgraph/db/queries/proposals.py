@@ -22,9 +22,9 @@ from lawgraph.config.constants import (
     RELATION_ABOUT,
     RELATION_PART_OF,
 )
+from lawgraph.core.paper_outcomes import ADOPTED, REJECTED
 
 WITHDRAWN = "Stemmen - ingetrokken"
-REJECTED = "verworpen"
 
 
 def pending_sql(paper: str) -> str:
@@ -65,6 +65,6 @@ def outcome_sql(paper: str) -> str:
     else null (a pending proposal is never rejected)."""
     return f"""(
         SELECT pc.outcome FROM lg_amendment_chains pc
-        WHERE pc.paper_id = {paper} AND pc.outcome = 'aangenomen'
+        WHERE pc.paper_id = {paper} AND pc.outcome = '{ADOPTED}'
         LIMIT 1
     )"""

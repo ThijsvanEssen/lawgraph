@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, get_args
 from urllib.parse import quote, unquote
 
 from lawgraph.core.code_families import cited_number
@@ -55,7 +55,9 @@ CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
 ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
-REEKSEN = ("stb", "stcrt", "trb")
+# The series of an official publication: Staatsblad, Staatscourant, Tractatenblad.
+PublicationSeries = Literal["stb", "stcrt", "trb"]
+SERIES: tuple[PublicationSeries, ...] = get_args(PublicationSeries)
 _PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
 
 
@@ -70,6 +72,12 @@ class Pad:
     a: str
     b: str = ""
     c: str = ""
+
+
+def series_of(kind: object) -> PublicationSeries | None:
+    """The series of a publication kind as a source writes it (``Stb``); None for another."""
+    wanted = str(kind or "").lower()
+    return next((series for series in SERIES if series == wanted), None)
 
 
 # The addresses of one segment after their prefix: the kind, the pattern of the segment
@@ -105,7 +113,7 @@ def parse_path(pathname: str) -> Pad | None:
     if first == "wetten" and n == 4 and b == "bijlage" and BWB.match(a):
         return Pad("bijlage", a.upper(), c.upper()) if ANNEX_LABEL.match(c) else None
     if (
-        first in REEKSEN
+        first in SERIES
         and n == 3
         and re.fullmatch(r"\d{4}", a)
         and re.fullmatch(r"\d+", b)

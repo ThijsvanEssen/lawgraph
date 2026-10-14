@@ -50,6 +50,7 @@ from lawgraph.core.eerstekamer_votes import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
@@ -70,9 +71,6 @@ CHOICES = {
     LABEL_AGAINST: "Tegen",
     LABEL_NOTED: "Aantekening gevraagd",
 }
-
-# The kind of a decision on a motion, as the Tweede Kamer names the case of one.
-KIND_MOTION = "Motie"
 
 # Decisions whose other VOTED edges are removed in one query.
 _DECISION_CHUNK = 500

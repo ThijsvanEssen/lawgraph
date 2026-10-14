@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION, VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
@@ -83,7 +83,7 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
     """The conditions on the decision ``d`` but for kind and outcome."""
     clauses: list[str] = [] if filters.unvoted else ["d.passed IS NOT NULL"]
     if filters.chamber is not None:
-        # TK decisions carry the label "TK", EK ones "EK".
+        # TK decisions carry the label ``TK``, EK ones ``EK``.
         clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
     if filters.dossier:
@@ -582,8 +582,6 @@ WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(about)s
   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
 ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
 """
-# The kinds of case whose paper is the motion or amendment a decision is about.
-MOTION_KINDS = ("Motie", "Amendement")
 
 
 def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -606,7 +604,7 @@ def motion_papers(
     motion, or a motion without text."""
     cases = [
         f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
-        if d.get("primary_case_kind") in MOTION_KINDS and d.get("primary_case_id")
+        if d.get("primary_case_kind") in DECIDED_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
     ]
@@ -621,7 +619,7 @@ def motion_papers(
         }
     # a decision on a motion without a case of its own: of the Eerste Kamer
     others = sorted({str(d["id"]) for d, c in zip(decisions, cases, strict=True)
-                     if c is None and d.get("id") and d.get("kind") in MOTION_KINDS})  # fmt: skip
+                     if c is None and d.get("id") and d.get("kind") in DECIDED_KINDS})  # fmt: skip
     by_decision: dict[str, dict[str, Any]] = {}
     if others:
         by_decision = {
@@ -633,7 +631,7 @@ def motion_papers(
     found = []
     for decision, case in zip(decisions, cases, strict=True):
         row = by_case.get(case) if case else by_decision.get(str(decision.get("id")))
-        motion = decision.get("primary_case_kind") == "Motie" and case is not None
+        motion = decision.get("primary_case_kind") == KIND_MOTION and case is not None
         dictum = ((row or {}).get("light") or {}).get("dictum") if motion else None
         found.append((_paper(row), dictum))
     return found

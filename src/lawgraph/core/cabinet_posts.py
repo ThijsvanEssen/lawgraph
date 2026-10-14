@@ -45,13 +45,13 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Final, Literal
 
 from lawgraph.core.ministries import (
     MINISTRY_BY_KEY,
+    MINISTRY_GENERAL_AFFAIRS,
     POST_DEPUTY_PRIME_MINISTER,
     POST_MINISTER,
     POST_MINISTER_WITHOUT_PORTFOLIO,
@@ -69,6 +69,7 @@ from lawgraph.core.rijksoverheid import (
     parse_holder,
     split_name,
 )
+from lawgraph.core.text_fold import plain_words, slug
 from lawgraph.core.time import OPEN_END
 
 SEAT_DEPUTY = "viceminister-president"
@@ -77,8 +78,9 @@ SEAT_PRIME_MINISTER = "az/minister-president"
 GAP_DAYS = 14
 
 # Why a post is acting: the source says so, or the holder held another seat throughout.
-ACTING_SOURCE = "source"
-ACTING_HELD_OTHER_SEAT = "held_other_seat"
+ActingReason = Literal["source", "held_other_seat"]
+ACTING_SOURCE: Final[ActingReason] = "source"
+ACTING_HELD_OTHER_SEAT: Final[ActingReason] = "held_other_seat"
 # What the source says, as ``acting_basis``.
 BASIS_AI = "a.i."
 BASIS_TEMPORARY = "tijdelijke voorziening"
@@ -117,17 +119,11 @@ def posts_by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, A
     return seats
 
 
-def slug(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return "-".join(re.findall(r"[a-z0-9]+", plain))
-
-
 def person_key(name: str) -> str:
     """``stm hermans`` of ``Drs. S.Th.M. (Sophie) Hermans``: the initials and the surname,
     which is how Rijksoverheid names one person on every page."""
     parts = split_name(name)
-    return f"{parts['letters']} {slug(parts['surname']).replace('-', ' ')}".strip()
+    return f"{parts['letters']} {plain_words(parts['surname'])}".strip()
 
 
 # ── Headings ─────────────────────────────────────────────────────────────────
@@ -242,11 +238,15 @@ def seat_of(
             "named": True,
         }
     post, ministry = classify_function(function, on=on)
-    if post == POST_MINISTER and ministry == "az" or post == POST_PRIME_MINISTER:
+    if (
+        post == POST_MINISTER
+        and ministry == MINISTRY_GENERAL_AFFAIRS
+        or post == POST_PRIME_MINISTER
+    ):
         return {
             "seat": SEAT_PRIME_MINISTER,
             "post": POST_PRIME_MINISTER,
-            "ministry": "az",
+            "ministry": MINISTRY_GENERAL_AFFAIRS,
             "portfolio": None,
             "named": True,
         }

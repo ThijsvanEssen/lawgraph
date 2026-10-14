@@ -135,7 +135,10 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Inspect EU instruments for referenced articles and persist semantic edges."""
+        """Inspect EU instruments for referenced articles and persist semantic edges.
+
+        The edges of an article are derived in full: one its text no longer supports goes,
+        of the articles read under *since*, of every article without it."""
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         code_aliases = self._load_code_aliases()
@@ -148,8 +151,11 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
             self._load_eu_documents(since_iso=since_iso), "EU articles"
         )
 
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        read: list[str] = []
         for document in documents:
+            if document.node_id:
+                read.append(document.node_id)
             text = self._extract_document_text(document)
             if not text:
                 result.skipped += 1
@@ -183,6 +189,11 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                 )
 
         edges.flush_into(result)
+        if since is None:
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+        else:
+            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        logger.info("EU articles: %d edges no text supports removed.", removed)
         return result
 
     def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:

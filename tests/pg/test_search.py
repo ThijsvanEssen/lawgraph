@@ -783,8 +783,10 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
 
+    ranking = 5.0  # seconds the ranking of judgments takes
+
     def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        return list(store.query("SELECT pg_sleep(5)"))
+        return list(store.query("SELECT pg_sleep(%s)", (ranking,)))
 
     monkeypatch.setattr(search_queries, "_search_judgments", slow)
     monkeypatch.setattr(search_queries, "FULL_BUDGET", 0.5)
@@ -792,7 +794,7 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
     hits, partial = search_queries.search_full(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
-    assert time.monotonic() - started < 2
+    assert time.monotonic() - started < ranking  # it did not wait for the ranking
     assert partial == {"judgments"}
     assert [h["key"] for h in hits["judgments"]] == [
         "ecli_nl_rbams_2021_2",
@@ -830,28 +832,43 @@ def test_the_types_of_a_live_search_share_one_budget(
 ) -> None:
     """Types that find no free thread run one after another: together they keep to
     ``LIVE_BUDGET``, a type that starts late has what is left and is cut off."""
-    import time
+    from lawgraph.db.store import read_time_left
 
     version_cache.clear()
+    budget, first_takes = 0.3, 0.2
+    left: dict[str, float | None] = {}
 
-    def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        list(store.query("SELECT pg_sleep(0.2)"))
+    def first(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        time.sleep(first_takes)
         return []
 
-    monkeypatch.setattr(search_queries, "_search_articles", slow)
-    monkeypatch.setattr(search_queries, "_search_documents", slow)
-    monkeypatch.setattr(search_queries, "_search_dossiers", slow)
+    def late(name: str, statement: str | None = None) -> Any:
+        def search(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+            left[name] = read_time_left()
+            if statement:
+                list(store.query(statement))
+            return []
+
+        return search
+
+    monkeypatch.setattr(search_queries, "_search_articles", first)
+    monkeypatch.setattr(search_queries, "_search_documents", late("documents"))
+    monkeypatch.setattr(
+        search_queries,
+        "_search_dossiers",
+        late("dossiers", f"SELECT pg_sleep({budget})"),  # longer than what is left
+    )
     # no thread free: every type in the thread of the request
     monkeypatch.setattr(
         search_queries, "side_by_side", lambda pool, calls: [call() for call in calls]
     )
-    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 0.3)
-    started = time.monotonic()
+    monkeypatch.setattr(search_queries, "LIVE_BUDGET", budget)
     _, partial = search_queries.search_live(
         store, q="wet", types=["articles", "documents", "dossiers"]
     )
-    assert time.monotonic() - started < 0.6
-    assert partial == {"documents", "dossiers"}
+    assert all(t is not None and t <= budget - first_takes for t in left.values())
+    assert set(left) == {"documents", "dossiers"}
+    assert partial == {"dossiers"}
 
 
 def test_the_name_of_a_judgment_is_looked_up_through_its_index(
@@ -1131,14 +1148,14 @@ def _pool_busy() -> Iterator[None]:
         release.set()
 
 
-def _searched(store: GraphStore, search: Any, q: str) -> tuple[Any, set[str], float]:
+def _searched(store: GraphStore, search: Any, q: str) -> tuple[Any, set[str]]:
+    """The hits of a request: while the pool of the cache is held, one that waited for
+    it would be cut off (``partial``) or time out."""
     token = set_read_deadline(30)
-    began = time.monotonic()
     try:
-        hits, partial = search(store, q=q, types=list(SEARCH_TYPES))
+        return search(store, q=q, types=list(SEARCH_TYPES))
     finally:
         reset_read_deadline(token)
-    return hits, partial, time.monotonic() - began
 
 
 def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
@@ -1149,24 +1166,23 @@ def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
     for table in SEARCH_FIELDS:
         _bm25._stats(graph, table)
     with _pool_busy():
-        hits, partial, took = _searched(graph, search_queries.search_full, "voorzien")
+        hits, partial = _searched(graph, search_queries.search_full, "voorzien")
     # its frequencies are counted by the search, not behind the pool: no type waits out
     # its budget (3 s, then its live search)
     assert partial == set()
     assert _ids(hits["articles"]) == ["articles/bwbr0001903_1"]
-    assert took < 0.5
 
 
 def test_a_search_does_not_wait_for_a_parser_of_citations_not_yet_kept(
     graph: GraphStore,
 ) -> None:
     with _pool_busy():
-        hits, partial, took = _searched(graph, search_queries.search_live, "Lindenbaum")
+        hits, partial = _searched(graph, search_queries.search_live, "Lindenbaum")
         none_yet = search_queries.kept_notation_parser(graph, 0.05)
     # after a start, before the warm-up: the words are searched without the parser
     assert none_yet is None
+    assert partial == set()
     assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
-    assert took < 0.5
     assert search_queries.kept_notation_parser(graph, 5.0) is not None
 
 
@@ -1176,7 +1192,7 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     # after a start, before the warm-up: the parser kept, no statistics of any table
     search_queries.load_notation_parser(graph)
     with _pool_busy():
-        hits, partial, took = _searched(graph, search_queries.search_full, "voorzien")
+        hits, partial = _searched(graph, search_queries.search_full, "voorzien")
         token = set_read_deadline(30)
         try:
             estimate = _bm25._stats_now(graph, "articles")
@@ -1185,7 +1201,6 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     # ranked on the rows the planner counts, no length weighed, without waiting
     assert partial == set()
     assert _ids(hits["articles"]) == ["articles/bwbr0001903_1"]
-    assert took < 0.5
     assert set(estimate) == {"N"}
     # once computed (in the background), the statistics are kept and taken
     assert "display_name/text" in _bm25._stats(graph, "articles")

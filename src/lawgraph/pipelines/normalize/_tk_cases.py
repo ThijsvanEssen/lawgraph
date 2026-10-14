@@ -12,6 +12,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
@@ -78,7 +79,7 @@ def normalize_documents(
         tk_records.document,
         COLLECTION_DOCUMENTS,
         NodeType.DOCUMENT,
-        labels=["TK", "Kamerstuk"],
+        labels=[CHAMBER_TK, "Kamerstuk"],
     )
     logger.info("Normalized %d documents.", len(nodes))
     return nodes
@@ -414,7 +415,7 @@ def _write_nodes(
                 collection=collection,
                 type=node_type,
                 key=key,
-                labels=labels or ["TK"],
+                labels=labels or [CHAMBER_TK],
                 props=props,
             )
             writer.add(node)

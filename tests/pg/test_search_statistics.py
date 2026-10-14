@@ -272,10 +272,9 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     """Every term and field of a search is counted in one statement under one deadline,
     ``DF_TIMEOUT``: a search of two words counts many terms, and when each count takes
     2 s the whole still ends within the budget, every term taken as every row."""
-    import time
-
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
+    from lawgraph.db.store import read_time_left
 
     _judgments_with_words(store, 300)
     version_cache.clear()
@@ -288,13 +287,21 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
         return f"(SELECT {df(table, term)} FROM pg_sleep(2))"
 
     monkeypatch.setattr(_bm25, "_df", slow)
-    started = time.monotonic()
+    query = store.query
+    deadlines: list[float | None] = []  # of each statement that counts
+
+    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if "pg_sleep(2)" in str(statement):
+            deadlines.append(read_time_left())
+        return query(statement, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", recording)
     hits = search_all(store, q="asiel beroep", types=["judgments"], limit=10)
-    took = time.monotonic() - started
     assert (
         len(terms) >= 6
     )  # many terms: one after the other they would take 12 s or more
-    assert took < _bm25.DF_TIMEOUT + 1.5, took
+    assert len(deadlines) == 1
+    assert deadlines[0] is not None and deadlines[0] <= _bm25.DF_TIMEOUT
     assert hits["judgments"]  # what holds them is still found
 
 

@@ -33,7 +33,9 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REPEALS,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publication_xml import SERIES_NAMES
+from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 
@@ -138,8 +140,8 @@ def decided_cases(
             AND a.to_collection = '{COLLECTION_CASES}'
         JOIN {COLLECTION_CASES} c ON c.id = a.to_id
         WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
-          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), 'Motie')
-          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), 'Amendement')
+          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), '{KIND_MOTION}')
+          AND NOT starts_with(coalesce(lg_str(c.props -> 'kind'), ''), '{KIND_AMENDMENT}')
         GROUP BY c.id
         ORDER BY c.id
         """,
@@ -274,7 +276,7 @@ def publications(
             SELECT i.id, lg_str(i.props -> 'official_id') AS official,
                    i.date_published
             FROM {COLLECTION_INSTRUMENTS} i
-            WHERE i.kind = 'publicatie' AND i.date_published >= %(since)s
+            WHERE i.kind = '{KIND_PUBLICATION}' AND i.date_published >= %(since)s
               AND split_part(lg_str(i.props -> 'official_id'), '-', 1)
                   = ANY(%(series)s::text[])
         )

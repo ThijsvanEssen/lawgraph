@@ -7,7 +7,12 @@ from typing import Annotated, Any, Literal, cast, get_args
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import FacetCountDTO, WithPath
+from lawgraph.api.schemas.common import (
+    ArticleChange,
+    ChangeEffect,
+    FacetCountDTO,
+    WithPath,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.documents import (
     _REPLACED_BY,
@@ -16,15 +21,17 @@ from lawgraph.api.schemas.documents import (
     PaperOutcomeFields,
     PaperRefDTO,
     SenderDTO,
-    SigningCapacity,
     origin_fields,
     outcome_fields,
     sender_of,
 )
+from lawgraph.config.constants import Chamber, EdgeStatus
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.paper_outcomes import VoteOutcome
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.tk_records import SigningCapacity
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
@@ -32,8 +39,6 @@ DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
 DossierSource = Literal["tk", "eerstekamer"]
-
-DossierOutcome = Literal["aangenomen", "verworpen"]
 
 KindBasis = Literal["case"]
 
@@ -46,7 +51,7 @@ class DossierPhaseDTO(BaseModel):
     name: str = Field(
         ..., description="The phase, as the curated list ``phases`` names it."
     )
-    chamber: Literal["TK", "EK"] = Field(
+    chamber: Chamber = Field(
         "TK",
         description="The chamber of the phase: the bar is that of the Tweede Kamer.",
     )
@@ -242,7 +247,7 @@ class TimelineActivityBody(BaseModel):
         "``Verplaatst``, ``Vervallen``; null when the source gives none (the Eerste "
         "Kamer gives none).",
     )
-    chamber: Literal["TK", "EK"] = Field(
+    chamber: Chamber = Field(
         "TK",
         description="``EK``: a block of a plenary sitting or a committee meeting of the "
         "Eerste Kamer, from its agenda on eerstekamer.nl.",
@@ -273,7 +278,7 @@ class TimelineDecisionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subject: str | None = None
-    chamber: Literal["TK", "EK"] = Field(
+    chamber: Chamber = Field(
         "TK",
         description="The chamber that decided: ``EK`` for a vote of the Eerste Kamer.",
     )
@@ -564,7 +569,7 @@ class DossierSummaryDTO(WithPath):
         "none.",
     )
     closed: bool = False
-    outcome: DossierOutcome | None = None
+    outcome: VoteOutcome | None = None
     tk_decision: TkDecisionDTO | None = None
     ek_outcome: EkOutcomeDTO | None = None
     opened_on: str | None = Field(
@@ -637,10 +642,7 @@ class DossierFacetsDTO(BaseModel):
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
-DossierInstrumentRelation = Literal[
-    "legislated_in", "establishes", "amends", "introduces", "repeals"
-]
-DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
+DossierInstrumentRelation = Literal["legislated_in", ChangeEffect]
 
 
 class DossierInstrumentLinkDTO(BaseModel):
@@ -649,7 +651,7 @@ class DossierInstrumentLinkDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     relation: DossierInstrumentRelation
-    status: DossierInstrumentStatus
+    status: EdgeStatus
 
 
 class DossierInstrumentDTO(BaseModel):
@@ -673,7 +675,7 @@ class DossierInstrumentDTO(BaseModel):
     display_name: str | None = None
     jurisdiction: str | None = Field(None, description="``nl`` or ``eu``.")
     relation: DossierInstrumentRelation
-    status: DossierInstrumentStatus
+    status: EdgeStatus
     links: list[DossierInstrumentLinkDTO] = Field(default_factory=list)
 
 
@@ -699,7 +701,7 @@ def merge_instruments(rows: list[dict[str, Any]]) -> list[DossierInstrumentDTO]:
 
 # What a link of the dossier hub says of a change: proposed by a bill, or enacted.
 _CHANGE_BASIS = {"voorgesteld": "voorstel", "canoniek": "staatsblad"}
-_CHANGES = ("amends", "introduces", "repeals")
+_CHANGES = get_args(ArticleChange)
 
 
 class LegalEffectItemDTO(BaseModel):
@@ -1095,7 +1097,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")
-            if props.get("outcome") in get_args(DossierOutcome)
+            if props.get("outcome") in get_args(VoteOutcome)
             else None
         ),
         "tk_decision": props.get("tk_decision"),

@@ -3,12 +3,13 @@ debate, a hearing, a vote) and what was made in it."""
 
 from __future__ import annotations
 
-from typing import Any, Literal, cast
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.api.schemas.dossiers import TimelineCommitteeDTO
+from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
@@ -46,7 +47,7 @@ class ActivityDTO(WithPath):
     number: str | None = Field(
         None, description="``Activiteit.Nummer`` (``2026A01323``), its address."
     )
-    chamber: Literal["TK", "EK"] | None = None
+    chamber: Chamber | None = None
     kind: str | None = Field(
         None,
         description="As the source writes it: ``Wetgevingsoverleg``, ``Commissiedebat``, "
@@ -95,7 +96,7 @@ class ActivityDTO(WithPath):
             id=row["id"],
             key=row["key"],
             number=props.get("number") or None,
-            chamber=cast(Literal["TK", "EK"] | None, chamber_of(row.get("labels"))),
+            chamber=chamber_of(row.get("labels")),
             kind=props.get("kind") or None,
             date=props.get("date"),
             status=props.get("status"),

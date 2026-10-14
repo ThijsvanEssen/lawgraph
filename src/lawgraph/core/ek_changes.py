@@ -17,11 +17,13 @@ but that no pattern reads is reported (``unread``)."""
 from __future__ import annotations
 
 import datetime as dt
-import html as html_lib
 import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+
+from lawgraph.core.coalition import EK_SEATS
+from lawgraph.core.xml import html_text
 
 MONTHS = {
     "januari": 1,
@@ -72,15 +74,6 @@ def iso_day(text: str, year: int) -> str | None:
         return None
 
 
-def plain(fragment: str) -> str:
-    """The text of an HTML fragment, its whitespace folded."""
-    without = re.sub(
-        r"<script.*?</script>|<style.*?</style>|<!--.*?-->", "", fragment, flags=re.S
-    )
-    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", without))
-    return re.sub(r"\s+", " ", text.replace("\xa0", " ")).strip()
-
-
 @dataclass(frozen=True)
 class Listed:
     """An item of ``/personele_mutaties``: its day, headline and page."""
@@ -105,9 +98,11 @@ def term_page(page: str) -> TermPage:
     title = _TERM_TITLE.search(page)
     items = []
     for path, headline, day in _ITEM.findall(page):
-        date = iso_day(plain(day), 0)
+        date = iso_day(html_text(day, page=True), 0)
         if date:
-            items.append(Listed(date=date, headline=plain(headline), path=path))
+            items.append(
+                Listed(date=date, headline=html_text(headline, page=True), path=path)
+            )
     return TermPage(
         title=title.group(0) if title else "",
         items=items,
@@ -130,7 +125,7 @@ def article(page: str, date: str, headline: str) -> Article:
     start = page.find("Nieuwsoverzicht")
     end = page.find("Terug naar boven", start)
     body = page[start:end] if start >= 0 and end > start else page
-    text = plain(body).removeprefix("Nieuwsoverzicht").strip()
+    text = html_text(body, page=True).removeprefix("Nieuwsoverzicht").strip()
     # the item's own date stands first: a day of the text is one after it
     text = re.sub(rf"^{_DAY}\s*", "", text)
     # the links to other items under it ("Lees ook: …") are not its text
@@ -807,7 +802,7 @@ def faction_history(page: str) -> list[Change]:
     september 2026 was de naam van de fractie GroenLinks-PvdA`` (a rename on the second day)
     and ``Voor die datum waren er twee fracties, een voor GroenLinks en een voor de PvdA`` (a
     merge on the first)."""
-    text = plain(page)
+    text = html_text(page, page=True)
     since, named = _SINCE.search(text), _NAMED.search(text)
     if not since or not named:
         return []
@@ -843,7 +838,6 @@ def faction_history(page: str) -> list[Change]:
 
 # ── the seats of a term, day by day ────────────────────────────────────────────
 
-SEATS = 75
 # Within so many days of a term's first day, a member sworn in with no seat open was elected.
 LATE_DAYS = 60
 # Of the changes of one day: the factions merged and renamed first, then the members who go,
@@ -946,9 +940,9 @@ class _Seats:
             self.member_of[member] = faction_key(change.to or "")
         elif change.kind == "beëdiging":
             self._sworn(member, change)
-        if sum(self.count.values()) > SEATS:
+        if sum(self.count.values()) > EK_SEATS:
             self.mismatches.append(
-                f"{change.date}: more than {SEATS} seats ({change.words})"
+                f"{change.date}: more than {EK_SEATS} seats ({change.words})"
             )
 
     def _sworn(self, member: str, change: Change) -> None:

@@ -9,13 +9,14 @@ import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.curated import LISTS
 from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
+    child_named,
     collapse_ws,
     first_named,
     iter_named,
@@ -77,7 +78,7 @@ _PLACEHOLDER_SUMMARIES = frozenset({"kopje volgt"})
 def is_placeholder_summary(summary: str | None) -> bool:
     """Whether an inhoudsindicatie only holds a place: empty, dashes or dots, or a known
     placeholder ("kopje volgt")."""
-    plain = " ".join((summary or "").split()).lower().rstrip(".")
+    plain = collapse_ws(summary).lower().rstrip(".")
     return not plain.strip("-. ") or plain in _PLACEHOLDER_SUMMARIES
 
 
@@ -264,22 +265,23 @@ def area_of_law(subjects: list[str] | None) -> str | None:
 # answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
 # rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
-KIND_ARREST = "arrest"
-KIND_VONNIS = "vonnis"
-KIND_BESCHIKKING = "beschikking"
-KIND_UITSPRAAK = "uitspraak"
-KIND_CONCLUSIE = "conclusie"
-KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
-KIND_BESLISSING = "beslissing"
-DECISION_KINDS: tuple[str, ...] = (
-    KIND_ARREST,
-    KIND_VONNIS,
-    KIND_BESCHIKKING,
-    KIND_UITSPRAAK,
-    KIND_BESLISSING,
-    KIND_CONCLUSIE,
-    KIND_PRELIMINARY_RULING,
-)
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "beslissing",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
+KIND_ARREST: Final[DecisionKind] = "arrest"
+KIND_VONNIS: Final[DecisionKind] = "vonnis"
+KIND_BESCHIKKING: Final[DecisionKind] = "beschikking"
+KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
+KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
+KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
+KIND_BESLISSING: Final[DecisionKind] = "beslissing"
 
 # The curated kinds: the kind a procedure (``psi:procedure``) names where the kop does not;
 # the kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
@@ -1002,7 +1004,7 @@ class _Sections:
             self.add(KIND_BODY, str(place), _unit_text(item, self._kop), [item])
 
     def section(self, section: ET.Element, depth: int) -> None:
-        title = next((c for c in section if local_name(c.tag) == "title"), None)
+        title = child_named(section, "title")
         if title is not None and id(title) not in self._kop:
             number = collapse_ws(text_of(first_named(title, "nr"))) or None
             text = collapse_ws(text_of(title, " "))
@@ -1019,7 +1021,7 @@ class _Sections:
 
     def paragroup(self, group: ET.Element, depth: int) -> None:
         """A numbered unit: its own paragraphs are one entry, nested units follow."""
-        nr = next((c for c in group if local_name(c.tag) == "nr"), None)
+        nr = child_named(group, "nr")
         number = collapse_ws(text_of(nr)) or None
         if number is None:
             self.walk(group, depth)
@@ -1310,7 +1312,7 @@ def text_id(text: str) -> str:
     """The id of a paragraph without a number: ``p-`` and the first 8 hex of the SHA-1 of
     its text, its whitespace collapsed. It follows the text, not the position, so a
     paragraph keeps its deep link when another one before it comes or goes."""
-    digest = hashlib.sha1(" ".join(text.split()).encode(), usedforsecurity=False)
+    digest = hashlib.sha1(collapse_ws(text).encode(), usedforsecurity=False)
     return f"p-{digest.hexdigest()[:8]}"
 
 

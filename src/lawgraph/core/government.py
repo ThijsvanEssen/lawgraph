@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
+
+from lawgraph.core.ministries import POST_MINISTER, POST_STATE_SECRETARY
+from lawgraph.core.text_fold import fold
 
 PARTICLES = frozenset(
     {"van", "de", "der", "den", "het", "ter", "ten", "te", "t", "op", "in", "la", "le"}
@@ -34,19 +36,13 @@ PARTICLES = frozenset(
 )
 
 # A signature on a letter sent just after the post ended still belongs to it.
-_SIGNED_AFTER_POST = dt.timedelta(days=14)
+SIGNED_AFTER_POST = dt.timedelta(days=14)
 # The ages between which one holds a post in a cabinet.
 YOUNGEST, OLDEST = 28, 95
 
 
-def _plain(text: str | None) -> str:
-    """*text* lower case and without accents: ``Yeşilgöz`` is ``yesilgoz``."""
-    plain = unicodedata.normalize("NFKD", text or "")
-    return "".join(c for c in plain if not unicodedata.combining(c)).lower()
-
-
 def _words(text: str | None, *, ij: bool = False) -> set[str]:
-    plain = _plain(text)
+    plain = fold(text)
     if ij:
         plain = plain.replace("ij", "y")
     return set(re.findall(r"[a-z]+", plain))
@@ -68,7 +64,7 @@ def initial_letters(first_names: Iterable[str]) -> str:
 def _first_names(member: dict[str, Any]) -> list[str]:
     """The first names of a member: the words of the full name before the surname."""
     surname = _surname_words(member.get("family_name")) | PARTICLES
-    words = re.findall(r"[a-z]+", _plain(member.get("name")))
+    words = re.findall(r"[a-z]+", fold(member.get("name")))
     names: list[str] = []
     for word in words:
         if word in surname:
@@ -93,7 +89,7 @@ def _surnames_agree(holder: str, member: str | None, *, ij: bool, loose: bool) -
 def _member_letters(member: dict[str, Any]) -> str:
     """The initial letters of a member: of ``Persoon.Initialen`` (``S.Th.M.``: ``stm``),
     else of the first names in their full name."""
-    initials = [p for p in re.split(r"[.\s]+", _plain(member.get("initials"))) if p]
+    initials = [p for p in re.split(r"[.\s]+", fold(member.get("initials"))) if p]
     if initials:
         return "".join("ij" if p.startswith("ij") else p[0] for p in initials)
     return initial_letters(_first_names(member))
@@ -101,7 +97,7 @@ def _member_letters(member: dict[str, Any]) -> str:
 
 def _undotted(text: str | None) -> str:
     """Initials without dots or spaces, in lower case: ``wthc`` of ``W.Th.C.`` and ``WTHC``."""
-    return re.sub(r"[^a-z]", "", _plain(text))
+    return re.sub(r"[^a-z]", "", fold(text))
 
 
 def _readings(
@@ -190,12 +186,11 @@ def surname_in(surname: str | None, name: str | None) -> bool:
 
 def post_kind(function: str | None) -> str:
     """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
-    return _post_kind(function)
-
-
-def _post_kind(function: str | None) -> str:
-    """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
-    return "staatssecretaris" if "staatssecretaris" in _plain(function) else "minister"
+    return (
+        POST_STATE_SECRETARY
+        if POST_STATE_SECRETARY in fold(function)
+        else POST_MINISTER
+    )
 
 
 def _held_on(post: dict[str, Any], day: str) -> bool:
@@ -204,15 +199,15 @@ def _held_on(post: dict[str, Any], day: str) -> bool:
         return False
     if not end:
         return True
-    return dt.date.fromisoformat(day) <= dt.date.fromisoformat(end) + _SIGNED_AFTER_POST
+    return dt.date.fromisoformat(day) <= dt.date.fromisoformat(end) + SIGNED_AFTER_POST
 
 
 def _signed_as(person: dict[str, Any], signature: dict[str, Any]) -> bool:
     """Whether *person* held a post of the signature's kind on one of its dates."""
-    kind = _post_kind(signature.get("function"))
+    kind = post_kind(signature.get("function"))
     days = [d for d in (signature.get("first"), signature.get("last")) if d]
     return any(
-        _post_kind(post.get("function")) == kind and _held_on(post, day)
+        post_kind(post.get("function")) == kind and _held_on(post, day)
         for post in person.get("posts") or []
         for day in days
     )
