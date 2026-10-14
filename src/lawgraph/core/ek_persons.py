@@ -94,16 +94,32 @@ def bare_name(name: str) -> str:
     return name.rsplit("(", 1)[0].strip()
 
 
+# The degrees and titles the Eerste Kamer writes after a name ("M. Karaaslan MMC", "R.O.
+# Martens MSc"), as words of their own.
+_POST_NOMINALS = frozenset(
+    {"BA", "BSc", "LLB", "LLM", "MA", "MBA", "MMC", "MPA", "MPhil", "MSc", "PhD"}
+)
+
+
+def _surname_end(name: str) -> str:
+    """The name without the faction and the titles after it: "M. Karaaslan MMC (PvdA)" is
+    "M. Karaaslan"."""
+    words = bare_name(name).split()
+    while len(words) > 1 and words[-1].replace(".", "") in _POST_NOMINALS:
+        words.pop()
+    return " ".join(words)
+
+
 def match_member(
     name: str, birth_date: str | None, rows: Iterable[Mapping[str, Any]]
 ) -> str | None:
     """The key of the one member of the Tweede Kamer born on *birth_date* whose surname
-    (``family_name``) ends *name* as the Eerste Kamer writes it (``Mr. B.O. Dittrich (D66)``);
-    None when none or more than one is. *rows*: ``{key, family_name, birth_date}`` of members
-    (``members_born_on``)."""
+    (``family_name``) ends *name* as the Eerste Kamer writes it (``Mr. B.O. Dittrich (D66)``,
+    ``M. Karaaslan MMC``: ``_surname_end``); None when none or more than one is. *rows*:
+    ``{key, family_name, birth_date}`` of members (``members_born_on``)."""
     if not birth_date:
         return None
-    wanted = bare_name(name).casefold()
+    wanted = _surname_end(name).casefold()
     found = [
         row
         for row in rows
