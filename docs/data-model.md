@@ -10,7 +10,8 @@ in values that a source owns (a document `kind` such as `memorie van toelichting
 A node is a document `{_key, type, labels, props}`:
 
 - `_key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
-  non-alphanumerics replaced by `_`), so every pipeline can be re-run.
+  non-alphanumerics replaced by `_`), so every pipeline can be re-run. A query makes the
+  same key in SQL with `lg_node_key(text)`.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
   `member`, `faction`, `committee`, `cabinet`). Every type has its own collection and every
