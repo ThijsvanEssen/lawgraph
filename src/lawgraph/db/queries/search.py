@@ -29,7 +29,9 @@ from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
+from lawgraph.core.text_fold import ACCENTS
 from lawgraph.core.word_forms import word_forms
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
@@ -1428,18 +1430,14 @@ _NAME_LIST_FIELDS = ("aliases",)
 _CONTEXT_LIST_FIELDS = ("division_titles",)
 
 
-# The marks ``lg_fold`` takes off a letter after NFD (U+0300-U+036F).
-_ACCENTS = re.compile("[\u0300-\u036f]")
-
-
 def _folded(value: Any) -> str:
     """*value* as ``lg_fold`` folds it (lower case, without accents: "yesilgoz" is part of
     "Yeşilgöz-Zegerius"), its spaces one each."""
     if not value:
         return ""
     plain = unicodedata.normalize("NFD", str(value).lower())
-    plain = unicodedata.normalize("NFC", _ACCENTS.sub("", plain))
-    return " ".join(plain.split())
+    plain = unicodedata.normalize("NFC", ACCENTS.sub("", plain))
+    return collapse_ws(plain)
 
 
 def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:

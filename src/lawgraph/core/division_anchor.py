@@ -8,19 +8,11 @@ The reader of the whole law names its divisions alike (``deelIds`` in the explor
 
 from __future__ import annotations
 
-import re
-import unicodedata
 from typing import Any
 
+from lawgraph.core.text_fold import slug
+
 PREFIX = "deel-"
-
-_OTHER = re.compile(r"[^a-z0-9.]+")
-
-
-def _slug(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    bare = "".join(c for c in decomposed if not "̀" <= c <= "ͯ")
-    return _OTHER.sub("-", bare.lower()).strip("-")
 
 
 def _name(crumb: Any) -> str:
@@ -36,7 +28,7 @@ def division_anchors(crumbs: Any) -> list[str]:
     path: list[str] = []
     anchors = []
     for crumb in crumbs if isinstance(crumbs, list) else []:
-        path.append(_slug(_name(crumb)))
+        path.append(slug(_name(crumb), keep="."))
         anchors.append(PREFIX + "-".join(part for part in path if part))
     return anchors
 
