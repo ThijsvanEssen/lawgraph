@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import WithPath
+from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.api.schemas.resolve import ResolveResponse
 
 # The collections ``search_all`` can search, named as the collection is.
@@ -30,8 +30,6 @@ SEARCH_TYPES = frozenset(
 class SearchResultItem(WithPath):
     """One search hit, typed by collection."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     key: str
     collection: str
@@ -46,10 +44,8 @@ class SearchResultItem(WithPath):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
-class SearchResponse(BaseModel):
+class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
-
-    model_config = ConfigDict(extra="forbid")
 
     q: str
     types: list[str]

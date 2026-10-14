@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
+from lawgraph.api.schemas.common import (
+    END_OF_OFFICE,
+    DossierNameDTO,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO
 from lawgraph.config.constants import Chamber
@@ -17,10 +22,8 @@ from lawgraph.core.member_role import has_role
 from lawgraph.core.tk_records import CommitteeKind, SigningCapacity, VoteKind
 
 
-class VoteOfficeDTO(BaseModel):
+class VoteOfficeDTO(StrictModel):
     """A post in a cabinet a member held on the day of a vote."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str | None = Field(
         None, description="The post as Rijksoverheid names it."
@@ -29,14 +32,12 @@ class VoteOfficeDTO(BaseModel):
     cabinet: str | None = Field(None, description="The cabinet: ``kabinet-Rutte IV``.")
 
 
-class MemberVoteDTO(BaseModel):
+class MemberVoteDTO(StrictModel):
     """One vote a member took part in.
 
     ``party`` is the party they sat for on ``date``, which may differ from
     the party they sit for now.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     decision_id: str = Field(..., description="Arango _id of the decision.")
     decision_key: str
@@ -86,10 +87,8 @@ class MemberVoteDTO(BaseModel):
     )
 
 
-class MemberVotesResponse(BaseModel):
+class MemberVotesResponse(StrictModel):
     """Response for GET /api/members/{key}/votes."""
-
-    model_config = ConfigDict(extra="forbid")
 
     member_id: str = Field(..., description="Arango _id of the member.")
     count: int = Field(..., description="Votes returned; may be fewer than the total.")
@@ -101,10 +100,8 @@ class MemberVotesResponse(BaseModel):
     )
 
 
-class TouchedInstrumentDTO(BaseModel):
+class TouchedInstrumentDTO(StrictModel):
     """One law an actor proposes changes to, with how often they do."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Arango _id of the instrument.")
     key: str
@@ -119,10 +116,8 @@ class TouchedInstrumentDTO(BaseModel):
     )
 
 
-class TouchedInstrumentsResponse(BaseModel):
+class TouchedInstrumentsResponse(StrictModel):
     """Wrapper for an actor's touched-instruments list."""
-
-    model_config = ConfigDict(extra="forbid")
 
     actor_id: str = Field(..., description="Arango _id of the member or faction.")
     count: int = Field(
@@ -131,10 +126,8 @@ class TouchedInstrumentsResponse(BaseModel):
     items: list[TouchedInstrumentDTO]
 
 
-class FactionDetailDTO(BaseModel):
+class FactionDetailDTO(StrictModel):
     """Response for GET /api/factions/{key} — the node as stored."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -153,10 +146,8 @@ _OBSERVED_UNTIL = (
 )
 
 
-class EkSourceDTO(BaseModel):
+class EkSourceDTO(StrictModel):
     """Where something of the Eerste Kamer was taken over from, to name with it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     url: str | None = Field(None, description="Its page on eerstekamer.nl.")
     retrieved_on: str | None = Field(None, description="The day it was read.")
@@ -210,7 +201,6 @@ def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
 class CommitteeDTO(WithPath):
     """A parliamentary committee."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "committees"
 
     id: str
@@ -246,10 +236,8 @@ class CommitteeDTO(WithPath):
         return cls(**_committee_fields(doc))
 
 
-class FactionBoardSeatDTO(BaseModel):
+class FactionBoardSeatDTO(StrictModel):
     """A seat on the board of a faction of the Eerste Kamer, as its page gives it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str = Field(..., description="``fractievoorzitter``, ``penningmeester``.")
     name: str | None = None
@@ -260,7 +248,6 @@ class FactionBoardSeatDTO(BaseModel):
 class FactionDTO(WithPath):
     """A parliamentary party."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "factions"
 
     id: str
@@ -314,10 +301,8 @@ class FactionDTO(WithPath):
         )
 
 
-class EkFactionVoteDTO(BaseModel):
+class EkFactionVoteDTO(StrictModel):
     """How a faction of the Eerste Kamer voted on one vote of its list."""
-
-    model_config = ConfigDict(extra="forbid")
 
     decision_id: str
     decision_key: str
@@ -341,10 +326,8 @@ class EkFactionVoteDTO(BaseModel):
     )
 
 
-class EkFactionVotesResponse(BaseModel):
+class EkFactionVotesResponse(StrictModel):
     """The votes of a faction of the Eerste Kamer, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_key: str
     total: int = Field(..., description="The votes that name the faction.")
@@ -357,10 +340,8 @@ class EkFactionVotesResponse(BaseModel):
     source: EkSourceDTO
 
 
-class FactionMembershipDTO(BaseModel):
+class FactionMembershipDTO(StrictModel):
     """One stretch of a member's membership of a faction."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_id: str
     faction_key: str
@@ -375,11 +356,9 @@ class FactionMembershipDTO(BaseModel):
     role: str | None = None
 
 
-class EkFactionMembershipDTO(BaseModel):
+class EkFactionMembershipDTO(StrictModel):
     """One stretch of a member's membership of a faction of the Eerste Kamer, as their page
     on eerstekamer.nl says it (``normalize eerstekamer-persons``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_id: str | None = Field(
         None,
@@ -396,10 +375,8 @@ class EkFactionMembershipDTO(BaseModel):
     chamber: str = "EK"
 
 
-class PartyRefDTO(BaseModel):
+class PartyRefDTO(StrictModel):
     """A party as the source writes it (``VVD``, ``partijloos``), and its faction."""
-
-    model_config = ConfigDict(extra="forbid")
 
     short: str | None = None
     faction: str | None = Field(
@@ -408,10 +385,8 @@ class PartyRefDTO(BaseModel):
     )
 
 
-class GovernmentFunctionDTO(BaseModel):
+class GovernmentFunctionDTO(StrictModel):
     """A post held in a cabinet, as Rijksoverheid names it, and normalised."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str | None = Field(
         None,
@@ -457,11 +432,9 @@ def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO
     ]
 
 
-class HallSeatDTO(BaseModel):
+class HallSeatDTO(StrictModel):
     """A place in the plenary hall of the Eerste Kamer: two blocks of benches facing each
     other, rows from the government to the chair, and the seat of the Voorzitter."""
-
-    model_config = ConfigDict(extra="forbid")
 
     block: Literal["left", "right", "chair"] = Field(
         ...,
@@ -474,10 +447,8 @@ class HallSeatDTO(BaseModel):
     )
 
 
-class EkMembershipDTO(BaseModel):
+class EkMembershipDTO(StrictModel):
     """A member's seat in the Eerste Kamer, as eerstekamer.nl shows it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(
         None, description="As the Kamer writes it: mr. B.O. Dittrich."
@@ -510,7 +481,6 @@ class MemberDTO(WithPath):
     as part of a committee, where they carry that committee seat's period.
     """
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "members"
 
     id: str
@@ -633,10 +603,8 @@ def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
     )
 
 
-class CommitteeSeatDTO(BaseModel):
+class CommitteeSeatDTO(StrictModel):
     """One period a member held a seat on a committee."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str | None = None
     to_date: str | None = Field(
@@ -747,8 +715,6 @@ class CommitteeDetailDTO(CommitteeDTO):
     ``status`` filter.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     members: list[MemberDTO] = []
     dossiers: list[DossierSummaryDTO] = []
     dossier_total: int = Field(
@@ -767,10 +733,8 @@ class CommitteeDetailDTO(CommitteeDTO):
         )
 
 
-class CommitteeActivityDTO(BaseModel):
+class CommitteeActivityDTO(StrictModel):
     """One activity (debate, hearing) a committee leads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -796,10 +760,8 @@ class CommitteeActivityDTO(BaseModel):
     )
 
 
-class CommitteeActivitiesResponse(BaseModel):
+class CommitteeActivitiesResponse(StrictModel):
     """A page of a committee's activities, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int = Field(
         ..., description="Activities of the committee, independent of limit and offset."
@@ -815,8 +777,6 @@ class ActorDossierDTO(DossierSummaryDTO):
     what they signed as, which changes over time (a Kamerlid who became minister-president);
     ``document_count`` the distinct documents authored in the dossier.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     roles: list[str] = Field(default_factory=list)
     functions: list[str] = Field(
@@ -842,10 +802,8 @@ class ActorDossierDTO(DossierSummaryDTO):
         )
 
 
-class ActorDossiersResponse(BaseModel):
+class ActorDossiersResponse(StrictModel):
     """A page of the dossiers a member or faction authored documents in."""
-
-    model_config = ConfigDict(extra="forbid")
 
     actor_id: str = Field(..., description="Arango _id of the member or faction.")
     total: int = Field(..., description="Dossiers, independent of limit and offset.")

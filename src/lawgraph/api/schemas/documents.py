@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
+from lawgraph.api.schemas.common import (
+    DossierNameDTO,
+    FacetCountDTO,
+    StrictModel,
+    WithPath,
+    dossier_names_of,
+)
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import (
@@ -26,11 +32,9 @@ from lawgraph.core.votes import PaperOutcome
 ExplainedCollection = Literal["articles", "instruments"]
 
 
-class SenderDTO(BaseModel):
+class SenderDTO(StrictModel):
     """Who sent a Tweede Kamer paper: its first signatory, else the signature the source
     calls its sender (``Afzender``), as the source gives it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(None, description="As the source writes it.")
     function: str | None = Field(
@@ -56,10 +60,8 @@ def sender_of(props: dict[str, Any]) -> SenderDTO | None:
     return SenderDTO(**sender) if sender else None
 
 
-class DocumentOrigin(BaseModel):
+class DocumentOrigin(StrictModel):
     """Where a document comes from and what it is for; every document DTO carries it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     chamber: Chamber | None = Field(
         None,
@@ -91,10 +93,8 @@ def origin_fields(
     }
 
 
-class ArticleRefDTO(BaseModel):
+class ArticleRefDTO(StrictModel):
     """An article number a heading names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     number: str = Field(description="The number as printed: `3`, `1a`, `3:159n`, `II`.")
     of: str = Field(
@@ -106,10 +106,8 @@ class ArticleRefDTO(BaseModel):
     )
 
 
-class SectionDTO(BaseModel):
+class SectionDTO(StrictModel):
     """One heading of a paper with the text under it: `text[char_start:char_end]`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(description="`s-<ordinal>` in document order.")
     heading: str
@@ -136,10 +134,8 @@ class SectionDTO(BaseModel):
     char_end: int
 
 
-class DocumentFootnoteDTO(BaseModel):
+class DocumentFootnoteDTO(StrictModel):
     """A footnote of a paper, which ``text`` does not hold."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         description="`fn-<n>`, its place among the footnotes (`fn-1` the first): what a "
@@ -181,14 +177,12 @@ def document_footnotes(props: dict[str, Any]) -> list[DocumentFootnoteDTO]:
     return found
 
 
-class ExplainedTargetDTO(BaseModel):
+class ExplainedTargetDTO(StrictModel):
     """What an explanatory document explains: an article, or a law as a whole.
 
     A version of an article resolves to the article itself; a law the document
     explains without naming articles is an instrument with ``article_number`` null.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Arango _id of the article or instrument.")
     key: str
@@ -200,7 +194,6 @@ class ExplainedTargetDTO(BaseModel):
 class SubmitterDTO(WithPath):
     """Who submitted a motie or amendement."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "members"
     path_key_field = "member_key"
 
@@ -214,10 +207,8 @@ class SubmitterDTO(WithPath):
     )
 
 
-class PaperRefDTO(BaseModel):
+class PaperRefDTO(StrictModel):
     """Another paper, by its id and its number in its dossier."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -242,11 +233,9 @@ _DICTUM = (
 )
 
 
-class PaperOutcomeFields(BaseModel):
+class PaperOutcomeFields(StrictModel):
     """How a motion or an amendment ended, and what it says in a line (``semantic
     tk-paper-outcomes``, ``core/votes.py``); every field null for any other paper."""
-
-    model_config = ConfigDict(extra="forbid")
 
     dictum: str | None = Field(None, description=_DICTUM)
     explanation: str | None = Field(
@@ -412,10 +401,8 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         )
 
 
-class PassageDTO(BaseModel):
+class PassageDTO(StrictModel):
     """The passage of a memorandum that explains an article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     section_id: str = Field(
         description="`id` of the section in `sections` of the document."
@@ -450,10 +437,8 @@ class PassageDTO(BaseModel):
     )
 
 
-class DocumentPassagesResponse(BaseModel):
+class DocumentPassagesResponse(StrictModel):
     """The passages of one document that explain one article, in document order."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int
     items: list[PassageDTO]
@@ -473,7 +458,6 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
 class DocumentListItemDTO(PaperOutcomeFields, WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "documents"
 
     id: str
@@ -542,27 +526,16 @@ class DocumentListItemDTO(PaperOutcomeFields, WithPath):
         )
 
 
-class DocumentFacetsDTO(BaseModel):
+class DocumentFacetsDTO(StrictModel):
     """The papers under the filters, per kind (without the kind filter) and per chamber
     (without the chamber filter), the largest first."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    kind: list[DocumentFacetCountDTO] = Field(default_factory=list)
-    chamber: list[DocumentFacetCountDTO] = Field(default_factory=list)
+    kind: list[FacetCountDTO] = Field(default_factory=list)
+    chamber: list[FacetCountDTO] = Field(default_factory=list)
 
 
-class DocumentFacetCountDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    value: str | None = None
-    count: int
-
-
-class DocumentListResponse(BaseModel):
+class DocumentListResponse(StrictModel):
     """A page of the papers of the chambers, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int | None = Field(
         None, description="Every match, whatever the page; null with ``facets=false``."

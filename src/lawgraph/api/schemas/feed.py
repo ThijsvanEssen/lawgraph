@@ -7,7 +7,7 @@ import re
 from typing import Any, Literal, get_args
 from xml.etree import ElementTree
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
@@ -15,6 +15,7 @@ from lawgraph.api.schemas.common import (
     ChangeEffect,
     FacetCountDTO,
     JudgmentOutcomeFields,
+    StrictModel,
     WithPath,
     judgment_outcome_fields,
 )
@@ -70,17 +71,14 @@ PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 
-class FeedNodeDTO(BaseModel):
+class FeedNodeDTO(StrictModel):
     """The node an event is: ``/api/nodes/{collection}/{key}`` shows it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     key: str
 
 
 class FeedDossierDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
     path_collection = "dossiers"
 
     key: str
@@ -101,7 +99,6 @@ class FeedDossierDTO(WithPath):
 
 
 class FeedFactionDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
     path_collection = "factions"
 
     key: str
@@ -113,7 +110,6 @@ class FeedPersonDTO(WithPath):
     one who did (``medeindiener``), or signed it or made the commitment for the
     government (``bewindspersoon``)."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "members"
 
     key: str | None = Field(None, description="Member key; null when unknown.")
@@ -135,10 +131,8 @@ class FeedPersonDTO(WithPath):
     )
 
 
-class FeedVoteDTO(BaseModel):
+class FeedVoteDTO(StrictModel):
     """The outcome of a ``stemming``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     chamber: Chamber = Field(
         "TK",
@@ -180,10 +174,8 @@ class FeedVoteDTO(BaseModel):
     )
 
 
-class FeedCommitmentDTO(BaseModel):
+class FeedCommitmentDTO(StrictModel):
     """What a ``toezegging`` stands at."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: str | None = Field(
         None, description="Of a commitment: its Toezegging.Status (`Openstaand`)."
@@ -193,10 +185,8 @@ class FeedCommitmentDTO(BaseModel):
     )
 
 
-class FeedInstrumentDTO(BaseModel):
+class FeedInstrumentDTO(StrictModel):
     """A law the event is about."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     title: str | None = None
@@ -234,10 +224,8 @@ def _citation(
     )
 
 
-class FeedPublicationDTO(BaseModel):
+class FeedPublicationDTO(StrictModel):
     """A ``publicatie`` in the Staatsblad, the Staatscourant or the Tractatenblad."""
-
-    model_config = ConfigDict(extra="forbid")
 
     series: PublicationSeries | None = None
     year: int | None = None
@@ -253,7 +241,6 @@ class FeedPublicationDTO(BaseModel):
 class FeedPublicationRefDTO(WithPath):
     """The publication a new version of a law came from."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "instruments"
 
     key: str | None = Field(
@@ -266,10 +253,8 @@ class FeedPublicationRefDTO(WithPath):
     citation: str | None = Field(None, description=_CITATION)
 
 
-class FeedBasisDTO(BaseModel):
+class FeedBasisDTO(StrictModel):
     """The law a regulation is issued under: what its preamble ("Gelet op") names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: FeedInstrumentDTO
     kind: str | None = Field(
@@ -283,10 +268,8 @@ class FeedBasisDTO(BaseModel):
     )
 
 
-class FeedCommencementDTO(BaseModel):
+class FeedCommencementDTO(StrictModel):
     """An ``inwerkingtreding``: a new version of a law in force from ``date``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: FeedInstrumentDTO | None = None
     article_count: int | None = Field(None, description="The articles of the law.")
@@ -318,7 +301,6 @@ class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
 
     ecli: str | None = None
@@ -341,10 +323,8 @@ class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     advocate_general_role: str | None = None
 
 
-class FeedHeadlineDTO(BaseModel):
+class FeedHeadlineDTO(StrictModel):
     """The parts a headline is made of; the front end makes the sentence."""
-
-    model_config = ConfigDict(extra="forbid")
 
     surname: str | None = Field(
         None,
@@ -362,10 +342,8 @@ class FeedHeadlineDTO(BaseModel):
     )
 
 
-class FeedMatchDTO(BaseModel):
+class FeedMatchDTO(StrictModel):
     """Where an event holds a word of ``q``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     term: str = Field(..., description="The word of ``q``, as it was asked.")
     field: MatchedField = Field(
@@ -378,10 +356,8 @@ class FeedMatchDTO(BaseModel):
     )
 
 
-class FeedViaDTO(BaseModel):
+class FeedViaDTO(StrictModel):
     """How an event is tied to the law ``instrument`` (and ``article``) follows."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: ViaRelation = Field(
         ...,
@@ -404,8 +380,6 @@ class FeedViaDTO(BaseModel):
 
 class FeedLinkDTO(WithPath):
     """A paper or a commitment an event is tied to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="``collection/key`` of its node.")
     kind: str | None = Field(
@@ -431,7 +405,6 @@ class FeedLinkDTO(WithPath):
 class FeedArticleDTO(WithPath):
     """An article an event is tied to."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "articles"
 
     key: str
@@ -448,8 +421,6 @@ class FeedArticleDTO(WithPath):
 
 class FeedItemDTO(WithPath):
     """One event."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="``collection/key`` of its node: unique.")
     kind: FeedKind
@@ -900,12 +871,10 @@ def _article(row: dict[str, Any]) -> FeedArticleDTO:
     )
 
 
-class FeedFacetsDTO(BaseModel):
+class FeedFacetsDTO(StrictModel):
     """Per dimension the events per value under the other filters, the largest first;
     ``value`` null counts the events without one. An event signed for two factions counts
     for both, so ``faction`` need not add up to ``total``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
@@ -923,9 +892,7 @@ class FeedFacetsDTO(BaseModel):
     )
 
 
-class FeedResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FeedResponse(StrictModel):
     items: list[FeedItemDTO]
     next_cursor: str | None = Field(
         None,
@@ -959,10 +926,8 @@ class FeedResponse(BaseModel):
     )
 
 
-class FeedDossierCountDTO(BaseModel):
+class FeedDossierCountDTO(StrictModel):
     """The events of one kind in one dossier on a day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: FeedKind
     number: str
@@ -973,9 +938,7 @@ class FeedDossierCountDTO(BaseModel):
     count: int
 
 
-class FeedVoteCountDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FeedVoteCountDTO(StrictModel):
     chamber: Chamber = "TK"
     subkind: str | None = Field(
         None,
@@ -986,10 +949,8 @@ class FeedVoteCountDTO(BaseModel):
     count: int
 
 
-class FeedDayDTO(BaseModel):
+class FeedDayDTO(StrictModel):
     """The events of one day, counted."""
-
-    model_config = ConfigDict(extra="forbid")
 
     date: str
     total: int = 0
@@ -1002,10 +963,8 @@ class FeedDayDTO(BaseModel):
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
 
 
-class FeedSummaryResponse(BaseModel):
+class FeedSummaryResponse(StrictModel):
     """A few days of the feed in one answer."""
-
-    model_config = ConfigDict(extra="forbid")
 
     since: str
     until: str
@@ -1157,11 +1116,9 @@ def atom_feed(
     return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
 
 
-class AmendmentChainsDTO(BaseModel):
+class AmendmentChainsDTO(StrictModel):
     """The amendments of a period as the Kamer handles them: each chain of papers that
     replace each other once, by its outcome."""
-
-    model_config = ConfigDict(extra="forbid")
 
     count: int
     aangenomen: int = 0
@@ -1171,10 +1128,8 @@ class AmendmentChainsDTO(BaseModel):
     )
 
 
-class FeedPeriodDTO(BaseModel):
+class FeedPeriodDTO(StrictModel):
     """The events of one month or day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     period: str = Field(..., description="Its first day: ``2026-09-01`` for September.")
     total: int
@@ -1191,10 +1146,8 @@ class FeedPeriodDTO(BaseModel):
     )
 
 
-class FeedPeriodsResponse(BaseModel):
+class FeedPeriodsResponse(StrictModel):
     """The events of the feed per month or day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     per: PeriodUnit
     since: str | None = None

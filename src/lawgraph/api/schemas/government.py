@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
-from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO, WithPath
+from lawgraph.api.schemas.common import (
+    END_OF_OFFICE,
+    FacetCountDTO,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.core.cabinet_phases import PhaseKind
 from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.dossier_numbers import short_title
@@ -24,10 +29,8 @@ COMMITMENT_STATUS_DESCRIPTION = (
 )
 
 
-class MinistryPeriodDTO(BaseModel):
+class MinistryPeriodDTO(StrictModel):
     """A stretch in which the ministry had its name, and where that is known from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str | None = Field(None, description="Null where no source dates it.")
     until: str | None = Field(
@@ -49,12 +52,10 @@ class MinistryPeriodDTO(BaseModel):
     )
 
 
-class MinistryDTO(BaseModel):
+class MinistryDTO(StrictModel):
     """A ministry name of ``data/ministries.json``: a name that came back (Economische
     Zaken) has a period for each time; a former one names its successor and the last day
     it had its name (``successor`` and ``until`` of its last period)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: MinistryKey
     name: str
@@ -68,7 +69,6 @@ class MinistryDTO(BaseModel):
 class PersonRefDTO(WithPath):
     """A member named from another node."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "members"
 
     key: str
@@ -80,21 +80,17 @@ def _slug(person: dict[str, Any], slugs: dict[str, str] | None) -> dict[str, Any
     return {"slug": (slugs or {}).get(person.get("key") or "")}
 
 
-class SourceRefDTO(BaseModel):
+class SourceRefDTO(StrictModel):
     """Where it was read: ``rijksoverheid``, with the page and the day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
     url: str | None = None
     read_on: str | None = None
 
 
-class CabinetPhaseDTO(BaseModel):
+class CabinetPhaseDTO(StrictModel):
     """A phase of a cabinet; it ends where the next begins, the last with the cabinet
     (null while it is in office)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: PhaseKind | None = Field(
         None,
@@ -107,10 +103,8 @@ class CabinetPhaseDTO(BaseModel):
     source: SourceRefDTO | None = None
 
 
-class CoalitionFactionSeatsDTO(BaseModel):
+class CoalitionFactionSeatsDTO(StrictModel):
     """A faction's seats in a stretch of a cabinet, and whether it is of the coalition."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str | None = Field(
         None,
@@ -131,10 +125,8 @@ class CoalitionFactionSeatsDTO(BaseModel):
     )
 
 
-class SeatEventDTO(BaseModel):
+class SeatEventDTO(StrictModel):
     """What began a stretch: a change of the seats or of the coalition."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(
         ...,
@@ -162,10 +154,8 @@ class SeatEventDTO(BaseModel):
     )
 
 
-class SeatStretchDTO(BaseModel):
+class SeatStretchDTO(StrictModel):
     """A stretch of days in which neither the coalition nor any faction's seats changed."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str
     to_date: str
@@ -203,10 +193,8 @@ class SeatStretchDTO(BaseModel):
     )
 
 
-class CabinetSeatsResponse(BaseModel):
+class CabinetSeatsResponse(StrictModel):
     """The seats of a cabinet's coalition in each Kamer over its period."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     name: str | None = None
@@ -232,7 +220,6 @@ class CabinetSeatsResponse(BaseModel):
 class CabinetSummaryDTO(WithPath):
     """A cabinet in the list, with its counts."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "cabinets"
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
@@ -299,19 +286,15 @@ class CabinetSummaryDTO(WithPath):
         )
 
 
-class ActingOtherSeatDTO(BaseModel):
+class ActingOtherSeatDTO(StrictModel):
     """The seat a stand-in held throughout."""
-
-    model_config = ConfigDict(extra="forbid")
 
     seat: str
     function: str | None = None
 
 
-class CabinetPostDTO(BaseModel):
+class CabinetPostDTO(StrictModel):
     """One post a person held in the cabinet, with their counts within it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     member: PersonRefDTO
     post: Post | None = None
@@ -385,11 +368,9 @@ class CabinetPostDTO(BaseModel):
     )
 
 
-class CabinetSeatDTO(BaseModel):
+class CabinetSeatDTO(StrictModel):
     """One seat and its holders in order of start: a successor is the next post, a
     stand-in a post with ``acting``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     seat: str = Field(..., description="``ienw/minister``, ``viceminister-president``.")
     post: Post | None = None
@@ -398,11 +379,9 @@ class CabinetSeatDTO(BaseModel):
     posts: list[CabinetPostDTO]
 
 
-class CabinetMinistryDTO(BaseModel):
+class CabinetMinistryDTO(StrictModel):
     """The seats under one ministry; ``ministry`` null for a seat that names none (the
     viceminister-president, a minister without a named portfolio)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ministry: MinistryKey | None = None
     name: str | None = None
@@ -518,7 +497,6 @@ class CabinetDetailDTO(CabinetSummaryDTO):
 
 
 class CommitmentDossierDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
     path_collection = "dossiers"
 
     key: str
@@ -532,7 +510,6 @@ class CommitmentDossierDTO(WithPath):
 class CommitmentActivityDTO(WithPath):
     """The activity a commitment was made in: a debate, as the Kamer names it."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "activities"
 
     key: str
@@ -549,7 +526,6 @@ class CommitmentActivityDTO(WithPath):
 class CommitmentLetterDTO(WithPath):
     """A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "documents"
 
     id: str
@@ -573,7 +549,6 @@ class CommitmentMemberDTO(PersonRefDTO):
 class CommitmentDTO(WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "commitments"
 
     key: str
@@ -666,21 +641,17 @@ class CommitmentDTO(WithPath):
         )
 
 
-class CommitmentFacetsDTO(BaseModel):
+class CommitmentFacetsDTO(StrictModel):
     """Per dimension the number of commitments per value under the current filters, each
     dimension counted without its own filter, the largest first: only the values that
     have commitments (a ministry without any is not listed)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: list[FacetCountDTO] = Field(default_factory=list)
     cabinet: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
-class CommitmentListResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class CommitmentListResponse(StrictModel):
     total: int = Field(..., description="Matching commitments, whatever the page.")
     items: list[CommitmentDTO]
     # null when asked for without them (``facets=false``)

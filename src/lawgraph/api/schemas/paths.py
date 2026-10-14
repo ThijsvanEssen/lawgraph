@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from lawgraph.api.schemas.common import StrictModel
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
 
 PathExpand = Literal["none", "members"]
 
 
-class PathDTO(BaseModel):
+class PathDTO(StrictModel):
     """The shortest path between two of the nodes asked for."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source: str = Field(description="The id of the node it starts at.")
     target: str = Field(description="The id of the node it ends at.")
@@ -33,19 +32,15 @@ class PathDTO(BaseModel):
     )
 
 
-class GroupExpandedDTO(BaseModel):
+class GroupExpandedDTO(StrictModel):
     """How many children of a group a path search started from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     used: int
     total: int
 
 
-class PathsResponse(BaseModel):
+class PathsResponse(StrictModel):
     """Response for GET /api/paths."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ids: list[str] = Field(
         description="The nodes asked for, each once, in their order."

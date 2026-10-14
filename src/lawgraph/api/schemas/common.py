@@ -75,6 +75,13 @@ def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class StrictModel(BaseModel):
+    """The base of every DTO: an unknown field is an error, so a change of the contract
+    shows at once."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 # The fields a readable address is built from (``core.readable_paths.path_of``), under the
 # names the props of a node have them.
 PATH_FIELDS = (
@@ -91,7 +98,7 @@ PATH_FIELDS = (
 )
 
 
-class WithPath(BaseModel):
+class WithPath(StrictModel):
     """A source with its readable address (``path``), from its id (or its collection and
     key) and the fields it has under the names of ``PATH_FIELDS``, or its ``props`` (a
     search hit: its ``extra``). Null where they do not make one; for a paper also where
@@ -163,10 +170,8 @@ def readable_path(model: BaseModel) -> str | None:
     return path_of(target, props)
 
 
-class QualifierFields(BaseModel):
+class QualifierFields(StrictModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
-
-    model_config = ConfigDict(extra="forbid")
 
     leden: list[str] = Field(
         default_factory=list,
@@ -182,7 +187,6 @@ class QualifierFields(BaseModel):
 class InstrumentSummaryDTO(WithPath):
     """Short representation of an instrument."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "instruments"
 
     id: str
@@ -233,10 +237,8 @@ class InstrumentSummaryDTO(WithPath):
         )
 
 
-class ArticleCitationTarget(BaseModel):
+class ArticleCitationTarget(StrictModel):
     """Minimal metadata describing the referenced article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -271,7 +273,6 @@ class DefinitionGiverDTO(WithPath):
     """The regulation that gives a definition another regulation takes (it is issued under
     it)."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "instruments"
 
     key: str
@@ -281,11 +282,9 @@ class DefinitionGiverDTO(WithPath):
     abbreviation: str | None = None
 
 
-class DefinitionDTO(BaseModel):
+class DefinitionDTO(StrictModel):
     """A definition a regulation gives (its begripsbepalingen), as its text has it: its own,
     or one of a regulation it is issued under (``given_by``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ref: str = Field(
         ..., description="What a span names it by: article, letter and term."
@@ -323,10 +322,8 @@ class DefinitionDTO(BaseModel):
         return cls(ref=definition_ref(definition), **definition)
 
 
-class TermSpanDTO(BaseModel):
+class TermSpanDTO(StrictModel):
     """Where the text of an article uses a term its regulation defines."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start: int
     end: int
@@ -340,10 +337,8 @@ ArticleChange = Literal["amends", "introduces", "repeals"]
 ChangeEffect = Literal["establishes", ArticleChange]
 
 
-class EchrFindingDTO(BaseModel):
+class EchrFindingDTO(StrictModel):
     """What the ECHR found on one article (``core/echr_findings.py``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article: str = Field(description="The article of the Convention: `8`.")
     protocol: str | None = Field(
@@ -361,11 +356,9 @@ class EchrFindingDTO(BaseModel):
     )
 
 
-class JudgmentOutcomeFields(BaseModel):
+class JudgmentOutcomeFields(StrictModel):
     """How a judgment ended, what a conclusion proposes and what the ECHR found per article,
     as the decision says it (``core/judgment_outcome.py``, ``core/echr_findings.py``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     outcome: JudgmentOutcome | None = Field(
         None,
@@ -418,7 +411,6 @@ def judgment_outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
 class JudgmentSummaryDTO(WithPath):
     """Lightweight judgment summary for listing matches."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
 
     id: str
@@ -440,7 +432,6 @@ class JudgmentSummaryDTO(WithPath):
 class ArticleRelationDTO(WithPath):
     """Article reference plus optional parent instrument used in judgment responses."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "articles"
 
     id: str
@@ -474,11 +465,9 @@ class ArticleRelationDTO(WithPath):
         )
 
 
-class DossierNameDTO(BaseModel):
+class DossierNameDTO(StrictModel):
     """The names of a dossier next to its bare number, as ``/api/dossiers`` gives them;
     null when no dossier has the number."""
-
-    model_config = ConfigDict(extra="forbid")
 
     number: str
     short_title: str | None = Field(
@@ -505,7 +494,6 @@ def dossier_names_of(
 class DossierRefDTO(WithPath):
     """Reference to a Kamerstukdossier by number; ``title`` is null when unknown."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "dossiers"
 
     number: str
@@ -526,10 +514,8 @@ class DossierRefDTO(WithPath):
         return cls(number=text, key=key, title=title, short_title=short_title(title))
 
 
-class PublicationDTO(BaseModel):
+class PublicationDTO(StrictModel):
     """An amending publication (Staatsblad, Tractatenblad, ...) as recorded on a version."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str | None = None
     kind: str | None = None
@@ -570,10 +556,8 @@ class PublicationDTO(BaseModel):
         )
 
 
-class FacetCountDTO(BaseModel):
+class FacetCountDTO(StrictModel):
     """One value of a facet and how many items have it under the current filters."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str | None = Field(None, description="Null counts the items without one.")
     count: int

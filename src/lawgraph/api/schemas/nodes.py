@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import WithPath
+from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.core.documents import chamber_of, document_sender, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
@@ -65,8 +65,6 @@ def _build_node_payload(
 class BaseNodeDTO(WithPath):
     """Common node representation used by multiple responses."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     key: str
     collection: str
@@ -115,8 +113,6 @@ def with_dossier_short_title(
 class NeighborDTO(WithPath):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     key: str
     collection: str
@@ -158,10 +154,8 @@ class NeighborDTO(WithPath):
         )
 
 
-class NeighborBucketDTO(BaseModel):
+class NeighborBucketDTO(StrictModel):
     """The neighbours that share a relation, a direction and a collection: one page of them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: str | None
     direction: Direction
@@ -190,19 +184,15 @@ class NeighborBucketDTO(BaseModel):
     items: list[NeighborDTO]
 
 
-class NodeNeighborsDTO(BaseModel):
+class NodeNeighborsDTO(StrictModel):
     """Neighbors returned by /api/nodes/{collection}/{key}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int
     buckets: list[NeighborBucketDTO] = Field(default_factory=list)
 
 
-class NodeGraphResponse(BaseModel):
+class NodeGraphResponse(StrictModel):
     """Response for GET /api/nodes/{collection}/{key}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     node: BaseNodeDTO
     neighbors: NodeNeighborsDTO
@@ -225,10 +215,8 @@ class NodeGraphResponse(BaseModel):
     )
 
 
-class EdgePassage(BaseModel):
+class EdgePassage(StrictModel):
     """A place where a judgment cites, as the edge keeps it: to show without the judgment."""
-
-    model_config = ConfigDict(extra="forbid")
 
     paragraph_id: str = Field(
         description="The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`; of a "
@@ -246,10 +234,8 @@ class EdgePassage(BaseModel):
     end: int
 
 
-class NodeNeighborhoodEdge(BaseModel):
+class NodeNeighborhoodEdge(StrictModel):
     """Edge in a BFS-neighborhood response."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     source: str
@@ -283,11 +269,9 @@ class NodeNeighborhoodEdge(BaseModel):
         )
 
 
-class NeighborhoodCollectionDTO(BaseModel):
+class NeighborhoodCollectionDTO(StrictModel):
     """Of the focal node's own neighbours in one collection: how many, and how many the
     neighbourhood holds under its cap."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     total: int = Field(
@@ -298,10 +282,8 @@ class NeighborhoodCollectionDTO(BaseModel):
     kept: int = Field(..., description="Of those, the ones in `nodes`.")
 
 
-class NodeNeighborhoodResponse(BaseModel):
+class NodeNeighborhoodResponse(StrictModel):
     """One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."""
-
-    model_config = ConfigDict(extra="forbid")
 
     focal_id: str
     nodes: list[BaseNodeDTO]

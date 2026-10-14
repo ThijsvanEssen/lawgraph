@@ -2,7 +2,7 @@
 
 Conventions across the API
 --------------------------
-* Every DTO has ``model_config = ConfigDict(extra="forbid")``. Unknown
+* Every DTO derives from ``common.StrictModel`` (``extra="forbid"``). Unknown
   fields in inputs/outputs raise validation errors so contract drift
   surfaces immediately instead of being silently tolerated.
 * Node-id references always use ``id`` (the Arango ``_id``,

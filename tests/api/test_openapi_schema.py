@@ -282,3 +282,18 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "echr_findings",
         "path",
     } == _properties("CitedByJudgment")
+
+
+def test_every_object_schema_refuses_unknown_fields() -> None:
+    """Every DTO is a ``StrictModel``: an object schema of the spec says
+    ``additionalProperties: false`` (FastAPI's own error shapes aside)."""
+    fastapi = {"HTTPValidationError", "ValidationError"}
+    loose = [
+        name
+        for name, schema in SPEC["components"]["schemas"].items()
+        if name not in fastapi
+        and schema.get("type") == "object"
+        and "properties" in schema
+        and schema.get("additionalProperties") is not False
+    ]
+    assert loose == []

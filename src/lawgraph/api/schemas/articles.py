@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
@@ -20,6 +20,7 @@ from lawgraph.api.schemas.common import (
     JudgmentOutcomeFields,
     PublicationDTO,
     QualifierFields,
+    StrictModel,
     TermSpanDTO,
     WithPath,
     address_of,
@@ -58,12 +59,10 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
 }
 
 
-class ArticlePartSpanDTO(BaseModel):
+class ArticlePartSpanDTO(StrictModel):
     """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
 
     The parts and the printed numbers between them cover the whole text."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
@@ -133,11 +132,9 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
     return parts
 
 
-class DelegationClauseDTO(BaseModel):
+class DelegationClauseDTO(StrictModel):
     """A delegation formula in the text of an article ("bij of krachtens algemene maatregel
     van bestuur"), as a span of its `text`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start: int = Field(
         description="Offset of the formula in the `text` of the article."
@@ -213,7 +210,6 @@ def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
 class ArticleSummaryDTO(WithPath):
     """Summary of an article: its identifiers and text."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "articles"
 
     id: str
@@ -272,8 +268,6 @@ class ArticleSummaryDTO(WithPath):
 class ArticleRelationshipWithType(QualifierFields):
     """An article-to-article relationship enriched with its semantic layer."""
 
-    model_config = ConfigDict(extra="forbid")
-
     edge_id: str
     relation: str
     target_article: ArticleRelationDTO
@@ -324,10 +318,8 @@ class ArticleRelationshipWithType(QualifierFields):
         )
 
 
-class ScopeArticleReference(BaseModel):
+class ScopeArticleReference(StrictModel):
     """Annex that scopes the applicability of an article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     annex_id: str
     annex_key: str
@@ -360,10 +352,8 @@ class ScopeArticleReference(BaseModel):
         )
 
 
-class ArticleDetailResponse(BaseModel):
+class ArticleDetailResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
@@ -472,10 +462,8 @@ class DelegatedClauseDTO(DelegationClauseDTO):
     )
 
 
-class ArticleDelegatedResponse(BaseModel):
+class ArticleDelegatedResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/delegated."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     clauses: list[DelegatedClauseDTO] = Field(
@@ -494,7 +482,6 @@ class ArticleDelegatedResponse(BaseModel):
 class CitedByJudgment(JudgmentOutcomeFields, WithPath):
     """The judgment of a passage that cites an article, with how it ended."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
 
     id: str
@@ -579,10 +566,8 @@ class ArticleCitedByItem(QualifierFields):
         )
 
 
-class ArticleCitedByResponse(BaseModel):
+class ArticleCitedByResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     items: list[ArticleCitedByItem]
@@ -602,11 +587,9 @@ class ArticleCitedByResponse(BaseModel):
     )
 
 
-class LegislativeHistoryEntry(BaseModel):
+class LegislativeHistoryEntry(StrictModel):
     """One change of an article in one dossier: the dossier, and the amending publication
     (enacted) or the bill (proposed) that made or proposes the change."""
-
-    model_config = ConfigDict(extra="forbid")
 
     dossier_id: str | None = Field(
         None,
@@ -641,10 +624,8 @@ class LegislativeHistoryEntry(BaseModel):
     )
 
 
-class ArticleLegislativeHistoryResponse(BaseModel):
+class ArticleLegislativeHistoryResponse(StrictModel):
     """Legislative history for an article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     entries: list[LegislativeHistoryEntry]
@@ -685,10 +666,8 @@ def passage_excerpt(opening: Any, heading: str | None) -> str | None:
     return shorten(collapse_ws(opening), EXCERPT_CHARS) or None
 
 
-class ArticleExplanationDTO(BaseModel):
+class ArticleExplanationDTO(StrictModel):
     """One document that explains an article, and the node its EXPLAINS edge points at."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document: ExplainingDocumentDTO
     target: ExplanationTarget = Field(
@@ -775,10 +754,8 @@ class ArticleExplanationDTO(BaseModel):
         )
 
 
-class ArticleExplanationsResponse(BaseModel):
+class ArticleExplanationsResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/explained-by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     total: int = Field(
@@ -787,10 +764,8 @@ class ArticleExplanationsResponse(BaseModel):
     items: list[ArticleExplanationDTO]
 
 
-class ArticlePassagesDTO(BaseModel):
+class ArticlePassagesDTO(StrictModel):
     """A paper that explains an article in a passage, and its passages."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document: DocumentEntryDTO
     target: ExplanationTarget = Field(
@@ -862,20 +837,16 @@ def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
     )
 
 
-class ArticlePassagesResponse(BaseModel):
+class ArticlePassagesResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/explanations."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     total: int
     items: list[ArticlePassagesDTO]
 
 
-class ArticleVersionDTO(BaseModel):
+class ArticleVersionDTO(StrictModel):
     """One dated version of an article, with the publication that produced it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     article_number: str | None = None
@@ -944,10 +915,8 @@ class ArticleVersionDTO(BaseModel):
         )
 
 
-class ArticleHistoryResponse(BaseModel):
+class ArticleHistoryResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/history."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str
     article_number: str

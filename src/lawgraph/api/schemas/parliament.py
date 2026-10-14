@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
-from lawgraph.api.schemas.common import WithPath
+from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.config.constants import Chamber
 
 
 class FactionSeatsDTO(WithPath):
     """A party's seats, and where it sits in the hemicycle."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "factions"
 
     id: str | None = Field(
@@ -54,10 +53,8 @@ class FactionSeatsDTO(WithPath):
     )
 
 
-class SeatingPlanDTO(BaseModel):
+class SeatingPlanDTO(StrictModel):
     """The seating plan of the plenary hall the order is taken from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     title: str
     dated: str = Field(..., description="The date of the plan, YYYY-MM-DD.")
@@ -74,10 +71,8 @@ class HallPlaceDTO(HallSeatDTO):
     name: str | None = Field(None, description="As the Kamer writes it.")
 
 
-class HallDTO(BaseModel):
+class HallDTO(StrictModel):
     """The plenary hall of the Eerste Kamer as Wie zit waar on eerstekamer.nl draws it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     url: str
     seats: list[HallPlaceDTO] = Field(
@@ -88,10 +83,8 @@ class HallDTO(BaseModel):
     )
 
 
-class ParliamentSeatsResponse(BaseModel):
+class ParliamentSeatsResponse(StrictModel):
     """The seat composition of the Tweede Kamer or the Eerste Kamer."""
-
-    model_config = ConfigDict(extra="forbid")
 
     chamber: Chamber = "TK"
     cabinet: dict[str, str | None] | None = Field(
@@ -132,20 +125,16 @@ class ParliamentSeatsResponse(BaseModel):
     )
 
 
-class ColorSourceDTO(BaseModel):
+class ColorSourceDTO(StrictModel):
     """Where the colours of a Kamer were read."""
-
-    model_config = ConfigDict(extra="forbid")
 
     url: str
     what: str
     read_on: str = Field(..., description="YYYY-MM-DD.")
 
 
-class ChamberColorsDTO(BaseModel):
+class ChamberColorsDTO(StrictModel):
     """The colours a Kamer draws its factions in."""
-
-    model_config = ConfigDict(extra="forbid")
 
     colors: dict[str, list[str]] = Field(
         ...,
@@ -155,10 +144,8 @@ class ChamberColorsDTO(BaseModel):
     source: ColorSourceDTO
 
 
-class PartyColorsResponse(BaseModel):
+class PartyColorsResponse(StrictModel):
     """Party to hex colour, by every name and alias; and the aliases."""
-
-    model_config = ConfigDict(extra="forbid")
 
     colors: dict[str, str]
     aliases: dict[str, str] = Field(

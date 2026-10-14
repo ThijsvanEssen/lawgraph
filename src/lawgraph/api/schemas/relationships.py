@@ -4,20 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     SEMANTIC_CONFIDENCE,
     SEMANTIC_PATTERN,
     ArticleRelationDTO,
+    StrictModel,
     semantic_fields,
 )
 
 
-class RelationshipDTO(BaseModel):
+class RelationshipDTO(StrictModel):
     """A single semantic relationship row of the search results."""
-
-    model_config = ConfigDict(extra="forbid")
 
     edge_id: str
     from_id: str
@@ -67,10 +66,8 @@ class RelationshipDTO(BaseModel):
         )
 
 
-class RelationshipSearchResponse(BaseModel):
+class RelationshipSearchResponse(StrictModel):
     """Paginated semantic relationship search results."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relationships: list[RelationshipDTO]
     total: int

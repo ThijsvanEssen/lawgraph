@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
+from lawgraph.api.schemas.common import (
+    DossierNameDTO,
+    StrictModel,
+    WithPath,
+    dossier_names_of,
+)
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, numbered_in, paper_number
 from lawgraph.core.models import key_of
@@ -45,10 +50,8 @@ _MOTION = (
 )
 
 
-class DecisionMotionDTO(BaseModel):
+class DecisionMotionDTO(StrictModel):
     """The paper a decision was taken on: its node and readable address."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     key: str
@@ -58,7 +61,6 @@ class DecisionMotionDTO(BaseModel):
 class DecisionPaperDTO(WithPath):
     """The Kamerstuk a decision was taken on: the motion, the amendment or the bill."""
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "documents"
 
     id: str
@@ -97,7 +99,6 @@ class DecisionPaperDTO(WithPath):
 class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
-    model_config = ConfigDict(extra="forbid")
     path_id_field = "voter_id"
 
     voter_id: str = Field(..., description="Arango _id of the member or faction.")
@@ -117,12 +118,10 @@ _DICTUM = (
 )
 
 
-class CoalitionVoteDTO(BaseModel):
+class CoalitionVoteDTO(StrictModel):
     """What the coalition of the cabinet in office did on a vote of the Tweede Kamer
     (``semantic tk-coalition-votes``): the seats ``Voor`` and ``Tegen`` of the coalition and
     of the opposition (a faction with its seats that day, a member of a roll call as one)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     cabinet: str = Field(..., description="The key of the cabinet in office that day.")
     coalition_for: int
@@ -145,10 +144,8 @@ class CoalitionVoteDTO(BaseModel):
     )
 
 
-class CoalitionFactionDTO(BaseModel):
+class CoalitionFactionDTO(StrictModel):
     """A faction of the coalition on a vote: how its seats went."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     short: str | None = Field(None, description="Its abbreviation, else its name.")
@@ -170,7 +167,6 @@ class DecisionDTO(WithPath):
     cast each choice.
     """
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "decisions"
 
     id: str
@@ -295,7 +291,6 @@ class DecisionSummaryDTO(WithPath):
     ``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart.
     """
 
-    model_config = ConfigDict(extra="forbid")
     path_collection = "decisions"
 
     id: str
@@ -336,11 +331,9 @@ class DecisionSummaryDTO(WithPath):
     )
 
 
-class DecisionKindCount(BaseModel):
+class DecisionKindCount(StrictModel):
     """How many of the decisions are of one kind, and how many of those carried and did
     not (the rest have no outcome)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str | None
     count: int
@@ -348,29 +341,23 @@ class DecisionKindCount(BaseModel):
     rejected: int = 0
 
 
-class DecisionOutcomeCount(BaseModel):
+class DecisionOutcomeCount(StrictModel):
     """How many of the decisions carried (``true``), did not, or have no outcome (null)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: bool | None
     count: int
 
 
-class DecisionDayCount(BaseModel):
+class DecisionDayCount(StrictModel):
     """The decisions of one day: how many, and how many of them carried."""
-
-    model_config = ConfigDict(extra="forbid")
 
     date: str | None
     count: int
     passed: int
 
 
-class DecisionYearCount(BaseModel):
+class DecisionYearCount(StrictModel):
     """The decisions of one year: how many, how many carried, how many did not."""
-
-    model_config = ConfigDict(extra="forbid")
 
     year: str | None
     count: int
@@ -378,11 +365,9 @@ class DecisionYearCount(BaseModel):
     rejected: int
 
 
-class PartyVoteCount(BaseModel):
+class PartyVoteCount(StrictModel):
     """How a faction voted on some of the decisions: ``voor``, ``tegen``, and ``none``
     (another choice, or no vote of the faction: a roll-call vote is one of members)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     voor: int
     tegen: int
@@ -407,19 +392,15 @@ class PartyVotes(PartyVoteCount):
     years: list[PartyVoteYearCount] = Field(default_factory=list)
 
 
-class DecisionCoalitionCount(BaseModel):
+class DecisionCoalitionCount(StrictModel):
     """How many of the decisions saw the coalition do this (``coalition`` filter values)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str
     count: int
 
 
-class DecisionCabinetCoalition(BaseModel):
+class DecisionCabinetCoalition(StrictModel):
     """What the coalition of one cabinet did on the decisions under every filter."""
-
-    model_config = ConfigDict(extra="forbid")
 
     cabinet: str = Field(..., description="The key of the cabinet.")
     name: str | None = None
@@ -431,15 +412,13 @@ class DecisionCabinetCoalition(BaseModel):
     decisive: int
 
 
-class DecisionFacets(BaseModel):
+class DecisionFacets(StrictModel):
     """The decisions under the filters, counted.
 
     ``kind`` is counted without the ``kind`` filter and ``passed`` without the ``passed``
     filter, so each shows what choosing another value would give; ``days`` is counted
     under every filter.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: list[DecisionKindCount] = Field(
         default_factory=list, description="Per kind, most first."
@@ -470,10 +449,8 @@ class DecisionFacets(BaseModel):
     )
 
 
-class DecisionListResponse(BaseModel):
+class DecisionListResponse(StrictModel):
     """A page of decisions."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int | None = Field(
         ...,
