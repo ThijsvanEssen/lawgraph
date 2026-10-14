@@ -21,6 +21,7 @@ from lawgraph.db.queries.search import (
     score_hit,
     tokenize_search_query,
 )
+from tests.api.stubs import stub_route
 
 # ── Pure-function tests ───────────────────────────────────────────────────────
 
@@ -242,7 +243,7 @@ def test_the_search_route_passes_its_period(monkeypatch: pytest.MonkeyPatch) -> 
         asked.update(kwargs)
         return {}, set()
 
-    monkeypatch.setattr("lawgraph.api.routes.search.search_live", search_live)
+    stub_route(monkeypatch, "search", search_live=search_live)
     client = TestClient(app)
     params = {"q": "klimaat", "mode": "live", "from": "2019-01-01", "to": "2019-12-31"}
     assert client.get("/api/search", params=params).status_code == 200
@@ -266,7 +267,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         weaker = {**_SR_ART_287, "id": "articles/x", "key": "x", "score": SCORE_WORDS}
         return {"articles": [_SR_ART_287, weaker]}, set()
 
-    monkeypatch.setattr("lawgraph.api.routes.search.search_full", search_full)
+    stub_route(monkeypatch, "search", search_full=search_full)
 
     response = TestClient(app).get(
         "/api/search",
@@ -313,12 +314,12 @@ def test_search_resolves_q_in_the_same_request_when_asked(
         asked.append(q)
         return resolved
 
-    monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_full", lambda store, **kwargs: ({}, set())
-    )
-    monkeypatch.setattr("lawgraph.api.routes.search.resolve_query", resolve_query)
-    monkeypatch.setattr(
-        "lawgraph.api.routes.search.kept_notation_parser", lambda store, wait: object()
+    stub_route(
+        monkeypatch,
+        "search",
+        search_full=({}, set()),
+        resolve_query=resolve_query,
+        kept_notation_parser=lambda store, wait: object(),
     )
     client = TestClient(app)
 
@@ -335,9 +336,10 @@ def test_search_resolves_q_in_the_same_request_when_asked(
 def test_an_unknown_type_is_refused_before_the_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.search.search_full",
-        lambda store, **kwargs: pytest.fail("searched"),
+    stub_route(
+        monkeypatch,
+        "search",
+        search_full=lambda store, **kwargs: pytest.fail("searched"),
     )
     response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
     assert response.status_code == 400
@@ -394,9 +396,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         },
         "zzzz onbekend": dict(NO_MATCH),
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.resolve.resolve_query", lambda store, q: answers[q]
-    )
+    stub_route(monkeypatch, "resolve", resolve_query=lambda store, q: answers[q])
     client = TestClient(app)
 
     found = client.get("/api/resolve", params={"q": "art. 6:162 BW"})

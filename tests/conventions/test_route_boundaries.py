@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 ROUTES = "lawgraph.api.routes"
 
@@ -34,7 +35,7 @@ def _private_uses(tree: ast.AST) -> list[str]:
 def test_no_module_reads_a_private_name_of_a_route() -> None:
     offenders = {
         str(path.relative_to(SRC)): uses
-        for path in _python_files()
+        for path in python_files()
         if (uses := _private_uses(ast.parse(path.read_text())))
     }
     assert not offenders, f"make it public: {offenders}"

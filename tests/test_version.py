@@ -7,12 +7,11 @@ import os
 import shutil
 import subprocess
 import tomllib
-from pathlib import Path
 
 import lawgraph
 from lawgraph.api.app import app
+from tests.paths import ROOT
 
-ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "deploy.yml"
 
 

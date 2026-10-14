@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -30,8 +29,7 @@ from lawgraph.pipelines.normalize.eerstekamer_votes import (
     EerstekamerVotesNormalizePipeline,
 )
 from tests.fakes import InMemoryStore
-
-FIXTURES = Path(__file__).parent.parent / "fixtures"
+from tests.paths import fixture_text
 
 
 def _page(kind: str, external_id: str, text: str | None) -> dict[str, Any]:
@@ -67,7 +65,7 @@ def test_an_agenda_page_that_gives_no_activity_is_skipped() -> None:
 
 
 def test_a_bill_page_without_a_dossier_the_graph_holds_is_skipped() -> None:
-    page = (FIXTURES / "ek_bill_36791.html").read_text()
+    page = fixture_text("ek_bill_36791.html")
     pipeline = EerstekamerBillsNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
 
     nodes = pipeline.normalize_nodes(
@@ -110,7 +108,7 @@ def test_a_votes_page_that_gives_no_vote_is_skipped_and_keeps_its_day(
 def test_a_listed_page_that_is_not_stored_is_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    listing = (FIXTURES / "ek_factions.html").read_text()
+    listing = fixture_text("ek_factions.html")
     state: dict[str, list[Any]] = {
         "factions": [],
         "committees": [],

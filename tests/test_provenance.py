@@ -12,8 +12,8 @@ from lawgraph.core import provenance
 from lawgraph.core.citations import CitationHit, hit_reason
 from lawgraph.core.provenance import BASES, PROVENANCE, REASONS, Basis, Reason
 from lawgraph.core.relations import RELATION_NAMES
+from tests.paths import ROOT
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 PIPELINES = ROOT / "src" / "lawgraph" / "pipelines"
 DOCS = ROOT / "docs" / "data-model.md"
 _KEYS = {"basis", "bases", "reason"}

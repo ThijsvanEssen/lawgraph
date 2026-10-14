@@ -10,7 +10,8 @@ import pathlib
 
 import pytest
 
-from tests.conventions._scan import TESTS, _aql_in
+from tests.paths import TESTS
+from tests.source_scan import aql_in
 
 
 def _unit_test_files() -> list[pathlib.Path]:
@@ -48,7 +49,7 @@ def test_the_fake_scan_finds_a_query_method() -> None:
 )
 def test_unit_tests_fake_query_functions(path: pathlib.Path) -> None:
     source = path.read_text()
-    lines = _answers_queries(ast.parse(source)) + _aql_in(source)
+    lines = _answers_queries(ast.parse(source)) + aql_in(source)
     assert not lines, (
         f"{path.relative_to(TESTS)}:{sorted(lines)} fakes the database; patch the function of "
         f"db/queries/ the code calls, and test the query in tests/integration/."

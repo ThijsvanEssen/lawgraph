@@ -6,11 +6,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+from tests.paths import ROOT
+
 NO_SERVER = "postgresql://nobody@127.0.0.1:1/nothing"
 SUITES = ["tests/pg/test_test_databases.py", "tests/integration/test_stubs.py"]
 

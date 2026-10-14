@@ -5,26 +5,23 @@ Kiesraad's result to today, checked against today's composition."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from lawgraph.core import eerstekamer_composition as composition
 from lawgraph.core import ek_changes as ec
 from lawgraph.core.kiesraad import parse_ek_result
-
-FIXTURES = Path(__file__).parent / "fixtures"
-EK = FIXTURES / "eerstekamer"
+from tests.paths import FIXTURES, fixture_text
 
 
 def _page(name: str) -> str:
-    return (EK / name).read_text("utf-8")
+    return fixture_text(name, sub="eerstekamer")
 
 
 def _articles() -> list[ec.Article]:
     return [
         ec.Article(a["headline"], a["date"], a["text"], a["persons"])
-        for a in json.loads((EK / "articles_2023.json").read_text("utf-8"))
+        for a in json.loads(fixture_text("articles_2023.json", sub="eerstekamer"))
     ]
 
 
@@ -145,9 +142,7 @@ def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
     for change in lineage:
         for name in change.sources:
             factions[name] = ec.aliases(name)
-    result = parse_ek_result(
-        (FIXTURES / "kiesraad" / "EK20230530.html").read_text("utf-8")
-    )
+    result = parse_ek_result(fixture_text("EK20230530.html", sub="kiesraad"))
     assert result is not None
     seats, unmatched = ec.start_seats(result.seats, factions)
     assert unmatched == []
@@ -195,7 +190,7 @@ def _walk_term(term: str) -> ec.Walk:
     them."""
     items = [
         a
-        for a in json.loads((EK / "articles_2003_2023.json").read_text("utf-8"))
+        for a in json.loads(fixture_text("articles_2003_2023.json", sub="eerstekamer"))
         if a["term"] == term
     ]
     articles = [
@@ -237,7 +232,7 @@ def test_a_term_with_a_seat_the_pages_do_not_explain_is_not_checked() -> None:
 def test_older_items_in_their_own_words() -> None:
     every = [
         ec.Article(a["headline"], a["date"], a["text"], a["persons"])
-        for a in json.loads((EK / "articles_2003_2023.json").read_text("utf-8"))
+        for a in json.loads(fixture_text("articles_2003_2023.json", sub="eerstekamer"))
     ]
     items = {a.headline: a for a in reversed(every)}  # the first of a headline
 

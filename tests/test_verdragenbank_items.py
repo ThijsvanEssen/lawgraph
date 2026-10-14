@@ -3,7 +3,6 @@ related treaties, from two real items (000004, 004630), retrieved and normalized
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
 import pytest
@@ -22,12 +21,12 @@ from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, http_error
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # Convention for the protection of the architectural heritage of Europe (Granada, 1985)
-GRANADA = (FIXTURES / "verdragenbank_item_000004.xml").read_text()
+GRANADA = fixture_text("verdragenbank_item_000004.xml")
 # Protocol No. 2 to the ECHR (Strasbourg, 1963), a child of the ECHR (005132)
-PROTOCOL_2 = (FIXTURES / "verdragenbank_item_004630.xml").read_text()
+PROTOCOL_2 = fixture_text("verdragenbank_item_004630.xml")
 
 
 # ── the item XML ─────────────────────────────────────────────────────────────

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import pathlib
 from collections.abc import Iterable
 from typing import Any
 
@@ -33,10 +32,10 @@ from tests.fakes import (
     http_error,
     raw_record,
 )
+from tests.paths import fixture_text
 
-FIXTURE = (
-    pathlib.Path(__file__).parent / "fixtures" / "kst_37020_x_1.xml"
-).read_text()  # kst-37020-X-1, a real "Voorstel van wet" (22 KB)
+# kst-37020-X-1, a real "Voorstel van wet" (22 KB)
+FIXTURE = fixture_text("kst_37020_x_1.xml")
 
 
 # ── identifiers ──────────────────────────────────────────────────────────────

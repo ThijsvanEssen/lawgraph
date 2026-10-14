@@ -13,6 +13,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, _address_of, _pipeline
+from tests.paths import ROOT
 
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
 
@@ -154,7 +155,7 @@ def test_what_a_pipeline_comes_after_is_of_its_phase_and_before_it() -> None:
 
 def test_the_ordering_table_of_the_docs_is_what_normalize_comes_after() -> None:
     """Each normalize row of the Ordering table names the normalize steps of ``after``."""
-    text = (Path(__file__).resolve().parents[1] / "docs" / "pipelines.md").read_text()
+    text = (ROOT / "docs" / "pipelines.md").read_text()
     table = text.split("## Ordering", 1)[1].split("\n## ", 1)[0]
     rows = re.findall(r"^\| normalize `([a-z-]+)` \| (.*) \|$", table, flags=re.M)
     documented = {
@@ -190,12 +191,11 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
 ):
     """docs/operations.md named seven semantic pipelines by names they no longer had."""
     import re
-    from pathlib import Path
 
     from lawgraph.config.settings import skip_variable
     from lawgraph.sources.registry import PIPELINES
 
-    text = (Path(__file__).resolve().parents[1] / "docs" / "operations.md").read_text()
+    text = (ROOT / "docs" / "operations.md").read_text()
     names = {p.name for p in PIPELINES["retrieve"]}
     rows = {
         "retrieve": names,

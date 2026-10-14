@@ -4,7 +4,6 @@ next to the ministries list, from the real lists."""
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import Any
 
 import pytest
@@ -24,11 +23,11 @@ from lawgraph.config.constants import (
 from lawgraph.config.sources import TOOI
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-LEGAL_AREAS = json.loads((FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text())
-THEMES = json.loads((FIXTURES / "tooi_bwb_themas.json").read_text())
-MINISTRIES = json.loads((FIXTURES / "tooi_ministeries.json").read_text())
+LEGAL_AREAS = json.loads(fixture_text("tooi_bwb_rechtsgebieden.json"))
+THEMES = json.loads(fixture_text("tooi_bwb_themas.json"))
+MINISTRIES = json.loads(fixture_text("tooi_ministeries.json"))
 
 
 def _page(name: str, *versions: int) -> str:

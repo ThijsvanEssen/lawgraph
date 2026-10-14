@@ -27,6 +27,7 @@ from lawgraph.db.queries.instrument_scope import (
     scope_of,
     scope_of_node,
 )
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -146,9 +147,8 @@ def test_the_eu_link_has_no_articles_field() -> None:
 
 
 def _stub(monkeypatch: pytest.MonkeyPatch, doc: dict[str, Any] | None) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.resolve_instrument",
-        lambda store, identifier: doc,
+    stub_route(
+        monkeypatch, "instruments", resolve_instrument=lambda store, identifier: doc
     )
 
 
@@ -207,9 +207,11 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
         }
         return InternationalLinksData([treaty], 5, [echr], 40)
 
-    monkeypatch.setattr("lawgraph.api.routes.instruments.get_eu_links", eu_links)
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.get_international_links", international
+    stub_route(
+        monkeypatch,
+        "instruments",
+        get_eu_links=eu_links,
+        get_international_links=international,
     )
 
     body = client.get("/api/instruments/32016L0680/eu-links?limit=2").json()
@@ -260,7 +262,7 @@ def test_a_sub_route_takes_a_celex_number(monkeypatch: pytest.MonkeyPatch) -> No
             1,
         )
 
-    monkeypatch.setattr("lawgraph.api.routes.instruments.get_articles", articles)
+    stub_route(monkeypatch, "instruments", get_articles=articles)
     body = client.get("/api/instruments/32016L0680/articles").json()
     assert seen == ["32016L0680"]
     assert body["bwb_id"] == "32016L0680" and body["total"] == 1

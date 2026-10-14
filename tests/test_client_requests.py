@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import datetime as dt
 import io
-import pathlib
 import zipfile
 from collections.abc import Callable
 from functools import partial
@@ -35,8 +34,8 @@ from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.sources import HOSTS
 from lawgraph.core.bwb_wti import SKOS_PREF_LABEL
 from tests.fakes import ScriptedSession, answer
+from tests.paths import FIXTURES
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 USER_AGENT = "Concordans (https://github.com/ThijsvanEssen/lawgraph)"
 
 # An SRU answer without records, and one with the treaties of a real page.

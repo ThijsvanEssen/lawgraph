@@ -3,7 +3,7 @@ cited (``6:162``) and its own (``162``) are made one there, not per route."""
 
 from __future__ import annotations
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 ROUTES = SRC / "api" / "routes"
 

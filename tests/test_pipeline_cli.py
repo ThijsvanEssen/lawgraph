@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 
 import pytest
 
@@ -17,9 +16,6 @@ from lawgraph.pipelines.command import (
     combined_result,
     run_command,
 )
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
-
 
 # ── run_command ──────────────────────────────────────────────────────────────────
 

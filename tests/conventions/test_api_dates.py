@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 ROUTES = SRC / "api" / "routes"
 # a day parameter (``date_from``, ``since``, ``due_before``, …) written out by hand

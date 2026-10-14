@@ -10,7 +10,8 @@ import re
 
 import pytest
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 # The homes: Dutch month names in ``core/dutch_dates.py``; shifting an ISO day and the open
 # end of a period in ``core/time.py``.
@@ -72,7 +73,7 @@ def test_the_date_scan_would_catch_a_copy() -> None:
     ]
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 def test_dates_are_read_and_shifted_in_one_place(path: pathlib.Path) -> None:
     if path in (DUTCH_DATES_HOME, TIME_HOME):
         return

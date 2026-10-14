@@ -11,7 +11,8 @@ import re
 
 import pytest
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 BUDGET_TITLES_HOME = SRC / "core" / "budget_titles.py"
 PUBLICATIONS_HOME = SRC / "core" / "publications.py"
@@ -88,7 +89,7 @@ def test_the_scan_for_copies_would_catch_one() -> None:
     assert _copies('LABELS = {"directive": "Richtlijn"}', EU_ACT_KINDS_HOME, other)
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 @pytest.mark.parametrize(
     "home",
     [BUDGET_TITLES_HOME, PUBLICATIONS_HOME, EU_ACT_KINDS_HOME],

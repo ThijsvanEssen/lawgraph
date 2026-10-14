@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
 from lawgraph.db.queries.articles import ArticleDetailData
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -74,22 +75,15 @@ def test_relationship_types_endpoint():
 
 
 def test_the_article_detail_carries_its_relationships(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.article_terms",
-        lambda store, instrument_id, props, citations: ([], {}, []),
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: ArticleDetailData(
-            article=_SOURCE_ARTICLE, instrument=None, metadata={}
+    stub_route(
+        monkeypatch,
+        "articles",
+        article_terms=([], {}, []),
+        get_article_with_relations=lambda store, bwb_id, article_number: (
+            ArticleDetailData(article=_SOURCE_ARTICLE, instrument=None, metadata={})
         ),
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_citations", lambda store, doc: []
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_relationship_data",
-        lambda store, article_id: {
+        get_article_citations=[],
+        get_article_relationship_data={
             "upstream": [
                 {"edge": _EDGE, "target": _TARGET_ARTICLE, "instrument": None}
             ],
@@ -117,9 +111,10 @@ def test_the_article_detail_carries_its_relationships(monkeypatch):
 
 
 def test_relationships_search(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.relationships.search_relationships",
-        lambda store, **kwargs: (
+    stub_route(
+        monkeypatch,
+        "relationships",
+        search_relationships=(
             [
                 {
                     "edge": _EDGE,
@@ -150,7 +145,7 @@ def test_relationships_search_takes_several_types_and_types_to_leave_out(monkeyp
         asked.append(kwargs)
         return [], 0
 
-    monkeypatch.setattr("lawgraph.api.routes.relationships.search_relationships", fake)
+    stub_route(monkeypatch, "relationships", search_relationships=fake)
     response = client.get(
         "/api/relationships/search",
         params={

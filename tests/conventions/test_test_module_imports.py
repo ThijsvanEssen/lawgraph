@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import TESTS
+from tests.paths import TESTS
 
 
 def _test_module_imports(tree: ast.AST, package: str) -> list[tuple[int, str]]:

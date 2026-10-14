@@ -214,7 +214,7 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | McCabe complexity at most 15 | ruff `C901` |
 | A command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when its `run` takes it | `tests/test_pipeline_cli.py` |
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
-| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
+| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/conventions/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
 | A test of, or fallback for, a json value in SQL (present, absent, truthy `||`, array or `[]`, length, kept props, a period) is spelled once, in `db/queries/_json_sql.py`; its tests never give SQL NULL | `tests/conventions/test_json_sql.py`, `tests/pg/test_json_sql.py` |
 | A node key is made in SQL with `lg_node_key`, never with `lower`/`replace`; a json shape shown in several places (coalition on a vote, a judgment as a link or list row, an activity's lead committee) is built once; a member's name is `members.list_name` (the feed spells out its expression, which keeps its plan) | `tests/conventions/test_node_key_sql.py`, `tests/pg/test_node_key_sql.py`, `tests/conventions/test_sql_shapes.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |

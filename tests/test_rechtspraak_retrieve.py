@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import pathlib
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -18,12 +17,12 @@ from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
+from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
-INDEX_PAGE = (
-    pathlib.Path(__file__).parent / "fixtures" / "rechtspraak_index_page.xml"
-).read_text()  # one real Hoge Raad entry; the search matched 47
+# one real Hoge Raad entry; the search matched 47
+INDEX_PAGE = fixture_text("rechtspraak_index_page.xml")
 
 UTC = dt.timezone.utc
 

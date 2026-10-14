@@ -15,6 +15,7 @@ from lawgraph.db.queries.nodes import (
     NeighborFilter,
     NodeGraphData,
 )
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -72,7 +73,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         seen.update(kwargs)
         return _payload()
 
-    monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", fake)
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
 
     response = client.get(
         "/api/nodes/instruments/BWBR0000123"
@@ -126,7 +127,7 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
         seen.update(kwargs)
         return _payload()
 
-    monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", fake)
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
     assert client.get("/api/nodes/instruments/x").status_code == 200
     assert seen == {
         "filters": NeighborFilter(),
@@ -209,7 +210,7 @@ def test_a_page_of_the_canvas_is_larger_and_waits_for_no_lids(
         seen.update(kwargs)
         return _payload()
 
-    monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", fake)
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
     assert client.get(f"/api/nodes/articles/x?{query}").status_code == 200
     assert (seen["limit"], seen["offset"], seen["canvas"], seen["wait_for_lids"]) == (
         limit,
@@ -233,7 +234,7 @@ def test_the_first_level_alone_takes_a_cap_of_2000(monkeypatch):
         seen.update(kwargs)
         return {"focal": _NEIGHBOR_DOC, "nodes": [], "edges": [], "buckets": []}
 
-    monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_neighborhood", fake)
+    stub_route(monkeypatch, "nodes", get_node_neighborhood=fake)
     url = "/api/nodes/articles/x/neighborhood"
     assert client.get(f"{url}?depth=1&cap=2000").status_code == 200
     assert (seen["depth"], seen["cap"]) == (1, 2000)

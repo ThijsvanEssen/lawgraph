@@ -4,7 +4,6 @@ served on 2026-09-30 (``<main>`` only)."""
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 
 from lawgraph.config.constants import RAW_KIND_EK_REJECTED, RAW_KIND_EK_VOTES_DAY
 from lawgraph.core import eerstekamer_votes as ev
@@ -14,13 +13,13 @@ from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
-FIXTURES = Path(__file__).parent / "fixtures"
-PAGE_1 = (FIXTURES / "ek_votes_page_1.html").read_text()
-PAGE_2 = (FIXTURES / "ek_votes_page_2.html").read_text()
-REJECTED = (FIXTURES / "ek_rejected_page_1.html").read_text()
+PAGE_1 = fixture_text("ek_votes_page_1.html")
+PAGE_2 = fixture_text("ek_votes_page_2.html")
+REJECTED = fixture_text("ek_rejected_page_1.html")
 # the list of every vote, on bills and on motions, as served on 2026-10-09
-ALL = (FIXTURES / "ek_votes_alles_page_1.html").read_text()
+ALL = fixture_text("ek_votes_alles_page_1.html")
 
 
 def test_a_page_holds_its_days_and_links_the_page_before() -> None:

@@ -4,7 +4,6 @@ over the metadata and the kop, and over real judgments of the Rechtspraak."""
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -23,8 +22,7 @@ from lawgraph.core.judgments import (
     parse_judgment,
     translated_case_number,
 )
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 def _kind(
@@ -141,7 +139,7 @@ def test_every_kind_of_court_gives_a_kind_of_decision() -> None:
     ],
 )
 def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
-    root = parse_judgment((FIXTURES / name).read_text())
+    root = parse_judgment(fixture_text(name))
     meta, subjects = extract_rdf_metadata(root)
     _, _, court_kind = derive_court(ecli, meta.get("court"))
     found = decision_kind(
@@ -155,7 +153,7 @@ def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
 
 
 def _summary(name: str) -> str | None:
-    return extract_judgment_text(parse_judgment((FIXTURES / name).read_text()))[0]
+    return extract_judgment_text(parse_judgment(fixture_text(name)))[0]
 
 
 def test_the_english_translation_has_an_english_summary() -> None:

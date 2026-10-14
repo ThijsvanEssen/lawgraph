@@ -12,7 +12,7 @@ import pytest
 
 from lawgraph.config.sources import HOSTS
 from lawgraph.sources.registry import PIPELINES
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 CLIENTS = sorted((SRC / "clients").glob("*.py"))
 # The two modules that are the HTTP of the clients.

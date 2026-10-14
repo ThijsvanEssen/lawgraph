@@ -7,7 +7,7 @@ import tomllib
 
 import yaml
 
-from tests.conventions._scan import TESTS
+from tests.paths import TESTS
 
 ROOT = TESTS.parent
 

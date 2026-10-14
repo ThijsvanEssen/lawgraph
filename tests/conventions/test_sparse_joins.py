@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 _SPARSE_JOIN = re.compile(r"\.props\.(bwb_id|celex|ecli) == (?!@|null\b)[A-Za-z_]")
 

@@ -25,6 +25,7 @@ from lawgraph.core.values import first_str, first_text_prop, next_page_link
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
+from tests.paths import FIXTURES
 
 NS = "http://example.org/ns"
 
@@ -611,11 +612,10 @@ def test_every_court_of_the_rechtspraak_has_a_tier_and_a_kind() -> None:
     """The waardelijst of the Rechtspraak (``/Waardelijst/Instanties``) names every court an
     ECLI can have; each has the tier of its Type and a kind, and none is a catch-all."""
     import xml.etree.ElementTree as ET
-    from pathlib import Path
 
     from lawgraph.core.courts import court_of
 
-    root = ET.parse(Path(__file__).parent / "fixtures" / "rechtspraak_instanties.xml")
+    root = ET.parse(FIXTURES / "rechtspraak_instanties.xml")
     codes = {
         (instance.findtext("Afkorting") or "").strip(): instance.findtext("Type") or ""
         for instance in root.getroot()

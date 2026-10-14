@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import Any
 
 import pytest
@@ -19,14 +18,13 @@ from lawgraph.config.constants import (
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline, text_items
 from tests.fakes import InMemoryStore, ScriptedSession, http_error, raw_record
+from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
-PAGE = json.loads(
-    (pathlib.Path(__file__).parent / "fixtures" / "hudoc_results_page.json").read_text()
-)  # 2 real judgments, each wrapped as {"columns": {...}}
+# 2 real judgments, each wrapped as {"columns": {...}}
+PAGE = json.loads(fixture_text("hudoc_results_page.json"))
 # The recorded page is cut to two judgments; the count it reports is cut with it, because the
 # client compares what it read with what the service counts.
 PAGE["resultcount"] = len(PAGE["results"])
@@ -295,7 +293,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
                 merged["props"].update(doc["props"])
             return len(docs), 0
 
-    xml = (FIXTURES / "hudoc_001_61254_document.xml").read_text()
+    xml = fixture_text("hudoc_001_61254_document.xml")
     ecli = "ECLI:CE:ECHR:2003:0729JUD004808699"
     raw = [
         {

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.db.queries.instruments import LawOnADate
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -59,7 +60,7 @@ def test_a_judgment_period_reaches_the_query_as_iso_days(monkeypatch) -> None:
         asked.append(filters)
         return {"items": [], "total": 0}
 
-    monkeypatch.setattr("lawgraph.api.routes.judgments.get_judgments_list", fake)
+    stub_route(monkeypatch, "judgments", get_judgments_list=fake)
     response = client.get(
         "/api/judgments", params={"from": "2020-01-02", "to": "2021-03-04"}
     )
@@ -74,7 +75,7 @@ def test_the_articles_on_a_day_read_it_as_an_iso_day(monkeypatch) -> None:
         asked.append(on)
         return LawOnADate([], 0, None)
 
-    monkeypatch.setattr("lawgraph.api.routes.instruments.get_articles_at", fake)
+    stub_route(monkeypatch, "instruments", get_articles_at=fake)
     response = client.get("/api/instruments/BWBR0005289/articles/at/2020-01-02")
     assert response.status_code == 200
     assert asked == ["2020-01-02"]
@@ -89,7 +90,7 @@ def test_the_feed_periods_read_their_days_as_the_feed_does(monkeypatch) -> None:
         return {"periods": [], "written_at": None}
 
     monkeypatch.setattr("lawgraph.api.routes.feed.feed_events.get_periods", fake)
-    monkeypatch.setattr("lawgraph.api.routes.feed._data_as_of", lambda store: {})
+    stub_route(monkeypatch, "feed", _data_as_of={})
     response = client.get(
         "/api/feed/periods",
         params={"since": "2020-01-02", "until": "2020-01-31", "per": "day"},

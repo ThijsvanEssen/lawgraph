@@ -8,7 +8,6 @@ read on 25 September 2026).
 from __future__ import annotations
 
 from functools import cache
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -27,8 +26,7 @@ from lawgraph.core.cabinet_posts import (
 )
 from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.rijksoverheid import SECTION_MINISTERS, parse_page
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.paths import FIXTURES
 
 
 @cache
