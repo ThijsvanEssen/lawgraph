@@ -51,6 +51,7 @@ from lawgraph.core.tk_records import (
     SUBMITTER_FIRST,
     VoteKind,
 )
+from lawgraph.core.xml import collapse_ws
 
 MatchedField = Literal["title", "dossier_title", "laws"]
 ViaRelation = Literal[
@@ -605,7 +606,7 @@ def _path_props(collection: str, props: dict[str, Any]) -> dict[str, Any] | None
 
 def _title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
     title = _source_title(kind, props, row)
-    return " ".join(title.split()) if title else None
+    return collapse_ws(title) if title else None
 
 
 def _source_title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:

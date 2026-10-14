@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lawgraph.core.identifiers import STB_ID_PATTERN
-from lawgraph.core.xml import find_text, iter_named, local_name, text_of
+from lawgraph.core.xml import collapse_ws, find_text, iter_named, local_name, text_of
 
 # Both spellings occur in the published XML for the official title.
 OFFICIAL_TITLE_TAGS = ("officiele-titel", "officieletitel")
@@ -25,14 +25,14 @@ def _meta_title(root: ET.Element) -> str | None:
     """The ``DC.title`` of the metadata: the title of the publication itself."""
     for meta in iter_named(root, "meta"):
         if meta.get("name") == "DC.title" and (meta.get("content") or "").strip():
-            return " ".join((meta.get("content") or "").split())
+            return collapse_ws(meta.get("content"))
     return None
 
 
 def _first_title(root: ET.Element) -> str | None:
     """The first ``<titel>`` that is not the masthead of the series."""
     for node in iter_named(root, "titel"):
-        text = " ".join(text_of(node).split())
+        text = collapse_ws(text_of(node))
         if text and not is_series_name(text):
             return text
     return None

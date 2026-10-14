@@ -42,7 +42,7 @@ from lawgraph.core.identifiers import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
-from lawgraph.core.xml import XML_TAG_RE
+from lawgraph.core.xml import XML_TAG_RE, collapse_ws
 
 logger = get_logger(__name__)
 
@@ -172,8 +172,7 @@ def coerce_text(value: object) -> str | None:
 
 def strip_xml(text: str) -> str:
     """Remove XML/HTML tags and collapse whitespace for clean regex matching."""
-    stripped = XML_TAG_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", stripped).strip()
+    return collapse_ws(XML_TAG_RE.sub(" ", text))
 
 
 # ---------------------------------------------------------------------------

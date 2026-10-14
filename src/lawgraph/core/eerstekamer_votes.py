@@ -29,6 +29,7 @@ from typing import Final, Literal
 
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
 from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.xml import html_text
 
 VOTES_PATH = "/stemmingen_per_vergaderdag?filter=alles"
 REJECTED_PATH = "/verworpen_in_de_eerste_kamer"
@@ -90,12 +91,6 @@ class Vote:
     motion_path: str | None = None  # /motiedossier/37020_m_motie_beukering_fractie
 
 
-def text(fragment: str) -> str:
-    """*fragment* of HTML as one line of plain text."""
-    plain = html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment))
-    return re.sub(r"\s+", " ", plain.replace("\xa0", " ")).strip()
-
-
 def days(page: str) -> list[tuple[str | None, bool, str]]:
     """``(date, continued, fragment)`` of every day on a page of the vote list, in order;
     ``continued`` when the day began on the page before."""
@@ -114,7 +109,7 @@ def earlier_page(page: str) -> str | None:
 
 def _names(value: str) -> list[str]:
     """``CDA, D66 en VVD`` -> ``["CDA", "D66", "VVD"]``: the list as the Kamer writes it."""
-    head, _, last = text(value).rpartition(" en ")
+    head, _, last = html_text(value).rpartition(" en ")
     return [n.strip() for n in [*head.split(","), last] if n.strip()]
 
 
@@ -126,7 +121,7 @@ def votes(date: str, fragment: str) -> list[Vote]:
         subject = _BILL.search(item) or _MOTION.search(item)
         if not result or not subject:
             continue
-        number, letter = text(subject[2]), None
+        number, letter = html_text(subject[2]), None
         motion = subject[1].startswith("/motiedossier/")
         if motion:
             parts = _MOTION_NUMBER.match(number)
@@ -142,13 +137,14 @@ def votes(date: str, fragment: str) -> list[Vote]:
                 date=date,
                 number=number,
                 label=label,
-                title=text(item[: subject.start()]).rstrip(" ("),
+                title=html_text(item[: subject.start()]).rstrip(" ("),
                 result=result[1],
                 bill_path=None if motion else subject[1],
-                method=text(method[2]) if method else None,
+                method=html_text(method[2]) if method else None,
                 report_path=method[1] if method else None,
                 factions={
-                    text(name): _names(names) for name, names in _FACTIONS.findall(item)
+                    html_text(name): _names(names)
+                    for name, names in _FACTIONS.findall(item)
                 },
                 letter=letter,
                 motion_path=subject[1] if motion else None,
@@ -162,7 +158,7 @@ def rejected(page: str) -> list[Vote]:
     found = []
     for path, body in _REJECTED_ITEM.findall(page):
         date = _REJECTED_DATE.search(body)
-        lines = [text(line) for line in re.split(r"<br\s*/?>", body)]
+        lines = [html_text(line) for line in re.split(r"<br\s*/?>", body)]
         title = next((line for line in lines[1:] if line), "")
         number = _REJECTED_NUMBER.search(title)
         day = parse_date(date[1]) if date else None

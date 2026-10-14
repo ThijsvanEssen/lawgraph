@@ -22,8 +22,6 @@ Infrastructuur en Waterstaat 50, BZK 32), ``no_source`` when no source had enoug
 from __future__ import annotations
 
 import datetime as dt
-import re
-import unicodedata
 from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Final, Literal
@@ -39,6 +37,7 @@ from lawgraph.core.ministries import (
 )
 from lawgraph.core.ministry_sources import ministry_name
 from lawgraph.core.official_urls import FIRST_PUBLICATION_YEAR
+from lawgraph.core.text_fold import plain_words
 
 MinistrySource = Literal["page", "tk_signatures", "tk_commitments", "staatscourant"]
 SOURCE_PAGE: Final[MinistrySource] = "page"
@@ -179,9 +178,7 @@ STAATSCOURANT_FROM = f"{FIRST_PUBLICATION_YEAR}-01-01"
 def phrase_of(function: str) -> str:
     """The words a publication names a post by: the function, lower case, without accents
     and punctuation (``minister voor ontwikkelingssamenwerking``)."""
-    plain = unicodedata.normalize("NFKD", function)
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return " ".join(re.findall(r"[a-z0-9]+", plain))
+    return plain_words(function)
 
 
 def staatscourant_query(post: dict[str, Any]) -> dict[str, Any] | None:

@@ -38,7 +38,17 @@ from lawgraph.core.identifiers import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
-from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
+from lawgraph.core.xml import (
+    XML_TAG_RE,
+    child_named,
+    children_named,
+    collapse_ws,
+    find_descendant,
+    iter_named,
+    local_name,
+    text_of,
+    words_of,
+)
 
 # ``effect`` values on an article version, mapped to what the version did. A
 # ``nieuwe-regeling`` is an article of a regulation as it was enacted (art. 1 Cbw, Stb.
@@ -401,23 +411,16 @@ def _iso(element: ET.Element | None) -> str | None:
     return element.get("isodatum") if element is not None else None
 
 
-def _child(element: ET.Element, name: str) -> ET.Element | None:
-    for node in element:
-        if local_name(node.tag) == name:
-            return node
-    return None
-
-
 def _publication(element: ET.Element | None) -> Publication | None:
     """Parse the ``<publicatie>`` directly inside an ``oorspronkelijk``/``inwerkingtreding``."""
     if element is None:
         return None
-    pub = _child(element, "publicatie")
+    pub = child_named(element, "publicatie")
     if pub is None:
         return None
     kind = pub.get("soort") or ""
-    year_text = text_of(_child(pub, "publicatiejaar"))
-    number = text_of(_child(pub, "publicatienr")) or None
+    year_text = text_of(child_named(pub, "publicatiejaar"))
+    number = text_of(child_named(pub, "publicatienr")) or None
     year = int(year_text) if year_text.isdigit() else None
     identifier = pub.get("urlidentifier") or (
         f"{kind.lower()}-{year}-{number}" if kind and year and number else ""
@@ -436,8 +439,8 @@ def _publication(element: ET.Element | None) -> Publication | None:
         identifier=identifier,
         url_identifier=pub.get("urlidentifier") or None,
         effect=pub.get("effect"),
-        signed=_iso(_child(pub, "ondertekeningsdatum")),
-        published=_iso(_child(pub, "uitgiftedatum")),
+        signed=_iso(child_named(pub, "ondertekeningsdatum")),
+        published=_iso(child_named(pub, "uitgiftedatum")),
         dossiers=dossiers,
     )
 
@@ -447,28 +450,28 @@ def _enactment(root: ET.Element) -> tuple[Publication | None, str | None]:
     from the ``meta-data`` of its ``<intitule>`` (``oorspronkelijk`` and
     ``inwerkingtreding.datum``); None for what it does not say."""
     intitule = next(iter_named(root, "intitule"), None)
-    meta = _child(intitule, "meta-data") if intitule is not None else None
-    brondata = _child(meta, "brondata") if meta is not None else None
+    meta = child_named(intitule, "meta-data")
+    brondata = child_named(meta, "brondata")
     if brondata is None:
         return None, None
-    commencement = _child(brondata, "inwerkingtreding")
+    commencement = child_named(brondata, "inwerkingtreding")
     in_force = (
-        _iso(_child(commencement, "inwerkingtreding.datum"))
+        _iso(child_named(commencement, "inwerkingtreding.datum"))
         if commencement is not None
         else None
     )
-    return _publication(_child(brondata, "oorspronkelijk")), in_force
+    return _publication(child_named(brondata, "oorspronkelijk")), in_force
 
 
 def _brondata(container: ET.Element) -> tuple[Publication | None, Publication | None]:
     """(originating, commencement) publication from the element's own ``meta-data``."""
-    meta = _child(container, "meta-data")
-    brondata = _child(meta, "brondata") if meta is not None else None
+    meta = child_named(container, "meta-data")
+    brondata = child_named(meta, "brondata")
     if brondata is None:
         return None, None
     return (
-        _publication(_child(brondata, "oorspronkelijk")),
-        _publication(_child(brondata, "inwerkingtreding")),
+        _publication(child_named(brondata, "oorspronkelijk")),
+        _publication(child_named(brondata, "inwerkingtreding")),
     )
 
 
@@ -631,8 +634,8 @@ def article_number(article: ET.Element) -> str | None:
 
 def _article_title(article: ET.Element) -> str | None:
     """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed."""
-    kop = _child(article, "kop")
-    title = " ".join(text_of(_child(kop, "titel")).split()) if kop is not None else ""
+    kop = child_named(article, "kop")
+    title = collapse_ws(text_of(child_named(kop, "titel")))
     return title or None
 
 
@@ -640,20 +643,16 @@ def _article_heading(article: ET.Element) -> str | None:
     """The heading of an article without a number: the ``<titel>`` of its ``<kop>``
     ("Algemene bepaling"), else the ``<label>`` of its ``<kop>`` or its ``label`` attribute
     ("Slotartikel" of the Overgangswet nieuw Burgerlijk Wetboek); whitespace collapsed."""
-    kop = _child(article, "kop")
+    kop = child_named(article, "kop")
     for text in (
         _article_title(article) or "",
-        text_of(_child(kop, "label")) if kop is not None else "",
+        text_of(child_named(kop, "label")),
         article.get("label") or "",
     ):
-        heading = " ".join(text.split())
+        heading = collapse_ws(text)
         if heading:
             return heading
     return None
-
-
-def _words(element: ET.Element) -> str:
-    return " ".join("".join(element.itertext()).split())
 
 
 def leading_term(al: ET.Element) -> str | None:
@@ -662,7 +661,7 @@ def leading_term(al: ET.Element) -> str | None:
     first = next(iter(al), None)
     if first is None or local_name(first.tag) != "nadruk" or (al.text or "").strip():
         return None
-    term = _words(first)
+    term = words_of(first)
     if term.endswith(":"):
         term = term[:-1]
     elif not (first.tail or "").lstrip().startswith(":"):
@@ -677,7 +676,7 @@ def _leads_list(children: list[ET.Element], index: int) -> str | None:
     if index + 1 >= len(children) or local_name(children[index + 1].tag) != "lijst":
         return None
     term = leading_term(al)
-    return term if term and _words(al).rstrip(":").strip() == term else None
+    return term if term and words_of(al).rstrip(":").strip() == term else None
 
 
 def _add_paragraphs(builder: TextBuilder, paragraphs: list[ET.Element]) -> None:
@@ -718,7 +717,7 @@ def _add_item(
 
 def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     """Add one ``lid``: ``1. paragraph`` followed by its list items on new lines."""
-    paragraphs = [c for c in lid if local_name(c.tag) == "al"]
+    paragraphs = children_named(lid, "al")
     items = list(_list_items(lid))
     if not paragraphs and not items:
         return
@@ -733,7 +732,7 @@ def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     aanhef_end = builder.length
     has_onderdelen = False
     for li, depth in items:
-        body = [c for c in li if local_name(c.tag) == "al"]
+        body = children_named(li, "al")
         if not body:
             continue
         if paragraphs and not has_onderdelen:  # the paragraphs lead up to the list
@@ -754,7 +753,7 @@ def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> Non
         builder.inline(element)
         return
     if name == "li":
-        body = [c for c in element if local_name(c.tag) == "al"]
+        body = children_named(element, "al")
         if body:
             _add_item(builder, element, body, depth)
         for child in element:  # nested lists
@@ -879,20 +878,23 @@ def _number_teksten(builder: TextBuilder, paragraphs: list[_Paragraph]) -> None:
 
 def _crumb(division: ET.Element, name: str) -> Crumb:
     """The label and title of a division, from its ``label`` and its ``<kop>``."""
-    kop = _child(division, "kop")
+    kop = child_named(division, "kop")
     label = division.get("label")
-    if not label and kop is not None:
+    if not label:
         label = " ".join(
-            filter(None, (text_of(_child(kop, "label")), text_of(_child(kop, "nr"))))
+            filter(
+                None,
+                (text_of(child_named(kop, "label")), text_of(child_named(kop, "nr"))),
+            )
         )
-    title = " ".join(text_of(_child(kop, "titel")).split()) if kop is not None else ""
+    title = collapse_ws(text_of(child_named(kop, "titel")))
     return Crumb(type=name, label=label or None, title=title or None)
 
 
 def _annex_number(annex: ET.Element) -> str | None:
     """The number of a ``<bijlage>`` as the JCI writes it: ``2`` of ``Bijlage 2``."""
-    kop = _child(annex, "kop")
-    nr = text_of(_child(kop, "nr")) if kop is not None else ""
+    kop = child_named(annex, "kop")
+    nr = text_of(child_named(kop, "nr"))
     if nr:
         return nr
     label = (annex.get("label") or "").strip()
@@ -999,7 +1001,7 @@ def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
 def _implemented(root: ET.Element) -> tuple[str, ...]:
     """The EU acts the clauses of the ``considerans`` say the regulation implements."""
     clauses = [
-        " ".join(_flatten(para).text.split())
+        collapse_ws(_flatten(para).text)
         for considerans in iter_named(root, "considerans")
         for para in considerans.iter()
         if local_name(para.tag) == "considerans.al"
@@ -1015,7 +1017,7 @@ def _title(root: ET.Element, name: str) -> str | None:
     element = next(iter_named(root, name), None)
     if element is None:
         return None
-    return " ".join(_flatten(element).text.split()) or None
+    return collapse_ws(_flatten(element).text) or None
 
 
 def parse_toestand(xml_text: str) -> ToestandXml:
@@ -1060,7 +1062,7 @@ def _drop_none(props: dict[str, Any]) -> dict[str, Any]:
 _CELEX_LINK = re.compile(
     r'<extref\b[^>]*\bdoc="(3\d{4}[A-Za-z]\d{4})"[^>]*>(.*?)</extref>', re.DOTALL
 )
-_TAGS_AND_SPACE_AT_A_SLASH = re.compile(r"<[^>]+>|\s+(?=/)|(?<=/)\s+")
+_TAGS_AND_SPACE_AT_A_SLASH = re.compile(rf"{XML_TAG_RE.pattern}|\s+(?=/)|(?<=/)\s+")
 
 
 def celex_refs(toestand_xml: str) -> list[str]:
