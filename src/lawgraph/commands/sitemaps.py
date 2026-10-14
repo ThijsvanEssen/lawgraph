@@ -13,8 +13,8 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``dossiers``: every dossier;
 - ``leden``: the members who sat in a chamber or held a post in a cabinet;
 - ``fracties``, ``kabinetten``, ``commissies``: every one (a committee with a slug);
-- ``publicaties``: in the Staatsblad and the Tractatenblad since 2018, with a title of
-  their own or a regulation they change;
+- ``publicaties``: in the Staatsblad and the Tractatenblad since 2018 whose page is
+  indexed: a title of their own or a regulation they change by name;
 - ``toezeggingen``: those made since 2018 that have a text;
 - ``activiteiten``: those held since 2018 with a paper or a commitment made in them;
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),

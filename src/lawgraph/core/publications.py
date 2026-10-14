@@ -11,6 +11,7 @@ import re
 from typing import Literal, get_args
 
 from lawgraph.core.models import make_node_key
+from lawgraph.core.publication_xml import is_series_name
 
 PublicationSeries = Literal["stb", "stcrt", "trb"]
 
@@ -77,3 +78,23 @@ def note_key(official: str) -> str:
 def official_of_note_key(key: str) -> str:
     """``stb-2026-94`` of the note key ``stb_stb_2026_94``."""
     return official_of_instrument_key(key.partition("_")[2])
+
+
+# The title the normalizer gives a note whose text gave none.
+_NUMBERED_TITLE = re.compile(r"Staatsblad \d{4}/\d+")
+
+
+def own_title(title: object) -> str:
+    """The title of a publication as its own text gives it; none when its text gave none
+    (the normalizer's ``Staatsblad <year>/<number>``) or only the name of its series (the
+    masthead ``Staatsblad`` a note normalized before its ``DC.title`` was read holds)."""
+    text = title.strip() if isinstance(title, str) else ""
+    generic = _NUMBERED_TITLE.fullmatch(text) or is_series_name(text)
+    return "" if generic else text
+
+
+def publication_indexed(title: object, changes_a_named_regulation: bool) -> bool:
+    """Whether the page of a publication is one to find (indexed, in the sitemap): it has
+    a title of its own (``own_title`` of its nota van toelichting) or changes a regulation
+    by name."""
+    return bool(own_title(title)) or changes_a_named_regulation

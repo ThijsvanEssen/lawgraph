@@ -288,6 +288,10 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             publication("stb-2017-5", "2017-01-10"),  # before 2018
             publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
             publication("stb-2026-187", "2026-07-20"),  # enacts a law: establishes it
+            # changes only what has no name: a law without a title, a paper
+            publication("stb-2025-302", "2025-10-03"),
+            publication("stb-2025-303", "2025-10-04"),
+            _node("bwbr0077777", "instrument", bwb_id="BWBR0077777", kind="wet"),
             _node(
                 "bwbr0005289",
                 "instrument",
@@ -324,6 +328,10 @@ def test_publications_and_commitments(store: GraphStore) -> None:
                   "AMENDS"),
             _edge("c4", "instruments/stb_2026_187", "articles/bwbr0052872_1",
                   "ESTABLISHES"),
+            _edge("c5", "instruments/stb_2025_302", "instruments/bwbr0077777",
+                  "AMENDS"),
+            _edge("c6", "instruments/stb_2025_303", "documents/stb_stb_2025_263",
+                  "AMENDS"),
         ]
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -369,7 +377,8 @@ def test_publications_and_commitments(store: GraphStore) -> None:
     # the sitemap names exactly the publications (of its series) whose page is indexed
     listed = {row["id"] for row in queries.publications(store)}
     for official in ("stb-2025-263", "stb-2025-300", "trb-2024-12", "stb-2025-301",
-                     "stb-2026-94", "stb-2026-187"):  # fmt: skip
+                     "stb-2026-94", "stb-2026-187", "stb-2025-302",
+                     "stb-2025-303"):  # fmt: skip
         node_id = f"instruments/{official.replace('-', '_')}"
         page = publication_page(seo.publication(store, node_id) or {})
         assert page.index == (node_id in listed), official

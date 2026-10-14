@@ -26,7 +26,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
-from lawgraph.api.seo.pages import PAGES, Page, cut, title_of
+from lawgraph.api.seo.pages import DESCRIPTION_MAX, Page, cut, title_of
+from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
@@ -43,17 +44,6 @@ RENDER_BUDGET = 1.0
 CACHE_PAGE = "no-cache"
 CACHE_REDIRECT = "public, max-age=86400"
 
-# The image of a page when it is shared, per kind (``static/og`` of the front end).
-IMAGES = {
-    "wet": "/og/wet.png",
-    "artikel": "/og/artikel.png",
-    "uitspraak": "/og/uitspraak.png",
-    "kamerstuk": "/og/kamerstuk.png",
-    "dossier": "/og/dossier.png",
-    "bijlage": "/og/wet.png",
-    "zaak": "/og/dossier.png",
-    "activiteit": "/og/dossier.png",
-}
 NOT_FOUND = Page(
     title="Niet gevonden",
     description="Deze pagina of bron staat niet in Concordans.",
@@ -108,21 +98,20 @@ def _app_page(path: str) -> Page | None:
 
 
 def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
-    """The page of a source: its content where its kind has one (``PAGES``), else its
-    name as the API gives it; with its node (``focus``)."""
-    build = PAGES.get(pad.soort)
-    if build is not None:
-        row = seo.READS[pad.soort](store, node_id)
-        if row is not None:
-            page = build(row)
-            page.image = IMAGES.get(pad.soort, page.image)
-            page.focus = node_id
-            return page
+    """The page of a source: its content where its kind has one (``SOURCE_PAGES``), else
+    its name as the API gives it; with its node (``focus``)."""
+    source = SOURCE_PAGES.get(pad.soort)
+    row = source.read(store, node_id) if source is not None else None
+    if source is not None and row is not None:
+        page = source.build(row)
+        page.image = source.image
+        page.focus = node_id
+        return page
     props: dict[str, Any] = lookup.answer(store, node_id).get("props") or {}
     name = str(props.get("display_name") or "")
     return Page(
         title=name,
-        description=cut(name, 155),
+        description=cut(name, DESCRIPTION_MAX),
         path=pad_href(pad),
         index=bool(name) and not props.get("stub"),
         focus=node_id,
