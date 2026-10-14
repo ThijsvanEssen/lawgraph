@@ -14,6 +14,7 @@ from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
+from lawgraph.core.publications import note_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 from lawgraph.db.queries import sitemaps as queries
@@ -412,3 +413,10 @@ def test_the_command_writes_the_index_and_its_parts(
     pages = (out / "sitemap-paginas.xml").read_text(encoding="utf-8")
     assert "<loc>https://concordans.nl/actueel</loc>" in pages
     assert "gemarkeerd" not in pages
+
+
+@pytest.mark.parametrize("official", ["stb-2026-94", "trb-2024-12", "stcrt-2020-00012"])
+def test_the_note_id_in_sql_is_the_note_key(store: GraphStore, official: str) -> None:
+    (note_id,) = store.query(f"SELECT {queries.note_id_sql('%(official)s')}",
+                             {"official": official})  # fmt: skip
+    assert note_id == f"documents/{note_key(official)}"

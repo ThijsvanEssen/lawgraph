@@ -37,7 +37,11 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.publications import (
+    note_key,
+    official_of_instrument_key,
+    official_of_note_key,
+)
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
@@ -629,14 +633,12 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         row = _node(store, COLLECTION_INSTRUMENTS, node_id)
         if row is None:
             return None
-        official = str((row["props"] or {}).get("official_id") or key.replace("_", "-"))
-        note_id = (
-            f"{COLLECTION_DOCUMENTS}/{make_node_key(official.split('-')[0], official)}"
-        )
+        props = row["props"] or {}
+        official = str(props.get("official_id") or official_of_instrument_key(key))
+        note_id = f"{COLLECTION_DOCUMENTS}/{note_key(official)}"
     else:
-        # the document of its own source: ``stb_stb_2026_94`` is stb-2026-94
         row, note_id = None, node_id
-        official = key.partition("_")[2].replace("_", "-")
+        official = official_of_note_key(key)
     note = _first(
         store,
         f"""

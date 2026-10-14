@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Literal, get_args
 
+from lawgraph.core.models import make_node_key
+
 PublicationSeries = Literal["stb", "stcrt", "trb"]
 
 _ABBREVIATIONS: dict[PublicationSeries, str] = {
@@ -54,3 +56,24 @@ def koop_citation(value: str) -> str | None:
     """``Stb. 2019, 33`` for ``stb-2019-33``; None for another id."""
     parsed = parse_koop_id(value)
     return publication_citation(*parsed) if parsed else None
+
+
+def instrument_key(official: str) -> str:
+    """``stb_2026_94``: the key of the publication the BWB names (``stb-2026-94``)."""
+    return make_node_key(official)
+
+
+def official_of_instrument_key(key: str) -> str:
+    """``stb-2026-94`` of the instrument key ``stb_2026_94``."""
+    return key.replace("_", "-")
+
+
+def note_key(official: str) -> str:
+    """``stb_stb_2026_94``: the key of the nota van toelichting of ``stb-2026-94``, a
+    document of its own source (the series) keyed by its id."""
+    return make_node_key(official.split("-")[0], official)
+
+
+def official_of_note_key(key: str) -> str:
+    """``stb-2026-94`` of the note key ``stb_stb_2026_94``."""
+    return official_of_instrument_key(key.partition("_")[2])

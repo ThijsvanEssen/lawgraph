@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
@@ -26,7 +27,7 @@ from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key
-from lawgraph.core.publications import parse_koop_id
+from lawgraph.core.publications import instrument_key, note_key, parse_koop_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import _committee
 
@@ -190,8 +191,8 @@ def find_publication(
     """A publication in the Staatsblad, Staatscourant or Tractatenblad: the instrument the
     BWB names (``stb_2016_288``), else the document of its own source (``stb_stb_…``)."""
     official = f"{series}-{year}-{int(number)}"
-    return _exists(store, COLLECTION_INSTRUMENTS, make_node_key(official)) or _exists(
-        store, "documents", make_node_key(series, official)
+    return _exists(store, COLLECTION_INSTRUMENTS, instrument_key(official)) or _exists(
+        store, COLLECTION_DOCUMENTS, note_key(official)
     )
 
 

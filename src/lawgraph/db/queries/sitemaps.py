@@ -252,6 +252,15 @@ def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
+def note_id_sql(official: str) -> str:
+    """SQL: the id of the nota van toelichting of the KOOP id *official* (an expression),
+    as ``core.publications.note_key`` makes its key: ``documents/stb_stb_2026_94``."""
+    return (
+        f"'{COLLECTION_DOCUMENTS}/' || split_part({official}, '-', 1)"
+        f" || '_' || replace({official}, '-', '_')"
+    )
+
+
 def publications(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
@@ -272,9 +281,7 @@ def publications(
         SELECT l.id, json_build_object('official_id', l.official) AS props,
                l.date_published AS lastmod
         FROM listed l
-        LEFT JOIN {COLLECTION_DOCUMENTS} note
-            ON note.id = '{COLLECTION_DOCUMENTS}/' || split_part(l.official, '-', 1)
-                         || '_' || replace(l.official, '-', '_')
+        LEFT JOIN {COLLECTION_DOCUMENTS} note ON note.id = {note_id_sql("l.official")}
         LEFT JOIN lg_document_light light ON light.id = note.id
         WHERE (lg_str(light.props -> 'title') IS NOT NULL
                AND lg_str(light.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$'
