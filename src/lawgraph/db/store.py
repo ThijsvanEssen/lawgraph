@@ -904,17 +904,14 @@ class GraphStore:
             """
         ).format(table=table)
         rows = [split_node(doc, collection) for doc in docs]
-        return self._upsert_rounds(f"documents of {collection}", statement, rows, "id")
+        return self._upsert_rounds(statement, rows, "id")
 
     def _upsert_rounds(
-        self, what: str, statement: Statement, rows: list[dict[str, Any]], key: str
+        self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
         created = updated = 0
         for batch in _rounds(rows, key):
-            answer = _retry_write(
-                f"{len(batch)} {what}",
-                lambda batch=batch: self.execute(statement, {"rows": Json(batch)}),  # type: ignore[misc]
-            )
+            answer = self.execute(statement, {"rows": Json(batch)})
             new = sum(1 for was_new in answer if was_new)
             created += new
             updated += len(answer) - new
@@ -1024,7 +1021,7 @@ class GraphStore:
             """
         )
         rows = [split_edge(doc) for doc in docs]
-        return self._upsert_rounds("edges", statement, rows, "key")
+        return self._upsert_rounds(statement, rows, "key")
 
 
 def _text(statement: Statement) -> str:
