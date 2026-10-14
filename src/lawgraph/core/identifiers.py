@@ -119,6 +119,11 @@ KST_ID_PATTERN = re.compile(r"kst-(\d+(?:-[A-Za-z]+)?)-(\d+[A-Za-z]?)", re.IGNOR
 _RIJKSWET_ADDITION = re.compile(r"\(R\d+\)", re.IGNORECASE)
 
 
+# The number of a toezegging of the Tweede Kamer, its year and month and a sequence:
+# ``TZ202609-124``.
+COMMITMENT_NUMBER = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
+
+
 def kamerstuk_identifier(number: str, suffix: str | None, sequence: int | str) -> str:
     """``kst-37020-X-2``: dossier number, its addition (a budget chapter) and the paper number."""
     if suffix and _RIJKSWET_ADDITION.fullmatch(suffix):

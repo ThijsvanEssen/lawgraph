@@ -54,7 +54,7 @@ from lawgraph.config.settings import (
     API_TRUSTED_PROXIES,
     API_WARM_UP,
 )
-from lawgraph.core.logging import setup_logging
+from lawgraph.core.logging import describe, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.store import (
@@ -95,7 +95,7 @@ class _DataVersion:
                     lambda: self._store().data_version()
                 )
             except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
-                _logger.warning("No data version: %s: %s", type(exc).__name__, exc)
+                _logger.warning("No data version: %s", describe(exc))
                 self._value = None
             self._read_at = time.monotonic()
         return self._value
@@ -503,7 +503,7 @@ def _start_warm_up() -> None:
     try:
         version_cache.warm(store_of(), settle=0)
     except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
-        _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
+        _logger.warning("No warm-up at the start: %s", describe(exc), exc_info=True)
 
 
 def _thread_dump_on_signal() -> None:

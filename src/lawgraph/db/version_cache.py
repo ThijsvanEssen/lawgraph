@@ -27,7 +27,7 @@ from collections.abc import Callable, Hashable, Iterator
 from typing import Any, TypeVar
 
 from lawgraph.config.settings import API_WARM_UP_MIN_INTERVAL
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.db.store import (
     ReadTimedOut,
     _text,
@@ -263,7 +263,7 @@ def _quietly(function: Callable[[Any], None], store: Any) -> None:
             function(store)
     except Exception as exc:  # noqa: BLE001 — a warm-up that fails is asked again later
         logger.warning(
-            "Warming %s failed: %s: %s", function.__name__, type(exc).__name__, exc
+            "Warming %s failed: %s", function.__name__, describe(exc), exc_info=True
         )
 
 

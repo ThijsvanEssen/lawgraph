@@ -26,6 +26,7 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
+from lawgraph.core.eerstekamer_bills import ek_dossier_label
 from lawgraph.core.rijksoverheid import parse_date
 
 VOTES_PATH = "/stemmingen_per_vergaderdag?filter=alles"
@@ -51,8 +52,6 @@ _FACTIONS = re.compile(r"<strong>([^<]+):</strong>([^<]*)")
 _EARLIER = re.compile(
     r'<a href="([^"]+)" class="grid-x nowr">\s*<span>eerdere stemmingen'
 )
-# The number of a bill as the Kamer writes it: ``36.791``, ``36.600 VII``, ``36.455 (R2188)``.
-_NUMBER = re.compile(r"^(\d{1,3})\.(\d{3})(?: (\S.*))?$")
 
 _REJECTED_ITEM = re.compile(
     r'<li class="grid-x nowr lnk_f">\s*<a href="(/wetsvoorstel/[^"]+)">(.*?)</a>\s*</li>',
@@ -95,17 +94,6 @@ def text(fragment: str) -> str:
     return re.sub(r"\s+", " ", plain.replace("\xa0", " ")).strip()
 
 
-def dossier_label(number: str) -> str | None:
-    """The dossier label of the Tweede Kamer of a number as the Eerste Kamer writes it:
-    ``36.791`` -> ``36791``, ``36.600 VII`` -> ``36600-VII``, ``36.455 (R2188)`` ->
-    ``36455-(R2188)``; None for anything else."""
-    match = _NUMBER.match(number.strip())
-    if not match:
-        return None
-    base = match[1] + match[2]
-    return f"{base}-{match[3]}" if match[3] else base
-
-
 def days(page: str) -> list[tuple[str | None, bool, str]]:
     """``(date, continued, fragment)`` of every day on a page of the vote list, in order;
     ``continued`` when the day began on the page before."""
@@ -143,7 +131,7 @@ def votes(date: str, fragment: str) -> list[Vote]:
             if not parts:
                 continue
             number, letter = parts["number"], parts["letter"]
-        label = dossier_label(number)
+        label = ek_dossier_label(number)
         if label is None:
             continue
         method = _METHOD.search(item)
@@ -176,7 +164,7 @@ def rejected(page: str) -> list[Vote]:
         title = next((line for line in lines[1:] if line), "")
         number = _REJECTED_NUMBER.search(title)
         day = parse_date(date[1]) if date else None
-        label = dossier_label(number[1]) if number else None
+        label = ek_dossier_label(number[1]) if number else None
         if not day or not number or not label:
             continue
         found.append(
