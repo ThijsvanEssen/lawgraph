@@ -8,8 +8,8 @@ from __future__ import annotations
 import re
 
 from lawgraph.core.courts import CODE_ECHR
+from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import country_code, court_code
-from lawgraph.core.time import long_date
 
 _FIXED = {
     "HR": "HR",

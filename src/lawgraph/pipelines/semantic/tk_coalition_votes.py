@@ -26,6 +26,7 @@ from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
 from lawgraph.core.coalition import coalition_on, vote_pattern
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import OPEN_END
 from lawgraph.db.queries import coalition as coalition_queries
 from lawgraph.db.queries.cabinets import memberships_between
 
@@ -44,7 +45,7 @@ class TKCoalitionVotesSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         cabinets = coalition_queries.cabinets_with_posts(self.store)
         factions_of = _factions_of_members(
-            memberships_between(self.store, "0000-01-01", "9999-12-31")
+            memberships_between(self.store, "0000-01-01", OPEN_END)
         )
         since_date = since.date().isoformat() if since is not None else None
         rows = coalition_queries.decision_votes(self.store, since_date)

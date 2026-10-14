@@ -21,7 +21,6 @@ Infrastructuur en Waterstaat 50, BZK 32), ``no_source`` when no source had enoug
 
 from __future__ import annotations
 
-import datetime as dt
 from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Final, Literal
@@ -38,6 +37,7 @@ from lawgraph.core.ministries import (
 from lawgraph.core.ministry_sources import ministry_name
 from lawgraph.core.official_urls import FIRST_PUBLICATION_YEAR
 from lawgraph.core.text_fold import plain_words
+from lawgraph.core.time import shift_day
 
 MinistrySource = Literal["page", "tk_signatures", "tk_commitments", "staatscourant"]
 SOURCE_PAGE: Final[MinistrySource] = "page"
@@ -114,19 +114,14 @@ def _kind(post: dict[str, Any]) -> str:
     )
 
 
-def _after(day: str | None, span: dt.timedelta) -> str:
-    if not day:
-        return ""
-    return (dt.date.fromisoformat(day) + span).isoformat()
-
-
 def signature_counts(
     post: dict[str, Any], signed: Iterable[dict[str, Any]]
 ) -> Counter[str]:
     """Per ministry: the months in which the holder signed Tweede Kamer papers in a function
     of the post's kind that names that ministry, while holding the post. *signed* are the
     holder's signatures in government, ``{function, first, last}`` per function and month."""
-    grace = _after(post.get("to_date"), SIGNED_AFTER_POST)
+    ended = post.get("to_date")
+    grace = shift_day(ended, SIGNED_AFTER_POST.days) if ended else ""
     return count_by(
         classify_function(row.get("function"), on=row.get("first"))[1]
         for row in signed
