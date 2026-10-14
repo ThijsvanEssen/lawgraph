@@ -69,6 +69,23 @@ def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+def law_date_rows(store: Store) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, celex, date_signed, date_published, date_in_force, date_expired}`` of the
+    instruments with a BWB id or a CELEX number (``core.aliases.law_dates`` reads them)."""
+    return store.query(
+        """
+        SELECT props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
+               props -> 'date_signed' AS date_signed,
+               props -> 'date_published' AS date_published,
+               props -> 'date_in_force' AS date_in_force,
+               props -> 'date_expired' AS date_expired
+        FROM instruments
+        WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
+        ORDER BY key
+        """
+    )
+
+
 def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
     """``{bwb_id, celex, title, citation_title, citation_titles}`` of the instruments with a
     BWB id or a CELEX number, in the order of their keys."""

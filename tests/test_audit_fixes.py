@@ -243,8 +243,9 @@ class _Judgments:
 
 def _linker(store):
     pipeline = RechtspraakSemanticPipeline(store=store)
-    pipeline._load_code_aliases = lambda: {"Sr": "BWBR0001854"}  # type: ignore[method-assign]
+    pipeline._load_code_choices = lambda: ({"Sr": "BWBR0001854"}, {})  # type: ignore[method-assign]
     pipeline._load_instrument_aliases = dict  # type: ignore[method-assign,assignment]
+    pipeline._load_law_dates = dict  # type: ignore[method-assign,assignment]
     return pipeline
 
 

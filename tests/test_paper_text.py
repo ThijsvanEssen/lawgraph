@@ -35,13 +35,12 @@ def _place(read: PaperText, words: str) -> dict | None:
 
 
 def test_the_text_read_is_the_parts_one_per_line() -> None:
-    read = PaperText.of(PROPS, ["VVD"])
+    read = PaperText.of({**PROPS, "raw": {"Titel": "VVD"}})  # not the record
     assert read.text == "\n".join(
         [
             PROPS["title"],
             PROPS["text"],
             f"Kamerstukken II 1986/87, 19 859, nr. 3.\n{NOTE_71}\n{NOTE_77}",
-            "VVD",
         ]
     )
 
@@ -74,10 +73,9 @@ def test_a_citation_in_the_text_names_its_innermost_section() -> None:
     assert PROPS["text"][place["start"] : place["end"]] == "artikel 10 Gw"
 
 
-def test_a_citation_in_the_title_or_the_record_or_over_two_parts() -> None:
-    read = PaperText.of(PROPS, ["Wet openbaarheid van bestuur"])
+def test_a_citation_in_the_title_or_over_two_parts() -> None:
+    read = PaperText.of(PROPS)
     assert _place(read, "Memorie") == {"part": "title", "start": 0, "end": 7}
-    assert _place(read, "Wet openbaarheid") is None  # the record is not served
     start = read.text.index("toelichting\nALGEMEEN")
     assert read.place(start, start + 20) == (None, None)
     assert read.place(None, None) == (None, None)

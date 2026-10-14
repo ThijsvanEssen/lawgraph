@@ -33,10 +33,20 @@ ROLE_PARTY = "Partij"  # no role applies
 
 REPRESENTATIVE_LAWYER = "advocaat"
 REPRESENTATIVE_AGENT = "gemachtigde"
+REPRESENTATIVE_COUNSEL = "raadsman"  # of a suspect, in a criminal case only
+
+
+def representative(
+    name: str, role: str, place: str | None = None, capacity: str | None = None
+) -> dict[str, Any]:
+    """Who acts for a party: as written, the role, where they practise, what else the
+    judgment calls them."""
+    return {"name": name, "role": role, "place": place, "capacity": capacity}
+
 
 # A role word as the judgment writes it (lower case, singular or plural, male or
 # female) -> the role label.
-_ROLE_WORDS = {
+ROLE_WORDS: dict[str, str] = {
     "Verdachte": r"verdachten?",
     "Betrokkene": r"betrokkenen?",
     "Klager": r"klagers?|klaagsters?",
@@ -69,7 +79,7 @@ def role_label(text: str) -> str | None:
     """The role label of *text* when it opens with a role word ("eiseres in cassatie",
     "de verdachte"), else ``None``."""
     text = _ROLE_PREFIX.sub("", text.strip(" ([,.;:"))
-    for label, pattern in _ROLE_WORDS.items():
+    for label, pattern in ROLE_WORDS.items():
         if re.match(rf"(?:{pattern})\b", text, re.IGNORECASE):
             return label
     return None
@@ -193,7 +203,8 @@ _REPRESENTATIVE_SENTENCE = re.compile(
     re.IGNORECASE,
 )
 _REPRESENTATIVE_TAIL = re.compile(
-    r",?\s*(?:\b(?:beiden|allen|allebei|ieder)\b.*|kantoor\s*houdende.*|voormeld.*|"
+    r",?\s*(?:\b(?:beiden|allen|allebei|ieder)\b.*|kantoor\s*houdend.*|voormeld.*|"
+    r"advoca(?:at|ten)\b.*|"
     r"\b(?:te|in|uit)\s+[A-Z’'][\w’'-]*(?:\s+[A-Z][\w-]*)*\s*)$"
 )
 
@@ -295,7 +306,7 @@ class _Party:
     role: str | None = None
     role_stated: bool = False
     alias: str | None = None
-    representatives: list[dict[str, str]] = field(default_factory=list)
+    representatives: list[dict[str, Any]] = field(default_factory=list)
     # every role the judgment names for the party, in its order: "geïntimeerde in principaal
     # hoger beroep, appellante in incidenteel hoger beroep"
     stated_roles: list[str] = field(default_factory=list)
@@ -351,14 +362,34 @@ def _clean(text: str) -> str:
     return text
 
 
-def _representatives(kind: str, names: str) -> list[dict[str, str]]:
-    agent = kind.lower().startswith("gemachtig")
-    role = REPRESENTATIVE_AGENT if agent else REPRESENTATIVE_LAWYER
+# Where the representatives practise, at the end of their line: "kantoorhoudende te Utrecht".
+_REPRESENTATIVE_PLACE = re.compile(
+    r"\b(?:te|in)\s+(?P<place>(?:'s[-\s])?[A-Z][\w'’-]*(?:\s+(?:(?:aan|den|de|der|op|bij|"
+    r"in|het|ter|ten)\s+)*[A-Z][\w'’-]*)*)\s*[.,;)]?\s*$"
+)
+
+
+def _representatives(kind: str, names: str) -> list[dict[str, Any]]:
+    """The persons a representative line names, with the role its word gives (a raadsman
+    stays one only in a criminal case: ``read_parties``) and where they practise."""
+    word = kind.lower()
+    role = (
+        REPRESENTATIVE_AGENT
+        if word.startswith("gemachtig")
+        else REPRESENTATIVE_COUNSEL
+        if word.startswith("raads")
+        else REPRESENTATIVE_LAWYER
+    )
+    place = _REPRESENTATIVE_PLACE.search(names.strip())
     names = _REPRESENTATIVE_TAIL.sub("", names.strip())
     parts = re.split(
         r"\s*(?:,|\ben\b)\s*(?=(?:mr|dr|prof|drs|ing)\.?\s|[A-Z]\.)", names, flags=re.I
     )
-    return [{"name": _clean(p), "role": role} for p in parts if _clean(p)]
+    return [
+        representative(_clean(p), role, place["place"] if place else None)
+        for p in parts
+        if _clean(p)
+    ]
 
 
 @dataclass
@@ -368,7 +399,7 @@ class _Name:
     name: str
     role: str | None = None
     alias: str | None = None
-    representatives: list[dict[str, str]] = field(default_factory=list)
+    representatives: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _read_name(line: str) -> _Name | None:
@@ -856,4 +887,9 @@ def read_parties(lines: list[str], subjects: list[str] | None) -> list[dict[str,
     for party in parties:
         if not party.role_stated:
             party.role = _derived_role(party, area, request=request, appeal=appeal)
+        if area != AREA_CRIMINAL:
+            # a raadsman is of a suspect: in another case, a gemachtigde
+            for found in party.representatives:
+                if found["role"] == REPRESENTATIVE_COUNSEL:
+                    found["role"] = REPRESENTATIVE_AGENT
     return [party.as_dict() for party in parties]

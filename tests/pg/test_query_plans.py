@@ -74,6 +74,9 @@ URLS = [
     "/api/search?q=pw+dossier&types=dossiers",
     "/api/search?q=pw+dossier&types=dossiers&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
+    # a judgment by a person it names: by the trigram index of lg_judgment_persons
+    "/api/search?q=R.+van+Gelder&types=judgments",
+    "/api/search?q=R.+van+Geld&types=judgments&mode=live",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     # a paper by its number: by the index on lg_document_light, not the props of every
     # paper of the dossier (a budget dossier holds thousands)

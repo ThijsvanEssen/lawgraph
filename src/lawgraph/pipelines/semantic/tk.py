@@ -10,7 +10,6 @@ from typing import Any, Callable, Iterable
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    MAX_SEMANTIC_TEXT_LENGTH,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
@@ -30,6 +29,7 @@ from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
@@ -158,11 +158,22 @@ def _collect_tk_hits(
 class TKSemanticPipeline(SemanticPipelineBase):
     """Pipeline connecting TK documents to the articles and instruments they cite.
 
-    An edge says where its citation stands in what ``/api/documents/{key}`` serves
-    (``core.paper_text``): ``meta.place``, ``{part, start, end}`` with ``part`` ``title``,
-    ``text`` (and ``section_id``) or ``footnote`` (and ``footnote``, ``footnote_id``), and
-    ``meta.snippet`` from that part alone. A citation found in the record of the Tweede
-    Kamer alone has ``place`` null."""
+    The edges of a document are derived in full each time it is read: one its words no
+    longer make (an earlier rule, an earlier text) goes. An edge says where its citation
+    stands in what ``/api/documents/{key}`` serves (``core.paper_text``): ``meta.place``,
+    ``{part, start, end}`` with ``part`` ``title``, ``text`` (and ``section_id``) or
+    ``footnote`` (and ``footnote``, ``footnote_id``), and ``meta.snippet`` from that part
+    alone."""
+
+    def __init__(
+        self, *, store: Any, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that document key, so
+        many documents; the log names the last one read."""
+        super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self.last_document_read: str | None = None
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -184,51 +195,67 @@ class TKSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
+        read: list[str] = []
+        kept: dict[str, set[str]] = {}
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
-            read = self._extract_document_text(document)
-            if read is None:
+            self.last_document_read = document.key
+            read.append(str(document.node_id))
+            words = PaperText.of(document.props)
+            if not words.text:
                 result.skipped += 1
                 continue
 
-            hits = _collect_tk_hits(read.text, extractor, named_acts)
-            if not hits:
-                continue
-
-            for hit in hits:
-                target_node = self._resolve_target_node(hit)
-                if not target_node:
-                    continue
-                meta = {
-                    k: v
-                    for k, v in {
-                        "raw_match": hit.raw_match,
-                        "snippet": hit.snippet,
-                        "reason": hit_reason(hit),
-                        "qualifier": hit.qualifier,
-                        **parse_qualifier(hit.qualifier).to_dict(),
-                    }.items()
-                    if v
-                }
-                # null when the record alone holds it: a relink clears an earlier place
-                meta["place"], snippet = read.place(hit.start, hit.end)
-                if snippet:
-                    meta["snippet"] = snippet
-                edge_doc = self._make_edge_doc(
-                    from_node=document,
-                    to_node=target_node,
-                    relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
-                    confidence=hit.confidence,
-                    meta=meta,
-                )
+            for hit in _collect_tk_hits(words.text, extractor, named_acts):
+                edge_doc = self._edge_of(document, hit, words)
                 if edge_doc:
                     edges.add_doc(edge_doc)
+                    kept.setdefault(edge_doc["_from"], set()).add(edge_doc["_key"])
 
         edges.flush_into(result)
-
+        removed = semantic_edges.remove_edges_from(
+            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
+        )
+        logger.info("Removed %d citations the documents no longer make.", removed)
+        if self.after or self.limit is not None:
+            last = self.last_document_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
         return result
+
+    def _edge_of(
+        self, document: Node, hit: CitationHit, words: PaperText
+    ) -> dict[str, Any] | None:
+        """The REFERS_TO edge of one hit, or None when its target is not in the graph;
+        *words*: what was read of the paper, which places the hit."""
+        target_node = self._resolve_target_node(hit)
+        if not target_node:
+            return None
+        meta = {
+            k: v
+            for k, v in {
+                "raw_match": hit.raw_match,
+                "snippet": hit.snippet,
+                "reason": hit_reason(hit),
+                "qualifier": hit.qualifier,
+                **parse_qualifier(hit.qualifier).to_dict(),
+            }.items()
+            if v
+        }
+        place, snippet = words.place(hit.start, hit.end)
+        meta["place"] = (
+            place  # null for one over two parts: a relink clears an old place
+        )
+        if snippet:
+            meta["snippet"] = snippet
+        return self._make_edge_doc(
+            from_node=document,
+            to_node=target_node,
+            relation=RELATION_REFERS_TO,
+            source=SEMANTIC_SOURCE,
+            confidence=hit.confidence,
+            meta=meta,
+        )
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         """TK documents; only a Document may be the source of a REFERS_TO edge."""
@@ -238,7 +265,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
             if not recent_ids:
                 return
             ids = sorted(recent_ids)
-        for doc in semantic_tk.tk_documents(self.store, ids):
+        for doc in semantic_tk.tk_documents(
+            self.store, ids, after=self.after, limit=self.limit
+        ):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _recent_external_ids(self, since_iso: str) -> set[str]:
@@ -280,65 +309,3 @@ class TKSemanticPipeline(SemanticPipelineBase):
             return node
 
         return None
-
-    def _extract_document_text(self, document: Node) -> PaperText | None:
-        """The words of the paper: its title, its text and its footnotes (``normalize
-        tk-content`` keeps a footnote out of ``text``, and it cites laws as much as the
-        text does), then the strings of its record."""
-        own = PaperText.of(document.props)
-        record: list[str] = []
-        self._collect_raw_text(document.props.get("raw"), record, len(own.text))
-        read = PaperText.of(document.props, record) if record else own
-        if not read.text:
-            return None
-        text = read.text
-        if len(text) >= MAX_SEMANTIC_TEXT_LENGTH:
-            logger.debug(
-                "TK semantic: document text reached collection limit of %d chars (node %s).",
-                MAX_SEMANTIC_TEXT_LENGTH,
-                document.key,
-            )
-        return read
-
-    def _collect_raw_text(
-        self,
-        value: Any,
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-            return current_length
-        if isinstance(value, str):
-            snippet = value.strip()
-            if snippet:
-                fragments.append(snippet)
-                current_length += len(snippet)
-        elif isinstance(value, dict):
-            current_length = self._collect_from_dict(value, fragments, current_length)
-        elif isinstance(value, list):
-            current_length = self._collect_from_list(value, fragments, current_length)
-        return current_length
-
-    def _collect_from_dict(
-        self,
-        value: dict[str, Any],
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        for child in value.values():
-            current_length = self._collect_raw_text(child, fragments, current_length)
-            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-                break
-        return current_length
-
-    def _collect_from_list(
-        self,
-        value: list[Any],
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        for item in value:
-            current_length = self._collect_raw_text(item, fragments, current_length)
-            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-                break
-        return current_length

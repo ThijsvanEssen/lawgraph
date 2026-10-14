@@ -147,7 +147,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "instrument_abbreviation",
     ),
     # ``official_id`` and a ``slug``, ``suffix`` or ``number``: the readable address of a
-    # node selected on the canvas before its own answer comes
+    # node selected on the canvas before its own answer comes; ``kind`` names a law by its
+    # kind (``wet``, ``AMvB``) as its own page does
     "instruments": (
         "bwb_id",
         "celex",
@@ -155,6 +156,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "citation_title",
         "short_title",
         "official_id",
+        "kind",
     ),
     "judgments": (
         "ecli",
@@ -179,10 +181,10 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "chamber",
         "actors",
     ),
+    # its ``short_title`` is the API's, from its title (``schemas/nodes.py``)
     "dossiers": (
         "label",
         "title",
-        "short_title",
         "name",
         "number",
         "suffix",

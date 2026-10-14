@@ -257,16 +257,34 @@ class UnresolvedCitation(QualifierFields):
 
 
 class JudgmentRepresentative(BaseModel):
-    """Who acts for a party, as the kop names them ("advocaat: mr. X")."""
+    """Who acts for a party, as the kop ("advocaat: mr. X") or the account of the procedure
+    ("bijgestaan door mr. X, advocaat te Y") names them."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(description="As written: `mr. H.J.W. Alt`.")
-    role: Literal["advocaat", "gemachtigde"]
+    name: str = Field(
+        description="As written, titles and all: `mr. drs. R. van Gelder`, "
+        "`mr. R. van der Meulen MPM`."
+    )
+    role: Literal["advocaat", "gemachtigde", "raadsman"] = Field(
+        description="The word the judgment gives: `advocaat`; `raadsman` of a suspect, in a "
+        "criminal case only; `gemachtigde` for whoever represents a party "
+        '("vertegenwoordigd door") without being called its advocaat.'
+    )
+    place: str | None = Field(
+        default=None,
+        description='Where they practise, as written: `Voorschoten` for "advocaat te '
+        'Voorschoten". Null when the judgment gives none.',
+    )
+    capacity: str | None = Field(
+        default=None,
+        description="What else the judgment calls them: `ambtenaar in dienst van de "
+        "provincie`, `rechtsbijstandverlener`. Null when it gives nothing but the role.",
+    )
 
 
 class JudgmentParty(BaseModel):
-    """A party of a judgment, read from its kop."""
+    """A party of a judgment, read from its kop and its account of the procedure."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -12,13 +12,14 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.aliases import (
     InstrumentAliasMap,
-    code_aliases,
+    code_choices,
     curated_abbreviations,
     curated_context_abbreviations,
     instrument_names,
+    law_dates,
     normalize_instrument_id,
 )
-from lawgraph.core.citations import number_shape
+from lawgraph.core.citations import LawDates, number_shape
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
@@ -358,7 +359,12 @@ class SemanticPipelineBase(PipelineBase):
     def _load_code_aliases(self) -> CodeMapping:
         """Abbreviation → bwb_id/celex of the instruments in the graph
         (``core.aliases.code_aliases``)."""
-        return code_aliases(
+        return self._load_code_choices()[0]
+
+    def _load_code_choices(self) -> tuple[CodeMapping, dict[str, dict[str, str]]]:
+        """``_load_code_aliases`` and the abbreviations several laws have
+        (``core.aliases.code_choices``)."""
+        return code_choices(
             semantic_bwb.code_alias_rows(self.store), curated_abbreviations()
         )
 
@@ -381,6 +387,11 @@ class SemanticPipelineBase(PipelineBase):
         ``_load_code_aliases`` reads), and such a name without its year
         (``core.aliases.instrument_names``). A failing query fails the step."""
         return instrument_names(semantic_bwb.instrument_alias_rows(self.store))
+
+    def _load_law_dates(self) -> dict[str, LawDates]:
+        """Law id -> when the instrument came to be, came into force and expired
+        (``core.aliases.law_dates``)."""
+        return law_dates(semantic_bwb.law_date_rows(self.store))
 
     # ------------------------------------------------------------------ edges
 

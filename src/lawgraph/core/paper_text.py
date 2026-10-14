@@ -1,11 +1,10 @@
 """The words of a Kamerstuk as ``semantic tk`` reads them, and where a citation stands — pure.
 
 The linker reads a paper as one text: its title, its text (``normalize tk-content``) and its
-footnotes, which ``text`` does not hold, then whatever the record of the Tweede Kamer
-carries. :class:`PaperText` keeps where each of those parts lies in what is read, so a
-citation found there is placed back in what ``/api/documents/{key}`` serves: in ``title``, in
-``text`` (with the section it stands in) or in one of ``footnotes`` (by its ``id``), with the
-offsets of the citation in that part. A citation in the record has no such place.
+footnotes, which ``text`` does not hold, one per line. :class:`PaperText` keeps where each of
+those parts lies in what is read, so a citation found there is placed back in what
+``/api/documents/{key}`` serves: in ``title``, in ``text`` (with the section it stands in) or in
+one of ``footnotes`` (by its ``id``), with the offsets of the citation in that part.
 """
 
 from __future__ import annotations
@@ -49,7 +48,7 @@ class _Part:
     """One part of what is read: ``read[start:start + len(text)]`` is *text*, which stands
     in what is served from *lead* on."""
 
-    place: str | None  # PLACE_*; None for a part that is not served
+    place: str  # PLACE_*
     start: int
     text: str
     lead: int = 0  # characters of the served value before *text* (stripped whitespace)
@@ -66,23 +65,14 @@ class PaperText:
     sections: tuple[Mapping[str, Any], ...] = ()
 
     @classmethod
-    def of(cls, props: Mapping[str, Any], record: Iterable[str] = ()) -> PaperText:
-        """The title, ``summary``, ``body``, text and footnotes of *props*, then the strings
-        of the *record*, one per line; a part without words is left out."""
+    def of(cls, props: Mapping[str, Any]) -> PaperText:
+        """The title, the text and the footnotes of *props*, one per line; a part without
+        words is left out."""
         builder = _Builder()
-        for key in ("title", "summary", "body", "text"):
-            value = props.get(key)
-            builder.add(
-                PLACE_TITLE
-                if key == "title"
-                else PLACE_TEXT
-                if key == "text"
-                else None,
-                str(value) if value is not None else "",
-            )
+        for place in (PLACE_TITLE, PLACE_TEXT):
+            value = props.get(place)
+            builder.add(place, str(value) if value is not None else "")
         builder.add_footnotes(props.get("footnotes") or [])
-        for value in record:
-            builder.add(None, value)
         sections = props.get("sections") or []
         return cls(
             text="\n".join(builder.fragments),
@@ -97,8 +87,8 @@ class PaperText:
         that part alone: ``{part, start, end}`` with ``part`` ``title``, ``text`` or
         ``footnote`` and the offsets in it, of ``text`` with ``section_id`` (the innermost
         section it stands in), of a footnote with ``footnote`` (as printed) and
-        ``footnote_id``. ``(None, None)`` for a citation in the record, or one that runs
-        from one part into the next."""
+        ``footnote_id``. ``(None, None)`` for a citation that runs from one part into the
+        next."""
         if start is None or end is None:
             return None, None
         part = next(
@@ -109,7 +99,7 @@ class PaperText:
             ),
             None,
         )
-        if part is None or part.place is None:
+        if part is None:
             return None, None
         local = (start - part.start + part.lead, end - part.start + part.lead)
         found: dict[str, Any] = {"part": part.place, "start": local[0], "end": local[1]}
@@ -139,7 +129,7 @@ class _Builder:
         self._length = self._next_start() + len(fragment)
         self.fragments.append(fragment)
 
-    def add(self, place: str | None, value: str) -> None:
+    def add(self, place: str, value: str) -> None:
         stripped = coerce_text(value)
         if not stripped:
             return

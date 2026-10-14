@@ -10,6 +10,7 @@ import pytest
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import (
     TKSemanticPipeline,
@@ -75,12 +76,17 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     def tk_documents(
-        store: _FakeStore, ids: list[str] | None
+        store: _FakeStore,
+        ids: list[str] | None,
+        *,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
-        assert ids is None  # a full run: every TK document
+        assert (ids, after, limit) == (None, None, None)  # a full run: every document
         return iter(store._documents)
 
     monkeypatch.setattr(semantic_tk, "tk_documents", tk_documents)
+    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
     monkeypatch.setattr(semantic_bwb, "code_alias_rows", alias_rows)
     monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", alias_rows)
     monkeypatch.setattr(
@@ -93,10 +99,7 @@ def _make_tk_document(key: str, text: str) -> dict[str, Any]:
         "_key": key,
         "labels": ["TK", "Strafrecht"],
         "type": NodeType.DOCUMENT.value,
-        "props": {
-            "raw": {"Tekst": text},
-            "title": text,
-        },
+        "props": {"title": text},
     }
 
 
@@ -302,9 +305,15 @@ def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
     assert meta["snippet"] == note
 
 
-def test_a_citation_in_the_record_alone_has_no_place() -> None:
-    doc = _make_tk_document("tk-6", "Wijziging van artikel 287 Sr")
-    del doc["props"]["title"]  # in the record of the Tweede Kamer alone
+def test_a_citation_in_the_text_names_its_section() -> None:
+    doc = _make_tk_document("tk-6", "Memorie van toelichting")
+    text = "ALGEMEEN\nInleiding.\nArtikel I\nDit wijzigt artikel 287 Sr."
+    start = text.index("Artikel I")
+    doc["props"]["text"] = text
+    doc["props"]["sections"] = [
+        {"id": "s-1", "char_start": 0, "char_end": start - 1},
+        {"id": "s-2", "char_start": start, "char_end": len(text)},
+    ]
     article_key = make_node_key("BWBR0001854", "287")
     store = _FakeStore(
         documents=[doc],
@@ -322,8 +331,9 @@ def test_a_citation_in_the_record_alone_has_no_place() -> None:
     )
     TKSemanticPipeline(store=store).run()
     (edge,) = store.edges.values()
-    assert edge["meta"]["raw_match"] == "artikel 287 Sr"
-    assert edge["meta"]["place"] is None
+    place = edge["meta"]["place"]
+    assert (place["part"], place["section_id"]) == ("text", "s-2")
+    assert text[place["start"] : place["end"]] == edge["meta"]["raw_match"]
 
 
 def test_an_abbreviation_names_its_law_as_written() -> None:
@@ -338,3 +348,29 @@ def test_an_abbreviation_names_its_law_as_written() -> None:
     # the law of an article citation: the article is cited, not the law besides
     cited = detect_tk_citations("Zie artikel 8, eerste lid, van het EVRM.", codes, {})
     assert [h.kind for h in cited] == ["article"]
+
+
+def test_the_record_a_paper_came_with_is_no_text_of_it() -> None:
+    """The record's ``Titel`` is the dossier's title, its actors name factions: neither is
+    read, only the paper's title, text and footnotes."""
+    doc = _make_tk_document("tk-6", "Motie van het lid Kathmann over een meldloket")
+    doc["props"]["raw"] = {
+        "Titel": "Wijziging van het Wetboek van Strafrecht",
+        "DocumentActor": [{"ActorNaam": "Bikkers", "ActorFractie": "Sr"}],
+    }
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {
+                    "bwb_id": "BWBR0001854",
+                    "short_title": "Sr",
+                    "title": "Wetboek van Strafrecht",
+                },
+            )
+        },
+        articles={},
+    )
+
+    assert TKSemanticPipeline(store=store).run().created == 0
