@@ -135,7 +135,7 @@ def _ensure_analyzers(db: StandardDatabase) -> None:
                 features=spec["features"],
             )
             logger.info("Created analyzer %s", spec["name"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a missing analyzer is a warning, the schema goes on
             logger.warning("Failed to create analyzer %s: %s", spec["name"], exc)
 
 
@@ -276,7 +276,7 @@ def _ensure_search_views(db: StandardDatabase) -> None:
                 if _indexed_fields(current_links) != _indexed_fields(view_links):
                     db.update_arangosearch_view(view_name, properties=properties)
                     logger.info("Updated ArangoSearch view %s", view_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a missing view is a warning, the schema goes on
             logger.warning("Failed to ensure ArangoSearch view %s: %s", view_name, exc)
 
 
@@ -563,7 +563,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 continue
             try:
                 coll.delete_index(existing_idx["id"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — an index left over is a warning, the schema goes on
                 logger.warning(
                     "Failed to drop outdated index on %s %s: %s", coll_name, fields, exc
                 )
@@ -582,7 +582,7 @@ def _ensure_indexes(db: StandardDatabase) -> None:
                 unique,
                 sparse,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a missing index is a warning, the schema goes on
             logger.warning(
                 "Could not create index on %s %s: %s", coll_name, fields, exc
             )

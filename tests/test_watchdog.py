@@ -49,3 +49,23 @@ def test_no_report_while_no_step_runs(
     with caplog.at_level("INFO"):
         watchdog.report()
     assert caplog.messages == []
+
+
+def test_a_report_that_fails_is_a_warning_the_first_time_and_never_ends_the_run(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def report() -> None:
+        raise PermissionError("pg_stat_activity")
+
+    monkeypatch.setattr(watchdog, "report", report)
+    with caplog.at_level("DEBUG"):
+        assert watchdog.report_safely(first_failure=True) is False
+        assert watchdog.report_safely(first_failure=False) is False
+    assert [(r.levelname, bool(r.exc_info)) for r in caplog.records] == [
+        ("WARNING", True),
+        ("DEBUG", True),
+    ]
+
+
+def test_a_report_that_works_says_so() -> None:
+    assert watchdog.report_safely(first_failure=True) is True
