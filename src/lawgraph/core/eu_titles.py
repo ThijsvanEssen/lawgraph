@@ -31,8 +31,8 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.identifiers import EU_ACT_KINDS, parse_celex
-from lawgraph.core.rijksoverheid import parse_date
 
 _MAASTRICHT = "1993-11-01"
 _LISBON = "2009-12-01"
@@ -93,7 +93,9 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
     printed_title = " ".join(paragraphs)
     designation = _designation(paragraphs[0]) if paragraphs else None
     cited = citation_title(
-        celex, adopted=parse_date(printed_title), designation=designation
+        celex,
+        adopted=dutch_day(printed_title, abbreviations=True),
+        designation=designation,
     )
     if not paragraphs:
         return EuActNames(None, cited, None)

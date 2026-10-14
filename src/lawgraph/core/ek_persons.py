@@ -11,11 +11,11 @@ member's only the year.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.ek_changes import _DAY, iso_day
+from lawgraph.core.dutch_dates import DATE, dutch_day
+from lawgraph.core.time import day_before
 from lawgraph.core.xml import html_text
 
 PERSON_PREFIX = "/persoon/"
@@ -26,11 +26,11 @@ _TITLE = re.compile(
 _INTRO = re.compile(
     r"\((\d{4})\)\s+(.+?)(?:\s+Contact:|\s+Personalia|\s+Anciënniteit|$)"
 )
-_BORN = re.compile(rf"geboren te [^,]+, {_DAY}")
+_BORN = re.compile(rf"geboren te [^,]+, {DATE}")
 # "is vanaf 11 juni 2019 lid van de D66-fractie", "was van 28 juli 2019 tot 13 juni 2023 lid
 # en voorzitter van de Fractie-Otten"
 _PERIOD = re.compile(
-    rf"(?:is (?:hij |zij )?vanaf ({_DAY})|was (?:hij |zij )?van ({_DAY}) tot ({_DAY}))"
+    rf"(?:is (?:hij |zij )?vanaf ({DATE})|was (?:hij |zij )?van ({DATE}) tot ({DATE}))"
     r" lid(?: en [\w-]+)? van de (.+?) in de Eerste Kamer"
 )
 
@@ -74,17 +74,13 @@ def person_page(page: str) -> PersonPage | None:
     found.birth_year = intro.group(1)
     born = _BORN.search(text)
     if born:
-        found.birth_date = iso_day(born.group(0), 0)
+        found.birth_date = dutch_day(born.group(0))
     for m in _PERIOD.finditer(intro.group(2)):
         if m.group(1):
-            start, end = iso_day(m.group(1), 0), None
+            start, end = dutch_day(m.group(1)), None
         else:
-            start, until = iso_day(m.group(5), 0), iso_day(m.group(9), 0)
-            end = (
-                (dt.date.fromisoformat(until) - dt.timedelta(days=1)).isoformat()
-                if until
-                else None
-            )
+            start, until = dutch_day(m.group(2)), dutch_day(m.group(3))
+            end = day_before(until) if until else None
         if start:
-            found.periods.append(Period(faction_name(m.group(13)), start, end))
+            found.periods.append(Period(faction_name(m.group(4)), start, end))
     return found

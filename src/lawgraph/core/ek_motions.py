@@ -16,8 +16,8 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
-from lawgraph.core.rijksoverheid import parse_date
 from lawgraph.core.tk_records import SUBMITTER_CO, SUBMITTER_FIRST, SubmitterRole
 from lawgraph.core.xml import html_text
 
@@ -86,7 +86,9 @@ def motion_page(page: str) -> MotionPage | None:
         number=number["number"],
         letter=number["letter"],
         label=label,
-        submitted_on=parse_date(html_text(rows.get("ingediend", ""))),
+        submitted_on=dutch_day(
+            html_text(rows.get("ingediend", "")), abbreviations=True
+        ),
         debate=html_text(rows.get("bij", "")) or None,
         status=html_text(rows.get("behandelstatus", "")) or None,
         summary=html_text(summary[1]) if summary else None,

@@ -8,10 +8,10 @@ import pytest
 
 from lawgraph.clients.rijksoverheid import cabinet_slugs
 from lawgraph.core.cabinet_posts import heading_parts, person_key, seat_of
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.rijksoverheid import (
     SECTION_MINISTERS,
     SECTION_STATE_SECRETARIES,
-    parse_date,
     parse_holder,
     parse_page,
     split_name,
@@ -36,7 +36,7 @@ def _page(slug: str) -> dict:
     ],
 )
 def test_a_day_is_read_in_every_way_the_pages_write_it(text: str, day: str) -> None:
-    assert parse_date(text) == day
+    assert dutch_day(text, abbreviations=True) == day
 
 
 def _one(line: str) -> dict:

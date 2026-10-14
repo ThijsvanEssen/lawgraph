@@ -118,12 +118,12 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
 
         for record in raw:
             payload = self._payload_json(record)
-            if not payload or not isinstance(payload, dict):
-                result.skipped += 1
+            if not payload:
+                self.progress.skip("no payload", record.get("external_id"))
                 continue
             identifier = payload.get("identifier") or record.get("external_id")
             if not identifier:
-                result.skipped += 1
+                self.progress.skip("no identifier", record.get("_key"))
                 continue
             node = self._paper(str(identifier), payload)
             writer.add(node)

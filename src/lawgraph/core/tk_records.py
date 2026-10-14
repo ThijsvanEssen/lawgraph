@@ -10,7 +10,6 @@ against a single recorded payload.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 import sys
 from collections import Counter
@@ -23,7 +22,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.models import make_node_key
 from lawgraph.core.slugs import claim_numbered
-from lawgraph.core.time import iso_date
+from lawgraph.core.time import day_before, iso_date, shift_day
 from lawgraph.core.values import first_str
 from lawgraph.core.xml import collapse_ws
 
@@ -587,11 +586,7 @@ def seat_vacancy(payload: Payload) -> tuple[str, dict[str, Any]] | None:
     start, until = iso_date(payload.get("Van")), iso_date(payload.get("TotEnMet"))
     if not faction_id or not start:
         return None
-    end = (
-        (dt.date.fromisoformat(until) - dt.timedelta(days=1)).isoformat()
-        if until
-        else None
-    )
+    end = day_before(until) if until else None
     if end is not None and end < start:
         return None
     return faction_id, {"from_date": start, "to_date": end}
@@ -616,10 +611,6 @@ def holding_of_seat(payload: Payload) -> tuple[str, dict[str, Any]] | None:
     return seat_id, {"from_date": start, "to_date": iso_date(payload.get("TotEnMet"))}
 
 
-def _day(value: str, days: int) -> str:
-    return (dt.date.fromisoformat(value) + dt.timedelta(days=days)).isoformat()
-
-
 def vacant_periods(
     vacancy: dict[str, Any], held: Iterable[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -637,7 +628,7 @@ def vacant_periods(
         return []
     for begins, _ends in periods:
         if begins > start and (end is None or begins <= end):
-            end = _day(begins, -1)
+            end = day_before(begins)
             break
     free: list[dict[str, Any]] = []
     day = start
@@ -647,10 +638,10 @@ def vacant_periods(
         if ends is not None and ends < day:
             continue
         if begins > day:
-            free.append({"from_date": day, "to_date": _day(begins, -1)})
+            free.append({"from_date": day, "to_date": day_before(begins)})
         if ends is None:
             return free
-        day = _day(ends, 1)
+        day = shift_day(ends, 1)
     if end is None or day <= end:
         free.append({"from_date": day, "to_date": end})
     return free

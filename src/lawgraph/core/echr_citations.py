@@ -17,16 +17,13 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from lawgraph.core.dutch_dates import dutch_day
+
 # An application number: "22492/93", "123/04".
 _APPNO = r"\d{1,6}/\d{2}"
-_MONTHS_NL = (
-    "januari februari maart april mei juni juli augustus september oktober november "
-    "december"
-).split()
 _MONTHS_EN = (
     "january february march april may june july august september october november december"
 ).split()
-_DATE_NL = re.compile(rf"\b(\d{{1,2}})\s+({'|'.join(_MONTHS_NL)})\s+(\d{{4}})\b", re.I)
 _DATE_EN = re.compile(rf"\b(\d{{1,2}})\s+({'|'.join(_MONTHS_EN)})\s+(\d{{4}})\b", re.I)
 # "EHRM", "EHRM (GK)", "EHRM (dec.)": the start of a Dutch citation of the Court.
 _COURT_NL = re.compile(r"\bEHRM\b")
@@ -55,11 +52,11 @@ class Unresolved(Enum):
     AMBIGUOUS = "ambiguous"  # several decisions of that number, and no date to choose
 
 
-def _date(match: re.Match[str] | None, months: list[str]) -> str | None:
+def _english_date(match: re.Match[str] | None) -> str | None:
     if match is None:
         return None
     try:
-        month = months.index(match[2].lower()) + 1
+        month = _MONTHS_EN.index(match[2].lower()) + 1
         return dt.date(int(match[3]), month, int(match[1])).isoformat()
     except ValueError:
         return None
@@ -85,7 +82,7 @@ def dutch_mentions(text: str) -> list[tuple[Cited, int, int]]:
         numbers = _NUMBERS.search(window)
         if numbers is None:
             continue
-        date = _date(_DATE_NL.search(window[: numbers.start()]), _MONTHS_NL)
+        date = dutch_day(window[: numbers.start()])
         base = court.end() + numbers.start(1)
         for order, appno in enumerate(re.finditer(_APPNO, numbers[1])):
             start = court.start() if order == 0 else base + appno.start()
@@ -100,7 +97,7 @@ def cited_in_english(text: str, *, own: frozenset[str] = frozenset()) -> list[Ci
     for numbers in _NUMBERS.finditer(text):
         after = text[numbers.end() : numbers.end() + _EN_WINDOW]
         after = re.split(r"[;)]", after, maxsplit=1)[0]
-        date = _date(_DATE_EN.search(after), _MONTHS_EN)
+        date = _english_date(_DATE_EN.search(after))
         found += [
             Cited(appno, date) for appno in _numbers(numbers[1]) if appno not in own
         ]
