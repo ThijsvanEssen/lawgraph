@@ -30,6 +30,7 @@ from lawgraph.core.dutch_dates import (
     MONTH_OR_ABBREVIATION,
     dutch_day,
 )
+from lawgraph.core.dutch_names import TITLES
 from lawgraph.core.xml import collapse_ws, html_text
 
 # ``3 juni 2025``, ``15 sept. 1947``, ``8 sep.1977``: the page abbreviates its months.
@@ -249,7 +250,7 @@ def _unique(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # Titles and degrees before or after a name.
 _TITLES = re.compile(
-    r"\b(?:mw|mevr|dhr|mr|mmr|dr|drs|ir|ing|prof|ds|jhr|jkvr|ds|bc|ba|ma|msc|mba|mpa|phd"
+    rf"\b(?:{'|'.join(TITLES)}|mw|mevr|dhr|mmr|ds|jhr|jkvr|bc|ba|ma|msc|mba|mpa|phd"
     r"|ll\.?\s?m|baron|viceadmiraal|generaal|luitenant-generaal)\b\.?",
     re.IGNORECASE,
 )
