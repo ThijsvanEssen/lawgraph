@@ -189,11 +189,11 @@ def test_the_signals_do_not_read_the_text_of_a_paper(store: GraphStore) -> None:
 
 def test_the_step_keeps_judgments_and_papers(store: GraphStore) -> None:
     """``semantic graph-light`` fills both tables: one step for both after a deploy."""
-    from lawgraph.pipelines.semantic import graph_light
+    from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 
     store.bulk_insert_or_update_nodes("documents", [_paper("d1", "36000")])
     store.execute("DELETE FROM lg_document_light")
-    result = graph_light.main([])
+    result = GraphLightSemanticPipeline(store=store).run()
     assert result.updated == 1
     assert _light(store, "d1")["title"] == "Stuk d1"
 
@@ -201,7 +201,7 @@ def test_the_step_keeps_judgments_and_papers(store: GraphStore) -> None:
 def test_the_papers_alone_are_kept_again(store: GraphStore) -> None:
     """``semantic graph-light --papers``: every paper again (after what is kept of a paper
     changed, as ``has_text``), every other light table only where a row is missing."""
-    from lawgraph.pipelines.semantic import graph_light
+    from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 
     store.bulk_insert_or_update_nodes(
         "documents", [_paper("d1", "36000"), _paper("d2", "36000", text=None)]
@@ -214,7 +214,7 @@ def test_the_papers_alone_are_kept_again(store: GraphStore) -> None:
     store.execute('UPDATE lg_document_light SET props = \'{"title": "oud"}\'')
     store.execute('UPDATE lg_judgment_light SET props = \'{"ecli": "kept"}\'')
 
-    assert graph_light.main(["--papers"]).updated == 2
+    assert GraphLightSemanticPipeline(store=store, papers=True).run().updated == 2
 
     assert _light(store, "d1")["has_text"] is True
     assert _light(store, "d2")["has_text"] is False
