@@ -19,6 +19,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph import __version__
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
@@ -352,7 +353,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.56",
+    version=__version__,
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "

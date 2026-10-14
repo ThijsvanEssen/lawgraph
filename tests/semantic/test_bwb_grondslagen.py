@@ -13,7 +13,7 @@ from lawgraph.core.bwb_xml import instrument_props, parse_toestand
 from lawgraph.core.models import make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "fixtures"
 AMVB_XML = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
@@ -22,7 +22,11 @@ AMVB_ID = "BWBR0001950"  # the fixture's regulation
 BASIS_ID = "BWBR0001947"  # "Gelet op artikel 125 en 133 van de Ambtenarenwet 1929"
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
+    """The regulations as their query returns them (``raw_rows``), the keys of the
+    instruments and articles in the graph, the text of each article; ``reads`` and
+    ``existence_calls`` count what the pipeline asked."""
+
     def __init__(
         self,
         raw_rows: list[dict[str, Any]],
@@ -39,49 +43,44 @@ class _FakeStore(_BaseFakeStore):
         self.reads = 0
         self.existence_calls: list[str] = []
 
-    def regulations(self) -> Iterator[dict[str, Any]]:
-        """What the query returns: the regulations in the graph that state a basis. It
-        reads them from the regulation; the XML is not parsed again."""
-        self.reads += 1
-        return iter(
-            r for r in self.raw_rows if r["key"] in self.instruments and r["basis"]
-        )
 
-    def targets(self, keys) -> Iterator[dict[str, Any]]:
-        """The basis articles in the graph, with their text."""
-        self.existence_calls.append("articles")
-        return iter(
-            {"key": k, "text": self.texts.get(k), "parts": None}
-            for k in sorted(set(keys) & self.articles)
-        )
+def _regulations_with_basis(store: _Store) -> Iterator[dict[str, Any]]:
+    """The regulations in the graph that state a basis. It reads them from the
+    regulation; the XML is not parsed again."""
+    store.reads += 1
+    return iter(
+        r for r in store.raw_rows if r["key"] in store.instruments and r["basis"]
+    )
 
-    def in_order(self, bwb_ids) -> Iterator[dict[str, Any]]:
-        """The articles of the laws, in the order of the law: here by number."""
-        self.existence_calls.append("order")
-        rows = [
-            {"bwb_id": k.split("_")[0].upper(), "key": k}
-            for k in self.articles
-            if k.split("_")[0].upper() in set(bwb_ids)
-        ]
-        return iter(
-            sorted(rows, key=lambda r: (r["bwb_id"], int(r["key"].split("_")[1])))
-        )
+
+def _basis_targets(store: _Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """The basis articles in the graph, with their text."""
+    store.existence_calls.append("articles")
+    return iter(
+        {"key": k, "text": store.texts.get(k), "parts": None}
+        for k in sorted(set(keys) & store.articles)
+    )
+
+
+def _articles_in_order(store: _Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """The articles of the laws, in the order of the law: here by number."""
+    store.existence_calls.append("order")
+    rows = [
+        {"bwb_id": k.split("_")[0].upper(), "key": k}
+        for k in store.articles
+        if k.split("_")[0].upper() in set(bwb_ids)
+    ]
+    return iter(sorted(rows, key=lambda r: (r["bwb_id"], int(r["key"].split("_")[1]))))
 
 
 @pytest.fixture(autouse=True)
 def _regulations(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        semantic_bwb, "regulations_with_basis", lambda store: store.regulations()
-    )
-    monkeypatch.setattr(
-        semantic_bwb, "basis_targets", lambda store, keys: store.targets(keys)
-    )
-    monkeypatch.setattr(
-        semantic_bwb, "articles_in_order", lambda store, ids: store.in_order(ids)
-    )
+    monkeypatch.setattr(semantic_bwb, "regulations_with_basis", _regulations_with_basis)
+    monkeypatch.setattr(semantic_bwb, "basis_targets", _basis_targets)
+    monkeypatch.setattr(semantic_bwb, "articles_in_order", _articles_in_order)
 
 
-def _run(store: _FakeStore):
+def _run(store: _Store):
     return BWBGrondslagenSemanticPipeline(store=store).run()
 
 
@@ -92,7 +91,7 @@ def _row(bwb_id: str = AMVB_ID, xml: str = AMVB_XML) -> dict[str, Any]:
 
 
 def test_creates_based_on_edges_for_gelet_op_articles() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_row()],
         instruments={make_node_key(AMVB_ID)},
         articles={make_node_key(BASIS_ID, "125"), make_node_key(BASIS_ID, "133")},
@@ -113,7 +112,7 @@ def test_creates_based_on_edges_for_gelet_op_articles() -> None:
 
 
 def test_targets_missing_from_the_graph_are_skipped() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_row()],
         instruments={make_node_key(AMVB_ID)},
         articles={make_node_key(BASIS_ID, "125")},  # 133 unknown
@@ -128,7 +127,7 @@ def test_targets_missing_from_the_graph_are_skipped() -> None:
 
 
 def test_unknown_regulation_gets_no_edges() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_row()], instruments=set(), articles={make_node_key(BASIS_ID, "125")}
     )
 
@@ -138,7 +137,7 @@ def test_unknown_regulation_gets_no_edges() -> None:
 
 def test_never_links_a_regulation_to_itself() -> None:
     # the same XML, but stored under the id of the regulation it is based on
-    store = _FakeStore(
+    store = _Store(
         [_row(bwb_id=BASIS_ID)],
         instruments={make_node_key(BASIS_ID)},
         articles={make_node_key(BASIS_ID, "125"), make_node_key(BASIS_ID, "133")},
@@ -155,7 +154,7 @@ def test_basis_without_article_number_makes_no_edge() -> None:
           <extref doc="jci1.3:c:BWBR0001947" bwb-id="BWBR0001947">Ambtenarenwet</extref>;
         </considerans.al>
       </considerans></aanhef></wet-besluit></wetgeving></toestand>"""
-    store = _FakeStore(
+    store = _Store(
         [_row("BWBR0009999", xml)],
         instruments={make_node_key("BWBR0009999")},
         articles={make_node_key(BASIS_ID, "1")},
@@ -173,7 +172,7 @@ def test_a_regulation_without_a_basis_is_not_even_read() -> None:
     became a regulation in ``normalize bwb``."""
     props = instrument_props(parse_toestand("<toestand><wetgeving/></toestand>"), "X")
     assert props["basis"] == []  # written, so a basis that was dropped does not stay
-    store = _FakeStore(
+    store = _Store(
         [{"key": "bwbr0000001", "bwb_id": "BWBR0000001", "basis": props["basis"]}],
         instruments={"bwbr0000001"},
     )
@@ -185,7 +184,7 @@ def test_a_regulation_without_a_basis_is_not_even_read() -> None:
 
 
 def test_is_idempotent() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_row()],
         instruments={make_node_key(AMVB_ID)},
         articles={make_node_key(BASIS_ID, "125"), make_node_key(BASIS_ID, "133")},
@@ -198,9 +197,9 @@ def test_is_idempotent() -> None:
 
 
 def test_store_calls_do_not_grow_with_the_number_of_regulations() -> None:
-    def build(n: int) -> _FakeStore:
+    def build(n: int) -> _Store:
         ids = [f"BWBR{1000 + i:07d}" for i in range(n)]
-        return _FakeStore(
+        return _Store(
             [_row(i, AMVB_XML) for i in ids],
             instruments={make_node_key(i) for i in ids},
             articles={make_node_key(BASIS_ID, "125"), make_node_key(BASIS_ID, "133")},
@@ -232,7 +231,7 @@ def _link(article: str, text: str) -> str:
     )
 
 
-def _edges_by_target(store: _FakeStore) -> dict[str, dict[str, Any]]:
+def _edges_by_target(store: _Store) -> dict[str, dict[str, Any]]:
     return {e["_to"].split("_")[-1]: e["meta"] for e in store.edges.values()}
 
 
@@ -241,7 +240,7 @@ def test_a_range_of_articles_links_every_article_in_it() -> None:
     xml = _gelet_op(
         f"de {_link('6', 'artikelen 6 tot en met 9')} en {_link('12', '12')}"
     )
-    store = _FakeStore(
+    store = _Store(
         [_row("BWBR0009999", xml)],
         instruments={make_node_key("BWBR0009999")},
         # article 8 is not in the graph (repealed): the others of the range are linked
@@ -262,7 +261,7 @@ def test_the_text_of_an_edge_has_no_list_word_nor_law() -> None:
         f"{_link('16', '16, eerste en zevende lid')} en "
         f"{_link('107', '107 van de Cyberbeveiligingswet')}"
     )
-    store = _FakeStore(
+    store = _Store(
         [_row("BWBR0009999", xml)],
         instruments={make_node_key("BWBR0009999")},
         articles={make_node_key(BASIS_ID, n) for n in ("3", "16", "107")},
@@ -278,7 +277,7 @@ def test_the_text_of_an_edge_has_no_list_word_nor_law() -> None:
 
 def test_an_edge_says_whether_the_article_delegates() -> None:
     xml = _gelet_op(f"de {_link('3', 'artikelen 3')} en {_link('4', '4')}")
-    store = _FakeStore(
+    store = _Store(
         [_row("BWBR0009999", xml)],
         instruments={make_node_key("BWBR0009999")},
         articles={make_node_key(BASIS_ID, n) for n in ("3", "4", "5")},

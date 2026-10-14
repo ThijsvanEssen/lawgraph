@@ -1,6 +1,6 @@
 -- Why judgments cite "Rv" as a law not in the graph (HR 2019:2006, Urgenda: "art. 419 Rv"), and
 -- which laws are cited unresolved most. Read only; counts and a few rows. Run with:
---   docker exec -i lawgraph-postgres psql -X -U lawgraph -d lawgraph < unresolved-laws-check.sql > unresolved-laws-check-output.txt 2>&1
+--   docker exec -i lawgraph-postgres psql -X -v ON_ERROR_STOP=1 -U lawgraph -d lawgraph < unresolved-laws-check.sql > unresolved-laws-check-output.txt 2>&1
 -- Sections 1-3 are cheap (instrument rows, one judgment). Section 4 reads `unresolved_citations`
 -- from the props of a 0.5% sample of judgments (block sample, TOAST of those rows only): an
 -- estimate of the top 20, not a full count.
