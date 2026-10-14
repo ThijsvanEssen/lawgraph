@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Collection
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from fastapi import HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 
+from lawgraph.core.code_families import native_number
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
+from lawgraph.core.models import article_id, key_of
 from lawgraph.db.schema import NODE_COLLECTIONS
 
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
@@ -35,6 +39,11 @@ EdgeMeta = Annotated[
 ]
 
 
+def iso_day(day: dt.date | None) -> str | None:
+    """A day as the queries take it, ``YYYY-MM-DD``; None stays None."""
+    return day.isoformat() if day else None
+
+
 def parse_choices(
     value: str | None, allowed: Collection[str] | None, name: str
 ) -> tuple[str, ...] | None:
@@ -57,6 +66,27 @@ def parse_choices(
             ),
         )
     return chosen
+
+
+@dataclass(frozen=True)
+class ArticleRef:
+    """An article as its path names it: ``number`` is its own number in its book
+    (``162`` for ``6:162`` under BW Boek 6), ``key`` and ``id`` its node."""
+
+    bwb_id: str
+    number: str
+    key: str
+    id: str
+
+
+def article_ref(bwb_id: str, article_number: str) -> ArticleRef:
+    """The article of ``/{bwb_id}/{article_number}``, cited or own numbering alike."""
+    number = native_number(bwb_id, article_number)
+    node = article_id(bwb_id, number)
+    return ArticleRef(bwb_id, number, key_of(node), node)
+
+
+ArticleAddress = Annotated[ArticleRef, Depends(article_ref)]
 
 
 def is_node_id(value: str) -> bool:
