@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 
 def test_semantic_pipelines_end_their_edges_through_the_edge_writer() -> None:

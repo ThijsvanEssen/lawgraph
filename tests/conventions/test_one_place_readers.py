@@ -11,7 +11,8 @@ import re
 
 import pytest
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files, string_literals
 
 BUDGET_TITLES_HOME = SRC / "core" / "budget_titles.py"
 PUBLICATIONS_HOME = SRC / "core" / "publications.py"
@@ -29,44 +30,10 @@ _PUBLICATION_FORMS = re.compile(
 _EU_ACT_NOUNS = {"Richtlijn", "Verordening", "Kaderbesluit", "Beschikking"}
 
 
-def _code_strings(source: str) -> list[str]:
-    """The string literals of *source* (also the text of f-strings, ``{name}`` for each
-    value), docstrings left out."""
-    tree = ast.parse(source)
-    docstrings = {
-        id(node.body[0].value)
-        for node in ast.walk(tree)
-        if isinstance(
-            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-        )
-        and node.body
-        and isinstance(node.body[0], ast.Expr)
-        and isinstance(node.body[0].value, ast.Constant)
-    }
-    found: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.JoinedStr):
-            found.append(
-                "".join(
-                    v.value
-                    if isinstance(v, ast.Constant)
-                    else "{" + ast.unparse(v.value) + "}"
-                    for v in node.values
-                )
-            )
-        elif (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and id(node) not in docstrings
-        ):
-            found.append(node.value)
-    return found
-
-
 def _copies(source: str, home: pathlib.Path, path: pathlib.Path) -> list[str]:
     if path == home:
         return []
-    strings = _code_strings(source)
+    strings = [text for _, text in string_literals(ast.parse(source), pieces=True)]
     if home == BUDGET_TITLES_HOME:
         return [s for s in strings if _BUDGET_GRAMMAR.search(s)]
     if home == PUBLICATIONS_HOME:
@@ -88,7 +55,7 @@ def test_the_scan_for_copies_would_catch_one() -> None:
     assert _copies('LABELS = {"directive": "Richtlijn"}', EU_ACT_KINDS_HOME, other)
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 @pytest.mark.parametrize(
     "home",
     [BUDGET_TITLES_HOME, PUBLICATIONS_HOME, EU_ACT_KINDS_HOME],

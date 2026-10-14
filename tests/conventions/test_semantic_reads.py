@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 _WHOLE_DOCUMENT = re.compile(r"RETURN (doc|art|inst|j|pub)\b(?![._\[])")
 _SEMANTIC_QUERIES = (

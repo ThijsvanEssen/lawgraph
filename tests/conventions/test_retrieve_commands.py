@@ -14,7 +14,7 @@ from lawgraph.core.logging import log_step
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve_commands import RetrieveCommand, RetrieveMode
 from lawgraph.sources.registry import PIPELINES, find
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 ROOT = SRC.parents[1]
 

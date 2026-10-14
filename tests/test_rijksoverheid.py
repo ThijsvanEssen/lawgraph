@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from lawgraph.clients.rijksoverheid import cabinet_slugs
@@ -16,8 +14,9 @@ from lawgraph.core.rijksoverheid import (
     parse_page,
     split_name,
 )
+from tests.paths import FIXTURES
 
-PAGES = Path(__file__).parent / "fixtures" / "rijksoverheid"
+PAGES = FIXTURES / "rijksoverheid"
 
 
 def _page(slug: str) -> dict:

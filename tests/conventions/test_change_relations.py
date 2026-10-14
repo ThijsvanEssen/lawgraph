@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import RELATION_NAME_HOMES, SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import RELATION_NAME_HOMES, python_files
 
 _CHANGE_NAMES = {"RELATION_AMENDS", "RELATION_INTRODUCES", "RELATION_REPEALS"}
 
@@ -29,7 +30,7 @@ def _change_sets_spelled_out(source: str) -> list[int]:
 def test_change_relations_are_grouped_in_the_constants() -> None:
     offenders = [
         f"{path.relative_to(SRC)}:{line}"
-        for path in _python_files()
+        for path in python_files()
         if path not in RELATION_NAME_HOMES
         for line in _change_sets_spelled_out(path.read_text())
     ]

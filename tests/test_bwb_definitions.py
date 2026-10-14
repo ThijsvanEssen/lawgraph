@@ -10,8 +10,6 @@ explicit lists of dashes cut to a few terms.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core.bwb_definitions import (
     TermMatcher,
     applies,
@@ -20,12 +18,11 @@ from lawgraph.core.bwb_definitions import (
     inherited,
     reaches,
 )
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 def _read(name: str, bwb_id: str) -> list[dict]:
-    return definitions(bwb_id, (FIXTURES / f"bwb_definitions_{name}.xml").read_text())
+    return definitions(bwb_id, fixture_text(f"bwb_definitions_{name}.xml"))
 
 
 def test_a_list_of_terms_with_its_letters_and_the_regulation_wet_names() -> None:

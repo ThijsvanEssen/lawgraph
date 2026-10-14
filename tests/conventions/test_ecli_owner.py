@@ -7,7 +7,8 @@ import re
 
 import pytest
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 ECLI_HOME = SRC / "core" / "ecli.py"
 # A pattern for an ECLI or its key ("ECLI:[A-Z]{2}", "(?:ECLI:NL:)?(?P<court>",
@@ -36,7 +37,7 @@ def test_the_ecli_scan_would_catch_a_pattern() -> None:
     assert not _ecli_readers("the ECLI: ``ECLI:NL:HR:2019:1858``")
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 def test_an_ecli_is_only_read_in_core_ecli(path: pathlib.Path) -> None:
     if path == ECLI_HOME:
         return

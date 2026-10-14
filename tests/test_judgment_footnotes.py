@@ -3,17 +3,14 @@ a citation in one counts for that paragraph."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.judgments import extract_sections, judgment_text, parse_judgment
 from lawgraph.core.mentions import Mention, find_mentions, footnote_paragraphs
+from tests.paths import fixture_text
 
 # ECLI:NL:RBZWB:2026:1134 (Rechtspraak open data): r.o. 3.1 refers to footnote 1, which
 # cites "art. 10:56 BW", the only article it cites.
-XML = (
-    Path(__file__).parent / "fixtures" / "rechtspraak_rbzwb_2026_1134.xml"
-).read_text()
+XML = fixture_text("rechtspraak_rbzwb_2026_1134.xml")
 
 
 def test_the_footnotes_and_the_paragraph_that_refers_to_each() -> None:

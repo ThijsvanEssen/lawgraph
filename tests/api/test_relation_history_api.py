@@ -16,6 +16,7 @@ from lawgraph.api.app import app
 from lawgraph.db.queries.articles import ArticleHistoryData
 from lawgraph.db.queries.instruments import AmendedByData
 from lawgraph.db.queries.not_found import NotFound
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -90,9 +91,7 @@ def _history(
             dossier_titles=dossier_titles or {},
         )
 
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_history", get_article_history
-    )
+    stub_route(monkeypatch, "articles", get_article_history=get_article_history)
     return asked
 
 
@@ -108,9 +107,8 @@ def _amended_by(
         asked.append({"identifier": identifier, "limit": limit, "offset": offset})
         return data
 
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.get_instrument_amended_by",
-        get_instrument_amended_by,
+    stub_route(
+        monkeypatch, "instruments", get_instrument_amended_by=get_instrument_amended_by
     )
     return asked
 
@@ -339,9 +337,8 @@ def _instrument_dossiers(
         asked.append((identifier, limit))
         return rows, total
 
-    monkeypatch.setattr(
-        "lawgraph.api.routes.instruments.get_instrument_dossiers",
-        get_instrument_dossiers,
+    stub_route(
+        monkeypatch, "instruments", get_instrument_dossiers=get_instrument_dossiers
     )
     return asked
 
@@ -411,9 +408,10 @@ def test_an_instrument_dossier_and_a_history_entry_name_the_dossier_short(
         "status": "voorgesteld", "summary": None, "document_id": "documents/b",
         "dossier_id": "dossiers/36764", "dossier_number": "36764",
     }  # fmt: skip
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_legislative_history",
-        lambda *a, **k: [
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_legislative_history=[
             {**entry, "dossier_title": named["props"]["title"]},
             {**entry, "dossier_title": None},
         ],

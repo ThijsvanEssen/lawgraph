@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import Any
 
 import pytest
@@ -26,12 +25,12 @@ from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, raw_record
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
+SR_HEAD = fixture_text("bwb_wti_sr_head.xml")
 SR_GENERAL = extract_general_info(SR_HEAD) or ""
-BW1_GENERAL = (FIXTURES / "bwb_wti_bw1_general.xml").read_text()
-TOESTAND_XML = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
+BW1_GENERAL = fixture_text("bwb_wti_bw1_general.xml")
+TOESTAND_XML = fixture_text("bwb_grondwet_toestand.xml")
 
 SR = "BWBR0001854"
 BW1 = "BWBR0002656"
@@ -360,10 +359,8 @@ def test_the_abbreviation_is_the_wti_short_title_else_the_curated_one() -> None:
 
 def test_normalize_writes_the_legal_areas_and_themes_with_their_tooi_concepts() -> None:
     thesauri = {
-        TOOI_BWB_LEGAL_AREAS: json.loads(
-            (FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text()
-        ),
-        TOOI_BWB_THEMES: json.loads((FIXTURES / "tooi_bwb_themas.json").read_text()),
+        TOOI_BWB_LEGAL_AREAS: json.loads(fixture_text("tooi_bwb_rechtsgebieden.json")),
+        TOOI_BWB_THEMES: json.loads(fixture_text("tooi_bwb_themas.json")),
     }
     store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}}, thesauri)
 

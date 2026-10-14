@@ -13,7 +13,7 @@ import subprocess
 
 import pytest
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+from tests.paths import ROOT
 
 
 def _modes() -> dict[str, str]:

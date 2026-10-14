@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "deploy.yml"
+from tests.paths import ROOT
+
+WORKFLOW = ROOT / ".github" / "workflows" / "deploy.yml"
 
 
 def _lock_part(step: str) -> str:

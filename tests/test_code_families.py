@@ -6,15 +6,13 @@ books of the Burgerlijk Wetboek among them."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from lawgraph.core.code_families import CODE_FAMILIES, DATA, families_from_wti
+from tests.paths import fixture_text
 
-WTI = json.loads(
-    (Path(__file__).parent / "fixtures" / "bwb_wti_abbreviations.json").read_text()
-)
+WTI = json.loads(fixture_text("bwb_wti_abbreviations.json"))
 
 
 def test_the_data_file_is_what_the_wti_gives() -> None:

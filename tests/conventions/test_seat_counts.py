@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 
 def test_the_api_names_the_seat_counts() -> None:

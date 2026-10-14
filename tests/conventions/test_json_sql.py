@@ -9,7 +9,7 @@ import re
 import pytest
 
 from lawgraph.db.queries import _json_sql
-from tests.conventions._scan import DB
+from tests.source_scan import DB
 
 _QUERIES = DB / "queries"
 _HELPERS = _QUERIES / "_json_sql.py"

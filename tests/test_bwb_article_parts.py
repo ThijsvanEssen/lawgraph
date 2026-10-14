@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 
 import pytest
 
@@ -14,13 +13,12 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.models import Node
-
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 @pytest.fixture(scope="module")
 def grondwet():
-    return parse_toestand((FIXTURES / "bwb_grondwet_toestand.xml").read_text())
+    return parse_toestand(fixture_text("bwb_grondwet_toestand.xml"))
 
 
 def _article(xml: str) -> ArticleXml:
@@ -42,10 +40,10 @@ def _shape(article: ArticleXml) -> list[tuple[str, str, str | None, str]]:
 
 def test_the_text_and_references_of_the_fixtures_are_what_they_always_were() -> None:
     """Recorded before the structure of an article was read: text and offsets stay valid."""
-    golden = json.loads((FIXTURES / "bwb_article_text_golden.json").read_text())
+    golden = json.loads(fixture_text("bwb_article_text_golden.json"))
 
     for name, expected in golden.items():
-        articles = parse_toestand((FIXTURES / name).read_text()).articles
+        articles = parse_toestand(fixture_text(name)).articles
         assert [a.text for a in articles] == [e["text"] for e in expected], name
         assert [
             [

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import pathlib
-
 import pytest
 
 from lawgraph.core.echr_docx import read_judgment
 from lawgraph.core.judgments import text_id
+from tests.paths import fixture_text
 
 # Beumer v. the Netherlands (001-61254), the word/document.xml of the DOCX HUDOC serves.
-BEUMER = (
-    pathlib.Path(__file__).parent / "fixtures" / "hudoc_001_61254_document.xml"
-).read_text()
+BEUMER = fixture_text("hudoc_001_61254_document.xml")
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"

@@ -10,7 +10,9 @@ from pathlib import Path
 
 import pytest
 
-OPS = Path(__file__).resolve().parents[1] / "ops"
+from tests.paths import ROOT
+
+OPS = ROOT / "ops"
 SCRIPTS = sorted(OPS.glob("*.sh"))
 
 

@@ -9,12 +9,8 @@ import pathlib
 
 import pytest
 
-from tests.conventions._scan import (
-    DUTCH_STEMS,
-    SOURCE_KIND_PREFIX,
-    SRC,
-    _owned_files,
-)
+from tests.paths import SRC
+from tests.source_scan import DUTCH_STEMS, SOURCE_KIND_PREFIX, owned_files
 
 
 def _identifiers(tree: ast.AST) -> set[str]:
@@ -34,7 +30,7 @@ def _identifiers(tree: ast.AST) -> set[str]:
     return names
 
 
-@pytest.mark.parametrize("path", _owned_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", owned_files(), ids=lambda p: p.name)
 def test_identifiers_have_no_dutch_stems(path: pathlib.Path) -> None:
     tree = ast.parse(path.read_text())
     offenders = {
@@ -53,7 +49,7 @@ def test_identifiers_have_no_dutch_stems(path: pathlib.Path) -> None:
 def test_module_names_have_no_dutch_stems() -> None:
     offenders = [
         str(path.relative_to(SRC))
-        for path in _owned_files()
+        for path in owned_files()
         for stem in DUTCH_STEMS
         if stem in path.stem.lower()
     ]

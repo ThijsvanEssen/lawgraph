@@ -3,17 +3,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from lawgraph.core import eerstekamer_bills as eb
-
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-def _read(name: str) -> str:
-    return (FIXTURES / name).read_text()
+from tests.paths import fixture_text
 
 
 @pytest.mark.parametrize(
@@ -40,7 +33,7 @@ def test_the_number_of_the_eerste_kamer_is_the_label_of_the_tweede_kamer(
 
 
 def test_a_committee_lists_its_bills_under_the_kamers_headings() -> None:
-    bills, older = eb.listed_bills(_read("ek_committee_bills_iw_vro.html"))
+    bills, older = eb.listed_bills(fixture_text("ek_committee_bills_iw_vro.html"))
     assert len(bills) == 54
     assert bills[0] == eb.ListedBill(
         "/wetsvoorstel/36879_implementatie_herziening",
@@ -62,7 +55,7 @@ def test_a_committee_page_links_its_list() -> None:
 
 
 def test_a_bill_gives_its_label_submission_and_progress() -> None:
-    bill = eb.bill(_read("ek_bill_36791.html"))
+    bill = eb.bill(fixture_text("ek_bill_36791.html"))
     assert (bill.label, bill.submitted_on) == ("36791", "2025-08-15")
     assert [(s.phase, s.house, s.state) for s in bill.progress] == [
         (None, "Tweede Kamer", "vol"),
@@ -80,10 +73,10 @@ def test_a_bill_gives_its_label_submission_and_progress() -> None:
 
 
 def test_a_pending_bill_and_a_budget_chapter() -> None:
-    pending = eb.bill(_read("ek_bill_36879.html"))
+    pending = eb.bill(fixture_text("ek_bill_36879.html"))
     assert [s.state for s in pending.progress] == ["vol", "geblokt", "leeg", "leeg"]
     assert pending.progress[1].papers == []
-    budget = eb.bill(_read("ek_bill_36945_xxii.html"))
+    budget = eb.bill(fixture_text("ek_bill_36945_xxii.html"))
     assert (budget.label, budget.submitted_on) == ("36945-XXII", "2026-05-20")
     assert budget.progress[2].papers[0].kind == "stemming (hamerstuk)"
 

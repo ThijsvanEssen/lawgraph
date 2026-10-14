@@ -8,7 +8,7 @@ show, cut down to what makes them different.
 from __future__ import annotations
 
 from lawgraph.core.eurlex_html import EuArticle, parse_act, parse_articles
-from tests.integration.seed import FIXTURES
+from tests.paths import fixture_text
 
 
 def _row(marker: str, body: str) -> str:
@@ -36,7 +36,7 @@ def _spans(article: EuArticle) -> dict[str, str]:
 
 def test_the_real_acts_give_every_article_a_clean_text() -> None:
     for name in ("eurlex_32022r0868.html", "eurlex_31995l0046.html"):
-        for article in parse_articles((FIXTURES / name).read_text()):
+        for article in parse_articles(fixture_text(name)):
             assert all(line.strip() for line in article.text.split("\n"))
             for part in article.parts:
                 assert not article.text[part.start].isspace()
@@ -246,7 +246,7 @@ def test_a_heading_in_capitals_before_an_article_ends_the_one_before() -> None:
 
 
 def test_the_title_of_the_act_as_printed() -> None:
-    journal = parse_act((FIXTURES / "eurlex_32022r0868.html").read_text())
+    journal = parse_act(fixture_text("eurlex_32022r0868.html"))
     assert journal.title == (
         "VERORDENING (EU) 2022/868 VAN HET EUROPEES PARLEMENT EN DE RAAD",
         "van 30 mei 2022",
@@ -255,6 +255,6 @@ def test_the_title_of_the_act_as_printed() -> None:
         "(Voor de EER relevante tekst)",
     )
 
-    old = parse_act((FIXTURES / "eurlex_31995l0046.html").read_text())
+    old = parse_act(fixture_text("eurlex_31995l0046.html"))
     (description,) = old.title
     assert description.startswith("Richtlijn 95/46/EG van het Europees Parlement")

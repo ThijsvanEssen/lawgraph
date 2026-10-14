@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api import middleware, search_terms
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.api.middleware import RateLimitMiddleware, truncated_ip
 
 
@@ -82,15 +81,9 @@ def test_a_search_counts_its_term_and_nothing_of_who_asked(monkeypatch) -> None:
             counted.append(q)
 
     monkeypatch.setattr(search_terms, "COUNTER", Counter())
-    app.dependency_overrides[get_store] = lambda: object()
-    try:
-        client = TestClient(app, raise_server_exceptions=False)
-        client.get("/api/search", params={"q": "Rechtszaak  Jansen"})
-        client.get(
-            "/api/search", params={"q": "x", "types": "nope"}
-        )  # 400: not counted
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    client = TestClient(app, raise_server_exceptions=False)
+    client.get("/api/search", params={"q": "Rechtszaak  Jansen"})
+    client.get("/api/search", params={"q": "x", "types": "nope"})  # 400: not counted
     assert counted == ["Rechtszaak  Jansen"]
 
 

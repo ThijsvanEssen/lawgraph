@@ -15,8 +15,7 @@ from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.documents import DocumentListItemDTO
 from lawgraph.api.schemas.government import CommitmentDTO
 from lawgraph.api.schemas.nodes import NeighborDTO
-
-from .conftest import DOSSIER_NAMES
+from tests.api.stubs import DOSSIER_NAMES, stub_route
 
 client = TestClient(app)
 
@@ -35,10 +34,7 @@ def test_a_decision_in_the_list_names_its_dossiers(monkeypatch) -> None:
         "key": "d1",
         "dossier_numbers": ["36000", "99999", "36000"],
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decisions",
-        lambda store, filters, **kwargs: {"total": 1, "items": [row]},
-    )
+    stub_route(monkeypatch, "decisions", get_decisions={"total": 1, "items": [row]})
     item = client.get("/api/decisions").json()["items"][0]
     assert item["dossier_numbers"] == ["36000", "99999", "36000"]
     assert item["dossiers"] == [NAMED, UNKNOWN]

@@ -593,8 +593,11 @@ functions of `db/queries/` the code calls, answered from one store in memory (`t
 with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
 no unit test runs or reads a query (`tests/conventions/`), what a query does is tested in
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
-statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). A guard on a convention of the
-whole code base is a file of its own in `tests/conventions/`: a new guard is a new file.
+statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). The route tests (`tests/api`) get
+a store that knows no node and stand-ins for every `load_*` a route imports (`tests/api/stubs.py`,
+`stub_route` for the queries of one route). A guard on a convention of the whole code base is a
+file of its own in `tests/conventions/`, reading the source through `tests/source_scan.py`: a new
+guard is a new file. Where the repository, the source and the fixtures are: `tests/paths.py`.
 
 What only a server shows under real load is in `tests/integration` and `tests/pg`: the real code and the real
 CLI against a second, deliberately small PostgreSQL (`docker-compose.test.yml`, a compose project of its own:

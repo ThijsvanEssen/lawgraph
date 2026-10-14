@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -20,12 +19,12 @@ from lawgraph.core.bwb_wti import (
     thesaurus_concepts,
     with_concepts,
 )
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # The first bytes of the Wetboek van Strafrecht WTI, cut off inside the next element.
-SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
+SR_HEAD = fixture_text("bwb_wti_sr_head.xml")
 # The element as it is stored, of Burgerlijk Wetboek Boek 1.
-BW1_GENERAL = (FIXTURES / "bwb_wti_bw1_general.xml").read_text()
+BW1_GENERAL = fixture_text("bwb_wti_bw1_general.xml")
 
 
 def test_extracts_the_complete_element_from_a_truncated_file() -> None:
@@ -158,10 +157,10 @@ def test_aliases_that_differ_in_case_only_are_one() -> None:
 # ── legal areas and government themes ────────────────────────────────────────
 
 LEGAL_AREAS = thesaurus_concepts(
-    json.loads((FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text())
+    json.loads(fixture_text("tooi_bwb_rechtsgebieden.json"))
 )  # TOOI scw_bwb_rechtsgebieden, version 2
 THEMES = thesaurus_concepts(
-    json.loads((FIXTURES / "tooi_bwb_themas.json").read_text())
+    json.loads(fixture_text("tooi_bwb_themas.json"))
 )  # TOOI scw_bwb_themas, version 2
 
 

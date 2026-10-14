@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from tests.conventions._scan import TESTS
+from tests.paths import TESTS
 
 ROOT = TESTS.parent
 SHARDS: list[dict[str, Any]] = yaml.safe_load(

@@ -3,19 +3,12 @@ on 2026-09-30 (``<h1>`` and ``<main>`` only)."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core import eerstekamer_composition as ec
-
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-def _read(name: str) -> str:
-    return (FIXTURES / name).read_text()
+from tests.paths import fixture_text
 
 
 def test_the_factions_are_listed_with_their_seats() -> None:
-    factions = ec.factions(_read("ek_factions.html"))
+    factions = ec.factions(fixture_text("ek_factions.html"))
     assert len(factions) == 20
     assert sum(f.seats or 0 for f in factions) == 75
     assert factions[0] == ec.Listed(
@@ -29,7 +22,7 @@ def test_the_factions_are_listed_with_their_seats() -> None:
 
 
 def test_the_committees_are_listed_with_their_abbreviation() -> None:
-    committees = {c.path: c for c in ec.committees(_read("ek_committees.html"))}
+    committees = {c.path: c for c in ec.committees(fixture_text("ek_committees.html"))}
     assert len(committees) == 16
     assert committees["/commissies/fin"].name == "Financiën"
     assert committees["/commissies/fin"].abbreviation == "FIN"
@@ -38,7 +31,7 @@ def test_the_committees_are_listed_with_their_abbreviation() -> None:
 
 
 def test_a_faction_page_gives_its_board_and_members() -> None:
-    page = ec.page(_read("ek_faction_d66.html"))
+    page = ec.page(fixture_text("ek_faction_d66.html"))
     assert page.title == "D66-fractie"
     assert [(b.function, b.name, b.since) for b in page.board] == [
         ("fractievoorzitter", "Paul van Meenen", "2023-06-13"),
@@ -59,7 +52,7 @@ def test_a_faction_page_gives_its_board_and_members() -> None:
 
 
 def test_a_committee_page_gives_its_members_with_faction_and_role() -> None:
-    page = ec.page(_read("ek_committee_fin.html"))
+    page = ec.page(fixture_text("ek_committee_fin.html"))
     assert page.title == "Commissie voor Financiën (FIN)"
     assert len(page.members) == 29
     roles = [(m.name, m.faction, m.role) for m in page.members if m.role]
@@ -72,7 +65,7 @@ def test_a_committee_page_gives_its_members_with_faction_and_role() -> None:
 
 
 def test_the_hall_seats_every_member_where_wie_zit_waar_draws_them() -> None:
-    seats = ec.hall(_read("ek_wie_zit_waar.html"))
+    seats = ec.hall(fixture_text("ek_wie_zit_waar.html"))
     assert len(seats) == 75
     blocks = {
         block: [s for s in seats if s.block == block] for block in ("left", "right")
@@ -95,4 +88,4 @@ def test_the_hall_seats_every_member_where_wie_zit_waar_draws_them() -> None:
 
 
 def test_a_page_without_the_plan_seats_no_one() -> None:
-    assert ec.hall(_read("ek_factions.html")) == []
+    assert ec.hall(fixture_text("ek_factions.html")) == []

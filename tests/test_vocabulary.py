@@ -35,8 +35,7 @@ from lawgraph.core import feed as core_feed
 from lawgraph.core import judgments as core_judgments
 from lawgraph.core.provenance import BASIS_FORMAL
 from lawgraph.core.relations import RELATIONS
-
-SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "lawgraph"
+from tests.paths import SRC
 
 PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ("chambers by label", core_documents.CHAMBER_PRECEDENCE, ("EK", "TK")),

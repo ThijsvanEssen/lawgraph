@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
 import pytest
@@ -23,10 +22,10 @@ from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
 from tests.fakes import InMemoryStore, ScriptedSession
+from tests.paths import fixture_text
 
-PAGE = (
-    pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
-).read_text()  # dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
+# dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
+PAGE = fixture_text("sru_eerstekamer_kamerstukken_page.xml")
 
 pytestmark = pytest.mark.usefixtures("edge_removals")
 

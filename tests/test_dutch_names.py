@@ -4,7 +4,6 @@ module."""
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -16,8 +15,7 @@ from lawgraph.core.dutch_names import (
     TITLE,
     surname,
 )
-
-SRC = Path(__file__).parents[1] / "src" / "lawgraph"
+from tests.paths import SRC
 
 
 @pytest.mark.parametrize(

@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 _SPELLED_OUT = re.compile(
     r"""["'](?:aangenomen|verworpen|ingetrokken|aangehouden|vervangen|Voor|Tegen|"""
@@ -20,7 +21,7 @@ _LITERAL = 'outcome: Literal["aangenomen"] | None = Field('
 def test_no_vote_word_spelled_out() -> None:
     found = [
         f"{path.relative_to(SRC)}:{number}: {line.strip()}"
-        for path in _python_files()
+        for path in python_files()
         if path not in _HOMES
         for number, line in enumerate(path.read_text().splitlines(), 1)
         if _SPELLED_OUT.search(line) and "``" not in line and _LITERAL not in line

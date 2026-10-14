@@ -3,7 +3,6 @@ fails, and the run goes on. A link the Eerste Kamer votes cannot make is skipped
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -22,8 +21,8 @@ from lawgraph.pipelines.normalize.staatscourant import (
 )
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
-FIXTURES = Path(__file__).parent.parent / "fixtures"
 _XML = "<regeling><titel>T</titel><tekst>De tekst.</tekst></regeling>"
 
 
@@ -85,7 +84,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     )
     pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
     result = PipelineResult()
-    paper = (FIXTURES / "kst_24138_3.xml").read_text()
+    paper = fixture_text("kst_24138_3.xml")
 
     count = pipeline.normalize_nodes(
         [

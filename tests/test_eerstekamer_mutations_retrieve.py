@@ -4,7 +4,6 @@ every run, that of a term that ended only while it is not stored (it does not ch
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
@@ -12,10 +11,9 @@ from lawgraph.config.constants import RAW_KIND_EK_MUTATION, RAW_KIND_EK_MUTATION
 from lawgraph.core import ek_changes
 from lawgraph.core.official_urls import ek_url
 from lawgraph.pipelines.retrieve import eerstekamer_mutations as retrieve
+from tests.paths import fixture_text
 
-CURRENT = (
-    Path(__file__).parent / "fixtures" / "eerstekamer" / "personele_mutaties_2023.html"
-).read_text("utf-8")
+CURRENT = fixture_text("personele_mutaties_2023.html", sub="eerstekamer")
 TERMS = ek_changes.term_page(CURRENT).terms
 ITEMS = [item.path for item in ek_changes.term_page(CURRENT).items]
 
