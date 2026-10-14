@@ -1,8 +1,8 @@
 #!/bin/sh
 # smoke.sh <base URL> [version]: the routes a visitor hits first, each within its time budget.
 # Run by the deploy after the API has warmed up, against the public address
-# (e.g. https://concordans.nl); exits 1 when a route fails, is too slow, or the API
-# reports another version than the one given.
+# (e.g. https://concordans.nl); exits 1 when a route fails, is too slow, or a version is given
+# and /api/health reports another one or none.
 base="${1:?usage: smoke.sh <base URL> [version]}"
 version="$2"
 failed=0
@@ -48,10 +48,8 @@ check 5 /api/articles/BWBR0001854/287
 
 if [ -n "$version" ]; then
   live=$(curl -s -m 10 "$base/api/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
-  if [ -z "$live" ]; then
-    echo "[smoke] note /api/health names no version; not compared"
-  elif [ "$live" != "$version" ]; then
-    echo "[smoke] FAIL version: $live live, $version expected"
+  if [ "$live" != "$version" ]; then
+    echo "[smoke] FAIL version: ${live:-none} live, $version expected"
     failed=1
   else
     echo "[smoke] ok   version $live"

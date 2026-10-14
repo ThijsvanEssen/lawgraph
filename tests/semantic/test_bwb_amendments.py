@@ -19,10 +19,9 @@ from lawgraph.core.bwb_xml import article_version_key, publication_key
 from lawgraph.core.models import make_node_key
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.pipelines.semantic import bwb_amendments
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
-from tests.conftest import _BaseFakeStore, remove_edges_from
+from tests.fakes import InMemoryStore, count_calls, patch_edge_removals
 
 BWB = "BWBR0001840"
 
@@ -64,7 +63,14 @@ def _version(
     }
 
 
-class _FakeStore(_BaseFakeStore):
+def _article_key(bwb_id: str, stam_id: str) -> str:
+    return make_node_key(bwb_id, "art", stam_id)
+
+
+class _Store(InMemoryStore):
+    """The dossiers of the graph, the article versions that amend, the stored articles
+    ((bwb_id, stam_id), all of the versions by default) and the regulations' dossiers."""
+
     def __init__(
         self,
         versions: list[dict[str, Any]],
@@ -73,76 +79,34 @@ class _FakeStore(_BaseFakeStore):
         dossiers: set[str] | None = None,
         regulations: list[dict[str, Any]] | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__({"dossiers": [{"_key": key} for key in dossiers or ()]})
         self.versions = versions
-        # (bwb_id, stam_id) of every stored article; key = its node key
         self.articles = (
             articles
             if articles is not None
             else sorted({(v["bwb_id"], v["stam_id"]) for v in versions})
         )
-        self.dossiers = dossiers or set()
         self.regulations = regulations or []
-        self.nodes: dict[str, dict[str, Any]] = {}
         self.article_queries = 0
-        self.existence_calls = 0
-        self.node_writes = 0
-
-    @staticmethod
-    def article_key(bwb_id: str, stam_id: str) -> str:
-        return make_node_key(bwb_id, "art", stam_id)
-
-    def existing_keys(self, collection: str, keys) -> set[str]:
-        assert collection == "dossiers"
-        self.existence_calls += 1
-        return set(keys) & self.dossiers
-
-    def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
-        assert collection == "instruments"
-        self.node_writes += 1
-        for doc in docs:
-            old = self.nodes.get(doc["_key"], {"props": {}})
-            self.nodes[doc["_key"]] = {**doc, "props": {**old["props"], **doc["props"]}}
-        return len(docs), 0
 
 
 @pytest.fixture(autouse=True)
 def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of the pipeline, answered from the fake store."""
 
-    def amending_article_versions(store: _FakeStore) -> Iterator[dict[str, Any]]:
+    def amending_article_versions(store: _Store) -> Iterator[dict[str, Any]]:
         # the real query sorts by article identity
         return iter(sorted(store.versions, key=lambda r: (r["bwb_id"], r["stam_id"])))
 
     def articles_by_identity(
-        store: _FakeStore, bwb_ids: list[str], stam_ids: list[str]
+        store: _Store, bwb_ids: list[str], stam_ids: list[str]
     ) -> Iterator[dict[str, Any]]:
         store.article_queries += 1
         return iter(  # every combination of the two lists, like the real query
-            {"key": store.article_key(b, s), "bwb_id": b, "stam_id": s}
+            {"key": _article_key(b, s), "bwb_id": b, "stam_id": s}
             for b, s in store.articles
             if b in bwb_ids and s in stam_ids
         )
-
-    def remove_edges_from_ids(
-        store: _FakeStore,
-        relation: str,
-        source: str,
-        from_ids: list[str],
-        keep: dict[str, set[str]],
-    ) -> int:
-        bind = {"ids": from_ids, "relation": relation, "source": source, "keep": keep}
-        return sum(remove_edges_from(store.edges, bind))
-
-    def remove_edges_to_ids(
-        store: _FakeStore,
-        relations: list[str],
-        source: str,
-        to_ids: list[str],
-        keep: dict[str, set[str]],
-    ) -> int:
-        bind = {"ids": to_ids, "relations": relations, "source": source, "keep": keep}
-        return sum(remove_edges_from(store.edges, bind))
 
     monkeypatch.setattr(
         semantic_bwb, "amending_article_versions", amending_article_versions
@@ -153,27 +117,26 @@ def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         "regulation_dossier_numbers",
         lambda store: iter(store.regulations),
     )
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", remove_edges_from_ids)
-    monkeypatch.setattr(semantic_edges, "remove_edges_to", remove_edges_to_ids)
+    patch_edge_removals(monkeypatch)
 
 
-def _run(store: _FakeStore, chunk: int | None = None):
+def _run(store: _Store, chunk: int | None = None):
     pipeline = BWBAmendmentsSemanticPipeline(store=store)
     if chunk is not None:
         pipeline._CHUNK = chunk
     return pipeline.run()
 
 
-def _edges(store: _FakeStore, relation: str) -> list[dict[str, Any]]:
+def _edges(store: _Store, relation: str) -> list[dict[str, Any]]:
     return [e for e in store.edges.values() if e["relation"] == relation]
 
 
 def _art(stam_id: str, bwb_id: str = BWB) -> str:
-    return f"articles/{_FakeStore.article_key(bwb_id, stam_id)}"
+    return f"articles/{_article_key(bwb_id, stam_id)}"
 
 
 def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             _version("1", "a", effect="nieuw", origin=_pub("1")),
             _version("2", "b", effect="wijziging", origin=_pub("2")),
@@ -208,7 +171,7 @@ def test_a_new_regulation_is_established_by_the_publication_that_enacted_it() ->
         **_pub("187", dossiers=["36764"], year=2026),
         "effect": "nieuwe-regeling",
     }
-    store = _FakeStore(
+    store = _Store(
         [
             _version("1", "a", effect="nieuwe-regeling", origin=enacted, bwb_id=cbw),
             _version("16", "b", effect="nieuwe-regeling", origin=enacted, bwb_id=cbw),
@@ -233,7 +196,7 @@ def test_a_new_regulation_is_established_by_the_publication_that_enacted_it() ->
 
 
 def test_documents_become_instruments_with_their_metadata() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             _version(
                 "1",
@@ -246,7 +209,7 @@ def test_documents_become_instruments_with_their_metadata() -> None:
 
     _run(store)
 
-    origin = store.nodes[publication_key("stb-2019-33")]
+    origin = store.nodes["instruments"][publication_key("stb-2019-33")]
     assert origin["type"] == "instrument"
     assert origin["props"] == {
         "display_name": "Stb. 2019, 33",
@@ -264,8 +227,11 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         "stub": False,  # a node that is written says that it is not a stub
     }
     # the commencement publication exists as an instrument, but amends nothing
-    assert publication_key("stb-2020-99") in store.nodes
-    assert "dossier_numbers" not in store.nodes[publication_key("stb-2020-99")]["props"]
+    assert publication_key("stb-2020-99") in store.nodes["instruments"]
+    assert (
+        "dossier_numbers"
+        not in store.nodes["instruments"][publication_key("stb-2020-99")]["props"]
+    )
     assert all(
         not e["_from"].endswith(publication_key("stb-2020-99"))
         for e in store.edges.values()
@@ -277,7 +243,7 @@ def test_one_edge_per_publication_article_and_kind_keeps_the_earliest_date() -> 
     earlier = _version("1", "a", valid_from="2019-02-01")
     undated = _version("1", "c", valid_from=None)
     other_kind = _version("1", "d", effect="vervallen", valid_from="2020-01-01")
-    store = _FakeStore([later, undated, earlier, other_kind])
+    store = _Store([later, undated, earlier, other_kind])
 
     # chunk size 1: the versions of one article must still be handled together
     _run(store, chunk=1)
@@ -290,7 +256,7 @@ def test_one_edge_per_publication_article_and_kind_keeps_the_earliest_date() -> 
 
 
 def test_other_documents_of_the_same_article_get_their_own_edge() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_version("1", "a", origin=_pub("1")), _version("1", "b", origin=_pub("2"))]
     )
 
@@ -300,7 +266,7 @@ def test_other_documents_of_the_same_article_get_their_own_edge() -> None:
 
 
 def test_unknown_effect_and_missing_article_are_skipped() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             _version("1", "a"),
             _version("2", "b", effect=None),
@@ -320,7 +286,7 @@ def test_unknown_effect_and_missing_article_are_skipped() -> None:
 def test_article_identity_is_the_pair_not_each_id_alone() -> None:
     """The bulk lookup filters ids and stam ids separately (a cartesian product)."""
     other = "BWBR0002222"
-    store = _FakeStore(
+    store = _Store(
         [_version("1", "a"), _version("2", "b", bwb_id=other)],
         # BWB has stam 1 only and OTHER has stam 2 only: (BWB, 2) must not resolve
         articles=[(BWB, "1"), (other, "2"), (other, "1"), (BWB, "5")],
@@ -342,7 +308,7 @@ def test_a_chunk_leaves_the_edges_of_the_articles_of_another_chunk_alone(
     long run has written already (here: every edge at once)."""
     monkeypatch.setattr(bwb_amendments, "EdgeWriter", partial(EdgeWriter, batch_size=1))
     other = "BWBR0002222"
-    store = _FakeStore(
+    store = _Store(
         [
             # chunk 1: two versions of (BWB, 1)
             _version("1", "a"),
@@ -367,7 +333,7 @@ def test_a_chunk_leaves_the_edges_of_the_articles_of_another_chunk_alone(
 
 
 def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_version("1", "a", origin=_pub("33", dossiers=["35786", "11111"]))],
         dossiers={make_node_key("35786"), make_node_key("22222")},
         regulations=[
@@ -393,7 +359,7 @@ def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:
 
 
 def test_dossiers_of_a_publication_are_merged_across_versions_and_chunks() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             _version("1", "a", origin=_pub("33")),  # no dossier on this occurrence
             _version("2", "b", origin=_pub("33", dossiers=["35786"])),
@@ -404,14 +370,14 @@ def test_dossiers_of_a_publication_are_merged_across_versions_and_chunks() -> No
 
     _run(store, chunk=1)  # every version in its own chunk
 
-    props = store.nodes[publication_key("stb-2019-33")]["props"]
+    props = store.nodes["instruments"][publication_key("stb-2019-33")]["props"]
     assert props["dossier_numbers"] == ["35786", "40000"]
     links = _edges(store, RELATION_LEGISLATED_IN)
     assert len(links) == 2  # each dossier linked once, not once per version
 
 
 def test_is_idempotent() -> None:
-    store = _FakeStore(
+    store = _Store(
         [_version("1", "a", origin=_pub("33", dossiers=["35786"]))],
         dossiers={make_node_key("35786")},
     )
@@ -424,22 +390,21 @@ def test_is_idempotent() -> None:
 
 
 def test_store_calls_do_not_grow_with_the_number_of_versions() -> None:
-    def build(n: int) -> _FakeStore:
+    def build(n: int) -> _Store:
         versions = [
             _version(str(i), f"v{i}", origin=_pub(str(i % 7), dossiers=["35786"]))
             for i in range(n)
         ]
-        return _FakeStore(versions, dossiers={make_node_key("35786")})
+        return _Store(versions, dossiers={make_node_key("35786")})
 
     small, large = build(3), build(200)  # both fit in one chunk
+    writes = ("existing_keys", "bulk_insert_or_update_nodes")
+    small_calls, large_calls = count_calls(small, *writes), count_calls(large, *writes)
 
     _run(small)
     _run(large)
 
     assert len(_edges(large, RELATION_AMENDS)) == 200
-    assert (large.article_queries, large.existence_calls, large.node_writes) == (
-        small.article_queries,
-        small.existence_calls,
-        small.node_writes,
-    )
+    assert large.article_queries == small.article_queries
+    assert large_calls == small_calls
     assert large.article_queries == 1

@@ -13,11 +13,10 @@ import pytest
 from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
-from tests.conftest import remove_edges_from
+from tests.fakes import patch_edge_removals
 from tests.normalize.test_bwb import (
     GRONDWET,
     XML,
@@ -29,7 +28,7 @@ from tests.normalize.test_bwb import (
 
 
 @pytest.fixture(autouse=True)
-def _graph_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     """The queries of the normalize pipelines, and the amendments pipeline's three read
     queries and its removals, answered from the nodes of the shared store."""
     patch_store_queries(monkeypatch)
@@ -72,26 +71,13 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch) -> None:
             if d["props"].get("bwb_id")
         )
 
-    def remove_edges_from_ids(
-        store: _Store, relation: str, source: str, ids: list[str], keep: dict
-    ) -> int:
-        bind = {"ids": ids, "relation": relation, "source": source, "keep": keep}
-        return sum(remove_edges_from(store.edges, bind))
-
-    def remove_edges_to_ids(
-        store: _Store, relations: list[str], source: str, ids: list[str], keep: dict
-    ) -> int:
-        bind = {"ids": ids, "relations": relations, "source": source, "keep": keep}
-        return sum(remove_edges_from(store.edges, bind))
-
     for module, name, answer in (
         (semantic_bwb, "amending_article_versions", amending_article_versions),
         (semantic_bwb, "articles_by_identity", articles_by_identity),
         (semantic_bwb, "regulation_dossier_numbers", regulation_dossier_numbers),
-        (semantic_edges, "remove_edges_from", remove_edges_from_ids),
-        (semantic_edges, "remove_edges_to", remove_edges_to_ids),
     ):
         monkeypatch.setattr(module, name, answer)
+    patch_edge_removals(monkeypatch)
 
 
 def _edges(store: _Store, relation: str) -> list[dict]:
@@ -99,7 +85,9 @@ def _edges(store: _Store, relation: str) -> list[dict]:
 
 
 def _run_all() -> _Store:
-    store = _Store({"dossiers": {"35786": {"props": {}}, "34716": {"props": {}}}})
+    store = _Store(
+        {"dossiers": [{"_key": "35786", "props": {}}, {"_key": "34716", "props": {}}]}
+    )
     records = [
         _record(_older(XML), "2002-03-21", "2023-02-21"),
         _record(XML, "2023-02-22", "9999-12-31"),

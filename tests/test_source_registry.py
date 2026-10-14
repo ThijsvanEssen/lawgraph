@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 
 from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.models import PipelineResult
+from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, _address_of, _pipeline
 
@@ -64,6 +66,13 @@ def test_a_class_that_is_not_named_after_its_address_is_refused() -> None:
         ValueError, match="is called RechtspraakCitationsSemanticPipeline"
     ):
         _pipeline(JudgmentCitationsSemanticPipeline, "")
+
+
+def test_a_hand_written_command_brings_its_own_options() -> None:
+    from lawgraph.pipelines.retrieve_commands import retrieve_tooi
+
+    with pytest.raises(ValueError, match="adds its own options"):
+        _pipeline(retrieve_tooi, "", options=registry.slice_args("x", "y"))
 
 
 def test_addresses_are_unique_and_belong_to_a_known_source() -> None:
@@ -206,3 +215,76 @@ def test_semantic_all_lists_its_steps_in_order_without_running_them(
     assert names == [pipeline.name for pipeline in PIPELINES["semantic"]]
     assert names[:2] == ["tk", "rechtspraak"] and "rechtspraak-citations" in names
     assert result.errors == []
+
+
+# ── the description and the options of a command ────────────────────────────
+
+
+def test_help_and_sources_give_one_description() -> None:
+    """``--help`` prints the description of the command, ``lawgraph sources`` and the first
+    log line that of the pipeline: one text."""
+    for phase in PHASES:
+        for pipeline in PIPELINES[phase]:
+            if isinstance(pipeline.command, PipelineCommand):
+                assert pipeline.description == pipeline.command.description, (
+                    pipeline.address
+                )
+
+
+class _Parsed(Exception):
+    """Raised instead of parsing, with the parser a command built."""
+
+
+SLICE_HELP = {
+    "semantic tk": (
+        "Start past this document key: the next slice of a run over all.",
+        "Stop after this many documents (a slice).",
+    ),
+    "semantic rechtspraak": (
+        "Start past this judgment key: the next slice of a run over all.",
+        "Stop after this many judgments (a slice).",
+    ),
+    "semantic rechtspraak-citations": (
+        "Start past this record key: the next slice of a run over all.",
+        "Stop after this many judgments (a slice).",
+    ),
+    "semantic bwb-definitions": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many regulations (a slice).",
+    ),
+    "semantic bwb-captions": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many regulations (a slice).",
+    ),
+    "normalize tk-content": (
+        "Start past this record key: the next slice of a run over all.",
+        "Stop after this many papers (a slice).",
+    ),
+    "normalize rechtspraak": (
+        "Start past this record key: the next slice of a run over all.",
+        "Stop after this many judgments (a slice).",
+    ),
+}
+
+
+def test_the_slice_commands_say_what_they_slice(monkeypatch) -> None:
+    """The help of ``--after`` and ``--limit`` of every command run in slices."""
+
+    def caught(
+        parser: argparse.ArgumentParser, *args: object, **kwargs: object
+    ) -> None:
+        raise _Parsed(parser)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", caught)
+    sliced = {}
+    for phase in PHASES:
+        for pipeline in PIPELINES[phase]:
+            if not isinstance(pipeline.command, PipelineCommand):
+                continue  # a hand-written command has no slices
+            try:
+                pipeline.command([])
+            except _Parsed as parsed:
+                helps = {a.dest: a.help for a in parsed.args[0]._actions}
+                if "after" in helps and "limit" in helps:
+                    sliced[pipeline.address] = (helps["after"], helps["limit"])
+    assert sliced == SLICE_HELP

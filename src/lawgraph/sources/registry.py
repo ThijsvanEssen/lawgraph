@@ -204,13 +204,18 @@ _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 
 # Retrieve pipelines that share a server run one after the other.
 LANE_TWEEDE_KAMER = "tweede_kamer"
-LANE_KOOP_REPOSITORY = "koop_repository"  # repository.overheid.nl: SRU and publications
-LANE_EERSTEKAMER_SITE = (
-    "eerstekamer_site"  # www.eerstekamer.nl: its votes and composition
-)
-LANE_BWB = (
-    "bwb"  # zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
-)
+# repository.overheid.nl: SRU and publications
+LANE_KOOP_REPOSITORY = "koop_repository"
+# www.eerstekamer.nl: its votes and composition
+LANE_EERSTEKAMER_SITE = "eerstekamer_site"
+# zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
+LANE_BWB = "bwb"
+# data.rechtspraak.nl: judgments and the Instanties value list
+LANE_RECHTSPRAAK = "rechtspraak"
+# eur-lex.europa.eu and its CELLAR SPARQL endpoint
+LANE_EURLEX = "eurlex"
+
+RetrieveMode = Literal["incremental", "full"]
 
 
 @dataclass(frozen=True)
@@ -218,7 +223,7 @@ class RetrieveCtx:
     """Options of ``retrieve all`` that ``argv_for_all`` translates per pipeline."""
 
     since: str
-    mode: str  # "incremental" | "full"
+    mode: RetrieveMode
     window: str | None = None  # full mode: what changed since then; None: everything
 
 
@@ -293,10 +298,20 @@ def _class_name(phase: Phase, source: str, part: str | None) -> str:
     return f"{prefix}{words}{phase.capitalize()}Pipeline"
 
 
+@dataclass(frozen=True)
+class Options:
+    """The options a pipeline class adds to its command, and its constructor arguments
+    from them."""
+
+    add_args: Callable[[argparse.ArgumentParser], None]
+    extra_kwargs: Callable[[argparse.Namespace], dict[str, Any]]
+
+
 def _pipeline(
     runs: type | Command,
     description: str,
     *,
+    options: Options | None = None,
     argv_for_all: Callable[[RetrieveCtx], list[str]] | None = None,
     lane: str = "",
     after: tuple[str, ...] = (),
@@ -304,22 +319,29 @@ def _pipeline(
     reads: tuple[Reads, ...] = (),
     fed_by: tuple[str, ...] = (),
 ) -> Pipeline:
-    """Register a pipeline class, a ``PipelineCommand`` or a hand-written command."""
-    cls = runs.pipeline_cls if isinstance(runs, PipelineCommand) else runs
-    if isinstance(cls, type):
-        phase, source, part = _address_of(cls.__module__, "")
-        if cls.__name__ != _class_name(phase, source, part):
+    """Register a pipeline class or a hand-written command.
+
+    A class gets a ``PipelineCommand`` with *description* and *options*, so ``--help``,
+    ``lawgraph sources`` and the first log line say the same."""
+    if isinstance(runs, type):
+        phase, source, part = _address_of(runs.__module__, "")
+        if runs.__name__ != _class_name(phase, source, part):
             raise ValueError(
-                f"{cls.__module__} holds {cls.__name__}; the pipeline of "
+                f"{runs.__module__} holds {runs.__name__}; the pipeline of "
                 f"'{phase} {source}{'-' + part if part else ''}' is called "
                 f"{_class_name(phase, source, part)}"
             )
-        command: Command = (
-            runs
-            if isinstance(runs, PipelineCommand)
-            else PipelineCommand(cls, description)
+        command: Command = PipelineCommand(
+            runs,
+            description,
+            options.add_args if options else None,
+            options.extra_kwargs if options else None,
         )
     else:
+        if options:
+            raise ValueError(
+                f"{runs.__name__}: a hand-written command adds its own options"
+            )
         phase, source, part = _address_of(runs.__module__, runs.__name__)
         command = reading(runs, reads) if reads else runs
     return Pipeline(
@@ -335,21 +357,6 @@ def _pipeline(
         reads,
         fed_by,
     )
-
-
-# ── Extra args for semantic pipelines with non-standard constructor args ──
-
-
-def _bwb_articles_add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--store-citations",
-        action="store_true",
-        help="Also keep the references found on each article (props.citations).",
-    )
-
-
-def _bwb_articles_extra_kwargs(args: argparse.Namespace) -> dict:
-    return {"store_citations": args.store_citations}
 
 
 # ── retrieve-all argv builders ───────────────────────────────────────────
@@ -381,40 +388,41 @@ def _tk_dossiers_argv(ctx: RetrieveCtx) -> list[str]:
     return ["--since", ctx.since, "--skip-members"]
 
 
-BWB_SEMANTIC = PipelineCommand(
-    BWBSemanticPipeline,
-    "REFERS_TO between BWB articles, from the references of their toestand.",
-    add_args=_bwb_articles_add_args,
-    make_extra_kwargs=_bwb_articles_extra_kwargs,
-)
+# ── options of pipeline classes ──────────────────────────────────────────
 
 
-def _bwb_definitions_add_args(parser: argparse.ArgumentParser) -> None:
+def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    return {"after": args.after, "limit": args.limit}
+
+
+def slice_args(unit: str, key: str) -> Options:
+    """``--after`` and ``--limit`` of a run over every *unit* in slices, past a *key*."""
+
+    def add_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--after", help=f"Start past this {key}: the next slice of a run over all."
+        )
+        parser.add_argument(
+            "--limit", type=int, help=f"Stop after this many {unit} (a slice)."
+        )
+
+    return Options(add_args, _slice_kwargs)
+
+
+def _bwb_articles_add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--after", help="Start past this BWB id: the next slice of a full run."
+        "--store-citations",
+        action="store_true",
+        help="Also keep the references found on each article (props.citations).",
     )
-    parser.add_argument(
-        "--limit", type=int, help="Stop after this many regulations (a slice)."
-    )
 
 
-BWB_CAPTIONS = PipelineCommand(
-    BWBCaptionsSemanticPipeline,
-    "What each article is about, for its title (its caption), from the breadcrumbs of the "
-    "articles of its regulation.",
-    add_args=_bwb_definitions_add_args,
-    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
-)
-
-BWB_DEFINITIONS = PipelineCommand(
-    BWBDefinitionsSemanticPipeline,
-    "The definitions each regulation gives itself, read from its stored toestand.",
-    add_args=_bwb_definitions_add_args,
-    make_extra_kwargs=lambda args: {"after": args.after, "limit": args.limit},
+_BWB_SEMANTIC_OPTIONS = Options(
+    _bwb_articles_add_args, lambda args: {"store_citations": args.store_citations}
 )
 
 
-def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
+def _tk_dossiers_add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--mixed-votes",
         action="store_true",
@@ -449,82 +457,9 @@ def _tk_dossiers_normalize_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _slice_add_args(parser: argparse.ArgumentParser) -> None:
-    """``--after`` and ``--limit`` of a run over every judgment in slices."""
-    parser.add_argument(
-        "--after",
-        help="Start past this key (of the judgment, or of its record for "
-        "rechtspraak-citations): the next slice of a run over all.",
-    )
-    parser.add_argument(
-        "--limit", type=int, help="Stop after this many judgments (a slice)."
-    )
-
-
-def _record_slice_add_args(parser: argparse.ArgumentParser) -> None:
-    """``--after`` and ``--limit`` of a run over every stored judgment record in slices."""
-    parser.add_argument(
-        "--after", help="Start past this record key: the next slice of a run over all."
-    )
-    parser.add_argument(
-        "--limit", type=int, help="Stop after this many judgments (a slice)."
-    )
-
-
-def _paper_slice_add_args(parser: argparse.ArgumentParser) -> None:
-    """``--after`` and ``--limit`` of a run over every stored Kamerstuk XML in slices."""
-    parser.add_argument(
-        "--after", help="Start past this record key: the next slice of a run over all."
-    )
-    parser.add_argument(
-        "--limit", type=int, help="Stop after this many papers (a slice)."
-    )
-
-
-def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
-    return {"after": args.after, "limit": args.limit}
-
-
-def _tk_slice_add_args(parser: argparse.ArgumentParser) -> None:
-    """``--after`` and ``--limit`` of a run over every Tweede Kamer document in slices."""
-    parser.add_argument(
-        "--after",
-        help="Start past this document key: the next slice of a run over all.",
-    )
-    parser.add_argument(
-        "--limit", type=int, help="Stop after this many documents (a slice)."
-    )
-
-
-TK_SEMANTIC = PipelineCommand(
-    TKSemanticPipeline,
-    "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
-    add_args=_tk_slice_add_args,
-    make_extra_kwargs=_slice_kwargs,
-)
-
-RECHTSPRAAK_SEMANTIC = PipelineCommand(
-    RechtspraakSemanticPipeline,
-    "Article citations in judgments: REFERS_TO to BWB articles.",
-    add_args=_slice_add_args,
-    make_extra_kwargs=_slice_kwargs,
-)
-
-RECHTSPRAAK_CITATIONS = PipelineCommand(
-    RechtspraakCitationsSemanticPipeline,
-    "ECLI references between judgments: REFERS_TO, none between judgments that "
-    "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; cited "
-    "judgments that are not loaded become stubs.",
-    add_args=_slice_add_args,
-    make_extra_kwargs=_slice_kwargs,
-)
-
-TK_DOSSIERS_NORMALIZE = PipelineCommand(
-    TKDossiersNormalizePipeline,
-    "Committees, members, factions, dossiers, activities, votes, commitments and "
-    "documents as nodes, with their edges.",
-    add_args=_tk_dossiers_normalize_add_args,
-    make_extra_kwargs=lambda args: {
+_TK_DOSSIERS_OPTIONS = Options(
+    _tk_dossiers_add_args,
+    lambda args: {
         "mixed_votes": args.mixed_votes,
         "limit": args.limit,
         "persons": args.persons,
@@ -533,6 +468,7 @@ TK_DOSSIERS_NORMALIZE = PipelineCommand(
         "committees": args.committees,
     },
 )
+
 
 # ── the pipelines, in the order each phase runs them ─────────────────────────
 
@@ -590,6 +526,7 @@ RETRIEVE: list[Pipeline] = [
             "with --ecli."
         ),
         argv_for_all=_windowed_argv,
+        lane=LANE_RECHTSPRAAK,
         fills_gaps=True,
     ),
     _pipeline(
@@ -597,7 +534,7 @@ RETRIEVE: list[Pipeline] = [
         "The Instanties value list of the Rechtspraak (every court an ECLI names); "
         "`lawgraph courts build` makes data/courts.json from it.",
         argv_for_all=_no_argv,
-        lane="rechtspraak",  # the server of `retrieve rechtspraak`
+        lane=LANE_RECHTSPRAAK,
     ),
     _pipeline(
         retrieve_eurlex,
@@ -606,6 +543,7 @@ RETRIEVE: list[Pipeline] = [
             " ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
+        lane=LANE_EURLEX,
         fills_gaps=True,
         # the acts already in the graph; full and nim list them at EUR-Lex, gaps reads BWB
         reads=(
@@ -619,7 +557,7 @@ RETRIEVE: list[Pipeline] = [
             "changed in the window, all with --mode full."
         ),
         argv_for_all=_windowed_argv,
-        lane="eurlex",  # the server of `retrieve eurlex`
+        lane=LANE_EURLEX,
     ),
     _pipeline(
         retrieve_bwb,
@@ -762,8 +700,10 @@ NORMALIZE: list[Pipeline] = [
         "Cases as nodes.",
     ),
     _pipeline(
-        TK_DOSSIERS_NORMALIZE,
-        TK_DOSSIERS_NORMALIZE.description,
+        TKDossiersNormalizePipeline,
+        "Committees, members, factions, dossiers, activities, votes, commitments and "
+        "documents as nodes, with their edges.",
+        options=_TK_DOSSIERS_OPTIONS,
         after=("tk",),  # the case-to-dossier links read the cases
     ),
     _pipeline(
@@ -783,27 +723,17 @@ NORMALIZE: list[Pipeline] = [
         after=("tk", "tk-dossiers"),  # the cases, members and committees it links
     ),
     _pipeline(
-        PipelineCommand(
-            TKContentNormalizePipeline,
-            "Text, sections (articles, onderdelen, leden) and footnotes of the papers "
-            "whose XML was retrieved, on their documents.",
-            add_args=_paper_slice_add_args,
-            make_extra_kwargs=_slice_kwargs,
-        ),
+        TKContentNormalizePipeline,
         "Text, sections (articles, onderdelen, leden) and footnotes of the papers whose "
         "XML was retrieved, on their documents.",
+        options=slice_args("papers", "record key"),
         after=("tk-dossiers",),  # it writes on the documents
     ),
     _pipeline(
-        PipelineCommand(
-            RechtspraakNormalizePipeline,
-            "Judgment nodes from the stored judgment XML (court, date, summary, text, "
-            "footnotes, related ECLIs).",
-            add_args=_record_slice_add_args,
-            make_extra_kwargs=_slice_kwargs,
-        ),
+        RechtspraakNormalizePipeline,
         "Judgment nodes from the stored judgment XML (court, date, summary, text, "
         "footnotes, related ECLIs).",
+        options=slice_args("judgments", "record key"),
     ),
     _pipeline(
         EurlexNormalizePipeline,
@@ -894,24 +824,36 @@ NORMALIZE: list[Pipeline] = [
 ]
 
 SEMANTIC: list[Pipeline] = [
-    _pipeline(TK_SEMANTIC, TK_SEMANTIC.description),
-    _pipeline(RECHTSPRAAK_SEMANTIC, RECHTSPRAAK_SEMANTIC.description),
+    _pipeline(
+        TKSemanticPipeline,
+        "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
+        options=slice_args("documents", "document key"),
+    ),
+    _pipeline(
+        RechtspraakSemanticPipeline,
+        "Article citations in judgments: REFERS_TO to BWB articles.",
+        options=slice_args("judgments", "judgment key"),
+    ),
     _pipeline(
         EurlexSemanticPipeline,
         "Article citations in EU articles: links EU instruments to national and EU articles.",
     ),
     _pipeline(
-        BWB_SEMANTIC,
-        "REFERS_TO between articles, read from the XML.",
+        BWBSemanticPipeline,
+        "REFERS_TO between BWB articles, read from the references in their toestand XML.",
+        options=_BWB_SEMANTIC_OPTIONS,
     ),
     _pipeline(
-        BWB_DEFINITIONS,
-        "The definitions each regulation gives itself (its begripsbepalingen).",
+        BWBDefinitionsSemanticPipeline,
+        "The definitions each regulation gives itself (its begripsbepalingen), read from "
+        "its stored toestand.",
+        options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
-        BWB_CAPTIONS,
-        "What each article is about, for its title: the deepest title of the divisions it "
-        "stands in that one division of its law has.",
+        BWBCaptionsSemanticPipeline,
+        "What each article is about, for its title (its caption): the deepest title of the "
+        "divisions it stands in that one division of its law has.",
+        options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
         BWBGrondslagenSemanticPipeline,
@@ -986,7 +928,13 @@ SEMANTIC: list[Pipeline] = [
             "(dcterms:isReplacedBy); the lists show the decision once."
         ),
     ),
-    _pipeline(RECHTSPRAAK_CITATIONS, RECHTSPRAAK_CITATIONS.description),
+    _pipeline(
+        RechtspraakCitationsSemanticPipeline,
+        "ECLI references between judgments: REFERS_TO, none between judgments that "
+        "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; cited "
+        "judgments that are not loaded become stubs.",
+        options=slice_args("judgments", "record key"),
+    ),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,
         "Series of parallel judgments: one court, one day, (nearly) the same text.",

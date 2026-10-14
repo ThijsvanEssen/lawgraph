@@ -155,6 +155,6 @@ def test_a_derived_column_still_generated_stops_the_start(
     )
     with pytest.raises(
         SchemaOutdated,
-        match=r"dossiers\.number is gegenereerd, het schema vult hem met een trigger",
+        match=r"dossiers\.number is generated, the schema fills it with a trigger",
     ):
         ensure_schema(conn)
