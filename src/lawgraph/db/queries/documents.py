@@ -21,6 +21,7 @@ from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.version_cache import cached_rows
 
 
@@ -108,51 +109,29 @@ def get_document_passages(
     """The sections of a document that explain an article, one row per section.
 
     The edges are ``EXPLAINS`` from the document to the article or to one of its versions
-    (the same ``bwb_id`` and ``stam_id``), each with the sections in ``meta.sections``. A
-    section that several of those edges name is one row, with the highest confidence.
-    Unsorted; an unknown article has none.
+    (``explained_targets``), each with the sections in ``meta.sections``. A section that
+    several of those edges name is one row, with the highest confidence (of equally
+    confident ones the first edge's by key). Unsorted; an unknown article has none.
     """
     article = store.get_document(
         COLLECTION_ARTICLES, make_node_key(bwb_id, article_number)
     )
     if article is None:
         return []
-    props = article.get("props") or {}
-    bind: dict[str, Any] = {
-        "document_id": document_id,
-        "explains": RELATION_EXPLAINS,
-        "article_id": article["_id"],
-    }
-    targets = "e.to_id = %(article_id)s"
-    if props.get("stam_id"):
-        # an article without a bwb_id matches the versions without one (null == null)
-        same_law = "v.bwb_id = %(bwb_id)s"
-        if props.get("bwb_id") is None:
-            same_law = "v.bwb_id IS NULL"
-        targets = f"""({targets} OR e.to_id IN (
-            SELECT v.id FROM {COLLECTION_ARTICLE_VERSIONS} v
-            WHERE {same_law} AND v.stam_id = %(stam_id)s
-        ))"""
-        bind.update(bwb_id=props.get("bwb_id"), stam_id=props["stam_id"])
-    # Of equally confident sections the first edge's is kept.
+    targets, bind = explained_targets(article, bwb_id, article_number)
+    bind.update(document_id=document_id, explains=RELATION_EXPLAINS)
     edges = store.query(
         f"""
         SELECT e.doc -> 'meta' -> 'sections'
         FROM {COLLECTION_EDGES} e
         WHERE e.from_id = %(document_id)s AND e.relation = %(explains)s
-          AND {targets}
+          AND e.to_id IN (SELECT t.id FROM ({targets}) t)
           AND json_typeof(e.doc -> 'meta' -> 'sections') = 'array'
         ORDER BY e.key
         """,
         bind,
     )
-    best: dict[str, dict[str, Any]] = {}
-    for sections in edges:
-        for section in sections:
-            known = best.get(section["section_anchor"])
-            if known is None or section["confidence"] > known["confidence"]:
-                best[section["section_anchor"]] = section
-    return list(best.values())
+    return surest_per_anchor([section for sections in edges for section in sections])
 
 
 _CHAMBER_OF = chamber_sql("d")
