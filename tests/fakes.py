@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 import requests
 
-from lawgraph.core.models import Node
+from lawgraph.core.models import TYPE_OF_COLLECTION, Node
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -105,10 +105,14 @@ class InMemoryStore:
         return Node.from_document(collection, doc) if doc is not None else None
 
     def ensure_stub_node(
-        self, collection: str, key: str, node_type: Any, props: dict[str, Any]
+        self, collection: str, key: str, props: dict[str, Any]
     ) -> Node | None:
         if not self.has_node(collection, key):
-            stub = {"_key": key, "type": node_type.value, "labels": []}
+            stub = {
+                "_key": key,
+                "type": TYPE_OF_COLLECTION[collection].value,
+                "labels": [],
+            }
             self.nodes.setdefault(collection, {})[key] = {
                 **stub,
                 "props": {**props, "stub": True},

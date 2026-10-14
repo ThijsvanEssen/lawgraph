@@ -47,7 +47,7 @@ from lawgraph.core.appeals import (
     read_appeal_targets,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -239,7 +239,6 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                 writer.add(
                     Node(
                         collection=COLLECTION_JUDGMENTS,
-                        type=NodeType.JUDGMENT,
                         key=row["key"],
                         props={"unresolved_appeal_targets": targets},
                     )

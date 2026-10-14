@@ -48,7 +48,7 @@ from lawgraph.core.eerstekamer_votes import (
     Vote,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
@@ -97,7 +97,6 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
         number, motion = vote.number, {}
     return Node(
         collection=COLLECTION_DECISIONS,
-        type=NodeType.DECISION,
         key=key,
         labels=["EK"],
         props={
@@ -207,13 +206,8 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             on[key] = max(on.get(key, ""), bill.date)
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(on))
         nodes = [
-            Node(
-                collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
-                key=key,
-                labels=[],
-                props={"ek_rejected": {"date": on[key], **source}},
-                _skip_validation=True,
+            Node.skeleton(
+                COLLECTION_DOSSIERS, key, {"ek_rejected": {"date": on[key], **source}}
             )
             for key in sorted(known)
         ]

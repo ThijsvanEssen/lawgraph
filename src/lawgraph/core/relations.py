@@ -39,26 +39,10 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.models import COLLECTIONS
 
 # Concept (English name used in docs and the API) -> collection that stores it.
-CONCEPTS: dict[str, str] = {
-    "Instrument": COLLECTION_INSTRUMENTS,
-    "InstrumentVersion": COLLECTION_INSTRUMENT_VERSIONS,
-    "Article": COLLECTION_ARTICLES,
-    "ArticleVersion": COLLECTION_ARTICLE_VERSIONS,
-    "Annex": COLLECTION_ANNEXES,
-    "Judgment": COLLECTION_JUDGMENTS,
-    "Dossier": COLLECTION_DOSSIERS,
-    "Case": COLLECTION_CASES,
-    "Document": COLLECTION_DOCUMENTS,
-    "Activity": COLLECTION_ACTIVITIES,
-    "Decision": COLLECTION_DECISIONS,
-    "Commitment": COLLECTION_COMMITMENTS,
-    "Member": COLLECTION_MEMBERS,
-    "Faction": COLLECTION_FACTIONS,
-    "Cabinet": COLLECTION_CABINETS,
-    "Committee": COLLECTION_COMMITTEES,
-}
+CONCEPTS: dict[str, str] = {spec.concept: spec.name for spec in COLLECTIONS}
 _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
 
 

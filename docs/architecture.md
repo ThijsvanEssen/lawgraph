@@ -219,7 +219,7 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/test_conventions.py` |
 | Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/test_conventions.py` |
 | Relation names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend, introduce or repeal; the `RELATION_*` constants are the catalogue; the generated tables of `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
-| A node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
+| A node collection is declared once (`core.models.COLLECTIONS`: type, concept, props schema, stubs) and every other table of collections derives from it; a node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `tests/test_collections.py`, `tests/test_props_validation.py` |
 | `PART_OF` points from the child (article, annex) to the instrument | `tests/test_part_of_direction.py` |
 | The writers batch and de-duplicate; `existing_keys` is bounded | `tests/test_edge_writer.py`, `tests/test_node_writer.py`, `tests/test_raw_source_writer.py`, `tests/test_store_existing_keys.py` |
 | Logging through `get_logger(__name__)`, no `print()` in library code | review |

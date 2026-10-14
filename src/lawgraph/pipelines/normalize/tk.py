@@ -15,7 +15,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE_TK
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize._tk_deleted import Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -71,7 +71,6 @@ class TKNormalizePipeline(NormalizePipelineBase):
             writer.add(
                 Node(
                     collection=COLLECTION_CASES,
-                    type=NodeType.CASE,
                     key=key,
                     labels=["TK"],
                     props=props,

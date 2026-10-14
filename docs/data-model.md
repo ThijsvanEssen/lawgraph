@@ -14,8 +14,9 @@ A node is a document `{_key, type, labels, props}`:
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
   `annex`, `judgment`, `dossier`, `case`, `document`, `activity`, `decision`, `commitment`,
   `member`, `faction`, `committee`, `cabinet`). Every type has its own collection and every
-  collection holds one type (`core.models.COLLECTION_OF_TYPE`), so the collection in an id
-  says the type.
+  collection holds one type, so the collection in an id says the type. Each collection is
+  declared once, with its type, concept, props schema and whether it takes stubs
+  (`core.models.COLLECTIONS`); `Node.type` is read from the collection.
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
@@ -95,21 +96,21 @@ they are out of date. Do not edit inside the markers.
 | Node type | Collection |
 |-----------|-----------|
 | Instrument | `instruments` |
-| InstrumentVersion | `instrument_versions` |
 | Article | `articles` |
+| InstrumentVersion | `instrument_versions` |
 | ArticleVersion | `article_versions` |
-| Annex | `annexes` |
-| Judgment | `judgments` |
-| Dossier | `dossiers` |
 | Case | `cases` |
 | Document | `documents` |
+| Judgment | `judgments` |
+| Dossier | `dossiers` |
 | Activity | `activities` |
 | Decision | `decisions` |
 | Commitment | `commitments` |
+| Committee | `committees` |
 | Member | `members` |
 | Faction | `factions` |
 | Cabinet | `cabinets` |
-| Committee | `committees` |
+| Annex | `annexes` |
 
 | Relation | From | To | Meaning |
 |----------|------|----|---------|

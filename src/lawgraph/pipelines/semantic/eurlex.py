@@ -31,7 +31,7 @@ from lawgraph.core.eu_citations import (
     collect_year_number_hits,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -222,7 +222,6 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
             stub = Node(
                 collection=COLLECTION_ARTICLES,
                 key=key,
-                type=NodeType.ARTICLE,
                 props={
                     id_prop: identifier,
                     "article_number": hit.article_number,

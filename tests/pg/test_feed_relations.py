@@ -52,9 +52,7 @@ KATHMANN = "44444444-4444-4444-4444-444444444444"
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
     labels = props.pop("labels", ["TK"])
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _article(bwb: str, number: str, position: int, law: str, short: str) -> Node:

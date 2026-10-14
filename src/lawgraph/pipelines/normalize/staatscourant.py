@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.display import shorten
 from lawgraph.core.identifiers import STCRT_ID_PATTERN, find_bwb_id
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.time import iso_date
 from lawgraph.core.xml import find_text, text_of
@@ -116,7 +116,6 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
         key = make_node_key("stcrt", identifier)
         return Node(
             collection=COLLECTION_DOCUMENTS,
-            type=NodeType.DOCUMENT,
             key=key,
             labels=["Staatscourant", "Regeling"],
             props=props,

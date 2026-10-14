@@ -59,9 +59,7 @@ HEINEN_KEY = HEINEN.replace("-", "_")
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
     labels = props.pop("labels", ["TK"])
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _actor(person: str, faction: str | None, role: str, capacity: str) -> dict:

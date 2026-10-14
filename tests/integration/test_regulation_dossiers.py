@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     SOURCE_BWB,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import (
     EdgeWriter,
     GraphStore,
@@ -59,7 +59,6 @@ def _seed(store: GraphStore) -> None:
         nodes.add_all(
             Node(
                 collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
                 key=number,
                 labels=[],
                 props={"number": number, "label": number, "title": f"Dossier {number}"},

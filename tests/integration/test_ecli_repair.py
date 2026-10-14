@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.core.models import make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
     SEMANTIC_SOURCE as APPEAL_SOURCE,
@@ -70,7 +70,6 @@ def test_malformed_eclis_are_repaired_or_dropped(database: str, cli: Any) -> Non
             stub = store.ensure_stub_node(
                 COLLECTION_JUDGMENTS,
                 make_node_key(ecli),
-                NodeType.JUDGMENT,
                 props={"ecli": ecli},
             )
             assert stub is not None and stub.node_id

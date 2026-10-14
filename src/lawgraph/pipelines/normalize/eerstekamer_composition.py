@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
@@ -197,7 +197,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 props.update(name=person.name, birth_date=person.birth_date)
             nodes[person.path] = Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key=key,
                 labels=[CHAMBER],
                 props=props,
@@ -225,7 +224,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         return [
             Node(
                 collection=COLLECTION_MEMBERS,
-                type=NodeType.MEMBER,
                 key=row["key"],
                 labels=[CHAMBER],
                 props={"ek": {**row["ek"], "observed_until": shot.day}},
@@ -247,7 +245,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             nodes.append(
                 Node(
                     collection=COLLECTION_FACTIONS,
-                    type=NodeType.FACTION,
                     key=key,
                     labels=[CHAMBER],
                     props={
@@ -275,7 +272,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         nodes += [
             Node(
                 collection=COLLECTION_FACTIONS,
-                type=NodeType.FACTION,
                 key=key,
                 labels=[CHAMBER],
                 props={"observed_until": shot.day, "active": False, "seats": 0},
@@ -294,7 +290,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             nodes.append(
                 Node(
                     collection=COLLECTION_COMMITTEES,
-                    type=NodeType.COMMITTEE,
                     key=key,
                     labels=[CHAMBER],
                     props={
@@ -311,7 +306,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         nodes += [
             Node(
                 collection=COLLECTION_COMMITTEES,
-                type=NodeType.COMMITTEE,
                 key=key,
                 labels=[CHAMBER],
                 props={"observed_until": shot.day},

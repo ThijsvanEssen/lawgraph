@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
     RELATION_VOTED,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, make_edge_doc, version_cache
 from lawgraph.db.queries import committees as committee_queries
@@ -1441,7 +1441,6 @@ def test_walking_the_pages_of_the_members_finds_every_row_once(
         writer.add_all(
             Node(
                 collection="members",
-                type=NodeType.MEMBER,
                 key=f"member_{i:03d}",
                 labels=["TK"],
                 props={"name": "Jansen"},

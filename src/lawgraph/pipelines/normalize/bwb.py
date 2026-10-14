@@ -41,7 +41,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -113,7 +113,6 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     # was 42,000 round trips, and a write also when nothing changed.
                     instrument = Node(
                         collection=COLLECTION_INSTRUMENTS,
-                        type=NodeType.INSTRUMENT,
                         key=make_node_key(bwb_id),
                         labels=["BWB"],
                         props=props,
@@ -126,7 +125,6 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     writer.add(
                         Node(
                             collection=COLLECTION_ANNEXES,
-                            type=NodeType.ANNEX,
                             key=key,
                             labels=["BWB", "Annex"],
                             props=annex_props(
@@ -154,7 +152,6 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     writer.add(
                         Node(
                             collection=COLLECTION_ARTICLES,
-                            type=NodeType.ARTICLE,
                             key=key,
                             labels=["BWB", "Article"],
                             props=props,
@@ -162,13 +159,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     )
                     # build_edges only needs identity, so keep light nodes in memory
                     articles_by_bwb.setdefault(bwb_id, []).append(
-                        Node(
-                            collection=COLLECTION_ARTICLES,
-                            type=NodeType.ARTICLE,
-                            key=key,
-                            props={},
-                            _skip_validation=True,
-                        )
+                        Node.skeleton(COLLECTION_ARTICLES, key)
                     )
                     article_count += 1
 

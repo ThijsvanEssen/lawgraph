@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -178,7 +178,6 @@ def _paper_node(
     ]
     return Node(
         collection=COLLECTION_DOCUMENTS,
-        type=NodeType.DOCUMENT,
         key=paper.split("/", 1)[1],
         labels=["EersteKamer", "EK"],
         props={

@@ -23,7 +23,7 @@ BW6 = "BWBR0005289"
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(collection=collection, type=node_type, key=key, labels=[], props=props)
+    return Node(collection=collection, key=key, labels=[], props=props)
 
 
 def test_the_instrument_of_an_article_has_its_counts(database: str, cli: Any) -> None:

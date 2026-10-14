@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -27,7 +27,6 @@ def _seed(store: GraphStore, xml: str | None = None) -> None:
         nodes.add(
             Node(
                 collection="instruments",
-                type=NodeType.INSTRUMENT,
                 key=BW10.lower(),
                 labels=[],
                 props={"bwb_id": BW10, "citation_title": "Burgerlijk Wetboek Boek 10"},
@@ -36,7 +35,6 @@ def _seed(store: GraphStore, xml: str | None = None) -> None:
         nodes.add(
             Node(
                 collection="articles",
-                type=NodeType.ARTICLE,
                 key=f"{BW10.lower()}_56",
                 labels=[],
                 props={"bwb_id": BW10, "article_number": "56"},

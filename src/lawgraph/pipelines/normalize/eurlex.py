@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.eu_titles import act_names
 from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -94,7 +94,6 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
 
             instrument_node = Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key=instrument_key,
                 labels=labels,
                 props=props,
@@ -133,21 +132,12 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                 article_key = make_node_key(celex, article_number)
                 article_node = Node(
                     collection=COLLECTION_ARTICLES,
-                    type=NodeType.ARTICLE,
                     key=article_key,
                     labels=["EU", "Article"],
                     props=article_props,
                 )
                 writer.add(article_node)
-                article_nodes.append(
-                    Node(
-                        collection=COLLECTION_ARTICLES,
-                        type=NodeType.ARTICLE,
-                        key=article_key,
-                        props={},
-                        _skip_validation=True,
-                    )
-                )
+                article_nodes.append(Node.skeleton(COLLECTION_ARTICLES, article_key))
 
             articles_by_celex[celex] = article_nodes
             logger.debug("CELEX %s: %d articles extracted.", celex, len(article_nodes))

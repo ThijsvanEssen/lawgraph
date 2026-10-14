@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.core.models import Node, PipelineResult, collection_from_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -85,13 +85,11 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
 
             pub_node = Node(
                 collection=collection_from_id(pub_id, "documents"),
-                type=NodeType.DOCUMENT,
                 key=pub_key,
                 props={},
             )
             inst_node = Node(
                 collection=collection_from_id(inst_id, COLLECTION_INSTRUMENTS),
-                type=NodeType.INSTRUMENT,
                 key=inst_key,
                 props={},
             )

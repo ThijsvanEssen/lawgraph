@@ -29,7 +29,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.tk_records import dossier_label
 from lawgraph.db import NodeWriter
@@ -76,7 +76,6 @@ def _dossier(key: str, papers: list[tuple[str, str, str | None, str]]) -> Node:
     label = dossier_label(number, suffix)
     return Node(
         collection=COLLECTION_DOSSIERS,
-        type=NodeType.DOSSIER,
         key=key,
         labels=["EK"],
         props={
@@ -200,7 +199,6 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
 
         return Node(
             collection=COLLECTION_DOCUMENTS,
-            type=NodeType.DOCUMENT,
             key=make_node_key("ek", identifier),
             labels=["EersteKamer", "EK"],
             props=props,

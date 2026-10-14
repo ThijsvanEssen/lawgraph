@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_bills
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -83,7 +83,6 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase):
         nodes = [
             Node(
                 collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
                 key=key,
                 labels=[],
                 props={"ek_bill": found[key]},
