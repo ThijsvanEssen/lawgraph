@@ -37,11 +37,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_STEMMING,
-    SOURCE_BWB,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import FIXTURES, uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import FIXTURES, uid, write_tk, write_toestanden
 
 GRONDWET = "BWBR0001840"
 ENACTED, PENDING, WITHDRAWN, REJECTED = "35786", "37014", "36680", "36999"
@@ -227,34 +225,27 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
 @pytest.fixture()
 def store(database: str, cli: Any) -> Iterator[GraphStore]:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _tk_payloads():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
+    write_tk(store, _tk_payloads())
+    write_toestanden(
+        store,
+        [
+            (
+                kind,
+                external_id,
+                (FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
+                {
+                    "bwb_id": GRONDWET,
+                    "state_url": f"https://repo/{GRONDWET}/x.xml",
+                    "start_date": "2023-02-22",
+                    "end_date": "9999-12-31",
+                },
             )
-        for kind, external_id in (
-            (RAW_KIND_BWB_TOESTAND, GRONDWET),
-            (RAW_KIND_BWB_TOESTAND_ALL, f"{GRONDWET}@2023-02-22"),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_text=(FIXTURES / "bwb_grondwet_toestand.xml").read_text(),
-                    meta={
-                        "bwb_id": GRONDWET,
-                        "state_url": f"https://repo/{GRONDWET}/x.xml",
-                        "start_date": "2023-02-22",
-                        "end_date": "9999-12-31",
-                    },
-                )
+            for kind, external_id in (
+                (RAW_KIND_BWB_TOESTAND, GRONDWET),
+                (RAW_KIND_BWB_TOESTAND_ALL, f"{GRONDWET}@2023-02-22"),
             )
+        ],
+    )
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
     cli("normalize", "tk-dossiers")

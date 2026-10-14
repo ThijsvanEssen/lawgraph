@@ -9,12 +9,6 @@ WHOLE_WORD_MAX = 4
 # Words of fewer characters have no trigram: no index finds the rows that hold them.
 TRIGRAM = 3
 
-# A LIKE pattern of ``q`` (the bind ``q``: in lower case) anywhere: every row whose text
-# holds the words is one it matches, on a trigram index on that text folded as the search
-# folds (``lg_fold``) or in lower case.
-FOLDED_LIKE = "'%%' || lg_like(lg_fold(%(q)s)) || '%%'"
-LOWER_LIKE = "'%%' || lg_like(%(q)s) || '%%'"
-
 
 def words(q: str) -> str:
     """*q* as it is matched: trimmed, in lower case."""
@@ -43,6 +37,16 @@ def holds(text: str, param: str = "q_word") -> str:
     return f"lower({text}) ~ %({param})s"
 
 
+# A LIKE pattern of words (the bind *param*: in lower case) anywhere: every row whose text
+# holds them is one it matches, on a trigram index on that text in lower case
+# (``lower_like``) or folded as the search folds (``folded_like``, ``lg_fold``).
+
+
 def lower_like(param: str) -> str:
-    """``LOWER_LIKE`` of the bind *param*."""
+    """SQL: a LIKE pattern of the words of the bind *param* anywhere, in lower case."""
     return f"'%%' || lg_like(%({param})s) || '%%'"
+
+
+def folded_like(param: str) -> str:
+    """SQL: a LIKE pattern of the words of the bind *param* anywhere, folded (``lg_fold``)."""
+    return f"'%%' || lg_like(lg_fold(%({param})s)) || '%%'"

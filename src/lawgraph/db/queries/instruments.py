@@ -33,12 +33,20 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries._json_sql import array_or_empty
+from lawgraph.db.queries._lists import (
+    FacetFilters,
+    facet_rows,
+    paged,
+    split_page,
+    where,
+    without_page,
+)
 from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
-from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
+from lawgraph.db.schema import instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
 
@@ -73,26 +81,6 @@ def _document_order(table: str) -> str:
     a law's articles are not read for it."""
     position = f"{table}.position"
     return f"{position} IS NULL, {position} NULLS FIRST, {table}.key"
-
-
-def _paged(counted: str, page: str) -> str:
-    """A page and the total in one statement: every row carries ``total`` (the rows of
-    *counted*), the rows of *page* their place ``n``; a page past the end is one row with
-    the total alone (``n`` null). *page* selects ``row_number() OVER (...) AS n``, orders
-    by it and pages."""
-    return f"""
-        SELECT t.total, p.*
-        FROM (SELECT count(*)::int AS total FROM {counted}) t
-        LEFT JOIN ({page}) p ON true
-        ORDER BY p.n
-    """
-
-
-def _split_page(rows: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    """The rows of a ``_paged`` statement as (the rows of the page, the total)."""
-    found = list(rows)
-    total = int(found[0]["total"]) if found else 0
-    return [row for row in found if row["n"] is not None], total
 
 
 def _articles_of(prop: str) -> str:
@@ -140,10 +128,8 @@ def get_articles(
         ORDER BY n
         LIMIT %(limit)s OFFSET %(offset)s
     """
-    rows = store.query(
-        _paged(matched, page), {**bind, "limit": limit, "offset": offset}
-    )
-    items, total = _split_page(rows)
+    rows = store.query(paged(matched, page), {**bind, "limit": limit, "offset": offset})
+    items, total = split_page(rows)
     return [node_doc(row) for row in items], total
 
 
@@ -486,7 +472,7 @@ def get_instrument_dossiers(
         LIMIT %(limit)s
     """
     rows = store.query(
-        ctes + _paged("grouped", page),
+        ctes + paged("grouped", page),
         {
             "bwb": scope.value,
             "instrument_id": instrument_id,
@@ -496,7 +482,7 @@ def get_instrument_dossiers(
             "limit": limit,
         },
     )
-    items, total = _split_page(rows)
+    items, total = split_page(rows)
     groups = [
         {
             "dossier": node_doc(row),
@@ -543,14 +529,14 @@ def get_instrument_amended_by(
     scope = scope_of(identifier)
     rows = store.query(
         _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
-        + _paged("grouped", _newest("date_published")),
+        + paged("grouped", _newest("date_published")),
         {**_amending_bind(scope.value), "limit": limit, "offset": offset},
     )
-    page_rows, total = _split_page(rows)
-    proposal_rows, proposals_total = _split_page(
+    page_rows, total = split_page(rows)
+    proposal_rows, proposals_total = split_page(
         store.query(
             _amending_ctes(COLLECTION_DOCUMENTS, scope.prop)
-            + _paged("grouped", _newest("date")),
+            + paged("grouped", _newest("date")),
             {**_amending_bind(scope.value), "limit": PROPOSALS_SHOWN, "offset": 0},
         )
     )
@@ -764,10 +750,10 @@ def _related_instruments(
         LIMIT %(limit)s
     """
     rows = store.query(
-        ctes + _paged("resolved", page),
+        ctes + paged("resolved", page),
         {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "limit": limit},
     )
-    page_rows, total = _split_page(rows)
+    page_rows, total = split_page(rows)
     bases = (
         _pair_bases(store, scope.value, [row["id"] for row in page_rows])
         if scope.prop == "bwb_id" and page_rows
@@ -976,9 +962,11 @@ _SEARCH_FIELDS = [
 ]
 
 
-# The legal areas of the instruments under the filters (BE-14): each main area, and each of
-# its specific areas, with the number of instruments filed under it.
-_LEGAL_AREA_FACET = f"""
+def _legal_area_facet(condition: str) -> str:
+    """SQL: the legal areas of the instruments under *condition* (a ``WHERE``; BE-14): each
+    main area, and each of its specific areas, with the number of instruments filed under
+    it."""
+    return f"""
 SELECT a ->> 'main_id' AS main_id, a ->> 'main_slug' AS main_slug, a ->> 'main' AS main,
        a ->> 'specific_id' AS specific_id, a ->> 'specific_slug' AS specific_slug,
        a ->> 'specific' AS specific,
@@ -986,19 +974,24 @@ SELECT a ->> 'main_id' AS main_id, a ->> 'main_slug' AS main_slug, a ->> 'main' 
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
 CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'legal_areas'")}) AS a
-{{where}}
+{condition}
 GROUP BY GROUPING SETS (
     (a ->> 'main_id', a ->> 'main_slug', a ->> 'main'),
     (a ->> 'main_id', a ->> 'main_slug', a ->> 'main',
      a ->> 'specific_id', a ->> 'specific_slug', a ->> 'specific')
 )
 """
-_POLICY_DOMAIN_FACET = f"""
+
+
+def _policy_domain_facet(condition: str) -> str:
+    """SQL: the government themes of the instruments under *condition* (a ``WHERE``),
+    each with the number of instruments filed under it, most first."""
+    return f"""
 SELECT d ->> 'id' AS id, d ->> 'slug' AS slug, d ->> 'label' AS label,
        count(DISTINCT instruments.key)::int AS count
 FROM instruments
 CROSS JOIN LATERAL json_array_elements({array_or_empty("instruments.props -> 'policy_domains'")}) AS d
-{{where}}
+{condition}
 GROUP BY 1, 2, 3
 ORDER BY count DESC, label NULLS FIRST, id NULLS FIRST
 """
@@ -1043,17 +1036,7 @@ def _legal_area_tree(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # The day an instrument came into force, as text: the expression of the index
 # ``instruments_date_in_force`` (``db/schema.py``).
-IN_FORCE = INSTRUMENT_DATE_IN_FORCE
-
-
-# The instruments under the filters per kind, most first: without the kind filter, over
-# the list without a kind (every instrument but the publications).
-_KIND_FACET = """
-    SELECT kind AS value, count(*)::int AS count
-    FROM instruments {where}
-    GROUP BY kind
-    ORDER BY count DESC, value ASC NULLS FIRST
-"""
+IN_FORCE = instrument_date_in_force()
 
 
 def get_instruments_list(
@@ -1111,7 +1094,6 @@ def get_instruments_list(
     # condition of the list's indexes, written out so that every plan can use them.
     no_publications = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
     conditions = [
-        "kind = %(kind)s" if kind else no_publications,
         # a treaty of the Verdragenbank whose BWB text is in the graph (``SAME_AS`` into it)
         # is that text, which has the articles: listed once, as the text
         f"NOT EXISTS (SELECT 1 FROM edges e WHERE e.to_id = instruments.id"
@@ -1131,28 +1113,18 @@ def get_instruments_list(
         if value:
             conditions.append(clause)
     if tokens:
-        conditions.append(f"({search})")
-    own = {
-        "legal_area": "lg_legal_area_keys(instruments.props)"
-        " @> ARRAY[%(legal_area)s]::text[]",
-        "policy_domain": "lg_policy_domain_keys(instruments.props)"
-        " @> ARRAY[%(policy_domain)s]::text[]",
-    }
-    chosen = {"legal_area": legal_area, "policy_domain": policy_domain}
-
-    def where(leave_out: str = "") -> str:
-        # without its own filter the kinds are counted over the list without a kind
-        first = no_publications if leave_out == "kind" else conditions[0]
-        return " AND ".join(
-            [first, *conditions[1:]]
-            + [
-                clause
-                for name, clause in own.items()
-                if chosen[name] and name != leave_out
-            ]
+        conditions.append(search)
+    own = {"kind": "kind = %(kind)s" if kind else no_publications}
+    if legal_area:
+        own["legal_area"] = (
+            "lg_legal_area_keys(instruments.props) @> ARRAY[%(legal_area)s]::text[]"
         )
-
-    matched = f"instruments WHERE {where()}"
+    if policy_domain:
+        own["policy_domain"] = (
+            "lg_policy_domain_keys(instruments.props) @> ARRAY[%(policy_domain)s]::text[]"
+        )
+    filters = FacetFilters(conditions, own)
+    matched = f"instruments {filters.where()}"
     page = f"""
         SELECT key, props, row_number() OVER (ORDER BY {order}) AS n
         FROM {matched}
@@ -1175,7 +1147,7 @@ def get_instruments_list(
     }
     # The facets are the same on every page and for every visitor: kept per data version
     # under the filters alone.
-    counted = {k: v for k, v in params.items() if k not in ("limit", "offset")}
+    counted = without_page(params)
 
     def rows() -> list[Any]:
         return list(store.query(page, params))
@@ -1185,17 +1157,20 @@ def get_instruments_list(
     # was read per request), and warmed with the facets.
     total_sql = f"SELECT count(*)::int AS total FROM {matched}"
 
+    # each facet without its own filter; the kinds over the list without a kind (every
+    # instrument but the publications)
     counts = [
-        lambda sql=sql, leave_out=leave_out: cached_rows(
-            store,
-            sql.format(where=f"WHERE {where(leave_out)}"),
-            counted,
-            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
+        lambda sql=sql: cached_rows(
+            store, sql, counted, tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES)
         )
-        for sql, leave_out in (
-            (_LEGAL_AREA_FACET, "legal_area"),
-            (_POLICY_DOMAIN_FACET, "policy_domain"),
-            (_KIND_FACET, "kind"),
+        for sql in (
+            _legal_area_facet(filters.where("legal_area")),
+            _policy_domain_facet(filters.where("policy_domain")),
+            facet_rows(
+                "kind",
+                "instruments",
+                where([*filters.clauses("kind"), no_publications]),
+            ),
         )
         if facets
     ]
@@ -1355,7 +1330,7 @@ def get_articles_at(
     statement = f"""
         WITH {_EARLIEST}
         SELECT (SELECT valid_from FROM earliest) AS first_from, paged.*
-        FROM ({_paged(_IN_FORCE_ON, page)}) paged
+        FROM ({paged(_IN_FORCE_ON, page)}) paged
         ORDER BY paged.n
     """
     bind = {
@@ -1365,7 +1340,7 @@ def get_articles_at(
         "offset": offset,
     }
     found = list(store.query(statement, bind))
-    items, total = _split_page(found)
+    items, total = split_page(found)
     return LawOnADate(
         items=[node_doc(row) for row in items],
         total=total,

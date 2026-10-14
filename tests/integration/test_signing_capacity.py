@@ -13,11 +13,10 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_PERSOON,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 JETTEN = uid(1, 9)
 BUMA = uid(2, 9)
@@ -98,16 +97,7 @@ def test_each_signature_carries_the_function_and_capacity_of_its_day(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records())
     cli("normalize", "tk-dossiers")
 
     app.dependency_overrides[get_store] = lambda: store

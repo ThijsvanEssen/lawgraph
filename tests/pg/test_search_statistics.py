@@ -7,6 +7,8 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
+from tests.pg.plans import recorded
+from tests.pg.search_graph import judgments_with_words
 
 
 def _instrument(n: int) -> dict[str, object]:
@@ -44,20 +46,14 @@ def test_a_large_table_is_sampled_the_same_every_time(
     counted = _bm25.table_statistics(store, "instruments")
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 100)
     monkeypatch.setattr(_bm25, "MIN_SAMPLED", 10)
-    statements: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        statements.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     store.bulk_insert_or_update_nodes(
         "instruments", [_instrument(2000)]
     )  # a new version
     sampled = _bm25.table_statistics(store, "instruments")
     store.bulk_insert_or_update_nodes("instruments", [_instrument(2001)])
     again = _bm25.table_statistics(store, "instruments")
+    statements = [c.text for c in calls]
 
     assert any("TABLESAMPLE SYSTEM" in s for s in statements)
     assert sampled["N"] == pytest.approx(2000, rel=0.05)  # the planner's count
@@ -79,28 +75,6 @@ def test_the_statistics_are_kept_when_the_data_changes(store: GraphStore) -> Non
     assert _bm25.table_statistics(store, "instruments") == first
 
 
-def _judgments_with_words(store: GraphStore, rows: int) -> None:
-    """Judgments whose summaries mix words of every frequency, as the real ones do: a word
-    of the first ones in most summaries, of the last ones in a few."""
-    words = [
-        "beroep", "bestuursrecht", "huurovereenkomst", "ontbinding", "verblijfsvergunning",
-        "asiel", "onrechtmatige", "daad", "schadevergoeding", "aansprakelijkheid",
-        "zeldzaamheid",
-    ]  # fmt: skip
-    store.execute(
-        "INSERT INTO judgments (id, type, props)"
-        " SELECT 'judgments/w_' || n, 'judgment', json_build_object("
-        " 'source', 'rechtspraak', 'ecli', 'ECLI:NL:RBAMS:2020:' || n,"
-        " 'date_eff', '2020-01-01', 'display_name', 'Rechtbank ' || n,"
-        " 'summary', array_to_string(ARRAY("
-        "   SELECT w FROM unnest(%(words)s::text[]) WITH ORDINALITY AS x(w, i)"
-        "   WHERE (n * 7 + i * 13) %% (i + 1) = 0 OR (n %% (i * i + 1)) = 0), ' '))"
-        f" FROM generate_series(1, {rows}) n",
-        {"words": words},
-    )
-    store.execute("ANALYZE judgments")
-
-
 def test_common_words_take_their_frequency_from_the_statistics_alike(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -109,7 +83,7 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
 
-    _judgments_with_words(store, 4000)
+    judgments_with_words(store, 4000)
     queries = [
         "beroep bestuursrecht",
         "huurovereenkomst ontbinding",
@@ -141,22 +115,15 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     version_cache.clear()
     common = _bm25._common_elements(store, "judgments", "s_summary_t")
     assert "beroep" in common
-    statements: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        statements.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     search_all(store, q="beroep", types=["judgments"], limit=10)
-    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     # the summaries are not counted for a common word: the statistics give its frequency
     assert counts and not any("s_summary_t &&" in s for s in counts)
-    statements.clear()
+    calls.clear()
     version_cache.clear()
     search_all(store, q="voorbeeldloos", types=["judgments"], limit=10)
-    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     # a word outside the statistics is counted
     assert counts and any("s_summary_t &&" in s for s in counts)
 
@@ -173,7 +140,7 @@ def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import SEARCH_TYPES, search_all
 
-    _judgments_with_words(store, 1500)
+    judgments_with_words(store, 1500)
     monkeypatch.setattr(
         version_cache,
         "_pool",
@@ -244,22 +211,15 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
 
-    _judgments_with_words(store, 300)
+    judgments_with_words(store, 300)
     version_cache.clear()
     monkeypatch.setattr(_bm25, "DF_TIMEOUT", 0.0)
     monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
-    counts: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        if str(statement).startswith("SELECT 1 AS one"):
-            counts.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     with caplog.at_level("INFO"):
         first = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
         again = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     assert first and [h["key"] for h in again] == [h["key"] for h in first]
     assert any("took over" in r.message for r in caplog.records)
     assert len(counts) <= 1  # kept: the second search counts nothing
@@ -275,7 +235,7 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     from lawgraph.db.queries.search import search_all
     from lawgraph.db.store import read_time_left
 
-    _judgments_with_words(store, 300)
+    judgments_with_words(store, 300)
     version_cache.clear()
     monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
     df = _bm25._df

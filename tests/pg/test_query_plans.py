@@ -31,19 +31,16 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
-from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import _query, _text
 from tests.databases import fresh_database
 from tests.pg.conftest import TEST_URL, opened_store
+from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
+from tests.pg.plans import explain, plan_faults, plan_nodes, recorded
 
 # The graph is seeded and every route run once for the whole module (``planned``), and
 # its tests run on one worker (``--dist loadgroup`` in CI): the seed is the slow part.
 pytestmark = pytest.mark.xdist_group("query_plans")
 
-BWB = "BWBR0001"
-FILLER = 10_000
-ECLI = "ECLI:NL:HR:2020:1"
-CELEX = "32022L2555"
 
 # The routes of the front end that are read most, with the parameters they take.
 URLS = [
@@ -199,332 +196,6 @@ _WHOLE_BY_DESIGN = (
 # The statements a route ran with ``indexes_only`` (``store.query``).
 INDEXES_ONLY: set[str] = set()
 
-_SCANS = ("Seq Scan", "Index Scan", "Index Only Scan", "Bitmap Heap Scan")
-# The conditions of a whole list hold for nearly every row, they do not find rows: a test
-# of a flag (``same_as IS NULL``, ``stub IS NOT TRUE``) and every instrument but the
-# publications.
-_LIST_TEST = re.compile(
-    r"^(\w+\.)?\w+ IS (NOT )?(NULL|TRUE|FALSE)$"
-    r"|^(\w+\.)?kind IS DISTINCT FROM 'publicatie'::text$"
-)
-
-
-def _flags_only(condition: str) -> bool:
-    if not condition:
-        return True
-    parts = re.split(r"\s+AND\s+", condition)
-    return all(_LIST_TEST.match(part.strip(" ()")) for part in parts)
-
-
-def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
-
-
-def _edge(
-    key: str, source: str, target: str, relation: str, **extra: Any
-) -> dict[str, Any]:
-    return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
-        "relation": relation,
-        "source": "test",
-        "status": "canoniek",
-        "confidence": 1.0,
-        "meta": {},
-        "created_at": "2026-09-01T00:00:00Z",
-        **extra,
-    }
-
-
-def _seed(store: GraphStore) -> None:
-    store.bulk_insert_or_update_nodes(
-        "instruments",
-        [
-            _node(
-                "bwbr0001",
-                "instrument",
-                bwb_id=BWB,
-                title="Wet op de proef",
-                citation_title="Proefwet",
-                short_title="Pw",
-                jurisdiction="nl",
-                kind="wet",
-                article_count=2,
-            ),
-            # an AMvB issued under the law, and a regulation issued under the AMvB
-            _node("bwbr0002", "instrument", bwb_id="BWBR0002", kind="amvb"),
-            _node(
-                "bwbr0003",
-                "instrument",
-                bwb_id="BWBR0003",
-                kind="ministeriele-regeling",
-            ),
-            _node(
-                CELEX.lower(),
-                "instrument",
-                celex=CELEX,
-                citation_title="Richtlijn (EU) 2022/2555",
-                jurisdiction="eu",
-            ),
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "articles",
-        [
-            _node(
-                f"bwbr0001_{n}",
-                "article",
-                bwb_id=BWB,
-                article_number=str(n),
-                stam_id=f"s{n}",
-                display_name=f"Artikel {n} Proefwet",
-                heading="Onrechtmatige daad",
-                text="Hij die jegens een ander een onrechtmatige daad pleegt.",
-                breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
-            )
-            for n in (1, 2)
-        ]
-        + [
-            _node(f"{law}_1", "article", bwb_id=law.upper(), article_number="1")
-            for law in ("bwbr0002", "bwbr0003")
-        ]
-        + [
-            _node(
-                f"{CELEX.lower()}_21",
-                "article",
-                celex=CELEX,
-                article_number="21",
-                text="De lidstaten zorgen ervoor dat …",
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "article_versions",
-        [
-            _node(
-                "av1",
-                "article_version",
-                bwb_id=BWB,
-                article_number="1",
-                stam_id="s1",
-                valid_from="2010-01-01",
-                breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "instrument_versions",
-        [_node("iv1", "instrument_version", bwb_id=BWB, valid_from="2010-01-01")],
-    )
-    store.bulk_insert_or_update_nodes(
-        "judgments",
-        [
-            _node(
-                "ecli_nl_hr_2020_1",
-                "judgment",
-                ecli=ECLI,
-                source="rechtspraak",
-                court_code="HR",
-                court="Hoge Raad",
-                tier="hoge_raad",
-                date_eff="2020-01-01",
-                display_name="HR 1 januari 2020, onrechtmatige daad",
-                summary="Onrechtmatige daad.",
-                subjects=["Strafrecht"],
-                inbound_citation_count=1,
-                stub=False,
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "documents",
-        [
-            _node(
-                "d1",
-                "document",
-                title="Memorie van toelichting",
-                kind="memorie",
-                dossier_number="36000",
-                dossier_numbers=["36000"],
-                sequence=3,
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "annexes", [_node("a1", "annex", bwb_id=BWB, title="Bijlage")]
-    )
-    store.bulk_insert_or_update_nodes(
-        "dossiers",
-        [
-            _node(
-                "36000",
-                "dossier",
-                number="36000",
-                label="36000",
-                # a law the title names: the dossier looks it up (``get_laws_named``)
-                title="Wijziging van de Wet op de proef",
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "instruments",
-        [
-            _node(
-                "stb_2026_1", "instrument", kind="publicatie", official_id="stb-2026-1"
-            )
-        ],
-    )
-    membership = {
-        "faction_id": "factions/f1",
-        "faction_key": "f1",
-        "abbreviation": "F",
-        "from_date": "2010-01-01",
-        "to_date": None,
-    }
-    store.bulk_insert_or_update_nodes(
-        "members",
-        [
-            _node(
-                "m1",
-                "member",
-                name="A. Lid",
-                slug="a-lid",
-                faction_memberships=[membership],
-            )
-        ],
-    )
-    store.bulk_insert_or_update_nodes("factions", [_node("f1", "faction", name="F")])
-    store.bulk_insert_or_update_nodes(
-        "cabinets",
-        [
-            _node("k1", "cabinet", name="kabinet-Een", prime_minister="m1",
-                  previous="k0", factions=["f1"]),
-            _node("k0", "cabinet", name="kabinet-Nul"),
-        ],
-    )  # fmt: skip
-    store.bulk_insert_or_update_nodes(
-        "committees", [_node("c1", "committee", name="Commissie", slug="c1")]
-    )
-    store.bulk_insert_or_update_nodes(
-        "instruments",
-        [_node("stb_2025_263", "instrument", kind="publicatie",
-               citation_title="Stb. 2025, 263", official_id="stb-2025-263")],
-    )  # fmt: skip
-    store.bulk_insert_or_update_nodes(
-        "commitments",
-        [_node("tz1", "commitment", number="TZ202609-124", text="Een brief.",
-               member_key="m1", cabinet="k1")],
-    )  # fmt: skip
-    store.bulk_insert_or_update_nodes(
-        "decisions",
-        [_node(f"b{n}", "decision", date=f"2020-01-0{n}") for n in (1, 2)],
-    )
-    store.bulk_insert_or_update_nodes(
-        "activities",
-        [_node("act1", "activity", number="2026A01323", kind="Wetgevingsoverleg",
-               date="2026-03-23", status="Uitgevoerd", dossier_numbers=["36000"])],
-    )  # fmt: skip
-    article = f"articles/{BWB.lower()}_1"
-    store.bulk_insert_or_update_edges(
-        [
-            # a debate: its committee, a paper and a commitment made in it, a vote taken
-            _edge("al", "activities/act1", "committees/c1", "LED_BY"),
-            _edge("ad", "documents/d1", "activities/act1", "MADE_IN"),
-            _edge("at", "commitments/tz1", "activities/act1", "MADE_IN"),
-            _edge("ab", "decisions/b1", "activities/act1", "MADE_IN"),
-            _edge("mf", "members/m1", "factions/f1", "MEMBER_OF"),
-            _edge("mc", "members/m1", "committees/c1", "MEMBER_OF"),
-            _edge("mk", "members/m1", "cabinets/k1", "SERVED_IN"),
-            _edge("ma", "members/m1", "documents/d1", "AUTHORED"),
-            _edge(
-                "fv", "factions/f1", "decisions/b1", "VOTED", meta={"choice": "Voor"}
-            ),
-            _edge(
-                "mv", "members/m1", "decisions/b2", "VOTED", meta={"choice": "Tegen"}
-            ),
-        ]
-    )
-    store.bulk_insert_or_update_edges(
-        [
-            _edge("p1", article, "instruments/bwbr0001", "PART_OF"),
-            _edge("p2", f"articles/{BWB.lower()}_2", "instruments/bwbr0001", "PART_OF"),
-            _edge(
-                "r1",
-                article,
-                f"articles/{BWB.lower()}_2",
-                "REFERS_TO",
-                semantic_type="conditional_requirement",
-            ),
-            _edge(
-                "r2",
-                "judgments/ecli_nl_hr_2020_1",
-                article,
-                "REFERS_TO",
-                meta={"paragraphs": [1]},
-            ),
-            _edge("x1", "documents/d1", article, "EXPLAINS"),
-            _edge(
-                "b1",
-                "instruments/stb_2026_1",
-                article,
-                "BASED_ON",
-                meta={"text": "1, eerste lid"},
-            ),
-            _edge("b2", "instruments/bwbr0002", article, "BASED_ON"),
-            _edge("b3", "instruments/bwbr0003", "articles/bwbr0002_1", "BASED_ON"),
-            _edge("r3", "articles/bwbr0002_1", article, "REFERS_TO"),
-            _edge("r4", "articles/bwbr0003_1", article, "REFERS_TO"),
-            _edge("s1", article, "annexes/a1", "SCOPED_BY"),
-            # a bill: the publication that enacts it, and a paper that proposes a change
-            _edge("l1", "instruments/stb_2026_1", "dossiers/36000", "LEGISLATED_IN"),
-            # the law the bill became
-            _edge("l2", "instruments/bwbr0001", "dossiers/36000", "LEGISLATED_IN"),
-            _edge(
-                "m1",
-                "instruments/stb_2026_1",
-                article,
-                "AMENDS",
-                meta={"effective_date": "2026-01-01"},
-            ),
-            _edge("d1p", "documents/d1", "dossiers/36000", "PART_OF"),
-            _edge(
-                "v1",
-                "documents/d1",
-                f"articles/{BWB.lower()}_2",
-                "AMENDS",
-                status="voorgesteld",
-            ),
-        ]
-    )
-    store.execute(
-        "INSERT INTO lg_article_terms (article_id, terms)"
-        f" VALUES ('articles/{BWB.lower()}_1', ARRAY['noodwer'])"
-    )
-    _fill(store)
-    store.vacuum_analyze()
-
-
-def _fill(store: GraphStore) -> None:
-    """Rows that no route asks for: on tables of one or two rows the planner reads them
-    whole whatever indexes there are; on a thousand, as on the real ones, it does not."""
-    statements = [
-        f"INSERT INTO {table} (id, type) SELECT '{table}/filler_' || n, 'filler'"
-        f" FROM generate_series(1, {FILLER}) n"
-        for table in NODE_COLLECTIONS
-    ]
-    statements.append(
-        "INSERT INTO edges (key, from_id, to_id, doc)"
-        " SELECT 'filler_' || n, 'judgments/filler_' || n % 9973,"
-        " 'articles/filler_' || n % 9967, json_build_object('relation', 'FILLER',"
-        # a moment of its own, as nearly every edge has: an index that starts with it is
-        # no way to the edges of a node
-        " 'created_at', '2020-01-01T00:00:00.' || lpad(n::text, 6, '0'))"
-        f" FROM generate_series(1, {FILLER * 5}) n"
-    )
-    for statement in statements:
-        store.execute(statement)
-
 
 @pytest.fixture(scope="module")
 def planned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
@@ -538,7 +209,7 @@ def planned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
             f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
         ) as store,
     ):
-        _seed(store)
+        seed(store)
         yield store
 
 
@@ -549,98 +220,20 @@ def statements(planned: GraphStore) -> list[tuple[str, Any, Any]]:
     # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
     store_heat(store, HEAT_MAX_LIMIT)
     captured: list[tuple[str, Any, Any]] = []
-    current = {"url": ""}
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        captured.append((current["url"], statement, params))
-        if options.get("indexes_only"):
-            INDEXES_ONLY.add(_text(statement))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
     app.dependency_overrides[get_store] = lambda: store
     try:
-        client = TestClient(app)
-        for url in URLS:
-            current["url"] = url
-            response = client.get(url)
-            assert response.status_code == 200, (url, response.text[:300])
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            calls = recorded(store, monkeypatch)
+            client = TestClient(app)
+            for url in URLS:
+                start = len(calls)
+                response = client.get(url)
+                assert response.status_code == 200, (url, response.text[:300])
+                captured += [(url, c.statement, c.params) for c in calls[start:]]
     finally:
         app.dependency_overrides.pop(get_store, None)
-        store.query = query  # type: ignore[method-assign]
+    INDEXES_ONLY.update(c.text for c in calls if c.options.get("indexes_only"))
     return captured
-
-
-def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
-    """Whether a condition of the scan, or the condition of the partial index it reads
-    (``WHERE semantic_type IS NOT NULL``), finds its rows."""
-    indexes = {node.get("Index Name")} | {
-        child.get("Index Name") for child in node.get("Plans", [])
-    }
-    if indexes & partial:
-        return True
-    condition = node.get("Index Cond") or node.get("Recheck Cond")
-    return bool(condition) and not _flags_only(condition)
-
-
-def _skipped(
-    node: dict[str, Any], leading: dict[str, str], partial: frozenset[str]
-) -> bool:
-    """Whether the scan's condition leaves out the first column of its index: a skip scan
-    over every value of it (``to_id`` through ``(created_at, to_id)`` reads the whole index
-    on the full database). A partial index holds only the rows of its condition."""
-    if node.get("Index Name") in partial:
-        return False
-    column = leading.get(node.get("Index Name") or "")
-    condition = node.get("Index Cond") or ""
-    return (
-        bool(column and condition)
-        and not _flags_only(condition)
-        and not re.search(rf"\b{column}\b", condition)
-    )
-
-
-# Nodes that read all of their input before they give a row: below them a limit above
-# stops nothing early.
-_READS_ALL = ("Sort", "Incremental Sort", "Hash", "Materialize", "Aggregate", "Unique")
-
-
-def _faults(
-    node: dict[str, Any],
-    partial: frozenset[str] = frozenset(),
-    limited: bool = False,
-    grouped: bool = False,
-    leading: dict[str, str] | None = None,
-) -> list[str]:
-    """The whole reads in the plan *node*: a sequential scan, and a scan that nothing
-    narrows, unless it only tests flags and is either cut short by a limit (a page read
-    in the order of an index) or counted (a total or the facets of a list)."""
-    kind = node["Node Type"]
-    if kind in _READS_ALL:
-        limited = False
-    if kind == "Limit":
-        limited = True
-    found = []
-    if kind == "Seq Scan":
-        found.append(f"Seq Scan on {node.get('Relation Name')}")
-    elif kind in _SCANS and _skipped(node, leading or {}, partial):
-        found.append(
-            f"{kind} on {node.get('Relation Name')} skips the first column of"
-            f" {node.get('Index Name')}"
-        )
-    elif kind in _SCANS and not _narrowed(node, partial):
-        filtered = node.get("Filter", "")
-        if not (_flags_only(filtered) and (limited or grouped)):
-            found.append(
-                f"{kind} on {node.get('Relation Name')} read whole"
-                + (f", filtered by {filtered}" if filtered else "")
-            )
-    for child in node.get("Plans", []):
-        found += _faults(
-            child, partial, limited, grouped or kind == "Aggregate", leading
-        )
-    return found
 
 
 def _outline(node: dict[str, Any], depth: int = 0) -> list[str]:
@@ -692,7 +285,7 @@ def test_the_routes_read_through_indexes(
                 (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
             except psycopg.Error as exc:
                 pytest.fail(f"{url}: {exc}\n{text}")
-            found = _faults(plan[0]["Plan"], partial, leading=leading)
+            found = plan_faults(plan[0]["Plan"], partial, leading=leading)
             if found:
                 outline = "\n      ".join(_outline(plan[0]["Plan"]))
                 faults.append(
@@ -719,18 +312,6 @@ def test_the_search_ranks_and_counts_with_indexes_only(
     assert [text for text in ranking if text not in INDEXES_ONLY] == []
 
 
-def _index_reads(node: dict[str, Any]) -> list[list[str]]:
-    """Per ``BitmapOr`` in the plan *node*: the indexes its scans read, one per scan."""
-    found = [
-        [child.get("Index Name", "") for child in node.get("Plans", [])]
-        if node["Node Type"] == "BitmapOr"
-        else []
-    ]
-    return [
-        names for child in node.get("Plans", []) for names in _index_reads(child)
-    ] + [names for names in found if names]
-
-
 def test_the_live_search_reads_the_trigrams_of_a_field_once_per_word(
     planned: GraphStore, statements: list[tuple[str, Any, Any]]
 ) -> None:
@@ -739,20 +320,19 @@ def test_the_live_search_reads_the_trigrams_of_a_field_once_per_word(
     wherever it starts, so a lookup per place reads the same posting lists again (prod,
     14 Oct: "kamer" in 727,000 papers, each past the 250 ms of the live search)."""
     read_again = []
-    with planned.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_seqscan = off")
-        for url, statement, params in statements:
-            if "mode=live" not in url:
+    for url, statement, params in statements:
+        if "mode=live" not in url:
+            continue
+        plan = explain(planned, statement, params, disable=["seqscan"])
+        for node in plan_nodes(plan):
+            if node["Node Type"] != "BitmapOr":
                 continue
-            explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
-            (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
-            for names in _index_reads(plan[0]["Plan"]):
-                again = sorted(
-                    {n for n in names if n.endswith("_g") and names.count(n) > 1}
-                )
-                if again:
-                    read_again.append(f"{url}: {', '.join(again)}")
-        conn.rollback()
+            names = [child.get("Index Name", "") for child in node["Plans"]]
+            again = sorted(
+                {n for n in names if n.endswith("_g") and names.count(n) > 1}
+            )
+            if again:
+                read_again.append(f"{url}: {', '.join(again)}")
     assert not read_again, "\n".join(sorted(set(read_again)))
 
 
@@ -766,21 +346,21 @@ def test_a_page_read_whole_is_found() -> None:
         "Node Type": "Limit",
         "Plans": [{"Node Type": "Sort", "Plans": [scan]}],
     }
-    assert _faults(sorted_page) == ["Index Scan on judgments read whole"]
+    assert plan_faults(sorted_page) == ["Index Scan on judgments read whole"]
     # read in the order of an index, the limit stops the scan
-    assert _faults({"Node Type": "Limit", "Plans": [scan]}) == []
+    assert plan_faults({"Node Type": "Limit", "Plans": [scan]}) == []
     # unless a filter picks the rows: then it may read every row for them
     picked = {**scan, "Filter": "(s_names_n @> '{wet}'::text[])"}
-    assert _faults({"Node Type": "Limit", "Plans": [picked]}) == [
+    assert plan_faults({"Node Type": "Limit", "Plans": [picked]}) == [
         "Index Scan on judgments read whole, filtered by (s_names_n @> '{wet}'::text[])"
     ]
     # narrowed by a condition that finds rows, it is no whole read
     narrowed = {**scan, "Index Cond": "(court_code = 'HR'::text)"}
-    assert _faults({"Node Type": "Sort", "Plans": [narrowed]}) == []
+    assert plan_faults({"Node Type": "Sort", "Plans": [narrowed]}) == []
     # and so it is by the condition of a partial index
     on_partial = {"Node Type": "Index Scan", "Index Name": "edges_semantic_type"}
     sorted_partial = {"Node Type": "Sort", "Plans": [on_partial]}
-    assert _faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
+    assert plan_faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
 
 
 def _shape(node: dict[str, Any]) -> list[str]:
@@ -816,7 +396,7 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
 
 
 def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statistics(
-    planned: GraphStore,
+    planned: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An expression index made after the last ANALYZE has no statistics: the planner then
     guesses many rows per number, and with ``ORDER BY key LIMIT 1`` beside the condition it
@@ -843,13 +423,10 @@ def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statis
             conn.rollback()
         return original(statement, params, **options)
 
-    planned.query = explained  # type: ignore[method-assign]
-    try:
-        lookup.find_case(planned, "2025Z15468")
-        lookup.find_member(planned, "a-lid")
-        lookup.find_activity(planned, "2026A01323")
-    finally:
-        planned.query = original  # type: ignore[method-assign]
+    monkeypatch.setattr(planned, "query", explained)
+    lookup.find_case(planned, "2025Z15468")
+    lookup.find_member(planned, "a-lid")
+    lookup.find_activity(planned, "2026A01323")
     case, member, activity = found
     assert any("cases_number" in line for line in case), case
     assert any("members_slug" in line for line in member), member

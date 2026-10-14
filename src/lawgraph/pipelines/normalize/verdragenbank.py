@@ -70,7 +70,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                     count += 1
                 continue
             payload = self._payload_json(record)
-            if not payload or not isinstance(payload, dict):
+            if not payload:
                 self.progress.skip("no payload", record.get("external_id"))
                 continue
 

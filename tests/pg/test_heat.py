@@ -8,12 +8,14 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import overlay
+from tests.pg.plans import recorded
 
 
 def _ago(days: int) -> str:
@@ -115,28 +117,23 @@ def test_keeping_the_heat_again_replaces_it(store: GraphStore) -> None:
     assert list(store.query("SELECT count(*)::int FROM lg_heat_state")) == [1]
 
 
-def test_the_api_never_counts_the_heat_of_the_whole_graph(store: GraphStore) -> None:
+def test_the_api_never_counts_the_heat_of_the_whole_graph(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Counting it reads every edge, which empties the page cache: the API reads what
     ``semantic graph-heat`` kept, and answers 503 until it has."""
     _graph(store)
-    read: list[str] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        read.append(str(statement))
-        return query(statement, params, **options)
-
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        store.query = recording  # type: ignore[method-assign]
+        calls = recorded(store, monkeypatch)
         before = client.get("/api/nodes/heat")
-        store.query = query  # type: ignore[method-assign]
+        read = [c.text for c in calls]
         overlay.store_heat(store, 50)
-        store.query = recording  # type: ignore[method-assign]
+        kept = len(calls)
         after = client.get("/api/nodes/heat", params={"months": 12, "min_count": 2})
+        read += [c.text for c in calls[kept:]]
     finally:
-        store.query = query  # type: ignore[method-assign]
         app.dependency_overrides.pop(get_store, None)
     assert before.status_code == 503
     assert after.status_code == 200

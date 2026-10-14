@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 MOTION_A, MOTION_B, LETTER, AGENDA, QUESTIONS, ON_MOTIONS = (
     uid(n, 21) for n in range(1, 7)
@@ -122,16 +122,8 @@ def store(database: str, cli: Any) -> GraphStore:
     store = GraphStore()
     records = [(RAW_KIND_TK_DOSSIER, {**d, "Titel": "Dossier"}) for d in DOSSIERS]
     records += [(RAW_KIND_TK_DOCUMENT, paper) for paper in PAPERS]
+    write_tk(store, records)
     with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
         writer.add(
             raw_source_doc(
                 source=SOURCE_TK,

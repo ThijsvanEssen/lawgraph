@@ -17,10 +17,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
-    SOURCE_BWB,
 )
 from lawgraph.core.qualifiers import parse_qualifier
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_toestanden
 
 BWB = "BWBR9100001"
 OTHER = "BWBR9100002"
@@ -77,24 +77,25 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, external_id in (
-            (RAW_KIND_BWB_TOESTAND, BWB),
-            (RAW_KIND_BWB_TOESTAND_ALL, f"{BWB}@2020-01-01"),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_text=TOESTAND,
-                    meta={
-                        "bwb_id": BWB,
-                        "state_url": f"https://repo/{BWB}/x.xml",
-                        "start_date": "2020-01-01",
-                    },
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                kind,
+                external_id,
+                TOESTAND,
+                {
+                    "bwb_id": BWB,
+                    "state_url": f"https://repo/{BWB}/x.xml",
+                    "start_date": "2020-01-01",
+                },
             )
+            for kind, external_id in (
+                (RAW_KIND_BWB_TOESTAND, BWB),
+                (RAW_KIND_BWB_TOESTAND_ALL, f"{BWB}@2020-01-01"),
+            )
+        ],
+    )
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
     cli("semantic", "bwb")

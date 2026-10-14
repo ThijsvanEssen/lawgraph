@@ -1105,13 +1105,18 @@ def node_table(collection: str) -> list[str]:
     )
 
 
-# The day an instrument came into force, as text: the expression of the index
-# ``instruments_date_in_force``.
-INSTRUMENT_DATE_IN_FORCE = "public.lg_str(props -> 'date_in_force')"
+def instrument_date_in_force(alias: str = "") -> str:
+    """The day an instrument (of the row *alias*) came into force, as text: the expression
+    of the index ``instruments_date_in_force``."""
+    p = f"{alias}." if alias else ""
+    return f"public.lg_str({p}props -> 'date_in_force')"
 
-# The dossier numbers of an instrument (a publication's), as text: the expression of the
-# index ``instruments_dossier_numbers``.
-INSTRUMENT_DOSSIER_NUMBERS = "public.lg_text_array(props -> 'dossier_numbers')"
+
+def instrument_dossier_numbers(alias: str = "") -> str:
+    """The dossier numbers of an instrument (a publication's; of the row *alias*), as text:
+    the expression of the index ``instruments_dossier_numbers``."""
+    p = f"{alias}." if alias else ""
+    return f"public.lg_text_array({p}props -> 'dossier_numbers')"
 
 
 def feed_title(alias: str = "") -> str:
@@ -1143,14 +1148,14 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         # the instruments of the list (no publications: a few thousand) by the day they
         # came into force (``from``/``to``)
         "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
-        f" ON instruments (({INSTRUMENT_DATE_IN_FORCE})) WHERE {_LISTED}",
+        f" ON instruments (({instrument_date_in_force()})) WHERE {_LISTED}",
         # and by the day they were published (``published_from``/``published_to``):
         # ``(kind, date_published)`` holds every publication too
         "CREATE INDEX IF NOT EXISTS instruments_list_date_published"
         f" ON instruments (date_published) WHERE {_LISTED}",
         # the publications of a dossier, for the words (``q``) of the feed in its title
         "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
-        f" ON instruments USING gin (({INSTRUMENT_DOSSIER_NUMBERS}))",
+        f" ON instruments USING gin (({instrument_dossier_numbers()}))",
         # the regulations a publication enacted (``props.enacted_publication``): the laws a
         # publication of the feed establishes (``queries/feed_relations``)
         "CREATE INDEX IF NOT EXISTS instruments_enacted_publication"

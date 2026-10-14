@@ -13,10 +13,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 BILL, OTHER = 37500, 36000
 
@@ -76,16 +75,7 @@ def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
             _paper(3, "Brief regering", "2025-01-01", OTHER, 7, case),
         ),
     ]
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, records)
     cli("normalize", "tk-dossiers")
 
     props = store.get_document("dossiers", str(BILL))["props"]
@@ -114,20 +104,14 @@ def test_a_bill_is_submitted_on_the_day_its_zaak_started(
         "Nummer": "2025Z37501",
         "GestartOp": "2025-01-01T00:00:00+02:00",
     }
-    with RawSourceWriter(store) as writer:
-        for kind, payload in (
+    write_tk(
+        store,
+        (
             (RAW_KIND_TK_DOSSIER, _dossier(BILL)),
             (RAW_KIND_TK_ZAAK, bill),
             (RAW_KIND_TK_ZAAK, motion),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+        ),
+    )
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
 

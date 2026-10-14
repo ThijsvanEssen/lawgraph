@@ -14,18 +14,17 @@ import re
 from typing import Any
 
 import pytest
-from psycopg import sql
 
 from lawgraph.db import GraphStore
-from lawgraph.db.store import _query, _text
-from tests.pg import test_query_plans
-from tests.pg.test_query_plans import _seed
+from lawgraph.db.store import _text
+from tests.pg.planned_graph import seed
+from tests.pg.plans import READS_ALL, explain, recorded
 
 LARGE = ("judgments", "articles", "documents", "edges")
 JUDGMENTS = 6_000
 DOCUMENTS = 6_000
 EDGES = 30_000
-# The rows of every table that no statement asks for (``test_query_plans._fill``): enough
+# The rows of every table that no statement asks for (``planned_graph.fill``): enough
 # that the planner does not read a table whole for being small.
 FILLER = 3_000
 # A scan the planner expects to read this share of a large table reads it whole.
@@ -54,9 +53,9 @@ WHOLE_BY_DESIGN = [
     (
         "facets and total of the list of judgments and of an area of law",
         re.compile(
-            r"FROM judgments j .*WHERE j\.stub IS NOT TRUE AND j\.same_as IS NULL"
-            r"( AND j\.source = %\(source\)s)?"
-            r"( AND lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\])?"
+            r"FROM judgments j .*WHERE \(j\.stub IS NOT TRUE\) AND \(j\.same_as IS NULL\)"
+            r"( AND \(j\.source = %\(source\)s\))?"
+            r"( AND \(lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\]\))?"
             r"( GROUP BY| \) subjects|$)"
         ),
         "the counts of the list the front end shows first (the judgments of Rechtspraak)"
@@ -93,11 +92,6 @@ def _shaped_like_the_real(store: GraphStore) -> None:
     )
 
 
-# Nodes that read all of their input before they give a row: below them a limit above
-# stops nothing early.
-_READS_ALL = ("Sort", "Incremental Sort", "Hash", "Materialize", "Aggregate", "Unique")
-
-
 def _scans(
     plan: dict[str, Any],
     rows: dict[str, float],
@@ -110,7 +104,7 @@ def _scans(
     kind = plan["Node Type"]
     if kind in ("Gather", "Gather Merge"):
         processes = plan.get("Workers Planned", 0) + 1
-    if kind in _READS_ALL:
+    if kind in READS_ALL:
         limited = False
     if kind == "Limit":
         limited = True
@@ -164,22 +158,12 @@ def test_the_background_reads_no_large_table_whole(
     )
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
 
-    monkeypatch.setattr(test_query_plans, "FILLER", FILLER)
-    _seed(store)
+    seed(store, FILLER)
     _shaped_like_the_real(store)
     store.vacuum_analyze()
-    captured: list[tuple[Any, Any, dict[str, Any]]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        captured.append((statement, params, options))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        warm.warm_up(store)
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
+    warm.warm_up(store)
+    captured = [(c.statement, c.params, c.options) for c in calls]
     assert len(captured) > 20  # the warm-up ran its parts
     assert any("AS rank FROM" in " ".join(_text(c[0]).split()) for c in captured)
 
@@ -192,19 +176,17 @@ def test_the_background_reads_no_large_table_whole(
                 {"large": list(LARGE)},
             ).fetchall()
         )
-        for statement, params, options in captured:
-            text = " ".join(_text(statement).split())
-            # as the store runs it: a search reads with its indexes only
-            seqscan = "off" if options.get("indexes_only") else "on"
-            conn.execute(f"SET enable_seqscan = {seqscan}")
-            design = [name for name, p, _ in WHOLE_BY_DESIGN if p.search(text)]
-            explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
-            (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
-            found = _whole_reads(plan[0]["Plan"], rows)
-            if found and design:
-                named.update(design)
-            elif found:
-                faults.append(f"{'; '.join(found)}\n    {text[:300]}")
+    for statement, params, options in captured:
+        text = " ".join(_text(statement).split())
+        # as the store runs it: a search reads with its indexes only
+        disable = ("seqscan",) if options.get("indexes_only") else ()
+        design = [name for name, p, _ in WHOLE_BY_DESIGN if p.search(text)]
+        plan = explain(store, statement, params, disable=disable)
+        found = _whole_reads(plan, rows)
+        if found and design:
+            named.update(design)
+        elif found:
+            faults.append(f"{'; '.join(found)}\n    {text[:300]}")
     assert not faults, "\n".join(sorted(set(faults)))
     # each exception still names a statement that reads a table whole
     assert named == {name for name, _, _ in WHOLE_BY_DESIGN}, named

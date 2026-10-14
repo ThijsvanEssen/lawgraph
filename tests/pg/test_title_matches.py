@@ -8,12 +8,12 @@ from __future__ import annotations
 import random
 from typing import Any
 
-from psycopg import sql
+import pytest
 
 from lawgraph.config.constants import SOURCE_STAATSBLAD, SOURCE_STAATSCOURANT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.store import _query
+from tests.pg.plans import explain, recorded
 
 # Every title against every publication: what the query found before, and must still find.
 _EVERY_TITLE = """
@@ -124,7 +124,9 @@ def _tested_pairs(node: dict[str, Any]) -> float:
     return tested + sum(_tested_pairs(child) for child in node.get("Plans", ()))
 
 
-def test_a_thousand_publications_test_few_of_the_pairs(store: GraphStore) -> None:
+def test_a_thousand_publications_test_few_of_the_pairs(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The share of the pairs tested does not shrink with the scale: the words come from a
     # fixed stock, so each piece is shared by a fixed share of the titles (staatsblad 7.5%
     # and staatscourant 1.0% of the pairs on 3,000 x 30,000, 7.6% and 1.0% here).
@@ -132,33 +134,21 @@ def test_a_thousand_publications_test_few_of_the_pairs(store: GraphStore) -> Non
     _graph(store, random.Random(11), pubs=pubs, instruments=instruments)
 
     # one statement per source and kind of match, never one per publication
-    statements: list[Any] = []
-    query = store.query
-
-    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        statements.append(statement)
-        return query(statement, *args, **kwargs)
-
-    store.query = counted  # type: ignore[method-assign]
+    statements = recorded(store, monkeypatch)
     rows = semantic_bwb.staatsblad_instrument_matches(store)
     rows += semantic_bwb.staatscourant_instrument_matches(store, None)
-    store.query = query  # type: ignore[method-assign]
     assert len(rows) > 2 * pubs // 3
     assert len(statements) == 4
 
     # Every title against every publication tests each pair: the pieces test a few in a
     # hundred (about 7 here; the titles under six letters are tested whole).
-    with store.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_nestloop = off")  # as ``hash_joins`` runs them
-        for statement, source in (
-            (semantic_bwb._STAATSBLAD_BY_TITLE_SQL, SOURCE_STAATSBLAD),
-            (semantic_bwb._STAATSCOURANT_BY_TITLE_SQL, SOURCE_STAATSCOURANT),
-        ):
-            explain = sql.SQL("EXPLAIN (ANALYZE, FORMAT JSON) ") + _query(statement)
-            params = {"source": source, "since_iso": None}
-            (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
-            tested = _tested_pairs(plan[0]["Plan"])
-            every = (
-                pubs / 2 * instruments
-            )  # half of the publications are of each source
-            assert tested < 0.2 * every, f"{source}: {tested / every:.1%} of the pairs"
+    for statement, source in (
+        (semantic_bwb._STAATSBLAD_BY_TITLE_SQL, SOURCE_STAATSBLAD),
+        (semantic_bwb._STAATSCOURANT_BY_TITLE_SQL, SOURCE_STAATSCOURANT),
+    ):
+        params = {"source": source, "since_iso": None}
+        # as ``hash_joins`` runs them
+        plan = explain(store, statement, params, disable=("nestloop",), analyze=True)
+        tested = _tested_pairs(plan)
+        every = pubs / 2 * instruments  # half of the publications are of each source
+        assert tested < 0.2 * every, f"{source}: {tested / every:.1%} of the pairs"

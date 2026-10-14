@@ -13,28 +13,28 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RELATION_SERVED_IN
 from lawgraph.db import GraphStore, make_edge_doc
-from tests.integration.test_coalition_seats import _member, _node, _post
+from tests.integration.graph import cabinet_post, member_node, node
 
 
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [
-            _node(
+            node(
                 "rutte_iv",
                 "cabinet",
                 name="kabinet-Rutte IV",
                 from_date="2023-12-06",
                 to_date="2024-07-02",
             ),
-            _node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02"),
+            node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02"),
         ],
     )
     store.bulk_insert_or_update_nodes(
         "factions",
         [
             # the seat the minister left is vacant until the successor takes it
-            _node(
+            node(
                 "vvd",
                 "faction",
                 name="VVD",
@@ -42,16 +42,16 @@ def _seed(store: GraphStore) -> None:
                 active=True,
                 vacancies=[{"from_date": "2024-07-02", "to_date": "2024-07-03"}],
             ),
-            _node("sp", "faction", name="SP", abbreviation="SP", active=True),
+            node("sp", "faction", name="SP", abbreviation="SP", active=True),
         ],
     )
     store.bulk_insert_or_update_nodes(
         "members",
         [
-            _member("c", ("vvd", "2023-12-06", None)),
-            _member("d", ("sp", "2023-12-06", None)),
-            _member("heinen", ("vvd", "2023-12-06", "2024-07-01")),
-            _member("successor", ("vvd", "2024-07-04", None)),
+            member_node("c", ("vvd", "2023-12-06", None)),
+            member_node("d", ("sp", "2023-12-06", None)),
+            member_node("heinen", ("vvd", "2023-12-06", "2024-07-01")),
+            member_node("successor", ("vvd", "2024-07-04", None)),
         ],
     )
     store.bulk_insert_or_update_edges(
@@ -61,14 +61,16 @@ def _seed(store: GraphStore) -> None:
                 "cabinets/rutte_iv",
                 RELATION_SERVED_IN,
                 source="t",
-                meta={"posts": [_post("vvd", "VVD", "2023-12-06", "2024-07-02")]},
+                meta={
+                    "posts": [cabinet_post("vvd", "VVD", "2023-12-06", "2024-07-02")]
+                },
             ),
             make_edge_doc(
                 "members/heinen",
                 "cabinets/schoof",
                 RELATION_SERVED_IN,
                 source="t",
-                meta={"posts": [_post("vvd", "VVD", "2024-07-02")]},
+                meta={"posts": [cabinet_post("vvd", "VVD", "2024-07-02")]},
             ),
         ]
     )

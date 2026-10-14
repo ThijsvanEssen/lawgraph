@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -104,16 +105,18 @@ _HISTORY = [
 
 
 def _seed(store: GraphStore) -> None:
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=LAW,
-                payload_text=XML,
-                meta={"bwb_id": LAW, "state_url": f"https://repo/{LAW}.xml"},
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                LAW,
+                XML,
+                {"bwb_id": LAW, "state_url": f"https://repo/{LAW}.xml"},
             )
-        )
+        ],
+    )
+    with RawSourceWriter(store) as writer:
         for start, end, article_7 in _HISTORY:
             # the 2002 toestand holds another text of lid 4 than the ones after it
             xml = _toestand(start, article_7)
@@ -137,22 +140,23 @@ def _seed(store: GraphStore) -> None:
 
 def _with_the_2008_text(store: GraphStore) -> None:
     """The 2002 toestand again, now with the text of 2008: all three versions are one."""
-    with RawSourceWriter(store) as writer:
-        start, end, article_7 = _HISTORY[0]
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND_ALL,
-                external_id=f"{LAW}@{start}",
-                payload_text=_toestand(start, article_7),
-                meta={
+    start, end, article_7 = _HISTORY[0]
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND_ALL,
+                f"{LAW}@{start}",
+                _toestand(start, article_7),
+                {
                     "bwb_id": LAW,
                     "state_url": f"https://repo/{LAW}/{start}.xml",
                     "start_date": start,
                     "end_date": end,
                 },
             )
-        )
+        ],
+    )
 
 
 @pytest.fixture()

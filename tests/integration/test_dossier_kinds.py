@@ -8,11 +8,10 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOSSIER,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import seed, uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import seed, uid, write_tk
 
 
 def _zaak(number: int, kind: str, dossier: int) -> dict[str, Any]:
@@ -74,21 +73,15 @@ def test_a_vote_on_many_dossiers_gives_each_only_the_kinds_of_its_own_cases(
         "Titel": "Nieuwe Commissievoorstellen en initiatieven van de lidstaten van de "
         "Europese Unie",
     }
-    with RawSourceWriter(store) as writer:
-        for kind, payload in (
+    write_tk(
+        store,
+        (
             (RAW_KIND_TK_ACTIVITEIT, votes),
             (RAW_KIND_TK_DOSSIER, policy_area),
             (RAW_KIND_TK_DOSSIER, miljoenennota),
             (RAW_KIND_TK_DOSSIER, fiches),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+        ),
+    )
 
     cli("normalize", "tk-dossiers")
 

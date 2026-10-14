@@ -18,11 +18,11 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 JUDGMENTS = {
@@ -38,17 +38,9 @@ OLD = "ECLI:NL:HR:2001:1"
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli, name in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=(FIXTURES / name).read_text(),
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(
+        store, {ecli: (FIXTURES / name).read_text() for ecli, name in JUDGMENTS.items()}
+    )
     cli("normalize", "rechtspraak")
     store.bulk_insert_or_update_nodes(
         COLLECTION_JUDGMENTS,

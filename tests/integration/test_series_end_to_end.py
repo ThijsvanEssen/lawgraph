@@ -22,22 +22,25 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
-    RAW_KIND_RS_CONTENT,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_ZAAK,
-    SOURCE_BWB,
-    SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.tk_mvt import SEMANTIC_SOURCE_SECTIONS
 from tests.integration.conftest import TEST_SERVER, TEST_URL, lawgraph_runner
-from tests.integration.seed import FIXTURES, uid
+from tests.integration.seed import (
+    FIXTURES,
+    judgment_xml,
+    uid,
+    write_judgments,
+    write_toestanden,
+)
 
 # The tests read one world built for them all (``world``), on the worker that built it.
 pytestmark = pytest.mark.xdist_group("series_end_to_end")
@@ -90,28 +93,13 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
 </toestand>"""
 
 
-def _judgment_xml(ecli: str, date: str, paragraphs: list[tuple[str, str]]) -> str:
-    body = "".join(
-        f"<paragroup><nr>{number}</nr><para>{text}</para></paragroup>"
-        for number, text in paragraphs
-    )
-    return (
-        '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
-        'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
-        f"<dcterms:identifier>{ecli}</dcterms:identifier>"
-        f"<dcterms:creator>Een rechter</dcterms:creator><dcterms:date>{date}</dcterms:date>"
-        "</rdf:Description></rdf:RDF><uitspraak><section>"
-        f"<title><nr>1</nr>Overwegingen</title>{body}</section></uitspraak></open>"
-    )
-
-
 JUDGMENTS = {
-    "ECLI:NL:HR:2026:11": _judgment_xml(
+    "ECLI:NL:HR:2026:11": judgment_xml(
         "ECLI:NL:HR:2026:11",
         "2026-02-03",
         [("2.1", f"Volgens {CITES_LID_3} mag het niet."), ("2.2", "Dat is anders.")],
     ),
-    "ECLI:NL:RBAMS:2026:12": _judgment_xml(
+    "ECLI:NL:RBAMS:2026:12": judgment_xml(
         "ECLI:NL:RBAMS:2026:12", "2026-03-04", [("5", f"Op grond van {CITES_LID_4}.")]
     ),
 }
@@ -188,33 +176,26 @@ def _seed(store: GraphStore) -> None:
                 meta={"document": MVT_KEY},
             )
         )
-        for kind, external_id in (
-            (RAW_KIND_BWB_TOESTAND, LAW),
-            (RAW_KIND_BWB_TOESTAND_ALL, f"{LAW}@2025-07-01"),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_text=TOESTAND,
-                    meta={
-                        "bwb_id": LAW,
-                        "state_url": f"https://repo/{LAW}/x.xml",
-                        "start_date": "2025-07-01",
-                    },
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                kind,
+                external_id,
+                TOESTAND,
+                {
+                    "bwb_id": LAW,
+                    "state_url": f"https://repo/{LAW}/x.xml",
+                    "start_date": "2025-07-01",
+                },
             )
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
+            for kind, external_id in (
+                (RAW_KIND_BWB_TOESTAND, LAW),
+                (RAW_KIND_BWB_TOESTAND_ALL, f"{LAW}@2025-07-01"),
             )
+        ],
+    )
+    write_judgments(store, JUDGMENTS)
 
 
 def _explains(store: GraphStore) -> dict[str, Any]:

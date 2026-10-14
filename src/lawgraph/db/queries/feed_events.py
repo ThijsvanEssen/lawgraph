@@ -28,15 +28,16 @@ from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._json_sql import array_or_empty, as_text
+from lawgraph.db.queries._lists import FacetFilters
 from lawgraph.db.queries.feed import (
     _CABINET_PERIOD,
     _DIMENSIONS,
-    _IN_PERIOD,
     _PREAMBLE,
     FeedFilters,
     _dimension_filters,
     _elements,
     _facet,
+    _in_period,
     _Kind,
     _kinds_to_read,
     _lit,
@@ -71,7 +72,7 @@ _PLAN = _Plan(
     filters=FeedFilters(q=("x",)),
     facets=True,
     shared=[],
-    dimensions={},
+    dimensions=FacetFilters(),
     cursor=None,
 )
 _LABELS = (
@@ -259,9 +260,9 @@ PERIODS = ("month", "day")
 MAX_DAYS = 400
 
 
-def _period(per: str) -> str:
-    """SQL: the first day of the period of a row's date."""
-    return "left(e.date, 7) || '-01'" if per == "month" else "left(e.date, 10)"
+def _period(per: str, date: str = "e.date") -> str:
+    """SQL: the first day of the period (*per*) of the *date* of a row."""
+    return f"left({date}, 7) || '-01'" if per == "month" else f"left({date}, 10)"
 
 
 def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
@@ -337,7 +338,7 @@ def _matching(
         bind["dossier"] = filters.dossier
     if filters.cabinet:
         ctes = "WITH " + _CABINET_PERIOD.lstrip(",\n ")
-        where.append(_IN_PERIOD.replace("{date}", "e.date"))
+        where.append(_in_period("e.date"))
         bind["cabinet"] = filters.cabinet
     words = _words_filter(filters, queries or [], bind)
     if words:
@@ -440,7 +441,6 @@ def counts_query(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
     )
     cabinet = _CABINET_PERIOD if filters.cabinet else ""
-    every = " AND ".join(f"({clause})" for clause in dimensions.values()) or "TRUE"
     facets = ",\n            ".join(
         f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
     )
@@ -453,7 +453,7 @@ def counts_query(
         FROM {FEED_EVENTS_TABLE} e
         WHERE {" AND ".join(f"({clause})" for clause in where)}
     )
-    SELECT (SELECT count(*)::int FROM events WHERE {every}) AS total,
+    SELECT (SELECT count(*)::int FROM events {dimensions.where()}) AS total,
         json_build_object(
             {facets}
         ) AS facets""",
@@ -558,7 +558,7 @@ def _count_chains(
         replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )
     bind["since"] = filters.since or "0"
-    period = _period(per).replace("e.date", "c.first_date")
+    period = _period(per, "c.first_date")
     days = ["c.first_date >= %(since)s"]
     if filters.until:
         days.append("c.first_date <= %(until)s")

@@ -13,19 +13,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import _chunks, government
 from lawgraph.db.queries.normalize import tk
 from lawgraph.db.queries.semantic import bwb
-
-
-def _recorded(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    """The ``hash_joins`` of every read *store* runs from now on."""
-    calls: list[Any] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        calls.append(options.get("hash_joins"))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recording)
-    return calls
+from tests.pg.plans import recorded
 
 
 @pytest.mark.parametrize(
@@ -42,18 +30,20 @@ def _recorded(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
 def test_the_read_asks_for_hash_joins(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, read: Any
 ) -> None:
-    calls = _recorded(store, monkeypatch)
+    seen = recorded(store, monkeypatch)
     result = read(store)
     if not isinstance(result, int):
         list(result)
+    calls = [c.options.get("hash_joins") for c in seen]
     assert calls == [True]
 
 
 def test_the_title_matches_ask_for_hash_joins(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls = _recorded(store, monkeypatch)
+    seen = recorded(store, monkeypatch)
     bwb.staatsblad_instrument_matches(store)
     bwb.staatscourant_instrument_matches(store, None)
+    calls = [c.options.get("hash_joins") for c in seen]
     # by BWB id (an index lookup per publication), then by title (hash joins)
     assert calls == [None, True, None, True]

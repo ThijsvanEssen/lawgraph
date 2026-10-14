@@ -14,8 +14,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
-
-from .test_government_functions import page, store_pages
+from tests.integration.seed import cabinet_page, write_cabinet_pages
 
 
 class _Client:
@@ -29,21 +28,21 @@ class _Client:
 
 def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> None:
     store = GraphStore()
-    store_pages(
+    write_cabinet_pages(
         store,
         {
             # before 1995: not in the repository
-            "kabinet-lubbers-i": page(
+            "kabinet-lubbers-i": cabinet_page(
                 "Lubbers I",
                 "4 november 1982",
                 ("Minister voor Ontwikkelingssamenwerking", ["drs. E.M. Schoo (VVD)"]),
             ),
-            "kabinet-lubbers-ii": page(
+            "kabinet-lubbers-ii": cabinet_page(
                 "Lubbers II",
                 "14 juli 1986",
                 ("Minister van Financiën", ["dr. H.O.C.R. Ruding (CDA)"]),
             ),
-            "kabinet-rutte-ii": page(
+            "kabinet-rutte-ii": cabinet_page(
                 "Rutte II",
                 "5 november 2012",
                 (
@@ -52,7 +51,7 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
                 ),
                 ("Minister van Financiën", ["J.R.V.A. Dijsselbloem (PvdA)"]),
             ),
-            "kabinet-schoof": page(
+            "kabinet-schoof": cabinet_page(
                 "Schoof",
                 "2 juli 2024",
                 (

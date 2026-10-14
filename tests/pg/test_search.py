@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import threading
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 
 import pytest
@@ -17,6 +14,7 @@ from lawgraph.db.queries import search as search_queries
 from lawgraph.db.queries.search import SEARCH_TYPES
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import reset_read_deadline, set_read_deadline
+from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -587,37 +585,28 @@ def _live_judgments(store: GraphStore) -> None:
 
 
 def test_a_live_search_finds_judgments_by_name_display_name_or_ecli(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """While typing: no summary is ranked; a part of a name, of the display name (court,
     date, case number) or an ECLI, the most cited first."""
     version_cache.clear()
     _live_judgments(store)
-    statements: list[str] = []
-    query = store.query
+    calls = recorded(store, monkeypatch)
 
-    def recording(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        statements.append(" ".join(str(statement).split()))
-        return query(statement, *args, **kwargs)
+    def live(q: str) -> list[str]:
+        hits, partial = search_queries.search_live(store, q=q, types=["judgments"])
+        assert partial == set()
+        return [h["key"] for h in hits["judgments"]]
 
-    store.query = recording  # type: ignore[method-assign]
-    try:
-
-        def live(q: str) -> list[str]:
-            hits, partial = search_queries.search_live(store, q=q, types=["judgments"])
-            assert partial == set()
-            return [h["key"] for h in hits["judgments"]]
-
-        assert live("urgen") == ["ecli_nl_hr_2019_2007"]
-        assert live("rechtbank amsterdam") == [
-            "ecli_nl_rbams_2021_2",
-            "ecli_nl_rbams_2021_1",
-        ]
-        assert live("20/325") == ["ecli_nl_rbams_2021_1"]
-        assert live("ECLI:NL:HR:2019:2007") == ["ecli_nl_hr_2019_2007"]
-        assert live("hu") == []  # fewer than three characters
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    assert live("urgen") == ["ecli_nl_hr_2019_2007"]
+    assert live("rechtbank amsterdam") == [
+        "ecli_nl_rbams_2021_2",
+        "ecli_nl_rbams_2021_1",
+    ]
+    assert live("20/325") == ["ecli_nl_rbams_2021_1"]
+    assert live("ECLI:NL:HR:2019:2007") == ["ecli_nl_hr_2019_2007"]
+    assert live("hu") == []  # fewer than three characters
+    statements = [" ".join(c.text.split()) for c in calls]
     assert not any("AS rank" in s for s in statements)  # no BM25 while typing
 
 
@@ -726,33 +715,25 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     papers and dossiers the newest."""
     version_cache.clear()
     _live_names(store)
-    statements: list[str] = []
-    query = store.query
-
-    def recording(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        statements.append(" ".join(str(statement).split()))
-        return query(statement, *args, **kwargs)
 
     def live(q: str, kind: str) -> list[str]:
         hits, partial = search_queries.search_live(store, q=q, types=[kind])
         assert partial == set()
         return [h["key"] for h in hits[kind]]
 
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        assert live("stik", "articles") == ["bwbr0047000_2", "bwbr0047000_1"]
-        assert live("beeindiging", "articles") == ["bwbr0047000_2"]  # accents folded
-        assert live("tikst", "articles") == []
-        # every character as typed: "." is no wildcard, "(" no group
-        assert live("st.kstof", "articles") == []
-        assert live("stik(", "articles") == []
-        assert live("stik", "documents") == ["d4", "d2", "d1"]
-        assert live("2024D00003", "documents") == ["d3"]
-        assert live("stik", "dossiers") == ["36002", "36001"]
-        assert live("strafr", "instruments") == ["bwbr0005753", "bwbr0001854"]
-        assert live("st", "articles") == []  # two characters: whole words only
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
+    assert live("stik", "articles") == ["bwbr0047000_2", "bwbr0047000_1"]
+    assert live("beeindiging", "articles") == ["bwbr0047000_2"]  # accents folded
+    assert live("tikst", "articles") == []
+    # every character as typed: "." is no wildcard, "(" no group
+    assert live("st.kstof", "articles") == []
+    assert live("stik(", "articles") == []
+    assert live("stik", "documents") == ["d4", "d2", "d1"]
+    assert live("2024D00003", "documents") == ["d3"]
+    assert live("stik", "dossiers") == ["36002", "36001"]
+    assert live("strafr", "instruments") == ["bwbr0005753", "bwbr0001854"]
+    assert live("st", "articles") == []  # two characters: whole words only
+    statements = [" ".join(c.text.split()) for c in calls]
     assert statements
     assert not any("AS rank" in s or "lg_bm25" in s for s in statements)
     # the full search, after Enter, finds a part within a word too
@@ -875,15 +856,13 @@ def test_the_types_of_a_live_search_share_one_budget(
 
 
 def test_the_name_of_a_judgment_is_looked_up_through_its_index(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Whether the query is the name of a judgment: the judgments of that name are found
     through the index of the names, then ordered. The planner expects a share of the rows
     to hold any name, and walked the index of the dates for them instead: on the full
     graph every row, for a name none has (2.6 s)."""
     import json
-
-    from lawgraph.db.store import _query
 
     version_cache.clear()
     store.bulk_insert_or_update_nodes(
@@ -901,25 +880,14 @@ def test_the_name_of_a_judgment_is_looked_up_through_its_index(
         ],
     )
     store.vacuum_analyze()
-    lookups: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if "ARRAY[lg_fold(%(name)s)]" in str(statement):
-            lookups.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        # one hit asked: the shape of the full graph (a LIMIT far below the rows the
-        # planner expects) on a small table
-        search_queries.search_all(store, q="huur", types=["judgments"], limit=1)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    ((statement, params),) = lookups
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    calls = recorded(store, monkeypatch)
+    # one hit asked: the shape of the full graph (a LIMIT far below the rows the
+    # planner expects) on a small table
+    search_queries.search_all(store, q="huur", types=["judgments"], limit=1)
+    ((statement, params),) = [
+        (c.statement, c.params) for c in calls if "ARRAY[lg_fold(%(name)s)]" in c.text
+    ]
+    plan = json.dumps(explain(store, statement, params))
     assert "judgments_s_names_n" in plan, plan
     assert "date_eff" not in plan.split('"Sort Key"')[0], plan
 
@@ -1131,26 +1099,6 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
     assert every["instruments"] == ["bwbr8", "bwbr9"]
 
 
-@contextmanager
-def _pool_busy() -> Iterator[None]:
-    """Every worker of the pool of the cache busy, as with a warm-up and the counts of the
-    feed, until the block ends."""
-    release = threading.Event()
-    started = threading.Barrier(version_cache.WORKERS + 1)
-
-    def hold() -> None:
-        started.wait()
-        release.wait(60)
-
-    for _ in range(version_cache.WORKERS):
-        version_cache._pool.submit(hold)
-    started.wait(10)
-    try:
-        yield
-    finally:
-        release.set()
-
-
 def _searched(store: GraphStore, search: Any, q: str) -> tuple[Any, set[str]]:
     """The hits of a request: while the pool of the cache is held, one that waited for
     it would be cut off (``partial``) or time out."""
@@ -1168,7 +1116,7 @@ def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
     search_queries.load_notation_parser(graph)
     for table in SEARCH_FIELDS:
         _bm25.table_statistics(graph, table)
-    with _pool_busy():
+    with pool_busy():
         hits, partial = _searched(graph, search_queries.search_full, "voorzien")
     # its frequencies are counted by the search, not behind the pool: no type waits out
     # its budget (3 s, then its live search)
@@ -1179,7 +1127,7 @@ def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
 def test_a_search_does_not_wait_for_a_parser_of_citations_not_yet_kept(
     graph: GraphStore,
 ) -> None:
-    with _pool_busy():
+    with pool_busy():
         hits, partial = _searched(graph, search_queries.search_live, "Lindenbaum")
         none_yet = search_queries.kept_notation_parser(graph, 0.05)
     # after a start, before the warm-up: the words are searched without the parser
@@ -1194,7 +1142,7 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
 ) -> None:
     # after a start, before the warm-up: the parser kept, no statistics of any table
     search_queries.load_notation_parser(graph)
-    with _pool_busy():
+    with pool_busy():
         hits, partial = _searched(graph, search_queries.search_full, "voorzien")
         token = set_read_deadline(30)
         try:
@@ -1252,11 +1200,8 @@ def test_the_words_of_a_token_are_found_through_their_index(store: GraphStore) -
     from lawgraph.db.queries.search import build_search_clause
 
     clause, params = build_search_clause("judgments", ["7:669"], ["summary"], "j")
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_seqscan = off")
-        (plan,) = conn.execute(
-            f"EXPLAIN (FORMAT JSON) SELECT j.id FROM judgments j WHERE {clause}", params
-        ).fetchone()
+    statement = f"SELECT j.id FROM judgments j WHERE {clause}"
+    plan = explain(store, statement, params, disable=("seqscan",))
     assert "judgments_s_summary_t" in str(plan)
 
 
@@ -1411,34 +1356,18 @@ def test_the_hits_of_a_common_word_are_found_from_its_index(
     )
     store.execute(f"ANALYZE {table}")
     monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 20)
-    seen: list[tuple[str, Any]] = []
-    query = store.query
-
-    def spy(statement: Any, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        seen.append((statement, params))
-        return query(statement, params, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", spy)
+    calls = recorded(store, monkeypatch)
     hits = search_queries.search_all(store, q="belasting", types=[table])
     assert len(hits[table]) == 20
-    (statement, params), *_ = [s for s in seen if "LIMIT 20" in str(s[0])]
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_seqscan = off")  # as ``indexes_only``
-        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
-    assert row is not None
-    scans: list[str] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == table and node.get("Filter"):
-                scans.append(f"{node['Node Type']} {node.get('Index Name', '')}")
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(row[0])
+    statement, params, *_ = [c for c in calls if "LIMIT 20" in c.text][0]
+    plan = explain(
+        store, statement, params, disable=("seqscan",)
+    )  # as ``indexes_only``
+    scans = [
+        f"{node['Node Type']} {node.get('Index Name', '')}"
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == table and node.get("Filter")
+    ]
     assert scans == []  # no scan of the table that tests the words row by row
 
 

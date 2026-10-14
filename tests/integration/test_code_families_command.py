@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 
 from lawgraph.commands import code_families
-from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL, SOURCE_BWB
+from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL
 from lawgraph.core.code_families import DATA
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_toestanden
 
 WTI = json.loads(
     (
@@ -25,16 +26,13 @@ def _general_info(abbreviations: list[str]) -> str:
 
 
 def _store(store: GraphStore, wti: dict[str, list[str]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for bwb_id, abbreviations in wti.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_WTI_GENERAL,
-                    external_id=bwb_id,
-                    payload_text=_general_info(abbreviations),
-                )
-            )
+    write_toestanden(
+        store,
+        [
+            (RAW_KIND_BWB_WTI_GENERAL, bwb_id, _general_info(abbreviations), {})
+            for bwb_id, abbreviations in wti.items()
+        ],
+    )
 
 
 def test_the_stored_wti_builds_the_table_of_the_repository(

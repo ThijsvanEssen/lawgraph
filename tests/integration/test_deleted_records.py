@@ -20,11 +20,10 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 KEPT_DOSSIER = {"Id": uid(1, 3), "Nummer": 36100, "Titel": "Rechtsstaat en Rechtsorde"}
 GONE_DOSSIER = {"Id": uid(2, 3), "Nummer": 36101, "Titel": "Een dossier dat verdween"}
@@ -84,19 +83,6 @@ def _deleted(record_id: str) -> dict[str, Any]:
     }
 
 
-def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
-
-
 def _records() -> list[tuple[str, dict[str, Any]]]:
     return [
         (RAW_KIND_TK_DOSSIER, KEPT_DOSSIER),
@@ -154,7 +140,7 @@ def _seats(store: GraphStore, person: str) -> list[str]:
 
 def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> None:
     store = GraphStore()
-    _write(store, _records())
+    write_tk(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
 
@@ -166,7 +152,7 @@ def test_what_the_kamer_deleted_leaves_the_graph(database: str, cli: Any) -> Non
 
     # The Kamer deletes a dossier, a faction and the old record of 50PLUS, a person and a
     # seat: each becomes a record with its id and nothing else.
-    _write(
+    write_tk(
         store,
         [
             (RAW_KIND_TK_DOSSIER, _deleted(GONE_DOSSIER["Id"])),
@@ -291,7 +277,7 @@ def test_a_deleted_vote_leaves_its_decision_and_a_decision_without_votes_goes(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    _write(store, _vote_records())
+    write_tk(store, _vote_records())
     cli("normalize", "tk-dossiers")
     assert _voters(store, KEPT_DECISION) == [
         "factions/cda",
@@ -301,7 +287,7 @@ def test_a_deleted_vote_leaves_its_decision_and_a_decision_without_votes_goes(
     assert _voters(store, EMPTIED_DECISION) == ["factions/cda", "factions/vvd"]
     assert _voters(store, STRUCK_DECISION) == ["factions/d66"]
 
-    _write(store, _deletions())
+    write_tk(store, _deletions())
     cli("normalize", "tk-dossiers")
     _assert_votes_follow_the_deletions(store)
 
@@ -311,12 +297,12 @@ def test_an_incremental_run_removes_what_the_kamer_deleted_in_its_window(
 ) -> None:
     """A deleted vote names no decision: the edge it made does."""
     store = GraphStore()
-    _write(store, _vote_records())
+    write_tk(store, _vote_records())
     cli("normalize", "tk-dossiers")
 
     time.sleep(1.1)  # fetched_at has a precision of a second
     window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-    _write(store, _deletions())
+    write_tk(store, _deletions())
     cli("normalize", "tk-dossiers", "--since", window)
     _assert_votes_follow_the_deletions(store)
 
@@ -367,13 +353,13 @@ def test_a_besluit_stays_without_its_votes_and_goes_when_deleted(
     database: str, cli: Any, incremental: bool
 ) -> None:
     store = GraphStore()
-    _write(store, _besluit_records())
+    write_tk(store, _besluit_records())
     cli("normalize", "tk-dossiers")
     assert _voters(store, BILL_DECISION) == ["factions/cda", "factions/vvd"]
     assert _voters(store, GONE_BILL_DECISION) == ["factions/vvd"]
 
     time.sleep(1.1)  # fetched_at has a precision of a second
     window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
-    _write(store, _besluit_deletions())
+    write_tk(store, _besluit_deletions())
     cli("normalize", "tk-dossiers", *(["--since", window] if incremental else []))
     _assert_besluit_deletions(store)
