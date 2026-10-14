@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_WTI_GENERAL,
     RAW_KIND_TOOI_THESAURUS,
     SOURCE_BWB,
+    SOURCE_TOOI,
     TOOI_BWB_LEGAL_AREAS,
     TOOI_BWB_THEMES,
 )
@@ -24,7 +25,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, raw_record
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
@@ -106,24 +107,6 @@ def test_client_returns_nothing_without_a_wti_location_or_element() -> None:
 # ── retrieve ─────────────────────────────────────────────────────────────────
 
 
-class _RawStore(RawSourcesFake):
-    def __init__(self) -> None:
-        self.records: list[dict[str, Any]] = []
-
-    def insert_raw_source(self, **record: Any) -> dict[str, Any]:
-        self.records.append(record)
-        return record
-
-
-@pytest.fixture
-def nothing_stored(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No record stored by an interrupted run, none waiting for a retry."""
-    monkeypatch.setattr(raw_queries, "ids_stored_since", lambda store, **kw: iter([]))
-    monkeypatch.setattr(
-        raw_queries, "ids_waiting_for_retry", lambda store, **kw: iter([])
-    )
-
-
 class _Client:
     def __init__(self, general_info: str | None | Exception) -> None:
         self.general_info = general_info
@@ -140,23 +123,27 @@ class _Client:
         return self.general_info
 
 
-def _retrieve(general_info: str | None | Exception) -> tuple[_RawStore, PipelineResult]:
-    store = _RawStore()
+def _retrieve(
+    general_info: str | None | Exception,
+) -> tuple[list[dict[str, Any]], PipelineResult]:
+    """The records stored by a retrieve of SR, and its result."""
+    store = InMemoryStore()
     pipeline = BWBRetrievePipeline(store=store, client=_Client(general_info))  # type: ignore[arg-type]
-    return store, pipeline.run(bwb_ids=[SR])
+    result = pipeline.run(bwb_ids=[SR])
+    return list(store.raw.values()), result
 
 
 def test_retrieve_stores_the_general_information_next_to_the_toestand(
-    nothing_stored: None,
+    raw_reads: None,
 ) -> None:
-    store, result = _retrieve(SR_GENERAL)
+    records, result = _retrieve(SR_GENERAL)
 
     # The toestand last: it is what a re-run takes for "this regulation is done".
-    assert [r["kind"] for r in store.records] == [
+    assert [r["kind"] for r in records] == [
         RAW_KIND_BWB_WTI_GENERAL,
         RAW_KIND_BWB_TOESTAND,
     ]
-    wti = store.records[0]
+    wti = records[0]
     assert (wti["source"], wti["external_id"]) == (SOURCE_BWB, SR)
     assert wti["payload_text"] == SR_GENERAL
     assert wti["meta"] == {"bwb_id": SR, "wti_url": WTI_URL}
@@ -164,22 +151,22 @@ def test_retrieve_stores_the_general_information_next_to_the_toestand(
 
 
 def test_retrieve_without_general_information_stores_the_toestand_only(
-    nothing_stored: None,
+    raw_reads: None,
 ) -> None:
-    store, result = _retrieve(None)
+    records, result = _retrieve(None)
 
-    assert [r["kind"] for r in store.records] == [RAW_KIND_BWB_TOESTAND]
+    assert [r["kind"] for r in records] == [RAW_KIND_BWB_TOESTAND]
     assert (result.created, result.errors) == (1, [])
 
 
 def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand(
-    nothing_stored: None,
+    raw_reads: None,
 ) -> None:
     response = requests.Response()
     response.status_code = 500
-    store, result = _retrieve(requests.HTTPError("500", response=response))
+    records, result = _retrieve(requests.HTTPError("500", response=response))
 
-    assert [r["kind"] for r in store.records] == [RAW_KIND_BWB_TOESTAND]
+    assert [r["kind"] for r in records] == [RAW_KIND_BWB_TOESTAND]
     assert result.created == 1
     assert len(result.errors) == 1 and SR in result.errors[0]
 
@@ -187,8 +174,19 @@ def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand(
 # ── normalize ────────────────────────────────────────────────────────────────
 
 
-class _WtiStore(RawSourcesFake):
-    """The stored WTI records and the instruments their short titles go to."""
+def _wti(bwb_id: str, xml: str) -> dict[str, Any]:
+    return raw_record(
+        SOURCE_BWB,
+        RAW_KIND_BWB_WTI_GENERAL,
+        bwb_id,
+        payload_text=xml,
+        meta={"bwb_id": bwb_id},
+    )
+
+
+class _WtiStore(InMemoryStore):
+    """The stored WTI records and thesauri, the instruments their short titles go to, and
+    the subjects and abbreviations the pipeline asked to write."""
 
     def __init__(
         self,
@@ -196,91 +194,85 @@ class _WtiStore(RawSourcesFake):
         instruments: dict[str, dict],
         thesauri: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
-        self.wti = wti
-        self.thesauri = thesauri or {}
-        self.subjects: dict[str, dict[str, Any]] = {}
-        self.nodes: dict[str, dict[str, dict]] = {
-            "instruments": {
-                make_node_key(b): {"props": p} for b, p in instruments.items()
-            }
-        }
-
-    def wti_records(self) -> list[dict[str, Any]]:
-        return [
-            {"external_id": bwb_id, "payload_text": xml, "meta": {"bwb_id": bwb_id}}
-            for bwb_id, xml in self.wti.items()
-        ]
-
-    def update_abbreviations(self, rows: list[dict[str, Any]]) -> int:
-        """Like the query: only existing instruments that differ; an empty value is removed."""
-        changed = 0
-        for row in rows:
-            doc = self.nodes["instruments"].get(row["key"])
-            wanted = {
-                "short_title": row["short_title"],
-                "aliases": row["aliases"] or None,
-            }
-            if doc is None or all(doc["props"].get(k) == v for k, v in wanted.items()):
-                continue
-            for k, v in wanted.items():
-                doc["props"].pop(k, None)
-                if v is not None:
-                    doc["props"][k] = v
-            changed += 1
-        return changed
-
-    def thesaurus_records(self) -> list[dict[str, Any]]:
-        return [
-            {"external_id": name, "payload_json": {"items": items}}
-            for name, items in self.thesauri.items()
-        ]
-
-    def update_subjects(self, rows: list[dict[str, Any]]) -> int:
-        """Records what the pipeline asks to write; the query itself is tested on
-        PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
-        self.subjects = {row["key"]: row for row in rows}
-        return 0
-
-    def update_instrument_abbreviations(self, rows: list[dict[str, Any]]) -> int:
-        """Records what the pipeline asks to write; the query itself is tested on
-        PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
-        self.abbreviations = {row["key"]: row["abbreviation"] for row in rows}
-        return 0
-
-    def short_title(self, bwb_id: str) -> str | None:
-        return self.nodes["instruments"][make_node_key(bwb_id)]["props"].get(
-            "short_title"
+        super().__init__(
+            {
+                "instruments": [
+                    {"_key": make_node_key(b), "props": p}
+                    for b, p in instruments.items()
+                ]
+            },
+            raw=[
+                *(_wti(bwb_id, xml) for bwb_id, xml in wti.items()),
+                *(
+                    raw_record(
+                        SOURCE_TOOI,
+                        RAW_KIND_TOOI_THESAURUS,
+                        name,
+                        payload_json={"items": items},
+                    )
+                    for name, items in (thesauri or {}).items()
+                ),
+            ],
         )
+        self.subjects: dict[str, dict[str, Any]] = {}
+        self.abbreviations: dict[str, str] = {}
+
+
+def _update_abbreviations(store: _WtiStore, rows: list[dict[str, Any]]) -> int:
+    """Like the query: only existing instruments that differ; an empty value is removed."""
+    changed = 0
+    for row in rows:
+        doc = store.nodes["instruments"].get(row["key"])
+        wanted = {
+            "short_title": row["short_title"],
+            "aliases": row["aliases"] or None,
+        }
+        if doc is None or all(doc["props"].get(k) == v for k, v in wanted.items()):
+            continue
+        for k, v in wanted.items():
+            doc["props"].pop(k, None)
+            if v is not None:
+                doc["props"][k] = v
+        changed += 1
+    return changed
+
+
+def _update_subjects(store: _WtiStore, rows: list[dict[str, Any]]) -> int:
+    """Records what the pipeline asks to write; the query itself is tested on
+    PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
+    store.subjects.update((row["key"], row) for row in rows)
+    return 0
+
+
+def _update_instrument_abbreviations(
+    store: _WtiStore, rows: list[dict[str, Any]]
+) -> int:
+    """Records what the pipeline asks to write; the query itself is tested on
+    PostgreSQL (``tests/pg/test_bwb_pipeline_queries.py``)."""
+    store.abbreviations.update((row["key"], row["abbreviation"]) for row in rows)
+    return 0
+
+
+def _short_title(store: _WtiStore, bwb_id: str) -> str | None:
+    return store.nodes["instruments"][make_node_key(bwb_id)]["props"].get("short_title")
 
 
 @pytest.fixture(autouse=True)
-def _wti_queries(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The raw records and the short-title update, served by a ``_WtiStore``."""
+def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
+    read = raw_queries.iter_raw_records
 
-    def iter_raw_records(store: _WtiStore, *, kinds, since_iso, **_kw):
-        assert since_iso is None  # the rule needs every regulation
-        if kinds == [RAW_KIND_TOOI_THESAURUS]:
-            return iter(store.thesaurus_records())
-        assert kinds == [RAW_KIND_BWB_WTI_GENERAL]
-        return iter(store.wti_records())
+    def every_regulation(store: _WtiStore, **kw: Any) -> Any:
+        assert kw["since_iso"] is None  # the rule needs every regulation
+        return read(store, **kw)
 
-    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
-    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        normalize_bwb,
-        "update_abbreviations",
-        lambda store, rows: store.update_abbreviations(rows),
-    )
+    monkeypatch.setattr(raw_queries, "iter_raw_records", every_regulation)
+    monkeypatch.setattr(normalize_bwb, "update_abbreviations", _update_abbreviations)
     monkeypatch.setattr(
         normalize_bwb,
         "update_instrument_abbreviations",
-        lambda store, rows: store.update_instrument_abbreviations(rows),
+        _update_instrument_abbreviations,
     )
-    monkeypatch.setattr(
-        normalize_bwb,
-        "update_subjects",
-        lambda store, rows: store.update_subjects(rows),
-    )
+    monkeypatch.setattr(normalize_bwb, "update_subjects", _update_subjects)
 
 
 def _normalize(store: _WtiStore) -> PipelineResult:
@@ -309,11 +301,11 @@ def test_a_book_has_its_own_code_whether_or_not_the_other_books_are_loaded() -> 
     store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}, BW5: {}})
 
     _normalize(store)
-    assert store.short_title(BW1) == "BW1"  # never "BW", which names every book
+    assert _short_title(store, BW1) == "BW1"  # never "BW", which names every book
 
-    store.wti[BW5] = bw5_general
+    store.insert_raw_sources([_wti(BW5, bw5_general)])
     _normalize(store)
-    assert (store.short_title(BW1), store.short_title(BW5)) == ("BW1", "BW5")
+    assert (_short_title(store, BW1), _short_title(store, BW5)) == ("BW1", "BW5")
 
 
 def test_no_instrument_is_created_and_a_lost_short_title_is_removed() -> None:
@@ -325,7 +317,7 @@ def test_no_instrument_is_created_and_a_lost_short_title_is_removed() -> None:
     _normalize(store)
 
     assert set(store.nodes["instruments"]) == {make_node_key(BW1)}
-    assert store.short_title(BW1) is None
+    assert _short_title(store, BW1) is None
 
 
 def test_every_book_is_named_by_its_code_also_without_a_wti_record() -> None:
@@ -339,7 +331,7 @@ def test_every_book_is_named_by_its_code_also_without_a_wti_record() -> None:
     }
     assert aliases[BW1] == ["BW", "BW Boek 1", "BW1", "Boek 1 BW", "1 BW", "BW 1"]
     assert aliases[BW5] == ["Boek 5 BW", "5 BW", "BW 5", "BW5", "BW Boek 5", "BW"]
-    assert store.short_title(BW5) is None  # a short title comes from the WTI only
+    assert _short_title(store, BW5) is None  # a short title comes from the WTI only
 
 
 def test_the_toestand_stream_does_not_read_wti_records(
@@ -363,7 +355,7 @@ def test_the_abbreviation_is_the_wti_short_title_else_the_curated_one() -> None:
     (Sr), an EU act the abbreviation kept by hand (AVG for 32016R0679)."""
     store = _WtiStore({SR: SR_GENERAL}, {SR: {"title": "Wetboek van Strafrecht"}})
     _normalize(store)
-    assert store.abbreviations[make_node_key(SR)] == store.short_title(SR) == "Sr"
+    assert store.abbreviations[make_node_key(SR)] == _short_title(store, SR) == "Sr"
     assert store.abbreviations[make_node_key("32016R0679")] == "AVG"
 
 

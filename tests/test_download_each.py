@@ -12,7 +12,6 @@ from lawgraph.clients.bwb import ToestandMeta
 from lawgraph.clients.staatsblad import StaatsbladClient
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.progress import Progress
-from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import (
     MAX_FAILURES_IN_A_ROW,
     RetrievePipelineBase,
@@ -22,7 +21,7 @@ from lawgraph.pipelines.retrieve.base import (
 )
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
-from tests.fakes import FakeResponse, RawSourcesFake
+from tests.fakes import FakeResponse, InMemoryStore, external_ids
 
 
 def _http_error(status: int) -> requests.HTTPError:
@@ -123,27 +122,13 @@ class _BWBClient:
         return None
 
 
-class _Store(RawSourcesFake):
-    def __init__(self) -> None:
-        self.stored: list[str] = []
-
-    def insert_raw_source(self, *, external_id: str, **_kw: Any) -> None:
-        self.stored.append(external_id)
-
-
-@pytest.fixture
-def nothing_stored(monkeypatch: pytest.MonkeyPatch) -> None:
-    for query in ("ids_stored_since", "ids_waiting_for_retry", "fetch_times"):
-        monkeypatch.setattr(raw_queries, query, lambda store, **kw: iter([]))
-
-
 IDS = [f"BWBR{n:07d}" for n in range(100)]
 
 
 @pytest.mark.parametrize("history", [False, True])
-def test_bwb_stops_when_the_source_is_down(nothing_stored: None, history: bool) -> None:
+def test_bwb_stops_when_the_source_is_down(raw_reads: None, history: bool) -> None:
     client = _BWBClient(_http_error(503))
-    pipeline = BWBRetrievePipeline(store=_Store(), client=client)  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(store=InMemoryStore(), client=client)  # type: ignore[arg-type]
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * MAX_FAILURES_IN_A_ROW
@@ -152,10 +137,10 @@ def test_bwb_stops_when_the_source_is_down(nothing_stored: None, history: bool) 
 
 @pytest.mark.parametrize("history", [False, True])
 def test_a_bug_in_the_bwb_client_fails_the_step_as_a_bug(
-    nothing_stored: None, history: bool
+    raw_reads: None, history: bool
 ) -> None:
     client = _BWBClient(AttributeError("'NoneType' object has no attribute 'text'"))
-    pipeline = BWBRetrievePipeline(store=_Store(), client=client)  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(store=InMemoryStore(), client=client)  # type: ignore[arg-type]
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * 4 * 4  # ended within the window of the workers
@@ -183,19 +168,16 @@ def test_an_error_page_with_http_200_is_not_the_document(page: str) -> None:
         client.fetch_publication_xml("stb-2009-601")
 
 
-def test_staatsblad_does_not_store_an_error_page(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
+def test_staatsblad_does_not_store_an_error_page(raw_reads: None) -> None:
     client = StaatsbladClient.__new__(StaatsbladClient)
     client.base_url = "https://repository.overheid.nl"
     pages = {"stb-2009-601": MAINTENANCE, "stb-2009-602": "<officiele-publicatie/>"}
     client._get_raw_absolute_with_retry = lambda url, **kw: FakeResponse(  # type: ignore[method-assign,assignment]
         pages[url.rsplit("/", 1)[-1].removesuffix(".xml")]
     )
-    store = _Store()
+    store = InMemoryStore()
     result = StaatsbladRetrievePipeline(store=store, client=client).run(  # type: ignore[arg-type]
         identifiers=list(pages)
     )
-    assert store.stored == ["stb-2009-602"]
+    assert external_ids(store) == ["stb-2009-602"]
     assert result.created == 1 and result.skipped == 1

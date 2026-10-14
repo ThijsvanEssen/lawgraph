@@ -23,7 +23,7 @@ from lawgraph.pipelines.semantic.tk_mvt import (
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore
 
 WONINGWET = "BWBR0005068"
 TEXT = (
@@ -77,7 +77,7 @@ ROW = {
 }
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
     def __init__(
         self, rows: list[dict[str, Any]], amendments: list[dict[str, Any]] | None = None
     ) -> None:
@@ -85,9 +85,6 @@ class _FakeStore(_BaseFakeStore):
         self.rows = rows
         self.amendments = amendments or []
         self.removals: list[tuple[list[str], dict[str, set[str]]]] = []
-
-    def get_node(self, collection: str, key: str) -> dict | None:
-        return None
 
 
 @pytest.fixture(autouse=True)
@@ -114,7 +111,7 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
-    store = _FakeStore([ROW])
+    store = _Store([ROW])
 
     result = TKMvtArticlesSemanticPipeline(store=store).run()
 
@@ -141,7 +138,7 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
 
 
 def test_a_second_run_writes_the_same_edge_again() -> None:
-    store = _FakeStore([ROW])
+    store = _Store([ROW])
     TKMvtArticlesSemanticPipeline(store=store).run()
     first = {k: dict(v) for k, v in store.edges.items()}
 
@@ -159,7 +156,7 @@ def test_a_memorandum_that_names_no_article_is_skipped() -> None:
         "text": text,
         "sections": [_section("s-0", "Artikel I", 0, 22, None)],
     }
-    store = _FakeStore([silent])
+    store = _Store([silent])
 
     result = TKMvtArticlesSemanticPipeline(store=store).run()
 
@@ -169,7 +166,7 @@ def test_a_memorandum_that_names_no_article_is_skipped() -> None:
 
 def test_a_row_that_cannot_be_read_does_not_stop_the_others() -> None:
     broken = {**ROW, "document": "documents/mvt-2", "sections": [{"id": "s-0"}]}
-    store = _FakeStore([broken, ROW])
+    store = _Store([broken, ROW])
 
     result = TKMvtArticlesSemanticPipeline(store=store).run()
 
@@ -183,7 +180,7 @@ def test_the_dossier_level_confidence_claims_less_than_any_section() -> None:
 def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None:
     """A full run replaces its section edges: the removal names every memorandum read,
     with the keys of the edges it wrote; a memorandum that could not be read keeps its own."""
-    store = _FakeStore([ROW, {"document": "documents/broken"}])
+    store = _Store([ROW, {"document": "documents/broken"}])
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 
@@ -212,7 +209,7 @@ AMENDMENT_ROW = {
 
 
 def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
-    store = _FakeStore([], [AMENDMENT_ROW])
+    store = _Store([], [AMENDMENT_ROW])
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 
@@ -296,7 +293,7 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
     """A heading "Artikel 21" is article 21 of the law the publication of the dossier
     established, whether or not the law names the dossier itself; the law it changes is
     explained as before, through the text under the heading."""
-    store = _FakeStore([_cbw_row(own)])
+    store = _Store([_cbw_row(own)])
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 

@@ -1306,8 +1306,8 @@ day of committee meetings (`/commissievergaderingen_op`, record `ek-committee-da
 external id the day). From the next sitting and the next day of meetings the pages are walked
 forward (`latere`) to the last one planned and back (`eerdere`) to `--since`; a run without it
 goes back to June 2015, and keeps where its walk back has got to in `pipeline_state`
-(`retrieve eerstekamer-agenda`) so a run that broke off goes on from there. One page at a
-time on the lane of eerstekamer.nl.
+(`retrieve eerstekamer-agenda`), once the pages before it are stored, so a run that broke off
+goes on from there. One page at a time on the lane of eerstekamer.nl.
 
 **Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
 the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by

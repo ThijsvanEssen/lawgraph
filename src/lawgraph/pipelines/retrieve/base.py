@@ -253,6 +253,7 @@ class RetrievePipelineBase(PipelineBase):
             for doc, reason in failures:
                 where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
                 progress.fail("could not be stored", where)
+            self._on_stored(stored)
 
         try:
             with RawSourceWriter(self.store, on_flush=written) as writer:
@@ -283,6 +284,13 @@ class RetrievePipelineBase(PipelineBase):
             progress.finish()
         add_outcome(result, progress)
         return result
+
+    def _on_stored(self, docs: list[dict[str, Any]]) -> None:
+        """Called with every buffer of records the writer has stored, in the order yielded.
+
+        For a pipeline that keeps where it got to: what it keeps must not run ahead of what
+        is stored, or a crash loses the buffer for good.
+        """
 
     def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         """Return (or yield) the raw source records that should be stored.

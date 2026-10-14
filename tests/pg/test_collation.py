@@ -103,7 +103,7 @@ def test_the_store_refuses_it_too(
     monkeypatch.setattr(store_module, "DB_NAME", name)
     monkeypatch.setattr(store_module, "ALLOW_COLLATION", "")
     monkeypatch.setattr(store_module, "PAYLOAD_STORE", f"file://{tmp_path}")
-    with pytest.raises(ConnectionError, match="sorts strings by libc en_US.utf8"):
+    with pytest.raises(CollationMismatch, match="sorts strings by libc en_US.utf8"):
         GraphStore()
 
 

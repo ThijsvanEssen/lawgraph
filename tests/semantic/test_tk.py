@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
@@ -16,51 +16,21 @@ from lawgraph.pipelines.semantic.tk import (
     TKSemanticPipeline,
     detect_tk_citations,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore, patch_alias_rows
 
 
-class _FakeStore(_BaseFakeStore):
-    def __init__(
-        self,
-        documents: list[dict[str, Any]],
-        instruments: dict[str, dict[str, Any]],
-        articles: dict[str, dict[str, Any]],
-    ) -> None:
-        super().__init__()
-        self._documents = documents
-        self._instruments = instruments
-        self._articles = articles
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        docs = self._instruments if collection == "instruments" else self._articles
-        doc = docs.get(key)
-        if doc is None:
-            return None
-        return Node.from_document(collection, doc)
-
-    def insert_or_update_edge(
-        self,
-        doc: dict[str, Any],
-    ) -> tuple[dict[str, Any], bool]:
-        key = doc["_key"]
-        created = key not in self.edges
-        self.edges[key] = dict(doc)
-        return self.edges[key], created
-
-    def bulk_insert_or_update_edges(
-        self, docs: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        created = 0
-        updated = 0
-        for doc in docs:
-            key = doc["_key"]
-            was_created = key not in self.edges
-            self.edges[key] = dict(doc)
-            if was_created:
-                created += 1
-            else:
-                updated += 1
-        return created, updated
+def _store(
+    documents: list[dict[str, Any]],
+    instruments: dict[str, dict[str, Any]],
+    articles: dict[str, dict[str, Any]],
+) -> InMemoryStore:
+    return InMemoryStore(
+        {
+            "documents": documents,
+            "instruments": instruments.values(),
+            "articles": articles.values(),
+        }
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -68,27 +38,19 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of the pipeline, answered from the documents and instruments of the
     fake store; no law lists its articles, so a cited article resolves by its node."""
 
-    def alias_rows(store: _FakeStore) -> Iterator[dict[str, Any]]:
-        fields = ("bwb_id", "celex", "title", "citation_title", "short_title")
-        return iter(
-            {field: doc.get("props", {}).get(field) for field in fields}
-            for doc in store._instruments.values()
-        )
-
     def tk_documents(
-        store: _FakeStore,
+        store: InMemoryStore,
         ids: list[str] | None,
         *,
         after: str | None = None,
         limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
         assert (ids, after, limit) == (None, None, None)  # a full run: every document
-        return iter(store._documents)
+        return iter(store.nodes["documents"].values())
 
     monkeypatch.setattr(semantic_tk, "tk_documents", tk_documents)
     monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
-    monkeypatch.setattr(semantic_bwb, "code_alias_rows", alias_rows)
-    monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", alias_rows)
+    patch_alias_rows(monkeypatch)
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
@@ -146,7 +108,7 @@ def test_tk_pipeline_links_to_article_node() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -174,7 +136,7 @@ def test_tk_pipeline_links_to_article_node() -> None:
 def test_tk_edge_names_the_parts_of_the_article_as_a_judgment_edge_does() -> None:
     doc = _make_tk_document("tk-1", "Wijziging van artikel 287, derde lid, onder a, Sr")
     article_key = make_node_key("BWBR0001854", "287")
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -203,7 +165,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
     doc = _make_tk_document("tk-2", text)
     celex_key = make_node_key("32019L1158")
     instrument = _make_instrument(celex_key, {"celex": "32019L1158"})
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={celex_key: instrument},
         articles={},
@@ -224,7 +186,7 @@ def test_tk_pipeline_links_named_act_to_instrument() -> None:
     instrument = _make_instrument(
         instr_key, {"bwb_id": "BWBR0001854", "title": "Wetboek van Strafrecht"}
     )
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={instr_key: instrument},
         articles={},
@@ -242,7 +204,7 @@ def test_tk_pipeline_idempotent_edges() -> None:
     article = _make_article(
         article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
     )
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -274,7 +236,7 @@ def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
         {"number": "2", "text": "Kamerstukken II 2019/20, 35 000, nr. 3."},
     ]
     article_key = make_node_key("BWBR0001854", "287")
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -315,7 +277,7 @@ def test_a_citation_in_the_text_names_its_section() -> None:
         {"id": "s-2", "char_start": start, "char_end": len(text)},
     ]
     article_key = make_node_key("BWBR0001854", "287")
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
@@ -358,7 +320,7 @@ def test_the_record_a_paper_came_with_is_no_text_of_it() -> None:
         "Titel": "Wijziging van het Wetboek van Strafrecht",
         "DocumentActor": [{"ActorNaam": "Bikkers", "ActorFractie": "Sr"}],
     }
-    store = _FakeStore(
+    store = _store(
         documents=[doc],
         instruments={
             make_node_key("BWBR0001854"): _make_instrument(
