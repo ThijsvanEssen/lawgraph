@@ -3,12 +3,14 @@ data version it is done (``/api/health`` ``warm``)."""
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import pytest
 
 from lawgraph.api import warm
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _bm25
 from tests.fakes import ManualClock, until
 
 
@@ -44,8 +46,14 @@ def test_a_warm_up_stops_when_newer_data_arrives(
             [{"_key": "y", "type": "instrument", "labels": [], "props": {}}],
         )
 
-    monkeypatch.setattr(warm, "stats_data", stats_while_a_pipeline_writes)
-    monkeypatch.setattr(warm, "coverage_data", lambda s: asked.append("coverage"))
+    monkeypatch.setattr(
+        warm,
+        "PARTS",
+        (
+            warm.Part("stats", stats_while_a_pipeline_writes),
+            warm.Part("coverage", lambda s: asked.append("coverage")),
+        ),
+    )
     warm.warm_up(store)
     assert asked == ["stats"]  # stopped before the next part
     assert not warm.is_warm(store.data_version())
@@ -114,8 +122,9 @@ def test_the_warm_up_leaves_a_word_most_judgments_hold(
         dt.date.today().isoformat(),
         Counter({"beroep": 30, "zeldzaamheid": 20, "beroep zeldzaamheid": 10}),
     )
-    assert warm._common_word(store, "beroep")
-    assert not warm._common_word(store, "zeldzaamheid")
+    share = partial(_bm25.common_share, store, "judgments", "summary")
+    assert share(["beroep"]) > warm.COMMON_SHARE
+    assert share(["zeldzaamheid"]) <= warm.COMMON_SHARE
     warm._warm_search_terms(store)
     # every word of the last must be held, so it is as rare as its rarest word
     assert searched == ["zeldzaamheid", "beroep zeldzaamheid"]

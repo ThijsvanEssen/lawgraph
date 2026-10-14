@@ -36,8 +36,12 @@ KIND_BILL = "Wetgeving"
 
 
 def _person(member: str) -> str:
-    """SQL: the member as a list and detail item name it, ``{key, name}``."""
-    return f"json_build_object('key', {member}.key, 'name', {member}.list_name)"
+    """SQL: the member as a list and detail item name it, ``{key, name, slug}`` (the slug
+    for its readable address)."""
+    return (
+        f"json_build_object('key', {member}.key, 'name', {member}.list_name,"
+        f" 'slug', {member}.props -> 'slug')"
+    )
 
 
 # The government bills of a dossier ``d``: brought in under a cabinet, not an initiative.

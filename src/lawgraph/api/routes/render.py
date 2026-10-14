@@ -107,7 +107,7 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         page.image = source.image
         page.focus = node_id
         return page
-    props: dict[str, Any] = lookup.answer(store, node_id).get("props") or {}
+    props: dict[str, Any] = (lookup.answer(store, node_id) or {}).get("props") or {}
     name = str(props.get("display_name") or "")
     return Page(
         title=name,
@@ -123,7 +123,7 @@ def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     None for a node that is not there or no node at all."""
     if not is_node_id(node_id) or not store.has_node(*parse_node_id(node_id)):
         return None
-    return lookup.answer(store, node_id).get("props") or {}
+    return (lookup.answer(store, node_id) or {}).get("props") or {}
 
 
 def _same_person_path(store: GraphStore, member_id: str) -> str | None:

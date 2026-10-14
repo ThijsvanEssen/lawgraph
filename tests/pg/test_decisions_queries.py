@@ -183,7 +183,14 @@ def votes(store: GraphStore) -> GraphStore:
     )
     store.bulk_insert_or_update_nodes(
         "members",
-        [{"_key": "m1", "type": "member", "labels": [], "props": {"name": "Anna"}}],
+        [
+            {
+                "_key": "m1",
+                "type": "member",
+                "labels": [],
+                "props": {"name": "Anna", "slug": "anna"},
+            }
+        ],
     )
     store.bulk_insert_or_update_edges(
         [
@@ -377,6 +384,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "B-partij",
                 "choice": "Tegen",
                 "seats": 40,
+                "slug": None,
             },
             {
                 "voter_id": "factions/x",
@@ -384,6 +392,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "B-partij",
                 "choice": "Tegen",
                 "seats": 40,
+                "slug": None,
             },
             {
                 "voter_id": "factions/vvd",
@@ -391,6 +400,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "VVD",
                 "choice": "Voor",
                 "seats": 30,
+                "slug": None,
             },
             {
                 "voter_id": "members/m1",
@@ -398,6 +408,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "Anna",
                 "choice": "Voor",
                 "seats": None,
+                "slug": "anna",
             },
         ]
     )
@@ -475,6 +486,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
         "type": "document",
         "labels": [],
         "props": {"date": "2020-01-01", "title": "Oud"},
+        "member_slugs": {},
     }
 
 
@@ -851,7 +863,7 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     monkeypatch.setattr(decision_queries, "PARTY_VOTES_MAX_AGE", 0.0)
     again = decision_queries.party_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
-    assert not any("party votes" in part for part in warm.PART_TABLES)
+    assert not any("party votes" in part.name for part in warm.PARTS)
 
 
 def test_the_page_first_and_the_counts_kept_per_filter(votes: GraphStore) -> None:

@@ -113,7 +113,7 @@ VOTE_ROW = {
             "role": "Eerste ondertekenaar",
             "capacity": "kamerlid",
             "faction_id": "f-d66",
-            "faction": {"key": "d66", "short": "D66", "path": "/fracties/d66"},
+            "faction": {"key": "d66", "short": "D66"},
         },
         {"name": "griffier", "role": "Mede ondertekenaar", "capacity": "overig"},
     ],

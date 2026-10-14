@@ -5,18 +5,21 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
+    FacetCountDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
+    PathSource,
     QualifierFields,
+    StrictModel,
     WithPath,
     judgment_outcome_fields,
 )
-from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
+from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.judgments import DecisionKind
@@ -39,8 +42,6 @@ _NAMES = (
 
 class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
-
-    model_config = ConfigDict(extra="forbid")
 
     outcome_paragraph_id: str | None = Field(
         default=None,
@@ -148,10 +149,9 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         cls,
         doc: dict[str, Any],
         *,
-        drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
+        graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
     ) -> JudgmentDTO:
-        base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
         kept = [p for p in raw_paragraphs if isinstance(p, dict) and p.get("text")]
@@ -173,7 +173,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **base.model_dump(),
+            **BaseNodeDTO.fields_of(doc, graph=graph),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),
@@ -231,10 +231,8 @@ def _footnotes(
     return served
 
 
-class AppealTarget(BaseModel):
+class AppealTarget(StrictModel):
     """A decision an appeal names in its text that is not loaded."""
-
-    model_config = ConfigDict(extra="forbid")
 
     court: str = Field(description="As the text writes it: `rechtbank Gelderland`.")
     date: str = Field(description="ISO date of the decision.")
@@ -266,11 +264,9 @@ class UnresolvedCitation(QualifierFields):
     mention_count: int = Field(description="How often the judgment cites it.")
 
 
-class JudgmentRepresentative(BaseModel):
+class JudgmentRepresentative(StrictModel):
     """Who acts for a party, as the kop ("advocaat: mr. X") or the account of the procedure
     ("bijgestaan door mr. X, advocaat te Y") names them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         description="As written, titles and all: `mr. drs. R. van Gelder`, "
@@ -293,10 +289,8 @@ class JudgmentRepresentative(BaseModel):
     )
 
 
-class JudgmentParty(BaseModel):
+class JudgmentParty(StrictModel):
     """A party of a judgment, read from its kop and its account of the procedure."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         description="As the judgment writes it, anonymised where the source is: "
@@ -330,10 +324,8 @@ class JudgmentParty(BaseModel):
     representatives: list[JudgmentRepresentative] = Field(default_factory=list)
 
 
-class JudgmentParagraph(BaseModel):
+class JudgmentParagraph(StrictModel):
     """A single paragraph from a judgment, with the article citations in it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     paragraph_id: str = Field(
         description="Names the paragraph in the judgment, for a deep link: `rov-5.3` for "
@@ -368,11 +360,9 @@ class JudgmentParagraph(BaseModel):
     )
 
 
-class CitationPlaceFields(BaseModel):
+class CitationPlaceFields(StrictModel):
     """Where a judgment cites something: the places its citation edge keeps, and the
     strongest of them with its passage."""
-
-    model_config = ConfigDict(extra="forbid")
 
     paragraph_ids: list[str] = Field(
         default_factory=list,
@@ -447,10 +437,8 @@ def place_fields(
     }
 
 
-class JudgmentFootnote(BaseModel):
+class JudgmentFootnote(StrictModel):
     """A footnote of a judgment, with the citations in it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     label: str = Field(
         description="As printed: `12`; its place among the footnotes (`3`) when it has "
@@ -514,7 +502,7 @@ class JudgmentCitedJudgment(JudgmentSummaryDTO, CitationPlaceFields):
         meta = doc.get("meta") or {}
         confidence = doc.get("confidence")
         return cls(
-            **JudgmentSummaryDTO.from_document(doc).model_dump(),
+            **JudgmentSummaryDTO.fields_of(doc),
             **place_fields(
                 mentions_of(meta),
                 meta,
@@ -537,10 +525,8 @@ def _count(meta: dict[str, Any], mentions: list[Mention]) -> int:
     return count if isinstance(count, int) and count >= len(mentions) else len(mentions)
 
 
-class RelatedLinkDTO(BaseModel):
+class RelatedLinkDTO(StrictModel):
     """One RELATED_TO edge between two judgments: which summary names which, and how."""
-
-    model_config = ConfigDict(extra="forbid")
 
     direction: Direction = Field(
         description="`outbound`: this judgment's summary names the other; `inbound`: the "
@@ -563,17 +549,14 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> RelatedJudgmentDTO:
-        summary = JudgmentSummaryDTO.from_document(doc)
         return cls(
-            **summary.model_dump(),
+            **JudgmentSummaryDTO.fields_of(doc),
             links=[RelatedLinkDTO(**link) for link in doc.get("links") or []],
         )
 
 
-class JudgmentConclusionDTO(BaseModel):
+class JudgmentConclusionDTO(StrictModel):
     """A conclusion a judgment names (``conclusion_eclis``), as its light node names it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ecli: str
     author: str | None = Field(
@@ -594,10 +577,8 @@ class JudgmentConclusionDTO(BaseModel):
     )
 
 
-class JudgmentDetailResponse(BaseModel):
+class JudgmentDetailResponse(StrictModel):
     """Response for GET /api/judgments/{ecli}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     judgment: JudgmentDTO
     articles: list[ArticleRelationDTO]
@@ -654,8 +635,7 @@ _COURT_KIND = (
 class JudgmentListItemDTO(WithPath):
     """Row in the paginated /api/judgments list."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str
@@ -714,19 +694,8 @@ class JudgmentListItemDTO(WithPath):
         )
 
 
-class JudgmentFacetCount(BaseModel):
-    """How many of the judgments have one value."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    value: str | None
-    count: int
-
-
-class SubjectFacetCount(BaseModel):
+class SubjectFacetCount(StrictModel):
     """A subject of the Rechtspraak under a main area, as the source writes it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str = Field(
         description="The subject as the source writes it (`Bestuursrecht; Belastingrecht`); "
@@ -736,7 +705,7 @@ class SubjectFacetCount(BaseModel):
     count: int
 
 
-class SubjectAreaFacetCount(JudgmentFacetCount):
+class SubjectAreaFacetCount(FacetCountDTO):
     """A main area of law with the subjects under it."""
 
     narrower: list[SubjectFacetCount] = Field(
@@ -746,32 +715,30 @@ class SubjectAreaFacetCount(JudgmentFacetCount):
     )
 
 
-class JudgmentFacets(BaseModel):
+class JudgmentFacets(StrictModel):
     """The judgments under the filters, counted; each without its own filter."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    tier: list[JudgmentFacetCount] = Field(
+    tier: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per tier, most first; counted without the `tier` and "
         "`court_kind` filters.",
     )
-    court_kind: list[JudgmentFacetCount] = Field(
+    court_kind: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per kind of court, most first; counted without the `court_kind` "
         "filter (within a chosen `tier`).",
     )
-    source: list[JudgmentFacetCount] = Field(
+    source: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per source (`rechtspraak`, `echr`), most first; counted without "
         "the `source` filter.",
     )
-    year: list[JudgmentFacetCount] = Field(
+    year: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per year of `date` (`2024`), oldest first after null (no date); "
         "counted without `from` and `to`.",
     )
-    subjects: list[JudgmentFacetCount] = Field(
+    subjects: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per area of law, as the source writes it (`Strafrecht`, "
         "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
@@ -785,7 +752,7 @@ class JudgmentFacets(BaseModel):
         "them. The whole tree is counted without the `subject_area` and `subject` filters, "
         "so the other areas stay in view when one is chosen.",
     )
-    procedure: list[JudgmentFacetCount] = Field(
+    procedure: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per procedure (Rechtspraak `psi:procedure`, as written: `Hoger "
         "beroep`, `Cassatie`; null when it gives none), most first; counted without the "
@@ -793,10 +760,8 @@ class JudgmentFacets(BaseModel):
     )
 
 
-class JudgmentListResponse(BaseModel):
+class JudgmentListResponse(StrictModel):
     """Paginated list envelope for judgments."""
-
-    model_config = ConfigDict(extra="forbid")
 
     items: list[JudgmentListItemDTO]
     total: int

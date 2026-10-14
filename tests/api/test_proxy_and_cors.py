@@ -5,14 +5,15 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lawgraph.api.app import _RateLimitMiddleware, app
+from lawgraph.api.app import app
+from lawgraph.api.middleware import RateLimitMiddleware
 
 PROXIES = frozenset({"127.0.0.1", "::1", "10.0.0.2"})
 
 
 def _ip(hop: str, xff: str | None) -> str:
     headers = {b"x-forwarded-for": xff.encode()} if xff is not None else {}
-    return _RateLimitMiddleware._client_ip({"client": (hop, 4711)}, headers, PROXIES)
+    return RateLimitMiddleware._client_ip({"client": (hop, 4711)}, headers, PROXIES)
 
 
 def test_the_address_our_proxy_appended_counts_not_the_one_the_client_wrote() -> None:
@@ -50,16 +51,16 @@ def test_a_request_with_the_origin_of_our_front_end_counts_toward_the_limit(
     """Any client can send ``Origin``: it is no pass past the limit."""
     import asyncio
 
-    from lawgraph.api import app as app_module
+    from lawgraph.api import middleware
 
-    monkeypatch.setattr(app_module, "RATE_LIMIT_CALLS", 2)
-    monkeypatch.setattr(app_module, "RATE_LIMIT_PERIOD", 60)
+    monkeypatch.setattr(middleware, "RATE_LIMIT_CALLS", 2)
+    monkeypatch.setattr(middleware, "RATE_LIMIT_PERIOD", 60)
 
     async def ok(scope, receive, send) -> None:
         await send({"type": "http.response.start", "status": 200, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    limiter = _RateLimitMiddleware(ok)
+    limiter = RateLimitMiddleware(ok)
     scope = {
         "type": "http",
         "method": "GET",

@@ -15,7 +15,12 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, iso_day, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_PREFIX_PATTERN,
+    MinistryKey,
+    iso_day,
+    parse_choices,
+)
 from lawgraph.api.schemas.feed import (
     FeedFacetsDTO,
     FeedItemDTO,
@@ -47,11 +52,11 @@ from lawgraph.core.feed import (
     FeedCoalition,
     FeedCursor,
 )
+from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
 from lawgraph.db.store import read_budget
@@ -61,10 +66,6 @@ router = APIRouter()
 # sub-path of ``/api/feed``.
 atom_router = APIRouter()
 
-# A dossier label or the start of one: 36600, 36600-VII, 37020- (its chapters).
-DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
-# A BWB id in any case: BWBR0052872, a treaty BWBV0001000.
-BWB_ID_PATTERN = r"^[Bb][Ww][Bb][RrVv]\d+$"
 ATOM_MEDIA_TYPE = "application/atom+xml"
 
 _EVENTS = (
@@ -167,7 +168,7 @@ def scope_filters(
             "it, the events of the dossiers it or a publication of it was legislated in "
             "and of the dossiers of those papers, its new versions and those of the "
             "regulations issued under it, the judgments that cite it.",
-            pattern=BWB_ID_PATTERN,
+            pattern=BWB_ID_PARAM_PATTERN,
         ),
     ] = None,
     article: Annotated[
@@ -223,8 +224,7 @@ def _page(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     raw = get_feed(store, filters, cursor=after, limit=limit, facets=facets)
     rows = raw.get("items") or []
-    slugs = load_member_slugs(store)
-    page = [FeedItemDTO.from_row(row, slugs) for row in rows[:limit]]
+    page = [FeedItemDTO.from_row(row) for row in rows[:limit]]
     last = page[-1] if len(rows) > limit else None
     return FeedResponse(
         items=page,

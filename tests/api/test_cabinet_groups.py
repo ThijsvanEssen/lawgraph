@@ -63,16 +63,23 @@ def test_a_renamed_ministry_keeps_its_seat_under_one_ministry() -> None:
 def test_the_detail_gives_the_address_of_the_prime_minister() -> None:
     row = {
         "cabinet": {"_key": "schoof", "props": {"name": "Schoof"}},
-        "prime_minister": {"key": "schoof_key", "name": "H.W.M. Schoof"},
+        "prime_minister": {
+            "key": "schoof_key",
+            "name": "H.W.M. Schoof",
+            "slug": "dick-schoof",
+        },
         "members": [
             {
-                "member": {"key": "schoof_key", "name": "H.W.M. Schoof"},
+                "member": {
+                    "key": "schoof_key",
+                    "name": "H.W.M. Schoof",
+                    "slug": "dick-schoof",
+                },
                 "posts": [_post("az/minister-president", "az", "2024-07-02", "")],
             }
         ],
     }
-    slugs = {"schoof_key": "dick-schoof"}
-    detail = CabinetDetailDTO.from_detail(row, slugs).model_dump()
+    detail = CabinetDetailDTO.from_detail(row).model_dump()
     assert detail["prime_minister"]["path"] == "/leden/dick-schoof"
     seat = detail["ministries"][0]["seats"][0]
     assert seat["posts"][0]["member"]["path"] == "/leden/dick-schoof"
