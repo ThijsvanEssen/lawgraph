@@ -590,8 +590,12 @@ class DossierSummaryDTO(WithPath):
     )
 
     @classmethod
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
+        return _dossier_fields(doc)
+
+    @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
-        return cls(**_dossier_fields(doc))
+        return cls(**cls.fields_of(doc))
 
 
 class DossierListResponse(StrictModel):

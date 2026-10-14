@@ -88,13 +88,6 @@ def test_given_props_make_the_address() -> None:
     assert hit.path == "/kamerstukken/36600-VIII/5"
 
 
-def test_a_path_given_back_is_left_out() -> None:
-    """``path`` is computed: an answer built on another one's ``model_dump`` keeps its own."""
-    ref = DossierRefDTO.from_number("36600")
-    again = DossierRefDTO(**ref.model_dump())
-    assert again.path == "/dossiers/36600"
-
-
 def test_a_committee_of_a_dossier_and_of_an_activity_has_its_address() -> None:
     """The lead committee of an activity on a timeline and of the one planned next, and
     the committees of a dossier: ``/commissies/<slug>``, none without a slug."""

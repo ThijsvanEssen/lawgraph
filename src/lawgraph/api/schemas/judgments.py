@@ -18,7 +18,7 @@ from lawgraph.api.schemas.common import (
     WithPath,
     judgment_outcome_fields,
 )
-from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
+from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.judgments import DecisionKind
@@ -148,10 +148,9 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         cls,
         doc: dict[str, Any],
         *,
-        drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
+        graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
     ) -> JudgmentDTO:
-        base = BaseNodeDTO.from_document(doc, drop_props_keys=drop_props_keys)
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
         kept = [p for p in raw_paragraphs if isinstance(p, dict) and p.get("text")]
@@ -173,7 +172,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **base.model_dump(),
+            **BaseNodeDTO.fields_of(doc, graph=graph),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),
@@ -502,7 +501,7 @@ class JudgmentCitedJudgment(JudgmentSummaryDTO, CitationPlaceFields):
         meta = doc.get("meta") or {}
         confidence = doc.get("confidence")
         return cls(
-            **JudgmentSummaryDTO.from_document(doc).model_dump(),
+            **JudgmentSummaryDTO.fields_of(doc),
             **place_fields(
                 mentions_of(meta),
                 meta,
@@ -549,9 +548,8 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> RelatedJudgmentDTO:
-        summary = JudgmentSummaryDTO.from_document(doc)
         return cls(
-            **summary.model_dump(),
+            **JudgmentSummaryDTO.fields_of(doc),
             links=[RelatedLinkDTO(**link) for link in doc.get("links") or []],
         )
 

@@ -28,6 +28,9 @@ from lawgraph.api.schemas.common import (
     StrictModel,
     WithPath,
     address_of,
+    in_regulation_order,
+    judgment_outcome_fields,
+    regulation_kind,
 )
 from lawgraph.config.constants import (
     IMPLEMENTS_BASES,
@@ -37,9 +40,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import article_url, instrument_url
 from lawgraph.core.publications import koop_citation
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -257,6 +262,28 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
         description="Articles of the focal instrument that this judgment cites.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentJudgmentItem:
+        """From a row of ``get_citing_judgments``."""
+        judgment = row.get("judgment") or {}
+        props = judgment.get("props") or {}
+        return cls(
+            id=judgment.get("_id") or "",
+            key=judgment.get("_key") or "",
+            ecli=props.get("ecli"),
+            display_name=props.get("display_name"),
+            court=props.get("court_code"),
+            tier=props.get("tier"),
+            court_kind=props.get("court_kind"),
+            date=props.get("date_eff"),
+            advocate_general=props.get("advocate_general"),
+            advocate_general_role=props.get("advocate_general_role"),
+            **judgment_outcome_fields(props),
+            cited_articles=[
+                CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
+            ],
+        )
+
 
 class InstrumentJudgmentFacets(StrictModel):
     """Every judgment that cites this instrument counted, not the page."""
@@ -333,6 +360,25 @@ class InstrumentDossierItem(WithPath):
             "linking the dossier; only set when ``via`` is ``amending_publication``."
         ),
     )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDossierItem:
+        """From a row of ``get_instrument_dossiers``."""
+        dossier = row["dossier"]
+        props = dossier.get("props") or {}
+        return cls(
+            id=dossier.get("_id") or "",
+            key=dossier.get("_key") or "",
+            dossier_number=props["label"],
+            title=props.get("title"),
+            short_title=short_title(props.get("title")),
+            display_name=props.get("display_name"),
+            current_phase=props.get("current_phase"),
+            opened_on=props.get("opened_on"),
+            closed=props.get("closed"),
+            via=row["via"],
+            publication=row.get("publication"),
+        )
 
 
 class InstrumentDossiersResponse(StrictModel):
@@ -517,6 +563,16 @@ class InstrumentRelatedBasisDTO(StrictModel):
         "`via`), in the order of their law."
     )
 
+    @classmethod
+    def from_row(cls, found: dict[str, Any]) -> InstrumentRelatedBasisDTO:
+        return cls(
+            direction=found["direction"],
+            via=InstrumentSummaryDTO.from_document(found["via"])
+            if found.get("via")
+            else None,
+            articles=[BasisArticleDTO.from_row(a) for a in found["articles"] or []],
+        )
+
 
 class InstrumentRelatedItem(StrictModel):
     """One other instrument linked via cross-article REFERS_TO edges."""
@@ -559,6 +615,36 @@ class InstrumentRelatedItem(StrictModel):
         description="How it and this law are one of a delegation (`BASED_ON`, the preamble "
         "of a regulation); null when they are not.",
     )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentRelatedItem:
+        """From a row of ``get_instrument_related_instruments``."""
+        instrument = row.get("instrument") or {}
+        props = instrument.get("props") or {}
+        outbound, inbound = int(row["outbound_count"]), int(row["inbound_count"])
+        found = row.get("basis")
+        basis = InstrumentRelatedBasisDTO.from_row(found) if found else None
+        return cls(
+            id=instrument.get("_id") or "",
+            key=instrument.get("_key") or "",
+            bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
+            display_name=props.get("display_name"),
+            citation_title=props.get("citation_title"),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            direction="both"
+            if outbound and inbound
+            else "outbound"
+            if outbound
+            else "inbound",
+            outbound_count=outbound,
+            outbound_cited_count=int(row["outbound_cited_count"]),
+            inbound_count=inbound,
+            inbound_cited_count=int(row["inbound_cited_count"]),
+            based_on=basis is not None,
+            basis=basis,
+        )
 
 
 class InstrumentRelatedResponse(StrictModel):
@@ -1226,6 +1312,33 @@ class InternationalLinkDTO(StrictModel):
         description="Edge evidence as stored (`raw_match`, `snippet`, `qualifier`, ...).",
     )
 
+    @classmethod
+    def from_row(
+        cls, row: dict[str, Any], kind: InternationalKind
+    ) -> InternationalLinkDTO:
+        """One `international` item from a treaty row or an ECHR judgment row."""
+        edge = row.get("edge") or {}
+        own = row.get("own_article")
+        counterpart = row.get("counterpart_article")
+        return cls(
+            kind=kind,
+            instrument=(
+                LinkedInstrumentDTO.from_document(row["instrument"])
+                if kind == "treaty"
+                else None
+            ),
+            judgment=(
+                JudgmentSummaryDTO.from_document(row["judgment"])
+                if kind == "echr_judgment"
+                else None
+            ),
+            own_article=CitedArticleRef(**own) if own else None,
+            counterpart_article=CitedArticleRef(**counterpart) if counterpart else None,
+            confidence=edge.get("confidence"),
+            source=edge.get("source"),
+            meta=edge.get("meta") or {},
+        )
+
 
 class InstrumentEuLinksResponse(StrictModel):
     """Response for GET /api/instruments/{identifier}/eu-links."""
@@ -1343,11 +1456,6 @@ def summary_basis_kind(articles: list[BasisArticleDTO]) -> BasisKind | None:
     return "mentioned" if kinds == {"mentioned"} else None
 
 
-def _kind(props: dict[str, Any]) -> str | None:
-    kind = props.get("kind")
-    return kind.lower() if isinstance(kind, str) else None
-
-
 class BasisLawDTO(StrictModel):
     """Another law a regulation names in its preamble, with the articles it names."""
 
@@ -1360,7 +1468,7 @@ class BasisLawDTO(StrictModel):
         instrument = row["instrument"]
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
-            kind=_kind(instrument.get("props") or {}),
+            kind=regulation_kind(instrument.get("props") or {}),
             articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
         )
 
@@ -1388,7 +1496,7 @@ class SubDelegatedDTO(StrictModel):
         articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
-            kind=_kind(props),
+            kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
@@ -1427,6 +1535,28 @@ class InstrumentDelegatedItem(StrictModel):
         "then by title.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDelegatedItem:
+        """From a row of ``get_delegated_by_law``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        articles = [
+            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+        ]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+            also_based_on=[
+                BasisLawDTO.from_row(r) for r in row.get("also_based_on") or []
+            ],
+            sub_delegated=in_regulation_order(
+                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+            ),
+        )
+
 
 class InstrumentBasisItem(StrictModel):
     """A law a regulation is issued under, with the articles its preamble names."""
@@ -1440,6 +1570,20 @@ class InstrumentBasisItem(StrictModel):
         description="The articles in force of the law its preamble names, in the order of "
         "the law, each with the articles of the regulation that refer to it (`referring`)."
     )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentBasisItem:
+        """From a row of ``get_basis``."""
+        law = row["instrument"]
+        articles = [
+            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+        ]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(law),
+            kind=regulation_kind(law.get("props") or {}),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+        )
 
 
 class InstrumentBasisResponse(StrictModel):
@@ -1485,6 +1629,20 @@ class InstrumentReferenceDTO(QualifierFields):
     semantic_type: str | None = Field(
         None, description="What the reference does (`definitional_reference`, …)."
     )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentReferenceDTO:
+        """From a row of ``get_instrument_references``."""
+        meta = row.get("meta") or {}
+        text = meta.get("text")
+        return cls(
+            direction=row["direction"],
+            source=InstrumentReferenceArticleDTO(**row["from"]),
+            target=InstrumentReferenceArticleDTO(**row["to"]),
+            text=text if isinstance(text, str) else None,
+            semantic_type=row.get("semantic_type"),
+            **Qualifier.from_dict(meta).to_dict(),
+        )
 
 
 class InstrumentReferencesResponse(StrictModel):

@@ -25,6 +25,7 @@ from lawgraph.api.schemas.common import (
     WithPath,
     address_of,
     judgment_outcome_fields,
+    regulation_kind,
     semantic_fields,
 )
 from lawgraph.api.schemas.documents import (
@@ -39,7 +40,12 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
-from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
+from lawgraph.core.delegations import (
+    BasisKind,
+    DelegationClause,
+    DelegationKind,
+    basis_qualifier,
+)
 from lawgraph.core.display import shorten
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
@@ -156,16 +162,20 @@ class DelegationClauseDTO(StrictModel):
     lid: str | None = Field(description="The number of the lid it stands in.")
 
     @classmethod
+    def fields_of(cls, clause: DelegationClause) -> dict[str, Any]:
+        return {
+            "start": clause.start,
+            "end": clause.end,
+            "text": clause.text,
+            "kind": clause.kind,
+            "krachtens": clause.krachtens,
+            "part": clause.part,
+            "lid": clause.lid,
+        }
+
+    @classmethod
     def from_clause(cls, clause: DelegationClause) -> DelegationClauseDTO:
-        return cls(
-            start=clause.start,
-            end=clause.end,
-            text=clause.text,
-            kind=clause.kind,
-            krachtens=clause.krachtens,
-            part=clause.part,
-            lid=clause.lid,
-        )
+        return cls(**DelegationClauseDTO.fields_of(clause))
 
 
 class ArticleReferenceDTO(QualifierFields):
@@ -435,7 +445,7 @@ class DelegatedRegulationDTO(QualifierFields):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
-        description="Its BWB type as stored: `amvb`, `ministeriele-regeling`, `kb`, …"
+        description="Its BWB type, lower case: `amvb`, `ministeriele-regeling`, `kb`, …"
     )
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
@@ -449,6 +459,25 @@ class DelegatedRegulationDTO(QualifierFields):
         description="Its articles that refer to the article, in the order of the "
         "regulation.",
     )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DelegatedRegulationDTO:
+        """From a row of ``get_delegated_regulations``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        meta = row.get("meta") or {}
+        text = meta.get("text") if isinstance(meta.get("text"), str) else None
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            text=text,
+            basis_kind=basis_kind_of(meta),
+            articles=[
+                DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []
+            ],
+            **basis_qualifier(text).to_dict(),
+        )
 
 
 class DelegatedClauseDTO(DelegationClauseDTO):

@@ -20,13 +20,11 @@ from lawgraph.api.schemas.articles import (
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
-    DelegatedArticleDTO,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
-    basis_kind_of,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -35,19 +33,17 @@ from lawgraph.api.schemas.common import (
     DefinitionDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
+    in_regulation_order,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import (
-    basis_qualifier,
     delegation_clauses,
     fills,
-    kind_rank,
 )
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import (
     make_node_key,
     node_id,
-    parse_node_id,
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
@@ -99,7 +95,7 @@ def get_article_detail(
             start=entry.start,
             end=entry.end,
             text=entry.text,
-            target=_build_article_citation_target(entry.target),
+            target=ArticleCitationTarget.from_document(entry.target),
             reference_kind=entry.reference_kind,
             confidence=entry.confidence,
             definition_ref=citation_refs.get(index),
@@ -394,21 +390,14 @@ def get_delegated(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleDelegatedResponse:
     node = require_node(store, COLLECTION_ARTICLES, article.key, "Article")
-    items = sorted(
-        (
-            _delegated_regulation(row)
-            for row in get_delegated_regulations(store, article.id)
-        ),
-        key=lambda item: (
-            kind_rank(item.kind),
-            (item.instrument.citation_title or item.instrument.title or "").lower(),
-            item.instrument.key,
-        ),
+    items = in_regulation_order(
+        DelegatedRegulationDTO.from_row(row)
+        for row in get_delegated_regulations(store, article.id)
     )
     props = node.get("props") or {}
     clauses = [
         DelegatedClauseDTO(
-            **DelegationClauseDTO.from_clause(clause).model_dump(),
+            **DelegationClauseDTO.fields_of(clause),
             instruments=[
                 item.instrument.key
                 for item in items
@@ -419,34 +408,4 @@ def get_delegated(
     ]
     return ArticleDelegatedResponse(
         article_id=article.id, clauses=clauses, items=items, total=len(items)
-    )
-
-
-def _delegated_regulation(row: dict[str, Any]) -> DelegatedRegulationDTO:
-    instrument = row["instrument"]
-    props = instrument.get("props") or {}
-    meta = row.get("meta") or {}
-    text = meta.get("text") if isinstance(meta.get("text"), str) else None
-    qualifier = basis_qualifier(text)
-    return DelegatedRegulationDTO(
-        instrument=InstrumentSummaryDTO.from_document(instrument),
-        kind=props.get("kind"),
-        date_in_force=props.get("date_in_force"),
-        text=text,
-        basis_kind=basis_kind_of(meta),
-        articles=[DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []],
-        **qualifier.to_dict(),
-    )
-
-
-def _build_article_citation_target(doc: dict[str, Any]) -> ArticleCitationTarget:
-    props = doc.get("props") or {}
-    collection = parse_node_id(doc["_id"])[0]
-    return ArticleCitationTarget(
-        id=doc["_id"],
-        key=doc["_key"],
-        collection=collection,
-        bwb_id=props.get("bwb_id"),
-        article_number=props.get("article_number"),
-        display_name=props.get("display_name"),
     )

@@ -543,6 +543,10 @@ class MemberDTO(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDTO:
+        return cls(**MemberDTO.fields_of(doc))
+
+    @classmethod
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
         memberships = [
             FactionMembershipDTO(**m) for m in (props.get("faction_memberships") or [])
@@ -559,33 +563,33 @@ class MemberDTO(WithPath):
         )
         party = (current.abbreviation or current.name) if current else None
 
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+        return {
+            "id": doc["_id"],
+            "key": doc["_key"],
             # a minister who never sat in parliament has a TK person without a name
-            name=props.get("name")
+            "name": props.get("name")
             or props.get("known_as")
             or props.get("government_name"),
-            full_name=props.get("full_name"),
-            slug=props.get("slug"),
-            family_name=props.get("family_name"),
-            name_prefix=props.get("name_prefix"),
-            party=party or props.get("party"),
-            active=bool(open_memberships),
-            faction_memberships=memberships,
-            ek_faction_memberships=[
+            "full_name": props.get("full_name"),
+            "slug": props.get("slug"),
+            "family_name": props.get("family_name"),
+            "name_prefix": props.get("name_prefix"),
+            "party": party or props.get("party"),
+            "active": bool(open_memberships),
+            "faction_memberships": memberships,
+            "ek_faction_memberships": [
                 EkFactionMembershipDTO(**m)
                 for m in (props.get("ek_faction_memberships") or [])
                 if isinstance(m, dict)
             ],
-            government_functions=government_functions_of(props),
-            ek=_ek(props.get("ek")),
-            role=doc.get("role"),
-            observed_from=doc.get("observed_from"),
-            observed_until=doc.get("observed_until"),
-            from_date=doc.get("from_date"),
-            to_date=doc.get("to_date"),
-        )
+            "government_functions": government_functions_of(props),
+            "ek": _ek(props.get("ek")),
+            "role": doc.get("role"),
+            "observed_from": doc.get("observed_from"),
+            "observed_until": doc.get("observed_until"),
+            "from_date": doc.get("from_date"),
+            "to_date": doc.get("to_date"),
+        }
 
 
 def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
@@ -699,7 +703,7 @@ class MemberDetailDTO(MemberDTO):
     ) -> MemberDetailDTO:
         props = doc.get("props") or {}
         return cls(
-            **MemberDTO.from_document(doc).model_dump(),
+            **MemberDTO.fields_of(doc),
             birth_date=props.get("birth_date"),
             death_date=props.get("death_date"),
             has_role=has_role(props),
@@ -794,7 +798,7 @@ class ActorDossierDTO(DossierSummaryDTO):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ActorDossierDTO:
         return cls(
-            **DossierSummaryDTO.from_document(row["dossier"]).model_dump(),
+            **DossierSummaryDTO.fields_of(row["dossier"]),
             roles=list(row.get("roles") or []),
             functions=list(row.get("functions") or []),
             capacities=list(row.get("capacities") or []),

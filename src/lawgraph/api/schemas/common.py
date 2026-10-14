@@ -4,13 +4,14 @@ summaries, citation spans and article relations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS, COLLECTION_JUDGMENTS
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
+from lawgraph.core.delegations import regulation_order
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.echr_findings import EchrAspect, EchrFinding
 from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
@@ -117,14 +118,6 @@ class WithPath(StrictModel):
     # the fields that hold the id and the key, when they are named otherwise
     path_id_field: ClassVar[str] = "id"
     path_key_field: ClassVar[str] = "key"
-
-    @model_validator(mode="before")
-    @classmethod
-    def _without_path(cls, data: Any) -> Any:
-        """``path`` is computed: one given (a ``model_dump`` built on) is left out."""
-        if isinstance(data, dict) and "path" in data:
-            return {k: v for k, v in data.items() if k != "path"}
-        return data
 
     @computed_field(  # type: ignore[prop-decorator]
         description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
@@ -238,7 +231,7 @@ class InstrumentSummaryDTO(WithPath):
 
 
 class ArticleCitationTarget(StrictModel):
-    """Minimal metadata describing the referenced article."""
+    """Minimal metadata describing the referenced article (or judgment)."""
 
     id: str
     key: str
@@ -246,6 +239,20 @@ class ArticleCitationTarget(StrictModel):
     bwb_id: str | None
     article_number: str | None
     display_name: str | None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> ArticleCitationTarget:
+        """From the cited article or judgment (a judgment is named by its ECLI when it
+        has no display name)."""
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            collection=parse_node_id(doc["_id"])[0],
+            bwb_id=props.get("bwb_id"),
+            article_number=props.get("article_number"),
+            display_name=props.get("display_name") or props.get("ecli"),
+        )
 
 
 class ArticleCitationSpan(QualifierFields):
@@ -408,6 +415,36 @@ def judgment_outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def regulation_kind(props: dict[str, Any]) -> str | None:
+    """The BWB type of a regulation, lower case: ``amvb``, ``ministeriele-regeling``."""
+    kind = props.get("kind")
+    return kind.lower() if isinstance(kind, str) else None
+
+
+class _Regulation(Protocol):
+    @property
+    def kind(self) -> str | None: ...
+
+    @property
+    def instrument(self) -> InstrumentSummaryDTO: ...
+
+
+Regulation = TypeVar("Regulation", bound=_Regulation)
+
+
+def in_regulation_order(items: Iterable[Regulation]) -> list[Regulation]:
+    """Regulations issued under a law or an article in their order
+    (``core.delegations.regulation_order``)."""
+    return sorted(
+        items,
+        key=lambda item: regulation_order(
+            item.kind,
+            item.instrument.citation_title or item.instrument.title,
+            item.instrument.key,
+        ),
+    )
+
+
 class JudgmentSummaryDTO(WithPath):
     """Lightweight judgment summary for listing matches."""
 
@@ -419,14 +456,18 @@ class JudgmentSummaryDTO(WithPath):
     ecli: str | None
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> JudgmentSummaryDTO:
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            display_name=props.get("display_name"),
-            ecli=props.get("ecli"),
-        )
+        return {
+            "id": doc["_id"],
+            "key": doc["_key"],
+            "display_name": props.get("display_name"),
+            "ecli": props.get("ecli"),
+        }
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> JudgmentSummaryDTO:
+        return cls(**JudgmentSummaryDTO.fields_of(doc))
 
 
 class ArticleRelationDTO(WithPath):

@@ -19,8 +19,6 @@ from lawgraph.api.schemas.decisions import (
     DecisionDTO,
     DecisionFacets,
     DecisionListResponse,
-    DecisionMotionDTO,
-    DecisionPaperDTO,
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
@@ -187,16 +185,12 @@ def get_decision(
 ) -> DecisionDTO:
     doc = require(get_decision_detail(store, key), "Decision", key)
     ((motion, dictum),) = motion_papers(store, [{**doc["props"], "id": doc["_id"]}])
-    dto = DecisionDTO.from_document(doc, load_dossier_names(store))
-    paper = decision_paper(store, doc)
-    return dto.model_copy(
-        update={
-            "dictum": dictum,
-            "motion": DecisionMotionDTO(**motion) if motion else None,
-            "primary_document": (
-                DecisionPaperDTO.from_row(paper, dto.chamber) if paper else None
-            ),
-        }
+    return DecisionDTO.from_document(
+        doc,
+        load_dossier_names(store),
+        motion=motion,
+        dictum=dictum,
+        paper=decision_paper(store, doc),
     )
 
 

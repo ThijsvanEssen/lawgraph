@@ -17,7 +17,13 @@ from lawgraph.api.schemas.common import (
 from lawgraph.core.cabinet_phases import PhaseKind
 from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
+from lawgraph.core.ministries import (
+    MINISTRY_BY_KEY,
+    POSTS,
+    Ministry,
+    Source,
+    protocol_rank,
+)
 from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
 from lawgraph.core.tk_records import due_date
 
@@ -64,6 +70,28 @@ class MinistryDTO(StrictModel):
     successor: MinistryKey | None = None
     until: str | None = None
     periods: list[MinistryPeriodDTO] = Field(default_factory=list)
+
+    @classmethod
+    def from_ministry(cls, ministry: Ministry) -> MinistryDTO:
+        return cls(
+            key=MinistryKey(ministry.key),
+            name=ministry.name,
+            abbreviation=ministry.abbreviation,
+            tooi=ministry.tooi,
+            successor=MinistryKey(ministry.successor) if ministry.successor else None,
+            until=ministry.until,
+            periods=[
+                MinistryPeriodDTO(
+                    from_date=p.from_date,
+                    until=p.until,
+                    successor=MinistryKey(p.successor) if p.successor else None,
+                    basis=p.basis,
+                    source=p.source,
+                    successor_source=p.successor_source,
+                )
+                for p in ministry.periods
+            ],
+        )
 
 
 class PersonRefDTO(WithPath):
@@ -266,26 +294,30 @@ class CabinetSummaryDTO(WithPath):
     commitments: int = Field(0, description="Commitments made while it was in office.")
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
+    def fields_of(cls, row: dict[str, Any]) -> dict[str, Any]:
         cabinet = row["cabinet"]
         props = cabinet.get("props") or {}
         prime = row.get("prime_minister")
-        return cls(
-            key=cabinet["_key"],
-            name=props.get("name") or cabinet["_key"],
-            from_date=props.get("from_date"),
-            to_date=props.get("to_date"),
-            previous=props.get("previous"),
-            prime_minister=PersonRefDTO.from_row(prime) if prime else None,
-            parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
-            factions=props.get("factions") or [],
-            demissionary_from=props.get("demissionary_from"),
-            phases=[CabinetPhaseDTO(**p) for p in props.get("phases") or []],
-            source=props.get("origin"),
-            members=int(row.get("members") or 0),
-            bills=int(row.get("bills") or 0),
-            commitments=int(row.get("commitments") or 0),
-        )
+        return {
+            "key": cabinet["_key"],
+            "name": props.get("name") or cabinet["_key"],
+            "from_date": props.get("from_date"),
+            "to_date": props.get("to_date"),
+            "previous": props.get("previous"),
+            "prime_minister": PersonRefDTO.from_row(prime) if prime else None,
+            "parties": [PartyRefDTO(**p) for p in props.get("parties") or []],
+            "factions": props.get("factions") or [],
+            "demissionary_from": props.get("demissionary_from"),
+            "phases": [CabinetPhaseDTO(**p) for p in props.get("phases") or []],
+            "source": props.get("origin"),
+            "members": int(row.get("members") or 0),
+            "bills": int(row.get("bills") or 0),
+            "commitments": int(row.get("commitments") or 0),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
+        return cls(**CabinetSummaryDTO.fields_of(row))
 
 
 class ActingOtherSeatDTO(StrictModel):
@@ -459,7 +491,6 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     @classmethod
     def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
-        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
         # a seat stands under its ministry: the one its key names (by the name the ministry
         # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
         # whose function names no ministry, that of its last post; each post keeps its own
@@ -490,8 +521,10 @@ class CabinetDetailDTO(CabinetSummaryDTO):
             )
             for key, posts in sorted(groups.items(), key=lambda g: protocol_rank(g[0]))
         ]
-        # the fields as they are: a dump leaves out the address props (``path_props``)
-        return cls(**dict(summary), ministries=ministries)
+        return cls(
+            **CabinetSummaryDTO.fields_of({**row, "members": len(members)}),
+            ministries=ministries,
+        )
 
 
 class CommitmentDossierDTO(WithPath):

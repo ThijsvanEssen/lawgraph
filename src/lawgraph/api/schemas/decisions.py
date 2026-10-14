@@ -244,10 +244,17 @@ class DecisionDTO(WithPath):
         cls,
         doc: dict[str, Any],
         names: dict[str, dict[str, Any]],
+        *,
+        motion: dict[str, Any] | None = None,
+        dictum: str | None = None,
+        paper: dict[str, Any] | None = None,
     ) -> DecisionDTO:
         """From the stored decision with its votes (``get_decision_detail``) and the names
-        of the dossiers (``load_dossier_names``)."""
+        of the dossiers (``load_dossier_names``); with the motion it decided on and its
+        dictum (``motion_papers``) and the paper it was taken on (``decision_paper``)
+        where the answer gives them, the detail of one decision."""
         props = doc.get("props") or {}
+        chamber = props.get("chamber") or chamber_of(doc.get("labels"))
         return cls(
             id=doc["_id"],
             key=doc["_key"],
@@ -260,7 +267,7 @@ class DecisionDTO(WithPath):
             primary_case_kind=props.get("primary_case_kind"),
             dossier_numbers=props.get("dossier_numbers") or [],
             dossiers=dossier_names_of(props.get("dossier_numbers") or [], names),
-            chamber=props.get("chamber") or chamber_of(doc.get("labels")),
+            chamber=chamber,
             result=props.get("result"),
             method=props.get("method"),
             bill_decision=props.get("bill_decision"),
@@ -275,11 +282,11 @@ class DecisionDTO(WithPath):
             voters=props.get("voters") or {},
             votes=[VoteDTO.from_row(v) for v in doc.get("votes") or []],
             coalition=doc.get("coalition"),
-            # of the motion it decided on, which the route reads (``motion_papers``,
-            # ``decision_paper``)
-            dictum=None,
-            motion=None,
-            primary_document=None,
+            dictum=dictum,
+            motion=DecisionMotionDTO(**motion) if motion else None,
+            primary_document=(
+                DecisionPaperDTO.from_row(paper, chamber) if paper else None
+            ),
         )
 
 

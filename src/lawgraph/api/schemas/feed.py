@@ -751,17 +751,21 @@ def _commitment(props: dict[str, Any]) -> FeedCommitmentDTO:
     )
 
 
+def _instrument_fields(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "key": row["key"],
+        "title": row.get("title"),
+        "official_url": instrument_url({"bwb_id": row.get("bwb_id")}),
+    }
+
+
 def _instrument(row: dict[str, Any]) -> FeedInstrumentDTO:
-    return FeedInstrumentDTO(
-        key=row["key"],
-        title=row.get("title"),
-        official_url=instrument_url({"bwb_id": row.get("bwb_id")}),
-    )
+    return FeedInstrumentDTO(**_instrument_fields(row))
 
 
 def _changed(row: dict[str, Any]) -> FeedChangedInstrumentDTO:
     return FeedChangedInstrumentDTO(
-        **_instrument(row).model_dump(),
+        **_instrument_fields(row),
         effect=row["effect"],
         article_count=row.get("article_count"),
     )

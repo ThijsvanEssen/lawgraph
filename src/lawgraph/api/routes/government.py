@@ -25,7 +25,6 @@ from lawgraph.api.schemas.government import (
     CommitmentFacetsDTO,
     CommitmentListResponse,
     MinistryDTO,
-    MinistryPeriodDTO,
 )
 from lawgraph.config.constants import COLLECTION_CABINETS
 from lawgraph.core.coalition import EK_MAJORITY, TK_MAJORITY
@@ -58,28 +57,7 @@ commitments_router = APIRouter()
     tags=["government"],
 )
 def list_ministries() -> list[MinistryDTO]:
-    return [
-        MinistryDTO(
-            key=MinistryKey(m.key),
-            name=m.name,
-            abbreviation=m.abbreviation,
-            tooi=m.tooi,
-            successor=MinistryKey(m.successor) if m.successor else None,
-            until=m.until,
-            periods=[
-                MinistryPeriodDTO(
-                    from_date=p.from_date,
-                    until=p.until,
-                    successor=MinistryKey(p.successor) if p.successor else None,
-                    basis=p.basis,
-                    source=p.source,
-                    successor_source=p.successor_source,
-                )
-                for p in m.periods
-            ],
-        )
-        for m in MINISTRIES
-    ]
+    return [MinistryDTO.from_ministry(m) for m in MINISTRIES]
 
 
 @cabinets_router.get(
