@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
 )
-from lawgraph.core.identifiers import find_eclis
+from lawgraph.core.ecli import is_ecli
 from lawgraph.core.judgments import case_number_keys
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
@@ -656,9 +656,8 @@ def _exact_filters(filters: JudgmentFilters) -> JudgmentFilters | None:
     q = (filters.q or "").strip()
     if not q:
         return None
-    eclis = find_eclis(q)
-    if len(eclis) == 1 and eclis[0] == q.upper():
-        return replace(filters, q=None, ecli=eclis[0])
+    if is_ecli(q):
+        return replace(filters, q=None, ecli=q.upper())
     keys = case_number_keys(q)
     if len(keys) == 1 and _CASE_NUMBER_QUERY.match(q):
         return replace(filters, q=None, case_number_key=keys[0])

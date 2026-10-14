@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from lawgraph.core.ecli import short_ecli_mentions
 from lawgraph.core.judgments import case_number_keys
 
 # "Samenhang met ...", "Zie ook: ...", "Zie tevens ...": up to the end of the sentence, a
@@ -29,10 +30,6 @@ _SENTENCE = re.compile(
     r"(?P<lead>Samenhang\s+met|Zie\s+(?:ook|tevens))\s*:?\s*(?P<rest>.+?)"
     r"(?=\.\s+[A-Z]|\.?\s*$)",
     re.IGNORECASE,
-)
-# An ECLI anywhere in the sentence, also as the courts abbreviate it: "HR:2025:404".
-_ECLI_IN_TEXT = re.compile(
-    r"\b(?:ECLI:NL:)?(?P<court>[A-Z]{2,8}):(?P<year>\d{4}):(?P<number>[A-Z0-9]{1,8})\b"
 )
 _BRACKETS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
 _ITEMS = re.compile(r"\s*(?:,|;|\ben\s+met\b|\ben\b|\bmet\b)\s*", re.IGNORECASE)
@@ -67,6 +64,15 @@ def _case_number(item: str) -> list[str] | None:
     return keys or None
 
 
+def _blanked(text: str, mentions: list[tuple[str, int, int]]) -> str:
+    """*text* with each of *mentions* (``(ecli, start, end)``, in order) a space."""
+    parts, at = [], 0
+    for _, start, end in mentions:
+        parts += [text[at:start], " "]
+        at = end
+    return "".join([*parts, text[at:]])
+
+
 def read_related_cases(summary: str | None) -> list[RelatedCases]:
     """The sentences of *summary* that name connected cases, each with what it names; a
     sentence that names nothing readable is left out."""
@@ -77,11 +83,12 @@ def read_related_cases(summary: str | None) -> list[RelatedCases]:
         text = re.sub(r"\s+", " ", summary[match.start() : end]).strip()
         related = RelatedCases(text=text)
         rest = _BRACKETS.sub(" ", match["rest"])
-        for found_ecli in _ECLI_IN_TEXT.finditer(rest):
-            ecli = "ECLI:NL:{court}:{year}:{number}".format(**found_ecli.groupdict())
+        # an ECLI anywhere in the sentence, also as the courts abbreviate it
+        mentions = short_ecli_mentions(rest)
+        for ecli, _, _ in mentions:
             if ecli not in related.eclis:
                 related.eclis.append(ecli)
-        for raw in _ITEMS.split(_ECLI_IN_TEXT.sub(" ", rest)):
+        for raw in _ITEMS.split(_blanked(rest, mentions)):
             item = _LEAD_WORDS.sub("", raw.strip(" .:;"))
             keys = _case_number(item) if item else None
             if keys is not None and keys not in related.case_numbers:

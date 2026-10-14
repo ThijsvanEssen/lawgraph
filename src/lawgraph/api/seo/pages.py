@@ -22,11 +22,12 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
-from lawgraph.core.readable_paths import BW_BOOKS, book_number, key_ecli, path_of
+from lawgraph.core.readable_paths import BW_BOOKS, book_number, path_of
 from lawgraph.core.time import long_date
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
 
@@ -367,7 +368,7 @@ def _judgment_label(row: dict[str, Any]) -> str:
 def judgment_title(light: dict[str, Any], node_id: str = "") -> str:
     """``HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006``: as a lawyer cites it
     (``core.judgment_cite``), with the names it is known by, a translation said so."""
-    ecli = _text(light.get("ecli")) or key_ecli(node_id.partition("/")[2]) or ""
+    ecli = _text(light.get("ecli")) or ecli_of_key(node_id.partition("/")[2]) or ""
     if not ecli:
         return _text(light.get("display_name"))
     cite = judgment_cite(
