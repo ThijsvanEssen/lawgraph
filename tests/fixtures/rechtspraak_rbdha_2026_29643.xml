@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RBDHA:2026:29643</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-10-08T11:09:20</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-10-08</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Rechtbank_Den_Haag" scheme="overheid.RechterlijkeMacht">Rechtbank Den Haag</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-10-07</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">C/09/695432</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#eersteAanlegMeervoudig">Eerste aanleg - meervoudig</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Den Haag</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht_intellectueeleigendomsrecht">Civiel recht; Intellectueel-eigendomsrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBDHA:2026:29643">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RBDHA:2026:29643</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-10-08T11:09:10</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-10-08</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RBDHA:2026:29643 Rechtbank Den Haag , 07-10-2026 / C/09/695432</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RBDHA:2026:29643:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Intellectueel eigendom. Octrooirecht. Octrooi op een gemodificeerde PH20-polypeptide met functionele kenmerken. EP 622 is nawerkbaar, nieuw, inventief en bevat geen toegevoegde materie. Inbreuk op EP 622 en onrechtmatig faciliteren van inbreuk. Grensoverschrijdende verboden onder voorwaarden.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:RBDHA:2026:29643:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <bridgehead role="bold caps">RECHTBANK Den Haag</bridgehead>
+    <para />
+    <parablock>
+      <para>Team handel</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Zaaknummer: C/09/695432 / HA ZA 25-1075</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">Vonnis van 7 oktober 2026</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>in de zaak van</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">MERCK SHARP &amp; DOHME B.V. </emphasis>te Haarlem,</para>
+      <para>eiseres in conventie,</para>
+      <para>verweerster in reconventie,</para>
+      <para>hierna te noemen: MSD,</para>
+      <para>advocaat: mr. G. Kuipers,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>tegen</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>de rechtspersoon naar buitenlands recht</para>
+      <para>
+        <emphasis role="bold">HALOZYME INC. </emphasis>te San Diego (Verenigde Staten van Amerika),</para>
+      <para>gedaagde in conventie,</para>
+      <para>eiseres in reconventie,</para>
+      <para>hierna te noemen: Halozyme,</para>
+      <para>advocaat: mr. M.G.R. van Gardingen.</para>
+    </parablock>
+    <para />
+  </uitspraak.info>
+  <section role="overwegingen">
+    <title>
+      <nr>4</nr>De beoordeling</title>
+    <paragroup>
+      <nr>4.98.</nr>
+      <para>MSD heeft daar onvoldoende tegenover gesteld. MSD heeft ter onderbouwing van haar standpunt dat de fenolstabiliteit van ALT-B4 minder hoog is dan die van een ongemodificeerde PH20-polypeptide ook onderzoeksresultaten overgelegd, namelijk van ATUM. Echter, in deze test is niet de fenolstabiliteit van ALT-B4 als zodanig vergeleken met die van een ongemodificeerde PH20-polypeptide, maar zijn co-formuleringen van beide enzymen met de werkzame stof pembrolizumab vergeleken. Deze test is dus niet toereikend om te bepalen in hoeverre de fenolstabiliteit van ALT-B4 ten opzichte van rHyPH20 (als zodanig) hoger of lager is. Dit geldt met name omdat, zoals door Halozyme is gesteld en door MSD onvoldoende is weersproken, pembrolizumab de fenolstabiliteit van ongemodificeerde PH20-polypeptiden sterker verhoogt dan die van ALT-B4, waardoor de aanwezigheid van pembrolizumab in de co-formulering de onderzoeksresultaten vertekend. Met de overlegging van dit onderzoek heeft MSD derhalve de stelling van Halozyme dat ALT-B4 een verhoogde fenolstabiliteit heeft ten opzichte van rHuPH20 niet weerlegd.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>4.99.</nr>
+      <para>Ook de kritieken die MSD en haar deskundigen op de BionSystems-onderzoeken hebben geuit leiden niet tot een andere conclusie. Kritieken op BionSystems-I, waaronder op het gebied van een verschil in massaconcentratie en het gebruik van de kalibratiecurve, zijn door Halozyme en haar deskundige ondervangen door overlegging van het tweede onderzoeksrapport van BionSystems, te weten BionSystems-II. Ook de kritiek van MSD en haar deskundige prof. Crommelin op het feit dat getest is met Tergase en WRS6 leidt niet tot een ander oordeel. Tergase en WRS6 bevatten grotendeels dezelfde of vergelijkbare hulpstoffen. Voor zover er wel een beperkt verschil is in hulpstoffen is door MSD onvoldoende duidelijk gemaakt in hoeverre de aanwezigheid van dergelijke verschillende hulpstoffen het grote verschil in fenolstabiliteit tussen Tergase en WRS6 (32,3% en 53,0% voor Tergase tegenover 5,0% en 8,1% voor WRS6 in BionSystems-I en 92,76%, voor Tergase tegenover 44,90% voor WRS6 in BionSystems-II) kunnen verklaren anders dan dat ALT-B4 fenolstabieler is. Tevens is uit BionSystems-I en -II duidelijk dat de metingen zijn gedaan met sterk verdunde oplossingen van Tergase en WRS6 zodat ook de hulpstoffen maar in zeer beperkte hoeveelheid aanwezig zijn tijdens de metingen.</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Geen strijd met redelijke rechtszekerheid</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.100.	MSD heeft nog betoogd dat Keytruda SC geen gebruik maakt van het technisch effect van de geclaimde materie, namelijk de verhoogde de verhoogde fenolstabiliteit, omdat Keytruda SC geen fenolisch conserveermiddel bevat. Het is volgens MSD daarom strijdig met het beginsel van redelijke rechtszekerheid om Keytruda SC onder bescherming te stellen van het octrooi.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.101.	De rechtbank gaat hierin niet mee om de reden als uiteengezet in 4.50 hiervoor, namelijk dat conclusie 1 van het octrooi een productconclusie is met functionele kenmerken. Hierdoor is het niet relevant dat Keytruda SC geen fenolisch conserveermiddel bevat en zodoende niet de fenolstabiliteit van ALT-B4 benut. Van strijd met de redelijke rechtszekerheid is dan ook geen sprake.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Conclusie inbreuk</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.102.	Uit het voorgaande volgt dat Keytruda SC binnen de beschermingsomvang van conclusie 1 van het octrooi valt. Dit betekent dat de vordering van MSD in conventie strekkende tot een verklaring voor recht dat Keytruda SC niet onder de beschermingsomvang van het Nederlandse deel van het octrooi valt, zal worden afgewezen. De rechtbank zal hierna ingaan op de specifieke reconventionele vorderingen van Halozyme.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="underline">Vorderingen in reconventie</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Inbreukverbod</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.103.	De rechtbank zal eerst ingaan op het door Halozyme gevorderde inbreukverbod. Halozyme vordert een verbod voor MSD om inbreuk te maken op het Belgische, Deense, Franse, Ierse, Italiaanse, Nederlandse, Zweedse en Zwitserse deel van EP 622 zoals verleend of zoals te wijzigen in overeenstemming met de hulpverzoeken, in het bijzonder door in die landen Keytruda SC te vervaardigen, aan te bieden, in het verkeer te brengen of te gebruiken, dan wel met dat doel in te voeren of in voorraad te hebben.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.104.	De vraag of MSD inbreuk maakt moet worden beoordeeld naar het recht van de landen waarvoor Halozyme bescherming inroept. Artikel 8 van de Rome II verordening<footnote-ref linkend="_0fc794bc-6846-41ff-a035-41e865ed6812" /> schrijft namelijk voor dat de niet-contractuele verbintenis die voortvloeit uit een inbreuk op een intellectuele-eigendomsrecht, wordt beheerst door het recht van het land waarvoor de bescherming wordt gevorderd. Er is dus niet alleen Nederlands recht van toepassing. Gegeven de vergaande (informele) harmonisatie van de aan een Europees octrooi verbonden rechten in de lidstaten van het Europees octrooiverdrag, zal de rechtbank hierna ervan uitgaan dat de rechten in de overige genoemde landen gelijk zijn aan het Nederlands recht.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.105.	De rechtbank is hiervoor tot de conclusie gekomen dat Keytruda SC binnen de beschermingsomvang van EP 622 zoals verleend valt. Aan de hulpverzoeken is de rechtbank niet toegekomen. Met betrekking tot buitenlandse delen van het octrooi geldt dat vast staat dat het octrooi in België, Denemarken, Frankrijk, Ierland, Italië, Zweden en Zwitserland van kracht is. Verder zijn de conclusies van die buitenlandse delen van het octrooi gelijkluidend aan die in Nederland. Dit is ook niet door MSD betwist. Wel heeft zij betwist dat er een concrete dreiging is dat MSD in de aangehaalde landen van de Europese Unie op de markt zal komen met Keytruda SC en dat MSD in die landen voorbehouden handelingen verricht. </para>
+      </parablock>
+      <para />
+      <para>- <emphasis role="italic">Dreiging van inbreuk</emphasis></para>
+      <para />
+      <parablock>
+        <para>4.106.	Ten aanzien van de dreiging van inbreuk oordeelt de rechtbank als volgt. Naar het oordeel van de rechtbank is voldoende gebleken van een (dreigende) inbreuk op EP 622 in Nederland en de overige aangehaalde landen. Dit blijkt voor Nederland uit de e-mail van MSD aan de rechtbank dat MSD voornemens is om Keytruda SC in de loop van 2026 op de markt te brengen (zie 2.15 hiervoor). Voor Denemarken en Zweden volgt dit uit het feit dat groepsvennootschappen van MSD Keytruda SC, hangende deze procedure, daadwerkelijk op de markt hebben gebracht (zie 2.16 en 2.17 hiervoor). Met betrekking tot de overige landen (België, Frankrijk, Ierland, Italië en Zwitserland) blijkt dit uit de berichten weergegeven in 2.13 en 2.14 hiervoor, waaruit volgt dat MSD (althans een of meer groepsvennootschappen) de hoop heeft om Keytruda SC begin 2026 in Europa op de markt te brengen, en dat zij niet voornemens is de lancering uit te stellen als gevolg van een mogelijk octrooiclaim door Halozyme. Hieraan doet onvoldoende af dat MSD in de CvAir (van 8 april 2026) het standpunt heeft ingenomen dat de suggestie (van Halozyme) “<emphasis role="italic">dat de MSD-groep voornemens is om SC Pembrolizumab “zo snel mogelijk op de markt te brengen in de overige landen van de Europese Unie waar EP622 van kracht is” ongefundeerd en onjuist is</emphasis>”, terwijl haar groepsvennootschappen nog geen maand na het indienen van de CvAir Keytruda SC in Zweden en Denemarken op de markt hebben gebracht.</para>
+      </parablock>
+      <para />
+      <para>- <emphasis role="italic">Voorbehouden handelingen van MSD buiten Nederland</emphasis></para>
+      <para />
+      <parablock>
+        <para>4.107.	De rechtbank gaat verder voorbij aan het betoog dat MSD buiten Nederland geen voorbehouden handelingen verricht of dreigt te verrichten. MSD is immers houdster van de Europese handelingsvergunning voor Keytruda SC en de fabrikant verantwoordelijk voor vrijgifte van Keytruda SC (zie 2.5 hiervoor). Hiermee is zij (mede-)verantwoordelijk voor de vrijgifte van iedere batch Keytruda SC in Europa die onder de marktvergunning van MSD wordt verhandeld. Verder blijkt uit haar eigen website dat MSD 2500 medicijnen levert aan 140 landen en dat MSD het productie- en distributiecentrum voor Europa is (zie 2.6 hiervoor) en uit de goedkeuring van de Amerikaanse FDA dat Keytruda Qlex (de Amerikaanse naam voor Keytruda SC) wordt verpakt door onder meer MSD (zie 2.7 hiervoor). Tegenover deze gemotiveerde stellingen van Halozyme heeft MSD onvoldoende ingebracht. Zo heeft zij wel betwist dat zij Keytruda SC in Europa vervaardigt en distribueert, maar heeft zij dit standpunt niet althans onvoldoende onderbouwd. Hiermee is naar het oordeel van de rechtbank als onvoldoende gemotiveerd betwist komen vast te staan dat MSD Keytruda SC levert aan haar groepsvennootschappen in België, Denemarken, Frankrijk, Ierland, Italië, Zweden en Zwitserland en daarmee dat MSD in die landen Keytruda SC aanbiedt, in het verkeer brengt, dan wel met dat doel Keytruda SC in die landen invoert. </para>
+      </parablock>
+      <para />
+      <para>- <emphasis role="italic">Geen aanhouding</emphasis></para>
+      <para />
+      <parablock>
+        <para>4.108.	Volgens MSD dient de onderhavige procedure te worden aangehouden totdat is beslist in de aanhangige of nog aanhangig te maken nietigheidsprocedures in de overige Europese landen ten aanzien van de geldigheid van het desbetreffende nationale deel van EP 622. In Denemarken, Frankrijk, Zweden en Zwitserland zijn nietigheidsprocedures aanhangig. MSD betwist bovendien de geldigheid van EP 622 voor alle landen waar nog geen nietigheidsprocedure aanhangig is en wenst in de gelegenheid worden gesteld aldaar een nietigheidsprocedure aanhangig te maken. Halozyme stelt zich op het standpunt dat voor aanhouding geen reden is, maar heeft, voor het geval de rechtbank hierover anders zou oordelen, voorwaardelijk voorlopige voorzieningen ingesteld strekkende tot een inbreukverbod op de betreffende delen van het octrooi voor de duur van dit geding. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.109.	De rechtbank oordeelt als volgt. Uit het arrest BSH/Electrolux van het Europese Hof van Justitie volgt dat het gerecht van de woonplaats van verweerder waar krachtens artikel 4 lid 1 Brussel I-bis een vordering wegens inbreuk op een in een andere lidstaat verleend octrooi aanhangig is gemaakt bevoegd blijft om kennis te nemen van die vordering wanneer de verweerder in het kader van die vordering bij wege van exceptie de geldigheid van dat octrooi betwist. Dat gerecht dient echter niet voorbij te gaan aan het feit dat die verweerder naar behoren een vordering tot nietigverklaring van het in een andere lidstaat verleende octrooi heeft ingesteld in die andere lidstaat. Indien het gerecht dit gerechtvaardigd acht, met name wanneer het van oordeel is dat er een redelijke en niet te verwaarlozen kans bestaat dat dit octrooi door het bevoegde gerecht van die andere lidstaat nietig wordt verklaard, kan het gerecht waarbij de vordering wegens octrooi-inbreuk is ingesteld, in voorkomend geval de procedure schorsen zodat hij bij de uitspraak op die vordering rekening kan houden met een beslissing van het gerecht waarbij de vordering tot nietigverklaring is ingesteld. <footnote-ref linkend="_3c6c3ad3-9946-4c87-a182-64dbcf312970" /></para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.110.	Naar het oordeel van de rechtbank bestaat er geen redelijke en niet te verwaarlozen kans dat het octrooi door het bevoegde gerecht van de andere relevante Europese lidstaten nietig wordt verklaard. Daarbij acht de rechtbank van belang dat zij in de onderhavige procedure het beroep op nietigheid van (het Nederlandse deel van) het octrooi heeft afgewezen, dat in Duitsland het Bundespatentgericht voorlopig van oordeel is dat het (Duitse deel van het) octrooi geldig is en dat ook het Landgericht München in de Duitse kortgedingprocedure de nietigheidsargumenten ten aanzien van (het Duitse deel van) EP 622 heeft afgewezen. MSD heeft daarbij niet betoogd dat in de reeds aanhangige nietigheidsprocedures in Denemarken, Frankrijk, Zweden en Zwitserland en/of in de eventueel nader te entameren nietigheidsprocedures in overige Europese landen andere nietigheidsargumenten zijn of worden aangevoerd, op andere stand van de techniek een beroep is of wordt gedaan en/of er ander bewijs voorligt of zal voorliggen. Gezien het voorgaande ziet de rechtbank geen reden tot aanhouding van de onderhavige procedure totdat in die procedures is beslist over de geldigheid van het desbetreffende nationale deel van het octrooi. </para>
+      </parablock>
+      <para>- <emphasis role="italic">Conclusie inbreukvordering</emphasis></para>
+      <para />
+      <parablock>
+        <para>4.111.	De conclusie uit het voorgaande is dat de rechtbank het gevorderde inbreukverbod toewijst. De rechtbank zal dit inbreukverbod, voor zover dit betrekking heeft op de buitenlandse delen van het octrooi, toewijzen onder de voorwaarde dat het inbreukverbod zijn werking verliest als die buitenlandse delen van EP 622 geheel of gedeeltelijk nietig worden verklaard door de bevoegde nationale rechter.<footnote-ref linkend="_554f2c23-00af-489b-914e-cc272d9021a7" /> De rechtbank realiseert zich dat zij hierbij anders te werk gaat dan zoals de Hoge Raad heeft bepaald inzake Roche/Primus II.<footnote-ref linkend="_c20ae6ba-76f1-4323-a666-89c264299087" /> Dat arrest is echter gewezen (ruim) voor het arrest van het Europese Hof van Justitie inzake BSH/Electrolux, voorziet – tenzij de octrooihouder de zaak zou intrekken of het nietigheidsverweer te kwader trouw zou zijn – steevast in aanhouding (dus zonder de inhoudelijke toets van een redelijke niet te verwaarlozen kans op nietigheid, zoals in BSH/Electrolux is genoemd) en lijkt daarom op dit punt achterhaald. Deze oplossing is bovendien praktischer en voorkomt zoveel mogelijk een veelheid aan aangehouden zaken, hetgeen ongewenst is. In de voorwaarde wordt voorts opgenomen dat het verbod zijn werking verliest na een ongeldigheidsuitspraak in eerste instantie, maar zal herleven mocht het octrooi, voor zover relevant, alsnog geldig worden geacht in de betreffende hogere instantie. Om executieproblemen te voorkomen, zal de rechtbank de termijn waarbinnen MSD de inbreuk dient te staken bepalen op zeven dagen na betekening van het vonnis. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Verklaring voor recht</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.112.	Halozyme vordert verder een verklaring voor recht dat Keytruda SC binnen de beschermingsomvang valt van het Belgische, Deense, Franse, Ierse, Italiaanse, Nederlandse, Zweedse en Zwitserse deel van EP 622 zoals verleend of zoals te wijzigen in overeenstemming met de hulpverzoeken.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.113.	De rechtbank wijst de gevorderde verklaring voor recht toe. Anders dan door MSD betoogd, heeft Halozyme naar het oordeel van de rechtbank voldoende belang bij deze vordering. Halozyme stelt immers schade te hebben geleden door de inbreuk, waaronder als gevolg van verlies van marktaandeel van het door haar gelicentieerde Opdivo SC (zie 2.2 hiervoor). Daarbij heeft zij aangekondigd in een later stadium mogelijk een schadevergoedingsvordering tegen MSD in te willen stellen. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.114.	De rechtbank zal de verklaring voor recht toewijzen onder een vergelijkbare voorwaarde als het inbreukverbod.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Onrechtmatig faciliteren inbreuk</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.115.	De rechtbank komt vervolgens toe aan het gestelde onrechtmatig handelen door MSD. Halozyme vordert een verbod jegens MSD op onrechtmatig handelen door – verkort weergegeven – andere MSD-vennootschappen en/of derden aan te zetten tot het maken van inbreuk op het octrooi in België, Denemarken, Frankrijk, Ierland, Italië en/of Nederland, in het bijzonder door haar centrale handelsvergunning voor Keytruda SC ter beschikking te stellen. Met MSD is de rechtbank van oordeel dat het ter beschikking stellen van de handelsvergunning door MSD aan MSD-groepsvennootschappen gebeurt in Nederland, zodat de vraag of dit een onrechtmatige daad oplevert beoordeeld moet worden naar Nederlands recht. De rechtbank gaat daarom aan de verklaringen van partijen naar Deens recht als onvoldoende relevant voorbij.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.116.	Naar Nederlands recht geldt dat het enkel houden van een centrale handelsvergunning niet als een voorbehouden handeling kan worden beschouwd. Betrokkenheid bij een inbreuk kan echter wel een onrechtmatige daad in de zin van artikel 6:162 BW<footnote-ref linkend="_b5b016fd-2db3-4b90-acbf-a16caf553bf4" /> opleveren. Dit geldt temeer wanneer het een (aan de vermeend inbreukmaker gelieerde) partij betreft die zelf geen inbreuk maakt maar deze wel (opzettelijk) faciliteert en daartoe uitlokt.<footnote-ref linkend="_b3fae4ab-a36f-422c-bf6e-01bcb8b08bb4" /></para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.117.	Gelet op het voorgaande is de rechtbank van oordeel dat MSD als houder van de centrale handelsvergunning voor Keytruda SC in strijd met de maatschappelijke zorgvuldigheid handelt indien zij (opzettelijk) toelaat of faciliteert dat Keytruda SC op de markt wordt gebracht door de relevante MSD-groepsvennootschappen (zie 2.5 hiervoor). MSD is immers bekend met de rechten van Halozyme en het (opzettelijk) faciliteren van en uitlokken tot inbreuk op die rechten moet als onrechtmatig worden beschouwd. Daarbij is er een dreiging dat (de groepsvennootschappen van) MSD in de aangewezen landen Keytruda SC op de markt brengen (zie 4.106 hiervoor). Deze dreiging heeft zich in Denemarken ook verwezenlijkt, nu de Deense groepsvennootschap van MSD Keytruda SC onder de centrale Europese handelsvergunning van MSD in Denemarken op de markt heeft gebracht (zie 2.17 hiervoor). Gezien het voorgaande acht de rechtbank oplegging van een verbod op onrechtmatig faciliteren van inbreuk aangewezen, met inachtneming van het volgende. De rechtbank kan de vraag daarlaten of sprake is van een voorbehouden handeling.<footnote-ref linkend="_83cbf48f-50f5-4b18-8ecc-bc83966f3e78" /></para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.118.	De rechtbank wijst het gevorderde verbod af voor zover het betrekking heeft op (niet nader gespecificeerde) derden. Dat naast MSD-vennootschappen ook andere derden betrokken zouden zijn bij de inbreuk, is door Halozyme niet betoogd, zodat dit gedeelte van de vordering als onvoldoende onderbouwd zal worden afgewezen. Verder wijst de rechtbank het gevorderde verbod af voor zover het betrekking heeft op Nederland. Niet gebleken is immers dat er in Nederland naast MSD nog een andere MSD-vennootschap betrokken is bij de inbreuk. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.119.	Ter voorkoming van executiegeschillen zal dit verbod, overeenkomstig het inbreukverbod, ingaan zeven dagen na betekening van het vonnis. Ook zal de rechtbank hieraan dezelfde voorwaarde stellen als het inbreukverbod. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Dwangsom</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.120.	Aan de verboden zal een dwangsom worden verbonden. De dwangsom wordt gemaximeerd zoals in het dictum bepaald. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Uitvoerbaar bij voorraad</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.121.	De inbreukverboden zullen uitvoerbaar bij voorraad worden verklaard. Daarbij gaat de rechtbank voorbij aan het bezwaar daartegen van MSD. Uitgangspunt is dat een veroordeling, hangende een hogere voorziening, uitvoerbaar dient te zijn en zonder de voorwaarde van zekerheidstelling ten uitvoer kan worden gelegd. MSD heeft haar belang bij het achterwege laten van een uitvoerbaar bij voorraad verklaring onvoldoende geconcretiseerd.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="underline">Voorwaardelijke voorlopige voorzieningen</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.122.	De rechtbank stelt vast dat de voorwaarden die Halozyme aan haar voorlopige voorzieningen heeft verbonden niet in vervulling zijn gegaan (zie 4.110 hiervoor), Aan de beoordeling van de voorlopige voorzieningen wordt daarom niet toegekomen. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="underline">Proceskosten</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.123.	MSD is in conventie in het ongelijk gesteld en in reconventie grotendeels in het ongelijk gesteld. MSD zal daarom worden veroordeeld in de proceskosten van Halozyme. Halozyme maakt aanspraak op vergoeding van haar volledige proceskosten als bedoeld in artikel 1019h Rv. Haar (met specificaties onderbouwde) proceskosten sluiten op € 315.180.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.124.	Naar het oordeel van de rechtbank hangen de procedure in conventie en de procedure in reconventie volledig met elkaar samen. De zaak in conventie gaat volledig over de handhaving van IE-rechten in de zin van artikel 1019h Rv. Dit geldt ook voor de zaak in reconventie, met uitzondering van het deel dat ziet op onrechtmatige daad. De rechtbank acht dit deel, in het licht van de procedure als geheel, echter verwaarloosbaar en zal daarom bepalen dat de procedure in conventie en reconventie in zijn geheel ziet op handhaving van IE-rechten als bedoeld in artikel 1019 Rv.</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.125.	Ten aanzien van de berekening van de proceskosten geldt het volgende. Teneinde de redelijkheid en evenredigheid van de opgevoerde kosten te kunnen beoordelen, wordt aansluiting gezocht bij de Indicatietarieven in octrooizaken (versie 1 februari 2026). De daarin vermelde tarieven worden geacht redelijk en evenredig te zijn. Deze zaak valt naar het oordeel van de rechtbank onder de categorie ‘zeer complexe bodemzaak’ met een maximumtarief van € 283.750. Het door Halozyme gevorderde bedrag aan advocaatkosten overschrijdt dit maximumtarief. Dit betekent dat het maximumtarief zal worden toegewezen; het meer gevorderde wordt afgewezen. Dit bedrag zal worden vermeerderd met € 714 aan griffierecht en nakosten van € 296, waarmee het totaalbedrag uitkomt op € 284.760 (plus eventueel de verhoging van de nakosten zoals vermeld in de beslissing).</para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.126.	De gevorderde wettelijke rente over de proceskosten zal worden toegewezen zoals vermeld in de beslissing. </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="underline">Artikel 21 Rv, overschrijding woordenlimiet en te laat ingediende producties</emphasis>
+        </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.127.	De rechtbank zal ten slotte ingaan op de punten die Halozyme tijdens de mondelinge behandeling en in aktes naar voren heeft gebracht met betrekking tot de schending van artikel 21 Rv, de overschrijding van de woordenlimiet in de pleitnotities en de te laat ingediende producties (zie 1.2 hiervoor).  </para>
+      </parablock>
+      <para />
+      <parablock>
+        <para>4.128.	Met betrekking tot de schending van artikel 21 Rv oordeelt de rechtbank als volgt. Uit dit artikel volgt een verplichting om de voor de rechtbank voor de beslissing van belang zijnde feiten volledig en naar waarheid aan te voeren. Wordt deze verplichting niet nageleefd, dan kan de rechter daaruit de gevolgtrekking maken die hij geraden acht. De rechtbank constateert dat MSD de waarheidsplicht geschonden heeft door in de CvAir het standpunt in te nemen dat de suggestie (van Halozyme) “<emphasis role="italic">dat de MSD-groep voornemens is om SC Pembrolizumab “zo snel mogelijk op de markt te brengen in de overige landen van de Europese Unie waar EP622 van kracht is” ongefundeerd en onjuist is</emphasis>”. Dat de MSD-groep dit wel voornemens was, blijkt immers voldoende uit het feit dat de Zweedse en Deense vennootschappen behorende tot de MSD-groep Keytruda SC nog geen maand na het nemen van de CvAir in Zweden en Denemarken op de markt hebben gebracht. MSD heeft dus – in strijd met de waarheid – betoogd dat de (juiste) stelling van Halozyme ‘onjuist’ is. Echter, omdat de rechtbank in het voorgaande de vorderingen van Halozyme in reconventie vrijwel volledig heeft toegewezen, de vorderingen van MSD in conventie heeft afgewezen en MSD heeft veroordeeld in de proceskosten van Halozyme (uitgaande van het hoogste tarief voor octrooizaken volgens de indicatietarieven), ziet de rechtbank geen reden om aan deze schending nadere consequenties te verbinden. Datzelfde geldt voor de overschrijding van de woordenlimiet in de pleitnotities en de te laat ingediende producties. </para>
+      </parablock>
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>5</nr>De beslissing</title>
+    <para />
+    <parablock>
+      <para>De rechtbank</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">in conventie</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <paragroup>
+      <nr>5.1.</nr>
+      <para>wijst de vorderingen van MSD af,</para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="bold">in reconventie</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+  </section>
+  <footnote id="_5d49b03f-09e6-4bba-b0f6-439d68a3d7ed" label="1">
+    <para> Wetboek van Burgerlijke Rechtsvordering</para>
+  </footnote>
+  <footnote id="_cd3732b4-bd47-47b4-a58c-c45405d84726" label="2">
+    <para> Rechtbank Den Haag 3 juli 2026, ECLI:NL:RBDHA:2026:18266</para>
+  </footnote>
+  <footnote id="_e19bd1af-755a-4962-a397-51d3a384a2f3" label="3">
+    <para> Verordening (EU) 1215/2012 van het Europees Parlement en de Raad van 12 december 2012 betreffende de rechterlijke bevoegdheid, de erkenning en de tenuitvoerlegging van beslissingen in burgerlijke en handelszaken</para>
+  </footnote>
+  <footnote id="_a6778b9e-f653-4400-98dc-7c4ff6cdb298" label="4">
+    <para> ​Rijksoctrooiwet 1995</para>
+  </footnote>
+  <footnote id="_a80b0c23-3486-4e7a-88bf-f3bd4210cb2c" label="5">
+    <para> HvJ EU 25 oktober 2012, ECLI:EU:C:2012:664 (Folien Fischer/ Ritrama)</para>
+  </footnote>
+  <footnote id="_a441dd44-7dd4-496b-8470-df1b2e5bd31d" label="6">
+    <para> Andere voorbeelden van hyaluronidaseproducten die al vóór de prioriteitsdatum van het octrooi medisch werden toegepast en commercieel verkrijgbaar waren, zijn: Hydase, Vitraseen en Wydase. Deze producten zijn afkomstig uit dierlijke bronnen (schapen of runderen).</para>
+  </footnote>
+  <footnote id="_ec1578ac-2166-41f7-b7b0-8fc85bd1f3f8" label="7">
+    <para> ​Verdrag inzake de verlening van Europese octrooien (Europees Octrooiverdrag)</para>
+  </footnote>
+  <footnote id="_80062864-15d6-4282-8d48-df508c2d6f45" label="8">
+    <para> CoA UPC NanoString Technologies -v- 10x Genomics, UPC CoA 335/2023, App 576355/2023, 26 februari 2024, zoals aangepast bij ‘order’ van 11 maart 2024.</para>
+  </footnote>
+  <footnote id="_efe7aafc-71d4-46f3-8a7f-5a9c3babba26" label="9">
+    <para> Vgl. UPC Court of Appeal 25 november 2025, UPC_CoA_528/2024 / UPC_CoA_529/2024 (Amgen/Sanofi), par. 6.</para>
+  </footnote>
+  <footnote id="_60952cb5-45a8-43a1-8fd3-b8070e762479" label="10">
+    <para> HR 6 maart 2009, ECLI:NL:HR:2009:BG7411 (Schneider/Cordis), r.o. 5.2.3.</para>
+  </footnote>
+  <footnote id="_c1ebf0eb-733e-4722-bd9c-e5614bab50b5" label="11">
+    <para>Hof Den Haag 18 november 2025, ECLI:NL:GHDHA:2025:2742 (Synthon/Novartis), r.o. 6.5.</para>
+  </footnote>
+  <footnote id="_0fc794bc-6846-41ff-a035-41e865ed6812" label="12">
+    <para> Verordening (EG) nr. 864/2007 van het Europees Parlement en de Raad van 11 juli 2007 betreffende het recht dat van toepassing is op niet-contractuele verbintenissen</para>
+  </footnote>
+  <footnote id="_3c6c3ad3-9946-4c87-a182-64dbcf312970" label="13">
+    <para> HvJEU 25 februari 2025, C-339/22, ECLI:EU:C:2025:108 (BSH/Electrolux), punt 41 en 51. </para>
+  </footnote>
+  <footnote id="_554f2c23-00af-489b-914e-cc272d9021a7" label="14">
+    <para> Vgl. UPC Court of Appeal, UPC_CoA_473/2025, UPC_CoA_474/2025, UPC_CoA_873/2025, UPC_CoA_881/2026 (Kojak/Fujifilm), par 358 onder a. </para>
+  </footnote>
+  <footnote id="_c20ae6ba-76f1-4323-a666-89c264299087" label="15">
+    <para> HR 30 november 2007, ECLI:NL:HR:2007:BA9608 (Roche/Primus II).</para>
+  </footnote>
+  <footnote id="_b5b016fd-2db3-4b90-acbf-a16caf553bf4" label="16">
+    <para> Burgerlijk Wetboek</para>
+  </footnote>
+  <footnote id="_b3fae4ab-a36f-422c-bf6e-01bcb8b08bb4" label="17">
+    <para> Gerechtshof Den Haag 15 november 2022, ECLI:NL:GHDHA:2022:2327 (Pharmatem/Novartis), r.o. 5.17 e.v., Rechtbank Den Haag 29 september 2020, ECLI:NL:RBDHA:2020:13650, (Novartis/Mylan), r.o. 4.12, Rechtbank Utrecht 15 augustus 2012, IER 2013/9 (Boehringer/Teva), r.o. 4.29. </para>
+  </footnote>
+  <footnote id="_83cbf48f-50f5-4b18-8ecc-bc83966f3e78" label="18">
+    <para> CoA UPC 3 oktober 2025 (Philips/Belkin), BerichtenIE 2025/6 m.nt. Koen Bijvank</para>
+    <para />
+  </footnote>
+</uitspraak>
+</open-rechtspraak>
