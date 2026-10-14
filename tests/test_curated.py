@@ -191,3 +191,22 @@ def test_the_loaders_read_the_curated_lists() -> None:
         f["key"]
         for f in json.loads((curated.CURATED / "seating.json").read_text())["factions"]
     ] == list(SEATING)
+
+
+def test_the_tables_are_the_curated_lists() -> None:
+    from lawgraph.core.courts import COURTS, court_of
+    from lawgraph.core.judgments import KIND_OF_COURT_KIND, KIND_OF_PROCEDURE
+    from lawgraph.core.ministries import ministry_named
+
+    assert KIND_OF_PROCEDURE == LISTS["procedure-kinds"].entries()
+    assert KIND_OF_COURT_KIND == LISTS["decision-kinds"].entries()
+    outside = LISTS["courts-outside"].entries()
+    assert [
+        f"{c.code}:{c.court}" if c.court else c.code for c in COURTS if c.type is None
+    ] == list(outside)
+    assert (
+        court_of("ECHR") is not None
+        and court_of("ECHR").name == outside["ECHR"]["name"]
+    )  # type: ignore[union-attr]
+    for alias, key in LISTS["ministry-aliases"].entries().items():
+        assert ministry_named(alias) == key

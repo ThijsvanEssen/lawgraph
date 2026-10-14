@@ -7,7 +7,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from lawgraph.core.citations import LawDates
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import is_code_family
 from lawgraph.core.curated import LISTS
 from lawgraph.core.identifiers import is_bwb_id
 
@@ -94,7 +94,7 @@ def code_choices(
             for name in names:
                 spelled = str(name or "").strip()
                 key = spelled.upper()
-                if key and not key[0].isdigit() and key not in CODE_FAMILIES:
+                if key and not key[0].isdigit() and not is_code_family(key):
                     tier.setdefault(key, {}).setdefault(law_id, spelled)
     found: dict[str, str] = {}
     shared: dict[str, dict[str, str]] = {}
