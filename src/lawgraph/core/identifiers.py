@@ -10,6 +10,8 @@ from typing import Literal
 
 # BWB ids: BWBR + 7 digits for statutes and regulations, BWBV + 7 digits for treaties.
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
+# A BWB id as a query parameter takes it, in any case: BWBR0052872, a treaty BWBV0001000.
+BWB_ID_PARAM_PATTERN = r"^[Bb][Ww][Bb][RrVv]\d+$"
 _BWB_ID_FULL = re.compile(r"BWB[RV]\d{7}", re.IGNORECASE)
 
 

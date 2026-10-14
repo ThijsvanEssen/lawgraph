@@ -35,10 +35,6 @@ from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity
 from lawgraph.core.votes import VoteOutcome
 
-# A dossier number as the API takes it: 29684, or its label with the addition of a
-# budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
-DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
-
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
 DossierSource = Literal["tk", "eerstekamer"]
 

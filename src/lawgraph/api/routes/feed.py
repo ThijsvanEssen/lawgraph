@@ -15,7 +15,12 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, iso_day, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_PREFIX_PATTERN,
+    MinistryKey,
+    iso_day,
+    parse_choices,
+)
 from lawgraph.api.schemas.feed import (
     FeedFacetsDTO,
     FeedItemDTO,
@@ -47,6 +52,7 @@ from lawgraph.core.feed import (
     FeedCoalition,
     FeedCursor,
 )
+from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
@@ -61,10 +67,6 @@ router = APIRouter()
 # sub-path of ``/api/feed``.
 atom_router = APIRouter()
 
-# A dossier label or the start of one: 36600, 36600-VII, 37020- (its chapters).
-DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
-# A BWB id in any case: BWBR0052872, a treaty BWBV0001000.
-BWB_ID_PATTERN = r"^[Bb][Ww][Bb][RrVv]\d+$"
 ATOM_MEDIA_TYPE = "application/atom+xml"
 
 _EVENTS = (
@@ -167,7 +169,7 @@ def scope_filters(
             "it, the events of the dossiers it or a publication of it was legislated in "
             "and of the dossiers of those papers, its new versions and those of the "
             "regulations issued under it, the judgments that cite it.",
-            pattern=BWB_ID_PATTERN,
+            pattern=BWB_ID_PARAM_PATTERN,
         ),
     ] = None,
     article: Annotated[
