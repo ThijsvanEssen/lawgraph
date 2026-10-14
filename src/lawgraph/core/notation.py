@@ -125,6 +125,10 @@ class Notation:
     # The articles are alternatives, not cited together: a citation of a code that leaves
     # the book open (``art. 3 BW``: article 3 of which book?).
     choice: bool = False
+    # The sequence is a number right behind the dossier number and a hyphen (``21501-31``),
+    # which may as well be the suffix of a subdossier; not in "nr. 31", behind a suffix
+    # (``29684-I-3``) or in an official id (``kst-36327-3``).
+    hyphenated: bool = False
 
 
 @dataclass(frozen=True)
@@ -150,6 +154,8 @@ def _dossier(text: str) -> Notation | None:
         dossier=number,
         suffix=suffix.upper() if suffix else None,
         sequence=sequence.upper() if sequence else None,
+        hyphenated=bool(match["seq"] and not suffix)
+        and not (keyword or "").lower().startswith("kst"),
     )
 
 
