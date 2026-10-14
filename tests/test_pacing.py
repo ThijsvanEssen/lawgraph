@@ -13,6 +13,8 @@ from lawgraph.clients.base import BaseClient
 from lawgraph.clients.pacing import HostPacer, PacedSession, pacer_for
 from lawgraph.config.constants import DEFAULT_MIN_INTERVAL, HOST_MIN_INTERVAL
 
+MACHINE_LOCK_DIR = pacing._lock_dir  # before conftest points it at the test run
+
 
 class _Clock:
     """A clock that only moves when something sleeps."""
@@ -269,7 +271,17 @@ def test_five_attempts_before_giving_up(slept) -> None:
     with pytest.raises(requests.HTTPError):
         _client(session)._get_raw_absolute_with_retry("https://retry.test/x")
     assert session.calls == 5
-    assert slept == [1.0, 2.0, 4.0, 8.0, 16.0][: len(slept)]
+    assert slept == [1.0, 2.0, 4.0, 8.0]
+
+
+def test_no_sleep_after_the_last_connection_error(slept, monkeypatch) -> None:
+    def refuse(*args, **kwargs):
+        raise requests.ConnectionError("refused")
+
+    monkeypatch.setattr(requests.Session, "request", refuse)
+    with pytest.raises(requests.ConnectionError):
+        _client(requests.Session())._get_raw_absolute_with_retry("https://retry.test/x")
+    assert slept == [1.0, 2.0, 4.0, 8.0]
 
 
 def test_retry_after_longer_than_the_backoff_is_followed(slept) -> None:
@@ -346,6 +358,20 @@ def test_without_a_lock_directory_the_host_is_paced_as_usual(
 ) -> None:
     monkeypatch.setattr(pacing, "_lock_dir", lambda: lock_dir / "missing")
     assert pacing.pacer_for("https://repository.overheid.nl/sru").base_interval == 0.5
+
+
+def test_an_unwritable_home_paces_the_host_as_usual(tmp_path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir(mode=0o500)
+    monkeypatch.setattr(pacing.Path, "home", lambda: home)
+    monkeypatch.setattr(pacing, "_lock_dir", MACHINE_LOCK_DIR)
+    monkeypatch.setattr(pacing, "_pacers", {})
+    monkeypatch.setattr(pacing, "_host_locks", {})
+    monkeypatch.setattr(pacing, "_start_releaser", lambda: None)
+
+    pacer = pacing.pacer_for("https://x.test/")
+
+    assert pacer.holding
 
 
 REPOSITORY = "https://repository.overheid.nl/sru"
