@@ -100,7 +100,7 @@ All default to the public endpoints; no key is required.
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
 | `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`, and fails the run when the test server does not answer; shell only |
 | `ALLOW_S3_TESTS` | unset | `1` runs the tests of the payload store in an S3 bucket (`tests/integration/test_payloads.py`), and fails them when the S3 test server does not answer; shell only |
-| `LAWGRAPH_TEST_DB_URL` | `postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph` | server `tests/pg/` and `tests/integration/` talk to (`docker-compose.test.yml`); each test makes a database `lawgraph_it_...` there and drops it; shell only |
+| `LAWGRAPH_TEST_DB_URL` | `postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph` | server `tests/pg/` and `tests/integration/` talk to (`docker-compose.test.yml`); each test makes a database `lawgraph_it_<checkout>_<pid>_<n>` there and drops it; shell only |
 
 ## CLI
 
@@ -627,8 +627,10 @@ correctly and stays inside the server's memory limit against realistically large
 heavily-cited data. A problem found in a real run gets a test here first: small data on a
 small server fails the way the corpus does on the real one.
 
-Each test creates its own database (`lawgraph_it_<uuid>`) on the test server and drops it
-afterwards, so tests stay independent of each other and safe to run in parallel; none of them
+Each test creates its own database (`lawgraph_it_<checkout>_<pid>_<n>`: the directory of the
+checkout, the process of the run) on the test server and drops it afterwards, so tests stay
+independent of each other and runs from several worktrees can share the server; a run starts
+by dropping what killed runs of its own checkout left behind (their process is gone). None of them
 touches the database of `.env`. `conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is
 unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
 the run before any test. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
