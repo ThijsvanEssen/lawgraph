@@ -5,6 +5,11 @@ REPEALS edge to that article with status ``voorgesteld``: the change is proposed
 not yet law. The instrument that eventually enacts it carries the canonical edge,
 written by ``bwb_amendments`` from the BWB metadata.
 
+A paper that changes one law changes it wherever its text says so. A paper that changes
+several (a verzamelwet) changes each in its own wijzigingsartikel (``ARTIKEL I``,
+``ARTIKEL II`` …, the roman ``article`` sections of the paper): the articles a part names go
+to the law it names first; a part that names none of the paper's laws changes none of them.
+
 Not to an article of the act the paper's own dossier made (the instrument ``LEGISLATED_IN``
 it): the bill, its memorandum, a nota van wijziging and its amendments make that act, they do
 not change it. The edges are derived in full on every run; one no longer derived goes.
@@ -12,8 +17,10 @@ not change it. The edges are derived in full on every run; one no longer derived
 
 from __future__ import annotations
 
+import itertools
 import re
-from typing import Iterable
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, NamedTuple
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -25,12 +32,14 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
+from lawgraph.core.kamerstuk_xml import KIND_ARTICLE, SCHEME_ROMAN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
+from lawgraph.pipelines.semantic.tk import NamedActs
 
 logger = get_logger(__name__)
 
@@ -61,7 +70,7 @@ _WORDT_GEWIJZIGD = re.compile(
 
 # "Na artikel 5 wordt een artikel ingevoegd" / "een nieuw artikel 5a ingevoegd"
 _WORDT_INGEVOEGD = re.compile(
-    r"\b(?:Na|na|In)\s+artikel\s+(\d+[a-z]*)\s+wordt\s+een\s+(?:nieuw\s+)?artikel\s+(\d+[a-z]*)\s+ingevoegd",
+    r"\b(?:Na|In)\s+artikel\s+(\d+[a-z]*)\s+wordt\s+een\s+(?:nieuw\s+)?artikel\s+(\d+[a-z]*)\s+ingevoegd",
     re.IGNORECASE,
 )
 
@@ -95,44 +104,86 @@ _AMENDMENT_PATTERNS: list[tuple[re.Pattern[str], int, str, float]] = [
 ]
 
 
-def detect_amendment_citations(
-    text: str,
-    bwb_id: str,
-) -> list[tuple[CitationHit, str]]:
-    """Return (CitationHit, relation) pairs for amendment language found in *text*.
+class AmendmentHit(NamedTuple):
+    """An article a text says it changes, and how."""
 
-    Only call this when *bwb_id* is known — the pipeline enforces that guard.
-    Returns a list of (hit, relation_type) tuples.
-    """
-    if not text or not bwb_id:
-        return []
+    article_number: str
+    relation: str
+    confidence: float
+    snippet: str
 
-    results: list[tuple[CitationHit, str]] = []
+
+def detect_amendment_citations(text: str) -> list[AmendmentHit]:
+    """The articles *text* says it changes, each with a relation once: the surest wording
+    that says so."""
+    hits: list[AmendmentHit] = []
     seen: set[tuple[str, str]] = set()
-
     for pattern, article_group, relation, confidence in _AMENDMENT_PATTERNS:
         for match in pattern.finditer(text):
-            try:
-                article_number = match.group(article_group)
-            except IndexError:
+            article_number = match.group(article_group)
+            if (article_number, relation) in seen:
                 continue
-            if not article_number:
-                continue
-            key = (article_number, relation)
-            if key in seen:
-                continue
-            seen.add(key)
-            hit = CitationHit(
-                kind="article",
-                bwb_id=bwb_id,
-                article_number=article_number,
-                confidence=confidence,
-                raw_match=match.group(0),
-                snippet=make_snippet(text, match.span()),
+            seen.add((article_number, relation))
+            hits.append(
+                AmendmentHit(
+                    article_number,
+                    relation,
+                    confidence,
+                    make_snippet(text, match.span()),
+                )
             )
-            results.append((hit, relation))
+    return hits
 
-    return results
+
+def amendments_per_law(
+    props: Mapping[str, Any], laws: Sequence[str], named_acts: NamedActs
+) -> dict[str, list[AmendmentHit]]:
+    """BWB id -> the articles of that law the paper (*props*: its ``text`` and ``sections``)
+    says it changes, for the *laws* it amends (see the module docstring)."""
+    if len(laws) == 1:
+        return {laws[0]: detect_amendment_citations(strip_xml(str(props["text"])))}
+    texts: dict[str, list[str]] = {}
+    for part in _wijzigingsartikelen(str(props["text"]), props.get("sections") or ()):
+        law = _first_law_named(part, laws, named_acts)
+        if law is not None:
+            texts.setdefault(law, []).append(part)
+    return {
+        law: detect_amendment_citations(" ".join(parts)) for law, parts in texts.items()
+    }
+
+
+def _wijzigingsartikelen(text: str, sections: Iterable[Mapping[str, Any]]) -> list[str]:
+    """The text of each wijzigingsartikel, from its heading to the next one (a heading
+    ``ARTIKEL I, onderdeel B`` right after ``ARTIKEL I`` is still that article); the whole
+    text without any."""
+    heads = [
+        (section["number"], section["char_start"])
+        for section in sections
+        if section["kind"] == KIND_ARTICLE and section["number_scheme"] == SCHEME_ROMAN
+    ]
+    starts = [
+        start
+        for index, (number, start) in enumerate(heads)
+        if index == 0 or heads[index - 1][0] != number
+    ]
+    if not starts:
+        return [strip_xml(text)]
+    bounds = [*starts, len(text)]
+    return [strip_xml(text[start:end]) for start, end in itertools.pairwise(bounds)]
+
+
+def _first_law_named(
+    part: str, laws: Sequence[str], named_acts: NamedActs
+) -> str | None:
+    """Of *laws*, the one *part* names first; None when it names none of them."""
+    named: list[CitationHit] = []
+    named_acts.collect_hits(part, named.append)
+    first = min(
+        (hit for hit in named if hit.bwb_id in laws),
+        key=lambda hit: hit.start or 0,
+        default=None,
+    )
+    return first.bwb_id if first else None
 
 
 class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
@@ -141,10 +192,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         """Scan TK documents for amendment language and create semantic edges."""
         result = PipelineResult()
-
-        # Pre-load the instrument context once before streaming documents.
         amends_index = self._load_amends_instrument_index()
-
         logger.info(
             "Scanning TK documents for amendment language "
             "(%d with an amended-instrument context).",
@@ -154,44 +202,24 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None)
         kept: list[str] = []
         acts = semantic_tk.acts_of_dossiers(self.store)
+        named_acts = NamedActs(self._load_instrument_aliases())
 
         documents = self._load_tk_documents(amends_index)
         for document in self._track(documents, "TK documents"):
-            own_acts = {
-                act
-                for label in document.props.get("dossier_numbers") or []
-                for act in acts.get(str(label), ())
-            }
-            bwb_ids = [
+            own_acts = semantic_tk.own_acts(acts, document.props)
+            laws = [
                 bwb_id
-                for bwb_id in self._resolve_bwb_ids(document, amends_index)
+                for bwb_id in self._laws_of(document, amends_index)
                 if f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}" not in own_acts
             ]
-            if not bwb_ids:
-                logger.debug(
-                    "Amendment scanner: no BWB id context for document %s — skipping.",
-                    document.key,
-                )
+            if not laws:
                 result.skipped += 1
                 continue
-
-            raw_text = document.props.get("text") or ""
-            if not raw_text:
-                result.skipped += 1
-                continue
-
-            text = strip_xml(str(raw_text))
-            if not text:
-                result.skipped += 1
-                continue
-
-            for bwb_id in bwb_ids:
-                hits = detect_amendment_citations(text, bwb_id)
-                if not hits:
-                    continue
-
-                for hit, relation in hits:
-                    key = make_node_key(hit.bwb_id or "", hit.article_number or "")
+            for bwb_id, hits in amendments_per_law(
+                document.props, laws, named_acts
+            ).items():
+                for hit in hits:
+                    key = make_node_key(bwb_id, hit.article_number)
                     target_node = self._lookup_node(COLLECTION_ARTICLES, key)
                     if target_node is None:
                         logger.debug(
@@ -199,11 +227,10 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                             key,
                         )
                         continue
-
                     edge_doc = self._make_edge_doc(
                         from_node=document,
                         to_node=target_node,
-                        relation=relation,
+                        relation=hit.relation,
                         source=SEMANTIC_SOURCE,
                         confidence=hit.confidence,
                         meta={"reason": "amendment_text", "snippet": hit.snippet},
@@ -234,46 +261,20 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _load_amends_instrument_index(self) -> dict[str, list[str]]:
-        """Build a document-id → [bwb_id, ...] map from document → instrument edges.
-
-        ``semantic tk-amends`` writes one AMENDS edge per (document,
-        instrument) pair when a document's title signals legislative amendment
-        intent. Loading these once avoids an N-queries-per-document scan inside
-        the run loop.
-        """
+        """Document id -> the BWB ids of the instruments it AMENDS (``semantic tk-amends``,
+        from its title), once for the run."""
         index: dict[str, list[str]] = {}
         for row in semantic_tk.amended_instruments(self.store):
-            document_id = row.get("document_id")
-            bwb_id = row.get("bwb_id")
-            if not document_id or not bwb_id:
-                continue
-            bucket = index.setdefault(str(document_id), [])
-            bwb_str = str(bwb_id).strip()
-            if bwb_str and bwb_str not in bucket:
-                bucket.append(bwb_str)
+            bucket = index.setdefault(str(row["document_id"]), [])
+            bwb_id = str(row["bwb_id"]).strip()
+            if bwb_id not in bucket:
+                bucket.append(bwb_id)
         return index
 
-    def _resolve_bwb_ids(
-        self, document: Node, amends_index: dict[str, list[str]]
-    ) -> list[str]:
-        """Return all BWB ids that scope the amendment scan for *document*.
-
-        Resolution order:
-          1. Direct ``props.bwb_id`` if set.
-          2. AMENDS edges from this document to an instrument (built upstream by
-             ``semantic tk-amends``).
-        """
-        bwb_ids: list[str] = []
-
-        bwb_id = document.props.get("bwb_id")
-        if bwb_id and isinstance(bwb_id, str):
-            stripped = bwb_id.strip()
-            if stripped:
-                bwb_ids.append(stripped)
-
-        # Edge-based resolution — the common path for hydrated TK documents.
-        for edge_bwb_id in amends_index.get(document.node_id or "", []):
-            if edge_bwb_id not in bwb_ids:
-                bwb_ids.append(edge_bwb_id)
-
-        return bwb_ids
+    @staticmethod
+    def _laws_of(document: Node, amends_index: dict[str, list[str]]) -> list[str]:
+        """The BWB ids of the laws *document* amends: its own ``props.bwb_id``, then those
+        it AMENDS."""
+        own = str(document.props.get("bwb_id") or "").strip()
+        amended = amends_index.get(document.node_id or "", [])
+        return list(dict.fromkeys(filter(None, [own, *amended])))

@@ -10,8 +10,10 @@ import pathlib
 
 from lawgraph.core.citations import strip_xml
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
-from lawgraph.pipelines.semantic.tk import detect_tk_citations
+from lawgraph.pipelines.normalize.tk_content import document_props
+from lawgraph.pipelines.semantic.tk import NamedActs, detect_tk_citations
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
+    amendments_per_law,
     detect_amendment_citations,
 )
 
@@ -33,8 +35,8 @@ _PAPER = """<kamerwrk><body><stuk>
 def test_amendment_language_is_found_in_the_text_of_a_paper() -> None:
     text = parse_kamerstuk(_PAPER).text
     hits = {
-        (hit.article_number, relation)
-        for hit, relation in detect_amendment_citations(strip_xml(text), "BWBR0001")
+        (hit.article_number, hit.relation)
+        for hit in detect_amendment_citations(strip_xml(text))
     }
     assert hits == {
         ("36f", "REPEALS"),
@@ -47,9 +49,9 @@ def test_the_line_breaks_of_a_real_paper_change_no_amendment_hit() -> None:
     xml = (FIXTURES / "kst_24507_3.xml").read_text(encoding="utf-8")
     text = parse_kamerstuk(xml).text
     assert "\n" in text  # the paper is lines now
-    assert detect_amendment_citations(
-        strip_xml(text), "BWBR0001"
-    ) == detect_amendment_citations(strip_xml(text.replace("\n", " ")), "BWBR0001")
+    assert detect_amendment_citations(strip_xml(text)) == detect_amendment_citations(
+        strip_xml(text.replace("\n", " "))
+    )
 
 
 def test_a_citation_is_found_in_a_paragraph_and_in_a_list_item() -> None:
@@ -63,4 +65,61 @@ def test_a_citation_is_found_in_a_paragraph_and_in_a_list_item() -> None:
     assert {(h.article_number, h.bwb_id) for h in hits} == {
         ("287", "BWBR0001854"),
         ("302", "BWBR0001854"),
+    }
+
+
+WFT, WTA = "BWBR0020368", "BWBR0019079"
+_NAMES = NamedActs(
+    {
+        "Wet op het financieel toezicht": (WFT, None),
+        "Wet toezicht accountantsorganisaties": (WTA, None),
+        "Huisvestingswet 2014": ("BWBR0035303", None),
+        "Woningwet": ("BWBR0005181", None),
+    }
+)
+
+_TWO_LAWS = """<kamerwrk><body><stuk>
+<al>Alzo Wij in overweging genomen hebben dat het wenselijk is de Wet op het financieel
+toezicht en de Wet toezicht accountantsorganisaties te wijzigen.</al>
+<tuskop>ARTIKEL I</tuskop>
+<al>De Wet op het financieel toezicht wordt als volgt gewijzigd:</al>
+<tuskop>A</tuskop>
+<al>Artikel 5 vervalt.</al>
+<tuskop>ARTIKEL II</tuskop>
+<al>De Wet toezicht accountantsorganisaties wordt als volgt gewijzigd:</al>
+<al>Artikel 7 wordt als volgt gewijzigd:</al>
+<tuskop>ARTIKEL III</tuskop>
+<al>Deze wet treedt in werking met ingang van de dag na uitgifte. Artikel 9 vervalt.</al>
+</stuk></body></kamerwrk>"""
+
+
+def _per_law(xml: str, laws: list[str]) -> dict[str, set[tuple[str, str]]]:
+    props = document_props(parse_kamerstuk(xml))
+    return {
+        law: {(hit.article_number, hit.relation) for hit in hits}
+        for law, hits in amendments_per_law(props, laws, _NAMES).items()
+    }
+
+
+def test_a_bill_of_one_law_changes_that_law_wherever_it_says_so() -> None:
+    assert _per_law(_TWO_LAWS, [WFT]) == {
+        WFT: {("5", "REPEALS"), ("7", "AMENDS"), ("9", "REPEALS")}
+    }
+
+
+def test_each_law_of_a_bill_gets_only_the_articles_of_its_own_part() -> None:
+    """ARTIKEL I changes the Wft, ARTIKEL II the Wta; ARTIKEL III names no law."""
+    assert _per_law(_TWO_LAWS, [WFT, WTA]) == {
+        WFT: {("5", "REPEALS")},
+        WTA: {("7", "AMENDS")},
+    }
+
+
+def test_the_memorandum_of_a_verzamelwet_explains_each_law_in_its_own_article() -> None:
+    """Kamerstuk 34 468, nr. 3: every change it words is to the Woningwet (ARTIKEL IX), none
+    to the Huisvestingswet 2014 (ARTIKEL II)."""
+    xml = (FIXTURES / "kst_34468_3.xml").read_text(encoding="utf-8")
+    assert _per_law(xml, ["BWBR0035303", "BWBR0005181"]) == {
+        "BWBR0035303": set(),
+        "BWBR0005181": {("37", "AMENDS"), ("45", "AMENDS"), ("120b", "AMENDS")},
     }

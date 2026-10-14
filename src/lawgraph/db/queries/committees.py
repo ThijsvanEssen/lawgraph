@@ -658,10 +658,13 @@ def get_factions(
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
-    the members the last snapshot shows), seated ones first; with a period (*active_from*,
-    *active_to*) those active in it (``active_from`` to ``active_until``)."""
-    bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
+    """Every parliamentary party of *chamber* with its member count (the seats held today,
+    ``lg_seated``), seated ones first; with a period (*active_from*, *active_to*) those
+    active in it (``active_from`` to ``active_until``)."""
+    bind: dict[str, Any] = {
+        "member_of": RELATION_MEMBER_OF,
+        "today": dt.date.today().isoformat(),
+    }
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
     if _period(bind, active_from, active_to):
         filters.append(
@@ -685,7 +688,7 @@ def get_factions(
             FROM {COLLECTION_EDGES} e
             WHERE e.relation = %(member_of)s
               AND e.to_collection = '{COLLECTION_FACTIONS}'
-              AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
+              AND lg_seated(e.doc -> 'meta', %(today)s)
             GROUP BY e.to_id
         ) counted ON counted.to_id = f.id
         WHERE {" AND ".join(f"({f})" for f in filters)}
