@@ -42,41 +42,27 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, count_calls
 
 SOURCE = "test"
 
 
-class _Store(RawSourcesFake):
-    """The slice of GraphStore the normalizers use, recorded in memory."""
+def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
+    """A store holding the nodes of *existing* (collection -> keys)."""
+    return InMemoryStore(
+        {
+            collection: [{"_key": key, "props": {}} for key in keys]
+            for collection, keys in (existing or {}).items()
+        }
+    )
 
-    def __init__(self, existing: dict[str, set[str]] | None = None) -> None:
-        self.existing = existing or {}
-        self.edge_meta: dict[tuple[str, str, str], dict | None] = {}
-        self.written_nodes: dict[tuple[str, str], dict] = {}
-        self.existence_calls = 0
-        self.bulk_edge_calls = 0
-        self.bulk_node_calls = 0
 
-    def existing_keys(self, collection: str, keys: Any) -> set[str]:
-        self.existence_calls += 1
-        return set(keys) & self.existing.get(collection, set())
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
-        self.bulk_edge_calls += 1
-        for doc in docs:
-            self.edge_meta[(doc["_from"], doc["relation"], doc["_to"])] = (
-                doc.get("meta") or None
-            )
-        return len(docs), 0
-
-    def bulk_insert_or_update_nodes(
-        self, collection: str, docs: list[dict]
-    ) -> tuple[int, int]:
-        self.bulk_node_calls += 1
-        for doc in docs:
-            self.written_nodes[(collection, doc["_key"])] = dict(doc["props"])
-        return len(docs), 0
+def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
+    """The meta of every stored edge, by its endpoints and relation."""
+    return {
+        (edge["_from"], edge["relation"], edge["_to"]): edge.get("meta") or None
+        for edge in store.edges.values()
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -153,7 +139,7 @@ def test_every_edge_this_pipeline_writes_is_in_the_catalogue(
 
 
 def test_documents_are_part_of_their_cases_and_dossiers() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}, COLLECTION_CASES: {"z_1"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}, COLLECTION_CASES: {"z_1"}})
     documents = [
         _document(
             "a", case_ids=["z-1", "z-unknown"], dossier_numbers=["36000", "99999"]
@@ -163,14 +149,14 @@ def test_documents_are_part_of_their_cases_and_dossiers() -> None:
 
     tk_cases.link_subjects(store, documents, RELATION_PART_OF, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_DOCUMENTS}/a", RELATION_PART_OF, f"{COLLECTION_CASES}/z_1"),
         (f"{COLLECTION_DOCUMENTS}/a", RELATION_PART_OF, f"{COLLECTION_DOSSIERS}/36000"),
     }
 
 
 def test_activities_and_decisions_are_about_their_subjects() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
     activity = _node(
         COLLECTION_ACTIVITIES, NodeType.ACTIVITY, "a1", dossier_numbers=["36000"]
     )
@@ -181,7 +167,7 @@ def test_activities_and_decisions_are_about_their_subjects() -> None:
     tk_cases.link_subjects(store, [activity], RELATION_ABOUT, source=SOURCE)
     tk_cases.link_subjects(store, [decision], RELATION_ABOUT, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_ACTIVITIES}/a1", RELATION_ABOUT, f"{COLLECTION_DOSSIERS}/36000"),
         (f"{COLLECTION_DECISIONS}/s1", RELATION_ABOUT, f"{COLLECTION_DOSSIERS}/36000"),
     }
@@ -195,17 +181,17 @@ def test_cases_are_part_of_the_dossiers_they_name(
         {"id": f"{COLLECTION_CASES}/z2", "dossier_numbers": []},
     ]
     monkeypatch.setattr(normalize_tk, "case_dossier_numbers", lambda store: iter(rows))
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
 
     tk_cases.link_cases_to_dossiers(store, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_CASES}/z1", RELATION_PART_OF, f"{COLLECTION_DOSSIERS}/36000")
     }
 
 
 def test_an_activity_is_led_by_its_lead_committee_only() -> None:
-    store = _Store(existing={COLLECTION_COMMITTEES: {"c1"}})
+    store = _store(existing={COLLECTION_COMMITTEES: {"c1"}})
     activities = {
         "a1": _node(COLLECTION_ACTIVITIES, NodeType.ACTIVITY, "a1", committee_id="c1"),
         # A plenary activity has none.
@@ -217,7 +203,7 @@ def test_an_activity_is_led_by_its_lead_committee_only() -> None:
 
     tk_cases.link_activities_to_committees(store, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_ACTIVITIES}/a1", RELATION_LED_BY, f"{COLLECTION_COMMITTEES}/c1")
     }
 
@@ -226,7 +212,7 @@ def test_an_activity_is_led_by_its_lead_committee_only() -> None:
 
 
 def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
     activities = {
         "a1": _node(
             COLLECTION_ACTIVITIES,
@@ -250,7 +236,7 @@ def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
 
     tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (
             f"{COLLECTION_COMMITMENTS}/t1",
             RELATION_MADE_IN,
@@ -269,7 +255,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 ):
     # 2026A04251 (Wetgevingsoverleg 36835, Verplaatst) kept no agenda; the Kamer replaced
     # it by 2026A06208 (VervangenDoor), whose agenda holds the cases of 36835
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36835"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36835"}})
     activities = {
         "moved": _node(
             COLLECTION_ACTIVITIES,
@@ -310,7 +296,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 
     tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         # made in the activity it names, about what the replacement discussed
         (
             f"{COLLECTION_COMMITMENTS}/t1",
@@ -334,7 +320,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 
 
 def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() -> None:
-    store = _Store(existing={COLLECTION_MEMBERS: {"p1"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p1"}})
     documents = {
         "d1": _document(
             "d1",
@@ -356,7 +342,7 @@ def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() ->
 
     tk_cases.link_authors(store, documents, source=SOURCE)
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_AUTHORED,
@@ -373,7 +359,7 @@ def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() ->
 
 
 def test_a_committee_seat_carries_one_representative_period() -> None:
-    store = _Store(
+    store = _store(
         existing={COLLECTION_COMMITTEES: {"c1"}, COLLECTION_MEMBERS: {"p1", "p2"}}
     )
     raws = [
@@ -414,7 +400,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
 
     tk_members.link_members_to_committees(store, raws, source=SOURCE)
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
@@ -436,7 +422,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
 
 
 def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
-    store = _Store()
+    store = _store()
     faction = _node(
         COLLECTION_FACTIONS,
         NodeType.FACTION,
@@ -464,7 +450,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
         store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE
     )
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
@@ -476,7 +462,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
             "record_ids": ["s1"],
         }
     }
-    written = store.written_nodes[(COLLECTION_MEMBERS, "p1")]
+    written = store.nodes[COLLECTION_MEMBERS]["p1"]["props"]
     assert written["party"] == "VVD"
     assert written["display_name"] == "Jan (VVD)"
     assert written["faction_memberships"] == [
@@ -520,7 +506,7 @@ def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order(
     }
     metas = []
     for order in ([first, second], [second, first]):
-        store = _Store()
+        store = _store()
         tk_members.link_members_to_factions(
             store,
             [_raw(payload) for payload in order],
@@ -528,7 +514,7 @@ def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order(
             {"f-sp": faction},
             source=SOURCE,
         )
-        metas.append(store.edge_meta)
+        metas.append(_edge_meta(store))
     assert (
         metas[0]
         == metas[1]
@@ -572,7 +558,7 @@ def _vote_raw(**overrides: Any) -> dict[str, Any]:
 
 
 def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
-    store = _Store()
+    store = _store()
     raws = [
         _vote_raw(Id="v-1"),
         _vote_raw(Id="v-2", Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
@@ -588,7 +574,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision_id = f"{COLLECTION_DECISIONS}/{decisions['b-1'].key}"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, decision_id): {
             "choice": "Voor",
             "seats": 24,
@@ -603,7 +589,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
 
 
 def test_a_roll_call_is_cast_by_the_members() -> None:
-    store = _Store(existing={COLLECTION_MEMBERS: {"p_1"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p_1"}})
     raws = [
         _vote_raw(
             Id="v-1",
@@ -627,7 +613,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
 
     decision = decisions["b-1"]
     assert decision.props["vote_kind"] == "member"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p_1",
             RELATION_VOTED,
@@ -639,7 +625,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
 def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     """A faction vote in which members voted apart: the faction votes with its seats
     without them, each of them from their member node with one seat."""
-    store = _Store(existing={COLLECTION_MEMBERS: {"p_3", "p_4"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p_3", "p_4"}})
     raws = [
         _vote_raw(Id="v-1", Soort="Tegen", FractieGrootte=7),
         _vote_raw(Id="v-3", Soort="Voor", FractieGrootte=7, Persoon_Id="p-3"),
@@ -654,7 +640,7 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     decision = decisions["b-1"]
     assert decision.props["vote_kind"] == "faction"
     target = f"{COLLECTION_DECISIONS}/{decision.key}"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, target): {
             "choice": "Tegen",
             "seats": 5,
@@ -715,12 +701,13 @@ def test_linking_does_not_look_items_up_one_by_one(
 ) -> None:
     ran = _count_queries(monkeypatch)
     n = 2000
-    store = _Store(
+    store = _store(
         existing={
             COLLECTION_DOSSIERS: {str(i) for i in range(n)},
             COLLECTION_MEMBERS: {f"p{i}" for i in range(n)},
         }
     )
+    lookups = count_calls(store, "existing_keys")
     documents = {
         f"d{i}": _document(
             f"d{i}",
@@ -733,14 +720,15 @@ def test_linking_does_not_look_items_up_one_by_one(
     tk_cases.link_subjects(store, documents.values(), RELATION_PART_OF, source=SOURCE)
     tk_cases.link_authors(store, documents, source=SOURCE)
 
-    assert len(store.edge_meta) == 2 * n
+    assert len(_edge_meta(store)) == 2 * n
     assert ran == []
     # One existence lookup for the dossiers, one for the signatories.
-    assert store.existence_calls == 2
+    assert lookups["existing_keys"] == 2
 
 
 def test_normalizing_activities_writes_nodes_in_bulk() -> None:
-    store = _Store()
+    store = _store()
+    writes = count_calls(store, "bulk_insert_or_update_nodes")
     raws = [
         _raw(
             {
@@ -769,12 +757,14 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
     assert len(nodes) == 700
     assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
     assert nodes["act1"].props["dossier_numbers"] == ["36000"]
-    assert store.bulk_node_calls == 2  # 500 + 200, not 700 single upserts
+    assert (
+        writes["bulk_insert_or_update_nodes"] == 2
+    )  # 500 + 200, not 700 single upserts
 
 
 def test_a_written_node_keeps_only_what_the_edges_need() -> None:
     """130K documents with their API payload are over a gigabyte; the edges read a few props."""
-    store = _Store()
+    store = _store()
     raws = (  # a generator: the records are walked once, as they stream in
         _raw({"Id": f"doc{i}", "Soort": "Motie", "Titel": "Motie " * 50})
         for i in range(3)
@@ -782,7 +772,7 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
 
     nodes = tk_cases.normalize_documents(store, raws)
 
-    written = store.written_nodes[(COLLECTION_DOCUMENTS, "doc1")]
+    written = store.nodes[COLLECTION_DOCUMENTS]["doc1"]["props"]
     assert written["title"].startswith("Motie") and "raw" in written
     assert set(nodes) == {"doc0", "doc1", "doc2"}
     assert set(nodes["doc1"].props) <= set(tk_cases.LINK_PROPS)
@@ -806,7 +796,7 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_a: 0)
 
-    raw = TKDossiersNormalizePipeline(store=_Store()).fetch_raw()
+    raw = TKDossiersNormalizePipeline(store=InMemoryStore()).fetch_raw()
     assert asked == []  # nothing is read before it is walked
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
@@ -875,7 +865,7 @@ DEBATE = "a76eec4d-9cde-48de-aefa-6385e69dd0e1"
 def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_letter() -> (
     None
 ):
-    store = _Store(
+    store = _store(
         existing={
             COLLECTION_DOCUMENTS: {
                 "9cd4c32c_77fb_4713_821d_faf5ebd49b61",
@@ -894,8 +884,9 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
         ("report", {"attached_to_ids": ["letter"]}),
         ("memo", {"attached_to_ids": ["letter"]}),  # the same edge as the letter's
     ]
+    lookups = count_calls(store, "existing_keys")
     tk_cases.link_documents(store, links, source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (
             "documents/9cd4c32c_77fb_4713_821d_faf5ebd49b61",
             RELATION_MADE_IN,
@@ -905,11 +896,11 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
         ("documents/report", RELATION_ACCOMPANIES, "documents/letter"),
     }
     # one lookup per collection, whatever the number of documents
-    assert store.existence_calls == 2
+    assert lookups["existing_keys"] == 2
 
 
 def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
-    store = _Store(existing={COLLECTION_DOCUMENTS: {"letter"}})
+    store = _store(existing={COLLECTION_DOCUMENTS: {"letter"}})
     commitment = _node(
         COLLECTION_COMMITMENTS,
         NodeType.COMMITMENT,
@@ -917,19 +908,19 @@ def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
         letter_ids=["LETTER", "absent"],
     )
     tk_cases.link_letters_to_commitments(store, [commitment], source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         ("documents/letter", RELATION_ANSWERS, "commitments/tz1")
     }
 
 
 def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
-    store = _Store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
+    store = _store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
     decisions = [
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b1", activity_id="ACT-1"),
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b2", activity_id="gone"),
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b3"),
     ]
     tk_cases.link_decisions_to_activities(store, decisions, source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
     }

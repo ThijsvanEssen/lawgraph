@@ -20,7 +20,6 @@ from __future__ import annotations
 from typing import Annotated, Any
 from urllib.parse import unquote, urlencode
 
-import psycopg
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
@@ -200,9 +199,6 @@ def render_page(
             "Render of %s past %.1f s: its title alone.", pathname, RENDER_BUDGET
         )
         timed_out = True
-    except psycopg.OperationalError:
-        # the database is gone: Caddy serves the static shell on a 503
-        return Response(status_code=503, headers={"Retry-After": "30"})
     finally:
         reset_read_deadline(token)
     if timed_out:

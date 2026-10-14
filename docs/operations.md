@@ -13,7 +13,7 @@ the same values; a variable already set in the process environment wins over `.e
 |----------|---------|---------|
 | `LAWGRAPH_DB_URL` | `postgresql://lawgraph:<LAWGRAPH_DB_PASSWORD>@localhost:5432` | PostgreSQL server (`postgresql://user:password@host:port`); without it, the server of `docker-compose.yml` with `LAWGRAPH_DB_PASSWORD` |
 | `LAWGRAPH_DB_PASSWORD` | none | password of the user `lawgraph`; `docker-compose.yml` gives the server this password |
-| `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema is refused at the start ("schema verouderd: herbouw nodig"): build it again; but a column the schema adds itself (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`, not generated), which the start adds. A column the schema does not know refuses the database only when it is required (NOT NULL without a default); else it is logged and left alone, so an older version starts on a database the step 0 of the next one prepared, and on a rollback (from 0.79.45 on: a release up to 0.79.44 refuses every column difference, see the deploy). So is a database that does not sort strings by the ICU collation `und-u-kf-upper` lawgraph makes its databases with (`create_database_sql`): the feed, the dossier and paper kinds and every sort by a name rely on it. The postgres image of `docker-compose.yml` makes its first database with it (`POSTGRES_INITDB_ARGS`); one made otherwise is moved into a database lawgraph makes, by a dump and a restore |
+| `LAWGRAPH_DB_NAME` | `lawgraph` | database; created on first use when it is missing and the user may, together with its tables, indexes and functions (`db/schema.py`). A database whose tables lack a column of the schema is refused at the start ("schema outdated, build the database again"); the API answers 503 until it restarts on a rebuilt one: build it again; but a column the schema adds itself (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`, not generated), which the start adds. A column the schema does not know refuses the database only when it is required (NOT NULL without a default); else it is logged and left alone, so an older version starts on a database the step 0 of the next one prepared, and on a rollback (from 0.79.45 on: a release up to 0.79.44 refuses every column difference, see the deploy). So is a database that does not sort strings by the ICU collation `und-u-kf-upper` lawgraph makes its databases with (`create_database_sql`): the feed, the dossier and paper kinds and every sort by a name rely on it. The postgres image of `docker-compose.yml` makes its first database with it (`POSTGRES_INITDB_ARGS`); one made otherwise is moved into a database lawgraph makes, by a dump and a restore |
 | `LAWGRAPH_ALLOW_COLLATION` | none | the collation of a database let through anyway, as the refusal names it (`libc en_US.utf8`): for the dump and restore that replaces it, never for a running API |
 | `LAWGRAPH_DB_POOL_SIZE` | `8` | connections per process, all opened at the start; a query borrows one only while it reads. N API processes open at most N × this many connections. Every connection runs without JIT compilation (`jit = off`): for the statements of the API it costs more than it gains; set it on the server too. And plans a server-side cursor for all its rows (`cursor_tuple_fraction = 1.0`): every read goes through one, and planned for its first tenth (the default) a statement with `ORDER BY … LIMIT` may walk a whole table in the order of an index |
 | `LAWGRAPH_DB_BACKGROUND_POOL_SIZE` | `4` | connections per API process for what it computes in the background (the warm-up, the answers it keeps per data version such as the facets of a filtered list, the statistics of the search), apart from the ones above and opened when first needed: a slow computation never keeps a request waiting for a connection. One for each of the three computations at a time and one for the warm-up |
@@ -473,15 +473,19 @@ versioning (or a replica in a second bucket) protects against a deleted or overw
 
 ## Deploy
 
-A release is one run of `.github/workflows/release.yml`, started by hand with the version
-(`gh workflow run release -f version=X.Y.Z`). It takes the head of develop, waits for its run of
-`tests.yaml` to be green, gives it the annotated tag `vX.Y.Z` (the version of the package comes
-from that tag), moves `release` to it (a fast-forward only), and calls the deploy.
+The version has one place: `__version__` in `src/lawgraph/__init__.py`. The package
+(`pyproject.toml`), the API (`/api/health`, the `ETag`s) and a bootstrap's record of its code
+read it there. A release:
 
-The deploy (`.github/workflows/deploy.yml`; a push to `release` starts it too, with the unit
-suite first) checks out exactly that commit on the server over SSH, fetching the tags,
-runs `uv pip install -e .` into its venv, and restarts the API, which has to answer `/api/health`
-within 30 seconds, with the `version` of the release. It then waits, up to 20 minutes, until `/api/health` has `"warm": true` (the warm-up of the current data
+1. a pull request into develop that changes only that line to `X.Y.Z`;
+2. a pull request from develop into `main`;
+3. the tag `build-X.Y.Z` on the merge commit on `main`;
+4. `release` moved forward to that commit, which starts the deploy:
+   `gh api -X PATCH repos/ThijsvanEssen/lawgraph/git/refs/heads/release -f sha=<commit> -F force=false`.
+
+The deploy (`.github/workflows/deploy.yml`, the unit suite first) checks out exactly that
+commit on the server over SSH, fetching the tags, runs `uv pip install -e .` into its venv,
+and restarts the API, which has to answer `/api/health` within 30 seconds. It then waits, up to 20 minutes, until `/api/health` has `"warm": true` (the warm-up of the current data
 done; the most cited articles it warms after that are not waited for), or a `warm_version` and
 `"computing": false` (under constant writes `warm` itself can stay false while requests are answered from the
 last version; `"warm": null` is warm-up off; an older API is followed by its journal line
@@ -489,7 +493,8 @@ last version; `"warm": null` is warm-up off; an older API is followed by its jou
 address (the variable `PUBLIC_URL`, default `https://concordans.nl`): health, a page of
 judgments without facets, a search, the feed and an article (Sr art. 287), each within its time budget (a route that misses it gets one more try 30 s later, as the caches
 are cold right after the restart), and
-the version that `/api/health` reports. When the deploy or the smoke test fails, the job puts the
+the version that `/api/health` reports, which has to be the `__version__` of the deployed
+commit. When the deploy or the smoke test fails, the job puts the
 previous commit back (`/srv/lawgraph/deploy/previous` holds it for that run), installs, restarts
 and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
 `/srv/lawgraph/scheduler.env` (or `/srv/lawgraph/bin/alert.sh`), and stays red.
@@ -594,7 +599,8 @@ mypy                                  # src, configured in pyproject.toml
 ```
 
 The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
-functions of `db/queries/` the code calls (a fake store keeps only the bulk writes and lookups);
+functions of `db/queries/` the code calls, answered from one store in memory (`tests/fakes.py`,
+with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
 no unit test runs or reads a query (`tests/test_conventions.py`), what a query does is tested in
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
 statement (`ALLOW_DB_TESTS=1`, a scratch database of its own).
