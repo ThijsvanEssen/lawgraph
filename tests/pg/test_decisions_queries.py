@@ -762,7 +762,7 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     monkeypatch.setattr(decision_queries, "PARTY_VOTES_MAX_AGE", 0.0)
     again = decision_queries.party_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
-    assert not any("party votes" in part for part in warm.PART_TABLES)
+    assert not any("party votes" in part.name for part in warm.PARTS)
 
 
 def test_the_page_first_and_the_counts_kept_per_filter(votes: GraphStore) -> None:

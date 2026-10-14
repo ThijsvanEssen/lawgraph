@@ -1,5 +1,5 @@
 """The statistics of the search: counted on a small table, taken from a sample of the
-same pages every time on a large one (``_bm25._stats``)."""
+same pages every time on a large one (``_bm25.table_statistics``)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _fill(store: GraphStore, rows: int) -> None:
 
 def test_a_small_table_is_counted(store: GraphStore) -> None:
     _fill(store, 40)
-    stats = _bm25._stats(store, "instruments")
+    stats = _bm25.table_statistics(store, "instruments")
     assert stats["N"] == 40
     assert stats["title/text"] > 1
 
@@ -41,7 +41,7 @@ def test_a_large_table_is_sampled_the_same_every_time(
 ) -> None:
     monkeypatch.setattr(_bm25, "STATS_MAX_AGE", 0.0)  # computed again on every call
     _fill(store, 2000)
-    counted = _bm25._stats(store, "instruments")
+    counted = _bm25.table_statistics(store, "instruments")
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 100)
     monkeypatch.setattr(_bm25, "MIN_SAMPLED", 10)
     statements: list[str] = []
@@ -55,9 +55,9 @@ def test_a_large_table_is_sampled_the_same_every_time(
     store.bulk_insert_or_update_nodes(
         "instruments", [_instrument(2000)]
     )  # a new version
-    sampled = _bm25._stats(store, "instruments")
+    sampled = _bm25.table_statistics(store, "instruments")
     store.bulk_insert_or_update_nodes("instruments", [_instrument(2001)])
-    again = _bm25._stats(store, "instruments")
+    again = _bm25.table_statistics(store, "instruments")
 
     assert any("TABLESAMPLE SYSTEM" in s for s in statements)
     assert sampled["N"] == pytest.approx(2000, rel=0.05)  # the planner's count
@@ -72,11 +72,11 @@ def test_a_large_table_is_sampled_the_same_every_time(
 def test_the_statistics_are_kept_when_the_data_changes(store: GraphStore) -> None:
     """A run of the pipelines hardly moves them: kept ``STATS_MAX_AGE``, not per version."""
     _fill(store, 40)
-    first = _bm25._stats(store, "instruments")
+    first = _bm25.table_statistics(store, "instruments")
     store.bulk_insert_or_update_nodes(
         "instruments", [_instrument(n) for n in range(40, 80)]
     )
-    assert _bm25._stats(store, "instruments") == first
+    assert _bm25.table_statistics(store, "instruments") == first
 
 
 def _judgments_with_words(store: GraphStore, rows: int) -> None:
