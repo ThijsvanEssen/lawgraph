@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     TOOI_BWB_THEMES,
 )
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 LEGAL_AREAS = json.loads((FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text())
@@ -88,7 +88,7 @@ def test_a_list_without_concepts_raises() -> None:
 
 
 def test_the_retrieve_stores_the_ministries_and_both_thesauri() -> None:
-    pipeline = TooiRetrievePipeline(RawSourcesFake(), client=_client(_answers()))  # type: ignore[arg-type]
+    pipeline = TooiRetrievePipeline(InMemoryStore(), client=_client(_answers()))  # type: ignore[arg-type]
     records = pipeline.fetch()
 
     assert [(r.kind, r.external_id) for r in records] == [

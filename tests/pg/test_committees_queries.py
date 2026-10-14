@@ -570,11 +570,14 @@ def _factions(store: GraphStore) -> None:
     g.node(
         "factions", "ek_vvd", name="VVD", abbreviation="VVD", active=True, chamber="EK"
     )
-    for member in ("m1", "m2", "m3"):
+    for member in ("m1", "m2", "m3", "m4", "m5"):
         g.node("members", member, name=member)
     g.edge("members/m1", RELATION_MEMBER_OF, "factions/vvd")
     g.edge("members/m2", RELATION_MEMBER_OF, "factions/vvd", observed_until=None)
     g.edge("members/m3", RELATION_MEMBER_OF, "factions/vvd", observed_until="2020")
+    # a former member (last day past) is not counted, one leaving later still is
+    g.edge("members/m4", RELATION_MEMBER_OF, "factions/vvd", to_date="2017-03-22")
+    g.edge("members/m5", RELATION_MEMBER_OF, "factions/vvd", to_date="2999-12-31")
     g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd", chamber="EK")
     g.edge("members/m1", RELATION_MEMBER_OF, "factions/d66")
     g.write()
@@ -588,7 +591,7 @@ def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     # seated, then not, then unknown; no abbreviation before one; a name settles one
     assert _keys(factions) == ["d66", "z", "vvd", "cda", "none"]
     counts = {doc["_key"]: doc["member_count"] for doc in factions}
-    assert counts == {"d66": 1, "z": 0, "vvd": 2, "cda": 0, "none": 0}
+    assert counts == {"d66": 1, "z": 0, "vvd": 3, "cda": 0, "none": 0}
     assert all(type(count) is int for count in counts.values())
     assert list(factions[0]) == [
         "_key",

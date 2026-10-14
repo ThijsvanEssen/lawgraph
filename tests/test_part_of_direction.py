@@ -19,7 +19,7 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.db.store import edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore
 
 INSTRUMENT = f"{COLLECTION_INSTRUMENTS}/BWBR0001854"
 ARTICLE = f"{COLLECTION_ARTICLES}/BWBR0001854_1"
@@ -39,7 +39,7 @@ def _node(collection: str, node_type: NodeType, key: str) -> Node:
 
 
 def test_bwb_normalize_writes_article_to_instrument() -> None:
-    store = _BaseFakeStore()
+    store = InMemoryStore()
     instrument = _node(COLLECTION_INSTRUMENTS, NodeType.INSTRUMENT, "BWBR0001854")
     article = _node(COLLECTION_ARTICLES, NodeType.ARTICLE, "BWBR0001854_1")
 
@@ -57,7 +57,7 @@ def test_bwb_normalize_writes_article_to_instrument() -> None:
 
 
 def test_eu_normalize_writes_article_to_instrument() -> None:
-    store = _BaseFakeStore()
+    store = InMemoryStore()
 
     instrument = _node(COLLECTION_INSTRUMENTS, NodeType.INSTRUMENT, "32016R0679")
     article = _node(COLLECTION_ARTICLES, NodeType.ARTICLE, "32016R0679_1")
