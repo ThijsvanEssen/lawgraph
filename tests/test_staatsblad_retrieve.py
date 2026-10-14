@@ -10,14 +10,12 @@ import requests
 
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import (
+    MAX_FAILURES_IN_A_ROW,
     MISSING_FOR_DAYS,
     missing_record,
     spread_days,
 )
-from lawgraph.pipelines.retrieve.staatsblad import (
-    MAX_DOWNLOAD_FAILURES,
-    StaatsbladRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from tests.fakes import RawSourcesFake
 
 
@@ -196,8 +194,8 @@ def test_one_publication_the_source_cannot_serve_is_asked_again_next_run() -> No
     assert store.stored == ["stb-2002-2"]
 
 
-def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
-    count = MAX_DOWNLOAD_FAILURES + 1
+def test_failed_downloads_apart_are_skips_and_a_run_of_them_fails_the_step() -> None:
+    count = MAX_FAILURES_IN_A_ROW + 1
     rows = []
     for n in range(count):  # a broken one, then a served one: the source is not down
         rows.append(_row(f"BWBR{n:07d}", _toestand("2015", str(n))))
@@ -207,10 +205,16 @@ def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
     result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
         store
     )
-    assert result.created == count
-    assert result.errors == [
-        f"1 x more than {MAX_DOWNLOAD_FAILURES} downloads failed ({count})"
-    ]
+    assert (result.created, result.errors) == (count, [])
+
+    down = [_row(f"BWBR{n:07d}", _toestand("2015", str(n))) for n in range(60)]
+    client = _Failing({f"stb-2015-{n}" for n in range(60)})
+    store = _Store(down)
+    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
+        store
+    )
+    assert len(client.fetched) < 2 * MAX_FAILURES_IN_A_ROW
+    assert any("seems to be down" in error for error in result.errors)
 
 
 def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> None:
