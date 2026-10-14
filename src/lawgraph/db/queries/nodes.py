@@ -17,12 +17,7 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
 
 
@@ -351,17 +346,9 @@ def _kept_lids(
 
     if wait:
         return kept()
-    left = read_time_left()
-    token = set_read_deadline(
-        LIGHT_LIDS_WAIT if left is None else min(LIGHT_LIDS_WAIT, left)
-    )
-    try:
-        with stale_wait(0.0):
-            return kept()
-    except ReadTimedOut:
-        return None
-    finally:
-        reset_read_deadline(token)
+    with read_budget(LIGHT_LIDS_WAIT, "The lid counts"), stale_wait(0.0):
+        return kept()
+    return None
 
 
 # How long the lid counts of an article are kept (seconds); a newer count is made in the

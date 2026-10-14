@@ -24,15 +24,10 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
 
 
@@ -424,31 +419,18 @@ def get_decisions(
     _add_motions(store, items)
     if not facets:
         return {"total": None, "items": items, "facets": None}
-    left = read_time_left()
-    token = set_read_deadline(
-        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
-    )
-    page: dict[str, Any]
-    try:
+    page: dict[str, Any] = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
+    with read_budget(COUNTS_BUDGET, "The counts of the decisions") as budget:
         counts = decision_counts(store, filters)
-        page = {"total": counts["total"], "items": items, "facets": counts["facets"]}
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
+        page.update(total=counts["total"], facets=counts["facets"])
+    if budget.ran_out:
         # counted on for the next request (``lasting``); this one shows the page now
-        page = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
         page["partial"] = True
-    finally:
-        reset_read_deadline(token)
     if filters.party_votes:
         _add_party_votes(store, filters, page)
     return page
 
 
-# The seconds a request waits for the total and facets of a filter not counted before:
-# past them the page comes without them, ``partial``, and they are counted on for a later
-# request.
-COUNTS_BUDGET = 3.0
 # How long the total and facets under a filter are kept for one version of the decisions
 # (seconds): a new version (a poll) counts again; the coalition of a vote and the votes of
 # a party, which raise no version of the decisions, follow within it.
@@ -506,13 +488,9 @@ def counted_total(store: GraphStore, filters: DecisionFilters) -> int | None:
     it: None while it is not counted for this version of the decisions (it is counted on,
     in the background)."""
     version = store.data_version((COLLECTION_DECISIONS,))
-    token = set_read_deadline(0.0)
-    try:
+    with read_budget(0.0, "The total of the decisions"):
         return _kept_counts(store, filters, version)["total"]  # type: ignore[no-any-return]
-    except ReadTimedOut:
-        return None
-    finally:
-        reset_read_deadline(token)
+    return None
 
 
 def _kept_counts(
@@ -702,18 +680,10 @@ def _add_party_votes(
 ) -> None:
     """``facets.party_votes`` of *page*, or ``partial`` when they take longer than
     ``PARTY_VOTES_BUDGET``."""
-    left = read_time_left()
-    token = set_read_deadline(
-        PARTY_VOTES_BUDGET if left is None else min(PARTY_VOTES_BUDGET, left)
-    )
-    try:
+    with read_budget(PARTY_VOTES_BUDGET, "The votes per party") as budget:
         page["facets"]["party_votes"] = party_votes(store, filters)
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
+    if budget.ran_out:
         page["partial"] = True
-    finally:
-        reset_read_deadline(token)
 
 
 # How long ``party_votes`` under a filter are kept (seconds), whatever the data does: every
