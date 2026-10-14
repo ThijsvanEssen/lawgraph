@@ -57,6 +57,8 @@ URLS = [
     "/api/search?q=stemming+abortus&types=decisions",
     "/api/resolve?q=art.+1+BWBR0001",
     "/api/resolve?q=A.+Lid",
+    # a paper by its dossier and ondernummer: by the index of its light row
+    "/api/resolve?q=36000-3",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
     "/api/search?q=wet&mode=live",
     # a period: each type by a date of its own, inside its lookup

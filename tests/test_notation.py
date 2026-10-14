@@ -240,8 +240,16 @@ def dossier(number: str, suffix: str | None = None) -> Notation:
     return Notation(kind="dossier", dossier=number, suffix=suffix)
 
 
-def paper(number: str, sequence: str, suffix: str | None = None) -> Notation:
-    return Notation(kind="document", dossier=number, suffix=suffix, sequence=sequence)
+def paper(
+    number: str, sequence: str, suffix: str | None = None, *, hyphenated: bool = False
+) -> Notation:
+    return Notation(
+        kind="document",
+        dossier=number,
+        suffix=suffix,
+        sequence=sequence,
+        hyphenated=hyphenated,
+    )
 
 
 @pytest.mark.parametrize(
@@ -262,8 +270,9 @@ def paper(number: str, sequence: str, suffix: str | None = None) -> Notation:
         ("Kamerstuk 35925 VII", dossier("35925", "VII")),
         ("Kamerstuk 1234", dossier("1234")),  # an old, shorter number needs the keyword
         # A paper in a dossier.
-        ("36327-3", paper("36327", "3")),
-        ("Kamerstuk 36327-3", paper("36327", "3")),
+        # right behind the number, a number may be the suffix of a subdossier as well
+        ("36327-3", paper("36327", "3", hyphenated=True)),
+        ("Kamerstuk 36327-3", paper("36327", "3", hyphenated=True)),
         ("Kamerstuk 36327 nr. 3", paper("36327", "3")),
         ("Kamerstuk 36327, nr. 3", paper("36327", "3")),
         ("Kamerstuk 36327, nr 3", paper("36327", "3")),
@@ -359,7 +368,7 @@ def test_a_parser_without_laws_still_reads_identifiers_and_dossiers() -> None:
     assert empty.parse("ECLI:NL:HR:2023:123") == Notation(
         kind="ecli", identifier="ECLI:NL:HR:2023:123"
     )
-    assert empty.parse("Kamerstuk 36327-3") == paper("36327", "3")
+    assert empty.parse("Kamerstuk 36327-3") == paper("36327", "3", hyphenated=True)
     assert empty.parse("artikel 6") == article(None, "6")
     assert empty.parse("artikel 287 Sr") is None
     assert empty.law_matches("Grondwet") == []
