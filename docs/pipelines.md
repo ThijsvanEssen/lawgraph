@@ -495,8 +495,10 @@ nr. 31)"). Of every letter whose text says "motie" each line and each footnote (
 `normalize tk-content`) is read in the forms above; a paper named that is a motion and that the
 subject does not name gets `ANSWERS`, confidence 0.9, `meta.basis` `text` or `footnote`,
 `meta.text` the line or the footnote (of a long line the 400 characters around the reference), `meta.reference` the reference. Other papers the text
-names get no edge. With `--since` it reads the papers fetched since then and those whose XML
-was (their text comes with `normalize tk-content`, often a day later).
+names get no edge. A letter has its text when `retrieve tk-content` fetched its XML, which it
+does for a letter only when asked (`--kind "brief regering"`), not by default. With `--since`
+it reads the papers fetched since then and those whose XML was (their text comes with
+`normalize tk-content`, often a day later).
 
 On `lawgraph_small` (12 Oct 2026, 23,423 papers): 596 subjects say "Kamerstuk", 420 name a paper
 (451 references), 86 references are in the graph (82 papers with an edge; most others name a
