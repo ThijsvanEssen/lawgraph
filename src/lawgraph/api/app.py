@@ -13,12 +13,13 @@ from typing import Annotated, Any
 
 import anyio
 import anyio.to_thread
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph import __version__
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
@@ -58,8 +59,10 @@ from lawgraph.core.logging import describe, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.queries.not_found import NotFound
+from lawgraph.db.schema import CollationMismatch, SchemaOutdated
 from lawgraph.db.store import (
     Cancellation,
+    DatabaseUnavailable,
     ReadTimedOut,
     RequestCancelled,
     reset_cancellation,
@@ -353,7 +356,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.56",
+    version=__version__,
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -398,24 +401,24 @@ async def _log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - start) * 1000
-    response.headers["X-Request-ID"] = request_id
     # the path without its query string (a search term may name a person) and the
     # network of the client, never its address
-    path = request.url.path
-    client = truncated_ip(request.client.host) if request.client else "-"
-    size = response.headers.get("content-length", "-")
-    _logger.info(
-        "[%s] %s %s %s → %d %sb (%.1fms)",
-        request_id[:8],
-        client,
-        request.method,
-        path,
-        response.status_code,
-        size,
-        duration_ms,
+    line = (
+        f"[{request_id[:8]}] "
+        f"{truncated_ip(request.client.host) if request.client else '-'} "
+        f"{request.method} {request.url.path} →"
     )
+    try:
+        response = await call_next(request)
+    except Exception:
+        # an error no handler answers: the server answers 500, this is its line
+        duration_ms = (time.perf_counter() - start) * 1000
+        _logger.exception("%s 500 (%.1fms)", line, duration_ms)
+        raise
+    duration_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Request-ID"] = request_id
+    size = response.headers.get("content-length", "-")
+    _logger.info("%s %d %sb (%.1fms)", line, response.status_code, size, duration_ms)
     return response
 
 
@@ -459,37 +462,33 @@ async def health(
     pool its size, the free connections and the reads waiting for one; ``busy`` what the
     threads of the shared pools and of the background (the cache, the warm-up) run now,
     and how long."""
-    try:
-        store.ping()
-        answer: dict[str, Any] = {
-            "status": "ok",
-            "version": app.version,
-            "database": "connected",
-            "warm": None,
-        }
-        if API_WARM_UP:
-            from lawgraph.api.warm import is_warm, warmed_version
+    store.ping()
+    answer: dict[str, Any] = {
+        "status": "ok",
+        "version": app.version,
+        "database": "connected",
+        "warm": None,
+    }
+    if API_WARM_UP:
+        from lawgraph.api.warm import is_warm, warmed_version
 
-            answer |= {
-                "warm": is_warm(store),
-                "warm_version": warmed_version(),
-                "data_version": store.data_version(),
-                "computing": version_cache.computing(store),
-            }
-        return HealthDTO.model_validate(
-            answer
-            | {
-                "pools": store.pool_usage(),
-                "busy": sorted(
-                    busy_calls() + version_cache.busy(),
-                    key=lambda call: -call["seconds"],
-                ),
-            }
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503, detail=f"Database unavailable: {exc}"
-        ) from exc
+        data_version = store.data_version()
+        answer |= {
+            "warm": is_warm(data_version),
+            "warm_version": warmed_version(),
+            "data_version": data_version,
+            "computing": version_cache.computing(store),
+        }
+    return HealthDTO.model_validate(
+        answer
+        | {
+            "pools": store.pool_usage(),
+            "busy": sorted(
+                busy_calls() + version_cache.busy(),
+                key=lambda call: -call["seconds"],
+            ),
+        }
+    )
 
 
 def _start_warm_up() -> None:
@@ -521,8 +520,36 @@ app.router.on_startup.append(search_terms.start)
 app.router.on_shutdown.append(search_terms.stop)
 
 
-# How long a client waits before it asks again after a read ran past its ceiling.
+# How long a client waits before it asks again after a read ran past its ceiling, or
+# while the database is unavailable.
 READ_TIMEOUT_RETRY_AFTER = 30
+_RETRY_AFTER = {"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)}
+
+
+# What a client is told when the database is unavailable, or refused by this version.
+_DATABASE_ERRORS: dict[type[Exception], str] = {
+    DatabaseUnavailable: "The database is unavailable. Try again later.",
+    SchemaOutdated: "The database schema is outdated.",
+    CollationMismatch: "The database sorts by another collation.",
+}
+
+
+async def _database_unavailable(request: Request, exc: Exception) -> StarletteResponse:
+    """A database the API cannot reach, or one this version refuses: 503 with
+    ``Retry-After``; the cause goes to the log, not to the client. A page of ``/render``
+    gets no body: Caddy serves the shell of the front end on a 503."""
+    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    if request.url.path.startswith("/render/"):
+        return StarletteResponse(status_code=503, headers=_RETRY_AFTER)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": _DATABASE_ERRORS[type(exc)]},
+        headers=_RETRY_AFTER,
+    )
+
+
+for _error in _DATABASE_ERRORS:
+    app.add_exception_handler(_error, _database_unavailable)
 
 
 @app.exception_handler(ReadTimedOut)
@@ -538,7 +565,7 @@ async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
     return JSONResponse(
         status_code=503,
         content={"detail": "The query took too long. Try again later, or narrow it."},
-        headers={"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)},
+        headers=_RETRY_AFTER,
     )
 
 

@@ -216,6 +216,15 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     )
 $$;
 
+-- A seat (the meta of a MEMBER_OF edge) holds on *today*: it has no last day or one not yet
+-- past, and of the Eerste Kamer, the last snapshot still shows it.
+CREATE OR REPLACE FUNCTION lg_seated(meta json, today text) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT (coalesce(json_typeof(meta -> 'to_date'), 'null') = 'null'
+            OR coalesce(public.lg_str(meta -> 'to_date') >= today, false))
+       AND coalesce(json_typeof(meta -> 'observed_until'), 'null') = 'null'
+$$;
+
 -- The string *field* of every object of a JSON array (``[*].cabinet_key``).
 CREATE OR REPLACE FUNCTION lg_path_array(v json, field text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -2292,10 +2301,10 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         if present is None:
             continue  # not there yet: it is created as the schema says
         missing = columns - present - added.get(table, set())
-        differences += [f"{table}.{c} ontbreekt" for c in sorted(missing)]
+        differences += [f"{table}.{c} is missing" for c in sorted(missing)]
         extra = present - columns
         differences += [
-            f"{table}.{c} staat niet in het schema en is verplicht (NOT NULL zonder default)"
+            f"{table}.{c} is not in the schema and is required (NOT NULL without a default)"
             for c in sorted(extra & required.get(table, set()))
         ]
         for column in sorted(extra - required.get(table, set())):
@@ -2307,11 +2316,11 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
             )
         was, wanted = actual_generated.get(table, set()), generated.get(table, set())
         differences += [
-            f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
+            f"{table}.{c} is generated, the schema fills it with a trigger"
             for c in sorted((was - wanted) & columns)
         ]
         differences += [
-            f"{table}.{c} is niet gegenereerd" for c in sorted((wanted - was) & present)
+            f"{table}.{c} is not generated" for c in sorted((wanted - was) & present)
         ]
     return differences
 
@@ -2338,7 +2347,9 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
         differences = schema_drift(conn)
         if differences:
             raise SchemaOutdated(
-                "schema verouderd: herbouw nodig (" + "; ".join(differences) + ")"
+                "schema outdated, build the database again ("
+                + "; ".join(differences)
+                + ")"
             )
         for statement in statements():
             conn.execute(statement.encode())
