@@ -20,6 +20,7 @@ from lawgraph.api.schemas.decisions import (
     DecisionFacets,
     DecisionListResponse,
     DecisionMotionDTO,
+    DecisionPaperDTO,
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
@@ -29,6 +30,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
+    decision_paper,
     get_decision_detail,
     get_decision_document,
     get_decisions,
@@ -175,7 +177,8 @@ def list_decisions(
     summary="Decision detail",
     description=(
         "One decision with every vote cast on it — per member on a roll-call, "
-        "per faction otherwise."
+        "per faction otherwise — the Kamerstuk it was taken on (``primary_document``) and, "
+        "of a motion, its dictum."
     ),
     tags=["decisions"],
 )
@@ -190,10 +193,14 @@ def get_decision(
     dto = DecisionDTO.from_document(
         doc, load_dossier_names(store), load_member_slugs(store)
     )
+    paper = decision_paper(store, doc)
     return dto.model_copy(
         update={
             "dictum": dictum,
             "motion": DecisionMotionDTO(**motion) if motion else None,
+            "primary_document": (
+                DecisionPaperDTO.from_row(paper, dto.chamber) if paper else None
+            ),
         }
     )
 

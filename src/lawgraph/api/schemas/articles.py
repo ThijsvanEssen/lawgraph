@@ -16,11 +16,13 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     DefinitionDTO,
     InstrumentSummaryDTO,
+    JudgmentOutcomeFields,
     PublicationDTO,
     QualifierFields,
     TermSpanDTO,
     WithPath,
     address_of,
+    judgment_outcome_fields,
     semantic_fields,
 )
 from lawgraph.api.schemas.documents import (
@@ -486,8 +488,8 @@ class ArticleDelegatedResponse(BaseModel):
     total: int
 
 
-class CitedByJudgment(WithPath):
-    """The judgment of a passage that cites an article."""
+class CitedByJudgment(JudgmentOutcomeFields, WithPath):
+    """The judgment of a passage that cites an article, with how it ended."""
 
     model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
@@ -560,6 +562,7 @@ class ArticleCitedByItem(QualifierFields):
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
                 inbound_citation_count=_count(props.get("inbound_citation_count")),
+                **judgment_outcome_fields(props),
             ),
             paragraph_id=mention.paragraph_id,
             paragraph_number=mention.paragraph_number,

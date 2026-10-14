@@ -39,3 +39,20 @@ def fill_judgment_light(store: GraphStore, *, every: bool = False) -> int:
         if row["last"] is None:
             return kept
         after, kept = row["last"], kept + row["n"]
+
+
+# How a judgment ended, what a conclusion proposes and what the ECHR found per article
+# (``core/judgment_outcome.py``, ``core/echr_findings.py``), as a row of a list shows them.
+OUTCOME_KEYS = (
+    "outcome",
+    "outcome_text",
+    "conclusion_outcome",
+    "conclusion_outcome_text",
+    "echr_findings",
+)
+
+
+def outcome_pairs(light: str) -> str:
+    """SQL: the ``OUTCOME_KEYS`` as pairs of a ``json_build_object``, read from the props
+    *light* of the row of ``lg_judgment_light`` of a judgment (null without one)."""
+    return ", ".join(f"'{key}', {light} -> '{key}'" for key in OUTCOME_KEYS)

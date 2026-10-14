@@ -581,6 +581,12 @@ _ITEM_KEYS = [
     "session_year",
     "actors",
     "dictum",
+    # from the light row: what an amendment is for, how a motion or amendment ended
+    "explanation",
+    "outcome",
+    "decided_on",
+    "tally",
+    "decision",
 ]
 
 
@@ -637,6 +643,11 @@ def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
         "session_year": "2025-2026",
         "actors": None,
         "dictum": None,
+        "explanation": None,
+        "outcome": None,
+        "decided_on": None,
+        "tally": None,
+        "decision": None,
     }
     assert (bare["key"], bare["chamber"], bare["title"], bare["dossier_numbers"]) == (
         "bare",

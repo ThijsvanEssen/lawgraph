@@ -205,6 +205,11 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             "date_eff": "1990-01-01",
             "advocate_general": None,
             "advocate_general_role": None,
+            "outcome": None,
+            "outcome_text": None,
+            "conclusion_outcome": None,
+            "conclusion_outcome_text": None,
+            "echr_findings": None,
         },
     }
     assert many["cited_articles"] == [
@@ -233,6 +238,11 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "date_eff": None,
         "advocate_general": None,
         "advocate_general_role": None,
+        "outcome": None,
+        "outcome_text": None,
+        "conclusion_outcome": None,
+        "conclusion_outcome_text": None,
+        "echr_findings": None,
     }
 
     items, total = instruments.get_instrument_judgments(

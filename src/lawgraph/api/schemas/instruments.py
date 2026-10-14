@@ -22,6 +22,7 @@ from lawgraph.api.schemas.common import (
     DossierRefDTO,
     FacetCountDTO,
     InstrumentSummaryDTO,
+    JudgmentOutcomeFields,
     JudgmentSummaryDTO,
     QualifierFields,
     WithPath,
@@ -218,8 +219,8 @@ class CitedArticleRef(BaseModel):
     display_name: str | None = None
 
 
-class InstrumentJudgmentItem(WithPath):
-    """One judgment that cites this instrument."""
+class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
+    """One judgment that cites this instrument, with how it ended."""
 
     model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"

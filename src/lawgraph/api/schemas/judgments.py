@@ -10,9 +10,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
+    ConclusionOutcome,
+    JudgmentOutcomeFields,
     JudgmentSummaryDTO,
     QualifierFields,
     WithPath,
+    judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
@@ -41,10 +44,19 @@ _NAMES = (
 )
 
 
-class JudgmentDTO(BaseNodeDTO):
+class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
 
     model_config = ConfigDict(extra="forbid")
+
+    outcome_paragraph_id: str | None = Field(
+        default=None,
+        description="The paragraph of `outcome_text` (`paragraph_id` of `paragraphs`).",
+    )
+    conclusion_outcome_paragraph_id: str | None = Field(
+        default=None,
+        description="The paragraph of `conclusion_outcome_text`.",
+    )
 
     ecli: str | None
     source: str | None = None
@@ -193,6 +205,11 @@ class JudgmentDTO(BaseNodeDTO):
             paragraphs=paragraphs,
             footnotes=_footnotes(raw_paragraphs, props.get("footnotes") or []),
             parties=None if parties is None else [JudgmentParty(**p) for p in parties],
+            outcome_paragraph_id=props.get("outcome_paragraph_id"),
+            conclusion_outcome_paragraph_id=props.get(
+                "conclusion_outcome_paragraph_id"
+            ),
+            **judgment_outcome_fields(props),
         )
 
 
@@ -574,6 +591,14 @@ class JudgmentConclusionDTO(BaseModel):
         description="``advocaat-generaal`` or ``procureur-generaal``; null unknown.",
     )
     date: str | None = None
+    outcome: ConclusionOutcome | None = Field(
+        None,
+        description="What it proposes (``conclusion_outcome`` of the conclusion): "
+        "``verwerping``, ``vernietiging``, …; null when it does not say it.",
+    )
+    outcome_text: str | None = Field(
+        None, description="The sentence that says it (``conclusion_outcome_text``)."
+    )
 
 
 class JudgmentDetailResponse(BaseModel):

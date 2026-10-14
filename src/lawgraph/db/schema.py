@@ -1283,6 +1283,13 @@ JUDGMENT_LIGHT_PROPS = (
     "translation_of",
     "advocate_general",
     "advocate_general_role",
+    # how it ended and what a conclusion proposes (``core/judgment_outcome.py``), what the
+    # ECHR found per article (``core/echr_findings.py``): what a row of it shows
+    "outcome",
+    "outcome_text",
+    "conclusion_outcome",
+    "conclusion_outcome_text",
+    "echr_findings",
 )
 # The characters of a summary kept: one more than a neighbour shows, so it knows to cut.
 JUDGMENT_LIGHT_SUMMARY = 401
@@ -1423,6 +1430,14 @@ DOCUMENT_LIGHT_PROPS = (
     "sequence",
     # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
     "dictum",
+    # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)
+    "explanation",
+    # how a motion or an amendment ended (``core/paper_outcomes.py``), which a row of it
+    # shows and ``semantic tk-paper-outcomes`` compares with
+    "outcome",
+    "decided_on",
+    "tally",
+    "decision",
 )
 # ... and, after them, ``has_text``: whether the paper's text is in the data (a string, not
 # empty), which a row of the feed opens on; read from the same pass over the props.

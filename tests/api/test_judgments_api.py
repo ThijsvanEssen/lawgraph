@@ -110,12 +110,15 @@ def test_get_judgment_detail_names_its_series(monkeypatch):
 
 
 def test_the_detail_names_its_conclusions(monkeypatch):
-    """``conclusions``: the conclusion by its A-G and date, as its light node names it."""
+    """``conclusions``: the conclusion by its A-G, date and what it proposes, as its light
+    node names it."""
     conclusion = {
         "ecli": "ECLI:NL:PHR:2019:887",
         "author": "Langemeijer en Wissink",
         "role": "procureur-generaal",
         "date": "2019-09-13",
+        "outcome": "verwerping",
+        "outcome_text": "De conclusie strekt tot verwerping van het cassatieberoep.",
     }
     monkeypatch.setattr(
         "lawgraph.api.routes.judgments.get_judgment_with_relations",

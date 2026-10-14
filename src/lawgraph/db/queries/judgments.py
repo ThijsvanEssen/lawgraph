@@ -45,7 +45,8 @@ class JudgmentDetailData:
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
-    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date}`` each
+    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date, outcome,
+    # outcome_text}`` each
     conclusions: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -120,9 +121,10 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
 
 
 def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
-    """``{ecli, author, role, date}`` of each conclusion a judgment names, in its order: the
-    A-G or P-G and the date its light node gives (``lg_judgment_light``, never its text);
-    a conclusion the graph lacks is its ECLI alone."""
+    """``{ecli, author, role, date, outcome, outcome_text}`` of each conclusion a judgment
+    names, in its order: the A-G or P-G, the date and what it proposes its light node gives
+    (``lg_judgment_light``, never its text); a conclusion the graph lacks is its ECLI
+    alone."""
     named = [str(e) for e in eclis or [] if e]
     if not named:
         return []
@@ -142,6 +144,8 @@ def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
             "author": found[ecli].get("advocate_general"),
             "role": found[ecli].get("advocate_general_role"),
             "date": found[ecli].get("date"),
+            "outcome": found[ecli].get("conclusion_outcome"),
+            "outcome_text": found[ecli].get("conclusion_outcome_text"),
         }
         for ecli in named
     ]

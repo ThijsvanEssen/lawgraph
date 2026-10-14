@@ -191,6 +191,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "advocate_general_role",
         "summary",
         "translation_of",
+        # how it ended (``verworpen``, ``schending``), which marks it on the canvas
+        "outcome",
     ),
     "documents": (
         "kind",
@@ -204,6 +206,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "dossier_numbers",
         "chamber",
         "actors",
+        # how a motion or an amendment ended (``aangenomen``), which marks it on the canvas
+        "outcome",
     ),
     # its ``short_title`` is the API's, from its title (``schemas/nodes.py``)
     "dossiers": (
