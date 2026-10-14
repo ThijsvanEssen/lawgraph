@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
+from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
-from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
-from tests.conftest import _BaseFakeStore
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, raw_record
 
 
 def _node(key: str, collection: str = "documents") -> Node:
@@ -65,7 +63,7 @@ class _Pipeline(NormalizePipelineBase):
 
 
 def test_counting_store_separates_created_from_updated_for_nodes_and_edges() -> None:
-    store = CountingStore(_BaseFakeStore())
+    store = CountingStore(InMemoryStore())
     docs = [_node("a").to_document(), _node("b").to_document()]
     edge = {"_key": "e1", "_from": "documents/a", "_to": "documents/b"}
 
@@ -82,7 +80,7 @@ def test_counting_store_separates_created_from_updated_for_nodes_and_edges() -> 
 
 
 def test_counting_store_returns_what_the_store_returns() -> None:
-    inner = _BaseFakeStore()
+    inner = InMemoryStore()
     store = CountingStore(inner)
 
     assert store.bulk_insert_or_update_nodes(
@@ -94,7 +92,7 @@ def test_counting_store_returns_what_the_store_returns() -> None:
 
 
 def test_reset_counts_starts_a_fresh_tally() -> None:
-    store = CountingStore(_BaseFakeStore())
+    store = CountingStore(InMemoryStore())
     store.bulk_insert_or_update_nodes("documents", [_node("a").to_document()])
 
     store.reset_counts()
@@ -106,7 +104,7 @@ def test_reset_counts_starts_a_fresh_tally() -> None:
 
 
 def test_run_reports_every_write_path_without_the_pipeline_counting() -> None:
-    result = _Pipeline(_BaseFakeStore()).run()
+    result = _Pipeline(InMemoryStore()).run()
 
     # 3 via NodeWriter + 1 single upsert + 1 direct bulk call + 3 helper edges
     assert (result.created, result.updated, result.skipped) == (8, 0, 1)
@@ -114,7 +112,7 @@ def test_run_reports_every_write_path_without_the_pipeline_counting() -> None:
 
 
 def test_second_run_over_the_same_data_reports_updates_not_creations() -> None:
-    store = _BaseFakeStore()
+    store = InMemoryStore()
     _Pipeline(store).run()
 
     result = _Pipeline(store).run()
@@ -123,7 +121,7 @@ def test_second_run_over_the_same_data_reports_updates_not_creations() -> None:
 
 
 def test_rerunning_one_pipeline_instance_does_not_carry_counts_over() -> None:
-    pipeline = _Pipeline(_BaseFakeStore())
+    pipeline = _Pipeline(InMemoryStore())
     pipeline.run()
 
     result = pipeline.run()
@@ -136,7 +134,7 @@ def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
 ) -> None:
     """``run_command`` names the step and the error; the pipeline does not half-handle it."""
     with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="boom"):
-        _Pipeline(_BaseFakeStore(), fail_in_edges=True).run()
+        _Pipeline(InMemoryStore(), fail_in_edges=True).run()
     assert any(
         "Written before the failure: nodes 5 created" in message
         for message in caplog.messages
@@ -146,27 +144,20 @@ def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
 # ── a real pipeline, end to end ──────────────────────────────────────────────
 
 
-class _RawSourceStore(RawSourcesFake, _BaseFakeStore):
-    def __init__(self, raw: list[dict[str, Any]]) -> None:
-        super().__init__()
-        self._raw = raw
-
-
-def test_echr_pipeline_summary_tells_new_judgments_from_known_ones(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def iter_raw_records(store: _RawSourceStore, **_: Any) -> Iterator[dict[str, Any]]:
-        return iter(list(store._raw))
-
-    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: None)
-    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
-
+@pytest.mark.usefixtures("raw_reads")
+def test_echr_pipeline_summary_tells_new_judgments_from_known_ones() -> None:
     def record(item_id: str) -> dict[str, Any]:
-        return {"external_id": item_id, "payload_json": {"itemid": item_id}}
+        return raw_record(
+            SOURCE_ECHR,
+            RAW_KIND_ECHR_JUDGMENT,
+            item_id,
+            payload_json={"itemid": item_id},
+        )
 
-    store = _RawSourceStore([record("001-1")])
+    store = InMemoryStore(raw=[record("001-1")])
     first = ECHRNormalizePipeline(store=store).run()
-    store._raw.append(record("001-2"))
+    second_record = record("001-2")
+    store.raw[second_record["_key"]] = second_record
     second = ECHRNormalizePipeline(store=store).run()
 
     assert first.summary() == "1 created"

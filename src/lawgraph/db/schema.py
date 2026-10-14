@@ -216,6 +216,15 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     )
 $$;
 
+-- A seat (the meta of a MEMBER_OF edge) holds on *today*: it has no last day or one not yet
+-- past, and of the Eerste Kamer, the last snapshot still shows it.
+CREATE OR REPLACE FUNCTION lg_seated(meta json, today text) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT (coalesce(json_typeof(meta -> 'to_date'), 'null') = 'null'
+            OR coalesce(public.lg_str(meta -> 'to_date') >= today, false))
+       AND coalesce(json_typeof(meta -> 'observed_until'), 'null') = 'null'
+$$;
+
 -- The string *field* of every object of a JSON array (``[*].cabinet_key``).
 CREATE OR REPLACE FUNCTION lg_path_array(v json, field text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
