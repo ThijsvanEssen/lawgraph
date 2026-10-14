@@ -21,6 +21,7 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
     COLLECTION_DOSSIERS,
@@ -45,7 +46,6 @@ from lawgraph.config.constants import (
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
-    dossier_display_name,
     last_activity,
     opened_on,
     phase_props,
@@ -615,7 +615,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_DOSSIERS,
                 type=NodeType.DOSSIER,
                 key=key,
-                labels=["TK"],
+                labels=[CHAMBER_TK],
                 props=props,
             )
             nodes[props["external_id"]] = node
@@ -747,7 +747,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             return 0
         node.props["title"] = title
         node.props["title_source"] = "document"
-        node.props["display_name"] = dossier_display_name(
+        node.props["display_name"] = tk_records.dossier_display_name(
             node.props.get("number") or node.key or "",
             node.props.get("suffix"),
             title or "",

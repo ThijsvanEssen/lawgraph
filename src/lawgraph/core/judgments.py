@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.ecli import cited_eclis, country_code, court_code
@@ -266,22 +266,23 @@ def area_of_law(subjects: list[str] | None) -> str | None:
 # answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
 # rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
-KIND_ARREST = "arrest"
-KIND_VONNIS = "vonnis"
-KIND_BESCHIKKING = "beschikking"
-KIND_UITSPRAAK = "uitspraak"
-KIND_CONCLUSIE = "conclusie"
-KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
-KIND_BESLISSING = "beslissing"
-DECISION_KINDS: tuple[str, ...] = (
-    KIND_ARREST,
-    KIND_VONNIS,
-    KIND_BESCHIKKING,
-    KIND_UITSPRAAK,
-    KIND_BESLISSING,
-    KIND_CONCLUSIE,
-    KIND_PRELIMINARY_RULING,
-)
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "beslissing",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
+KIND_ARREST: Final[DecisionKind] = "arrest"
+KIND_VONNIS: Final[DecisionKind] = "vonnis"
+KIND_BESCHIKKING: Final[DecisionKind] = "beschikking"
+KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
+KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
+KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
+KIND_BESLISSING: Final[DecisionKind] = "beslissing"
 
 # The curated kinds (``data/curated/decision_kinds.json``): the kind a procedure
 # (``psi:procedure``) names where the kop does not; the kind a kind of court gives when

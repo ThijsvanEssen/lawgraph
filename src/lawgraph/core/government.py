@@ -27,6 +27,7 @@ import re
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from lawgraph.core.ministries import POST_MINISTER, POST_STATE_SECRETARY
 from lawgraph.core.text_fold import fold
 
 PARTICLES = frozenset(
@@ -35,7 +36,7 @@ PARTICLES = frozenset(
 )
 
 # A signature on a letter sent just after the post ended still belongs to it.
-_SIGNED_AFTER_POST = dt.timedelta(days=14)
+SIGNED_AFTER_POST = dt.timedelta(days=14)
 # The ages between which one holds a post in a cabinet.
 YOUNGEST, OLDEST = 28, 95
 
@@ -185,12 +186,11 @@ def surname_in(surname: str | None, name: str | None) -> bool:
 
 def post_kind(function: str | None) -> str:
     """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
-    return _post_kind(function)
-
-
-def _post_kind(function: str | None) -> str:
-    """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
-    return "staatssecretaris" if "staatssecretaris" in fold(function) else "minister"
+    return (
+        POST_STATE_SECRETARY
+        if POST_STATE_SECRETARY in fold(function)
+        else POST_MINISTER
+    )
 
 
 def _held_on(post: dict[str, Any], day: str) -> bool:
@@ -199,15 +199,15 @@ def _held_on(post: dict[str, Any], day: str) -> bool:
         return False
     if not end:
         return True
-    return dt.date.fromisoformat(day) <= dt.date.fromisoformat(end) + _SIGNED_AFTER_POST
+    return dt.date.fromisoformat(day) <= dt.date.fromisoformat(end) + SIGNED_AFTER_POST
 
 
 def _signed_as(person: dict[str, Any], signature: dict[str, Any]) -> bool:
     """Whether *person* held a post of the signature's kind on one of its dates."""
-    kind = _post_kind(signature.get("function"))
+    kind = post_kind(signature.get("function"))
     days = [d for d in (signature.get("first"), signature.get("last")) if d]
     return any(
-        _post_kind(post.get("function")) == kind and _held_on(post, day)
+        post_kind(post.get("function")) == kind and _held_on(post, day)
         for post in person.get("posts") or []
         for day in days
     )

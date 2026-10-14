@@ -20,6 +20,9 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    KIND_BILATERAL_TREATY,
+    KIND_MULTILATERAL_TREATY,
+    KIND_TREATY,
     MAX_TITLE_CHARS,
     RAW_KIND_VERDRAG,
     RAW_KIND_VERDRAG_XML,
@@ -90,12 +93,12 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             date_in_force = _iso_date(payload.get("date_in_force"))
 
             # Derive a kind label from the type URI or text
-            kind = "verdrag"
+            kind = KIND_TREATY
             type_lower = treaty_type.lower()
             if "multilateral" in type_lower or "multilateraal" in type_lower:
-                kind = "multilateraalverdrag"
+                kind = KIND_MULTILATERAL_TREATY
             elif "bilateral" in type_lower or "bilateraal" in type_lower:
-                kind = "bilateraalverdrag"
+                kind = KIND_BILATERAL_TREATY
 
             is_in_force = status.lower() == "inwerkinggetreden"
 

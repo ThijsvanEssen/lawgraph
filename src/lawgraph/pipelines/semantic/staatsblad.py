@@ -1,4 +1,7 @@
-"""Semantic pipeline: links Staatsblad NvT documents to instruments via EXPLAINS."""
+"""Semantic pipeline: links Staatsblad NvT documents to instruments via EXPLAINS.
+
+Derived in full on every run: an edge no publication supports any more goes.
+"""
 
 from __future__ import annotations
 
@@ -31,11 +34,6 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
 
         rows = semantic_bwb.staatsblad_instrument_matches(self.store)
-
-        if not rows:
-            logger.debug("No Staatsblad NvT documents found for EXPLAINS linking.")
-            return result
-
         logger.info(
             "Staatsblad NvT semantic linker: processing %d publication-instrument pairs.",
             len(rows),
@@ -43,7 +41,7 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
 
         # Deduplicate by (pub_id, inst_id)
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
 
         for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
@@ -93,4 +91,8 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
             )
 
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+        logger.info(
+            "Staatsblad NvT: %d edges no publication supports removed.", removed
+        )
         return result

@@ -8,7 +8,12 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_TK, RELATION_SERVED_IN, RELATION_VOTED
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    RELATION_SERVED_IN,
+    RELATION_VOTED,
+)
 from lawgraph.core.coalition import (
     EK_SEATS,
     TK_SEATS_FROM,
@@ -122,7 +127,7 @@ def _ek_stretches(
         return None
     keys = {
         str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["_key"]
-        for doc in get_factions(store, chamber="EK")
+        for doc in get_factions(store, chamber=CHAMBER_EK)
     }
     stretches = []
     for row in rows:

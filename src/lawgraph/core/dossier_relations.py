@@ -62,6 +62,8 @@ _MILJOENENNOTA = re.compile(
 
 RULE_BUDGET_CHANGE = "begrotingswijziging"
 RULE_SLOTWET = "slotwet"
+# A paper that replaces an older one of its case ("ter vervanging van nr. 19").
+RULE_REPLACEMENT = "vervanging"
 
 
 @dataclass(frozen=True)

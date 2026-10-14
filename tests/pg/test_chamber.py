@@ -1,4 +1,4 @@
-"""The chamber of a document has one definition (``core.documents.CHAMBERS``): the list of
+"""The chamber of a document has one definition (``core.documents.CHAMBER_PRECEDENCE``): the list of
 ``/api/documents``, the hits of the search and ``chamber_of`` agree, also on a document
 that would carry the labels of both chambers."""
 

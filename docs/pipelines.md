@@ -1071,7 +1071,8 @@ the words name, the link counts.
 An edge is keyed by its two articles, so an article that refers to another twice keeps the span
 of one; `props.references` keeps both. Self references are dropped and targets must exist —
 nothing is stubbed. The edges of an article are derived in full: one its references no longer
-support is removed.
+support is removed (without `--since` every edge of the step it did not write, also of an
+article whose references are gone).
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 

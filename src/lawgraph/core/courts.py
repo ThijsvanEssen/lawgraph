@@ -34,6 +34,8 @@ from lawgraph.core.court_sources import (
 )
 
 CODE_OTHER = "XX"
+# The court code of the European Court of Human Rights (``ECLI:CE:ECHR:…``).
+CODE_ECHR = "ECHR"
 
 
 @dataclass(frozen=True)

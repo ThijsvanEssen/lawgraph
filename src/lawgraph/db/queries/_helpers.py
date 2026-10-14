@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.documents import CHAMBERS
+from lawgraph.core.documents import CHAMBER_PRECEDENCE
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
@@ -307,5 +307,7 @@ def busy_calls() -> list[dict[str, Any]]:
 
 def chamber_sql(alias: str) -> str:
     """``core.documents.chamber_of`` in SQL, over the labels of the row *alias*."""
-    whens = " ".join(f"WHEN '{c}' = ANY({alias}.labels) THEN '{c}'" for c in CHAMBERS)
+    whens = " ".join(
+        f"WHEN '{c}' = ANY({alias}.labels) THEN '{c}'" for c in CHAMBER_PRECEDENCE
+    )
     return f"CASE {whens} END"

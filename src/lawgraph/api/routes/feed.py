@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -23,9 +23,11 @@ from lawgraph.api.schemas.feed import (
     FeedPeriodsResponse,
     FeedResponse,
     FeedSummaryResponse,
+    PeriodUnit,
     atom_feed,
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
+from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.courts import TIERS
 from lawgraph.core.feed import (
@@ -41,6 +43,7 @@ from lawgraph.core.feed import (
     EVENT_VOTE,
     FEED_KINDS,
     FEED_TIERS,
+    FeedCoalition,
     FeedCursor,
 )
 from lawgraph.core.ministries import MINISTRY_BY_KEY
@@ -130,7 +133,7 @@ def scope_filters(
         ),
     ] = None,
     chamber: Annotated[
-        Literal["TK", "EK"] | None,
+        Chamber | None,
         Query(
             description="``EK``: the votes of the Eerste Kamer; ``TK``: the events of the "
             "Tweede Kamer (its papers, votes and commitments). Publications and "
@@ -138,7 +141,7 @@ def scope_filters(
         ),
     ] = None,
     coalition: Annotated[
-        Literal["together", "split", "wissel", "decisive"] | None,
+        FeedCoalition | None,
         Query(
             description="What the coalition did on a vote of the Tweede Kamer: "
             "``together`` (every coalition seat on one side), ``split`` (on both, a "
@@ -322,7 +325,7 @@ def get_feed_atom(
 
 
 # How Concordans names the kinds in the plural.
-_KIND_PLURALS = {
+_KIND_PLURALS: dict[str, str] = {
     EVENT_COMMITMENT: "toezeggingen",
     EVENT_BILL: "wetsvoorstellen",
     EVENT_AMENDMENT_NOTE: "nota's van wijziging",
@@ -512,7 +515,7 @@ def get_feed_periods_route(
     until: Annotated[
         dt.date | None, Query(description="On or before this day.")
     ] = None,
-    per: Annotated[Literal["month", "day"], Query()] = "month",
+    per: Annotated[PeriodUnit, Query()] = "month",
 ) -> FeedPeriodsResponse:
     unsupported = feed_events.unsupported(scope)
     if unsupported:

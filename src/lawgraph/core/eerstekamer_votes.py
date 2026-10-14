@@ -25,6 +25,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass, field
+from typing import Final, Literal
 
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
 from lawgraph.core.rijksoverheid import parse_date
@@ -64,9 +65,10 @@ _REJECTED_NUMBER = re.compile(r"\((\d{1,3}\.\d{3}(?: [^()]*(?:\([^)]*\))?)?)\)\s
 _NEXT_REJECTED = re.compile(r'href="(/verworpen_in_de_eerste_kamer\?start_\d+=\d+)"')
 
 # The factions a vote names, by the label before them.
-LABEL_FOR = "voor"
-LABEL_AGAINST = "tegen"
-LABEL_NOTED = "aantekening gevraagd"
+VoteLabel = Literal["voor", "tegen", "aantekening gevraagd"]
+LABEL_FOR: Final[VoteLabel] = "voor"
+LABEL_AGAINST: Final[VoteLabel] = "tegen"
+LABEL_NOTED: Final[VoteLabel] = "aantekening gevraagd"
 
 
 @dataclass(frozen=True)

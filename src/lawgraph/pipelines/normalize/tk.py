@@ -12,7 +12,12 @@ import datetime as dt
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE_TK
+from lawgraph.config.constants import (
+    CHAMBER_TK,
+    COLLECTION_CASES,
+    RAW_KIND_TK_ZAAK,
+    SOURCE_TK,
+)
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -71,7 +76,7 @@ class TKNormalizePipeline(NormalizePipelineBase):
                     collection=COLLECTION_CASES,
                     type=NodeType.CASE,
                     key=key,
-                    labels=["TK"],
+                    labels=[CHAMBER_TK],
                     props=props,
                 )
             )

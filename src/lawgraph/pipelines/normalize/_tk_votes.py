@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_DECISIONS,
     COLLECTION_EDGES,
     COLLECTION_MEMBERS,
@@ -115,7 +116,7 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
             collection=COLLECTION_DECISIONS,
             type=NodeType.DECISION,
             key=key,
-            labels=["TK"],
+            labels=[CHAMBER_TK],
             props=props,
         )
 
