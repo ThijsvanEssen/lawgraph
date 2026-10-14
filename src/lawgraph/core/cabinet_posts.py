@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
@@ -69,6 +68,7 @@ from lawgraph.core.rijksoverheid import (
     parse_holder,
     split_name,
 )
+from lawgraph.core.text_fold import plain_words, slug
 
 SEAT_DEPUTY = "viceminister-president"
 SEAT_PRIME_MINISTER = "az/minister-president"
@@ -88,17 +88,11 @@ CORRECTED_BY_PREDECESSOR = "from_date: end of the previous holder"
 CORRECTED_TO_CABINET = "clipped to the cabinet's period"
 
 
-def slug(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return "-".join(re.findall(r"[a-z0-9]+", plain))
-
-
 def person_key(name: str) -> str:
     """``stm hermans`` of ``Drs. S.Th.M. (Sophie) Hermans``: the initials and the surname,
     which is how Rijksoverheid names one person on every page."""
     parts = split_name(name)
-    return f"{parts['letters']} {slug(parts['surname']).replace('-', ' ')}".strip()
+    return f"{parts['letters']} {plain_words(parts['surname'])}".strip()
 
 
 # ── Headings ─────────────────────────────────────────────────────────────────

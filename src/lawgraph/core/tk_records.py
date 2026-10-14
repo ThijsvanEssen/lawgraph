@@ -23,6 +23,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
+from lawgraph.core.slugs import claim_numbered
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
 from lawgraph.core.xml import collapse_ws
@@ -387,12 +388,7 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
         for props in group[1:]:
             year = (props.get("started_on") or props.get("ended_on") or "")[:4]
             base = f"{slug}-{year}" if year else slug
-            candidate, n = base, 1
-            while candidate in taken:
-                n += 1
-                candidate = f"{base}-{n}"
-            props["slug"] = candidate
-            taken.add(candidate)
+            props["slug"] = claim_numbered(base, taken)
 
 
 @dataclass(frozen=True)

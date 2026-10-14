@@ -22,9 +22,10 @@ A court has two levels:
 from __future__ import annotations
 
 import re
-import unicodedata
 import xml.etree.ElementTree as ET
 from typing import Any
+
+from lawgraph.core.text_fold import slug
 
 TIER_HOGE_RAAD = "hoge_raad"
 TIER_RAAD_VAN_STATE = "raad_van_state"
@@ -68,12 +69,6 @@ _KINGDOM = (
 )
 _BRACKETS = re.compile(r"\s*\([^)]*\)")
 _OF_KINGDOM = re.compile(rf"\s+(?:(?:van|voor)\s+)?{_KINGDOM}.*$", re.IGNORECASE)
-
-
-def slug(text: str) -> str:
-    plain = unicodedata.normalize("NFKD", text)
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return "_".join(re.findall(r"[a-z0-9]+", plain))
 
 
 def parse_instanties(xml_text: str) -> list[dict[str, Any]]:
@@ -122,7 +117,7 @@ def court_kind(name: str, tier: str, known_places: set[str]) -> str:
         if text.endswith(f" {place}"):
             text = text[: -len(place) - 1]
             break
-    return slug(text)
+    return slug(text, "_")
 
 
 # The court as the index of judgments names it (``creator``): the term of its OWMS identifier.

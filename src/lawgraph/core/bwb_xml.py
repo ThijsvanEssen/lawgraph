@@ -39,7 +39,9 @@ from lawgraph.core.identifiers import (
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import (
+    XML_TAG_RE,
     child_named,
+    children_named,
     collapse_ws,
     find_descendant,
     iter_named,
@@ -715,7 +717,7 @@ def _add_item(
 
 def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     """Add one ``lid``: ``1. paragraph`` followed by its list items on new lines."""
-    paragraphs = [c for c in lid if local_name(c.tag) == "al"]
+    paragraphs = children_named(lid, "al")
     items = list(_list_items(lid))
     if not paragraphs and not items:
         return
@@ -730,7 +732,7 @@ def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     aanhef_end = builder.length
     has_onderdelen = False
     for li, depth in items:
-        body = [c for c in li if local_name(c.tag) == "al"]
+        body = children_named(li, "al")
         if not body:
             continue
         if paragraphs and not has_onderdelen:  # the paragraphs lead up to the list
@@ -751,7 +753,7 @@ def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> Non
         builder.inline(element)
         return
     if name == "li":
-        body = [c for c in element if local_name(c.tag) == "al"]
+        body = children_named(element, "al")
         if body:
             _add_item(builder, element, body, depth)
         for child in element:  # nested lists
@@ -1060,7 +1062,7 @@ def _drop_none(props: dict[str, Any]) -> dict[str, Any]:
 _CELEX_LINK = re.compile(
     r'<extref\b[^>]*\bdoc="(3\d{4}[A-Za-z]\d{4})"[^>]*>(.*?)</extref>', re.DOTALL
 )
-_TAGS_AND_SPACE_AT_A_SLASH = re.compile(r"<[^>]+>|\s+(?=/)|(?<=/)\s+")
+_TAGS_AND_SPACE_AT_A_SLASH = re.compile(rf"{XML_TAG_RE.pattern}|\s+(?=/)|(?<=/)\s+")
 
 
 def celex_refs(toestand_xml: str) -> list[str]:

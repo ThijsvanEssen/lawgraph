@@ -26,7 +26,6 @@ suspect his raadsman. ``place`` is where the text says they practise ("te Voorsc
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Iterable
 from typing import Any
 
@@ -39,6 +38,7 @@ from lawgraph.core.judgment_parties import (
     representative,
 )
 from lawgraph.core.judgments import AREA_CRIMINAL, area_of_law
+from lawgraph.core.text_fold import fold
 from lawgraph.core.xml import collapse_ws
 
 # ── a person ─────────────────────────────────────────────────────────────────
@@ -146,11 +146,9 @@ WINDOW = 200
 _PLURAL_ROLE = re.compile(r"(?:en|ers)$")
 
 
-def fold(text: str) -> str:
+def _person_words(text: str) -> str:
     """*text* in lower case, without accents and titles: what names one person."""
-    plain = unicodedata.normalize("NFD", text.lower())
-    plain = "".join(c for c in plain if not unicodedata.combining(c))
-    plain = re.sub(r"\b(?:mr|dr|drs|prof|ir|ing)\b\.?", " ", plain)
+    plain = re.sub(r"\b(?:mr|dr|drs|prof|ir|ing)\b\.?", " ", fold(text))
     return " ".join(re.findall(r"\w+", plain))
 
 
@@ -360,7 +358,7 @@ def _heard_party(
 
 
 def _initials_and_surname(name: str) -> tuple[list[str], list[str]]:
-    words = fold(name).split()
+    words = _person_words(name).split()
     initials = 0
     while initials < len(words) - 1 and len(words[initials]) == 1:
         initials += 1
