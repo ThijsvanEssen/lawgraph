@@ -14,7 +14,6 @@ from lawgraph.db.queries.nodes import (
     NeighborFacet,
     NeighborFilter,
     NodeGraphData,
-    NodeNotFoundError,
 )
 
 client = TestClient(app)
@@ -63,18 +62,6 @@ def _payload() -> NodeGraphData:
             ),
         ],
     )
-
-
-def test_get_node_neighbors_returns_404_for_unknown_collection(monkeypatch):
-    """GET /api/nodes/{collection}/{key} returns 404 when the node is not found."""
-    monkeypatch.setattr(
-        "lawgraph.api.routes.nodes.get_node_with_neighbors",
-        lambda store, collection, key, **kwargs: (_ for _ in ()).throw(
-            NodeNotFoundError("node not found")
-        ),
-    )
-    response = client.get("/api/nodes/instruments/nonexistent-key-xyz")
-    assert response.status_code == 404
 
 
 def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):

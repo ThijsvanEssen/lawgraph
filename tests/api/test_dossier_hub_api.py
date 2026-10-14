@@ -69,7 +69,7 @@ _HUB = {
 
 
 class _MockStore:
-    def get_node(self, collection: str, key: str) -> Any:
+    def get_document(self, collection: str, key: str) -> Any:
         return None
 
 
@@ -277,15 +277,8 @@ def test_an_actor_dossier_is_a_dossier_summary_with_roles_and_a_count() -> None:
 
 
 class _FoundStore(_MockStore):
-    def get_node(self, collection: str, key: str) -> Any:
-        from lawgraph.core.models import Node, NodeType
-
-        return Node(
-            collection=collection,
-            type=NodeType.MEMBER if collection == "members" else NodeType.FACTION,
-            key=key,
-            _skip_validation=True,
-        )
+    def get_document(self, collection: str, key: str) -> Any:
+        return {"_id": f"{collection}/{key}", "_key": key, "props": {}}
 
 
 @pytest.mark.parametrize(

@@ -17,7 +17,7 @@ GET /api/factions/{key}/touched-instruments  — the laws a party changes most
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -61,6 +61,7 @@ from lawgraph.db.queries.committees import (
     get_members,
 )
 from lawgraph.db.queries.dossiers import enrich_dossier_docs, load_dossier_names
+from lawgraph.db.queries.not_found import require, require_node
 
 router = APIRouter()
 members_router = APIRouter()
@@ -149,16 +150,18 @@ def get_committee(
     limit: Annotated[int, Query(ge=1, le=500, description="Dossiers per page.")] = 100,
     offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
 ) -> CommitteeDetailDTO:
-    doc = get_committee_detail(
-        store,
+    doc = require(
+        get_committee_detail(
+            store,
+            slug,
+            current_only=current_only,
+            status=status,
+            limit=limit,
+            offset=offset,
+        ),
+        "Committee",
         slug,
-        current_only=current_only,
-        status=status,
-        limit=limit,
-        offset=offset,
     )
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
     return CommitteeDetailDTO.from_detail_document(doc)
 
 
@@ -178,9 +181,11 @@ def list_committee_activities(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> CommitteeActivitiesResponse:
-    raw = get_committee_activities(store, slug, limit=limit, offset=offset)
-    if raw is None:
-        raise HTTPException(status_code=404, detail=f"Committee '{slug}' not found.")
+    raw = require(
+        get_committee_activities(store, slug, limit=limit, offset=offset),
+        "Committee",
+        slug,
+    )
     names = load_dossier_names(store)
     return CommitteeActivitiesResponse(
         total=int(raw.get("total") or 0),
@@ -300,8 +305,7 @@ def get_member(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> MemberDetailDTO:
-    node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    document = _as_document(node)
+    document = require_node(store, COLLECTION_MEMBERS, key, "Member")
     return MemberDetailDTO.from_document(
         document, get_member_committees(store, document["_id"])
     )
@@ -334,8 +338,8 @@ def list_member_votes(
         ),
     ] = False,
 ) -> MemberVotesResponse:
-    node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    member_id = node.node_id or ""
+    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
+    member_id = node["_id"]
     votes = get_member_votes(
         store, member_id, limit=limit, offset=offset, in_office=in_office
     )
@@ -366,8 +370,8 @@ def list_member_dossiers(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
-    node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return _actor_dossiers(store, node.node_id or "", limit, offset)
+    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
+    return _actor_dossiers(store, node["_id"], limit, offset)
 
 
 @members_router.get(
@@ -385,8 +389,8 @@ def list_member_touched_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
-    node = _node_or_404(store, COLLECTION_MEMBERS, key, "Member")
-    return _touched_instruments(store, node.node_id or "", limit)
+    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
+    return _touched_instruments(store, node["_id"], limit)
 
 
 @factions_router.get(
@@ -449,13 +453,13 @@ def get_faction(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> FactionDetailDTO:
-    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
+    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
     return FactionDetailDTO(
-        id=node.node_id or "",
-        key=node.key or "",
-        type=node.type.value,
-        labels=list(node.labels or []),
-        props=node.props,
+        id=node["_id"],
+        key=node["_key"],
+        type=node["type"],
+        labels=node["labels"],
+        props=node["props"],
     )
 
 
@@ -477,12 +481,12 @@ def list_faction_dossiers(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
-    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    cache_key = (node.node_id or "", limit, offset)
+    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
+    cache_key = (node["_id"], limit, offset)
     cached = _faction_dossiers_cache.get(cache_key)
     if cached is not _MISSING:
         return cached  # type: ignore[return-value]
-    response = _actor_dossiers(store, node.node_id or "", limit, offset)
+    response = _actor_dossiers(store, node["_id"], limit, offset)
     _faction_dossiers_cache.set(cache_key, response)
     return response
 
@@ -513,8 +517,8 @@ def list_faction_votes(
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> EkFactionVotesResponse:
-    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    if node.props.get("chamber") != "EK":
+    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
+    if node["props"].get("chamber") != "EK":
         raise HTTPException(
             status_code=422,
             detail="Only a faction of the Eerste Kamer; for the Tweede Kamer use "
@@ -522,7 +526,7 @@ def list_faction_votes(
         )
     raw = get_ek_faction_votes(
         store,
-        node.props.get("abbreviation") or "",
+        node["props"].get("abbreviation") or "",
         date_from=date_from.isoformat() if date_from else None,
         date_to=date_to.isoformat() if date_to else None,
         limit=limit,
@@ -565,8 +569,8 @@ def list_faction_touched_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
-    node = _node_or_404(store, COLLECTION_FACTIONS, key, "Faction")
-    return _touched_instruments(store, node.node_id or "", limit)
+    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
+    return _touched_instruments(store, node["_id"], limit)
 
 
 def _as_ek_member(member: MemberDTO) -> MemberDTO:
@@ -580,23 +584,6 @@ def _as_ek_member(member: MemberDTO) -> MemberDTO:
             "active": member.ek.observed_until is None,
         }
     )
-
-
-def _node_or_404(store: GraphStore, collection: str, key: str, label: str) -> Any:
-    node = store.get_node(collection, key)
-    if node is None:
-        raise HTTPException(status_code=404, detail=f"{label} '{key}' not found.")
-    return node
-
-
-def _as_document(node: Any) -> dict[str, Any]:
-    return {
-        "_id": node.node_id,
-        "_key": node.key,
-        "type": node.type.value,
-        "labels": node.labels,
-        "props": node.props,
-    }
 
 
 def _touched_instruments(

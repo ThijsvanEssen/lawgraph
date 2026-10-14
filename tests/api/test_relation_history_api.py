@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.db.queries.articles import ArticleHistoryData
 from lawgraph.db.queries.instruments import AmendedByData
+from lawgraph.db.queries.not_found import NotFound
 
 client = TestClient(app)
 
@@ -82,7 +83,7 @@ def _history(
     ) -> ArticleHistoryData:
         asked.append((bwb_id, article_number))
         if article is None:
-            raise ValueError("article not found")
+            raise NotFound("Article", bwb_id)
         return ArticleHistoryData(
             article=article,
             versions=versions or [],
