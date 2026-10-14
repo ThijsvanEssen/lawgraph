@@ -24,7 +24,7 @@ from lawgraph.db import GraphStore, version_cache
 # would otherwise import the nodes queries only after, unpatched
 from lawgraph.db.queries import _bm25, articles, committees, instruments, nodes, seo
 from lawgraph.db.schema import SEARCH_FIELDS
-from lawgraph.db.store import _text
+from tests.pg.plans import Call, explain, plan_nodes, recorded
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "lawgraph"
 # What a statement may read besides the tables it names: the versions themselves and the
@@ -58,21 +58,10 @@ def _seed(store: GraphStore) -> None:
 
 
 @contextmanager
-def _statements(store: GraphStore) -> Iterator[list[tuple[str, Any]]]:
-    """Every statement *store* runs while open (also in the threads of the cache)."""
-    seen: list[tuple[str, Any]] = []
-    stream, execute = store._stream, store.execute
-
-    def recorded_stream(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        seen.append((_text(statement), params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded_stream  # type: ignore[method-assign]
-    try:
-        yield seen
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
-        store.execute = execute  # type: ignore[method-assign]
+def _statements(store: GraphStore) -> Iterator[list[Call]]:
+    """Every statement *store* reads while open (also in the threads of the cache)."""
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        yield recorded(store, monkeypatch, "_stream")
 
 
 def _functions(store: GraphStore) -> dict[str, str]:
@@ -115,28 +104,16 @@ def _kept_by(store: GraphStore) -> dict[str, str]:
     return found
 
 
-def _plan_relations(plan: Any, found: set[str]) -> None:
-    if isinstance(plan, dict):
-        if "Relation Name" in plan:
-            found.add(plan["Relation Name"])
-        for value in plan.values():
-            _plan_relations(value, found)
-    elif isinstance(plan, list):
-        for value in plan:
-            _plan_relations(value, found)
-
-
-def _read(store: GraphStore, statements: list[tuple[str, Any]]) -> set[str]:
+def _read(store: GraphStore, statements: list[Call]) -> set[str]:
     """The tables *statements* read: by their plans, and by the bodies of the functions of
     ours they call."""
     functions, tables = _functions(store), _tables(store)
     found: set[str] = set()
-    with store.pool.connection() as conn:
-        for text, params in statements:
-            plan = conn.execute("EXPLAIN (FORMAT JSON) " + text, params).fetchone()[0]
-            _plan_relations(plan, found)
-            for name in set(re.findall(r"\b(lg_\w+)\s*\(", text)) & set(functions):
-                found |= {t for t in tables if re.search(rf"\b{t}\b", functions[name])}
+    for call in statements:
+        plan = explain(store, call.statement, call.params)
+        found |= {n["Relation Name"] for n in plan_nodes(plan) if "Relation Name" in n}
+        for name in set(re.findall(r"\b(lg_\w+)\s*\(", call.text)) & set(functions):
+            found |= {t for t in tables if re.search(rf"\b{t}\b", functions[name])}
     kept_by = _kept_by(store)
     return {kept_by.get(table, table) for table in found if not FREE.match(table)}
 
@@ -219,7 +196,7 @@ def test_every_part_left_out_by_its_tables_reads_only_them(
 ) -> None:
     _seed(store)
     version_cache.clear()
-    read: dict[str, list[tuple[str, Any]]] = {}
+    read: dict[str, list[Call]] = {}
     run = warm._run
 
     def recorded(name: str, part: Callable[[], object]) -> bool:

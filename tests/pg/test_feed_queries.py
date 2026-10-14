@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import Any
 from xml.etree import ElementTree
 
 import pytest
@@ -47,6 +47,7 @@ from lawgraph.db.queries.feed import (
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
+from tests.pg.plans import explain, plan_nodes, recorded
 
 # TK GUIDs: a member's key is its GUID made a node key.
 AALDERS = "11111111-1111-1111-1111-111111111111"
@@ -1245,19 +1246,12 @@ def test_one_statement_reads_a_page_whatever_its_size(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(store)
-    statements: list[str] = []
-    query = store.query
-
-    def counted(sql: Any, params: Any = None, **kwargs: Any) -> Any:
-        statements.append(sql)
-        return query(sql, params, **kwargs)
-
-    monkeypatch.setattr(store, "query", counted)
+    calls = recorded(store, monkeypatch)
     for limit in (1, 50):
         for facets in (True, False):
             get_feed(store, FeedFilters(), limit=limit, facets=facets)
     get_feed_summary(store, FeedFilters(since="2026-01-01"))
-    feed = [s for s in statements if "lg_data_version" not in str(s)]
+    feed = [c.text for c in calls if "lg_data_version" not in c.text]
     # a page each (4), the total and facets once (kept for the second page with facets,
     # whatever its size), the summary
     assert len(feed) == 6
@@ -1557,22 +1551,10 @@ def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
     assert _walk(store, cursor, facets) == everything[middle + 1 :]
 
 
-def _plan(store: GraphStore, sql: str, bind: dict[str, Any]) -> dict[str, Any]:
-    with store.pool.connection() as conn:
-        (plan,) = conn.execute(f"EXPLAIN (FORMAT JSON) {sql}", bind).fetchone()  # type: ignore[misc]
-    return cast(dict[str, Any], plan[0]["Plan"])
-
-
-def _plan_nodes(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-    yield node
-    for child in node.get("Plans", []):
-        yield from _plan_nodes(child)
-
-
 def _seq_scans(plan: dict[str, Any]) -> list[str]:
     return [
         node["Relation Name"]
-        for node in _plan_nodes(plan)
+        for node in plan_nodes(plan)
         if node["Node Type"] == "Seq Scan" and node["Relation Name"] in LARGE
     ]
 
@@ -1596,7 +1578,7 @@ def _limit_over_index(plan: dict[str, Any], table: str) -> bool:
         return any(ordered(child) for child in node.get("Plans", []))
 
     return any(
-        node["Node Type"] == "Limit" and ordered(node) for node in _plan_nodes(plan)
+        node["Node Type"] == "Limit" and ordered(node) for node in plan_nodes(plan)
     )
 
 
@@ -1612,7 +1594,7 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
     store = crowded
     cursor = FeedCursor(date=BUSY_DAY, kind="Motie", id=f"documents/{_uuid_key(120)}")
     sql, bind = feed_query(FeedFilters(), cursor=cursor, limit=50, facets=facets)
-    plan = _plan(store, sql, bind)
+    plan = explain(store, sql, bind)
     if facets:
         # the facets count every event, so every event is read (the rows of a kind whole
         # where they are most of a table); what each row looks up goes by index
@@ -1625,7 +1607,7 @@ def test_a_cursor_page_of_a_busy_day_reads_through_indexes(
         sql, bind = feed_query(
             FeedFilters(kinds=("uitspraak",)), cursor=cursor, limit=50, facets=False
         )
-        judgments = _plan(store, sql, bind)
+        judgments = explain(store, sql, bind)
         assert _seq_scans(judgments) == []
         assert _limit_over_index(judgments, "judgments")
 
@@ -1933,11 +1915,11 @@ def test_words_are_found_by_index_not_by_reading_every_day(crowded: GraphStore) 
         limit=50,
         facets=False,
     )
-    plan = _plan(store, sql, bind)
+    plan = explain(store, sql, bind)
     assert _seq_scans(plan) == []
     for table in ("documents", "decisions", "judgments"):
         assert not _limit_over_index(plan, table), table
-    used = {node.get("Index Name") for node in _plan_nodes(plan)}
+    used = {node.get("Index Name") for node in plan_nodes(plan)}
     assert {
         "documents_feed_title_g",
         "documents_dossier_numbers",

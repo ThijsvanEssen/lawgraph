@@ -15,6 +15,7 @@ from lawgraph.config.constants import RELATION_AUTHORED, RELATION_PART_OF
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.committees import get_actor_dossiers
+from tests.pg.plans import explain, plan_nodes, recorded
 from tests.pg.test_committees_queries import Graph, _authorship_graph, _signatures
 
 
@@ -108,38 +109,19 @@ def test_a_paper_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
     assert first["dossier"]["_key"] == "39000" and first["document_count"] == 1
 
 
-def test_the_page_of_a_member_reads_the_table_not_the_edges(store: GraphStore) -> None:
+def test_the_page_of_a_member_reads_the_table_not_the_edges(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Once filled, a member's papers and dossiers are a range of the table's index: no
     edge of their signatures read from the table of edges, no probe of a paper's dossiers."""
     _signatures(store)
     member_authored.fill_authored(store)
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "actor_id" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        get_actor_dossiers(store, "members/m1")
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def relations(node: Any) -> set[str]:
-        found = {node["Relation Name"]} if "Relation Name" in node else set()
-        for child in node.get("Plans", []):
-            found |= relations(child)
-        return found
-
-    assert "edges" not in relations(plan[0]["Plan"])
+    calls = recorded(store, monkeypatch)
+    get_actor_dossiers(store, "members/m1")
+    statement, params, *_ = [c for c in calls if c.params and "actor_id" in c.params][0]
+    plan = explain(store, statement, params)
+    relations = {n["Relation Name"] for n in plan_nodes(plan) if "Relation Name" in n}
+    assert "edges" not in relations
 
 
 def _dated(store: GraphStore, member: str) -> dict[str, tuple[Any, Any]]:

@@ -7,6 +7,7 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
+from tests.pg.plans import recorded
 
 
 def _instrument(n: int) -> dict[str, object]:
@@ -44,20 +45,14 @@ def test_a_large_table_is_sampled_the_same_every_time(
     counted = _bm25._stats(store, "instruments")
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 100)
     monkeypatch.setattr(_bm25, "MIN_SAMPLED", 10)
-    statements: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        statements.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     store.bulk_insert_or_update_nodes(
         "instruments", [_instrument(2000)]
     )  # a new version
     sampled = _bm25._stats(store, "instruments")
     store.bulk_insert_or_update_nodes("instruments", [_instrument(2001)])
     again = _bm25._stats(store, "instruments")
+    statements = [c.text for c in calls]
 
     assert any("TABLESAMPLE SYSTEM" in s for s in statements)
     assert sampled["N"] == pytest.approx(2000, rel=0.05)  # the planner's count
@@ -141,22 +136,15 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     version_cache.clear()
     common = _bm25._common_elements(store, "judgments", "s_summary_t")
     assert "beroep" in common
-    statements: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        statements.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     search_all(store, q="beroep", types=["judgments"], limit=10)
-    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     # the summaries are not counted for a common word: the statistics give its frequency
     assert counts and not any("s_summary_t &&" in s for s in counts)
-    statements.clear()
+    calls.clear()
     version_cache.clear()
     search_all(store, q="voorbeeldloos", types=["judgments"], limit=10)
-    counts = [s for s in statements if s.startswith("SELECT 1 AS one")]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     # a word outside the statistics is counted
     assert counts and any("s_summary_t &&" in s for s in counts)
 
@@ -249,18 +237,11 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     version_cache.clear()
     monkeypatch.setattr(_bm25, "DF_TIMEOUT", 0.0)
     monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
-    counts: list[str] = []
-    query = store.query
-
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
-        if str(statement).startswith("SELECT 1 AS one"):
-            counts.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", recording)
+    calls = recorded(store, monkeypatch)
     with caplog.at_level("INFO"):
         first = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
         again = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
+    counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     assert first and [h["key"] for h in again] == [h["key"] for h in first]
     assert any("took over" in r.message for r in caplog.records)
     assert len(counts) <= 1  # kept: the second search counts nothing

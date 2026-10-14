@@ -50,6 +50,7 @@ from lawgraph.db.queries.committees import (
     get_seats_on,
 )
 from tests.fakes import assert_fast
+from tests.pg.plans import explain, plan_nodes, recorded
 
 FIRST = "Eerste ondertekenaar"
 CO = "Mede ondertekenaar"
@@ -519,19 +520,10 @@ def test_the_members_of_the_eerste_kamer(store: GraphStore) -> None:
 
 def _plan(store: GraphStore, call: Any) -> str:
     """The plan PostgreSQL makes for the one statement *call* runs on *store*."""
-    seen: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def spy(statement: Any, params: Any = None, **kw: Any) -> Any:
-        seen.append((statement, params))
-        return query(statement, params, **kw)
-
-    store.query = spy  # type: ignore[method-assign]
-    try:
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        seen = recorded(store, monkeypatch)
         call()
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    [(statement, params)] = seen
+    [(statement, params, *_)] = seen
     with store.pool.connection() as conn:
         conn.execute(b"ANALYZE members")
         rows = conn.execute(("EXPLAIN " + statement).encode(), params).fetchall()
@@ -1497,36 +1489,18 @@ def _candidates_plan(
 ) -> list[dict[str, Any]]:
     """The nodes of the plan (EXPLAIN ANALYZE) of the candidates of the votes of a member,
     as ``get_member_votes`` reads them first."""
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "candidates" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        calls = recorded(store, monkeypatch)
         votes = get_member_votes(store, member_id, limit=limit, in_office=in_office)
         assert len(votes) == limit
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
-    (candidates,) = [
-        n for n in scans(plan[0]["Plan"]) if n.get("Subplan Name") == "CTE candidates"
+    statement, params, *_ = [c for c in calls if c.params and "candidates" in c.params][
+        0
     ]
-    return list(scans(candidates))
+    plan = explain(store, statement, params, analyze=True)
+    (candidates,) = [
+        n for n in plan_nodes(plan) if n.get("Subplan Name") == "CTE candidates"
+    ]
+    return list(plan_nodes(candidates))
 
 
 def _decisions_voted(
@@ -1604,39 +1578,20 @@ def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
 
 
 def test_the_page_of_votes_reads_the_edges_of_its_votes_alone(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The page is chosen from the candidates by their dates before any edge's meta is read
     (each candidate read its edge: 1,800 for a page of 100 on prod, 3.3 s cold), and the kind
     of each vote comes from the decision the walk read (a second join of the decisions for
     it was planned as a read of all 94,000)."""
     _decisions_voted(store, [D66])
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "candidates" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        assert len(get_member_votes(store, "members/m1", limit=10)) == 10
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
-    nodes = list(scans(plan[0]["Plan"]))
+    calls = recorded(store, monkeypatch)
+    assert len(get_member_votes(store, "members/m1", limit=10)) == 10
+    statement, params, *_ = [c for c in calls if c.params and "candidates" in c.params][
+        0
+    ]
+    plan = explain(store, statement, params, analyze=True)
+    nodes = list(plan_nodes(plan))
     by_key = [n for n in nodes if n.get("Index Name") == "edges_pkey"]
     assert sum(n["Actual Rows"] * n["Actual Loops"] for n in by_key) <= 10
     assert not [
@@ -1664,14 +1619,7 @@ def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
     store.execute("UPDATE lg_authored SET date = NULL")
     version_cache.clear()
 
-    seen: list[str] = []
-    query = store.query
-
-    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
-        seen.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recorded)
+    seen = recorded(store, monkeypatch)
     for dated in (False, True):
         if dated:
             after: str | None = ""
@@ -1681,6 +1629,6 @@ def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
         for faction, page in walked.items():
             seen.clear()
             assert get_actor_dossiers(store, faction) == page
-            (statement,) = [s for s in seen if "grouped AS" in s]
+            (statement,) = [c.text for c in seen if "grouped AS" in c.text]
             assert "lg_authored" in statement
             assert "a.relation = %(authored)s" not in statement

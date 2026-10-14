@@ -13,6 +13,7 @@ from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.not_found import NotFound
 from tests.fakes import PATIENCE
+from tests.pg.plans import explain, plan_nodes, recorded
 
 HR1 = "ECLI:NL:HR:2020:1"
 HR10 = "ECLI:NL:HR:2020:10"
@@ -672,17 +673,11 @@ def test_without_facets_the_page_and_the_total_alone(
     """``facets=False``: the same page and total, ``facets`` None, and no count of a facet
     sent to the database (eight statements over every judgment on the full graph)."""
     with_facets = get_judgments_list(corpus, JudgmentFilters(tier="hoge_raad"))
-    statements: list[str] = []
-    query = corpus.query
-
-    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(corpus, "query", counting)
+    calls = recorded(corpus, monkeypatch)
     without = get_judgments_list(
         corpus, JudgmentFilters(tier="hoge_raad"), facets=False
     )
+    statements = [c.text for c in calls]
     assert without["items"] == with_facets["items"]
     assert without["total"] == with_facets["total"]
     assert without["facets"] is None
@@ -709,17 +704,10 @@ def _items_statement(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, filters: JudgmentFilters
 ) -> tuple[str, Any]:
     """The statement (and its parameters) that reads the page of the list *filters*."""
-    seen: list[tuple[str, Any]] = []
-    query = store.query
-
-    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
-        seen.append((str(statement), params))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recorded)
-    get_judgments_list(store, filters, limit=100, facets=False)
-    monkeypatch.setattr(store, "query", query)
-    (found,) = [(s, p) for s, p in seen if "row_number()" in s]
+    with monkeypatch.context() as patched:
+        seen = recorded(store, patched)
+        get_judgments_list(store, filters, limit=100, facets=False)
+    (found,) = [(c.text, c.params) for c in seen if "row_number()" in c.text]
     return found
 
 
@@ -728,29 +716,14 @@ def _ordered_scans(store: GraphStore, statement: str, params: Any) -> list[str]:
     row for the words of the search (``s_summary_t``, a ``Filter``). Planned as
     ``tests/pg/test_query_plans.py`` does, without sorts and table scans where the
     statement can do without, so that the few rows seeded here plan as a million do."""
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_sort = off")
-        conn.execute("SET LOCAL enable_seqscan = off")
-        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
-    assert row is not None
-    found: list[str] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if (
-                node.get("Relation Name") == "judgments"
-                and node.get("Node Type") == "Index Scan"
-                and "s_summary_t" in node.get("Filter", "")
-            ):
-                found.append(node["Index Name"])
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(row[0])
-    return found
+    plan = explain(store, statement, params, disable=("sort", "seqscan"))
+    return [
+        node["Index Name"]
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "judgments"
+        and node.get("Node Type") == "Index Scan"
+        and "s_summary_t" in node.get("Filter", "")
+    ]
 
 
 def test_a_rare_word_finds_its_hits_before_it_sorts_them(
@@ -799,17 +772,12 @@ def _page_and_statement(
     **page: Any,
 ) -> tuple[list[Any], str, Any]:
     """The items of a page of the list *filters*, and the statement that read them."""
-    seen: list[tuple[str, Any]] = []
-    query = store.query
-
-    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
-        seen.append((str(statement), params))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recorded)
-    found = get_judgments_list(store, filters, limit=50, facets=False, **page)
-    monkeypatch.setattr(store, "query", query)
-    ((statement, params),) = [(s, p) for s, p in seen if "row_number()" in s]
+    with monkeypatch.context() as patched:
+        seen = recorded(store, patched)
+        found = get_judgments_list(store, filters, limit=50, facets=False, **page)
+    ((statement, params),) = [
+        (c.text, c.params) for c in seen if "row_number()" in c.text
+    ]
     return found["items"], statement, params
 
 
@@ -843,26 +811,12 @@ def test_rows_read_by_their_place_are_the_rows_read_by_their_id(
 
 def _scans(store: GraphStore, statement: str, params: Any) -> list[str]:
     """The scans of judgments in the plan of *statement*: node type and index."""
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_seqscan = off")
-        row = conn.execute("EXPLAIN (FORMAT JSON) " + statement, params).fetchone()
-    assert row is not None
-    found: list[str] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == "judgments":
-                found.append(
-                    f"{node['Node Type']} {node.get('Index Name', '')}".strip()
-                )
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(row[0])
-    return found
+    plan = explain(store, statement, params, disable=("seqscan",))
+    return [
+        f"{node['Node Type']} {node.get('Index Name', '')}".strip()
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "judgments"
+    ]
 
 
 @pytest.mark.parametrize("q", [None, "pacht"])

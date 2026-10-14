@@ -25,6 +25,7 @@ from lawgraph.db.queries.feed_events import (
     write_all,
     write_since,
 )
+from tests.pg.plans import plan_nodes
 from tests.pg.test_feed_queries import _document, _node, _seed
 
 
@@ -199,19 +200,7 @@ def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
         )
         conn.execute("ANALYZE lg_feed_events")
         plan = conn.execute("EXPLAIN (FORMAT JSON) " + statement, bind).fetchone()[0]
-    nodes: list[dict[str, Any]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if "Node Type" in node:
-                nodes.append(node)
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    nodes = list(plan_nodes(plan[0]["Plan"]))
     scans = {
         n["Node Type"] for n in nodes if n.get("Relation Name") == "lg_feed_events"
     }

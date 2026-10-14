@@ -63,6 +63,7 @@ from lawgraph.db.queries.dossiers import (
 )
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
+from tests.pg.plans import explain, plan_nodes, recorded
 
 # ── dossier documents and timeline ──
 
@@ -644,18 +645,11 @@ def _hub_graph(store: GraphStore) -> None:
 
 
 def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _hub_graph(store)
 
-    asked: list[str] = []
-    real = store.query
-
-    def recording(aql: str, *args: Any, **kwargs: Any) -> Any:
-        asked.append(aql)
-        return real(aql, *args, **kwargs)
-
-    store.query = recording  # type: ignore[method-assign]
+    asked = recorded(store, monkeypatch)
     hub = get_dossier_hub(store, "dossiers/36001")
     assert len(asked) == 1
 
@@ -743,8 +737,9 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
     store.execute("ANALYZE")
     from lawgraph.db.queries import dossiers
 
-    (plan,) = store.execute(
-        f"EXPLAIN (FORMAT JSON) {dossiers._DOSSIER_HUB_SQL}",
+    plan = explain(
+        store,
+        dossiers._DOSSIER_HUB_SQL,
         {
             "dossier_id": "dossiers/36004",
             "part_of": RELATION_PART_OF,
@@ -756,15 +751,11 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
             "relation_order": ["legislated_in", "amends"],
         },
     )
-    scans = []
-
-    def walk(node: dict[str, Any]) -> None:
-        if node.get("Node Type") == "Seq Scan":
-            scans.append(node["Relation Name"])
-        for child in node.get("Plans", []):
-            walk(child)
-
-    walk(plan[0]["Plan"])
+    scans = [
+        node["Relation Name"]
+        for node in plan_nodes(plan)
+        if node.get("Node Type") == "Seq Scan"
+    ]
     assert "edges" not in scans, scans
 
 
@@ -2341,15 +2332,9 @@ def test_the_dossier_list_without_facets_the_page_and_the_total_alone(
     _listed(store)
     filters = DossierFilters(status="closed")
     with_facets = get_dossiers(store, filters, limit=1)
-    statements: list[str] = []
-    query = store.query
-
-    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", counting)
+    calls = recorded(store, monkeypatch)
     without = get_dossiers(store, filters, limit=1, facets=False)
+    statements = [c.text for c in calls]
     assert without["items"] == with_facets["items"]
     assert without["total"] == with_facets["total"]
     assert without["facets"] is None

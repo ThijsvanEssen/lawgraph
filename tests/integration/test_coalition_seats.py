@@ -18,6 +18,7 @@ from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.coalition import cabinet_seats
 from lawgraph.db.queries.not_found import require_node
+from tests.pg.plans import recorded
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -203,14 +204,8 @@ def test_the_seats_of_a_cabinet_read_each_statement_once(
     _seed_ek(store)
     cabinet = require_node(store, COLLECTION_CABINETS, "schoof", "Cabinet")
     expected = cabinet_seats(store, cabinet, "2026-10-14")
-    run: list[str] = []
-    query = store.query
-
-    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        run.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", counted)
+    calls = recorded(store, monkeypatch)
     assert cabinet_seats(store, cabinet, "2026-10-14") == expected
     assert len(expected["ek"]) == 2
+    run = [c.text for c in calls]
     assert len(run) == len(set(run)), [s.split()[:6] for s in run]

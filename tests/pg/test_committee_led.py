@@ -17,6 +17,7 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
 )
+from tests.pg.plans import explain, plan_nodes, recorded
 from tests.pg.test_committees_queries import Graph, _committee_graph
 
 
@@ -105,45 +106,32 @@ def test_the_pages_from_the_table_are_those_of_the_walk(store: GraphStore) -> No
     assert detail is not None and detail["dossier_total"] == 5
 
 
-def _relations(plan: Any) -> list[str]:
-    found = [plan["Relation Name"]] if "Relation Name" in plan else []
-    for child in plan.get("Plans", []):
-        found += _relations(child)
-    return found
+def _relations(plan: dict[str, Any]) -> list[str]:
+    return [n["Relation Name"] for n in plan_nodes(plan) if "Relation Name" in n]
 
 
 def test_the_pages_read_no_edge_and_no_activity_past_the_page(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Once filled, the dossiers are those kept with the items (no edge read) and the
     activities a range of the table's index, the page's rows alone read from their table."""
     _committee_graph(store)
     committee_led.fill_led(store)
     store.vacuum_analyze()
-    from lawgraph.db.store import _query
-
-    seen: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        # the statements of the two pages (not the members of the committee)
-        if params and "committee_id" in params and "limit" in params:
-            seen.append((statement, params))
-        return query(statement, params, **options)
-
     version_cache.clear()
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        get_committee_detail(store, "b", status=None)
-        get_committee_activities(store, "b", limit=2)
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
+    get_committee_detail(store, "b", status=None)
+    get_committee_activities(store, "b", limit=2)
+    # the statements of the two pages (not the members of the committee)
+    seen = [
+        (c.statement, c.params)
+        for c in calls
+        if c.params and "committee_id" in c.params and "limit" in c.params
+    ]
     assert len(seen) == 2
     for statement, params in seen:
-        with store.pool.connection() as conn:
-            explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-            (plan,) = conn.execute(explain, params).fetchone()[0]
-        assert "edges" not in _relations(plan["Plan"]), statement
+        plan = explain(store, statement, params)
+        assert "edges" not in _relations(plan), statement
 
 
 def test_a_release_without_the_table_starts_on_a_database_with_it(

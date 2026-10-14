@@ -4,7 +4,6 @@ decision with its votes, and the document a decision was about."""
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
 
@@ -20,6 +19,7 @@ from lawgraph.db.queries.decisions import (
     get_document_decisions,
 )
 from tests.fakes import PATIENCE, until
+from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
@@ -579,19 +579,6 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     assert motion == get_decision_detail(store, "s_motie")
 
 
-def _statements(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The statements *store* runs from now on, in order."""
-    run: list[str] = []
-    query = store.query
-
-    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        run.append(str(statement))
-        return query(statement, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", counted)
-    return run
-
-
 def test_the_votes_on_a_document_are_read_together(
     votes: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -637,7 +624,7 @@ def test_the_votes_on_a_document_are_read_together(
         " WHERE key IN ('s0', 's1', 's2')"
     )
     expected = [get_decision_detail(votes, key) for key in ("s0", "s1", "s2")]
-    run = _statements(votes, monkeypatch)
+    run = recorded(votes, monkeypatch)
     found = get_document_decisions(votes, "documents/motie")
     assert sorted(found, key=lambda d: d["_key"]) == expected
     assert len(run) == 3
@@ -799,11 +786,7 @@ def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> 
             f"{decision_queries._matching(filters, bind)}\n"
             f"SELECT {decision_queries._party_votes(filters, bind)} AS votes"
         )
-        with store.pool.connection() as conn:
-            (plan,) = conn.execute(
-                f"EXPLAIN (FORMAT JSON) {statement}", bind
-            ).fetchone()  # type: ignore[misc]
-        nodes = list(_plan_nodes(plan[0]["Plan"]))
+        nodes = list(plan_nodes(explain(store, statement, bind)))
         edges = [n for n in nodes if n.get("Relation Name") == "edges"]
         assert edges, asked
         assert all(n["Node Type"] != "Seq Scan" for n in edges), asked
@@ -814,12 +797,6 @@ def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> 
             if str(n.get("Index Name", "")).startswith("edges")
         }
         assert indexes and indexes <= allowed, (filters, indexes)
-
-
-def _plan_nodes(node: dict[str, Any]) -> Any:
-    yield node
-    for child in node.get("Plans", []):
-        yield from _plan_nodes(child)
 
 
 def test_party_votes_are_counted_once_an_hour_not_per_write(
@@ -854,25 +831,18 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     assert not any("party votes" in part for part in warm.PART_TABLES)
 
 
-def test_the_page_first_and_the_counts_kept_per_filter(votes: GraphStore) -> None:
+def test_the_page_first_and_the_counts_kept_per_filter(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The page is read on its own; the total and facets are read once per filter and
     version of the decisions: a second request reads the page alone."""
     from lawgraph.db import version_cache
 
     version_cache.clear()
     first = get_decisions(votes, EVERY)
-    statements: list[str] = []
-    query = votes.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append(str(statement))
-        return query(statement, params, **options)
-
-    votes.query = recording  # type: ignore[method-assign]
-    try:
-        again = get_decisions(votes, EVERY)
-    finally:
-        votes.query = query  # type: ignore[method-assign]
+    calls = recorded(votes, monkeypatch)
+    again = get_decisions(votes, EVERY)
+    statements = [c.text for c in calls]
     assert again == first
     assert not [s for s in statements if "'facets'" in s]
 
@@ -914,12 +884,11 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
 
 
 def test_a_page_reads_the_decisions_in_its_order_as_far_as_it_goes(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The page of the list is a range of the index in its order (``decisions_list_date``):
     it stops after its limit instead of sorting every decision under the filters."""
     from lawgraph.db.queries import decisions as decision_queries
-    from lawgraph.db.store import _query
 
     store.execute(
         "INSERT INTO decisions (id, type, labels, props)"
@@ -928,29 +897,10 @@ def test_a_page_reads_the_decisions_in_its_order_as_far_as_it_goes(
         " 'passed', n % 2 = 0) FROM generate_series(1, 20000) n"
     )
     store.execute("ANALYZE decisions")
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        decision_queries._page(store, DecisionFilters(chamber="TK"), 50, 0)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def nodes(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from nodes(child)
-
-    found = list(nodes(plan[0]["Plan"]))
+    statements = recorded(store, monkeypatch)
+    decision_queries._page(store, DecisionFilters(chamber="TK"), 50, 0)
+    statement, params, *_ = statements[0]
+    found = list(plan_nodes(explain(store, statement, params, analyze=True)))
     assert any(n.get("Index Name") == "decisions_list_date" for n in found)
     read = sum(
         n["Actual Rows"] * n["Actual Loops"]

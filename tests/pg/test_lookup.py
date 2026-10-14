@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from tests.pg.plans import explain, recorded
 
 
 def _node(
@@ -298,31 +299,15 @@ def test_a_missing_or_malformed_parameter_is_422(
 
 
 def test_a_paper_by_its_number_is_one_probe_of_an_index(
-    client: TestClient, store: GraphStore
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Of a budget dossier the props of thousands of papers were read for one lookup
     (1.8 s cold on prod): a number is looked up by the index on ``lg_document_light``."""
     from lawgraph.db.queries import lookup
-    from lawgraph.db.store import _query
 
-    ran: list[tuple[Any, Any]] = []
-    stream = store._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        ran.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded  # type: ignore[method-assign]
-    try:
-        assert lookup.find_document(store, "36799", "31") == "documents/tk31"
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
-    ((statement, params),) = ran
-    with store.pool.connection() as conn:
-        conn.execute("SET enable_seqscan = off")
-        plan = conn.execute(
-            b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn), params
-        ).fetchone()[0]
-    text = str(plan)
+    ran = recorded(store, monkeypatch, "_stream")
+    assert lookup.find_document(store, "36799", "31") == "documents/tk31"
+    ((statement, params, *_),) = ran
+    text = str(explain(store, statement, params, disable=("seqscan",)))
     assert "lg_document_light_paper" in text
     assert "'Relation Name': 'documents'" not in text
