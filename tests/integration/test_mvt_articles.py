@@ -17,6 +17,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
@@ -109,8 +110,10 @@ class _Paper:
         self.text = ""
         self.sections: list[dict[str, Any]] = []
 
-    def article(self, number: str, body: str) -> None:
-        heading = f"Artikel {number}"
+    def article(
+        self, number: str, body: str, caption: str = "", law: str | None = None
+    ) -> None:
+        heading = f"Artikel {number}{caption}"
         start = len(self.text) + (1 if self.text else 0)
         block = f"{heading}\n{body}"
         self.text += ("\n" if self.text else "") + block
@@ -124,7 +127,7 @@ class _Paper:
                 "number": number,
                 "number_scheme": "arabic",
                 "article_refs": [{"number": number, "of": "self"}],
-                "law": None,
+                "law": law,
                 "char_start": start,
                 "char_end": start + len(block),
             }
@@ -604,3 +607,92 @@ def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
     (passage,) = item["passages"]
     assert passage["text"] == "Toelichting\nDit amendement regelt een machtiging."
     assert ids["doc"] not in [i["document"]["id"] for i in body["items"]]
+
+
+CBW = "BWBR0052872"  # established by Stb. 2026, 187 in dossier 36764
+TW = "BWBR0009950"  # changed by the same publication
+
+
+def _cbw_graph(store: GraphStore, *, law_names_dossier: bool) -> dict[str, str]:
+    """36764: Stb. 2026, 187 establishes the Cyberbeveiligingswet and changes the
+    Telecommunicatiewet; the memorandum explains article 21 under "Artikel 21 (zorgplicht)"
+    and the change of the Telecommunicatiewet under "Artikel 99"."""
+    ids: dict[str, str] = {}
+    _node(store, "dossiers", "36764", "dossier", number="36764")
+    cbw = _law(store, CBW, "Cyberbeveiligingswet")
+    if law_names_dossier:
+        _edge(store, cbw, "dossiers/36764", RELATION_LEGISLATED_IN)
+    _law(store, TW, "Telecommunicatiewet", short_title="Tw")
+    publication = _node(
+        store,
+        "instruments",
+        "stb_2026_187",
+        "instrument",
+        display_name="Stb. 2026, 187",
+    )
+    _edge(store, publication, "dossiers/36764", RELATION_LEGISLATED_IN)
+    for number in ("21", "22", "99"):
+        article, version = _article(store, CBW, number)
+        _edge(
+            store, publication, article, RELATION_ESTABLISHES, article_version=version
+        )
+        ids[f"cbw_{number}"] = f"article_versions/{version}"
+    article, version = _article(store, TW, "11a.1")
+    _edge(store, publication, article, RELATION_AMENDS, article_version=version)
+    ids["tw"] = f"article_versions/{version}"
+    paper = _Paper()
+    paper.article(
+        "21",
+        "Artikel 21 Cbw ziet op de zorgplicht; zie ook artikel 22.",
+        " (zorgplicht)",
+    )
+    paper.article(
+        "99",
+        "Artikel 11a.1 van de Telecommunicatiewet wordt gewijzigd.",
+        " (wijziging Telecommunicatiewet)",
+        law="wijziging Telecommunicatiewet",
+    )
+    ids["doc"] = _memorandum(store, "mvt_36764", "36764", paper.text, paper.sections)
+    return ids
+
+
+@pytest.mark.parametrize("law_names_dossier", [True, False])
+def test_the_memorandum_of_a_new_law_that_changes_another_explains_both(
+    database: str, cli: Any, law_names_dossier: bool
+) -> None:
+    """Cbw art. 21 is explained by "§ Artikel 21" of the memorandum of 36764, whether or not
+    the law names the dossier; the Telecommunicatiewet by the text under "Artikel 99"."""
+    store = GraphStore()
+    ids = _cbw_graph(store, law_names_dossier=law_names_dossier)
+
+    _run(cli, "tk-mvt", "tk-mvt-articles")
+
+    edges = _by_target(store, ids["doc"])
+    assert set(edges) == {ids["cbw_21"], ids["cbw_22"], ids["cbw_99"], ids["tw"]}
+    zorgplicht = edges[ids["cbw_21"]]
+    assert zorgplicht["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert zorgplicht["confidence"] == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
+    meta = zorgplicht["meta"]
+    assert (meta["match_type"], meta["changed"]) == ("own_number", True)
+    assert meta["explanation"].endswith("het dossier stelt het artikel vast.")
+    # article 22 is named in passing: the dossier explains it, no section
+    assert edges[ids["cbw_22"]]["source"] == SEMANTIC_SOURCE
+    assert edges[ids["cbw_99"]]["meta"]["section_anchor"] == "s-1"
+    tw = edges[ids["tw"]]["meta"]
+    assert (tw["section_anchor"], tw["match_type"]) == ("s-1", "body_named_law")
+
+    app.dependency_overrides[get_store] = lambda: store
+    client = TestClient(app)
+    body = client.get(f"/api/articles/{CBW}/21/explained-by").json()
+    (item,) = body["items"]
+    assert (item["target"], item["target_id"]) == ("article_version", ids["cbw_21"])
+    assert (item["scope"], item["section_anchor"]) == ("article", "s-0")
+    assert item["heading"] == "Artikel 21 (zorgplicht)"
+    assert item["excerpt"].startswith("Artikel 21 Cbw ziet op de zorgplicht")
+    document = client.get("/api/documents/mvt_36764").json()
+    assert document["text"][item["char_start"] : item["char_end"]].startswith(
+        "Artikel 21 (zorgplicht)\nArtikel 21 Cbw"
+    )
+    (reader,) = client.get(f"/api/articles/{CBW}/21/explanations").json()["items"]
+    (passage,) = reader["passages"]
+    assert passage["heading"] == "Artikel 21 (zorgplicht)"

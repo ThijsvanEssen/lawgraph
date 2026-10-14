@@ -5,9 +5,10 @@ legislated in that dossier says which articles it introduced or changed. That
 chain is recorded in the graph, so the link is read rather than guessed::
 
     Document --PART_OF--> Dossier <--LEGISLATED_IN-- Instrument
-    Instrument --AMENDS/INTRODUCES/REPEALS--> Article
+    Instrument --AMENDS/INTRODUCES/REPEALS/ESTABLISHES--> Article
 
-The edge targets the ArticleVersion the amendment created when the amendment
+A law the dossier made counts with its articles: the publication that enacted it establishes
+them. The edge targets the ArticleVersion the amendment created when the amendment
 names one, the Article itself otherwise, and the Instrument when it changed no
 articles at all.
 """

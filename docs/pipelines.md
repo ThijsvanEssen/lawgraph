@@ -297,8 +297,8 @@ make that act, they do not change it. Targets must exist. Every edge is written 
 
 **Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
 document whose `kind` contains `toelichting`, one query walks
-`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`
-and writes `EXPLAINS` at confidence 0.5 (`DOSSIER_CONFIDENCE`: the memorandum explains the
+`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS|ESTABLISHES-> Article`
+(`ESTABLISHES`: the articles of a law the dossier made) and writes `EXPLAINS` at confidence 0.5 (`DOSSIER_CONFIDENCE`: the memorandum explains the
 change as a whole, each article is a candidate) to the `meta.article_version` of each change
 edge, to the article itself when the edge names no version, and to the instrument when it
 changed no articles at all. An edge that `tk-mvt-articles` has written is left alone.
@@ -306,7 +306,7 @@ changed no articles at all. An edge that `tk-mvt-articles` has written is left a
 **Semantic `tk-mvt-articles`.** The article-by-article part of a memorandum, per section
 (`props.sections`, from `normalize tk-content`). Which article of which law a section is about
 is read from its words (`core/mvt_articles.py`) and matched with what the dossier changed
-(`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS-> Article`).
+(`Document -PART_OF-> Dossier <-LEGISLATED_IN- Instrument -AMENDS|INTRODUCES|REPEALS|ESTABLISHES-> Article`).
 `EXPLAINS` goes to the `meta.article_version` of the change edge, else to the article. Papers
 with `budget`, with `structure_quality` `none`, and dossiers that legislated nothing are left
 out; a section that names no article of a law the dossier changes has no edge of its own (the
@@ -317,7 +317,7 @@ are read.
 |-------------------|--------------|-----------|
 | `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`, `Artikel 11 Sr`, `Artikel 4, vijfde lid, Wahv`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
-| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`) and the dossier made the law: its instrument is `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it | 0.95 |
+| `own_number` | new law: the heading is `Artikel N` (Arabic, or `3:159n`), also with the law it changes (`Artikel 99 (wijziging Telecommunicatiewet)`), and the dossier made the law: a publication `LEGISLATED_IN` the dossier `ESTABLISHES` its articles (of two laws so made, the one that is `LEGISLATED_IN` the dossier itself), else its instrument is the one `LEGISLATED_IN` the dossier and no article of it was changed but to introduce it. A number without its law under such a heading is the new law's own, not inferred | 0.95 |
 | `inferred_law` | an article number without its law, in the first 600 characters of the text under the heading (`artikel 2`), or an Arabic `Artikel N` heading in a bill that changes another law: of the law the nearest heading names (an enclosing one, or the heading of the article of the bill before it under the same heading: `ARTIKEL II – WETBOEK VAN STRAFRECHT`, or `Artikel II, onderdeel D` through the bill's ARTIKEL II), else of the only law the dossier changes; the dossier changed that article | 0.8 |
 | `amendment` | an adopted amendment (below) changes the article, and its `Toelichting` section is the passage | 0.9 |
 | `bill_part` | the heading names an onderdeel of the bill and no article (`Artikel I, onderdeel B`, `Artikel I, onderdelen C tot en met E`, an `Onderdeel B` under `Artikel I`, an `Artikel III` without onderdelen), and the bill says which article it changes (`core/bill_parts.py`): the articles under its headings when it inserts them (`Na artikel 248c worden twee artikelen ingevoegd: Artikel 248d … Artikel 248e`), else those its instruction names before what it quotes; of the law its `ARTIKEL` says it changes (`Het Wetboek van Strafrecht wordt als volgt gewijzigd`), else the law the instruction names; the section has text of its own, and the dossier changed that article | 0.9 |
@@ -341,9 +341,9 @@ memorandum's own dossier: the memorandum explains the bill as it was sent, so it
 carry the bill's letters. A change of the article by the dossier corroborates a match; a
 heading that names an article the dossier did not change mostly names one of another law than
 the one it is taken for (the heading says `Wft`, the dossier changes Boek 2 BW). What a match
-rests on is `match_type`, `changed` (whether the dossier changed the article) and
-`explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
-wijzigt het artikel."). A heading with several numbers (`Artikelen 3 en
+rests on is `match_type`, `changed` (whether the dossier changed or established the article)
+and `explanation`, in Dutch ("De kop 'Onderdeel A (artikel 247)' noemt het artikel; het dossier
+wijzigt het artikel."; "... het dossier stelt het artikel vast." for an article of the new law). A heading with several numbers (`Artikelen 3 en
 4`) gives a reference per number; a range (`Artikelen 15 tot en met 15l Sr`) also the
 articles between its ends that the dossier changed of that law, in the order of their numbers.
 A reference may leave out the book of a code that the BWB stores per book (`artikel 7:658` is

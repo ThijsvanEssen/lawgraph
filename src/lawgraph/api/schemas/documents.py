@@ -441,14 +441,15 @@ class PassageDTO(BaseModel):
     )
     changed: bool | None = Field(
         default=None,
-        description="Whether the dossier changed the article, which corroborates the "
-        "match; a heading naming an article the dossier left alone is often of another "
-        "law. Null for a link made before this was recorded.",
+        description="Whether the dossier changed the article, or established it as an "
+        "article of the law it made, which corroborates the match; a heading naming an "
+        "article the dossier left alone is often of another law. Null for a link made "
+        "before this was recorded.",
     )
     explanation: str | None = Field(
         default=None,
         description="What the match rests on, in Dutch: the heading, and whether the "
-        "dossier changed the article.",
+        "dossier changed the article or established it.",
     )
 
 

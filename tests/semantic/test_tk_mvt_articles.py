@@ -6,7 +6,12 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import RELATION_AMENDS, RELATION_EXPLAINS
+from lawgraph.config.constants import (
+    RELATION_AMENDS,
+    RELATION_ESTABLISHES,
+    RELATION_EXPLAINS,
+    RELATION_REPEALS,
+)
 from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH, MATCH_BODY_NAMED_LAW
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -220,3 +225,102 @@ def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
     # its edges are replaced like a memorandum's
     ((ids, _),) = store.removals
     assert ids == ["documents/amendement-1"]
+
+
+# 36764: the bill is the Cyberbeveiligingswet, whose publication establishes it, and its
+# article 99 changes the Telecommunicatiewet.
+CBW = "BWBR0052872"
+TW = "BWBR0009950"
+_CBW_TEXT = (
+    "Artikel 21 (zorgplicht)\n"
+    "Artikel 21 Cbw ziet op de zorgplicht; artikel 22 regelt de meldplicht.\n"
+    "Artikel 99 (wijziging Telecommunicatiewet)\n"
+    "Artikel 11a.1 van de Telecommunicatiewet vervalt."
+)
+_CBW_99 = _CBW_TEXT.index("Artikel 99")
+
+
+def _own_article(
+    section_id: str, number: str, start: int, end: int, law: str | None
+) -> dict[str, Any]:
+    heading = _CBW_TEXT[start:end].split("\n", 1)[0]
+    return {
+        **_section(section_id, heading, start, end, None),
+        "number": number,
+        "number_scheme": "arabic",
+        "article_refs": [{"number": number, "of": "self"}],
+        "law": law,
+    }
+
+
+def _cbw_row(own: list[str]) -> dict[str, Any]:
+    def change(bwb_id: str, number: str, relation: str) -> dict[str, Any]:
+        key = f"{bwb_id.lower()}_{number}"
+        return {
+            "bwb_id": bwb_id,
+            "number": number,
+            "article": f"articles/{key}",
+            "version": f"{key}_v1",
+            "relation": relation,
+        }
+
+    return {
+        "document": "documents/mvt-36764",
+        "text": _CBW_TEXT,
+        "sections": [
+            _own_article("s-1", "21", 0, _CBW_99 - 1, None),
+            _own_article(
+                "s-2", "99", _CBW_99, len(_CBW_TEXT), "wijziging Telecommunicatiewet"
+            ),
+        ],
+        "own": own,
+        "changes": [
+            change(CBW, "21", RELATION_ESTABLISHES),
+            change(CBW, "22", RELATION_ESTABLISHES),
+            change(CBW, "99", RELATION_ESTABLISHES),
+            change(TW, "11a.1", RELATION_REPEALS),
+        ],
+        "laws": [
+            {"bwb_id": CBW, "names": ["Cyberbeveiligingswet", None], "codes": [None]},
+            {"bwb_id": TW, "names": ["Telecommunicatiewet", None], "codes": ["Tw"]},
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "own",
+    [[CBW], [], [CBW, TW]],
+    ids=["law-names-its-dossier", "law-without-dossierref", "two-laws-name-it"],
+)
+def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> None:
+    """A heading "Artikel 21" is article 21 of the law the publication of the dossier
+    established, whether or not the law names the dossier itself; the law it changes is
+    explained as before, through the text under the heading."""
+    store = _FakeStore([_cbw_row(own)])
+
+    TKMvtArticlesSemanticPipeline(store=store).run()
+
+    edges = {edge["_to"]: edge for edge in store.edges.values()}
+    assert set(edges) == {
+        "article_versions/bwbr0052872_21_v1",
+        "article_versions/bwbr0052872_99_v1",
+        "article_versions/bwbr0009950_11a.1_v1",
+    }
+    meta = edges["article_versions/bwbr0052872_21_v1"]["meta"]
+    assert (meta["section_anchor"], meta["heading"]) == (
+        "s-1",
+        "Artikel 21 (zorgplicht)",
+    )
+    assert (meta["match_type"], meta["changed"]) == ("own_number", True)
+    assert (meta["char_start"], meta["char_end"]) == (0, _CBW_99 - 1)
+    assert meta["explanation"] == (
+        "De kop 'Artikel 21 (zorgplicht)' is een artikel van de nieuwe wet; het dossier "
+        "stelt het artikel vast."
+    )
+    # the heading of the article that changes another law is an article of the law too
+    assert (
+        edges["article_versions/bwbr0052872_99_v1"]["meta"]["section_anchor"] == "s-2"
+    )
+    tw = edges["article_versions/bwbr0009950_11a.1_v1"]["meta"]
+    assert (tw["section_anchor"], tw["match_type"]) == ("s-2", "body_named_law")
+    assert tw["explanation"].endswith("het dossier wijzigt het artikel.")
