@@ -1,9 +1,6 @@
-"""Node ids are built and split by the helpers in ``core.models``, nowhere by hand."""
+"""The helpers of ``core.models`` that build and split a node id."""
 
 from __future__ import annotations
-
-import re
-from pathlib import Path
 
 import pytest
 
@@ -20,8 +17,6 @@ from lawgraph.core.models import (
     node_id,
     parse_node_id,
 )
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 
 
 def test_node_id_joins_collection_and_key() -> None:
@@ -61,29 +56,3 @@ def test_ref_is_an_unvalidated_skeleton_with_the_type_of_its_collection() -> Non
     assert ref.props == {}
     assert ref.labels == []
     assert ref.node_id == "judgments/ecli_nl_hr_2020_1"
-
-
-# An id written by hand: ``f"{COLLECTION_X}/{key}"``, ``f"judgments/{key}"``.
-_BUILT_BY_HAND = re.compile(
-    r'f"\{COLLECTION_[A-Z_]+\}/\{|f"(?:judgments|articles|article_versions|instruments|'
-    r"instrument_versions|dossiers|decisions|documents|members|cases|activities|"
-    r"commitments|committees|factions|cabinets|annexes)/\{"
-)
-# An id split by hand: ``node_id.split("/", 1)[1]``, ``row["id"].partition("/")[2]``.
-_SPLIT_BY_HAND = re.compile(
-    r'(?:_id|\bid\b|\["id"\]|\["other"\]|\bpaper|target_id|\bt)\s*\.\s*'
-    r'(?:split\("/"(?:, ?1)?\)|partition\("/"\))'
-)
-
-
-@pytest.mark.parametrize("pattern", [_BUILT_BY_HAND, _SPLIT_BY_HAND])
-def test_no_node_id_by_hand(pattern: re.Pattern[str]) -> None:
-    models = SRC / "core" / "models.py"
-    found = [
-        f"{path.relative_to(SRC)}:{number}: {line.strip()}"
-        for path in sorted(SRC.rglob("*.py"))
-        if path != models
-        for number, line in enumerate(path.read_text().splitlines(), 1)
-        if pattern.search(line)
-    ]
-    assert found == []

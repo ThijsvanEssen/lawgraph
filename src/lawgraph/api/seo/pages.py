@@ -27,24 +27,27 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
+from lawgraph.core.code_families import cited_number, family_of
+from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
-from lawgraph.core.readable_paths import BW_BOOKS, book_number, path_of
-from lawgraph.core.time import long_date
+from lawgraph.core.publications import koop_citation
+from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import due_date, is_motion_or_amendment, submitters
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, vote_outcome
+from lawgraph.core.xml import collapse_ws
 
 SITE = "Concordans"
 # The sources a list of a page links at most.
 LINKS = 20
 # The length a title is cut to before ", Concordans": what a search result shows.
 DESCRIPTION_MAX = 155
-_BW = set(BW_BOOKS.values())
 
 
 @dataclass
@@ -76,11 +79,7 @@ def _text(value: Any) -> str:
 
 def cut(text: str, length: int) -> str:
     """*text* in one line of at most *length* characters, cut at a word with an ellipsis."""
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= length:
-        return text
-    head = text[: length - 1].rsplit(" ", 1)[0].rstrip(",;:.")
-    return f"{head}…"
+    return shorten(collapse_ws(text), length)
 
 
 def full_title(title: str) -> str:
@@ -127,10 +126,9 @@ def _law_short(props: dict[str, Any] | None) -> str:
     """How an article cites its law: ``BW`` for a book of the Burgerlijk Wetboek, else its
     short title, else its citation title."""
     props = props or {}
-    if _text(props.get("bwb_id")).upper() in _BW:
-        return "BW"
     return (
-        _text(props.get("short_title"))
+        family_of(_text(props.get("bwb_id")))
+        or _text(props.get("short_title"))
         or _text(props.get("citation_title"))
         or _text(props.get("title"))
     )
@@ -138,7 +136,7 @@ def _law_short(props: dict[str, Any] | None) -> str:
 
 def article_name(bwb_id: str | None, number: str, law: str) -> str:
     """``Artikel 6:162 BW``."""
-    cited = book_number(bwb_id, number)
+    cited = cited_number(bwb_id, number)
     return f"Artikel {cited} {law}".strip()
 
 
@@ -236,7 +234,7 @@ def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
     ``semantic bwb-captions``)."""
     number = _text(props.get("article_number"))
     name = (
-        f"Art. {book_number(_text(props.get('bwb_id')) or None, number)} "
+        f"Art. {cited_number(_text(props.get('bwb_id')) or None, number)} "
         f"{_law_short(law)}".strip()
         if number
         else _text(props.get("display_name"))
@@ -1335,7 +1333,6 @@ def committee_page(row: dict[str, Any]) -> Page:
 
 # ── publications, commitments and decisions ───────────────────────────────────
 
-_SERIES = {"stb": "Stb.", "trb": "Trb.", "stcrt": "Stcrt."}
 # What a publication or its nota van toelichting does to a regulation.
 _VERBS = {
     RELATION_ESTABLISHES: "stelt vast",
@@ -1352,8 +1349,7 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
     if name:
         return name
     official = _text(note.get("identifier")) or key.partition("_")[2].replace("_", "-")
-    m = re.match(r"^(stb|trb|stcrt)-(\d{4})-(\d+)$", official.lower())
-    return f"{_SERIES[m[1]]} {m[2]}, {m[3]}" if m else official
+    return koop_citation(official) or official
 
 
 def _note_title(note: dict[str, Any]) -> str:

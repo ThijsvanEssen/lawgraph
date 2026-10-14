@@ -42,7 +42,11 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
-from lawgraph.core.readable_paths import PublicationSeries, series_of
+from lawgraph.core.publications import (
+    PublicationSeries,
+    publication_citation,
+    publication_series,
+)
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import (
     CAPACITY_MEMBER,
@@ -217,6 +221,19 @@ class FeedChangedInstrumentDTO(FeedInstrumentDTO):
     )
 
 
+_CITATION = "How it is cited: ``Stb. 2026, 94``; null when its series, year or number is unknown."
+
+
+def _citation(
+    series: PublicationSeries | None, year: int | None, number: str | None
+) -> str | None:
+    return (
+        publication_citation(series, year, number)
+        if series and year and number
+        else None
+    )
+
+
 class FeedPublicationDTO(BaseModel):
     """A ``publicatie`` in the Staatsblad, the Staatscourant or the Tractatenblad."""
 
@@ -225,6 +242,7 @@ class FeedPublicationDTO(BaseModel):
     series: PublicationSeries | None = None
     year: int | None = None
     number: str | None = None
+    citation: str | None = Field(None, description=_CITATION)
     instruments: list[FeedChangedInstrumentDTO] = Field(
         default_factory=list,
         description="The laws it enacts, then those it amends, introduces or repeals (or "
@@ -245,6 +263,7 @@ class FeedPublicationRefDTO(WithPath):
     series: PublicationSeries | None = None
     year: int | None = None
     number: str | None = None
+    citation: str | None = Field(None, description=_CITATION)
 
 
 class FeedBasisDTO(BaseModel):
@@ -782,10 +801,13 @@ def _changed(row: dict[str, Any]) -> FeedChangedInstrumentDTO:
 
 
 def _publication(props: dict[str, Any], row: dict[str, Any]) -> FeedPublicationDTO:
+    series = publication_series(props.get("publication_kind"))
+    year, number = props.get("publication_year"), props.get("publication_number")
     return FeedPublicationDTO(
-        series=series_of(props.get("publication_kind")),
-        year=props.get("publication_year"),
-        number=props.get("publication_number"),
+        series=series,
+        year=year,
+        number=number,
+        citation=_citation(series, year, number),
         instruments=[_changed(i) for i in row.get("changed_instruments") or []],
     )
 
@@ -820,14 +842,16 @@ def _publication_ref(found: dict[str, Any] | None) -> FeedPublicationRefDTO | No
     if not found:
         return None
     publication = found.get("publication") or {}
+    series = publication_series(publication.get("kind"))
+    year = publication.get("year") if isinstance(publication.get("year"), int) else None
     number = publication.get("number")
+    number = str(number) if number is not None else None
     return FeedPublicationRefDTO(
         key=found.get("key"),
-        series=series_of(publication.get("kind")),
-        year=publication.get("year")
-        if isinstance(publication.get("year"), int)
-        else None,
-        number=str(number) if number is not None else None,
+        series=series,
+        year=year,
+        number=number,
+        citation=_citation(series, year, number),
     )
 
 

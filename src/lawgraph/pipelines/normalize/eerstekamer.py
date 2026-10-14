@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
     RAW_KIND_EK_KAMERSTUK,
     SOURCE_EERSTEKAMER,
@@ -117,12 +118,12 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
 
         for record in raw:
             payload = self._payload_json(record)
-            if not payload or not isinstance(payload, dict):
-                result.skipped += 1
+            if not payload:
+                self.progress.skip("no payload", record.get("external_id"))
                 continue
             identifier = payload.get("identifier") or record.get("external_id")
             if not identifier:
-                result.skipped += 1
+                self.progress.skip("no identifier", record.get("_key"))
                 continue
             node = self._paper(str(identifier), payload)
             writer.add(node)
@@ -202,7 +203,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             collection=COLLECTION_DOCUMENTS,
             type=NodeType.DOCUMENT,
             key=make_node_key("ek", identifier),
-            labels=["EersteKamer", CHAMBER_EK],
+            labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
             props=props,
         )
 

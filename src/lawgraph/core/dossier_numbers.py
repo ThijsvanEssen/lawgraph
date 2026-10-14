@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from lawgraph.core.budget_titles import parse_budget_title
+
 # A budget chapter is a Roman numeral with at most a letter after it (IIA, IXB). A fund is a
 # letter (A, M): L, C and M are funds, never chapter numerals.
 _CHAPTER = re.compile(r"^([IVX]+)([A-C])?$")
@@ -90,51 +92,15 @@ _SHORT_TITLE = re.compile(r"\(([^()]{3,120})\)\s*$")
 # Where the act a bill carries out was published, after its short title: "(PbEU 2022, L
 # 173)", "(Trb. 2021, 52)", "(Stb. 2019, 12)". No name of the bill.
 _PUBLICATION = re.compile(r"\s*\((?:PbEU|PbEG|Trb\.|Stb\.|Stcrt\.)\s[^()]*\)\s*$")
-# "Vaststelling van de begrotingsstaten van het Ministerie van Defensie (X) voor het jaar
-# 2027", "Wijziging van de begrotingsstaat van het gemeentefonds voor het jaar 2026
-# (wijziging samenhangende met de Miljoenennota)": what a budget and a change of it hold.
-_BUDGET = re.compile(
-    r"^(?P<act>Vaststelling|Wijziging) van de begrotingssta(?:at|ten) (?:van|voor) "
-    r"(?:het Ministerie van |het |de )?(?P<name>.+?)"
-    r"(?= \(| en (?:de|het) |, (?:de|het) | voor het jaar)"
-    r".*?voor het jaar (?P<year>\d{4})"
-    r"(?:\s*\(wijziging samenhangende met de (?P<nota>[^()]+)\))?\s*$",
-    re.IGNORECASE | re.DOTALL,
-)
-
-# "Jaarverslag en slotwet Ministerie van Defensie 2025"
-_FINAL_ACT = re.compile(
-    r"^Jaarverslag en slotwet (?:(?:het )?Ministerie van )?(?P<name>.+?) (?P<year>\d{4})\s*$",
-    re.IGNORECASE,
-)
-
-
-def _budget_title(title: str) -> str | None:
-    """``Begroting Defensie 2027``, ``Suppletoire begroting gemeentefonds 2026
-    (Miljoenennota)``, ``Slotwet Defensie 2025``: a budget named by its chapter and year, a
-    change of it also by the nota it goes with; None for another title."""
-    final = _FINAL_ACT.match(title.strip())
-    if final:
-        return f"Slotwet {final['name'].strip()} {final['year']}"
-    match = _BUDGET.match(title.strip())
-    if not match:
-        return None
-    act = (
-        "Begroting"
-        if match["act"].lower() == "vaststelling"
-        else "Suppletoire begroting"
-    )
-    name = f"{act} {match['name'].strip()} {match['year']}"
-    return f"{name} ({match['nota'].strip()})" if match["nota"] else name
 
 
 def short_title(title: str | None) -> str | None:
-    """The name a dossier goes by: of a budget or a change of it its chapter and year
-    (``_budget_title``), else the short title in parentheses that ends the title of a bill,
-    before where the act it carries out was published (``_PUBLICATION``); None without
-    one."""
-    budget = _budget_title(title or "")
-    if budget:
-        return budget
+    """The name a dossier goes by: of a budget law its chapter and year
+    (``BudgetTitle.short_title``), else the short title in parentheses that ends the title of
+    a bill, before where the act it carries out was published (``_PUBLICATION``); None
+    without one."""
+    budget = parse_budget_title(title)
+    if budget and budget.short_title:
+        return budget.short_title
     match = _SHORT_TITLE.search(_PUBLICATION.sub("", title or ""))
     return match.group(1).strip() if match else None

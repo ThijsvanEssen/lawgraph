@@ -521,6 +521,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "series": "stb",
         "year": 2026,
         "number": "10",
+        "citation": "Stb. 2026, 10",
         "instruments": [
             {
                 "key": "bwbr0000001",

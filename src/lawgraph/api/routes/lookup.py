@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.lookup import LookupKind, LookupResponse
-from lawgraph.core.readable_paths import SERIES
+from lawgraph.core.publications import publication_series
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 
@@ -72,15 +72,12 @@ def _finder(
         return lambda: lookup.find_judgment(store, a["ecli"])
     if kind == "publication":
         a = _need(series=p["series"], year=p["year"], number=p["number"])
-        if a["series"].lower() not in SERIES or not (
-            a["year"].isdigit() and a["number"].isdigit()
-        ):
+        series = publication_series(a["series"])
+        if series is None or not (a["year"].isdigit() and a["number"].isdigit()):
             raise HTTPException(
                 status_code=422, detail="series stb|stcrt|trb, year and number digits"
             )
-        return lambda: lookup.find_publication(
-            store, a["series"].lower(), a["year"], a["number"]
-        )
+        return lambda: lookup.find_publication(store, series, a["year"], a["number"])
     if kind == "commitment":
         a = _need(number=p["number"])
         return lambda: lookup.find_commitment(store, a["number"])

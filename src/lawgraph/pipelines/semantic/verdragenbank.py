@@ -20,7 +20,7 @@ Derived in full on every run: an edge the register no longer names goes.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
     RELATION_PUBLISHED_IN,
     RELATION_SAME_AS,
 )
-from lawgraph.core.bwb_xml import KIND_PUBLICATION, publication_key
+from lawgraph.core.bwb_xml import publication_key, publication_props
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import (
     Node,
@@ -42,6 +42,7 @@ from lawgraph.core.models import (
     make_node_key,
     node_id,
 )
+from lawgraph.core.publications import parse_koop_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
 
@@ -50,7 +51,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 _RELATIONS = (RELATION_PUBLISHED_IN, RELATION_LEGISLATED_IN, RELATION_PART_OF)
-_TRB_ID = re.compile(r"^trb-(\d{4})-(\d+)$")
 _DOSSIER_NUMBER = re.compile(r"^\s*(\d+)")
 
 
@@ -60,27 +60,24 @@ def _list(value: Any) -> list[dict[str, Any]]:
 
 def trb_node(official_id: str) -> Node | None:
     """The instrument of the Tractatenblad ``trb-1951-154``, with what its id says."""
-    match = _TRB_ID.match(official_id)
-    if not match:
+    parsed = parse_koop_id(official_id)
+    if parsed is None or parsed[0] != "trb":
         return None
-    year, number = int(match[1]), str(int(match[2]))
-    name = f"Trb. {year}, {number}"
+    _, year, number = parsed
+    props = publication_props(
+        {
+            "kind": "Trb",
+            "year": year,
+            "number": str(int(number)),
+            "url_identifier": official_id,
+        }
+    )
     return Node(
         collection=COLLECTION_INSTRUMENTS,
         type=NodeType.INSTRUMENT,
         key=publication_key(official_id),
         labels=["Verdrag", "Publication"],
-        props={
-            "display_name": name,
-            "citation_title": name,
-            "kind": KIND_PUBLICATION,
-            "jurisdiction": "nl",
-            "source": EDGE_SOURCE_VERDRAGENBANK,
-            "official_id": official_id,
-            "publication_kind": "Trb",
-            "publication_year": year,
-            "publication_number": number,
-        },
+        props={**props, "source": EDGE_SOURCE_VERDRAGENBANK},
     )
 
 
@@ -88,6 +85,43 @@ def dossier_number(text: Any) -> str | None:
     """The dossier number of the register's ``DossierNummer``: "8689 (R542)" is ``8689``."""
     match = _DOSSIER_NUMBER.match(str(text or ""))
     return match[1] if match else None
+
+
+# ``(source id, target id, relation, meta)`` of an edge a register names.
+Edge = tuple[str, str, str, dict[str, Any]]
+
+
+def _published_in(treaty: dict[str, Any]) -> Iterator[tuple[Node, dict[str, Any]]]:
+    """The publication of each Tractatenblad the register lists, with the edge's meta."""
+    for trb in _list(treaty.get("tractatenblad")):
+        node = trb_node(str(trb.get("official_id") or ""))
+        if node is not None:
+            meta = {"tractatenblad": trb.get("text")}
+            if trb.get("description"):
+                meta["description"] = trb["description"]
+            yield node, meta
+
+
+def _legislated_in(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
+    """The dossier of each Kamerstuk the register lists, with the edge's meta."""
+    for paper in _list(treaty.get("kamerstukken")):
+        number = dossier_number(paper.get("dossier"))
+        if number:
+            meta = {"dossier_number": number}
+            if paper.get("rijks_number"):
+                meta["rijks_number"] = paper["rijks_number"]
+            yield node_id(COLLECTION_DOSSIERS, make_node_key(number)), meta
+
+
+def _part_of(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
+    """The treaty each ``Moederverdrag`` names, with the edge's meta."""
+    for parent in _list(treaty.get("parent_treaties")):
+        if parent.get("id"):
+            key = make_node_key("verdrag", str(parent["id"]))
+            yield (
+                node_id(COLLECTION_INSTRUMENTS, key),
+                {"verdrag_id": str(parent["id"])},
+            )
 
 
 class VerdragenbankSemanticPipeline(SemanticPipelineBase):
@@ -99,13 +133,15 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         treaties = list(
             self._track(semantic_verdragenbank.treaty_registers(self.store), "treaties")
         )
-        wanted = self._wanted(treaties)
+        wanted, publications = self._wanted(treaties)
         present = self._present(wanted)
         edges = EdgeWriter(self.store, what=None, remembers=True)
         with NodeWriter(self.store) as nodes:
             for source_id, target_id, relation, meta in wanted:
                 if target_id not in present:
-                    node = self._new_publication(target_id, relation)
+                    # a missing Tractatenblad becomes a publication; a missing dossier or
+                    # treaty gives no edge
+                    node = publications.get(target_id)
                     if node is None:
                         continue
                     nodes.add(node)
@@ -151,39 +187,25 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
     @staticmethod
     def _wanted(
         treaties: Iterable[dict[str, Any]],
-    ) -> list[tuple[str, str, str, dict[str, Any]]]:
-        """``(source id, target id, relation, meta)`` of every edge the registers name."""
+    ) -> tuple[list[Edge], dict[str, Node]]:
+        """Every edge the registers name, and the publication node of each Tractatenblad
+        they name, by its id."""
         wanted: dict[tuple[str, str, str], dict[str, Any]] = {}
+        publications: dict[str, Node] = {}
         for treaty in treaties:
             source = node_id(COLLECTION_INSTRUMENTS, treaty["key"])
-            for trb in _list(treaty.get("tractatenblad")):
-                official_id = str(trb.get("official_id") or "")
-                if _TRB_ID.match(official_id):
-                    target = node_id(
-                        COLLECTION_INSTRUMENTS, publication_key(official_id)
-                    )
-                    meta = {"tractatenblad": trb.get("text")}
-                    if trb.get("description"):
-                        meta["description"] = trb["description"]
-                    wanted.setdefault((source, target, RELATION_PUBLISHED_IN), meta)
-            for paper in _list(treaty.get("kamerstukken")):
-                number = dossier_number(paper.get("dossier"))
-                if number:
-                    target = node_id(COLLECTION_DOSSIERS, make_node_key(number))
-                    meta = {"dossier_number": number}
-                    if paper.get("rijks_number"):
-                        meta["rijks_number"] = paper["rijks_number"]
-                    wanted.setdefault((source, target, RELATION_LEGISLATED_IN), meta)
-            for parent in _list(treaty.get("parent_treaties")):
-                if parent.get("id"):
-                    key = make_node_key("verdrag", str(parent["id"]))
-                    target = node_id(COLLECTION_INSTRUMENTS, key)
-                    if target != source:
-                        meta = {"verdrag_id": str(parent["id"])}
-                        wanted.setdefault((source, target, RELATION_PART_OF), meta)
-        return [(s, t, r, meta) for (s, t, r), meta in wanted.items()]
+            for node, meta in _published_in(treaty):
+                target = node_id(COLLECTION_INSTRUMENTS, str(node.key))
+                publications[target] = node
+                wanted.setdefault((source, target, RELATION_PUBLISHED_IN), meta)
+            for target, meta in _legislated_in(treaty):
+                wanted.setdefault((source, target, RELATION_LEGISLATED_IN), meta)
+            for target, meta in _part_of(treaty):
+                if target != source:
+                    wanted.setdefault((source, target, RELATION_PART_OF), meta)
+        return [(s, t, r, meta) for (s, t, r), meta in wanted.items()], publications
 
-    def _present(self, wanted: list[tuple[str, str, str, dict[str, Any]]]) -> set[str]:
+    def _present(self, wanted: list[Edge]) -> set[str]:
         """The ids among the targets of *wanted* that are in the graph: one check per
         collection."""
         present: set[str] = set()
@@ -197,13 +219,3 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     for key in self.store.existing_keys(collection, keys)
                 }
         return present
-
-    @staticmethod
-    def _new_publication(target_id: str, relation: str) -> Node | None:
-        """The node of a Tractatenblad that is not in the graph yet; None for any other
-        target that is missing (a dossier or a treaty: no edge)."""
-        if relation != RELATION_PUBLISHED_IN:
-            return None
-        key = key_of(target_id)
-        match = re.fullmatch(r"trb_(\d{4})_(\d+)", key)
-        return trb_node(f"trb-{match[1]}-{match[2]}") if match else None

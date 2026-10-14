@@ -32,13 +32,14 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
@@ -447,7 +448,11 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
     tk_members.link_members_to_factions(
-        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE
+        PipelineBase(store),  # type: ignore[arg-type]
+        raws,
+        {"p1": member},
+        {"f-vvd": faction},
+        source=SOURCE,
     )
 
     assert _edge_meta(store) == {
@@ -508,7 +513,7 @@ def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order(
     for order in ([first, second], [second, first]):
         store = _store()
         tk_members.link_members_to_factions(
-            store,
+            PipelineBase(store),  # type: ignore[arg-type]
             [_raw(payload) for payload in order],
             {"p1": member},
             {"f-sp": faction},
@@ -564,7 +569,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
         _vote_raw(Id="v-2", Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
         _vote_raw(Id="v-3", Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-x"),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {
         "f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd"),
@@ -605,7 +610,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
             Besluit={"StemmingsSoort": "Hoofdelijk"},
         ),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
@@ -631,7 +636,7 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
         _vote_raw(Id="v-3", Soort="Voor", FractieGrootte=7, Persoon_Id="p-3"),
         _vote_raw(Id="v-4", Soort="Voor", FractieGrootte=7, Persoon_Id="p-4"),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
@@ -668,7 +673,7 @@ def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> Non
             Id="v-4", Besluit_Id="b-2", Besluit={"Id": "b-2", "Verwijderd": True}
         ),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(_store()), raws)  # type: ignore[arg-type]
     assert list(votes.by_decision) == ["b-1"]
     assert votes.deleted.ids == {"v-2"}
     assert votes.struck.ids == {"b-2"}
@@ -752,7 +757,7 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
         for i in range(700)
     ]
 
-    nodes = tk_cases.normalize_activities(store, raws)
+    nodes = tk_cases.normalize_activities(PipelineBase(store), raws)  # type: ignore[arg-type]
 
     assert len(nodes) == 700
     assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
@@ -770,7 +775,7 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
         for i in range(3)
     )
 
-    nodes = tk_cases.normalize_documents(store, raws)
+    nodes = tk_cases.normalize_documents(PipelineBase(store), raws)  # type: ignore[arg-type]
 
     written = store.nodes[COLLECTION_DOCUMENTS]["doc1"]["props"]
     assert written["title"].startswith("Motie") and "raw" in written
@@ -924,3 +929,272 @@ def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
     assert set(_edge_meta(store)) == {
         ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
     }
+
+
+# ── a record that gives nothing says why ─────────────────────────────────────
+
+_GONE = {"Id": "gone", "Verwijderd": True}
+
+
+@pytest.fixture
+def _no_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What an earlier run made of a deleted record: nothing here."""
+    monkeypatch.setattr(normalize_edges, "remove_nodes", lambda *_a: 0)
+    monkeypatch.setattr(normalize_edges, "remove_nodes_of_records", lambda *_a: 0)
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    raws = [_raw(_GONE), {"_key": "k-1", "payload_json": {"Soort": "Motie"}}]
+
+    nodes = tk_cases.normalize_documents(pipeline, [*raws, _raw({"Id": "doc1"})])
+
+    assert set(nodes) == {"doc1"}
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+    from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    nameless = {"_key": "k-1", "payload_json": {"Soort": "Motie"}}
+    cases = TKNormalizePipeline(_store())  # type: ignore[arg-type]
+    written = cases.normalize_nodes([_raw(_GONE), nameless], PipelineResult())
+    dossiers = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
+    nodes = dossiers._normalize_dossiers([_raw(_GONE), nameless])
+
+    assert (written, nodes) == (0, {})
+    assert cases.progress.skips == {DELETED: 1, "no Zaak identifier": 1}
+    assert dossiers.progress.skips == {DELETED: 1, "no Id or number": 1}
+
+
+@pytest.mark.parametrize("module", ["tk_document_links", "tk_case_actors"])
+def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
+    module: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    links = importlib.import_module(f"lawgraph.pipelines.normalize.{module}")
+    written: list[Any] = []
+    if module == "tk_document_links":
+        monkeypatch.setattr(
+            links.tk_cases, "link_documents", lambda _s, rows, **_: written.extend(rows)
+        )
+        pipeline = links.TKDocumentLinksNormalizePipeline(store=_store())
+    else:
+        monkeypatch.setattr(
+            links,
+            "link_case_actors",
+            lambda _s, rows, **_: written.extend(rows) or 0,
+        )
+        pipeline = links.TKCaseActorsNormalizePipeline(store=_store())
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1 and [row[0] for row in written] == ["doc1"]
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+    assert result.skipped == 2
+
+
+@pytest.fixture
+def _no_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(normalize_edges, "remove_edges_of_records", lambda *_a: 0)
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_committee_member_or_faction_is_skipped_with_its_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    monkeypatch.setattr(raw_queries, "vote_labels_of_factions", lambda *_a: [])
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    committees = tk_members.normalize_committees(
+        pipeline,
+        [_raw(_GONE), _raw({"Id": "c-nameless"}), _raw({"Id": "c1", "NaamNL": "Fin"})],
+    )
+    members = tk_members.normalize_members(
+        pipeline, [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
+    )
+    factions = tk_members.normalize_factions(
+        pipeline,
+        [_raw(_GONE), _raw({"Id": "f-nameless"}), _raw({"Id": "f1", "Afkorting": "X"})],
+        [],
+    )
+
+    assert (set(committees), set(members), set(factions)) == ({"c1"}, {"p1"}, {"f1"})
+    assert pipeline.progress.skips == {
+        DELETED: 3,
+        "no Id or name": 1,
+        "no Id": 1,
+        "no abbreviation or name": 1,
+    }
+
+
+@pytest.mark.usefixtures("_no_edge_removals")
+def test_a_seat_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    store = _store()
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
+    member = _node(COLLECTION_MEMBERS, NodeType.MEMBER, "p1", name="Jan")
+    seat = {"Persoon_Id": "p1", "FractieZetel": {"Fractie_Id": "f-vvd"}}
+
+    tk_members.link_members_to_factions(
+        pipeline,
+        [
+            _raw(_GONE),
+            _raw({"Id": "s-0", "Persoon_Id": "p1"}),
+            _raw({**seat, "Id": "s-1", "Persoon_Id": "nobody"}),
+            _raw({**seat, "Id": "s-2", "Van": "2020-01-01"}),
+        ],
+        {"p1": member},
+        {"f-vvd": faction},
+        source=SOURCE,
+    )
+
+    assert len(_edge_meta(store)) == 1
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "no person or faction": 1,
+        "member or faction not in the graph": 1,
+    }
+
+
+def test_a_vacancy_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    store = _store()
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
+    seat = {"FractieZetel": {"Fractie_Id": "f-vvd", "Id": "z1"}}
+
+    tk_members.keep_faction_vacancies(
+        pipeline,
+        [
+            _raw(_GONE),
+            _raw({"Id": "v-0", "FractieZetel": {}}),
+            _raw({**seat, "Id": "v-1", "Van": "2021-01-01", "TotEnMet": "2020-01-01"}),
+            _raw({**seat, "Id": "v-2", "Van": "2021-01-01", "FractieZetel": {}}),
+            _raw(
+                {"Id": "v-3", "Van": "2021-01-01", "FractieZetel": {"Fractie_Id": "x"}}
+            ),
+            _raw({**seat, "Id": "v-4", "Van": "2021-01-01"}),
+        ],
+        [
+            _raw(
+                {
+                    "Id": "h-1",
+                    "FractieZetel": {"Id": "z1"},
+                    "Van": "2015-01-01",
+                    "TotEnMet": "2020-12-31",
+                }
+            )
+        ],
+        {"f-vvd": faction},
+    )
+
+    assert faction.props["vacancies"]
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "no faction or start, or an end before the start": 3,
+        "faction not in the graph": 1,
+    }
+
+
+def test_a_vote_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    struck = {"Id": "b-gone", "Verwijderd": True}
+
+    votes = tk_votes.read_votes(
+        pipeline,
+        [
+            _raw(_GONE),
+            _vote_raw(Id="v-1", Besluit_Id="b-gone", Besluit=struck),
+            _vote_raw(Id="v-2", Besluit_Id=None),
+            _vote_raw(Id="v-3"),
+        ],
+    )
+
+    assert set(votes.by_decision) == {"b-1"}
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "on a decision the Kamer deleted": 1,
+        "no Besluit_Id": 1,
+    }
+
+
+def test_a_deleted_or_nameless_besluit_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    pipeline = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
+    pipeline._incremental = False
+    votes = tk_votes.Votes()
+
+    pipeline._add_bill_decisions(
+        votes,
+        [_raw({"Id": "b-gone", "Verwijderd": True}), _raw({}), _raw({"Id": "b-1"})],
+    )
+
+    assert set(votes.by_decision) == {"b-1"}
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+
+
+def _fail(*args: Any, **_: Any) -> dict[str, Any]:
+    """A step that cannot read one record."""
+    pipeline = next(arg for arg in args if isinstance(arg, PipelineBase))
+    pipeline.progress.fail("not readable", "r-1")
+    return {}
+
+
+@pytest.mark.parametrize(
+    ("mode", "step"),
+    [
+        ("persons", "normalize_members"),
+        ("factions", "normalize_factions"),
+        ("committees", "normalize_committees"),
+        ("seats", "link_members_to_factions"),
+        ("mixed_votes", "read_votes"),
+    ],
+)
+def test_a_mode_of_one_kind_reports_what_it_left_out(
+    mode: str, step: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    monkeypatch.setattr(normalize_tk, "nodes_by_external_id", lambda *_a: [])
+    monkeypatch.setattr(normalize_tk, "mixed_vote_decisions", lambda *_a: ["b-1"])
+    monkeypatch.setattr(raw_queries, "vote_rows_of_decisions", lambda *_a: [])
+    monkeypatch.setattr(
+        tk_members, "link_members_to_committees", lambda *_a, **_k: None
+    )
+    module = tk_votes if step == "read_votes" else tk_members
+    monkeypatch.setattr(
+        module,
+        step,
+        (lambda *a, **k: _fail(*a, **k) or tk_votes.Votes())
+        if step == "read_votes"
+        else _fail,
+    )
+    pipeline = TKDossiersNormalizePipeline(_store(), **{mode: True})  # type: ignore[arg-type]
+
+    result = pipeline.run()
+
+    assert result.skipped == 1
+    assert result.errors == ["1 x not readable (first: r-1)"]

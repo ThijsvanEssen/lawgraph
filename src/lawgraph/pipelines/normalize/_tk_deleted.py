@@ -2,19 +2,40 @@
 
 The Kamer does not drop a record it deletes: the API gives it again with ``Verwijderd`` and
 its id, nothing else. Every TK normalizer gathers those ids while it reads its records, with
-a ``Deleted`` of its own, and removes in one call what an earlier run made of them.
+a ``Deleted`` of its own, and removes in one call what an earlier run made of them. Such a
+record is skipped with its own reason, ``DELETED``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES
 from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key
+from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import Payload
 from lawgraph.db import Store
 from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.pipelines.base import PipelineBase
+
+DELETED = "deleted by the Kamer"
+
+
+def kept(
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
+) -> Iterator[Payload]:
+    """The payload of every record with an ``Id`` the Kamer did not delete; the others are
+    skipped, with their reason."""
+    for raw in raw_records:
+        payload = payload_json(raw)
+        if not payload or not payload.get("Id"):
+            pipeline.progress.skip("no Id", raw.get("_key"))
+        elif tk_records.is_deleted(payload):
+            pipeline.progress.skip(DELETED, payload["Id"])
+        else:
+            yield payload
 
 
 class Deleted:

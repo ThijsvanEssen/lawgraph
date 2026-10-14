@@ -36,3 +36,47 @@ def test_an_amendment_is_named_without_a_word_cut_in_half() -> None:
     assert name.endswith("…")
     words = set(title.split())
     assert all(w in words for w in name.split(": ", 1)[1].rstrip("…").split())
+
+
+# ── every cut with an ellipsis is ``shorten`` ──────────────────────────────
+
+
+def test_a_full_stop_before_the_ellipsis_is_dropped() -> None:
+    assert shorten("Het hof bekrachtigt het vonnis. Het hof veroordeelt", 33) == (
+        "Het hof bekrachtigt het vonnis…"
+    )
+
+
+def test_the_seo_cut_is_shorten_on_one_line() -> None:
+    from lawgraph.api.seo.pages import cut
+
+    assert cut("Een  tekst\n met   witruimte die lang genoeg is", 25) == (
+        "Een tekst met witruimte…"
+    )
+    assert cut("Wet op de zorg - de jeugd en de gemeenten", 18) == "Wet op de zorg…"
+    assert cut("A " + "x" * 40, 20) == "A xxxxxxxxxxxxxxxxx…"
+    assert cut("Kort", 10) == "Kort"
+
+
+def test_a_passage_excerpt_is_its_opening_without_the_heading() -> None:
+    from lawgraph.api.schemas.articles import EXCERPT_CHARS, passage_excerpt
+
+    excerpt = passage_excerpt("Artikel 1\n" + "Dit is een zin. " * 30, "Artikel 1")
+    assert excerpt is not None
+    assert excerpt.startswith("Dit is een zin.")
+    assert excerpt.endswith(" Dit is een…")
+    assert len(excerpt) <= EXCERPT_CHARS
+    assert passage_excerpt("Kop\nTekst", "Kop") == "Tekst"
+    assert passage_excerpt("Kop\n  ", "Kop") is None
+    assert passage_excerpt(None, None) is None
+
+
+def test_an_explanation_keeps_its_sentences_that_fit() -> None:
+    from lawgraph.core.amendment_explanation import EXPLANATION_CHARS, _cut
+
+    assert _cut("woord " * 60) == ("woord " * 60)[:360]
+    sentences = "Een zin. " * 60
+    assert _cut(sentences) == ("Een zin. " * 44)[:-1]
+    words = _cut("woord " * 80)
+    assert words.endswith("woord woord…")
+    assert len(words) <= EXPLANATION_CHARS

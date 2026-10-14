@@ -203,13 +203,8 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
     ) -> None:
         """Queue the edges of one paper; it goes into *read* and, with *dossier*
         (a memorandum, which ``tk-mvt`` links to its dossier), what its dossier changed
-        into *changed*. A paper that cannot be read is skipped and keeps its edges."""
-        try:
-            explained = explain(row)
-        except (KeyError, TypeError, ValueError) as exc:
-            logger.warning("Paper %s skipped: %s", row.get("document"), exc)
-            result.skipped += 1
-            return
+        into *changed*."""
+        explained = explain(row)
         document = row["document"]
         read.add(document)
         for target, refs in explained.items():

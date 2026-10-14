@@ -26,7 +26,7 @@ from lawgraph.core import (
     judgment_outcome,
     models,
     post_ministries,
-    readable_paths,
+    publications,
     tk_records,
     votes,
 )
@@ -204,7 +204,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
         ("member", "faction"),
     ),
     ("directions", models.DIRECTIONS, ("outbound", "inbound")),
-    ("publication series", readable_paths.SERIES, ("stb", "stcrt", "trb")),
+    ("publication series", publications.SERIES, ("stb", "stcrt", "trb")),
     (
         "edge statuses",
         (constants.EDGE_STATUS_CANONIEK, constants.EDGE_STATUS_VOORGESTELD),

@@ -26,9 +26,9 @@ from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
-from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, Store
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._tk_deleted import kept
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -109,15 +109,11 @@ class TKCaseActorsNormalizePipeline(NormalizePipelineBase):
     ) -> int:
         """No nodes: the actors are edges, written batch by batch as they are read."""
         count = edges = 0
-        for records in chunked(raw, _BATCH):
+        for payloads in chunked(kept(self, raw), _BATCH):
             actors = [
                 (str(payload["Id"]), tk_records.case_actors(payload))
-                for record in records
-                if (payload := payload_json(record))
-                and payload.get("Id")
-                and not tk_records.is_deleted(payload)
+                for payload in payloads
             ]
-            result.skipped += len(records) - len(actors)
             edges += link_case_actors(self.store, actors, source=EDGE_SOURCE)
             count += len(actors)
         logger.info(

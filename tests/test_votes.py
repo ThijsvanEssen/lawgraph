@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -21,8 +19,6 @@ from lawgraph.core.votes import (
     decision_outcome,
     vote_outcome,
 )
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 
 
 def test_the_outcomes_are_those_of_the_literal() -> None:
@@ -83,25 +79,3 @@ def _words(annotation: object) -> set[str]:
         else:
             found |= _words(arg)
     return found
-
-
-# A vote choice or an outcome of a decision written out instead of named from core.votes.
-_SPELLED_OUT = re.compile(
-    r"""["'](?:aangenomen|verworpen|ingetrokken|aangehouden|vervangen|Voor|Tegen|"""
-    r"""Aantekening gevraagd|Stemmen - [a-z ]+)["']"""
-)
-# Their own vocabularies: a judgment is also ``verworpen`` (``core/judgment_outcome.py``).
-_OWN = {"core/votes.py", "core/judgment_outcome.py"}
-# A Literal cannot name a constant: the one outcome a pending amendment can have.
-_LITERAL = 'outcome: Literal["aangenomen"] | None = Field('
-
-
-def test_no_vote_word_spelled_out() -> None:
-    found = [
-        f"{path.relative_to(SRC)}:{number}: {line.strip()}"
-        for path in sorted(SRC.rglob("*.py"))
-        if str(path.relative_to(SRC)) not in _OWN
-        for number, line in enumerate(path.read_text().splitlines(), 1)
-        if _SPELLED_OUT.search(line) and "``" not in line and _LITERAL not in line
-    ]
-    assert found == []

@@ -213,14 +213,14 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | McCabe complexity at most 15 | ruff `C901` |
 | A command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when its `run` takes it | `tests/test_pipeline_cli.py` |
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
-| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/test_conventions.py` |
-| A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |
+| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
+| A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
 | A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
-| A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/test_votes.py` |
-| A node id is built with `node_id`, `article_id` or `Node.ref` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/test_node_ids.py` |
-| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/test_conventions.py` |
-| A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/test_conventions.py` |
-| Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/test_conventions.py` |
+| A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/conventions/test_vote_words.py` |
+| A node id is built with `node_id`, `article_id` or `Node.ref` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/conventions/test_node_ids.py` |
+| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
+| A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/conventions/test_sparse_joins.py`, `tests/conventions/test_semantic_reads.py` |
+| Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |
 | Relation names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend, introduce or repeal; the `RELATION_*` constants are the catalogue; the generated tables of `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
 | A node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
 | `PART_OF` points from the child (article, annex) to the instrument | `tests/test_part_of_direction.py` |
