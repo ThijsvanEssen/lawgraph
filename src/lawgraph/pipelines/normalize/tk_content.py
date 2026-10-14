@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
+from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.batching import chunked
 from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kamerstuk
 from lawgraph.core.logging import get_logger
@@ -97,6 +98,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
 
 def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
     """The props of a Document that a parsed Kamerstuk XML fills (see docs/data-model.md)."""
+    sections = [section.as_dict() for section in parsed.sections]
     return {
         "text": parsed.text,
         "text_source": TEXT_SOURCE,
@@ -104,8 +106,10 @@ def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
         "xml_dialect": parsed.dialect,
         "structure_quality": parsed.structure_quality,
         "budget": parsed.budget,
-        "sections": [section.as_dict() for section in parsed.sections],
+        "sections": sections,
         "footnotes": parsed.footnotes,
         # what a motion asks or says ("verzoekt de regering …"); null for any other paper
         "dictum": read_dictum(parsed.text),
+        # what an amendment is for, as its Toelichting opens; null for any other paper
+        "explanation": read_explanation(parsed.text, sections),
     }

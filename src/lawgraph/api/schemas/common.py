@@ -4,7 +4,7 @@ summaries, citation spans and article relations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -306,6 +306,107 @@ class TermSpanDTO(BaseModel):
     end: int
     term: str
     definition_ref: str
+
+
+JudgmentOutcome = Literal[
+    "verworpen",
+    "vernietigd",
+    "gedeeltelijk vernietigd",
+    "vernietigd en verwezen",
+    "bekrachtigd",
+    "bevestigd",
+    "gegrond",
+    "ongegrond",
+    "niet-ontvankelijk",
+    "afgewezen",
+    "toegewezen",
+    "schending",
+    "geen schending",
+]
+ConclusionOutcome = Literal[
+    "verwerping",
+    "vernietiging",
+    "vernietiging en verwijzing",
+    "niet-ontvankelijkverklaring",
+    "gegrondverklaring",
+    "ongegrondverklaring",
+    "beantwoording",
+]
+
+
+class EchrFindingDTO(BaseModel):
+    """What the ECHR found on one article (``core/echr_findings.py``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    article: str = Field(description="The article of the Convention: `8`.")
+    protocol: str | None = Field(
+        None, description="Of an article of a protocol, its number (`1`); else null."
+    )
+    combined_with: str | None = Field(
+        None, description="The article it is taken together with (`8` of `13+8`)."
+    )
+    finding: Literal["schending", "geen schending"]
+    aspect: Literal["materieel", "procedureel"] | None = Field(
+        None, description="The aspect, when HUDOC names one."
+    )
+    text: str = Field(
+        description='As HUDOC writes it: "No violation of Article 8 - …".'
+    )
+
+
+class JudgmentOutcomeFields(BaseModel):
+    """How a judgment ended, what a conclusion proposes and what the ECHR found per article,
+    as the decision says it (``core/judgment_outcome.py``, ``core/echr_findings.py``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: JudgmentOutcome | None = Field(
+        None,
+        description="How it ended, from the first clause of its decision (Beslissing, "
+        "Dictum): `verworpen` (verwerpt het beroep), `vernietigd`, `gedeeltelijk "
+        "vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, "
+        "`ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`; of the ECHR "
+        "`schending` (a violation found) or `geen schending`. Null for a conclusion, and "
+        "when the decision does not say one of them first (a conviction, an interim "
+        "decision).",
+    )
+    outcome_text: str | None = Field(
+        None,
+        description='The clause that says it, as the decision writes it: "verwerpt het '
+        'beroep", "vernietigt de aangevallen uitspraak"; of the ECHR the finding.',
+    )
+    conclusion_outcome: ConclusionOutcome | None = Field(
+        None,
+        description="Of a conclusion of the A-G or P-G, what it proposes (its strekking): "
+        "`verwerping`, `vernietiging`, `vernietiging en verwijzing`, "
+        "`niet-ontvankelijkverklaring`, `gegrondverklaring`, `ongegrondverklaring`, "
+        "`beantwoording` (of preliminary questions); null for a judgment and when the "
+        "conclusion does not say it.",
+    )
+    conclusion_outcome_text: str | None = Field(
+        None,
+        description='The sentence that says it: "De conclusie strekt tot verwerping van '
+        'het cassatieberoep."',
+    )
+    echr_findings: list[EchrFindingDTO] = Field(
+        default_factory=list,
+        description="Of the ECHR, what it found per article, in the order of HUDOC; empty "
+        "for any other judgment.",
+    )
+
+
+def judgment_outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """The ``JudgmentOutcomeFields`` of a judgment with these props (or light props)."""
+    return {
+        "outcome": values.get("outcome"),
+        "outcome_text": values.get("outcome_text"),
+        "conclusion_outcome": values.get("conclusion_outcome"),
+        "conclusion_outcome_text": values.get("conclusion_outcome_text"),
+        "echr_findings": [
+            EchrFindingDTO(**finding) for finding in values.get("echr_findings") or []
+        ],
+    }
 
 
 class JudgmentSummaryDTO(WithPath):

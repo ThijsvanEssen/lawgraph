@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     InstrumentSummaryDTO,
     JudgmentSummaryDTO,
+    judgment_outcome_fields,
 )
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
@@ -93,6 +94,7 @@ def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
         date=props.get("date_eff"),
         advocate_general=props.get("advocate_general"),
         advocate_general_role=props.get("advocate_general_role"),
+        **judgment_outcome_fields(props),
         cited_articles=[
             CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
         ],

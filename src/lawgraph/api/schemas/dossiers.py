@@ -13,10 +13,12 @@ from lawgraph.api.schemas.documents import (
     _REPLACED_BY,
     _REPLACES,
     DocumentOrigin,
+    PaperOutcomeFields,
     PaperRefDTO,
     SenderDTO,
     SigningCapacity,
     origin_fields,
+    outcome_fields,
     sender_of,
 )
 from lawgraph.config.settings import EK_ATTRIBUTION
@@ -433,8 +435,9 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     return _TIMELINE_ENTRY.validate_python(common)
 
 
-class DossierDocumentDTO(DocumentEntryDTO):
-    """One document linked to a dossier."""
+class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
+    """One document linked to a dossier; of a motion or an amendment how it ended and what
+    it says in a line."""
 
     display_name: str | None = None
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
@@ -473,6 +476,7 @@ class DossierDocumentDTO(DocumentEntryDTO):
                 PaperRefDTO(**r) for r in (replacements or {}).get("replaced_by", [])
             ],
             **origin,
+            **outcome_fields(row),
         )
 
 

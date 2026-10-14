@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -422,6 +422,17 @@ without a coalition vote, nor for the Eerste Kamer (its seats per day are not kn
 `--since` the decisions dated since then (the daily run); without it every one, and the rows
 of decisions that no longer have one go (weekly, which also follows a change of the posts).
 
+**Semantic `tk-dictum`.** Keeps the dictum of a motion (`core/motion_dictum.py`) and the
+explanation of an amendment (`core/amendment_explanation.py`) whose text `normalize tk-content`
+read before it kept them; `normalize tk-content` keeps both of every paper it reads.
+
+**Semantic `tk-paper-outcomes`.** How each motion and amendment ended (`core/paper_outcomes.py`,
+data model, Document): `outcome`, `decided_on`, `tally` and `decision` from the decisions taken
+on it, the status the page of a motion of the Eerste Kamer states, and `REVISES` for a paper a
+newer one replaces. A decision comes days after its paper and can change it again (held, then
+voted), so every run reads every decision on a motion or an amendment and writes only the
+papers whose outcome changed against `lg_document_light`.
+
 <a id="semantic-tk-dossier-relations"></a>
 **Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record
 itself never names (`core/dossier_relations.py`). An edge is written only when both dossiers are
@@ -511,8 +522,10 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (below;
 [the fields](data-model.md#judgment)), `isReplacedBy` (an ECLI)
-as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
-advocate-general its opening lines name as `advocate_general` (data model, Judgment). The XML
+as `replaced_by`, the parties its kop names as `parties`, of a conclusion the
+advocate-general its opening lines name as `advocate_general`, and how it ended: of a judgment
+the first clause of its decision as `outcome`, of a conclusion what it proposes as
+`conclusion_outcome` (`core/judgment_outcome.py`; data model, Judgment). The XML
 itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
 `graph-list-stats` reads too; see [Courts](#courts)) gives a judgment two levels: `tier`, the
@@ -1388,7 +1401,9 @@ about 100 s the first time (on average 170 KB of XML, 22 KB compressed, the larg
 
 **Normalize.** Judgment per judgment: by its ECLI (the node a Dutch judgment that cites it
 has), else by item (`echr_<itemid>`); the English item's record, else the French one's, else
-another; `appno`, `title`, `date`, `articles`, `conclusion`, `importance`. A text record adds
+another; `appno`, `title`, `date`, `articles`, `conclusion` (and from it what the Court found
+per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance`. A text
+record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
 
@@ -1736,6 +1751,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
+| semantic `tk-paper-outcomes` | `normalize tk-dossiers` (the decisions, the papers and their `PART_OF` cases), `normalize eerstekamer-votes` and `normalize eerstekamer-motions` (the votes and the status of a motion of the Eerste Kamer) and `tk-dossier-relations` (`REVISES`) |
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |

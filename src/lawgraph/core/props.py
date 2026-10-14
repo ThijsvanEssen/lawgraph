@@ -399,6 +399,17 @@ class JudgmentProps(_CommonProps):
     articles: list[str] | None = None
     conclusion: str | None = None
     importance: int | None = None
+    # how it ended (``core/judgment_outcome.py``; of the ECHR ``core/echr_findings.py``):
+    # a label, the sentence of the decision that says it and the id of its paragraph
+    outcome: str | None = None
+    outcome_text: str | None = None
+    outcome_paragraph_id: str | None = None
+    # of a conclusion: what it proposes (its strekking), likewise
+    conclusion_outcome: str | None = None
+    conclusion_outcome_text: str | None = None
+    conclusion_outcome_paragraph_id: str | None = None
+    # ECHR: what it found per article (``core/echr_findings.py``)
+    echr_findings: list[dict[str, Any]] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -411,6 +422,15 @@ class DocumentProps(_CommonProps):
     raw: dict[str, Any] | None = None
     # what a motion asks or says, its dictum (``core/motion_dictum.py``)
     dictum: str | None = None
+    # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)
+    explanation: str | None = None
+    # how a motion or an amendment ended (``semantic tk-paper-outcomes``,
+    # ``core/paper_outcomes.py``): the outcome, the day and votes of the decision that gave
+    # it, and its key
+    outcome: str | None = None
+    decided_on: str | None = None
+    tally: dict[str, int] | None = None
+    decision: str | None = None
     # of a motion of the Eerste Kamer, from its page (``normalize eerstekamer-motions``): what
     # it asks, the day it was submitted, the debate, its status, its page and its PDF
     summary: str | None = None

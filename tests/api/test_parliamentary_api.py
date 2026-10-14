@@ -594,9 +594,11 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
         lambda store, key: {
             "_id": "decisions/decision_b1",
             "_key": "decision_b1",
+            "labels": ["TweedeKamer"],
             "props": {
                 "date": "2024-10-16",
                 "subject": "Motie",
+                "chamber": "TK",
                 "decision_id": "b-1",
                 "passed": True,
                 "vote_kind": "faction",
@@ -614,8 +616,33 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
             ],
         },
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.decisions.decision_paper",
+        lambda store, decision: {
+            "id": "documents/bfada5de",
+            "light": {
+                "kind": "Motie (gewijzigd/nader)",
+                "title": "Gewijzigde motie van de leden Kathmann en Dassen over …",
+                "dossier_number": "36764",
+                "sequence": 31,
+                "date": "2026-04-14",
+            },
+            "number": None,
+        },
+    )
     body = client.get("/api/decisions/decision_b1").json()
     assert body["passed"] is True
+    # the Kamerstuk it was taken on, by its number, kind and title
+    assert body["primary_document"] == {
+        "id": "documents/bfada5de",
+        "key": "bfada5de",
+        "kind": "Motie (gewijzigd/nader)",
+        "title": "Gewijzigde motie van de leden Kathmann en Dassen over …",
+        "number": "31",
+        "dossier_number": "36764",
+        "date": "2026-04-14",
+        "path": "/kamerstukken/36764/31",
+    }
     assert body["votes"][0] == {
         "voter_id": "factions/vvd",
         "voter_key": "vvd",

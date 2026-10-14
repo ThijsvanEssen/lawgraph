@@ -173,7 +173,8 @@ def _not_null(*values: str) -> str:
     return f"coalesce({cases})"
 
 
-# What the list shows of a paper, in the order of the answer.
+# What the list shows of a paper, in the order of the answer; how a motion or an amendment
+# ended and what an amendment is for from its light row (``lg_document_light``).
 _ITEM = f"""json_build_object(
         'id', d.id,
         'key', d.key,
@@ -188,7 +189,12 @@ _ITEM = f"""json_build_object(
         'title', {_not_null("d.props -> 'title'", "d.props -> 'display_name'")},
         'session_year', d.props -> 'session_year',
         'actors', d.props -> 'actors',
-        'dictum', d.props -> 'dictum'
+        'dictum', d.props -> 'dictum',
+        'explanation', l.props -> 'explanation',
+        'outcome', l.props -> 'outcome',
+        'decided_on', l.props -> 'decided_on',
+        'tally', l.props -> 'tally',
+        'decision', l.props -> 'decision'
     )"""
 
 
@@ -262,6 +268,7 @@ def list_documents(
             LIMIT %(limit)s OFFSET %(offset)s
         ) page
         JOIN {COLLECTION_DOCUMENTS} d ON d.id = page.id
+        LEFT JOIN lg_document_light l ON l.id = d.id
     )"""
     page = list(store.query(f"SELECT {items} AS items", bind))[0]
     if not facets:

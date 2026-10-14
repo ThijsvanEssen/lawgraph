@@ -43,6 +43,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached, lasting
 
@@ -704,7 +705,8 @@ def _cited_by_sql(order: str) -> str:
                         'tier', j.pj_tier,
                         'court_kind', j.pj_court_kind,
                         'date_eff', j.pj_date_eff,
-                        'inbound_citation_count', j.pj_inbound_citation_count
+                        'inbound_citation_count', j.pj_inbound_citation_count,
+                        {outcome_pairs("l.props")}
                     )
                 ),
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
@@ -712,6 +714,7 @@ def _cited_by_sql(order: str) -> str:
             FROM ranked r
             JOIN {COLLECTION_EDGES} e ON e.key = r.edge
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
             WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
         ) AS items
     """

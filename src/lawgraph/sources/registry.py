@@ -172,6 +172,9 @@ from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_paper_outcomes import (
+    TKPaperOutcomesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
 )
@@ -1052,7 +1055,13 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         tk_dictum.main,
-        "Keeps the dictum of every motion with text (what it asks or says).",
+        "Keeps the dictum of every motion with text (what it asks or says) and the opening "
+        "of the Toelichting of every amendment with text.",
+    ),
+    _pipeline(
+        TKPaperOutcomesSemanticPipeline,
+        "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
+        "aangehouden, vervallen, vervangen), when, and by how many seats.",
     ),
     _pipeline(
         graph_light.main,

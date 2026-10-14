@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.judgment_names import judgment_names
+from lawgraph.core.judgment_outcome import outcome_props
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
     KIND_CONCLUSIE,
@@ -156,6 +157,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         if props["decision_kind"] == KIND_CONCLUSIE:
             props["advocate_general"] = advocate_general(root)
             props["advocate_general_role"] = advocate_general_role(props.get("text"))
+        props.update(outcome_props(props["decision_kind"], sections))
         props["names"] = judgment_names(ecli)
         jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
         props["date_eff"] = (

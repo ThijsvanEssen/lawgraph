@@ -188,7 +188,59 @@ _REPLACED_BY = (
 )
 
 
-class DocumentTextResponse(DocumentOrigin):
+PaperOutcome = Literal[
+    "aangenomen", "verworpen", "ingetrokken", "aangehouden", "vervallen", "vervangen"
+]
+
+_DICTUM = (
+    "Of a motion, what it asks or says, as it writes it: the lines from ``verzoekt``, "
+    "``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to ``en gaat over tot "
+    "de orde van de dag``; null for any other paper and for a motion without text."
+)
+
+
+class PaperOutcomeFields(BaseModel):
+    """How a motion or an amendment ended, and what it says in a line (``semantic
+    tk-paper-outcomes``, ``core/paper_outcomes.py``); every field null for any other paper."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dictum: str | None = Field(None, description=_DICTUM)
+    explanation: str | None = Field(
+        None,
+        description="Of an amendment, what it is for: the first paragraph of its "
+        "Toelichting, whole sentences up to 400 characters; null for any other paper and "
+        "for an amendment without text.",
+    )
+    outcome: PaperOutcome | None = Field(
+        None,
+        description="How the Kamer decided on it: ``aangenomen``, ``verworpen`` (by its "
+        "vote; the latest vote when there were several), ``ingetrokken``, ``aangehouden``, "
+        "``vervallen`` (a decision without a vote), else the status the page of a motion of "
+        "the Eerste Kamer states; ``vervangen`` for a paper without one that a newer paper "
+        "replaces (``replaced_by``); null while nothing was decided.",
+    )
+    decided_on: str | None = Field(
+        None, description="The date of the decision that gave ``outcome``."
+    )
+    tally: dict[str, int] | None = Field(
+        None,
+        description='The seats per choice of that vote (``{"Voor": 150}``, members on a '
+        "roll call), as ``/api/decisions/{key}`` gives them; null without votes (a "
+        "hamerstuk, a motion held).",
+    )
+    decision: str | None = Field(
+        None,
+        description="The key of that decision (``/api/decisions/{key}``); null without one.",
+    )
+
+
+def outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """The ``PaperOutcomeFields`` of a paper with these props (or the row of a list)."""
+    return {name: values.get(name) for name in PaperOutcomeFields.model_fields}
+
+
+class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
     """One document with its text.
 
     ``text`` is null until ``normalize tk-content`` has run for it: a paper
@@ -225,13 +277,6 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
-    dictum: str | None = Field(
-        None,
-        description="Of a motion, what it asks or says, as it writes it: the lines from "
-        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
-        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
-        "motion without text.",
-    )
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
@@ -290,7 +335,6 @@ class DocumentTextResponse(DocumentOrigin):
                 else None
             ),
             text=text,
-            dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
             submitters=[
                 SubmitterDTO(
@@ -313,6 +357,7 @@ class DocumentTextResponse(DocumentOrigin):
                 for d in decisions or []
             ],
             **origin,
+            **outcome_fields(props),
         )
 
 
@@ -373,7 +418,7 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
     ]
 
 
-class DocumentListItemDTO(WithPath):
+class DocumentListItemDTO(PaperOutcomeFields, WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
     model_config = ConfigDict(extra="forbid")
@@ -419,13 +464,6 @@ class DocumentListItemDTO(WithPath):
         description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
         "Kamer paper and a paper without a signature.",
     )
-    dictum: str | None = Field(
-        None,
-        description="Of a motion, what it asks or says, as it writes it: the lines from "
-        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
-        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
-        "motion without text.",
-    )
 
     @classmethod
     def from_row(
@@ -448,7 +486,7 @@ class DocumentListItemDTO(WithPath):
             title=row.get("title"),
             session_year=row.get("session_year"),
             sender=sender_of(row),
-            dictum=row.get("dictum"),
+            **outcome_fields(row),
         )
 
 

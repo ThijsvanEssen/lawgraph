@@ -30,6 +30,7 @@ from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
+from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
@@ -385,13 +386,15 @@ def _citing_judgments(
                                 'advocate_general',
                                 {_OF_A_CONCLUSION.format(prop="advocate_general")},
                                 'advocate_general_role',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")}
+                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")},
+                                {outcome_pairs("l.props")}
                             )
                         ),
                         'cited_articles', coalesce(cited.articles, '[]')
                     ) AS item, top.n
                     FROM top
                     JOIN judgments j ON j.id = top.judgment_id
+                    LEFT JOIN lg_judgment_light l ON l.id = j.id
                     LEFT JOIN (
                         SELECT c.judgment_id, json_agg(json_build_object(
                             'id', a.id,
