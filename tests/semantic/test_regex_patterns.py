@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_INTRODUCES,
@@ -199,6 +201,6 @@ class TestFormatCelex:
     def test_format_celex_large_number(self) -> None:
         assert format_celex("regulation", "2021", "1119") == "32021R1119"
 
-    def test_format_celex_invalid_number_falls_back_to_zero(self) -> None:
-        result = format_celex("directive", "2010", "abc")
-        assert result == "32010L0000"
+    def test_format_celex_refuses_a_number_that_is_none(self) -> None:
+        with pytest.raises(ValueError, match="'abc'"):
+            format_celex("directive", "2010", "abc")

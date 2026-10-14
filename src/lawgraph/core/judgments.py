@@ -1400,9 +1400,9 @@ _TITLE_CASE_NUMBERS = re.compile(r",\s*\d{2}-\d{2}-\d{4},\s*(?P<numbers>.+)$")
 def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
     """``(total, entries)`` of an Atom index page; the total is what the search matched.
 
-    Raises on a page that is not XML (``ET.ParseError``) or not a feed (``ValueError``; a
-    maintenance page can be well-formed): an index that cannot be read must not look like
-    an empty one.
+    Raises on a page that is not XML (``ET.ParseError``), not a feed (``ValueError``; a
+    maintenance page can be well-formed) or with an entry whose time cannot be read
+    (``ValueError``): an index that cannot be read must not look like an empty one.
     """
     root = ET.fromstring(xml_text)
     if local_name(root.tag) != "feed":
@@ -1420,18 +1420,22 @@ def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
                 entries.append(
                     IndexEntry(
                         ecli=fields["id"],
-                        updated=_parse_timestamp(fields.get("updated")),
+                        updated=_parse_timestamp(fields["id"], fields.get("updated")),
                         title=fields.get("title", ""),
                     )
                 )
     return total, entries
 
 
-def _parse_timestamp(value: str | None) -> dt.datetime | None:
+def _parse_timestamp(ecli: str, value: str | None) -> dt.datetime | None:
+    """When the entry of *ecli* was published or last changed (UTC where the feed names no
+    zone); None without a time. A time that cannot be read raises, as an unreadable page."""
     if not value:
         return None
     try:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    except ValueError as error:
+        raise ValueError(
+            f"{ecli}: unreadable <updated> {value!r} in the index"
+        ) from error
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)

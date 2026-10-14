@@ -56,6 +56,23 @@ def test_a_page_that_is_no_feed_is_not_an_empty_index() -> None:
         parse_index(page)
 
 
+def test_an_entry_whose_time_cannot_be_read_raises_with_its_ecli() -> None:
+    page = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>ECLI:NL:HR:2025:1</id>'
+        "<updated>gisteren</updated><title>t</title></entry></feed>"
+    )
+    with pytest.raises(ValueError, match="ECLI:NL:HR:2025:1.*gisteren"):
+        parse_index(page)
+
+
+def test_an_entry_without_a_time_has_none() -> None:
+    page = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>ECLI:NL:HR:2025:1</id>'
+        "<title>t</title></entry></feed>"
+    )
+    assert parse_index(page)[1][0].updated is None
+
+
 # ── the client ───────────────────────────────────────────────────────────────
 
 

@@ -523,6 +523,7 @@ def test_a_new_version_says_it_is_new_and_where_it_came_from() -> None:
         "series": "stb",
         "year": 2026,
         "number": "204",
+        "citation": "Stb. 2026, 204",
         "path": None,
     }
     assert commencement.based_on is not None
@@ -574,3 +575,23 @@ def test_a_letter_names_the_motion_and_the_commitment_it_answers() -> None:
         {"term": "Moties", "field": "title"}
     ]
     assert (item.via, item.replaces, item.cites) == (None, None, [])
+
+
+def test_a_publication_says_how_it_is_cited() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "publicatie",
+            "id": "instruments/stb_2026_94",
+            "date": "2026-03-01",
+            "props": {
+                "publication_kind": "Stb",
+                "publication_year": 2026,
+                "publication_number": "94",
+            },
+        }
+    )
+    assert item.publication is not None
+    assert (item.publication.series, item.publication.citation) == (
+        "stb",
+        "Stb. 2026, 94",
+    )

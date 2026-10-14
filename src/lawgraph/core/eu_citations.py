@@ -22,13 +22,10 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
-from lawgraph.core.citations import (
-    CitationHit,
-    format_celex,
-    make_snippet,
-)
+from lawgraph.core.citations import CitationHit, format_celex, make_snippet
 from lawgraph.core.identifiers import (
     BWB_ID_PATTERN,
+    EU_ACT_KINDS,
     EUInstrumentKind,
     has_possible_year,
 )
@@ -70,14 +67,6 @@ YEAR_NUMBER_PATTERNS: tuple[tuple[re.Pattern[str], EUInstrumentKind], ...] = (
 # Article-level patterns
 # ---------------------------------------------------------------------------
 
-# kind -> (Dutch noun, determiner that may precede it, allowed year/number suffixes)
-_INSTRUMENT_FORMS: dict[EUInstrumentKind, tuple[str, str, str]] = {
-    "directive": ("Richtlijn", "de", "/EU|/EG"),
-    "regulation": ("Verordening", "de", "/EU|/EG"),
-    "decision": ("Besluit", "het", "/EU|/EG|/GBVB"),
-    "framework_decision": ("Kaderbesluit", "het", "/JBZ|/EU"),
-}
-
 
 def build_article_patterns(
     article_number: str,
@@ -94,11 +83,11 @@ def build_article_patterns(
     """
     compiled: list[tuple[re.Pattern[str], EUInstrumentKind]] = []
     for kind in kinds:
-        noun, determiner, suffixes = _INSTRUMENT_FORMS[kind]
-        det = rf"(?:{determiner}\s+)?" if allow_determiner else ""
+        act = EU_ACT_KINDS[kind]
+        det = rf"(?:{act.determiner}\s+)?" if allow_determiner else ""
         pattern = re.compile(
-            rf"\bartikel\s+({article_number})\s+van\s+{det}{noun}"
-            rf"\s+(\d{{4}})/(\d+)(?:{suffixes})?\b",
+            rf"\bartikel\s+({article_number})\s+van\s+{det}{act.noun}"
+            rf"\s+(\d{{4}})/(\d+)(?:{act.suffixes})?\b",
             re.IGNORECASE,
         )
         compiled.append((pattern, kind))
@@ -192,11 +181,9 @@ def collect_bwb_id_hits(text: str, confidence: float, record: HitRecorder) -> No
 # 95/46/EG", "richtlijn nr. 2004/17/EG", "Verordening (EEG) nr. 1408/71", "Verordening (EU)
 # 2016/679", "Gedelegeerde Verordening (EU) 2017/565", "Kaderbesluit 2008/977/JBZ".
 _ACT_KINDS: dict[str, EUInstrumentKind] = {
-    "richtlijn": "directive",
-    "verordening": "regulation",
-    "besluit": "decision",
-    "beschikking": "decision",
-    "kaderbesluit": "framework_decision",
+    noun.lower(): kind
+    for kind, act in EU_ACT_KINDS.items()
+    for noun in (act.noun, *act.older_nouns)
 }
 _DOMAIN = r"(?:EU|EG|EEG|EGKS|Euratom|JBZ|GBVB)"
 EU_ACT_PATTERN = re.compile(
