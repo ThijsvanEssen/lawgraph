@@ -16,7 +16,8 @@ in force of the range, in the order of the law, gets an edge.
 Entries without an article number have no target and are skipped, as are
 targets that are not in the graph and references to the regulation itself.
 
-Only the regulations that state a basis are read, in chunks: per chunk one read of the target
+Derived in full on every run: an edge whose basis is no longer stated goes. Only the
+regulations that state a basis are read, in chunks: per chunk one read of the target
 articles, and one of the order of the laws a range in it spans.
 """
 
@@ -58,11 +59,13 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         rows = semantic_bwb.regulations_with_basis(self.store)
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_BASED_ON, SEMANTIC_SOURCE)
+        logger.info("Legal bases: %d edges no basis states any more removed.", removed)
         return result
 
     def _link_chunk(

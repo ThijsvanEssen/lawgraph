@@ -6,7 +6,8 @@ instance in the metadata (``props.related_eclis``). Without it, its text says wh
 "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 rechtbank ... prejudiciële vragen ... gesteld" (``core.judgments.read_referrals``): the
 ECLIs it names, else the decision of that date with that case number
-(``core.judgments.same_case_number``).
+(``core.judgments.same_case_number``). Derived in full on every run: an edge no ruling
+supports any more goes.
 """
 
 from __future__ import annotations
@@ -91,7 +92,7 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
         logger.info("Preliminary rulings: %d referring decisions found.", len(links))
 
         ids = self._resolve_eclis({e for link in links for e in link[:2]})
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for ruling, referring, basis in links:
             edges.add(
                 ids.get(ruling),
@@ -102,4 +103,8 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                 meta={"basis": basis},
             )
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_ANSWERS, SEMANTIC_SOURCE)
+        logger.info(
+            "Preliminary rulings: %d edges no ruling supports removed.", removed
+        )
         return result

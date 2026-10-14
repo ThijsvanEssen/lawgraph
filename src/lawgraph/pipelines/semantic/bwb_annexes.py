@@ -11,7 +11,8 @@ SCOPED_BY from an article to the annex its text refers to, with the detected sco
 
 The annex nodes themselves, and their PART_OF edge to the regulation, are made by
 ``normalize bwb`` from the toestand it parses; a reference by label to an annex that is not
-there gets a stub, so the graph stays connected.
+there gets a stub, so the graph stays connected. Derived in full on every run: an edge no
+article text supports any more goes.
 """
 
 from __future__ import annotations
@@ -51,10 +52,12 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         self._link_labels(edges, result, self._annex_keys())
         self._link_names(edges)
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_SCOPED_BY, SEMANTIC_SOURCE)
+        logger.info("Annex references: %d edges no text supports removed.", removed)
         return result
 
     def _annex_keys(self) -> set[str]:
