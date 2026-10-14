@@ -472,6 +472,24 @@ def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return {"after": args.after, "limit": args.limit}
 
 
+def _tk_slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every Tweede Kamer document in slices."""
+    parser.add_argument(
+        "--after",
+        help="Start past this document key: the next slice of a run over all.",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many documents (a slice)."
+    )
+
+
+TK_SEMANTIC = PipelineCommand(
+    TKSemanticPipeline,
+    "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
+    add_args=_tk_slice_add_args,
+    make_extra_kwargs=_slice_kwargs,
+)
+
 RECHTSPRAAK_SEMANTIC = PipelineCommand(
     RechtspraakSemanticPipeline,
     "Article citations in judgments: REFERS_TO to BWB articles.",
@@ -859,10 +877,7 @@ NORMALIZE: list[Pipeline] = [
 ]
 
 SEMANTIC: list[Pipeline] = [
-    _pipeline(
-        TKSemanticPipeline,
-        "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
-    ),
+    _pipeline(TK_SEMANTIC, TK_SEMANTIC.description),
     _pipeline(RECHTSPRAAK_SEMANTIC, RECHTSPRAAK_SEMANTIC.description),
     _pipeline(
         EurlexSemanticPipeline,

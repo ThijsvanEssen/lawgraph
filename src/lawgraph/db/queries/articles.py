@@ -28,6 +28,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import (
     _coerce_float,
     _coerce_int,
@@ -306,6 +307,7 @@ SELECT
 FROM {COLLECTION_EDGES} e
 CROSS JOIN {node_of("e.from_id", "e.from_collection")} s
 WHERE e.to_id = %(article_id)s AND e.relation = ANY(%(changes)s)
+  AND (e.from_collection <> '{COLLECTION_DOCUMENTS}' OR {proposals.pending_sql("e.from_id")})
 -- The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
 ORDER BY e.key
 """
@@ -323,9 +325,10 @@ def get_article_legislative_history(
     amending publication (enacted, ``canoniek``), whose dossiers are those it is
     ``LEGISLATED_IN`` and those its ``dossier_numbers`` name (a dossier that is not in the
     graph has no ``dossier_id``), or from a bill (``voorgesteld``), whose dossier it is
-    ``PART_OF``, directly or through its case. One entry per change and dossier; a change
-    without a dossier is none, and what only cites the article (a judgment, another article)
-    is no change.
+    ``PART_OF``, directly or through its case, while it is pending (``queries.proposals``:
+    its dossier open, no amendment rejected, withdrawn or replaced). One entry per change
+    and dossier; a change without a dossier is none, and what only cites the article (a
+    judgment, another article) is no change.
 
     Each entry: {dossier_id, dossier_number, dossier_title, date, kind, change, status,
     summary, document_id}; proposed changes first, then newest first. The explanatory
