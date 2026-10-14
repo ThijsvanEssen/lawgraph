@@ -53,9 +53,9 @@ WHOLE_BY_DESIGN = [
     (
         "facets and total of the list of judgments and of an area of law",
         re.compile(
-            r"FROM judgments j .*WHERE j\.stub IS NOT TRUE AND j\.same_as IS NULL"
-            r"( AND j\.source = %\(source\)s)?"
-            r"( AND lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\])?"
+            r"FROM judgments j .*WHERE \(j\.stub IS NOT TRUE\) AND \(j\.same_as IS NULL\)"
+            r"( AND \(j\.source = %\(source\)s\))?"
+            r"( AND \(lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\]\))?"
             r"( GROUP BY| \) subjects|$)"
         ),
         "the counts of the list the front end shows first (the judgments of Rechtspraak)"

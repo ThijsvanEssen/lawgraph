@@ -515,10 +515,7 @@ _ADOPTED_AMENDMENTS = f"""starts_with(d.kind, '{KIND_AMENDMENT}')
 
 def _papers_with_sections_sql(papers: str) -> str:
     """The rows of ``memoranda_with_sections`` for the papers *papers* selects."""
-    return _PAPERS_WITH_SECTIONS_SQL.replace("{papers}", papers)
-
-
-_PAPERS_WITH_SECTIONS_SQL = f"""
+    return f"""
 SELECT json_build_object(
     'document', d.id,
     'text', d.p -> 'text',
@@ -535,7 +532,7 @@ FROM (
         SELECT {_cut("d", "budget", "structure_quality", "text", "sections")} AS p
         OFFSET 0
     ) c
-    WHERE {{papers}}
+    WHERE {papers}
       AND {is_present("c.p -> 'text'")}
 ) d
 {_LEGISLATED}

@@ -59,6 +59,7 @@ from lawgraph.db.queries._json_sql import (
     first_present,
     is_present,
 )
+from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.committees import load_member_slugs
@@ -1192,14 +1193,13 @@ def get_dossiers(
         f"'{name}', {_facet(name, own)}" for name in counted
     )
     committee = f"{_COMMITTEE_DOSSIERS}," if filters.committee_slug else ""
-    where = " AND ".join(f"({c})" for c in shared) or "TRUE"
     sql = f"""
     WITH {committee}
     base AS MATERIALIZED (
         SELECT ds.id, ds.key,
                {columns}
         FROM {COLLECTION_DOSSIERS} ds
-        WHERE {where}
+        {where(shared)}
     ),
     kept AS (
         SELECT b.* FROM base b WHERE {kept}

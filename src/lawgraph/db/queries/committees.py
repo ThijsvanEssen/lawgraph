@@ -37,6 +37,7 @@ from lawgraph.db.queries._json_sql import (
     period_overlaps,
     truthy_or,
 )
+from lawgraph.db.queries._lists import page_of, paged
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
@@ -89,20 +90,6 @@ def _chamber(table: str, chamber: str) -> str:
     """SQL: *table* (a faction or committee) is of *chamber* (``TK`` or ``EK``)."""
     test = "=" if chamber == CHAMBER_EK else "IS DISTINCT FROM"
     return f"lg_str({table}.props -> 'chamber') {test} '{CHAMBER_EK}'"
-
-
-def _page(source: str, *order: str) -> str:
-    """SQL: how many rows *source* has (``total``) beside a page of them (``page.*``) in
-    *order*; one row with ``total`` alone when the page is empty."""
-    return f"""
-    SELECT counted.total, page.*
-    FROM (SELECT count(*)::int AS total FROM {source}) counted
-    LEFT JOIN LATERAL (
-        SELECT * FROM {source} ORDER BY {", ".join(order)}
-        LIMIT %(limit)s OFFSET %(offset)s
-    ) page ON true
-    ORDER BY {", ".join(f"page.{term}" for term in order)}
-    """
 
 
 def get_committees(
@@ -294,7 +281,7 @@ def _led_dossiers(
             FROM {COLLECTION_DOSSIERS} d
             WHERE d.id IN ({about}) {by_status}
         )
-        {_page("matching", "opened_on DESC NULLS LAST", "key ASC")}
+        {paged("matching", page_of("matching", "opened_on DESC NULLS LAST, key ASC"))}
         """,
         {
             "committee_id": committee_id,
@@ -359,7 +346,7 @@ def _led_activities(
     rows = store.query(
         f"""
         WITH led AS ({walk}),
-        listed AS ({_page("led", "date DESC NULLS LAST", "id ASC")})
+        listed AS ({paged("led", page_of("led", "date DESC NULLS LAST, id ASC"))})
         SELECT listed.total, a.id, json_build_object(
             'id', a.id,
             'key', a.key,
@@ -854,7 +841,10 @@ _IN_OFFICE = f"""(
     WHERE {period_holds("g.post -> 'from_date'", "g.post -> 'to_date'", "d.date")}
 )"""
 
-_MEMBER_VOTES_TEMPLATE = f"""
+
+def _member_votes(candidates: str) -> str:
+    """SQL: the votes of a member, a page, with ``candidates`` read by *candidates*."""
+    return f"""
     WITH member AS (
         SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
     ),
@@ -894,8 +884,7 @@ _MEMBER_VOTES_TEMPLATE = f"""
     -- nearly every decision while it is seated, so few are read past the page (from the
     -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
     -- member of seven periods)
-    -- CANDIDATES --
-    -- of those, the votes no roll-call made
+{candidates}    -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
         WHERE c.vote_kind IS DISTINCT FROM %(roll_call)s
@@ -975,12 +964,10 @@ _MEMBER_VOTES_TEMPLATE = f"""
             LEFT JOIN lg_decision_coalition co ON co.id = page.decision_id
         ), '[]'::json) AS votes
 """
-_MEMBER_VOTES = _MEMBER_VOTES_TEMPLATE.replace(
-    "    -- CANDIDATES --\n", _WALK_CANDIDATES
-)
-_MEMBER_VOTES_LIGHT = _MEMBER_VOTES_TEMPLATE.replace(
-    "    -- CANDIDATES --\n", _LIGHT_CANDIDATES
-)
+
+
+_MEMBER_VOTES = _member_votes(_WALK_CANDIDATES)
+_MEMBER_VOTES_LIGHT = _member_votes(_LIGHT_CANDIDATES)
 
 
 def get_actor_touched_instruments(
@@ -1156,7 +1143,7 @@ def get_actor_dossiers(
             FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
             GROUP BY d.id
         )
-        {_page("grouped", "opened_on DESC NULLS LAST", "key ASC")}
+        {paged("grouped", page_of("grouped", "opened_on DESC NULLS LAST, key ASC"))}
         """,
         {
             "actor_id": actor_id,
