@@ -54,7 +54,7 @@ from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
@@ -174,7 +174,7 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             for key in normalize_ek.ek_vote_keys_on(self.store, sorted(set(days)))
             if key not in made
         ]
-        normalize_edges.remove_nodes(self.store, COLLECTION_DECISIONS, gone)
+        removals.remove_nodes(self.store, COLLECTION_DECISIONS, gone)
         per_day: dict[str, list[int]] = {}
         for node in decisions:
             per_day.setdefault(str(node.props["date"]), [0, 0])[0] += 1
@@ -338,7 +338,7 @@ def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> N
                 writer.add_doc(edge)
     writer.flush()
     removed = sum(
-        normalize_edges.remove_edges_into_except(
+        removals.remove_edges_into_except(
             store,
             RELATION_VOTED,
             chunk,

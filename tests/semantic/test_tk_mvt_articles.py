@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.mvt_articles import CONFIDENCE_OF_MATCH, MATCH_BODY_NAMED_LAW
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
@@ -102,12 +102,18 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda store, **_: iter(list(store.amendments)),
     )
 
-    def removed(store: Any, relation: str, source: str, ids: Any, keep: Any) -> list:
-        assert (relation, source) == (RELATION_EXPLAINS, SEMANTIC_SOURCE_SECTIONS)
+    def removed(
+        store: Any, end: str, relations: Any, ids: Any, keep: Any, *, source: str
+    ) -> list:
+        assert (end, relations, source) == (
+            "from_id",
+            [RELATION_EXPLAINS],
+            SEMANTIC_SOURCE_SECTIONS,
+        )
         store.removals.append((ids, keep))
         return []
 
-    monkeypatch.setattr(semantic_edges, "removed_edges_from", removed)
+    monkeypatch.setattr(removals, "remove_edges_at", removed)
 
 
 def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:

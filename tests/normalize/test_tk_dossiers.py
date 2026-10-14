@@ -35,8 +35,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
-from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
@@ -68,9 +68,7 @@ def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
 @pytest.fixture(autouse=True)
 def _no_stale_votes(monkeypatch: pytest.MonkeyPatch) -> None:
     """``link_votes`` removes the VOTED edges it did not write: there are none here."""
-    monkeypatch.setattr(
-        normalize_edges, "remove_edges_into_except", lambda *_a, **_kw: 0
-    )
+    monkeypatch.setattr(removals, "remove_edges_into_except", lambda *_a, **_kw: 0)
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
@@ -689,7 +687,7 @@ def _count_queries(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
         return recorded
 
-    for module in (normalize_bwb, normalize_edges, normalize_rechtspraak, normalize_tk):
+    for module in (normalize_bwb, removals, normalize_rechtspraak, normalize_tk):
         for name, function in inspect.getmembers(module, inspect.isfunction):
             if function.__module__ == module.__name__:
                 monkeypatch.setattr(module, name, recorder(name))

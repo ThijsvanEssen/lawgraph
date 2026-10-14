@@ -24,9 +24,9 @@ import requests
 
 from lawgraph.core.models import Node
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import removals
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.store import raw_key
 
 
@@ -292,58 +292,35 @@ def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", _ids_waiting_for_retry)
 
 
-def _removed(
+def _remove_edges_at(
     store: InMemoryStore,
     end: str,
     relations: list[str],
-    source: str,
     ids: list[str],
     keep: dict[str, set[str]],
-) -> int:
+    *,
+    source: str,
+) -> list[tuple[str, str]]:
+    side = {"from_id": "_from", "to_id": "_to"}[end]
     gone = [
         key
         for key, edge in store.edges.items()
-        if edge[end] in ids
+        if edge[side] in ids
         and edge.get("relation") in relations
         and edge.get("source") == source
-        and key not in keep.get(edge[end], set())
+        and key not in keep.get(edge[side], set())
     ]
-    for key in gone:
-        del store.edges[key]
-    return len(gone)
+    return [(e["_from"], e["_to"]) for e in (store.edges.pop(key) for key in gone)]
 
 
-def _remove_edges_from(
-    store: InMemoryStore,
-    relation: str,
-    source: str,
-    from_ids: list[str],
-    keep: dict[str, set[str]],
-    *,
-    chunk: int = 5000,
-) -> int:
-    return _removed(store, "_from", [relation], source, from_ids, keep)
-
-
-def _remove_edges_to(
-    store: InMemoryStore,
-    relations: list[str],
-    source: str,
-    to_ids: list[str],
-    keep: dict[str, set[str]],
-    *,
-    chunk: int = 5000,
-) -> int:
-    return _removed(store, "_to", relations, source, to_ids, keep)
-
-
-def _remove_edges_of_source_except(
-    store: InMemoryStore, relation: str, source: str, keep: list[str]
+def _remove_edges_except(
+    store: InMemoryStore, relation: str, keep: list[str], *, source: str | None = None
 ) -> int:
     gone = [
         key
         for key, edge in store.edges.items()
-        if (edge.get("relation"), edge.get("source")) == (relation, source)
+        if edge.get("relation") == relation
+        and source in (None, edge.get("source"))
         and key not in keep
     ]
     for key in gone:
@@ -352,13 +329,10 @@ def _remove_edges_of_source_except(
 
 
 def patch_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``remove_edges_from``, ``remove_edges_to`` and ``remove_edges_of_source_except`` of
-    ``db/queries/semantic/edges.py``, on the ``edges`` of an ``InMemoryStore``."""
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", _remove_edges_from)
-    monkeypatch.setattr(semantic_edges, "remove_edges_to", _remove_edges_to)
-    monkeypatch.setattr(
-        semantic_edges, "remove_edges_of_source_except", _remove_edges_of_source_except
-    )
+    """``remove_edges_at`` and ``remove_edges_except`` of ``db/queries/removals.py``, on the
+    ``edges`` of an ``InMemoryStore``."""
+    monkeypatch.setattr(removals, "remove_edges_at", _remove_edges_at)
+    monkeypatch.setattr(removals, "remove_edges_except", _remove_edges_except)
 
 
 _ALIAS_FIELDS = (

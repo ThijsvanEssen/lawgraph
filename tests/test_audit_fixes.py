@@ -10,8 +10,8 @@ import requests
 
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.retrieve import _gaps
@@ -201,7 +201,7 @@ class _Judgments:
             raw_queries, "judgment_eclis_fetched_since", self.eclis_fetched_since
         )
         # the citations the text no longer makes
-        monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *a, **kw: 0)
+        monkeypatch.setattr(removals, "remove_edges_at", lambda *a, **kw: [])
 
     def eclis_fetched_since(self, store, since_iso):
         self.recent.append(since_iso)

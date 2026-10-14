@@ -72,8 +72,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
-from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -590,9 +590,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             if (by_key[key]["last_seen"] or "") > (survivor["last_seen"] or ""):
                 survivor["last_seen"] = by_key[key]["last_seen"]
                 raised.add(survivor_key)
-        normalize_edges.remove_nodes(
-            self.store, COLLECTION_ARTICLE_VERSIONS, sorted(absorbed)
-        )
+        removals.remove_nodes(self.store, COLLECTION_ARTICLE_VERSIONS, sorted(absorbed))
         return [v for v in versions if v["key"] not in absorbed], raised
 
     @staticmethod
