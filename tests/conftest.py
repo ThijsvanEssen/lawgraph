@@ -86,3 +86,11 @@ def raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.fakes import patch_raw_reads
 
     patch_raw_reads(monkeypatch)
+
+
+@pytest.fixture()
+def edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The edge removals of the semantic phase, on the ``edges`` of an ``InMemoryStore``."""
+    from tests.fakes import patch_edge_removals
+
+    patch_edge_removals(monkeypatch)

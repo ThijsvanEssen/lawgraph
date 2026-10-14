@@ -45,6 +45,7 @@ from lawgraph.core.publications import (
 )
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import CAPACITY_MEMBER, NO_DUE_DATE
+from lawgraph.core.xml import collapse_ws
 
 # The values of ``core.feed.FEED_KINDS`` and ``PERSON_ROLES``.
 FeedKind = Literal[
@@ -631,7 +632,7 @@ def _path_props(collection: str, props: dict[str, Any]) -> dict[str, Any] | None
 
 def _title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:
     title = _source_title(kind, props, row)
-    return " ".join(title.split()) if title else None
+    return collapse_ws(title) if title else None
 
 
 def _source_title(kind: str, props: dict[str, Any], row: dict[str, Any]) -> str | None:

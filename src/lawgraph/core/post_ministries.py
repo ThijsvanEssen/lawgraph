@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections import Counter
 from collections.abc import Iterable
 from typing import Any
@@ -35,6 +34,7 @@ from lawgraph.core.ministries import (
     classify_function,
     ministry_of,
 )
+from lawgraph.core.text_fold import plain_words
 
 SOURCE_PAGE = "page"
 SOURCE_TK_SIGNATURES = "tk_signatures"
@@ -175,9 +175,7 @@ STAATSCOURANT_FROM = "1995-01-01"
 def phrase_of(function: str) -> str:
     """The words a publication names a post by: the function, lower case, without accents
     and punctuation (``minister voor ontwikkelingssamenwerking``)."""
-    plain = unicodedata.normalize("NFKD", function)
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return " ".join(re.findall(r"[a-z0-9]+", plain))
+    return plain_words(function)
 
 
 def staatscourant_query(post: dict[str, Any]) -> dict[str, Any] | None:

@@ -49,6 +49,7 @@ from lawgraph.core.kamerstuk_xml import (
     SCHEME_BOOK_ARTICLE,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.xml import collapse_ws
 
 # How a section came to name an article, and whether the dossier changed that article. The
 # confidence is the share a hand check found right: 10 random edges per kind in lawgraph_small
@@ -191,7 +192,7 @@ class Reference:
     @property
     def explanation(self) -> str:
         """What the match rests on: the section, and whether the dossier changed it."""
-        heading = " ".join(self.heading.split())
+        heading = collapse_ws(self.heading)
         if len(heading) > _HEADING_CHARS:
             heading = heading[: _HEADING_CHARS - 1] + "…"
         rests_on = _RESTS_ON[self.match_type].format(heading=heading)

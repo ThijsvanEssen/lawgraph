@@ -23,8 +23,8 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_composition import text
 from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.xml import collapse_ws, html_text
 
 _BILL_LIST = re.compile(r"/wetsvoorstellen_bij_commissie\?key=[a-z0-9]+")
 _HEADING = re.compile(r'<h2><a id="p\d+"></a>([^<]+)</h2>')
@@ -99,7 +99,7 @@ def ek_dossier_label(number: str) -> str | None:
     """The dossier label of the Tweede Kamer of a number as the Eerste Kamer writes it:
     ``36.791`` -> ``36791``, ``36.600 VII`` -> ``36600-VII``, ``36.455 (R2188)`` ->
     ``36455-(R2188)``; None for anything else."""
-    match = _EK_NUMBER.match(" ".join(number.split()))
+    match = _EK_NUMBER.match(collapse_ws(number))
     if not match:
         return None
     base = match[1] + match[2]
@@ -114,10 +114,12 @@ def bill_lists(committee_page: str) -> list[str]:
 def listed_bills(page: str) -> tuple[list[ListedBill], str | None]:
     """The bills of a list, each under its heading, and the page of the older ones."""
     found: list[ListedBill] = []
-    headings = [(m.start(), text(m[1])) for m in _HEADING.finditer(page)]
+    headings = [(m.start(), html_text(m[1])) for m in _HEADING.finditer(page)]
     for match in _LISTED.finditer(page):
         status = next((h for at, h in reversed(headings) if at < match.start()), "")
-        found.append(ListedBill(match[1], ek_dossier_label(text(match[2])), status))
+        found.append(
+            ListedBill(match[1], ek_dossier_label(html_text(match[2])), status)
+        )
     following = _NEXT.search(page)
     return found, html_lib.unescape(following[1]) if following else None
 
@@ -126,7 +128,7 @@ def _paper(url: str, title: str, content: str) -> Paper:
     kind, _, day = html_lib.unescape(title).rpartition(" - ")
     number = _DOC_NUMBER.search(html_lib.unescape(content))
     return Paper(
-        kind=text(kind or day),
+        kind=html_text(kind or day),
         date=parse_date(day) if kind else None,
         number=number[1].strip() if number else None,
         url=html_lib.unescape(url),
@@ -139,8 +141,8 @@ def _step(block: str) -> Step:
     house = _HOUSE.search(block)
     docs = _DOCS.search(block)
     return Step(
-        phase=text(phase[1]) or None if phase else None,
-        house=text(house[1]) or None if house else None,
+        phase=html_text(phase[1]) or None if phase else None,
+        house=html_text(house[1]) or None if house else None,
         state=state[1] if state else None,
         # the papers only: the "i" of a phase opens an explanation, no paper
         papers=[_paper(*m) for m in _DOC.findall(docs[1])] if docs else [],
@@ -153,6 +155,6 @@ def bill(page: str) -> Bill:
     submitted = _SUBMITTED.search(page)
     return Bill(
         label=ek_dossier_label(number[1]) if number else None,
-        submitted_on=parse_date(text(submitted[1])) if submitted else None,
+        submitted_on=parse_date(html_text(submitted[1])) if submitted else None,
         progress=[_step(block) for block in _BLOCK.findall(page)],
     )

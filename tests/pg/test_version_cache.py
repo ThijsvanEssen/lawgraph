@@ -7,6 +7,7 @@ import threading
 import time
 
 from lawgraph.db import GraphStore, version_cache
+from tests.fakes import PATIENCE, ManualClock, until
 
 
 def _instrument(key: str) -> dict[str, object]:
@@ -72,10 +73,11 @@ def test_a_request_past_its_deadline_gives_up_and_the_computation_goes_on(
     from lawgraph.db import store as store_module
 
     computed: list[int] = []
+    release = threading.Event()
 
     def slow() -> str:
         computed.append(1)
-        time.sleep(0.5)
+        release.wait(PATIENCE)
         return "answer"
 
     token = store_module.set_read_deadline(0.1)
@@ -84,7 +86,7 @@ def test_a_request_past_its_deadline_gives_up_and_the_computation_goes_on(
             version_cache.cached(store, ("slow-deadline",), slow)
     finally:
         store_module.reset_read_deadline(token)
-    time.sleep(0.6)
+        release.set()
     # computed on, kept for the next request
     assert version_cache.cached(store, ("slow-deadline",), slow) == "answer"
     assert computed == [1]
@@ -111,20 +113,19 @@ def test_a_new_data_version_warms_up_in_the_background(
     store: GraphStore, monkeypatch
 ) -> None:
     warmed: list[str] = []
+    clock = ManualClock()
+    monkeypatch.setattr(version_cache, "_clock", clock)
     monkeypatch.setattr(version_cache, "_warmers", [lambda s: warmed.append(s.name)])
     # it starts once the version has stood still this long (90 s on a server)
     monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.2)
 
     version_cache.cached(store, ("x",), lambda: 1)  # the first version: no warm-up
-    time.sleep(0.2)
-    assert warmed == []
+    assert not version_cache.computing(store)
 
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
     version_cache.cached(store, ("x",), lambda: 2)  # a version it did not know
-    for _ in range(60):
-        if warmed:
-            break
-        time.sleep(0.05)
+    clock.move_to_wait(0.2)
+    assert until(lambda: bool(warmed))
     assert warmed == [store.name]
 
 
@@ -137,18 +138,19 @@ def test_after_a_change_a_request_takes_the_last_answer_while_the_new_one_comput
     assert version_cache.cached(store, ("stale",), lambda: "old") == "old"
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
 
+    release = threading.Event()
+
     def slow() -> str:
-        time.sleep(0.5)
+        release.wait(PATIENCE)
         return "new"
 
     token = store_module.set_read_deadline(30)
     try:
-        started = time.monotonic()
         assert version_cache.cached(store, ("stale",), slow) == "old"
-        assert time.monotonic() - started < 0.4
+        assert not release.is_set()  # returned while the new one computes
     finally:
         store_module.reset_read_deadline(token)
-    time.sleep(0.6)
+        release.set()
     assert version_cache.cached(store, ("stale",), slow) == "new"
 
 
@@ -163,20 +165,23 @@ def test_while_typing_a_request_takes_the_last_answer_at_once(
     assert version_cache.cached(store, ("typing",), lambda: "old") == "old"
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
 
+    release = threading.Event()
+
     def slow() -> str:
-        time.sleep(1.0)
+        release.wait(PATIENCE)
         return "new"
 
     token = store_module.set_read_deadline(30)
     try:
-        started = time.monotonic()
         with version_cache.stale_wait(0.05):
             assert version_cache.cached(store, ("typing",), slow) == "old"
-        assert time.monotonic() - started < 0.5
+        assert not release.is_set()  # returned while the new one computes
+        release.set()
         # outside it a request waits STALE_WAIT, here long enough for the new answer
         assert version_cache.cached(store, ("typing",), slow) == "new"
     finally:
         store_module.reset_read_deadline(token)
+        release.set()
 
 
 def test_a_search_while_typing_takes_the_last_parser_of_citations(
@@ -189,9 +194,10 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
     from lawgraph.db.queries import search as search_queries
 
     real = search_queries.code_alias_rows
+    release = threading.Event()
 
     def slow_rows(store_: GraphStore) -> object:
-        time.sleep(1.0)
+        release.wait(PATIENCE)
         return real(store_)
 
     token = store_module.set_read_deadline(30)
@@ -200,11 +206,11 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
         search_queries.search_live(store, q="wet", types=["articles"], limit=3)
         store.bulk_insert_or_update_nodes("instruments", [_instrument("b")])
         monkeypatch.setattr(search_queries, "code_alias_rows", slow_rows)
-        started = time.monotonic()
         search_queries.search_live(store, q="wet", types=["articles"], limit=3)
-        assert time.monotonic() - started < 0.6
+        assert not release.is_set()  # answered while the new parser computes
     finally:
         store_module.reset_read_deadline(token)
+        release.set()
 
 
 def test_outside_a_request_the_new_answer_is_waited_for(
@@ -396,19 +402,22 @@ def test_a_lasting_answer_is_computed_again_before_it_expires(
     assert version_cache.lasting(store, ("ahead",), lambda: 1, max_age) == 1
     time.sleep(max_age * version_cache.REFRESH_AHEAD)
     computed = threading.Event()
+    release = threading.Event()
 
     def slow() -> int:
-        time.sleep(0.3)
+        release.wait(PATIENCE)
         computed.set()
         return 2
 
     token = store_module.set_read_deadline(5.0)
     try:
-        started = time.monotonic()
         assert version_cache.lasting(store, ("ahead",), slow, max_age) == 1
-        assert time.monotonic() - started < 0.1  # not waited for
-        assert computed.wait(2)
-        assert version_cache.lasting(store, ("ahead",), slow, max_age) == 2
+        assert not release.is_set()  # not waited for
+        release.set()
+        assert computed.wait(PATIENCE)
+        assert until(
+            lambda: version_cache.lasting(store, ("ahead",), slow, max_age) == 2
+        )
     finally:
         store_module.reset_read_deadline(token)
     # without a deadline (the warm-up) the new answer is waited for
