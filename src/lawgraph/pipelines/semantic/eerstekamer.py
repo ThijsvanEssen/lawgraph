@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -48,18 +48,8 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
             seen.add(pair)
             edges.add_doc(
                 self._make_edge_doc(
-                    from_node=Node(
-                        collection=COLLECTION_DOCUMENTS,
-                        type=NodeType.DOCUMENT,
-                        key=row["document_key"],
-                        props={},
-                    ),
-                    to_node=Node(
-                        collection=COLLECTION_DOSSIERS,
-                        type=NodeType.DOSSIER,
-                        key=row["dossier_key"],
-                        props={},
-                    ),
+                    from_node=Node.ref(COLLECTION_DOCUMENTS, row["document_key"]),
+                    to_node=Node.ref(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
                     source=SEMANTIC_SOURCE,
                     confidence=0.95,

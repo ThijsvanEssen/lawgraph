@@ -36,24 +36,7 @@ T = TypeVar("T")
 CodeMapping = dict[str, str]
 
 
-def _skeleton(node: Node) -> Node:
-    return Node(
-        collection=node.collection,
-        type=node.type,
-        key=node.key,
-        props={},
-        _skip_validation=True,
-    )
-
-
 # The collections a citation points into, and the type of their nodes.
-_TARGET_TYPES = {
-    COLLECTION_ARTICLES: NodeType.ARTICLE,
-    COLLECTION_INSTRUMENTS: NodeType.INSTRUMENT,
-    COLLECTION_JUDGMENTS: NodeType.JUDGMENT,
-}
-
-
 @dataclass(frozen=True)
 class _LawArticles:
     """What the loaded articles of one law tell about a number cited of it."""
@@ -277,27 +260,21 @@ class SemanticPipelineBase(PipelineBase):
         if (collection, key) not in self._node_cache:
             # Does it exist: a lookup in the primary index. ``get_node`` would have the whole
             # document sent over, an article with its text, to throw it away.
-            self._prefetch_nodes(collection, [key], _TARGET_TYPES[collection])
+            self._prefetch_nodes(collection, [key])
         return self._node_cache[(collection, key)]
 
     def _remember_node(self, node: Node | None) -> None:
         """Record a node created during the run (e.g. a stub) in the lookup cache."""
         if node is not None and node.key is not None:
-            self._node_cache[(node.collection, node.key)] = _skeleton(node)
+            self._node_cache[(node.collection, node.key)] = Node.ref(
+                node.collection, node.key
+            )
 
-    def _prefetch_nodes(
-        self, collection: str, keys: Iterable[str], node_type: NodeType
-    ) -> None:
+    def _prefetch_nodes(self, collection: str, keys: Iterable[str]) -> None:
         """Resolve many keys with one bulk lookup so ``_lookup_node`` never hits the DB."""
         missing = {k for k in keys if (collection, k) not in self._node_cache}
         for key in self.store.existing_keys(collection, missing):
-            self._node_cache[(collection, key)] = Node(
-                collection=collection,
-                type=node_type,
-                key=key,
-                props={},
-                _skip_validation=True,
-            )
+            self._node_cache[(collection, key)] = Node.ref(collection, key)
             missing.discard(key)
         for key in missing:
             self._node_cache[(collection, key)] = None

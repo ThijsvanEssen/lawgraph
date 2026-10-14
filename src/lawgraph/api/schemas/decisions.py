@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, numbered_in, paper_number
+from lawgraph.core.models import key_of
 from lawgraph.core.tk_records import VoteChoice
 
 _KIND = (
@@ -81,7 +82,7 @@ class DecisionPaperDTO(WithPath):
         props = {**light, "number": row.get("number")}
         return cls(
             id=row["id"],
-            key=row["id"].partition("/")[2],
+            key=key_of(row["id"]),
             kind=light.get("kind"),
             title=light.get("title") or light.get("display_name"),
             number=paper_number(chamber, props),

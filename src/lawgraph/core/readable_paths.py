@@ -31,9 +31,25 @@ from dataclasses import dataclass
 from typing import Any, Literal, get_args
 from urllib.parse import quote, unquote
 
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_ANNEXES,
+    COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_CASES,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    COLLECTION_MEMBERS,
+)
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
@@ -189,17 +205,17 @@ def focus_of_pad(pad: Pad) -> str | None:
     """The node id an address names without a lookup: a judgment, a law, a dossier, a
     cabinet and a fractie (their key is their id); None for the others."""
     if pad.soort == "uitspraak":
-        return f"judgments/{make_node_key(pad.a)}"
+        return node_id(COLLECTION_JUDGMENTS, make_node_key(pad.a))
     if pad.soort == "wet":
-        return f"instruments/{pad.a.lower()}"
+        return node_id(COLLECTION_INSTRUMENTS, pad.a.lower())
     if pad.soort == "dossier":
-        return f"dossiers/{make_node_key(pad.a)}"
+        return node_id(COLLECTION_DOSSIERS, make_node_key(pad.a))
     if pad.soort == "kabinet":
-        return f"cabinets/{pad.a}"
+        return node_id(COLLECTION_CABINETS, pad.a)
     if pad.soort == "fractie":
-        return f"factions/{pad.a}"
+        return node_id(COLLECTION_FACTIONS, pad.a)
     if pad.soort == "stemming":
-        return f"decisions/{pad.a}"
+        return node_id(COLLECTION_DECISIONS, pad.a)
     return None
 
 
@@ -318,20 +334,20 @@ def _paper(key: str, props: dict[str, Any]) -> str | None:
 
 # The readable address of a node of each collection that has one.
 _PATHS: dict[str, Any] = {
-    "judgments": _judgment,
-    "dossiers": _dossier,
-    "articles": _article,
-    "instruments": _instrument,
-    "members": _slug("lid", SLUG),
-    "committees": _slug("commissie", SLEUTEL),
-    "cabinets": _by_key("kabinet"),
-    "factions": _by_key("fractie"),
-    "decisions": _by_key("stemming"),
-    "commitments": _commitment,
-    "documents": _paper,
-    "annexes": _annex,
-    "cases": _case,
-    "activities": _activity,
+    COLLECTION_JUDGMENTS: _judgment,
+    COLLECTION_DOSSIERS: _dossier,
+    COLLECTION_ARTICLES: _article,
+    COLLECTION_INSTRUMENTS: _instrument,
+    COLLECTION_MEMBERS: _slug("lid", SLUG),
+    COLLECTION_COMMITTEES: _slug("commissie", SLEUTEL),
+    COLLECTION_CABINETS: _by_key("kabinet"),
+    COLLECTION_FACTIONS: _by_key("fractie"),
+    COLLECTION_DECISIONS: _by_key("stemming"),
+    COLLECTION_COMMITMENTS: _commitment,
+    COLLECTION_DOCUMENTS: _paper,
+    COLLECTION_ANNEXES: _annex,
+    COLLECTION_CASES: _case,
+    COLLECTION_ACTIVITIES: _activity,
 }
 
 
@@ -339,6 +355,6 @@ def path_of(node_id: str, props: dict[str, Any] | None = None) -> str | None:
     """The readable address of a node, from its key or the props of its node; None
     where it has none (an activity of the Eerste Kamer, an annex without a label: still
     /explore)."""
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     build = _PATHS.get(collection)
     return build(key, props or {}) if key and build else None

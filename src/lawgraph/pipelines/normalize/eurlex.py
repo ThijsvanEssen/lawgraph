@@ -139,15 +139,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                     props=article_props,
                 )
                 writer.add(article_node)
-                article_nodes.append(
-                    Node(
-                        collection=COLLECTION_ARTICLES,
-                        type=NodeType.ARTICLE,
-                        key=article_key,
-                        props={},
-                        _skip_validation=True,
-                    )
-                )
+                article_nodes.append(Node.ref(COLLECTION_ARTICLES, article_key))
 
             articles_by_celex[celex] = article_nodes
             logger.debug("CELEX %s: %d articles extracted.", celex, len(article_nodes))

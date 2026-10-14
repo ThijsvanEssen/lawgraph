@@ -20,7 +20,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.core.models import NodeType, PipelineResult, key_of
 from lawgraph.core.paper_outcomes import paper_outcome
 from lawgraph.db.queries import paper_outcomes as queries
 
@@ -51,7 +51,7 @@ class TKPaperOutcomesSemanticPipeline(SemanticPipelineBase):
             if props != kept.get(paper, dict.fromkeys(props)):
                 changed.append(
                     {
-                        "_key": paper.split("/", 1)[1],
+                        "_key": key_of(paper),
                         "type": NodeType.DOCUMENT.value,
                         "labels": [],
                         "props": props,

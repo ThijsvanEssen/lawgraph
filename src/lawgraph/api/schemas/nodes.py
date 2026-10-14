@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.schemas.common import WithPath
 from lawgraph.core.documents import chamber_of, document_sender, paper_number
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType
+from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
 
@@ -54,7 +54,7 @@ def _build_node_payload(
     return {
         "id": doc["_id"],
         "key": doc["_key"],
-        "collection": doc["_id"].split("/", 1)[0] if "/" in doc["_id"] else doc["_id"],
+        "collection": parse_node_id(doc["_id"])[0],
         "type": doc.get("type", ""),
         "display_name": props.get("display_name"),
         "labels": list(doc.get("labels") or []),

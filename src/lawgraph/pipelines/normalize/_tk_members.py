@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import seat_periods, tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, NodeType, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -201,8 +201,8 @@ def link_members_to_committees(
             if member_key not in known_members:
                 continue
             writer.add(
-                f"{COLLECTION_MEMBERS}/{member_key}",
-                f"{COLLECTION_COMMITTEES}/{committee_key}",
+                node_id(COLLECTION_MEMBERS, member_key),
+                node_id(COLLECTION_COMMITTEES, committee_key),
                 RELATION_MEMBER_OF,
                 source=source,
                 meta=tk_records.representative_period(periods) or None,

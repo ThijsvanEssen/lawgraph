@@ -34,7 +34,14 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION, publication_key
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import (
+    Node,
+    NodeType,
+    PipelineResult,
+    key_of,
+    make_node_key,
+    node_id,
+)
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
 
@@ -111,7 +118,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     confidence=1.0,
                     meta=meta,
                 )
-        read = [f"{COLLECTION_INSTRUMENTS}/{t['key']}" for t in treaties]
+        read = [node_id(COLLECTION_INSTRUMENTS, t["key"]) for t in treaties]
         self._same_as(edges)
         edges.flush_into(result)
         removed = sum(
@@ -148,11 +155,13 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         """``(source id, target id, relation, meta)`` of every edge the registers name."""
         wanted: dict[tuple[str, str, str], dict[str, Any]] = {}
         for treaty in treaties:
-            source = f"{COLLECTION_INSTRUMENTS}/{treaty['key']}"
+            source = node_id(COLLECTION_INSTRUMENTS, treaty["key"])
             for trb in _list(treaty.get("tractatenblad")):
                 official_id = str(trb.get("official_id") or "")
                 if _TRB_ID.match(official_id):
-                    target = f"{COLLECTION_INSTRUMENTS}/{publication_key(official_id)}"
+                    target = node_id(
+                        COLLECTION_INSTRUMENTS, publication_key(official_id)
+                    )
                     meta = {"tractatenblad": trb.get("text")}
                     if trb.get("description"):
                         meta["description"] = trb["description"]
@@ -160,7 +169,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
             for paper in _list(treaty.get("kamerstukken")):
                 number = dossier_number(paper.get("dossier"))
                 if number:
-                    target = f"{COLLECTION_DOSSIERS}/{make_node_key(number)}"
+                    target = node_id(COLLECTION_DOSSIERS, make_node_key(number))
                     meta = {"dossier_number": number}
                     if paper.get("rijks_number"):
                         meta["rijks_number"] = paper["rijks_number"]
@@ -168,7 +177,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
             for parent in _list(treaty.get("parent_treaties")):
                 if parent.get("id"):
                     key = make_node_key("verdrag", str(parent["id"]))
-                    target = f"{COLLECTION_INSTRUMENTS}/{key}"
+                    target = node_id(COLLECTION_INSTRUMENTS, key)
                     if target != source:
                         meta = {"verdrag_id": str(parent["id"])}
                         wanted.setdefault((source, target, RELATION_PART_OF), meta)
@@ -180,9 +189,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         present: set[str] = set()
         for collection in (COLLECTION_INSTRUMENTS, COLLECTION_DOSSIERS):
             keys = {
-                t.split("/", 1)[1]
-                for _, t, _, _ in wanted
-                if t.startswith(collection + "/")
+                key_of(t) for _, t, _, _ in wanted if t.startswith(collection + "/")
             }
             if keys:
                 present |= {
@@ -197,6 +204,6 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         target that is missing (a dossier or a treaty: no edge)."""
         if relation != RELATION_PUBLISHED_IN:
             return None
-        key = target_id.split("/", 1)[1]
+        key = key_of(target_id)
         match = re.fullmatch(r"trb_(\d{4})_(\d+)", key)
         return trb_node(f"trb-{match[1]}-{match[2]}") if match else None

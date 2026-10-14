@@ -41,7 +41,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -162,13 +162,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     )
                     # build_edges only needs identity, so keep light nodes in memory
                     articles_by_bwb.setdefault(bwb_id, []).append(
-                        Node(
-                            collection=COLLECTION_ARTICLES,
-                            type=NodeType.ARTICLE,
-                            key=key,
-                            props={},
-                            _skip_validation=True,
-                        )
+                        Node.ref(COLLECTION_ARTICLES, key)
                     )
                     article_count += 1
 
@@ -203,7 +197,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 )
             for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
                 writer.add(
-                    f"{COLLECTION_ANNEXES}/{annex_key}",
+                    node_id(COLLECTION_ANNEXES, annex_key),
                     instrument.node_id,
                     RELATION_PART_OF,
                     source=ANNEX_EDGE_SOURCE,

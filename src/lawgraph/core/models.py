@@ -170,11 +170,20 @@ class Node:
                 f"Invalid props for collection {self.collection!r}:\n{exc}"
             ) from exc
 
+    @classmethod
+    def ref(cls, collection: str, key: str) -> Node:
+        """A skeleton of the node *key* in *collection*: no props, no validation; an upsert
+        of it creates or touches the node without changing what it holds."""
+        return cls(
+            collection=collection,
+            type=TYPE_OF_COLLECTION[collection],
+            key=key,
+            _skip_validation=True,
+        )
+
     @property
     def node_id(self) -> str | None:
-        if self.key is None:
-            return None
-        return f"{self.collection}/{self.key}"
+        return None if self.key is None else node_id(self.collection, self.key)
 
     def to_document(self) -> dict[str, Any]:
         doc: dict[str, Any] = {
@@ -244,15 +253,25 @@ def collection_from_id(node_id: str, fallback: str) -> str:
     return node_id.split("/")[0] if "/" in node_id else fallback
 
 
-def parse_node_id(node_id: str) -> tuple[str, str]:
-    """Split an ArangoDB document ID into (collection, key).
+def node_id(collection: str, key: str) -> str:
+    """The id of the node *key* in *collection*: ``collection/key``."""
+    return f"{collection}/{key}"
 
-    Raises ValueError if the ID does not contain a '/'.
+
+def parse_node_id(node_id: str) -> tuple[str, str]:
+    """Split a node id into (collection, key).
+
+    Raises ValueError if the id does not contain a '/'.
     """
     if "/" not in node_id:
-        raise ValueError(f"Not a valid ArangoDB document ID: {node_id!r}")
+        raise ValueError(f"Not a valid node id: {node_id!r}")
     collection, key = node_id.split("/", 1)
     return collection, key
+
+
+def key_of(node_id: str) -> str:
+    """The key of a node id (``judgments/ecli_nl_hr_2020_1`` -> ``ecli_nl_hr_2020_1``)."""
+    return parse_node_id(node_id)[1]
 
 
 def make_node_key(*parts: str | None, fallback: str = "node") -> str:
@@ -260,3 +279,8 @@ def make_node_key(*parts: str | None, fallback: str = "node") -> str:
     if not joined:
         joined = fallback
     return _sanitize_key(joined, fallback=fallback)
+
+
+def article_id(bwb_id: str, number: str) -> str:
+    """The id of article *number* of the law *bwb_id*."""
+    return node_id(COLLECTION_ARTICLES, make_node_key(bwb_id, number))

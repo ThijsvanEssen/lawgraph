@@ -24,12 +24,13 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages import PAGES, Page, cut, title_of
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup, seo
-from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import read_budget
 
 router = APIRouter()
@@ -131,10 +132,7 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
 def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """What the readable address of the node *node_id* is built from (``lookup.answer``);
     None for a node that is not there or no node at all."""
-    collection, _, key = node_id.partition("/")
-    if collection not in NODE_COLLECTIONS or not key:
-        return None
-    if not store.has_node(collection, key):
+    if not is_node_id(node_id) or not store.has_node(*parse_node_id(node_id)):
         return None
     return lookup.answer(store, node_id).get("props") or {}
 
@@ -200,7 +198,7 @@ def _title_page(store: GraphStore, node_id: str | None, path: str) -> Page:
     of the page, never "Concordans", and the next request may have it whole."""
     if node_id is None:
         return Page("", "", path)
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     doc = None
     with read_budget(TITLE_BUDGET, f"The title of {path}") as budget:
         doc = store.get_document(collection, key)

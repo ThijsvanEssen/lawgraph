@@ -15,6 +15,12 @@ from html import escape
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
     RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
@@ -25,6 +31,7 @@ from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
+from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, path_of
@@ -181,7 +188,7 @@ def law_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(
-                    f"articles/{a['key']}",
+                    node_id(COLLECTION_ARTICLES, a["key"]),
                     {**article_law, "article_number": a["article_number"]},
                 ),
                 article_name(law_id, a["article_number"], short),
@@ -246,7 +253,9 @@ def article_page(row: dict[str, Any]) -> Page:
     # its text alone: the same whether the judgments citing it are kept yet or not
     description = text or title
     law_id, jurisdiction = _law_id(law or props)
-    law_path = path_of(f"instruments/{law_id.lower()}", law) if law else None
+    law_path = (
+        path_of(node_id(COLLECTION_INSTRUMENTS, law_id.lower()), law) if law else None
+    )
     law_label = law_name(law) if law else ""
     judgments = _list(
         [
@@ -317,7 +326,7 @@ def annex_page(row: dict[str, Any]) -> Page:
     title = annex_title(props, law)
     path = path_of(row["id"], props) or ""
     bwb = _text(props.get("bwb_id")) or _text(law.get("bwb_id"))
-    law_path = path_of(f"instruments/{bwb.lower()}") if bwb else None
+    law_path = path_of(node_id(COLLECTION_INSTRUMENTS, bwb.lower())) if bwb else None
     law_label = law_name(law) if law else ""
     description = _text(props.get("description"))
     entries = [e for e in (_entry(x) for x in props.get("entries") or []) if e]
@@ -365,10 +374,10 @@ def _judgment_label(row: dict[str, Any]) -> str:
     return judgment_title(light, row["id"])
 
 
-def judgment_title(light: dict[str, Any], node_id: str = "") -> str:
+def judgment_title(light: dict[str, Any], node_id: str) -> str:
     """``HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006``: as a lawyer cites it
     (``core.judgment_cite``), with the names it is known by, a translation said so."""
-    ecli = _text(light.get("ecli")) or ecli_of_key(node_id.partition("/")[2]) or ""
+    ecli = _text(light.get("ecli")) or ecli_of_key(key_of(node_id)) or ""
     if not ecli:
         return _text(light.get("display_name"))
     cite = judgment_cite(
@@ -760,7 +769,7 @@ def activity_page(row: dict[str, Any]) -> Page:
     committee = row.get("committee") or {}
     led = (
         _link(
-            path_of(f"committees/{committee['key']}", committee),
+            path_of(node_id(COLLECTION_COMMITTEES, committee["key"]), committee),
             _text(committee.get("name")),
         )
         if committee.get("name")
@@ -768,7 +777,9 @@ def activity_page(row: dict[str, Any]) -> Page:
     )
     dossiers = _list(
         [
-            _link(path_of(f"dossiers/{n}", {"label": n}), f"Dossier {n}")
+            _link(
+                path_of(node_id(COLLECTION_DOSSIERS, n), {"label": n}), f"Dossier {n}"
+            )
             for n in props.get("dossier_numbers") or []
             if isinstance(n, str)
         ]
@@ -934,7 +945,7 @@ def member_page(row: dict[str, Any]) -> Page:
             for p in (
                 escape(_text(f.get("function"))),
                 _link(
-                    path_of(f"cabinets/{f['cabinet_key']}")
+                    path_of(node_id(COLLECTION_CABINETS, f["cabinet_key"]))
                     if isinstance(f.get("cabinet_key"), str)
                     else None,
                     _text(f.get("cabinet")),
@@ -953,7 +964,7 @@ def member_page(row: dict[str, Any]) -> Page:
             p
             for p in (
                 _link(
-                    path_of(f"factions/{m['faction_key']}")
+                    path_of(node_id(COLLECTION_FACTIONS, m["faction_key"]))
                     if isinstance(m.get("faction_key"), str)
                     else None,
                     _text(m.get("name")) or _text(m.get("abbreviation")),
@@ -975,7 +986,9 @@ def member_page(row: dict[str, Any]) -> Page:
                 for p in (
                     "Eerste Kamer",
                     _link(
-                        path_of(f"factions/{faction_key}") if faction_key else None,
+                        path_of(node_id(COLLECTION_FACTIONS, faction_key))
+                        if faction_key
+                        else None,
                         _text(ek.get("abbreviation")),
                     )
                     if ek.get("abbreviation")
@@ -1210,7 +1223,7 @@ def cabinet_page(row: dict[str, Any]) -> Page:
     previous = row.get("previous")
     before = (
         _link(
-            path_of(f"cabinets/{previous[0]}"),
+            path_of(node_id(COLLECTION_CABINETS, previous[0])),
             cabinet_name({"name": previous[1]}, previous[0]),
         )
         if previous
@@ -1223,7 +1236,12 @@ def cabinet_page(row: dict[str, Any]) -> Page:
         + (f"<p>Vorig kabinet: {before}</p>" if before else "")
         + _section(
             "Partijen",
-            _list([_link(path_of(f"factions/{k}"), n) for k, n in factions]),
+            _list(
+                [
+                    _link(path_of(node_id(COLLECTION_FACTIONS, k)), n)
+                    for k, n in factions
+                ]
+            ),
         )
         + _section("Fasen", phases)
         + _section("Bewindspersonen", served)
@@ -1358,11 +1376,17 @@ def _verb(law: dict[str, Any]) -> str:
 
 def publication_page(row: dict[str, Any]) -> Page:
     props, note = row["props"] or {}, row.get("note") or {}
-    key = row["id"].partition("/")[2]
+    key = key_of(row["id"])
     title = publication_title(props, note, key)
     path = (
         path_of(row["id"], props)
-        or path_of("instruments/" + _text(note.get("identifier")).replace("-", "_"), {})
+        or path_of(
+            node_id(
+                COLLECTION_INSTRUMENTS,
+                _text(note.get("identifier")).replace("-", "_"),
+            ),
+            {},
+        )
         or ""
     )
     laws = row.get("laws") or []
@@ -1493,7 +1517,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         (
             "Kabinet: "
             + _link(
-                path_of(f"cabinets/{cabinet['key']}"),
+                path_of(node_id(COLLECTION_CABINETS, cabinet["key"])),
                 cabinet_name({"name": cabinet.get("name")}, cabinet["key"]),
             )
             if cabinet.get("key")
@@ -1686,7 +1710,7 @@ def title_of(
     (without what a page reads beside them: the outcome of a motion, the counts of an
     article): what the SPA shows when it opens a node in the app. *law*: of an annex, its
     law as its page reads it (``seo.law_of``), so that both name it alike."""
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     if collection in _TITLED:
         title = _TITLED[collection](props, key)
         return title, cut(title, DESCRIPTION_MAX)

@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_agenda as agenda
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.tk_records import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -152,7 +152,7 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
                 if node.node_id and (key := committees.get(abbreviation.strip())):
                     writer.add(
                         node.node_id,
-                        f"{COLLECTION_COMMITTEES}/{key}",
+                        node_id(COLLECTION_COMMITTEES, key),
                         RELATION_LED_BY,
                         source=EDGE_SOURCE,
                     )

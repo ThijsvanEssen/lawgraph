@@ -26,7 +26,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_CASES
 from lawgraph.core.dossier_numbers import first_reading_dossiers
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 
 # "Wijziging van de begrotingsstaten van het Ministerie van … (XXII) voor het jaar 2026 …":
 # a supplementary budget, whether it comes with the Voorjaarsnota, the Najaarsnota, the
@@ -373,7 +373,7 @@ def replaced_cases(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str]]:
     """``(id of the case, id of the case it replaces)`` from rows of ``{id, replaces}``
     (``Zaak.VervangenVanuit``, the TK ids of the cases replaced), in order."""
     return [
-        (str(row["id"]), f"{COLLECTION_CASES}/{make_node_key(str(old))}")
+        (str(row["id"]), node_id(COLLECTION_CASES, make_node_key(str(old))))
         for row in rows
         for old in row.get("replaces") or []
         if old

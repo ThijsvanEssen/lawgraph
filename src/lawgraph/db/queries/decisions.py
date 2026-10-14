@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION, VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
@@ -109,8 +109,8 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
                 WHERE e.from_id = %(faction_id)s AND e.relation = %(voted)s {choice}
             )"""
         )
-        bind["faction_id"] = (
-            f"{COLLECTION_FACTIONS}/{make_node_key(filters.party.strip())}"
+        bind["faction_id"] = node_id(
+            COLLECTION_FACTIONS, make_node_key(filters.party.strip())
         )
         bind["voted"] = RELATION_VOTED
     return clauses
@@ -386,7 +386,7 @@ def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
         parties = "true"
     else:
         bind["vote_parties"] = [
-            f"{COLLECTION_FACTIONS}/{make_node_key(party.strip())}"
+            node_id(COLLECTION_FACTIONS, make_node_key(party.strip()))
             for party in filters.party_votes
         ]
         votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
@@ -588,7 +588,7 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
     if row is None:
         return None
-    collection, _, key = row["id"].partition("/")
+    collection, key = parse_node_id(row["id"])
     props = {**(row.get("light") or {}), "number": row.get("number")}
     return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
 
@@ -603,7 +603,7 @@ def motion_papers(
     Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
     motion, or a motion without text."""
     cases = [
-        f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
+        node_id(COLLECTION_CASES, make_node_key(str(d["primary_case_id"])))
         if d.get("primary_case_kind") in DECIDED_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
@@ -810,7 +810,7 @@ def get_decision_document(
         """,
         {
             "case_ids": [
-                f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in candidates
+                node_id(COLLECTION_CASES, make_node_key(str(c))) for c in candidates
             ],
             "part_of": RELATION_PART_OF,
         },
@@ -850,7 +850,7 @@ def decision_paper(
             _DECISION_PAPER,
             {
                 "case_ids": [
-                    f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in cases
+                    node_id(COLLECTION_CASES, make_node_key(str(c))) for c in cases
                 ],
                 "part_of": RELATION_PART_OF,
             },
@@ -916,7 +916,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         )
     )
     named = {
-        row["key"]: f"{COLLECTION_CASES}/{make_node_key(str(primary))}"
+        row["key"]: node_id(COLLECTION_CASES, make_node_key(str(primary)))
         for row in rows
         if (primary := (row["props"] or {}).get("primary_case_id"))
     }

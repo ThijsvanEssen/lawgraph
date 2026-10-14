@@ -68,7 +68,7 @@ def test_prefetch_resolves_many_keys_with_one_query() -> None:
     store = _Store({"a", "b"})
     pipeline = _Pipeline(store=store)
 
-    pipeline._prefetch_nodes(ARTICLES, {"a", "b", "c"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a", "b", "c"})
 
     assert len(store.bulk_calls) == 1
     assert pipeline._lookup_node(ARTICLES, "a") is not None
@@ -79,9 +79,9 @@ def test_prefetch_resolves_many_keys_with_one_query() -> None:
 def test_prefetch_skips_keys_already_cached() -> None:
     store = _Store({"a"})
     pipeline = _Pipeline(store=store)
-    pipeline._prefetch_nodes(ARTICLES, {"a"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a"})
 
-    pipeline._prefetch_nodes(ARTICLES, {"a", "b"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a", "b"})
 
     assert store.bulk_calls[1] == {"b"}
 

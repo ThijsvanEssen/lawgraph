@@ -138,13 +138,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _annex(key: str) -> Node:
-        return Node(
-            collection=COLLECTION_ANNEXES,
-            type=NodeType.ANNEX,
-            key=key,
-            props={},
-            _skip_validation=True,
-        )
+        return Node.ref(COLLECTION_ANNEXES, key)
 
     def _ensure_annex(
         self, bwb_id: str, label: str | None, known_keys: set[str]

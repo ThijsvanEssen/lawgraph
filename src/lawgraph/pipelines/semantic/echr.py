@@ -36,7 +36,7 @@ from lawgraph.core.curated import LISTS
 from lawgraph.core.echr_citations import appnos, cited_in_english
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -143,12 +143,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
             read.append(row["j_id"])
-            judgment = Node(
-                collection=COLLECTION_JUDGMENTS,
-                type=NodeType.JUDGMENT,
-                key=row["j_key"],
-                props={},
-            )
+            judgment = Node.ref(COLLECTION_JUDGMENTS, row["j_key"])
             for target, confidence, meta in self._targets(row, instruments, treaties):
                 edges.add_doc(
                     self._make_edge_doc(
@@ -248,10 +243,5 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         for doc in semantic_bwb.instrument_keys_by_bwb_id(self.store, sorted(named)):
             bwb_id = str((doc.get("props") or {}).get("bwb_id") or "").upper()
             if bwb_id:
-                found[bwb_id] = Node(
-                    collection=COLLECTION_INSTRUMENTS,
-                    type=NodeType.INSTRUMENT,
-                    key=doc["_key"],
-                    props={},
-                )
+                found[bwb_id] = Node.ref(COLLECTION_INSTRUMENTS, doc["_key"])
         return found

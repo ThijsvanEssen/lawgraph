@@ -52,7 +52,7 @@ from lawgraph.core.dossier_stages import (
     select_title,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import GraphStore
@@ -488,7 +488,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             kind=RAW_KIND_TK_ZAAK,
             cutoff_iso=iso_timestamp(self._since),
         )
-        return [f"{COLLECTION_CASES}/{make_node_key(str(r))}" for r in records if r]
+        return [node_id(COLLECTION_CASES, make_node_key(str(r))) for r in records if r]
 
     def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
         """On a run over a window, the stored dossiers (by label) that a paper, activity
@@ -713,12 +713,10 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         if not nodes:
             return
 
-        signals = self._dossier_signals(
-            [f"{COLLECTION_DOSSIERS}/{node.key}" for node in nodes]
-        )
+        signals = self._dossier_signals([str(node.node_id) for node in nodes])
         titles = phases = 0
         for node in nodes:
-            row = signals.get(f"{COLLECTION_DOSSIERS}/{node.key}") or {}
+            row = signals.get(str(node.node_id)) or {}
             titles += self._apply_title(node, row.get("docs") or [])
             phases += self._apply_phases(node, row)
 

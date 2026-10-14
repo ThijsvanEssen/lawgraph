@@ -8,12 +8,13 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
+from lawgraph.config.constants import COLLECTION_DOCUMENTS, COLLECTION_JUDGMENTS
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.echr_findings import EchrAspect, EchrFinding
 from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
 
@@ -132,34 +133,34 @@ def readable_path(model: BaseModel) -> str | None:
     values = model.__dict__
     kind = type(model)
     raw_id = values.get(kind.path_id_field)  # type: ignore[attr-defined]
-    node_id = raw_id if isinstance(raw_id, str) else None
+    target = raw_id if isinstance(raw_id, str) and "/" in raw_id else None
     collection = (
         values.get("collection")
         or type(model).__dict__.get("path_collection")
         or getattr(model, "path_collection", None)
     )
-    if not node_id or "/" not in node_id:
+    if target is None:
         key = values.get(kind.path_key_field) or (  # type: ignore[attr-defined]
-            "_" if collection == "judgments" else None
+            "_" if collection == COLLECTION_JUDGMENTS else None
         )
         if not (collection and key):
             return None
-        node_id = f"{collection}/{key}"
+        target = node_id(collection, key)
     if isinstance(values.get("path_props"), dict):
-        return path_of(node_id, values["path_props"])
+        return path_of(target, values["path_props"])
     props: dict[str, Any] = {}
     for bag in ("props", "extra"):
         if isinstance(values.get(bag), dict):
             props.update(values[bag])
     props.update({f: values[f] for f in PATH_FIELDS if values.get(f) is not None})
-    if node_id.startswith("documents/") and not (
+    if parse_node_id(target)[0] == COLLECTION_DOCUMENTS and not (
         "dossier_suffix" in values
         or "dossier_suffix" in props
         or "props" in values
         or type(model).path_dossier_is_label  # type: ignore[attr-defined]
     ):
         return None
-    return path_of(node_id, props)
+    return path_of(target, props)
 
 
 class QualifierFields(BaseModel):

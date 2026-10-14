@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, SOURCE_BWB
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.xml import (
     collapse_ws,
     find_text,
@@ -182,6 +182,6 @@ def annex_props(
         "display_name": display,
         "description": annex.description,
         "entries": list(annex.entries) or None,
-        "instrument_id": f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}",
+        "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
         "instrument_citation_title": citation_title,
     }

@@ -1237,7 +1237,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
     roll_call = is_roll_call(votes)
 
     tally, voters = _in_vote_order(tally), _in_vote_order(voters)
-    return make_node_key("decision", decision_id), {
+    return decision_key(decision_id), {
         "decision_id": decision_id,
         "agenda_item_id": str(decision.get("Agendapunt_Id") or ""),
         # the activity of its agenda item: the meeting it was taken in (MADE_IN)

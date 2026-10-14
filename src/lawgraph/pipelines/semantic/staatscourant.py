@@ -17,12 +17,11 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
-    COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
 )
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -64,9 +63,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None, remembers=True)
         for row in rows:
             pub_id = row.get("pub_id")
-            pub_key = row.get("pub_key")
             inst_id = row.get("inst_id")
-            inst_key = row.get("inst_key")
             match_type = row.get("match_type", "bwb_id")
 
             if not pub_id or not inst_id:
@@ -82,18 +79,8 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
                 raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
-            pub_node = Node(
-                collection=collection_from_id(pub_id, "documents"),
-                type=NodeType.DOCUMENT,
-                key=pub_key,
-                props={},
-            )
-            inst_node = Node(
-                collection=collection_from_id(inst_id, COLLECTION_INSTRUMENTS),
-                type=NodeType.INSTRUMENT,
-                key=inst_key,
-                props={},
-            )
+            pub_node = Node.ref(*parse_node_id(pub_id))
+            inst_node = Node.ref(*parse_node_id(inst_id))
 
             edges.add_doc(
                 self._make_edge_doc(

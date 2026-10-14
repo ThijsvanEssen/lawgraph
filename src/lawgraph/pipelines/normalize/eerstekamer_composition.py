@@ -38,7 +38,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
@@ -350,14 +350,16 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         }
         wanted: dict[tuple[str, str], dict[str, Any]] = {}
         for listed, page in shot.factions:
-            target = f"{COLLECTION_FACTIONS}/{make_node_key('ek', _slug(listed.path))}"
+            target = node_id(
+                COLLECTION_FACTIONS, make_node_key("ek", _slug(listed.path))
+            )
             for person in page.members:
                 wanted[(members[person.path].node_id or "", target)] = {
                     "seniority_days": person.seniority_days
                 }
         for listed, page in shot.committees:
-            target = (
-                f"{COLLECTION_COMMITTEES}/{make_node_key('ek', _slug(listed.path))}"
+            target = node_id(
+                COLLECTION_COMMITTEES, make_node_key("ek", _slug(listed.path))
             )
             for person in page.members:
                 if person.path in members:
