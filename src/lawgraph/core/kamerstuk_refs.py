@@ -14,6 +14,10 @@ motion in its standard form: "Uitvoering van de motie van het lid Vliegenthart c
     Kamerstukken II 2025/26, 36600-XV, nr. 5
     Kamerstuk 36222-8 en Kamerstuk 36222-9, Kamerstuk 36600-VII en 36600-VI
 
+A motion is also named without the word, in brackets after it: "de motie-Kathmann (36764,
+nr. 31)", "de motie van het lid Van den Berg (GL-PvdA) (36 764, nr. 23)"
+(:func:`motion_papers`).
+
 A dossier without a paper (``Kamerstuk 37020-XIV``) and a paper of the Eerste Kamer by its
 letter (``37035-M``) name no paper of the Tweede Kamer and are left out, and so is the paper
 an amended motion or amendment replaces ("ter vervanging van Kamerstuk 29826-322"): that is
@@ -107,3 +111,31 @@ def cited_papers(
                 break
             position = following.end()
     return list(dict.fromkeys(found))
+
+
+# "motie" and the bracket of a reference after it in the same line (another bracket, a name
+# or a faction, may stand between): the reference opens with a dossier number and a comma or
+# its suffix, "(36764, nr. 31)", "(36 200 XVI, nr. 12)".
+_MOTION_BRACKET = re.compile(
+    r"\bmoties?\b[^\n]{0,300}?\(\s*(?=\d{2}\s?\d{3}(?:[\s,-]))", re.IGNORECASE
+)
+
+
+def motion_papers(
+    text: str | None, is_dossier: Callable[[str, str | None], bool]
+) -> list[PaperRef]:
+    """Every Kamerstuk with a paper number that *text* names after "Kamerstuk"
+    (:func:`cited_papers`), and in brackets after "motie" without that word; in order,
+    each paper once."""
+    text = text or ""
+    found = cited_papers(text, is_dossier)
+    for bracket in _MOTION_BRACKET.finditer(text):
+        if match := _REFERENCE.match(text, bracket.end()):
+            found += _papers(match, is_dossier)
+    seen: set[tuple[str, str | None, int]] = set()
+    unique = []
+    for ref in sorted(found, key=lambda r: text.find(r.text)):
+        if (ref.number, ref.suffix, ref.sequence) not in seen:
+            seen.add((ref.number, ref.suffix, ref.sequence))
+            unique.append(ref)
+    return unique

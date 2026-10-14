@@ -172,6 +172,9 @@ from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_paper_outcomes import (
+    TKPaperOutcomesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
 )
@@ -468,9 +471,37 @@ def _record_slice_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _paper_slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every stored Kamerstuk XML in slices."""
+    parser.add_argument(
+        "--after", help="Start past this record key: the next slice of a run over all."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many papers (a slice)."
+    )
+
+
 def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return {"after": args.after, "limit": args.limit}
 
+
+def _tk_slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every Tweede Kamer document in slices."""
+    parser.add_argument(
+        "--after",
+        help="Start past this document key: the next slice of a run over all.",
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many documents (a slice)."
+    )
+
+
+TK_SEMANTIC = PipelineCommand(
+    TKSemanticPipeline,
+    "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
+    add_args=_tk_slice_add_args,
+    make_extra_kwargs=_slice_kwargs,
+)
 
 RECHTSPRAAK_SEMANTIC = PipelineCommand(
     RechtspraakSemanticPipeline,
@@ -752,11 +783,15 @@ NORMALIZE: list[Pipeline] = [
         after=("tk", "tk-dossiers"),  # the cases, members and committees it links
     ),
     _pipeline(
-        TKContentNormalizePipeline,
-        (
-            "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
-            "retrieved, on their documents."
+        PipelineCommand(
+            TKContentNormalizePipeline,
+            "Text, sections (articles, onderdelen, leden) and footnotes of the papers "
+            "whose XML was retrieved, on their documents.",
+            add_args=_paper_slice_add_args,
+            make_extra_kwargs=_slice_kwargs,
         ),
+        "Text, sections (articles, onderdelen, leden) and footnotes of the papers whose "
+        "XML was retrieved, on their documents.",
         after=("tk-dossiers",),  # it writes on the documents
     ),
     _pipeline(
@@ -859,10 +894,7 @@ NORMALIZE: list[Pipeline] = [
 ]
 
 SEMANTIC: list[Pipeline] = [
-    _pipeline(
-        TKSemanticPipeline,
-        "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
-    ),
+    _pipeline(TK_SEMANTIC, TK_SEMANTIC.description),
     _pipeline(RECHTSPRAAK_SEMANTIC, RECHTSPRAAK_SEMANTIC.description),
     _pipeline(
         EurlexSemanticPipeline,
@@ -888,8 +920,9 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBAmendmentsSemanticPipeline,
         (
-            "AMENDS, INTRODUCES and REPEALS from amending publications, and LEGISLATED_IN from "
-            "dossier references."
+            "ESTABLISHES from the publication that enacted a regulation, AMENDS, INTRODUCES "
+            "and REPEALS from amending publications, and LEGISLATED_IN from dossier "
+            "references."
         ),
     ),
     _pipeline(
@@ -987,7 +1020,8 @@ SEMANTIC: list[Pipeline] = [
         (
             "RELATED_TO, REVISES, ACCOMPANIES and SECOND_READING_OF between dossiers: the cases "
             "the Kamer relates, the budget a budget change revises and the nota it comes with, "
-            "and the first reading of a change in the Grondwet."
+            "and the first reading of a change in the Grondwet; MADE_IN from a motion to the "
+            "debate it was submitted in."
         ),
     ),
     _pipeline(
@@ -995,7 +1029,7 @@ SEMANTIC: list[Pipeline] = [
         (
             "ANSWERS and REFERS_TO to the Kamerstukken a paper's subject names by dossier "
             'and number, "(Kamerstuk 25424-795)": ANSWERS from a letter of the government '
-            "to a motion."
+            "to a motion, also one its text or a footnote names."
         ),
     ),
     _pipeline(
@@ -1037,7 +1071,13 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         tk_dictum.main,
-        "Keeps the dictum of every motion with text (what it asks or says).",
+        "Keeps the dictum of every motion with text (what it asks or says) and the opening "
+        "of the Toelichting of every amendment with text.",
+    ),
+    _pipeline(
+        TKPaperOutcomesSemanticPipeline,
+        "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
+        "aangehouden, vervallen, vervangen), when, and by how many seats.",
     ),
     _pipeline(
         graph_light.main,

@@ -3,6 +3,7 @@ history, explanations and the passages that cite an article."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -439,6 +440,115 @@ def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
     assert get_article_legislative_history(store, BWB, "99") == []
 
 
+def test_the_dossier_of_the_publication_that_enacted_the_law_established_it(
+    store: GraphStore,
+) -> None:
+    """Art. 16 Cbw came with Stb. 2026, 187, legislated in 36764: its history names that
+    dossier, as the one that established the article (``establishes``, not ``amends``)."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    cbw = "BWBR0052872"
+    article = "articles/bwbr0052872_16"
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node("bwbr0052872_16", "article", bwb_id=cbw, article_number="16")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [_node("36764", "dossier", label="36764", title="Cyberbeveiligingswet")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "stb_2026_187",
+                "instrument",
+                publication_kind="Stb",
+                date_published="2026-07-20",
+                display_name="Stb. 2026, 187",
+                dossier_numbers=["36764"],
+            )
+        ],
+    )
+    stb = "instruments/stb_2026_187"
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "c1", stb, article, "ESTABLISHES", meta={"effect": "nieuwe-regeling"}
+            ),
+            _edge("c2", stb, "dossiers/36764", "LEGISLATED_IN"),
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/articles/{cbw}/16/legislative-history").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    (entry,) = body["entries"]
+    assert (entry["dossier_number"], entry["change"], entry["status"]) == (
+        "36764",
+        "establishes",
+        "canoniek",
+    )
+    assert entry["document_id"] == stb
+
+
+def test_the_legislative_history_holds_no_proposal_that_was_decided(
+    store: GraphStore,
+) -> None:
+    """A paper of a closed dossier (the bill that made the law, or one rejected) and an
+    amendment that was rejected propose nothing any more; the open bill still does."""
+    store.bulk_insert_or_update_nodes(
+        "articles", [_article("bwbr0002_5", "5", stam_id="S5")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node("37000", "dossier", label="37000"),
+            _node("36764", "dossier", label="36764", closed=True),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node(
+                key, "document", kind=kind, date="2026-03-01", dossier_numbers=[dossier]
+            )
+            for key, kind, dossier in (
+                ("open_bill", "Voorstel van wet", "37000"),
+                ("own_memo", "Memorie van toelichting", "36764"),
+                ("rejected", "Amendement", "37000"),
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            edge
+            for n, paper in enumerate(("open_bill", "own_memo", "rejected"))
+            for edge in (
+                _edge(f"c{n}", f"documents/{paper}", ARTICLE, "AMENDS",
+                      status="voorgesteld"),
+                _edge(f"p{n}", f"documents/{paper}", "dossiers/37000"
+                      if paper != "own_memo" else "dossiers/36764", "PART_OF"),
+            )
+        ]
+    )  # fmt: skip
+    store.execute(
+        "INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)"
+        " VALUES ('documents/rejected', 'documents/rejected', '2026-03-01', 'verworpen')"
+    )
+
+    entries = get_article_legislative_history(store, BWB, "5")
+
+    assert [(e["document_id"], e["dossier_number"]) for e in entries] == [
+        ("documents/open_bill", "37000")
+    ]
+
+
 # ── explanations ─────────────────────────────────────────────────────────────
 
 
@@ -586,9 +696,14 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
         "source",
         "labels",
         "dossier_number",
+        "paper",
         "target_id",
         "confidence",
         "section_anchor",
+        "heading",
+        "char_start",
+        "char_end",
+        "opening",
     ]
     assert first == {
         "document_id": "documents/mvt_2025",
@@ -599,9 +714,14 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
         "source": "tk",
         "labels": ["TK"],
         "dossier_number": "36000",
+        "paper": {"dossier_number": None, "dossier_suffix": None, "sequence": None},
         "target_id": AV_NEW,
         "confidence": 1.0,
         "section_anchor": None,
+        "heading": None,
+        "char_start": None,
+        "char_end": None,
+        "opening": None,
     }
     by_key = {(r["key"], r["section_anchor"]): r for r in page["items"]}
     # the lowest label of its dossiers
@@ -611,6 +731,52 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     ek = by_key[("ek_nota", None)]
     assert ek["labels"] == ["EersteKamer", "EK"]
     assert ek["date"] is None and ek["dossier_number"] is None
+
+
+def test_the_passage_of_an_explanation_has_its_heading_and_opening(
+    store: GraphStore,
+) -> None:
+    """The section the edge names: its heading and offsets from the edge, the start of its
+    text from the paper, and the paper's own number."""
+    _seed_explanations(store)
+    text = "Inleiding.\nArtikel 5\nDit artikel regelt de zorgplicht. " + "Meer. " * 200
+    start = text.index("Artikel 5")
+    store.execute(
+        "UPDATE documents SET props = (props::jsonb || %(more)s::jsonb)::json"
+        " WHERE id = 'documents/mvt_anchor'",
+        {"more": json.dumps({"text": text, "dossier_number": "36000", "sequence": 3})},
+    )
+    store.execute(
+        "UPDATE edges SET doc = (doc::jsonb || %(meta)s::jsonb)::json"
+        " WHERE from_id = 'documents/mvt_anchor' AND to_id = %(to)s",
+        {
+            "meta": json.dumps(
+                {
+                    "meta": {
+                        "section_anchor": "artikel-5",
+                        "heading": "Artikel 5",
+                        "char_start": start,
+                        "char_end": len(text),
+                    }
+                }
+            ),
+            "to": AV_OLD,
+        },
+    )
+    page = _explanations(store)
+    row = next(r for r in page["items"] if r["section_anchor"] == "artikel-5")
+    assert (row["heading"], row["char_start"], row["char_end"]) == (
+        "Artikel 5",
+        start,
+        len(text),
+    )
+    assert row["opening"].startswith("Artikel 5\nDit artikel regelt de zorgplicht.")
+    assert len(row["opening"]) == 600
+    assert row["paper"] == {
+        "dossier_number": "36000",
+        "dossier_suffix": None,
+        "sequence": 3,
+    }
 
 
 def test_the_page_of_explanations_is_cut_and_the_total_is_not(
@@ -920,6 +1086,12 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
                 "court_kind": "x",
                 "date_eff": "2021-01-01",
                 "inbound_citation_count": None,
+                # how it ended, from its light row (none here)
+                "outcome": None,
+                "outcome_text": None,
+                "conclusion_outcome": None,
+                "conclusion_outcome_text": None,
+                "echr_findings": None,
             },
         },
         "mention": {"snippet": "d"},
@@ -933,6 +1105,11 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
         "court_kind",
         "date_eff",
         "inbound_citation_count",
+        "outcome",
+        "outcome_text",
+        "conclusion_outcome",
+        "conclusion_outcome_text",
+        "echr_findings",
     ]
     assert cited.rows[-1]["judgment"]["props"]["date_eff"] is None
 

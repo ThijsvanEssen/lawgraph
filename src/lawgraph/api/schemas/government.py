@@ -532,12 +532,39 @@ class CommitmentDossierDTO(WithPath):
     )
 
 
-class CommitmentActivityDTO(BaseModel):
+class CommitmentActivityDTO(WithPath):
+    """The activity a commitment was made in: a debate, as the Kamer names it."""
+
     model_config = ConfigDict(extra="forbid")
+    path_collection = "activities"
 
     key: str
-    date: str | None = None
+    date: str | None = Field(None, description="The day it was held.")
     number: str | None = None
+    kind: str | None = Field(
+        None, description="As the source writes it: ``Wetgevingsoverleg``."
+    )
+    agenda_title: str | None = Field(
+        None, description="Its subject (``Activiteit.Onderwerp``)."
+    )
+
+
+class CommitmentLetterDTO(WithPath):
+    """A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "documents"
+
+    id: str
+    key: str
+    kind: str | None = None
+    date: str | None = None
+    title: str | None = None
+    dossier_number: str | None = None
+    dossier_suffix: str | None = None
+    sequence: int | None = Field(
+        None, description="Its number in its dossier (nr. 33)."
+    )
 
 
 class CommitmentMemberDTO(PersonRefDTO):
@@ -558,7 +585,16 @@ class CommitmentDTO(WithPath):
     )
     text: str | None = None
     status: str | None = Field(None, description=COMMITMENT_STATUS_DESCRIPTION)
-    date: str | None = Field(None, description="The day it was made.")
+    date: str | None = Field(
+        None,
+        description="The day the Kamer registered it (``Aanmaakdatum``), which may be "
+        "weeks after the debate (``made_on``).",
+    )
+    made_on: str | None = Field(
+        None,
+        description="The day it was made: the day of the activity it was made in "
+        "(``activity.date``); null without one.",
+    )
     expected_resolution: str | None = Field(
         None, description="The day it is due; null when the Kamer names none."
     )
@@ -570,7 +606,14 @@ class CommitmentDTO(WithPath):
     ministry: MinistryKey | None = None
     cabinet: str | None = Field(None, description="The cabinet in office that day.")
     dossiers: list[CommitmentDossierDTO] = Field(default_factory=list)
-    activity: CommitmentActivityDTO | None = None
+    activity: CommitmentActivityDTO | None = Field(
+        None, description="The activity it was made in (``MADE_IN``)."
+    )
+    fulfilled_by: list[CommitmentLetterDTO] = Field(
+        default_factory=list,
+        description="The letters that fulfil it (``ANSWERS``, from "
+        "``Toezegging.KamerbriefNakoming``), oldest first.",
+    )
 
     @classmethod
     def from_row(
@@ -582,6 +625,8 @@ class CommitmentDTO(WithPath):
         props = commitment.get("props") or {}
         member = row.get("member")
         due = props.get("expected_resolution")
+        made_in = row.get("activity")
+        activity = CommitmentActivityDTO(**made_in) if made_in else None
         return cls(
             key=commitment["_key"],
             number=props.get("number"),
@@ -606,7 +651,21 @@ class CommitmentDTO(WithPath):
                 CommitmentDossierDTO(**d, short_title=short_title(d.get("title")))
                 for d in row.get("dossiers") or []
             ],
-            activity=row.get("activity"),
+            activity=activity,
+            made_on=activity.date if activity else None,
+            fulfilled_by=[
+                CommitmentLetterDTO(
+                    **{
+                        **letter,
+                        "sequence": (
+                            letter.get("sequence")
+                            if isinstance(letter.get("sequence"), int)
+                            else None
+                        ),
+                    }
+                )
+                for letter in row.get("fulfilled_by") or []
+            ],
         )
 
 

@@ -13,10 +13,12 @@ from lawgraph.api.schemas.documents import (
     _REPLACED_BY,
     _REPLACES,
     DocumentOrigin,
+    PaperOutcomeFields,
     PaperRefDTO,
     SenderDTO,
     SigningCapacity,
     origin_fields,
+    outcome_fields,
     sender_of,
 )
 from lawgraph.config.settings import EK_ATTRIBUTION
@@ -433,8 +435,9 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
     return _TIMELINE_ENTRY.validate_python(common)
 
 
-class DossierDocumentDTO(DocumentEntryDTO):
-    """One document linked to a dossier."""
+class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
+    """One document linked to a dossier; of a motion or an amendment how it ended and what
+    it says in a line."""
 
     display_name: str | None = None
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
@@ -473,6 +476,7 @@ class DossierDocumentDTO(DocumentEntryDTO):
                 PaperRefDTO(**r) for r in (replacements or {}).get("replaced_by", [])
             ],
             **origin,
+            **outcome_fields(row),
         )
 
 
@@ -633,7 +637,9 @@ class DossierFacetsDTO(BaseModel):
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
-DossierInstrumentRelation = Literal["legislated_in", "amends", "introduces", "repeals"]
+DossierInstrumentRelation = Literal[
+    "legislated_in", "establishes", "amends", "introduces", "repeals"
+]
 DossierInstrumentStatus = Literal["canoniek", "voorgesteld"]
 
 
@@ -650,7 +656,8 @@ class DossierInstrumentDTO(BaseModel):
     """An instrument a dossier is tied to, once, and every way it is.
 
     ``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this
-    dossier; ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
+    dossier; ``establishes``: a publication legislated in it enacted the regulation;
+    ``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from
     the article or instrument that is changed to the parent instrument) with its
     ``status`` (``canoniek`` for what an amending publication enacted, ``voorgesteld`` for
     what a bill of the dossier proposes). ``relation`` and ``status`` are the first link:

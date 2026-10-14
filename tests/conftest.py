@@ -18,6 +18,9 @@ os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 os.environ["LAWGRAPH_RATE_LIMIT_CALLS"] = "1000000"
 # The API warms its answers up in the background at its start; the tests ask themselves.
 os.environ["LAWGRAPH_API_WARM_UP"] = "false"
+# A test that runs the scheduled scripts or the deploy's lock sets the wait it relies on;
+# one set where the suite runs (the deploy sets half an hour) is no test's.
+os.environ.pop("LAWGRAPH_LOCK_WAIT", None)
 
 
 def pytest_sessionfinish(session: pytest.Session) -> None:

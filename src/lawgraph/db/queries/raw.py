@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STB_AMVB,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
+    RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
     SOURCE_ECHR,
@@ -267,10 +268,13 @@ def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, A
 
 
 def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
-    """``{id, url}`` (BWB id, ``meta.state_url``) of the stored current toestanden."""
+    """``{id, url, end_date, at}`` (BWB id, ``meta.state_url``, ``meta.end_date``,
+    ``fetched_at``) of the stored current toestanden."""
     return store.query(
         f"""
-        SELECT external_id AS id, doc -> 'meta' -> 'state_url' AS url FROM raw_sources
+        SELECT external_id AS id, doc -> 'meta' -> 'state_url' AS url,
+               doc -> 'meta' -> 'end_date' AS end_date, fetched_at AS at
+        FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s
         {_ORDER}
         """,
@@ -393,6 +397,20 @@ def tk_document_ids_fetched_since(store: Store, since_iso: str) -> Iterator[Any]
         {_ORDER}
         """,
         {"source": SOURCE_TK, "kind": RAW_KIND_TK_DOCUMENT, "since": since_iso},
+    )
+
+
+def tk_papers_with_xml_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
+    """The keys of the Tweede Kamer papers whose XML (their text) was fetched at or after
+    *since_iso*: ``meta.document`` of their ``tk-kamerstuk-xml`` record."""
+    return store.query(
+        f"""
+        SELECT doc -> 'meta' ->> 'document' AS key FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+          AND doc -> 'meta' ->> 'document' IS NOT NULL
+        {_ORDER}
+        """,
+        {"source": SOURCE_TK, "kind": RAW_KIND_TK_KAMERSTUK_XML, "since": since_iso},
     )
 
 

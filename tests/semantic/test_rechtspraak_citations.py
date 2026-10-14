@@ -210,18 +210,66 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     assert reads == ["2025-01-01T00:00:00Z"]
 
 
-def test_the_paragraphs_that_name_a_cited_judgment() -> None:
-    from lawgraph.pipelines.semantic.rechtspraak_citations import paragraphs_citing
+def test_the_places_that_name_a_cited_judgment() -> None:
+    from lawgraph.core.mentions import Mention
+    from lawgraph.pipelines.semantic.rechtspraak_citations import judgment_mentions
 
-    found = paragraphs_citing(
+    by_ecli, by_appno = judgment_mentions(
         [
-            {"number": "1.1", "text": "Zie ECLI:NL:HR:2015:1."},
-            {"number": None, "text": "Ook ECLI:NL:HR:2015:1, zonder nummer."},
-            {"number": "4.3", "text": "Zie ECLI:NL:HR:2015:1 en ECLI:NL:HR:2016:2."},
-            {"number": "4.3", "text": "Nogmaals ECLI:NL:HR:2015:1."},
-        ]
+            {"id": "rov-1.1", "number": "1.1", "text": "Zie ECLI:NL:HR:2015:1."},
+            {
+                "id": "p-ab12cd34",
+                "number": None,
+                "text": "Ook LJN BK9271, zonder nummer.",
+            },
+            {
+                "id": "rov-1.1",
+                "number": "1.1",
+                "text": "HR 1 mei 2015, ECLI:NL:HR:2015:1; EHRM 28 maart 2000, nr. 22492/93.",
+                "footnote": "3",
+            },
+        ],
+        {"BK9271": "ECLI:NL:CRVB:2010:BK9271"},
     )
-    assert found == {
-        "ECLI:NL:HR:2015:1": ["1.1", "4.3"],
-        "ECLI:NL:HR:2016:2": ["4.3"],
-    }
+    first, in_note = by_ecli["ECLI:NL:HR:2015:1"]
+    assert (first.paragraph_id, first.paragraph_number, first.footnote) == (
+        "rov-1.1",
+        "1.1",
+        None,
+    )
+    assert (first.start, first.end, first.raw_match) == (4, 21, "ECLI:NL:HR:2015:1")
+    assert (in_note.footnote, in_note.raw_match) == ("3", "ECLI:NL:HR:2015:1")
+    (ljn,) = by_ecli["ECLI:NL:CRVB:2010:BK9271"]
+    assert (ljn.paragraph_id, ljn.raw_match) == ("p-ab12cd34", "LJN BK9271")
+    (echr,) = by_appno["22492/93"]
+    assert echr.raw_match == "EHRM 28 maart 2000, nr. 22492/93"
+    stored = first.to_dict(parts=False)
+    assert "leden" not in stored and Mention.from_dict(stored) == first
+
+
+def test_a_citation_in_a_footnote_says_where_it_stands(reads: list[str | None]) -> None:
+    """Urgenda cites its judgments in footnotes: the edge names the footnote, the paragraph
+    that refers to it and the offsets in the footnote's text."""
+    source_ecli, target_ecli = "ECLI:NL:HR:2019:2006", "ECLI:NL:HR:1988:AD5713"
+    note = f"Zie HR 23 september 1988, {target_ecli} (Kalimijnen)."
+    xml = (
+        "<open-rechtspraak><uitspraak><section><paragroup><nr>5.7.6.</nr>"
+        "<para>De Staat is aansprakelijk.<footnote-ref linkend='f35'/></para>"
+        f"</paragroup></section><footnote id='f35' label='35'><para>{note}</para>"
+        "</footnote></uitspraak></open-rechtspraak>"
+    )
+    doc = _make_judgment(make_node_key(source_ecli), source_ecli, "")
+    doc["props"]["raw_xml"] = xml
+    store = _FakeStore(judgment_docs=[doc])
+    RechtspraakCitationsSemanticPipeline(store=store).run()
+
+    (edge,) = store.edges.values()
+    meta = edge["meta"]
+    assert meta["cited_ecli"] == target_ecli
+    assert meta["paragraphs"] == ["5.7.6"]
+    assert meta["mention_count"] == 1
+    (mention,) = meta["mentions"]
+    assert mention["paragraph_id"] == "rov-5.7.6"
+    assert mention["footnote"] == "35"
+    assert note[mention["start"] : mention["end"]] == target_ecli
+    assert mention["snippet"] == note

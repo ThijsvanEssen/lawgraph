@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
@@ -28,6 +29,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import (
     _coerce_float,
     _coerce_int,
@@ -42,6 +44,7 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
+from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached, lasting
 
@@ -306,6 +309,7 @@ SELECT
 FROM {COLLECTION_EDGES} e
 CROSS JOIN {node_of("e.from_id", "e.from_collection")} s
 WHERE e.to_id = %(article_id)s AND e.relation = ANY(%(changes)s)
+  AND (e.from_collection <> '{COLLECTION_DOCUMENTS}' OR {proposals.pending_sql("e.from_id")})
 -- The sorts in Python are stable: the edge key and the sorted dossier keys settle ties.
 ORDER BY e.key
 """
@@ -317,15 +321,18 @@ def get_article_legislative_history(
     article_number: str,
     article_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """The dossiers that introduced, amended or repealed an article, or propose to.
+    """The dossiers that established, introduced, amended or repealed an article, or
+    propose to.
 
-    A change is an ``AMENDS``, ``INTRODUCES`` or ``REPEALS`` edge to the article: from an
-    amending publication (enacted, ``canoniek``), whose dossiers are those it is
+    A change is an ``ESTABLISHES`` (the publication that enacted its regulation),
+    ``AMENDS``, ``INTRODUCES`` or ``REPEALS`` edge to the article: from a publication
+    (enacted, ``canoniek``), whose dossiers are those it is
     ``LEGISLATED_IN`` and those its ``dossier_numbers`` name (a dossier that is not in the
     graph has no ``dossier_id``), or from a bill (``voorgesteld``), whose dossier it is
-    ``PART_OF``, directly or through its case. One entry per change and dossier; a change
-    without a dossier is none, and what only cites the article (a judgment, another article)
-    is no change.
+    ``PART_OF``, directly or through its case, while it is pending (``queries.proposals``:
+    its dossier open, no amendment rejected, withdrawn or replaced). One entry per change
+    and dossier; a change without a dossier is none, and what only cites the article (a
+    judgment, another article) is no change.
 
     Each entry: {dossier_id, dossier_number, dossier_title, date, kind, change, status,
     summary, document_id}; proposed changes first, then newest first. The explanatory
@@ -339,7 +346,12 @@ def get_article_legislative_history(
             _CHANGES_SQL,
             {
                 "article_id": article_id,
-                "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+                "changes": [
+                    RELATION_ESTABLISHES,
+                    RELATION_AMENDS,
+                    RELATION_INTRODUCES,
+                    RELATION_REPEALS,
+                ],
                 "direct": [RELATION_PART_OF, RELATION_LEGISLATED_IN],
                 "part_of": RELATION_PART_OF,
             },
@@ -404,7 +416,10 @@ found AS (
            t.id AS target_id, e.doc -> 'confidence' AS confidence,
            -- a missing anchor and a json null are one group, as in a COLLECT
            nullif((e.doc -> 'meta' -> 'section_anchor')::jsonb, 'null'::jsonb)
-               AS section_anchor
+               AS section_anchor,
+           e.doc -> 'meta' -> 'heading' AS heading,
+           lg_num(e.doc -> 'meta' -> 'char_start')::int AS char_start,
+           lg_num(e.doc -> 'meta' -> 'char_end')::int AS char_end
     FROM targets t
     JOIN {COLLECTION_EDGES} e
       ON e.to_id = t.id AND e.relation = %(explains)s
@@ -446,14 +461,30 @@ SELECT
                 ORDER BY ds.label
                 LIMIT 1
             ),
+            -- its own number, which its address is made of
+            'paper', json_build_object(
+                'dossier_number', d.props -> 'dossier_number',
+                'dossier_suffix', d.props -> 'dossier_suffix',
+                'sequence', d.props -> 'sequence'),
             'target_id', r.target_id,
             'confidence', r.confidence,
-            'section_anchor', r.section_anchor
+            'section_anchor', r.section_anchor,
+            'heading', r.heading,
+            'char_start', r.char_start,
+            'char_end', r.char_end,
+            -- the start of the passage, which the answer cuts to an excerpt
+            'opening', CASE WHEN r.char_start IS NOT NULL AND r.char_end > r.char_start
+                THEN substr(d.props ->> 'text', r.char_start + 1,
+                            least(r.char_end - r.char_start, %(opening)s)) END
         ) ORDER BY r.n), '[]'::json)
         FROM ranked r JOIN {COLLECTION_DOCUMENTS} d ON d.id = r.document_id
         WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
     ) AS items
 """
+
+
+# The characters of a passage read for its excerpt: its heading and some 300 after it.
+EXPLANATION_OPENING = 600
 
 
 def get_article_explanations(
@@ -492,6 +523,7 @@ def get_article_explanations(
             "explains": RELATION_EXPLAINS,
             "limit": limit,
             "offset": offset,
+            "opening": EXPLANATION_OPENING,
         }
     )
     rows = list(store.query(_EXPLANATIONS_SQL.replace("{identity}", identity), bind))
@@ -701,7 +733,8 @@ def _cited_by_sql(order: str) -> str:
                         'tier', j.pj_tier,
                         'court_kind', j.pj_court_kind,
                         'date_eff', j.pj_date_eff,
-                        'inbound_citation_count', j.pj_inbound_citation_count
+                        'inbound_citation_count', j.pj_inbound_citation_count,
+                        {outcome_pairs("l.props")}
                     )
                 ),
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
@@ -709,6 +742,7 @@ def _cited_by_sql(order: str) -> str:
             FROM ranked r
             JOIN {COLLECTION_EDGES} e ON e.key = r.edge
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
             WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
         ) AS items
     """

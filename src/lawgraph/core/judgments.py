@@ -15,6 +15,7 @@ from typing import Any
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.xml import (
+    after_nonspace,
     collapse_ws,
     first_named,
     iter_named,
@@ -950,7 +951,7 @@ class _Sections:
         source: Sequence[ET.Element] = (),
     ) -> None:
         """One paragraph; *source* the elements it is read from, whose footnote references
-        it keeps (``_REFS``)."""
+        it keeps (``_MARKS``)."""
         # "6.16." as a list prints it: the number is 6.16
         number = number.rstrip(".") if number else number
         if not text and not number:
@@ -958,14 +959,9 @@ class _Sections:
         if number and not _slug(number):
             number = None
         entry: dict[str, Any] = {"number": number, "kind": kind, "text": text}
-        refs = [
-            linkend
-            for element in source
-            for ref in iter_named(element, "footnote-ref")
-            if (linkend := ref.get("linkend"))
-        ]
-        if refs:
-            entry[_REFS] = refs
+        words, marks = _footnote_marks(source)
+        if marks:
+            entry[_MARKS] = (words, marks)
         self.entries.append(entry)
 
     def unnumbered(
@@ -1107,8 +1103,46 @@ def _heading_kind(depth: int, text: str) -> str:
 # amount, no page of the case file ("Dossierpagina 100037"), no initials of a name
 # ("J.C. Kranenburg" under a judgment).
 _CANDIDATE = "_heading"
-# The footnotes a paragraph refers to (``<footnote-ref linkend>``), until they are named.
-_REFS = "_footnotes"
+# The footnotes a paragraph refers to (``<footnote-ref linkend>``) and where their markers
+# stand, until the paragraphs are named: the characters other than whitespace of the
+# elements the paragraph is read from, and per marker how many of them come before it.
+_MARKS = "_marks"
+
+
+def _footnote_marks(
+    source: Sequence[ET.Element],
+) -> tuple[str, list[tuple[str, int]]]:
+    """The characters other than whitespace of *source*, in reading order, and per
+    ``<footnote-ref>`` in it its ``linkend`` and how many of them come before it."""
+    chars: list[str] = []
+    marks: list[tuple[str, int]] = []
+
+    def read(element: ET.Element) -> None:
+        if local_name(element.tag) == "footnote-ref":
+            if linkend := element.get("linkend"):
+                marks.append((linkend, len(chars)))
+        chars.extend(c for c in element.text or "" if not c.isspace())
+        for child in element:
+            read(child)
+            chars.extend(c for c in child.tail or "" if not c.isspace())
+
+    for element in source:
+        read(element)
+    return "".join(chars), marks
+
+
+def _marker_at(text: str, words: str, before: int) -> int | None:
+    """Where a footnote marker stands in *text*, the paragraph as read: after its
+    *before* th character other than whitespace of *words*, the characters of the
+    elements it is read from. The paragraph may lack what opens them (a number it
+    printed); when it is not the rest of them, the place is not known (None)."""
+    own = "".join(c for c in text if not c.isspace())
+    skipped = len(words) - len(own)
+    if skipped < 0 or words[skipped:] != own or before < skipped:
+        return None
+    return after_nonspace(text, before - skipped)
+
+
 _NOT_IN_A_HEADING = re.compile(
     r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
     r"|\b(?:[A-Z]{1,2}|IJ|Th|Chr|Ph)\.(?:[A-Z]{1,2}\.)*\s",
@@ -1341,8 +1375,9 @@ def judgment_text(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """``(paragraphs, footnotes)`` of the first ``<uitspraak>`` (or ``<conclusie>``): the
     paragraphs as ``extract_sections`` gives them, and its footnotes, which are no
-    paragraph: ``{label, paragraph_id, text}`` each, in their order, ``paragraph_id`` the
-    paragraph whose ``<footnote-ref>`` points to it (the first), null when none does."""
+    paragraph: ``{label, paragraph_id, text, at}`` each, in their order, ``paragraph_id`` the
+    paragraph whose ``<footnote-ref>`` points to it (the first), null when none does, and
+    ``at`` where that marker stands in its text (absent when that is not known)."""
     uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:
         return [], []
@@ -1354,21 +1389,28 @@ def judgment_text(
     _mark_toc(sections.entries)
     _unquote_headings(sections.entries)
     _mark_signature(sections.entries)
-    refs = [entry.pop(_REFS, []) for entry in sections.entries]
+    marks = [entry.pop(_MARKS, ("", [])) for entry in sections.entries]
     paragraphs = _name(sections.entries)
-    referred: dict[str, str] = {}
-    for paragraph, ids in zip(paragraphs, refs, strict=True):
-        for footnote_id in ids:
-            referred.setdefault(footnote_id, paragraph["id"])
-    footnotes = [
-        {
-            "label": note.get("label"),
-            "paragraph_id": referred.get(note.get("id") or ""),
-            "text": text,
-        }
-        for note in iter_named(uitspraak, "footnote")
-        if (text := collapse_ws(text_of(note, " ")))
-    ]
+    referred: dict[str, tuple[str, int | None]] = {}
+    for paragraph, (words, refs) in zip(paragraphs, marks, strict=True):
+        for footnote_id, before in refs:
+            if footnote_id not in referred:
+                at = _marker_at(paragraph["text"], words, before)
+                referred[footnote_id] = (paragraph["id"], at)
+    footnotes = []
+    for note in iter_named(uitspraak, "footnote"):
+        text = collapse_ws(text_of(note, " "))
+        if not text:
+            continue
+        paragraph_id, at = referred.get(note.get("id") or "", (None, None))
+        footnotes.append(
+            {
+                "label": note.get("label"),
+                "paragraph_id": paragraph_id,
+                "text": text,
+                **({"at": at} if at is not None else {}),
+            }
+        )
     return paragraphs, footnotes
 
 

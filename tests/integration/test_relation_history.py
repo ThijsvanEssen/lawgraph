@@ -277,7 +277,8 @@ def test_the_dossier_titles_are_looked_up_at_once(
 
     calls.clear()
     assert len(get_instrument_amended_by(store, LAW).items) == 2
-    assert len(calls) == 2  # the counts per publication, then the titles at once
+    # the counts per publication, those per pending proposal, then the titles at once
+    assert len(calls) == 3
 
     calls.clear()
     assert get_instrument_dossiers(store, LAW)[1] == 2

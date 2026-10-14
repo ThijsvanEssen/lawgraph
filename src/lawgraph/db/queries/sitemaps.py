@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
@@ -18,14 +19,17 @@ from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
+    RELATION_MADE_IN,
     RELATION_PART_OF,
     RELATION_REPEALS,
 )
@@ -249,9 +253,10 @@ def publications(
 ) -> Iterator[dict[str, Any]]:
     """The publications in the Staatsblad and the Tractatenblad since *since* that have a
     page to find (``api/seo/pages.publication_page``): a title of their own (their nota
-    van toelichting) or a regulation they change. The day they were published is their
+    van toelichting) or a regulation they enact or change. The day they were published is their
     lastmod."""
     changes = [
+        RELATION_ESTABLISHES,
         RELATION_INTRODUCES,
         RELATION_AMENDS,
         RELATION_REPEALS,
@@ -305,4 +310,30 @@ def commitments(
         ORDER BY id
         """,
         {"since": since},
+    )
+
+
+def activities(
+    store: GraphStore, since: str = DECIDED_SINCE
+) -> Iterator[dict[str, Any]]:
+    """The activities held since *since* with something to read: a paper (a stenogram, a
+    verslag, a motion) or a commitment made in it (``MADE_IN``), with their day."""
+    yield from store.query(
+        f"""
+        SELECT a.id, json_build_object('number', lg_str(a.props -> 'number')) AS props,
+               a.date AS lastmod
+        FROM {COLLECTION_ACTIVITIES} a
+        WHERE a.date >= %(since)s
+          AND EXISTS (
+              SELECT 1 FROM {COLLECTION_EDGES} e
+              WHERE e.to_id = a.id AND e.relation = %(made_in)s
+                AND e.from_collection = ANY(%(made)s::text[])
+          )
+        ORDER BY a.id
+        """,
+        {
+            "since": since,
+            "made_in": RELATION_MADE_IN,
+            "made": [COLLECTION_DOCUMENTS, COLLECTION_COMMITMENTS],
+        },
     )

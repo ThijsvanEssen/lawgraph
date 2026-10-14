@@ -127,6 +127,7 @@ def test_the_dossier_hub_and_the_authorship_lists_are_in_the_schema() -> None:
     instrument = schemas["DossierInstrumentDTO"]["properties"]
     assert set(instrument["relation"]["enum"]) == {
         "legislated_in",
+        "establishes",
         "amends",
         "introduces",
         "repeals",
@@ -161,8 +162,11 @@ def _parameters(path: str) -> set[str]:
 def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> None:
     filters = {"relations", "node_types", "direction", "status"}
     node = "/api/nodes/{collection}/{key}"
-    assert _parameters(node) == filters | {"limit", "offset", "props"}
-    assert _parameters(f"{node}/neighborhood") == filters | {"depth", "cap", "props"}
+    views = {"props", "edge_meta"}
+    assert _parameters(node) == filters | views | {"limit", "offset"}
+    assert _parameters(f"{node}/neighborhood") == filters | views | {"depth", "cap"}
+    assert "edge_meta" in _parameters("/api/paths")
+    assert "passages" in _properties("NodeNeighborhoodEdge")
 
     schemas = SPEC["components"]["schemas"]
     assert {"edge_id", "status", "meta", "confidence"} <= set(
@@ -207,19 +211,28 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
     qualifier = {"leden", "onderdelen", "aanhef"}
     assert "paragraph_id" in _properties("JudgmentParagraph")
     assert "cited_articles" in _properties("JudgmentDetailResponse")
-    assert qualifier | {
-        "article",
-        "qualifier",
+    place = {
         "paragraph_ids",
         "paragraph_numbers",
         "snippet",
         "snippet_paragraph_id",
+        "footnote",
         "text",
         "start",
         "end",
         "confidence",
         "mention_count",
-    } == _properties("JudgmentCitedArticle")
+    }
+    assert qualifier | place | {"article", "qualifier"} == _properties(
+        "JudgmentCitedArticle"
+    )
+    assert place | {"id", "key", "path", "display_name", "ecli"} == _properties(
+        "JudgmentCitedJudgment"
+    )
+    assert {"label", "paragraph_id", "at", "text", "citations"} == _properties(
+        "JudgmentFootnote"
+    )
+    assert "footnotes" in _properties("JudgmentDTO")
 
 
 def test_an_article_lists_the_passages_that_cite_it() -> None:
@@ -262,5 +275,10 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "date",
         "display_name",
         "inbound_citation_count",
+        "outcome",
+        "outcome_text",
+        "conclusion_outcome",
+        "conclusion_outcome_text",
+        "echr_findings",
         "path",
     } == _properties("CitedByJudgment")

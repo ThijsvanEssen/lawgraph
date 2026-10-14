@@ -186,3 +186,35 @@ def test_the_texts_of_a_judgment_are_found_by_paragraph_and_footnote() -> None:
 
     assert texts[("rov-3.1", None)] == "Zie de echtscheiding."
     assert texts[("rov-3.1", "1")] == "Art. 287 Sr."
+
+
+def test_a_mention_keeps_where_its_snippet_starts_and_gives_its_passage() -> None:
+    # far into a long paragraph, the window of the snippet begins on whitespace
+    text = "a" * 500 + "\n  " + "x" * 293 + " Zie art. 287, derde lid, Sr. " + "b" * 400
+    (cited,) = find_mentions([_paragraph("rov-5.3", text, "5.3")], _detect).values()
+    (mention,) = cited.mentions
+
+    passage = Mention.from_dict(mention.to_dict()).passage()  # type: ignore[union-attr]
+
+    assert mention.to_dict()["snippet_start"] == mention.snippet_start
+    assert text[mention.snippet_start :].startswith(mention.snippet)  # type: ignore[misc]
+    assert passage is not None
+    assert passage["snippet"][passage["start"] : passage["end"]] == passage["text"]
+    assert passage["text"] == "art. 287, derde lid, Sr"
+    assert (passage["start"], passage["end"]) == mention.in_snippet(text)
+    assert passage["paragraph_id"] == "rov-5.3" and passage["paragraph_number"] == "5.3"
+    assert passage["footnote"] is None
+
+
+def test_a_mention_stored_without_its_snippet_start_has_no_passage() -> None:
+    (cited,) = find_mentions(
+        [_paragraph("rov-1", "Zie art. 287 Sr.", "1")], _detect
+    ).values()
+    stored = cited.mentions[0].to_dict()
+    del stored["snippet_start"]
+
+    mention = Mention.from_dict(stored)
+
+    assert mention is not None and mention.snippet_start is None
+    assert mention.passage() is None
+    assert Mention.from_dict({**stored, "snippet_start": 3}).passage() is None  # type: ignore[union-attr]

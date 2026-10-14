@@ -47,6 +47,8 @@ MEMORANDUM_DOCUMENT = "Memorie van toelichting"
 
 # Activiteit.Status of an activity announced and not (yet) held, also when its date passed.
 ACTIVITY_PLANNED = "Gepland"
+# ``Activiteit.Status`` of an activity that took place.
+ACTIVITY_HELD = "Uitgevoerd"
 
 # Activiteit.Status of an activity that did not take place, or not then: it marks no phase.
 ACTIVITY_NOT_HELD = frozenset(

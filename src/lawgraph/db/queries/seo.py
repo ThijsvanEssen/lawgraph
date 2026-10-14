@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
@@ -28,8 +29,10 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_AUTHORED,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
+    RELATION_MADE_IN,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
@@ -41,6 +44,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
+from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.store import (
     ReadTimedOut,
@@ -88,37 +92,37 @@ def same_person(store: GraphStore, member_id: str) -> str | None:
     return next(iter(rows), None)
 
 
+# The finder of each kind of address named by one part: an ECLI, a BWB id, a dossier, a
+# slug, a key or a number.
+_BY_ONE: dict[str, Callable[[GraphStore, str], str | None]] = {
+    "uitspraak": lookup.find_judgment,
+    "wet": lookup.find_law,
+    "dossier": lookup.find_dossier,
+    "lid": lookup.find_member,
+    "kabinet": lookup.find_cabinet,
+    "fractie": lookup.find_faction,
+    "commissie": lookup.find_committee,
+    "toezegging": lookup.find_commitment,
+    "zaak": lookup.find_case,
+    "activiteit": lookup.find_activity,
+}
+
+
 def node_of(store: GraphStore, pad: Pad) -> str | None:
     """The node a readable address names, or None when the graph does not have it."""
     s = pad.soort
-    if s == "uitspraak":
-        return lookup.find_judgment(store, pad.a)
-    if s == "wet":
-        return lookup.find_law(store, pad.a)
+    if s in _BY_ONE:
+        return _BY_ONE[s](store, pad.a)
     if s == "artikel":
         return lookup.find_article(store, pad.a, pad.b)
     if s == "bijlage":
         return lookup.find_annex(store, pad.a, pad.b)
-    if s == "dossier":
-        return lookup.find_dossier(store, pad.a)
     if s == "kamerstuk":
         return lookup.find_document(store, pad.a, pad.b)
     if s == "publicatie":
         return lookup.find_publication(store, pad.a, pad.b, pad.c)
-    if s == "lid":
-        return lookup.find_member(store, pad.a)
-    if s == "kabinet":
-        return lookup.find_cabinet(store, pad.a)
-    if s == "fractie":
-        return lookup.find_faction(store, pad.a)
-    if s == "commissie":
-        return lookup.find_committee(store, pad.a)
     if s == "stemming":
         return f"decisions/{pad.a}" if store.has_node("decisions", pad.a) else None
-    if s == "toezegging":
-        return lookup.find_commitment(store, pad.a)
-    if s == "zaak":
-        return lookup.find_case(store, pad.a)
     return focus_of_pad(pad)
 
 
@@ -624,7 +628,13 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 # ── publications, commitments and decisions ───────────────────────────────────
 
 # What a publication does to a regulation, and what its nota van toelichting does.
-_CHANGES = (RELATION_INTRODUCES, RELATION_AMENDS, RELATION_REPEALS, RELATION_EXPLAINS)
+_CHANGES = (
+    RELATION_ESTABLISHES,
+    RELATION_INTRODUCES,
+    RELATION_AMENDS,
+    RELATION_REPEALS,
+    RELATION_EXPLAINS,
+)
 
 
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -689,7 +699,7 @@ def changed(store: GraphStore, sources: tuple[str, ...]) -> list[dict[str, Any]]
 
 
 def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
-    """The regulations *sources* introduce, amend, repeal or explain (themselves or in
+    """The regulations *sources* enact, introduce, amend, repeal or explain (themselves or in
     their articles), by name: ``id``, ``props`` (to their address), ``name`` and
     ``relations``."""
     rows = store.query(
@@ -806,12 +816,26 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             {"id": node_id, "answers": RELATION_ANSWERS, "limit": LINKS},
         )
     )
+    activity = _first(
+        store,
+        f"""
+        SELECT a.id, a.key, a.props -> 'number' AS number, a.props -> 'kind' AS kind,
+               a.props -> 'date' AS date, a.props -> 'agenda_title' AS agenda_title
+        FROM edges e JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.to_id
+        WHERE e.from_id = %(id)s AND e.relation = %(made_in)s
+          AND e.to_collection = '{COLLECTION_ACTIVITIES}'
+        ORDER BY a.id
+        LIMIT 1
+        """,
+        {"id": node_id, "made_in": RELATION_MADE_IN},
+    )
     return {
         **row,
         "member": member,
         "cabinet": cabinet,
         "dossiers": dossiers,
         "letters": letters,
+        "activity": activity,
     }
 
 
@@ -871,6 +895,15 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     }
 
 
+def activity(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """An activity (``get_activity``) with what was made in it and its agenda
+    (``get_activity_records``): light, a paper without its text."""
+    head = get_activity(store, node_id.partition("/")[2])
+    if head is None:
+        return None
+    return {**head, "records": get_activity_records(store, head["id"])}
+
+
 # The reads of each kind of page.
 READS = {
     "wet": law,
@@ -887,4 +920,5 @@ READS = {
     "stemming": decision,
     "bijlage": annex,
     "zaak": case,
+    "activiteit": activity,
 }

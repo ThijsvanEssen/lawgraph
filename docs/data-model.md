@@ -36,11 +36,18 @@ of `lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the wh
 graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the highest count, and
 `lg_heat_state` when it was counted; writing them raises no data version. `lg_judgment_light` holds per
 judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
-summary to 401 characters, date, court, case number, source, jurisdiction, stub, translation
-and advocate-general), kept by triggers on every write of `judgments` and filled once by
-`semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
+summary to 401 characters, date, court, case number, source, jurisdiction, stub, translation,
+advocate-general, and how it ended: `outcome`, `conclusion_outcome` with their sentences and
+`echr_findings`), kept by triggers on every write of `judgments` and filled once by
+`semantic graph-light`; it raises no data version either. `lg_judgment_persons` holds per
+judgment the persons it names (`parties` not anonymised, and their `representatives` with the
+party's alias or name), with its `date_eff` and `words`, the name folded with every run of
+other characters a space (" mr drs r van gelder "), under a trigram index: the search finds a
+judgment by them. A trigger keeps it on every write of a judgment's props; a judgment written
+before it has none until it is normalized again; it raises no data version. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
-dossier numbers, case kinds, sequence, a motion's dictum) and `has_text`, whether its text is
+dossier numbers, case kinds, sequence, a motion's dictum, an amendment's explanation, and
+how a motion or an amendment ended: `outcome`, `decided_on`, `tally`, `decision`) and `has_text`, whether its text is
 in the data (which a row of the feed opens on), without its text, kept and filled the same way
 from `documents`; indexed by dossier number, suffix and sequence, which `/api/lookup` finds a
 paper by. `lg_instrument_names` holds per instrument its `title` and `short_title` as text
@@ -108,10 +115,11 @@ they are out of date. Do not edit inside the markers.
 |----------|------|----|---------|
 | `PART_OF` | Article / Annex / Document / Case / Instrument | Instrument / Case / Dossier | Containment. Article/Annex → Instrument; Document → Case or Dossier; Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers it (a Protocol → its Convention, `Moederverdrag`). |
 | `VERSION_OF` | InstrumentVersion / ArticleVersion | Instrument / Article | A dated version of an instrument or article. An article keeps one identity across versions (BWB `stam-id`); each version has valid_from / valid_until. |
-| `AMENDS` | Instrument / Document | Instrument / Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`. |
+| `ESTABLISHES` | Instrument | Article | A publication enacts a new regulation and so sets its articles: the BWB effect `nieuwe-regeling` of the article version it made (effective date and version in `meta`). No change of existing law: a regulation names its enacting publication in `props.enacted_publication` as well. |
+| `AMENDS` | Instrument / Document | Instrument / Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument / Document | Instrument / Article | An instrument adds a new article or instrument; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument / Document | Instrument / Article | An instrument withdraws an article or instrument; a bill proposing it is `voorgesteld`. |
-| `BASED_ON` | Instrument | Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble. |
+| `BASED_ON` | Instrument | Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument | Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
 | `LEGISLATED_IN` | Instrument | Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`). |
 | `PUBLISHED_IN` | Instrument | Instrument | A treaty → a Tractatenblad that publishes it or something about it, as the Verdragenbank registers it: its text, its approval, its entry into force, its parties (`meta.description`, as the register writes it). |
@@ -121,16 +129,16 @@ they are out of date. Do not edit inside the markers.
 | `CONTINUES` | Judgment / Activity | Judgment / Activity | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. An activity → the moved activity it replaced (`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). |
 | `REFERRED_BY` | Judgment | Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment | Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
-| `ANSWERS` | Judgment / Document | Judgment / Commitment / Document | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk 25424-795)" (`meta.basis` `subject`, `meta.text` as written). |
+| `ANSWERS` | Judgment / Document | Judgment / Commitment / Document | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk 25424-795)" (`meta.basis` `subject`, `meta.text` the whole subject, `meta.reference` the reference as written), or its text or a footnote names: "Kamerstuk 36 764, nr. 28", "de motie-Kathmann (36764, nr. 31)" (`meta.basis` `text` or `footnote`, `meta.text` the line or footnote, confidence 0.9). |
 | `SAME_AS` | Judgment / Instrument / Document / Member | Judgment / Instrument / Member | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede Kamer → the member with a role who is the same person: the same birth date, surname and initials (`tk-person-duplicates`). |
 | `SCOPED_BY` | Article | Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity / Decision / Commitment | Case / Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case; Commitment → Dossier. |
 | `LED_BY` | Activity / Case | Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
-| `MADE_IN` | Commitment / Document / Decision | Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`). |
+| `MADE_IN` | Commitment / Document / Decision | Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: the debate held on the day its case started that has the case on its agenda and took no decision on it (`meta.reason` `ingediend`). |
 | `MEMBER_OF` | Member | Committee / Faction | Membership of a committee or faction, with from/to dates and role. |
 | `SERVED_IN` | Member | Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
 | `AUTHORED` | Member | Document / Case / Commitment | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A bewindspersoon made a commitment (`role` `toezegger`). |
-| `RELATED_TO` | Dossier / Judgment / Case | Dossier / Judgment / Case | Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
+| `RELATED_TO` | Dossier / Judgment / Case | Dossier / Judgment / Case | Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them, `meta.pairs` gives the papers of the 5 newest pairs (`{kinds, from, to}`, a side `{case, paper, kind, dossier_number, dossier_suffix, sequence, date}`). Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
 | `REVISES` | Dossier / Document | Dossier / Document | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended amendment or motion replaces the one it names, "ter vervanging van nr. 21" (`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document). |
 | `ACCOMPANIES` | Dossier / Document | Dossier / Document | A budget change is submitted with the Voorjaarsnota, Najaarsnota or Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an attachment is sent with its letter (Document → Document: `BijlageDocument`). |
 | `SECOND_READING_OF` | Dossier | Dossier | A change in the Grondwet in its second reading → the dossier of its first reading, to whose papers its memorandum refers for the explanation (Kamerstukken 35 418). |
@@ -169,7 +177,7 @@ they are out of date. Do not edit inside the markers.
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
 An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
@@ -181,7 +189,7 @@ tk-mvt-articles` (a section that is about the article; `source` `mvt-section-lin
 |-------|---------|
 | `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
 | `match_type` | `heading_target`, `body_named_law`, `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`) |
-| `changed` | whether the dossier changed the article, which corroborates the match |
+| `changed` | whether the dossier changed the article, or established it as an article of the law it made, which corroborates the match |
 | `explanation` | what the match rests on, in Dutch |
 | `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
 
@@ -212,12 +220,17 @@ statutes made by the legislator:
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`), `celex_refs` (the EU acts its
   text names) and `implements_celex` (the EU acts its considerans says it implements);
   `retrieve eurlex --mode gaps` fetches the acts of `celex_refs` and `implements_celex`.
-  `enacted_publication` is the publication that enacted it (`stb-2018-144`). Its `title` is the
+  `enacted_publication` is the publication that enacted it (`stb-2018-144`; indexed, for the
+  laws a publication of the feed enacts). Its `title` is the
   citeertitel, else the intitule; `kind` is `wetgeving@soort`. `date_signed`, `date_published`
   and `dossier_numbers` are those of that publication, `date_in_force` the
   `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
   it): the `meta-data` of `<wetgeving>` names the last change to the structure of the law, not
-  the law. `version_date_in_force` is the start of the toestand. A Celex link
+  the law. `version_date_in_force` is the start of the toestand. `date_expired` is the first
+  day the regulation was no longer in force (repealed or lapsed): the day after the end of the
+  validity period (`geldigheidsperiode_einddatum`) of its last toestand in the SRU, when that end
+  had passed as `retrieve bwb` read it (`bwb_xml.expiry_date`); null while it is in force. A
+  regulation repealed before 2002 has no toestand in the BWB at all. A Celex link
   whose id has an impossible year in the source is rebuilt from the text of the link
   ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records
@@ -251,7 +264,7 @@ statutes made by the legislator:
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
-  are the source of `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
+  are the source of `ESTABLISHES`, `AMENDS`, `INTRODUCES` and `REPEALS`, and no regulation: the instrument
   lists and `/api/stats` keep them apart.
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
@@ -358,10 +371,14 @@ A Rechtspraak judgment carries:
 - `source` (`rechtspraak`, or `echr` for an ECHR judgment), a column of the indexes of the
   judgment list;
 - `summary`, `text`, `paragraphs`, `footnotes`, `parties`, `decision_kind` and `names`; a conclusion also
-  `advocate_general` and `advocate_general_role`.
+  `advocate_general` and `advocate_general_role`;
+- how it ended (`core/judgment_outcome.py`): of a judgment `outcome`, `outcome_text` and
+  `outcome_paragraph_id`, of a conclusion what it proposes as `conclusion_outcome`,
+  `conclusion_outcome_text` and `conclusion_outcome_paragraph_id` (below); null when the text
+  does not say it.
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
-`articles`, `conclusion`, `importance`, `language` (of its HUDOC record; another language version
+`articles`, `conclusion`, `echr_findings` and `outcome` (below), `importance`, `language` (of its HUDOC record; another language version
 without an ECLI is `SAME_AS` the one kept and names its item id in `same_as`: `semantic
 echr-versions`) and, from the DOCX of its English item (else its French
 one), `text` and `paragraphs`. Its paragraphs are read from the Word styles of the Court's
@@ -431,10 +448,13 @@ sets them; a judgment may have none. How the kop, the headings, a table of conte
 signature are told apart: [pipelines](pipelines.md#judgment-paragraphs).
 
 `footnotes` are the `<footnote>`s of that text, which are no paragraph: `{label, paragraph_id,
-text}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
-none does); absent without footnotes. `semantic rechtspraak` reads them too: a citation in a
-footnote counts for that paragraph, its mention with the footnote's `label` (`footnote`) and its
-offsets in the text of the footnote, so it is no citation span of the paragraph.
+text, at}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
+none does) and `at` where that marker stands in its text (`text[:at]` the words before it; absent
+when no paragraph refers to it or the paragraph's text is not the text of the elements it is read
+from, as a heading made from a quote); absent without footnotes. `semantic rechtspraak` and `semantic rechtspraak-citations`
+read them too: a citation in a footnote counts for that paragraph, its mention with the footnote's
+`label` (`footnote`; its place among the footnotes when it has none) and its offsets in the text of
+the footnote, so it is no citation span of the paragraph but one of the footnote.
 
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. `number` is the number as printed without
@@ -458,8 +478,42 @@ at the end gives the office and, below it, the role they sign in: `advocate_gene
 clear. The heading of the office at the top is
 no role.
 
-`parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,
-role, roles, role_stated, side, alias, representatives}`; empty when the kop names none:
+`outcome` is how a judgment ended, as the first clause of its decision says it: the paragraphs
+after its last heading "Beslissing", "De beslissing", "Dictum" or "Uitspraak" (also "5.
+Beslissing De Hoge Raad: …" in one paragraph), up to the signature or the next heading. The
+clause runs from its verb up to the next `;`, line, full stop before a capital, or verb:
+
+| Clause | `outcome` |
+|--------|-----------|
+| `verwerpt het beroep` | `verworpen` |
+| `vernietigt …` | `vernietigd`; `gedeeltelijk vernietigd` with "voor zover", "maar uitsluitend", "behoudens" |
+| `vernietigt …` or `verklaart … gegrond`, and the decision refers the case to a court (`verwijst het geding naar het gerechtshof`, `wijst … terug`) | `vernietigd en verwezen` |
+| `bekrachtigt …` / `bevestigt …` | `bekrachtigd` / `bevestigd` |
+| `verklaart … niet-ontvankelijk` / `… ongegrond` / `… gegrond` | `niet-ontvankelijk` / `ongegrond` / `gegrond` |
+| `wijst het verzoek (de vordering, het gevorderde) af` / `… toe` | `afgewezen` / `toegewezen` |
+
+Any other first clause (`verklaart bewezen`, `veroordeelt`, `bepaalt bij wijze van voorlopige
+voorziening`, `houdt iedere verdere beslissing aan`) gives none. `outcome_text` is the clause
+(at most 300 characters), `outcome_paragraph_id` its paragraph.
+
+`conclusion_outcome` is what a conclusion proposes: the last sentence with "conclusie strekt",
+"in overweging", "concludeer (ik) tot" or "concludeer ik … Uw Raad" names it by the first word
+of a kind after those words: `verwerping`, `vernietiging` (`vernietiging en verwijzing` with a
+(terug)verwijzing), `niet-ontvankelijkverklaring`, `ongegrondverklaring`, `gegrondverklaring`,
+`beantwoording` (of preliminary questions). `conclusion_outcome_text` is the sentence.
+
+Of an ECHR judgment `echr_findings` is what it found per article, read from `conclusion`
+(`core/echr_findings.py`): per "Violation of Article 8 - …" or "No violation of …" (in French
+"Violation de l'article", "Non-violation de"), split at the `;` outside parentheses, `{article,
+protocol, combined_with, finding, aspect, text}`: `finding` `schending` or `geen schending`,
+`combined_with` the article of `13+8-1`, `aspect` `materieel` or `procedureel`. Its `outcome`
+is `schending` when one finding is, else `geen schending`, with that finding as
+`outcome_text`; null without a finding on an article.
+
+`parties` is what the kop names, in its order (`core/judgment_parties.py`), then a party the
+account of the procedure hears "als partij" that the kop does not name (`core/judgment_counsel.py`),
+a list of `{name, role, roles, role_stated, side, alias, representatives}`; empty when neither names
+one:
 
 | Field | Meaning |
 |-------|---------|
@@ -469,7 +523,7 @@ role, roles, role_stated, side, alias, representatives}`; empty when the kop nam
 | `role_stated` | the judgment names the role: a role line ("EISERS in eerste aanleg,", which holds for every party above it since the one before), a role behind the name (", eiser", "(appellante)", "hierna: de verdachte"), the opener ("Uitspraak op het hoger beroep van:"), a list of designations ("verzoekster 1 als: [X]") or an anonymised name that is a role (`[verdachte]`, `[klager 1]`). Otherwise the role is derived from the area of law (the first `subjects`) and the side: Strafrecht `Verdachte`; Civiel recht `Eiser` (`Verzoeker` in a beschikking) against `Verweerder` (`Geïntimeerde` against a stated `Appellant`); Bestuursrecht `Appellant` against `Verweerder`; `Belanghebbende` on no side |
 | `side` | `first` before "tegen" or "en", `second` after it (the verdachte of "in de strafzaak tegen" too), `other` for a belanghebbende that is not the first party. A party of the case an appeal was against ("tegen de uitspraak ... in het geding tussen:") that is not an appellant is on the `second` side; one named again, there or in a joined case, is one party |
 | `alias` | what the judgment calls it: `EBN` for "hierna: EBN", distributed over "hierna respectievelijk: de Maatschap en NAM", or a short name in parentheses whose letters are in the name (`(Uwv)`) |
-| `representatives` | `{name, role}`, `role` `advocaat` or `gemachtigde`: "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one |
+| `representatives` | `{name, role, place, capacity}`, who acts for the party: in the kop "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one; in the account of the procedure (the paragraphs before the first heading that is not of the procedure, "Overwegingen") "[X], bijgestaan door mr. Y, advocaat te Z", "verweerder, vertegenwoordigd door mr. W, ambtenaar in dienst van de provincie", "de verdachte en zijn raadsman, mr. V", "Namens de verdachte heeft mr. U, advocaat te T, ... cassatie", for the party named closest before it (by its name, alias, head, "het college", or role word; one of several of a role in the singular gets no one), each person once. `name` as written, titles and all (`mr. drs. R. van Gelder`, `mr. R. van der Meulen MPM`); `role` the word the text gives, `advocaat`, `raadsman` (in a criminal case only; elsewhere `gemachtigde`), else `gemachtigde` for who represents a party and `raadsman` for who assists a suspect; `place` where they practise ("te Voorschoten"), `capacity` what else the text calls them ("ambtenaar in dienst van de provincie", "rechtsbijstandverlener"), each null when it gives none. An expert, interpreter or witness is no representative |
 
 A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
 article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
@@ -483,9 +537,25 @@ reading order:
 | `qualifier` | what the citation says of the article's parts, as written: `derde lid` |
 | `leden`, `onderdelen`, `aanhef` | what the qualifier names, as in the part ids of an article (`core/qualifiers.py`) |
 | `snippet`, `confidence` | the text around the citation; 0.95 for a law named by its code or its title, less for a law that is found by "die wet" |
+| `snippet_start` | where `snippet` starts in that text: `snippet[start - snippet_start:end - snippet_start]` is `raw_match`, so a passage shows without the text |
 
-A Tweede Kamer document's edge to an article has `meta.raw_match`, `snippet`, `reason`, `qualifier`,
-`leden`, `onderdelen` and `aanhef` of the first citation of that article.
+A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak-citations`) has
+`meta.mentions` and `meta.mention_count` in the same shape, without the qualifier fields, and
+`meta.paragraphs`, the numbers of their paragraphs, each once.
+
+A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
+`reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+
+| Field | Meaning |
+|-------|---------|
+| `part` | `title`, `text` or `footnote` |
+| `start`, `end` | the citation as written: `[start:end]` of that part (of `text`, or of the footnote's `text`) |
+| `section_id` | in `text`: the innermost section it stands in |
+| `footnote`, `footnote_id` | in a footnote: its number as printed, and its `id` (`fn-<n>`, unique where the number is not) |
+
+`snippet` is of that part alone. `place` is null for a citation that runs from one part into the
+next (the text read joins them with a line break).
 
 ## Parliament
 
@@ -554,6 +624,7 @@ Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that 
 | `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
 | `identifier`, `year`, `bwb_id` | of a Staatsblad or Staatscourant publication |
 | `summary`, `submitted_on`, `debate`, `status`, `motion_url`, `pdf_url` | of a motion of the Eerste Kamer, from its page (`normalize eerstekamer-motions`): what it asks as the page opens ("In deze motie wordt de regering verzocht …"), the day it was submitted, the debate it was submitted at, its `behandelstatus` (`verworpen`, `aangenomen`, `aangehouden`, as the Kamer writes it), its page and its PDF; its signers are its `actors` (`Eerste ondertekenaar`, `Mede ondertekenaar`, with the `person_id` of their member) and `AUTHORED` from each member |
+| `outcome`, `decided_on`, `tally`, `decision` | of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/paper_outcomes.py`): of the decisions taken on it (the paper is the oldest of the case a decision singled out, or the Kamerstuk a vote of the Eerste Kamer is `ABOUT`) a vote before a decision without one, the latest first: `aangenomen` or `verworpen` by `passed`, else `ingetrokken`, `aangehouden` or `vervallen` by its `BesluitSoort` (`Stemmen - uitstellen` is none); without a decision the outcome its `status` names (a motion of the Eerste Kamer); else `vervangen` when a newer paper replaces it (`REVISES`, rule `vervanging`). `decided_on`, `tally` (seats per choice) and `decision` (its key) are those of the decision that gave it, null without one |
 
 ### Activity (`activities`)
 
@@ -590,7 +661,7 @@ One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 | Prop | Meaning |
 |------|---------|
 | `number` | `TZ202603-130`, how the Kamer cites it |
-| `text`, `made_on`, `activity_number` | the commitment, the day it was made and its activity |
+| `text`, `made_on`, `activity_number` | the commitment, the day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate: the day it was made is that of its activity) and its activity |
 | `minister_name`, `minister_role`, `ministry_name` | as the Kamer writes them (`Toezegging.Ministerie`) |
 | `expected_resolution` | `0001-01-01` when the Kamer names none |
 | `status` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen` |
@@ -702,8 +773,9 @@ on the Document of the paper (`meta.document` of the raw record):
 | `xml_dialect` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on) |
 | `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
 | `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
-| `footnotes` | `[{number, text}]` in document order |
+| `footnotes` | `[{number, text, at}]` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names) |
 | `dictum` | of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before, and in `lg_document_light` |
+| `explanation` | of an amendment, what it is for: the first paragraph of its section headed "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment ("stelt het volgende (sub)amendement voor", "(Gewijzigd) (sub)amendement van het lid") or without a Toelichting |
 | `sections` | the headings of the paper, in document order, as below |
 
 The XML has no element for an article: the artikelsgewijs part of a memorandum is a run of
@@ -825,8 +897,9 @@ it names the node's table (`n.collection = 'documents'`), or reads the node thro
 (`tests/test_nodes_view_joins.py` keeps it so).
 
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
-`ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
-with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
+`ministry`, `factions`, `labels`, and its title (of a publication with the names of the laws it
+changes or enacts, and the official title of a law it enacts) and that of its first dossier in
+lower case, with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
 feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
 /api/feed` under `q` its total and facets.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
@@ -858,7 +931,7 @@ lists filter and sort on, and for `/api/judgments` one index per filter that hol
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
-publications), the documents newest first, and the member lists in name order. The judgments citing a law or an article dated and filtered from an index alone (`judgments_citing`: `id` with `date_eff`, `ecli`, `court_code`, `tier` and `inbound_citation_count`; a row of `judgments` holds its text). A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) and a zaak by its number (`cases_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
+publications), the documents newest first, and the member lists in name order. The judgments citing a law or an article dated and filtered from an index alone (`judgments_citing`: `id` with `date_eff`, `ecli`, `court_code`, `tier` and `inbound_citation_count`; a row of `judgments` holds its text). A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) a zaak by its number (`cases_number`) and an activity by its number (`activities_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
 `(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
 with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
 `/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours

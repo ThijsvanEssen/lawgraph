@@ -205,18 +205,22 @@ def get_node_with_neighbors(
     offset: int = 0,
     canvas: bool = False,
     wait_for_lids: bool = True,
+    passages: bool = False,
 ) -> NodeGraphData:
     """A node with its neighbours, in buckets of one relation, direction and collection.
 
     ``limit`` and ``offset`` page inside every bucket; a bucket says how many edges it has
     and where its next page starts. With *canvas* a neighbour has only the props and the
-    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``). Without
+    edge ``meta`` the canvas of the explorer reads (``_rows.CANVAS_PROPS``); with
+    *passages* the ``meta`` of an edge has its ``passages`` (``_rows.mentioned_passages``). Without
     *wait_for_lids* an article's lid counts that are not kept yet are left out
     (``lid_counts_pending``) and counted on in the background, for the next request.
     """
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["_id"], filters)
-    pages = _read_pages(store, node["_id"], filters, facets, limit, offset, canvas)
+    pages = _read_pages(
+        store, node["_id"], filters, facets, limit, offset, canvas, passages
+    )
     lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
     if collection == "articles":
         lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
@@ -433,9 +437,11 @@ def _read_pages(
     limit: int,
     offset: int,
     canvas: bool = False,
+    passages: bool = False,
 ) -> dict[tuple[str | None, str, str], list[NeighborEntry]]:
     """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far;
-    with *canvas* only what the canvas of the explorer reads of them.
+    with *canvas* only what the canvas of the explorer reads of them, with *passages* the
+    passages of their edges.
 
     One query per request: each facet reads its own page of edges in key order, so that a
     page is the same on every request. ``limit`` and ``offset`` count edges, so an edge
@@ -512,7 +518,7 @@ def _read_pages(
     for row in store.query(statement, params, index_order=True):
         entry = NeighborEntry(
             doc=light_node_doc(row),
-            edge=edge_doc({**row, "key": row["edge_key"]}),
+            edge=edge_doc({**row, "key": row["edge_key"]}, passages),
             direction=row["direction"],
         )
         pages.setdefault(
@@ -554,6 +560,7 @@ def get_node_neighborhood(
     cap: int = 200,
     filters: NeighborFilter = NO_FILTER,
     canvas: bool = False,
+    passages: bool = False,
 ) -> dict[str, Any]:
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
@@ -563,7 +570,8 @@ def get_node_neighborhood(
     kept). The result also carries every other edge of those relations and that status
     between two of the nodes kept, so the frontend can render the full subgraph. With
     *canvas* a node carries only the props the canvas of the explorer draws
-    (``_rows.CANVAS_PROPS``), as a neighbour of ``props=canvas`` does.
+    (``_rows.CANVAS_PROPS``), as a neighbour of ``props=canvas`` does; with *passages* an
+    edge's ``meta`` has its ``passages``.
     """
     focal = _load_node(store, collection, key)
     props = canvas_props("n") if canvas else light_props("n")
@@ -606,7 +614,7 @@ def get_node_neighborhood(
     return {
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
-        "edges": [light_edge_doc(row) for row in edges],
+        "edges": [light_edge_doc(row, passages) for row in edges],
         "buckets": _buckets(store, focal["_id"], filters, {row["id"] for row in nodes}),
     }
 

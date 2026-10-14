@@ -16,6 +16,7 @@ from lawgraph.core.documents import (
     paper_number,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import submitters
 
@@ -134,6 +135,51 @@ class SectionDTO(BaseModel):
     char_end: int
 
 
+class DocumentFootnoteDTO(BaseModel):
+    """A footnote of a paper, which ``text`` does not hold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        description="`fn-<n>`, its place among the footnotes (`fn-1` the first): what a "
+        "citation in it names (`meta.place.footnote_id` of a `REFERS_TO` edge). Unique in "
+        "the paper; `label` is not, a paper of before 2010 numbers its footnotes per page."
+    )
+    label: str | None = Field(None, description="Its number as printed: `3`.")
+    text: str
+    at: int | None = Field(
+        None,
+        description="Where its marker stands in `text`: `text[:at]` are the words before "
+        "it. Null for a footnote whose marker is not in the text (one of the header) and "
+        "for a paper read before markers were kept.",
+    )
+    section_id: str | None = Field(
+        None, description="The innermost section that holds `at`."
+    )
+
+
+def document_footnotes(props: dict[str, Any]) -> list[DocumentFootnoteDTO]:
+    """The footnotes of a paper (``props.footnotes``), in their order."""
+    sections = props.get("sections") or []
+    length = len(props.get("text") or "")
+    found: list[DocumentFootnoteDTO] = []
+    for index, note in enumerate(props.get("footnotes") or []):
+        if not isinstance(note, dict) or not note.get("text"):
+            continue
+        at = note.get("at")
+        at = at if isinstance(at, int) and 0 <= at <= length else None
+        found.append(
+            DocumentFootnoteDTO(
+                id=footnote_id(index),
+                label=note.get("number") or None,
+                text=str(note["text"]),
+                at=at,
+                section_id=section_at(sections, at) if at is not None else None,
+            )
+        )
+    return found
+
+
 class ExplainedTargetDTO(BaseModel):
     """What an explanatory document explains: an article, or a law as a whole.
 
@@ -188,7 +234,59 @@ _REPLACED_BY = (
 )
 
 
-class DocumentTextResponse(DocumentOrigin):
+PaperOutcome = Literal[
+    "aangenomen", "verworpen", "ingetrokken", "aangehouden", "vervallen", "vervangen"
+]
+
+_DICTUM = (
+    "Of a motion, what it asks or says, as it writes it: the lines from ``verzoekt``, "
+    "``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to ``en gaat over tot "
+    "de orde van de dag``; null for any other paper and for a motion without text."
+)
+
+
+class PaperOutcomeFields(BaseModel):
+    """How a motion or an amendment ended, and what it says in a line (``semantic
+    tk-paper-outcomes``, ``core/paper_outcomes.py``); every field null for any other paper."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dictum: str | None = Field(None, description=_DICTUM)
+    explanation: str | None = Field(
+        None,
+        description="Of an amendment, what it is for: the first paragraph of its "
+        "Toelichting, whole sentences up to 400 characters; null for any other paper and "
+        "for an amendment without text.",
+    )
+    outcome: PaperOutcome | None = Field(
+        None,
+        description="How the Kamer decided on it: ``aangenomen``, ``verworpen`` (by its "
+        "vote; the latest vote when there were several), ``ingetrokken``, ``aangehouden``, "
+        "``vervallen`` (a decision without a vote), else the status the page of a motion of "
+        "the Eerste Kamer states; ``vervangen`` for a paper without one that a newer paper "
+        "replaces (``replaced_by``); null while nothing was decided.",
+    )
+    decided_on: str | None = Field(
+        None, description="The date of the decision that gave ``outcome``."
+    )
+    tally: dict[str, int] | None = Field(
+        None,
+        description='The seats per choice of that vote (``{"Voor": 150}``, members on a '
+        "roll call), as ``/api/decisions/{key}`` gives them; null without votes (a "
+        "hamerstuk, a motion held).",
+    )
+    decision: str | None = Field(
+        None,
+        description="The key of that decision (``/api/decisions/{key}``); null without one.",
+    )
+
+
+def outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """The ``PaperOutcomeFields`` of a paper with these props (or the row of a list)."""
+    return {name: values.get(name) for name in PaperOutcomeFields.model_fields}
+
+
+class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
     """One document with its text.
 
     ``text`` is null until ``normalize tk-content`` has run for it: a paper
@@ -225,18 +323,18 @@ class DocumentTextResponse(DocumentOrigin):
         "Gegevensmagazijn.",
     )
     text: str | None = None
-    dictum: str | None = Field(
-        None,
-        description="Of a motion, what it asks or says, as it writes it: the lines from "
-        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
-        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
-        "motion without text.",
-    )
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
     case_kinds: list[str] = Field(default_factory=list)
     explains: list[ExplainedTargetDTO] = Field(default_factory=list)
     sections: list[SectionDTO] = Field(default_factory=list)
+    footnotes: list[DocumentFootnoteDTO] = Field(
+        default_factory=list,
+        description="The footnotes, in their order, each with where its marker stands in "
+        "`text`. A citation in one (a `REFERS_TO` edge whose `meta.place.part` is "
+        "`footnote`) names it by `footnote_id`, its `start` and `end` offsets into its "
+        "`text`.",
+    )
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
         default_factory=list, description=_REPLACED_BY
@@ -290,8 +388,8 @@ class DocumentTextResponse(DocumentOrigin):
                 else None
             ),
             text=text,
-            dictum=props.get("dictum"),
             sections=readable_sections(text, props.get("sections")),
+            footnotes=document_footnotes(props),
             submitters=[
                 SubmitterDTO(
                     **row,
@@ -313,6 +411,7 @@ class DocumentTextResponse(DocumentOrigin):
                 for d in decisions or []
             ],
             **origin,
+            **outcome_fields(props),
         )
 
 
@@ -342,14 +441,15 @@ class PassageDTO(BaseModel):
     )
     changed: bool | None = Field(
         default=None,
-        description="Whether the dossier changed the article, which corroborates the "
-        "match; a heading naming an article the dossier left alone is often of another "
-        "law. Null for a link made before this was recorded.",
+        description="Whether the dossier changed the article, or established it as an "
+        "article of the law it made, which corroborates the match; a heading naming an "
+        "article the dossier left alone is often of another law. Null for a link made "
+        "before this was recorded.",
     )
     explanation: str | None = Field(
         default=None,
         description="What the match rests on, in Dutch: the heading, and whether the "
-        "dossier changed the article.",
+        "dossier changed the article or established it.",
     )
 
 
@@ -373,7 +473,7 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
     ]
 
 
-class DocumentListItemDTO(WithPath):
+class DocumentListItemDTO(PaperOutcomeFields, WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
     model_config = ConfigDict(extra="forbid")
@@ -419,13 +519,6 @@ class DocumentListItemDTO(WithPath):
         description="Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste "
         "Kamer paper and a paper without a signature.",
     )
-    dictum: str | None = Field(
-        None,
-        description="Of a motion, what it asks or says, as it writes it: the lines from "
-        "``verzoekt``, ``roept … op``, ``spreekt uit``, ``draagt … op`` or ``vraagt`` to "
-        "``en gaat over tot de orde van de dag``; null for any other paper and for a "
-        "motion without text.",
-    )
 
     @classmethod
     def from_row(
@@ -448,7 +541,7 @@ class DocumentListItemDTO(WithPath):
             title=row.get("title"),
             session_year=row.get("session_year"),
             sender=sender_of(row),
-            dictum=row.get("dictum"),
+            **outcome_fields(row),
         )
 
 

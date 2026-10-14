@@ -37,7 +37,7 @@ class JudgmentArticleRelation:
 class JudgmentDetailData:
     judgment: dict[str, Any]
     articles: list[JudgmentArticleRelation]
-    # the judgments it cites (REFERS_TO), as slim documents
+    # the judgments it cites (REFERS_TO), as slim documents with the edge's meta
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     # the other publications of the same decision (SAME_AS, either way), as slim documents
     same_as: list[dict[str, Any]] = field(default_factory=list)
@@ -45,7 +45,8 @@ class JudgmentDetailData:
     metadata: dict[str, Any] = field(default_factory=dict)
     # the other judgments of its series (``props.series_id``), as slim documents
     series: list[dict[str, Any]] = field(default_factory=list)
-    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date}`` each
+    # its conclusions (``props.conclusion_eclis``): ``{ecli, author, role, date, outcome,
+    # outcome_text}`` each
     conclusions: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -100,9 +101,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
     return JudgmentDetailData(
         judgment=judgment_doc,
         articles=article_relations,
-        cited_judgments=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_REFERS_TO, both_ways=False
-        ),
+        cited_judgments=_cited_judgments(store, judgment_doc["_id"]),
         same_as=_linked_judgments(
             store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
         ),
@@ -122,9 +121,10 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
 
 
 def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
-    """``{ecli, author, role, date}`` of each conclusion a judgment names, in its order: the
-    A-G or P-G and the date its light node gives (``lg_judgment_light``, never its text);
-    a conclusion the graph lacks is its ECLI alone."""
+    """``{ecli, author, role, date, outcome, outcome_text}`` of each conclusion a judgment
+    names, in its order: the A-G or P-G, the date and what it proposes its light node gives
+    (``lg_judgment_light``, never its text); a conclusion the graph lacks is its ECLI
+    alone."""
     named = [str(e) for e in eclis or [] if e]
     if not named:
         return []
@@ -144,6 +144,8 @@ def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
             "author": found[ecli].get("advocate_general"),
             "role": found[ecli].get("advocate_general_role"),
             "date": found[ecli].get("date"),
+            "outcome": found[ecli].get("conclusion_outcome"),
+            "outcome_text": found[ecli].get("conclusion_outcome_text"),
         }
         for ecli in named
     ]
@@ -155,6 +157,31 @@ def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
     return node_doc(
         {f: row[f"i_{f}"] for f in ("id", "key", "type", "labels", "props")}
     )
+
+
+def _cited_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]]:
+    """The judgments *judgment_id* cites (``REFERS_TO``), as ``_linked_judgments`` gives
+    them, each with the ``meta`` and ``confidence`` of its edge: where it is cited."""
+    rows = store.query(
+        """
+        SELECT json_build_object(
+            '_id', j.id,
+            '_key', j.key,
+            'props', json_build_object(
+                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
+            ),
+            'meta', e.doc -> 'meta',
+            'confidence', e.doc -> 'confidence'
+        )
+        FROM edges e
+        JOIN judgments j ON j.id = e.to_id
+        WHERE e.from_id = %(jid)s AND e.relation = %(relation)s
+          AND e.to_collection = 'judgments'
+        ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
+        """,
+        {"jid": judgment_id, "relation": RELATION_REFERS_TO},
+    )
+    return list(rows)
 
 
 def _linked_judgments(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
+    JudgmentCitedJudgment,
     JudgmentConclusionDTO,
     JudgmentDetailResponse,
     JudgmentDTO,
@@ -23,7 +24,7 @@ from lawgraph.api.schemas.judgments import (
     RelatedJudgmentDTO,
     mentions_of,
 )
-from lawgraph.config.constants import COLLECTION_ARTICLES
+from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import mention_texts
 from lawgraph.db import GraphStore
@@ -189,20 +190,30 @@ def get_judgment_detail(
     ]
 
     judgment = JudgmentDTO.from_document(data.judgment)
-    citations = _citations_by_paragraph(data.articles)
+    spans = _citation_spans(data.articles, data.cited_judgments)
     judgment = judgment.model_copy(
         update={
             "paragraphs": [
                 paragraph.model_copy(
-                    update={"citations": citations.get(paragraph.paragraph_id, [])}
+                    update={"citations": spans.get((paragraph.paragraph_id, None), [])}
                 )
                 for paragraph in judgment.paragraphs
-            ]
+            ],
+            "footnotes": [
+                note.model_copy(
+                    update={
+                        "citations": spans.get(
+                            (note.paragraph_id or f"fn-{note.label}", note.label), []
+                        )
+                    }
+                )
+                for note in judgment.footnotes
+            ],
         }
     )
 
     cited_judgments = [
-        JudgmentSummaryDTO.from_document(doc) for doc in data.cited_judgments
+        JudgmentCitedJudgment.from_citation(doc, texts) for doc in data.cited_judgments
     ]
 
     return JudgmentDetailResponse(
@@ -218,38 +229,60 @@ def get_judgment_detail(
     )
 
 
-def _citations_by_paragraph(
-    relations: list[JudgmentArticleRelation],
-) -> dict[str, list[ArticleCitationSpan]]:
-    """The stored mentions of every cited article, as the citation spans of their paragraph.
+def _citation_spans(
+    relations: list[JudgmentArticleRelation], cited: list[dict[str, Any]]
+) -> dict[tuple[str, str | None], list[ArticleCitationSpan]]:
+    """The stored mentions of every cited article and judgment, as citation spans, by
+    ``(paragraph_id, footnote)``: a paragraph's own under ``None``, a footnote's under its
+    label (``core.mentions.mention_texts``).
 
-    Detected when the judgment was linked (``semantic rechtspraak``), so serving one costs
-    no detection.
+    Detected when the judgment was linked (``semantic rechtspraak``, ``semantic
+    rechtspraak-citations``), so serving one costs no detection.
     """
-    spans: dict[str, list[ArticleCitationSpan]] = {}
-    for relation in relations:
-        props = relation.article.get("props") or {}
-        target = ArticleCitationTarget(
-            id=relation.article["_id"],
-            key=relation.article["_key"],
-            collection=COLLECTION_ARTICLES,
-            bwb_id=props.get("bwb_id"),
-            article_number=props.get("article_number"),
-            display_name=props.get("display_name"),
-        )
-        for mention in mentions_of(relation.meta):
-            if mention.footnote:
-                continue  # its offsets are in the text of the footnote, not the paragraph
-            spans.setdefault(mention.paragraph_id, []).append(
+    spans: dict[tuple[str, str | None], list[ArticleCitationSpan]] = {}
+
+    def add(target: ArticleCitationTarget, meta: dict[str, Any], kind: str) -> None:
+        for mention in mentions_of(meta):
+            spans.setdefault((mention.paragraph_id, mention.footnote), []).append(
                 ArticleCitationSpan(
                     start=mention.start,
                     end=mention.end,
                     text=mention.raw_match,
                     target=target,
+                    kind=kind,
                     confidence=mention.confidence,
                     **mention.parts.to_dict(),
                 )
             )
-    for paragraph_spans in spans.values():
-        paragraph_spans.sort(key=lambda span: span.start or 0)
+
+    for relation in relations:
+        props = relation.article.get("props") or {}
+        add(
+            ArticleCitationTarget(
+                id=relation.article["_id"],
+                key=relation.article["_key"],
+                collection=COLLECTION_ARTICLES,
+                bwb_id=props.get("bwb_id"),
+                article_number=props.get("article_number"),
+                display_name=props.get("display_name"),
+            ),
+            relation.meta,
+            "article",
+        )
+    for doc in cited:
+        props = doc.get("props") or {}
+        add(
+            ArticleCitationTarget(
+                id=doc["_id"],
+                key=doc["_key"],
+                collection=COLLECTION_JUDGMENTS,
+                bwb_id=None,
+                article_number=None,
+                display_name=props.get("display_name") or props.get("ecli"),
+            ),
+            doc.get("meta") or {},
+            "judgment",
+        )
+    for found in spans.values():
+        found.sort(key=lambda span: span.start or 0)
     return spans

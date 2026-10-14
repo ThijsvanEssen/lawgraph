@@ -20,6 +20,7 @@ leden, onderdelen) refer to ``ArticleXml.text`` (same string).
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Iterator, Mapping
@@ -40,13 +41,17 @@ from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
 # ``effect`` values on an article version, mapped to what the version did. A
+# ``nieuwe-regeling`` is an article of a regulation as it was enacted (art. 1 Cbw, Stb.
+# 2026, 187), a ``nieuw`` one an article added to an existing regulation. A
 # ``tekstplaatsing`` places the text of the article again (the Grondwet as a whole after a
 # revision, Stb. 2019, 33): a republication, which changes no text of its own.
+EFFECT_ESTABLISHES = "establishes"
 EFFECT_INTRODUCES = "introduces"
 EFFECT_AMENDS = "amends"
 EFFECT_REPEALS = "repeals"
 EFFECT_REPUBLISHES = "republishes"
 _EFFECT_KIND = {
+    "nieuwe-regeling": EFFECT_ESTABLISHES,
     "nieuw": EFFECT_INTRODUCES,
     "wijziging": EFFECT_AMENDS,
     "tekstplaatsing-wijziging": EFFECT_REPUBLISHES,
@@ -56,8 +61,8 @@ _EFFECT_KIND = {
 
 
 def effect_kind(effect: str | None) -> str | None:
-    """``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a BWB ``effect``,
-    else None."""
+    """``establishes`` / ``introduces`` / ``amends`` / ``repeals`` / ``republishes`` for a
+    BWB ``effect``, else None."""
     return _EFFECT_KIND.get(effect or "")
 
 
@@ -1075,8 +1080,28 @@ def celex_refs(toestand_xml: str) -> list[str]:
     return sorted(named)
 
 
+def expiry_date(end_date: str | None, read_at: str | None) -> str | None:
+    """The first day a regulation is no longer in force (repealed or lapsed), from the SRU
+    record of the toestand that counted as current when it was read at *read_at*: the day
+    after its ``geldigheidsperiode_einddatum`` (*end_date*) when that had passed by then.
+    None while the regulation is in force: its current toestand runs to 9999-12-31, or to
+    the day before a toestand still to come. Of a repealed regulation the current toestand
+    is the last there was (``BWBClient``): the Huurwet's ran to 2003-07-31, so it expired on
+    2003-08-01."""
+    try:
+        end = dt.date.fromisoformat(str(end_date or "")[:10])
+        read = dt.date.fromisoformat(str(read_at or "")[:10])
+    except ValueError:
+        return None
+    return (end + dt.timedelta(days=1)).isoformat() if end < read else None
+
+
 def instrument_props(
-    toestand: ToestandXml, bwb_id: str, *, celex_refs: Iterable[str] = ()
+    toestand: ToestandXml,
+    bwb_id: str,
+    *,
+    celex_refs: Iterable[str] = (),
+    date_expired: str | None = None,
 ) -> dict[str, Any]:
     """Props of the Instrument node for a regulation.
 
@@ -1090,7 +1115,8 @@ def instrument_props(
     ``date_signed``, ``date_published``, ``date_in_force`` and ``dossier_numbers`` are those
     of the regulation as it was enacted (``ToestandXml.enacted``), always written (null or
     empty when the toestand does not say them); ``version_date_in_force`` is the start of
-    the toestand.
+    the toestand. ``date_expired`` (``expiry_date``) is always written, null for a
+    regulation in force.
     """
     enacted = toestand.enacted
     title = toestand.title or f"BWB-regeling {bwb_id}"
@@ -1119,6 +1145,7 @@ def instrument_props(
         "date_signed": enacted.signed if enacted else None,
         "date_published": enacted.published if enacted else None,
         "date_in_force": toestand.enacted_in_force,
+        "date_expired": date_expired,
         "dossier_numbers": list(enacted.dossiers) if enacted else [],
         "enacted_publication": (enacted.identifier or None) if enacted else None,
     }

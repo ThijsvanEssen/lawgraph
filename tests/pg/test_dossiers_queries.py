@@ -34,6 +34,7 @@ from lawgraph.config.constants import (
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LED_BY,
@@ -786,6 +787,83 @@ def test_the_routes_answer_from_the_real_graph(store: GraphStore) -> None:
         app.dependency_overrides.pop(get_store, None)
 
 
+def test_the_hub_names_the_law_its_publication_established(store: GraphStore) -> None:
+    """Dossier 36764: Stb. 2026, 187 enacted the Cyberbeveiligingswet (``ESTABLISHES``
+    its articles) and changed the Telecommunicatiewet. The Cbw is the dossier's own law,
+    also when its BWB text names no dossier; only the Tw is a law it changes."""
+    g = Graph(store)
+    dossier = g.node("dossiers", "36764", number="36764", label="36764")
+    cbw = g.node(
+        "instruments",
+        "bwbr0052872",
+        bwb_id="BWBR0052872",
+        display_name="Cyberbeveiligingswet",
+        citation_title="Cyberbeveiligingswet",
+        jurisdiction="nl",
+    )
+    tw = g.node(
+        "instruments",
+        "bwbr0009950",
+        bwb_id="BWBR0009950",
+        display_name="Telecommunicatiewet",
+        citation_title="Telecommunicatiewet",
+        jurisdiction="nl",
+    )
+    articles = {
+        key: g.node("articles", key, bwb_id=bwb)
+        for key, bwb in (
+            ("bwbr0052872_1", "BWBR0052872"),
+            ("bwbr0052872_16", "BWBR0052872"),
+            ("bwbr0009950_7", "BWBR0009950"),
+        )
+    }
+    for key, law in (
+        ("bwbr0052872_1", cbw),
+        ("bwbr0052872_16", cbw),
+        ("bwbr0009950_7", tw),
+    ):
+        g.edge(articles[key], RELATION_PART_OF, law)
+    stb = g.node(
+        "instruments",
+        "stb_2026_187",
+        publication_kind="Stb",
+        display_name="Stb. 2026, 187",
+    )
+    g.edge(stb, RELATION_LEGISLATED_IN, dossier)
+    g.edge(
+        stb, RELATION_ESTABLISHES, articles["bwbr0052872_1"], effect="nieuwe-regeling"
+    )
+    g.edge(
+        stb, RELATION_ESTABLISHES, articles["bwbr0052872_16"], effect="nieuwe-regeling"
+    )
+    g.edge(stb, RELATION_AMENDS, articles["bwbr0009950_7"])
+    g.write()
+
+    hub = get_dossier_hub(store, dossier)
+    rows = [(i["display_name"], i["relation"]) for i in hub["instruments"]]
+    assert rows == [
+        ("Cyberbeveiligingswet", "establishes"),
+        ("Telecommunicatiewet", "amends"),
+    ]
+
+    # with the law's own dossierref as well: legislated in it, and established by it
+    g.edge(cbw, RELATION_LEGISLATED_IN, dossier)
+    g.write()
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get("/api/dossiers/36764").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    (own, changed) = body["instruments"]
+    assert (own["key"], own["relation"]) == ("bwbr0052872", "legislated_in")
+    assert [link["relation"] for link in own["links"]] == [
+        "legislated_in",
+        "establishes",
+    ]
+    assert (changed["key"], changed["relation"]) == ("bwbr0009950", "amends")
+    assert [law["key"] for law in body["legal_effect"]["amends"]] == ["bwbr0009950"]
+
+
 # ── list ──
 
 TITLE = (
@@ -1267,6 +1345,12 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "display_name",
         "source",
         "actors",
+        "dictum",
+        "explanation",
+        "outcome",
+        "decided_on",
+        "tally",
+        "decision",
         "labels",
     ]
     assert (a["id"], a["title"], a["sequence"], a["labels"]) == (

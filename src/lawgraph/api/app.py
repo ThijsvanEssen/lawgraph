@@ -23,6 +23,7 @@ from starlette.responses import Response as StarletteResponse
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
+    activities,
     annexes,
     articles,
     committees,
@@ -321,7 +322,7 @@ class _RateLimitMiddleware:
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.54",
+    version="0.79.55",
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -341,6 +342,7 @@ for _name, _router in (
     ("ministries", government.ministries_router),
     ("cabinets", government.cabinets_router),
     ("commitments", government.commitments_router),
+    ("activities", activities.router),
     ("parties", parliament.party_router),
     ("relationships", relationships.router),
     ("annexes", annexes.router),

@@ -19,7 +19,6 @@ from typing import Any
 from lawgraph.core.citations import (
     CitationHit,
     hit_reason,
-    make_snippet,
     snippet_bounds,
 )
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier
@@ -49,22 +48,28 @@ class Mention:
     qualifier: str | None  # as written: "derde lid"
     parts: Qualifier  # what the qualifier names: leden, onderdelen, aanhef
     snippet: str
+    # where ``snippet`` stands in that text: ``snippet[start - snippet_start:end -
+    # snippet_start]`` is ``raw_match``; None for a mention stored without it
+    snippet_start: int | None
     confidence: float
     # the label of the footnote that cites it, the referring paragraph its paragraph: start
     # and end are then offsets into the text of the footnote
     footnote: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        """The mention as stored in ``meta.mentions`` of the edge."""
+    def to_dict(self, *, parts: bool = True) -> dict[str, Any]:
+        """The mention as stored in ``meta.mentions`` of the edge; without the lid and
+        onderdeel (*parts*) for a citation of what has none, a judgment."""
         stored: dict[str, Any] = {
             "paragraph_id": self.paragraph_id,
             "start": self.start,
             "end": self.end,
             "raw_match": self.raw_match,
-            **self.parts.to_dict(),
+            **(self.parts.to_dict() if parts else {}),
             "snippet": self.snippet,
             "confidence": self.confidence,
         }
+        if self.snippet_start is not None:
+            stored["snippet_start"] = self.snippet_start
         if self.paragraph_number:
             stored["paragraph_number"] = self.paragraph_number
         if self.qualifier:
@@ -84,6 +89,56 @@ class Mention:
             return None
         return self.start - begin, self.end - begin
 
+    def passage(self) -> dict[str, Any] | None:
+        """The mention as a passage to show without the text of the judgment: its paragraph
+        (``paragraph_id``, ``paragraph_number``, ``footnote``), ``snippet``, the citation as
+        written (``text``) and where it stands in the snippet (``start``, ``end``:
+        ``snippet[start:end]`` is ``text``). None for a mention stored without
+        ``snippet_start``, or whose snippet does not hold it there."""
+        if self.snippet_start is None:
+            return None
+        start, end = self.start - self.snippet_start, self.end - self.snippet_start
+        if start < 0 or self.snippet[start:end] != self.raw_match:
+            return None
+        return {
+            "paragraph_id": self.paragraph_id,
+            "paragraph_number": self.paragraph_number,
+            "footnote": self.footnote,
+            "snippet": self.snippet,
+            "text": self.raw_match,
+            "start": start,
+            "end": end,
+        }
+
+    @classmethod
+    def read(
+        cls,
+        paragraph: Mapping[str, Any],
+        text: str,
+        span: tuple[int, int],
+        *,
+        confidence: float,
+        qualifier: str | None = None,
+    ) -> Mention:
+        """The mention ``text[span[0]:span[1]]`` of *paragraph* (``{id, number}``, a
+        footnote with its ``footnote`` label, as :func:`find_mentions` reads them), *text*
+        its text, with its snippet cut by ``core.citations.snippet_bounds``."""
+        start, end = span
+        begin, finish = snippet_bounds(text, span)
+        return cls(
+            paragraph_id=str(paragraph["id"]),
+            paragraph_number=_text(paragraph.get("number")),
+            start=start,
+            end=end,
+            raw_match=text[start:end],
+            qualifier=qualifier,
+            parts=parse_qualifier(qualifier),
+            snippet=text[begin:finish],
+            snippet_start=begin,
+            confidence=confidence,
+            footnote=_text(paragraph.get("footnote")),
+        )
+
     @classmethod
     def from_dict(cls, stored: Any) -> Mention | None:
         """Read :meth:`to_dict` back; ``None`` for anything that is not a mention."""
@@ -94,7 +149,10 @@ class Mention:
             stored.get("end"),
             stored.get("confidence"),
         )
-        paragraph_id = stored.get("paragraph_id")
+        paragraph_id, snippet_start = (
+            stored.get("paragraph_id"),
+            stored.get("snippet_start"),
+        )
         if not (
             isinstance(paragraph_id, str)
             and isinstance(start, int)
@@ -111,6 +169,7 @@ class Mention:
             qualifier=_text(stored.get("qualifier")),
             parts=Qualifier.from_dict(stored),
             snippet=str(stored.get("snippet") or ""),
+            snippet_start=snippet_start if isinstance(snippet_start, int) else None,
             confidence=float(confidence),
             footnote=_text(stored.get("footnote")),
         )
@@ -121,8 +180,9 @@ def footnote_paragraphs(
 ) -> list[dict[str, Any]]:
     """The footnotes of a judgment (``core.judgments.judgment_text``) as paragraphs for
     :func:`find_mentions`: a citation in a footnote counts for the paragraph that refers
-    to it (its id and number), with the footnote's label; one nothing refers to is a
-    paragraph ``fn-<label>`` of its own."""
+    to it (its id and number; ``referring``, null when none does), with the footnote's
+    label (its place among them when it has none); one nothing refers to is a paragraph
+    ``fn-<label>`` of its own."""
     numbers = {str(p.get("id")): p.get("number") for p in paragraphs}
     found: list[dict[str, Any]] = []
     for note in footnotes:
@@ -134,6 +194,7 @@ def footnote_paragraphs(
                 "number": numbers.get(referring) if referring else None,
                 "text": str(note.get("text") or ""),
                 "footnote": label,
+                "referring": referring,
             }
         )
     return found
@@ -232,7 +293,6 @@ def find_mentions(
         text = texts[index]
         if start >= len(text) or end > len(text):  # in the break, or over it
             continue
-        paragraph = paragraphs[index]
         key = (hit.bwb_id, hit.celex, hit.article_number, hit.unknown_law)
         target = found.get(key)
         if target is None:
@@ -244,17 +304,12 @@ def find_mentions(
                 unknown_law=hit.unknown_law,
             )
         target.add(
-            Mention(
-                paragraph_id=str(paragraph["id"]),
-                paragraph_number=_text(paragraph.get("number")),
-                start=start,
-                end=end,
-                raw_match=text[start:end],
-                qualifier=hit.qualifier,
-                parts=parse_qualifier(hit.qualifier),
-                snippet=make_snippet(text, (start, end)),
+            Mention.read(
+                paragraphs[index],
+                text,
+                (start, end),
                 confidence=hit.confidence,
-                footnote=_text(paragraph.get("footnote")),
+                qualifier=hit.qualifier,
             )
         )
     return found

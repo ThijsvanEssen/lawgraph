@@ -4,6 +4,10 @@ A bill (Document) that says it changes an article gets an AMENDS / INTRODUCES /
 REPEALS edge to that article with status ``voorgesteld``: the change is proposed,
 not yet law. The instrument that eventually enacts it carries the canonical edge,
 written by ``bwb_amendments`` from the BWB metadata.
+
+Not to an article of the act the paper's own dossier made (the instrument ``LEGISLATED_IN``
+it): the bill, its memorandum, a nota van wijziging and its amendments make that act, they do
+not change it. The edges are derived in full on every run; one no longer derived goes.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from typing import Iterable
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
     RELATION_INTRODUCES,
@@ -23,6 +28,7 @@ from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
@@ -146,10 +152,21 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
+        kept: list[str] = []
+        acts = semantic_tk.acts_of_dossiers(self.store)
 
         documents = self._load_tk_documents(amends_index)
         for document in self._track(documents, "TK documents"):
-            bwb_ids = self._resolve_bwb_ids(document, amends_index)
+            own_acts = {
+                act
+                for label in document.props.get("dossier_numbers") or []
+                for act in acts.get(str(label), ())
+            }
+            bwb_ids = [
+                bwb_id
+                for bwb_id in self._resolve_bwb_ids(document, amends_index)
+                if f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}" not in own_acts
+            ]
             if not bwb_ids:
                 logger.debug(
                     "Amendment scanner: no BWB id context for document %s — skipping.",
@@ -194,9 +211,16 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                     )
                     if edge_doc:
                         edges.add_doc(edge_doc)
+                        kept.append(edge_doc["_key"])
 
         edges.flush_into(result)
-
+        removed = sum(
+            semantic_edges.remove_edges_of_source_except(
+                self.store, relation, SEMANTIC_SOURCE, kept
+            )
+            for relation in (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+        )
+        logger.info("Removed %d article changes no longer derived.", removed)
         return result
 
     def _load_tk_documents(self, amends_index: dict[str, list[str]]) -> Iterable[Node]:

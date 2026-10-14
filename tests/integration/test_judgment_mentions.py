@@ -255,3 +255,43 @@ def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None
         "AND relation = 'REFERS_TO'"
     )
     assert list(cited) == ["articles/bwbr0001840_1"]
+
+
+def test_a_neighbour_neighbourhood_and_path_give_the_passages_where_a_judgment_cites(
+    client: TestClient,
+) -> None:
+    article = "articles/bwbr0001840_1"
+    judgment = "judgments/ecli_nl_hr_2020_1"
+    asked = {"relations": "REFERS_TO", "edge_meta": "passages"}
+
+    def neighbour(**params: Any) -> dict[str, Any]:
+        body = client.get(f"/api/nodes/{article}", params=params).json()
+        (row,) = [
+            item
+            for bucket in body["neighbors"]["buckets"]
+            for item in bucket["items"]
+            if item["id"] == judgment
+        ]
+        return row["meta"]
+
+    assert "passages" not in neighbour(relations="REFERS_TO")
+    first, second = neighbour(**asked)["passages"]  # the first place of each paragraph
+    assert (first["paragraph_id"], first["paragraph_number"]) == ("rov-1.1", "1.1")
+    assert (first["text"], second["paragraph_id"]) == (LAW, "rov-1.2")
+    for passage in (first, second):
+        assert passage["snippet"][passage["start"] : passage["end"]] == passage["text"]
+        assert passage["footnote"] is None
+    assert neighbour(**asked, props="canvas")["passages"] == [first, second]
+
+    body = client.get(f"/api/nodes/{article}/neighborhood", params=asked).json()
+    (edge,) = [e for e in body["edges"] if e["source"] == judgment]
+    assert edge["passages"] == [first, second]
+    plain = client.get(f"/api/nodes/{article}/neighborhood", params={"depth": 1}).json()
+    assert all("passages" not in e for e in plain["edges"])
+
+    ids = f"{judgment},{article}"
+    body = client.get("/api/paths", params={"ids": ids, "edge_meta": "passages"}).json()
+    (edge,) = body["edges"]
+    assert edge["passages"] == [first, second]
+    plain = client.get("/api/paths", params={"ids": ids}).json()
+    assert "passages" not in plain["edges"][0]

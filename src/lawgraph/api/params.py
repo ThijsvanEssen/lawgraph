@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from enum import StrEnum
+from typing import Annotated, Literal
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
@@ -18,6 +19,19 @@ CourtKind = StrEnum("CourtKind", {kind: kind for kind in COURT_KINDS})  # type: 
 # A ministry (``core.ministries.MINISTRIES``) and a post in a cabinet (``POSTS``).
 MinistryKey = StrEnum("MinistryKey", {m.key: m.key for m in MINISTRIES})  # type: ignore[misc]
 Post = StrEnum("Post", {post: post for post in POSTS})  # type: ignore[misc]
+
+# What the edges of a graph view (the neighbours of a node, a neighbourhood, paths) carry of
+# their ``meta``: ``light`` as it is, ``passages`` with the passages a judgment cites in
+# (``_rows.mentioned_passages``), so a row or a card shows them without the judgment.
+EdgeMeta = Annotated[
+    Literal["light", "passages"],
+    Query(
+        description="`passages`: an edge that keeps where a judgment cites (its "
+        "`meta.mentions`) has its passages (`paragraph_id`, `paragraph_number`, `footnote`, "
+        "`snippet`, `text`, `start`, `end`: `snippet[start:end]` is `text`), the first "
+        "place in each of its first three paragraphs; `light` (the default) none."
+    ),
+]
 
 
 def parse_choices(

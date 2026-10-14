@@ -25,9 +25,11 @@ from lawgraph.config.constants import (
     EXPLANATORY_KIND_MARKER,
     RELATION_ABOUT,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
+    RELATION_MADE_IN,
     RELATION_PART_OF,
     RELATION_REPEALS,
     RELATION_REVISES,
@@ -35,6 +37,7 @@ from lawgraph.config.constants import (
     RELATION_SECOND_READING_OF,
     SOURCE_EERSTEKAMER,
 )
+from lawgraph.core.models import make_node_key
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import (
@@ -45,7 +48,13 @@ from lawgraph.db.queries.semantic import (
 )
 from lawgraph.db.schema import feed_title
 
-_CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+# What a dossier did to an article: changed it, or set it by enacting a new law.
+_CHANGE_RELATIONS = (
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+    RELATION_ESTABLISHES,
+)
 
 # ``CONTAINS(LOWER(doc.props.kind || ""), marker)`` of the document ``d``: the kind column
 # holds a string kind without reading the payload; another kind is read as its text.
@@ -126,19 +135,33 @@ def second_reading_memoranda(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_SECOND_READING_SQL, {"part_of": RELATION_PART_OF})
 
 
-def tk_documents(store: Store, ids: list[str] | None) -> Iterator[dict[str, Any]]:
-    """The whole Tweede Kamer documents, only those with an external id in *ids* when it is
-    given: ``semantic tk`` scans every text prop of a paper and its API payload."""
-    id_filter = ""
+def tk_documents(
+    store: Store,
+    ids: list[str] | None,
+    *,
+    after: str | None = None,
+    limit: int | None = None,
+) -> Iterator[dict[str, Any]]:
+    """The Tweede Kamer documents with the props ``semantic tk`` reads (title, text,
+    footnotes and the sections that place a citation; not the record they came with), only those with an external id in *ids* when
+    it is given. A slice: past the document key *after*, *limit* of them."""
+    clauses = [f"'{CHAMBER_TK}' = ANY(d.labels)"]
     if ids is not None:
-        id_filter = "AND lg_str(props -> 'external_id') = ANY(%(ids)s::text[])"
+        clauses.append("lg_str(d.props -> 'external_id') = ANY(%(ids)s::text[])")
+    if after:
+        clauses.append("d.key > %(after)s")
     sql = f"""
-        SELECT id, key, type, labels, props
-        FROM {COLLECTION_DOCUMENTS}
-        WHERE '{CHAMBER_TK}' = ANY(labels) {id_filter}
-        ORDER BY key
+        SELECT d.id, d.key, d.type, d.labels,
+               coalesce({_cut("d", "title", "text", "footnotes", "sections")}, '{{}}'::json) AS props
+        FROM {COLLECTION_DOCUMENTS} d
+        WHERE {" AND ".join(clauses)}
+        ORDER BY d.key
+        {"LIMIT %(limit)s" if limit is not None else ""}
         """
-    return (node_doc(row) for row in store.query(sql, {"ids": ids}))
+    return (
+        node_doc(row)
+        for row in store.query(sql, {"ids": ids, "after": after, "limit": limit})
+    )
 
 
 def tk_document_titles(
@@ -187,6 +210,24 @@ def papers_naming_kamerstukken(
     only = "AND d.id = ANY(%(ids)s::text[])" if ids is not None else ""
     return store.query(
         f"{_NAMING_KAMERSTUKKEN_SQL} {only} ORDER BY d.key", {"ids": ids}
+    )
+
+
+def letters_naming_motions(
+    store: Store, kind: str, ids: list[str] | None
+) -> Iterator[dict[str, Any]]:
+    """``{id, text, footnotes}`` of every paper of *kind* (a letter of the government)
+    whose text names a motion ("motie"), by key; only those of *ids* (node ids) when it is
+    given. The kind is a column, the text is read only of those."""
+    only = "AND d.id = ANY(%(ids)s::text[])" if ids is not None else ""
+    return store.query(
+        f"""
+        SELECT d.id, d.props ->> 'text' AS text, d.props -> 'footnotes' AS footnotes
+        FROM {COLLECTION_DOCUMENTS} d
+        WHERE d.kind = %(kind)s AND d.props ->> 'text' ILIKE '%%motie%%' {only}
+        ORDER BY d.key
+        """,
+        {"kind": kind, "ids": ids},
     )
 
 
@@ -248,11 +289,13 @@ def acts_of_dossiers(store: Store) -> dict[str, set[str]]:
 
 
 _TO_SCAN_FOR_AMENDMENTS_SQL = f"""
-SELECT {slim_sql("c", "bwb_id", "text")}
+SELECT {slim_sql("c", "bwb_id", "text", "dossier_numbers")}
 FROM (
     SELECT d.id, d.key, d.type, d.labels, coalesce(p.props, '{{}}'::json) AS props
     FROM {COLLECTION_DOCUMENTS} d
-    CROSS JOIN LATERAL (SELECT {_cut("d", "bwb_id", "text")} AS props OFFSET 0) p
+    CROSS JOIN LATERAL (
+        SELECT {_cut("d", "bwb_id", "text", "dossier_numbers")} AS props OFFSET 0
+    ) p
     WHERE '{CHAMBER_TK}' = ANY(d.labels)
 ) c
 WHERE {present_sql("c.props -> 'text'")}
@@ -266,7 +309,7 @@ def tk_documents_to_scan_for_amendments(
     store: Store, amending: list[str]
 ) -> Iterator[dict[str, Any]]:
     """The Tweede Kamer documents with a text and a law to amend: their own ``bwb_id``, or
-    their id in *amending*."""
+    their id in *amending*; with their ``dossier_numbers``."""
     return store.query(_TO_SCAN_FOR_AMENDMENTS_SQL, {"amending": amending})
 
 
@@ -748,6 +791,76 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_RELATED_CASES_SQL)
 
 
+def case_papers(store: Store, cases: list[str]) -> dict[str, dict[str, Any]]:
+    """Per case of *cases* (TK ids) that is stored: its ``number`` and its ``papers`` of its
+    own kind (a letter of a ``Brief regering``, the motion of a ``Motie``, not an
+    attachment), each ``{id, kind, dossier_number, dossier_suffix, sequence, date}``, by
+    date and id."""
+    found: dict[str, dict[str, Any]] = {}
+    for row in store.query(
+        f"""
+        SELECT lg_str(c.props -> 'external_id') AS case_id,
+               lg_str(c.props -> 'number') AS number,
+               (
+                   SELECT coalesce(json_agg(json_build_object(
+                       'id', l.id, 'kind', l.props -> 'kind',
+                       'dossier_number', l.props -> 'dossier_number',
+                       'dossier_suffix', l.props -> 'dossier_suffix',
+                       'sequence', l.props -> 'sequence', 'date', l.props -> 'date'
+                   ) ORDER BY lg_str(l.props -> 'date') ASC NULLS LAST, l.id), '[]'::json)
+                   FROM {COLLECTION_EDGES} e
+                   JOIN lg_document_light l ON l.id = e.from_id
+                   WHERE e.to_id = c.id AND e.relation = '{RELATION_PART_OF}'
+                     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+                     AND starts_with(coalesce(lg_str(l.props -> 'kind'), ''),
+                                     coalesce(lg_str(c.props -> 'kind'), ''))
+               ) AS papers
+        FROM {COLLECTION_CASES} c
+        WHERE c.key = ANY(%(keys)s::text[])
+        ORDER BY c.key
+        """,
+        {"keys": sorted({make_node_key(case) for case in cases})},
+    ):
+        found[str(row["case_id"])] = {"number": row["number"], "papers": row["papers"]}
+    return found
+
+
+# A motion submitted in a debate: the debate has the motion's case on its agenda
+# (``Agendapunt.Zaak``), was held (``Uitgevoerd``) on the day the case started
+# (``Zaak.GestartOp``, the day it was submitted), and took no decision on it: the vote on a
+# motion is an activity of its own (``Stemmingen``) that has the case on its agenda too.
+_MOTIONS_SUBMITTED_SQL = f"""
+SELECT DISTINCT p.from_id AS paper, a.id AS activity
+FROM {COLLECTION_ACTIVITIES} a
+JOIN {COLLECTION_EDGES} ab ON ab.from_id = a.id AND ab.relation = '{RELATION_ABOUT}'
+    AND ab.to_collection = '{COLLECTION_CASES}'
+JOIN {COLLECTION_CASES} c ON c.id = ab.to_id
+JOIN {COLLECTION_EDGES} p ON p.to_id = c.id AND p.relation = '{RELATION_PART_OF}'
+    AND p.from_collection = '{COLLECTION_DOCUMENTS}'
+JOIN lg_document_light l ON l.id = p.from_id
+WHERE starts_with(coalesce(lg_str(c.props -> 'kind'), ''), %(motion)s)
+  AND starts_with(coalesce(lg_str(l.props -> 'kind'), ''), %(motion)s)
+  AND lg_str(a.props -> 'status') = %(held)s
+  AND a.date = lg_str(c.props -> 'started_on')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM {COLLECTION_EDGES} m
+      JOIN {COLLECTION_EDGES} d ON d.from_id = m.from_id
+          AND d.relation = '{RELATION_ABOUT}' AND d.to_id = c.id
+      WHERE m.to_id = a.id AND m.relation = '{RELATION_MADE_IN}'
+        AND m.from_collection = '{COLLECTION_DECISIONS}'
+  )
+ORDER BY paper NULLS LAST, activity NULLS LAST
+"""
+
+
+def motions_submitted(store: Store, motion: str, held: str) -> Iterator[dict[str, Any]]:
+    """``{paper, activity}``: each motion (a paper of a kind starting with *motion*) and the
+    debate it was submitted in (``_MOTIONS_SUBMITTED_SQL``; *held* is the status of an
+    activity that took place)."""
+    return store.query(_MOTIONS_SUBMITTED_SQL, {"motion": motion, "held": held})
+
+
 def replacing_cases(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, replaces}`` of every case that replaces another (``Zaak.VervangenVanuit``):
     its node id and the TK ids of the cases it replaces."""
@@ -937,5 +1050,41 @@ def person_duplicates(store: Store) -> list[dict[str, Any]]:
             HAVING count(*) = 1
             ORDER BY b.id
             """
+        )
+    )
+
+
+# The edges of *source* from a paper to an act its own dossier made (the act LEGISLATED_IN
+# a dossier the paper is in), or to an article of one: a bill and its papers make that act,
+# they do not change it. From the acts, few, through their dossiers to the papers.
+_OWN_ACT_EDGES_SQL = f"""
+DELETE FROM {COLLECTION_EDGES} e
+USING {COLLECTION_EDGES} l, {COLLECTION_DOSSIERS} ds, {COLLECTION_INSTRUMENTS} act,
+      {COLLECTION_DOCUMENTS} d
+WHERE l.relation = %(legislated_in)s AND l.to_collection = '{COLLECTION_DOSSIERS}'
+  AND ds.id = l.to_id AND ds.label IS NOT NULL
+  AND act.id = l.from_id
+  AND d.dossier_numbers @> ARRAY[ds.label]
+  AND e.from_id = d.id
+  AND e.relation = ANY(%(relations)s) AND e.source = %(source)s
+  AND (e.to_id = act.id OR EXISTS (
+      SELECT 1 FROM {COLLECTION_ARTICLES} a
+      WHERE a.id = e.to_id AND a.bwb_id = lg_str(act.props -> 'bwb_id')
+  ))
+RETURNING e.from_id, e.to_id
+"""
+
+
+def remove_own_act_edges(store: Store, relations: list[str], source: str) -> int:
+    """Remove the edges of *relations* made by *source* from a paper to the act its own
+    dossier made, or to an article of that act (``_OWN_ACT_EDGES_SQL``). How many went."""
+    return len(
+        store.execute(
+            _OWN_ACT_EDGES_SQL,
+            {
+                "legislated_in": RELATION_LEGISLATED_IN,
+                "relations": relations,
+                "source": source,
+            },
         )
     )

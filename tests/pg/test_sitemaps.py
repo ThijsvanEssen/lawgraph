@@ -278,6 +278,7 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             publication("stb-2026-94", "2026-03-01"),  # the masthead as its title
             publication("stb-2017-5", "2017-01-10"),  # before 2018
             publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
+            publication("stb-2026-187", "2026-07-20"),  # enacts a law: establishes it
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289", kind="wet"),
         ],
     )
@@ -299,6 +300,8 @@ def test_publications_and_commitments(store: GraphStore) -> None:
                   "INTRODUCES"),
             _edge("c3", "instruments/stcrt_2025_9", "instruments/bwbr0005289",
                   "AMENDS"),
+            _edge("c4", "instruments/stb_2026_187", "articles/bwbr0052872_1",
+                  "ESTABLISHES"),
         ]
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -311,10 +314,31 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             _node("tz_3", "commitment", number="TZ202609-125", made_on="2026-09-11"),
         ],
     )  # fmt: skip
+    # a debate with its record, one with nothing made in it, an old one and one of the
+    # Eerste Kamer, which has no number
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [
+            _node("wgo", "activity", number="2026A01323", date="2026-03-23"),
+            _node("leeg", "activity", number="2026A01400", date="2026-03-24"),
+            _node("oud", "activity", number="2017A00001", date="2017-03-01"),
+            _node("ek_20260310_jenv", "activity", date="2026-03-10"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("act1", "documents/stb_stb_2025_301", "activities/wgo", "MADE_IN"),
+            _edge("act2", "commitments/tz_1", "activities/wgo", "MADE_IN"),
+            _edge("act3", "commitments/tz_2", "activities/oud", "MADE_IN"),
+            _edge("act4", "commitments/tz_3", "activities/ek_20260310_jenv", "MADE_IN"),
+        ]
+    )
     kinds = command.kinds(store)
+    assert _paths(kinds, "activiteiten") == [("/activiteiten/2026A01323", "2026-03-23")]
     assert _paths(kinds, "publicaties") == [
         ("/stb/2025/263", "2025-09-02"),
         ("/stb/2025/300", "2025-10-01"),
+        ("/stb/2026/187", "2026-07-20"),
         ("/trb/2024/12", "2024-03-05"),
     ]
     assert _paths(kinds, "toezeggingen") == [

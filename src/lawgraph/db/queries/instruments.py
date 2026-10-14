@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
+    RELATION_BASED_ON,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
@@ -25,24 +28,35 @@ from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
+from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
-# Edges from an amending instrument to the articles it changes.
-_MUTATION_RELATIONS = [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS]
+# Edges from a publication to the articles it sets (enacting their regulation) or changes.
+_MUTATION_RELATIONS = [
+    RELATION_ESTABLISHES,
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+]
 
 
 @dataclass
 class AmendedByData:
-    """Amending instruments of a regulation plus the titles of their dossiers."""
+    """The publications that changed a regulation and the pending proposals to change it,
+    plus the titles of their dossiers."""
 
     items: list[dict[str, Any]]
     total: int
     dossier_titles: dict[str, str | None]
+    proposals: list[dict[str, Any]] = field(default_factory=list)
+    proposals_total: int = 0
 
 
 @dataclass
@@ -380,13 +394,15 @@ def _citing_judgments(
                                 'advocate_general',
                                 {_OF_A_CONCLUSION.format(prop="advocate_general")},
                                 'advocate_general_role',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")}
+                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")},
+                                {outcome_pairs("l.props")}
                             )
                         ),
                         'cited_articles', coalesce(cited.articles, '[]')
                     ) AS item, top.n
                     FROM top
                     JOIN judgments j ON j.id = top.judgment_id
+                    LEFT JOIN lg_judgment_light l ON l.id = j.id
                     LEFT JOIN (
                         SELECT c.judgment_id, json_agg(json_build_object(
                             'id', a.id,
@@ -526,44 +542,64 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 def get_instrument_amended_by(
     store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
 ) -> AmendedByData:
-    """Amending instruments of a regulation, newest first (2 queries at most).
+    """The publications that enacted or changed a regulation, newest first, and the pending
+    proposals to change it (3 queries at most).
 
-    One aggregating query over the AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an article of the regulation (the ``edges_to_cover`` index is used with
-    the article ids), grouped per amending instrument; a second bulk
-    query resolves the titles of every dossier the page mentions.
+    One aggregating query over the ESTABLISHES / AMENDS / INTRODUCES / REPEALS edges whose
+    ``_to`` is an
+    article of the regulation (the ``edges_to_cover`` index is used with the article ids),
+    grouped per publication that made them; one the same per paper of the Tweede Kamer that
+    proposes them and is still pending (``queries.proposals``), up to
+    ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
     scope = scope_of(identifier)
-    ctes = f"""
-        WITH hits AS (
-            SELECT e.from_id,
-                   (count(*) FILTER (WHERE e.relation = %(amends)s))::int AS amends,
-                   (count(*) FILTER (WHERE e.relation = %(introduces)s))::int AS introduces,
-                   (count(*) FILTER (WHERE e.relation = %(repeals)s))::int AS repeals,
-                   count(DISTINCT e.to_id)::int AS articles_affected,
-                   min(lg_str(e.doc -> 'meta' -> 'effective_date')) AS first_effective_date
-            FROM edges e
-            WHERE e.to_id IN ({_articles_of(scope.prop)})
-              AND e.relation = ANY(%(mutations)s)
-            GROUP BY e.from_id
-        ),
-        grouped AS (
-            -- each amending node looked up by its id (a join with the view would read
-            -- every table whole; LIMIT keeps the planner from turning it into one)
-            SELECT d.id, d.key, d.type, d.labels, d.props,
-                   h.amends, h.introduces, h.repeals, h.articles_affected,
-                   h.first_effective_date
-            FROM hits h
-            CROSS JOIN LATERAL (
-                SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n
-                WHERE n.id = h.from_id
-                LIMIT 1
-            ) d
+    rows = store.query(
+        _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
+        + _paged("grouped", _newest("date_published")),
+        {**_amending_bind(scope.value), "limit": limit, "offset": offset},
+    )
+    page_rows, total = _split_page(rows)
+    proposal_rows, proposals_total = _split_page(
+        store.query(
+            _amending_ctes(COLLECTION_DOCUMENTS, scope.prop)
+            + _paged("grouped", _newest("date")),
+            {**_amending_bind(scope.value), "limit": PROPOSALS_SHOWN, "offset": 0},
         )
-    """
-    page = """
+    )
+    items = [_amending_item(row) for row in page_rows]
+    proposals = [
+        {**_amending_item(row), "outcome": row["outcome"]} for row in proposal_rows
+    ]
+    numbers = collect_dossier_numbers(
+        {"dossiers": (i["instrument"].get("props") or {}).get("dossier_numbers")}
+        for i in items + proposals
+    )
+    return AmendedByData(
+        items=items,
+        total=total,
+        dossier_titles=get_dossier_titles(store, numbers),
+        proposals=proposals,
+        proposals_total=proposals_total,
+    )
+
+
+# The pending proposals ``amended-by`` lists at most.
+PROPOSALS_SHOWN = 100
+
+# The props of a paper its row in ``amended-by`` shows.
+_PAPER_PROPS = """(
+    SELECT coalesce(json_object_agg(p.k, p.v), '{}'::json)
+    FROM json_each(n.props) AS p(k, v)
+    WHERE p.k IN ('display_name', 'title', 'kind', 'date', 'sequence', 'dossier_numbers',
+                  'dossier_number', 'dossier_suffix')
+)"""
+
+
+def _newest(date: str) -> str:
+    """A page of ``grouped`` newest first: by the prop *date*, then the date signed."""
+    return f"""
         SELECT g.*, row_number() OVER (
-            ORDER BY lg_str(g.props -> 'date_published') DESC NULLS LAST,
+            ORDER BY lg_str(g.props -> '{date}') DESC NULLS LAST,
                      lg_str(g.props -> 'date_signed') DESC NULLS LAST,
                      g.key DESC
         ) AS n
@@ -571,55 +607,89 @@ def get_instrument_amended_by(
         ORDER BY n
         LIMIT %(limit)s OFFSET %(offset)s
     """
-    rows = store.query(
-        ctes + _paged("grouped", page),
-        {
-            "bwb": scope.value,
-            "mutations": _MUTATION_RELATIONS,
-            "amends": RELATION_AMENDS,
-            "introduces": RELATION_INTRODUCES,
-            "repeals": RELATION_REPEALS,
-            "limit": limit,
-            "offset": offset,
-        },
+
+
+def _amending_ctes(collection: str, prop: str) -> str:
+    """``hits`` and ``grouped``: the changes of the articles of a regulation made by the
+    nodes of *collection*, per node; of a paper only a pending proposal, with its outcome."""
+    paper = collection == COLLECTION_DOCUMENTS
+    # the collection tested on the groups: a test of the edges would turn the probe of the
+    # index per article into a scan of every change made by the collection
+    pending = f"AND {proposals.pending_sql('h.from_id')}" if paper else ""
+    outcome = (
+        f"{proposals.outcome_sql('h.from_id')} AS outcome"
+        if paper
+        else "NULL::text AS outcome"
     )
-    page_rows, total = _split_page(rows)
-    items = [
-        {
-            "instrument": node_doc(row),
-            "amends": row["amends"],
-            "introduces": row["introduces"],
-            "repeals": row["repeals"],
-            "articles_affected": row["articles_affected"],
-            "first_effective_date": row["first_effective_date"],
-        }
-        for row in page_rows
-    ]
-    numbers = collect_dossier_numbers(
-        {
-            "dossiers": (i.get("instrument", {}).get("props") or {}).get(
-                "dossier_numbers"
-            )
-        }
-        for i in items
-    )
-    return AmendedByData(
-        items=items,
-        total=total,
-        dossier_titles=get_dossier_titles(store, numbers),
-    )
+    # a paper holds its whole text: only what its row shows
+    props = f"{_PAPER_PROPS} AS props" if paper else "n.props"
+    return f"""
+        WITH hits AS (
+            SELECT e.from_id,
+                   (count(*) FILTER (WHERE e.relation = %(establishes)s))::int
+                       AS establishes,
+                   (count(*) FILTER (WHERE e.relation = %(amends)s))::int AS amends,
+                   (count(*) FILTER (WHERE e.relation = %(introduces)s))::int AS introduces,
+                   (count(*) FILTER (WHERE e.relation = %(repeals)s))::int AS repeals,
+                   count(DISTINCT e.to_id)::int AS articles_affected,
+                   min(lg_str(e.doc -> 'meta' -> 'effective_date')) AS first_effective_date
+            FROM edges e
+            WHERE e.to_id IN ({_articles_of(prop)})
+              AND e.relation = ANY(%(mutations)s)
+            GROUP BY e.from_id
+        ),
+        grouped AS (
+            -- each amending node looked up by its id (a join with the view would read
+            -- every table whole; LIMIT keeps the planner from turning it into one)
+            SELECT d.id, d.key, d.type, d.labels, d.props,
+                   h.establishes, h.amends, h.introduces, h.repeals, h.articles_affected,
+                   h.first_effective_date, {outcome}
+            FROM hits h
+            CROSS JOIN LATERAL (
+                SELECT n.id, n.key, n.type, n.labels, {props} FROM nodes n
+                WHERE n.id = h.from_id
+                LIMIT 1
+            ) d
+            WHERE starts_with(h.from_id, '{collection}/') {pending}
+        )
+    """
+
+
+def _amending_bind(bwb: str) -> dict[str, Any]:
+    return {
+        "bwb": bwb,
+        "mutations": _MUTATION_RELATIONS,
+        "establishes": RELATION_ESTABLISHES,
+        "amends": RELATION_AMENDS,
+        "introduces": RELATION_INTRODUCES,
+        "repeals": RELATION_REPEALS,
+    }
+
+
+def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "instrument": node_doc(row),
+        "establishes": row["establishes"],
+        "amends": row["amends"],
+        "introduces": row["introduces"],
+        "repeals": row["repeals"],
+        "articles_affected": row["articles_affected"],
+        "first_effective_date": row["first_effective_date"],
+    }
 
 
 def _reference_bucket(identity: str, own: str, other: str) -> str:
-    """REFERS_TO edges between an article of the focal instrument (*own* end) and an
-    article outside it (*other* end), counted per *identity* of the other article. Only the
-    edges whose other end is an article: a range of the covering index of the own end by
-    relation and the other end's collection (``edges_from_cover``, ``edges_to_cover``), not
-    every citation of the law's articles by a judgment (hundreds of thousands of the Awb's,
-    7.2 s cold on prod) probed for an article."""
+    """REFERS_TO edges between an article in force of the focal instrument (*own* end) and
+    an article in force outside it (*other* end), per *identity* of the other article: the
+    articles at each end (``own_n``, ``other_n``), not the edges. Only the edges whose other
+    end is an article: a range of the covering index of the own end by relation and the
+    other end's collection (``edges_from_cover``, ``edges_to_cover``), not every citation of
+    the law's articles by a judgment (hundreds of thousands of the Awb's, 7.2 s cold on prod)
+    probed for an article."""
     other_collection = f"{other.split('_')[0]}_collection"
     return f"""
-        SELECT {identity} AS b, count(*)::int AS n
+        SELECT {identity} AS b, count(DISTINCT f.id)::int AS own_n,
+               count(DISTINCT x.id)::int AS other_n
         FROM focal f
         -- per article of the law its own edges: a probe of the covering index by its id,
         -- the relation and the other end's collection (OFFSET 0 keeps it a probe, never a
@@ -631,7 +701,7 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
             OFFSET 0
         ) e
         JOIN articles x ON x.id = e.other_id
-        WHERE e.other_id NOT IN (SELECT id FROM focal)
+        WHERE e.other_id NOT IN (SELECT id FROM focal) AND x.repealed IS NOT TRUE
         GROUP BY 1
     """
 
@@ -639,12 +709,15 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
 def get_instrument_related_instruments(
     store: GraphStore, identifier: str, *, limit: int = 100
 ) -> tuple[list[dict[str, Any]], int]:
-    """Other instruments related by cross-article REFERS_TO links.
+    """Other instruments related by cross-article REFERS_TO links, in force at both ends.
 
-    Returns ``{instrument, outbound_count, inbound_count}`` per related
-    instrument, sorted by total reference count descending. The counterpart of a
-    BWB regulation is a BWB regulation; the counterpart of an EU act is a BWB
-    regulation or another EU act. Kept per data version of what it reads (a law's
+    Returns ``{instrument, outbound_count, outbound_cited_count, inbound_count,
+    inbound_cited_count, basis}`` per related instrument, the most articles first:
+    ``outbound_count`` articles of this one refer to ``outbound_cited_count`` articles of the
+    other, ``inbound_count`` articles of the other to ``inbound_cited_count`` of this one.
+    ``basis`` (:func:`_pair_bases`) says whether one is issued under the other. The
+    counterpart of a BWB regulation is a BWB regulation; the counterpart of an EU act is a
+    BWB regulation or another EU act. Kept per data version of what it reads (a law's
     Verbonden asks it on every visit).
     """
     return cached(
@@ -668,17 +741,21 @@ def _related_instruments(
         identity = "coalesce(x.bwb_id, x.celex)"
         find = "i.bwb_id = c.b OR i.celex = c.b"
     ctes = f"""
-        WITH focal AS ({_articles_of(scope.prop)}),
+        WITH focal AS (
+            SELECT id FROM articles WHERE {scope.prop} = %(bwb)s AND repealed IS NOT TRUE
+        ),
         outbound AS ({_reference_bucket(identity, "from_id", "to_id")}),
         inbound AS ({_reference_bucket(identity, "to_id", "from_id")}),
         counts AS (
-            SELECT b, coalesce(o.n, 0) AS outbound_count, coalesce(i.n, 0) AS inbound_count
+            SELECT b, coalesce(o.own_n, 0) AS outbound_count,
+                   coalesce(o.other_n, 0) AS outbound_cited_count,
+                   coalesce(i.other_n, 0) AS inbound_count,
+                   coalesce(i.own_n, 0) AS inbound_cited_count
             FROM outbound o FULL JOIN inbound i USING (b)
             WHERE b IS NOT NULL AND b <> %(bwb)s
         ),
         resolved AS (
-            SELECT c.b, c.outbound_count, c.inbound_count,
-                   inst.id, inst.key, inst.type, inst.labels, inst.props
+            SELECT c.*, inst.id, inst.key, inst.type, inst.labels, inst.props
             FROM counts c
             JOIN LATERAL (
                 SELECT i.id, i.key, i.type, i.labels, i.props FROM instruments i
@@ -703,15 +780,201 @@ def _related_instruments(
         {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "limit": limit},
     )
     page_rows, total = _split_page(rows)
+    bases = (
+        _pair_bases(store, scope.value, [row["id"] for row in page_rows])
+        if scope.prop == "bwb_id" and page_rows
+        else {}
+    )
     items = [
         {
             "instrument": node_doc(row),
             "outbound_count": row["outbound_count"],
+            "outbound_cited_count": row["outbound_cited_count"],
             "inbound_count": row["inbound_count"],
+            "inbound_cited_count": row["inbound_cited_count"],
+            "basis": bases.get(row["id"]),
         }
         for row in page_rows
     ]
     return items, total
+
+
+# Whether one of a pair of laws is issued under the other, for the law %(bwb)s and the
+# instruments %(others)s: ``inbound`` (the other names articles of this law in its preamble),
+# ``outbound`` (this law names articles of the other) or ``via`` (the other names articles of
+# a regulation that names articles of this law: one level down), each with the articles
+# named (in force) and for ``via`` that regulation. The edges of each instrument by the
+# ``(from_id, relation, to_collection)`` index.
+_PAIR_BASES_SQL = f"""
+WITH others AS (
+    SELECT o.id, o.bwb_id FROM {COLLECTION_INSTRUMENTS} o WHERE o.id = ANY(%(others)s)
+),
+named AS (
+    SELECT o.id AS other, o.bwb_id AS other_bwb, x.id, x.key, x.bwb_id AS law,
+           x.article_number, x.position, x.props -> 'display_name' AS display_name,
+           e.doc -> 'meta' AS meta
+    FROM others o
+    JOIN {COLLECTION_EDGES} e
+      ON e.from_id = o.id AND e.relation = %(based_on)s
+     AND e.to_collection = '{COLLECTION_ARTICLES}'
+    JOIN {COLLECTION_ARTICLES} x ON x.id = e.to_id
+    WHERE x.repealed IS NOT TRUE
+),
+this AS (
+    SELECT t.id FROM {COLLECTION_INSTRUMENTS} t WHERE t.bwb_id = %(bwb)s
+),
+names AS (
+    SELECT x.id, x.key, x.bwb_id AS law, x.article_number, x.position,
+           x.props -> 'display_name' AS display_name, e.doc -> 'meta' AS meta
+    FROM this t
+    JOIN {COLLECTION_EDGES} e
+      ON e.from_id = t.id AND e.relation = %(based_on)s
+     AND e.to_collection = '{COLLECTION_ARTICLES}'
+    JOIN {COLLECTION_ARTICLES} x ON x.id = e.to_id
+    WHERE x.repealed IS NOT TRUE
+),
+-- the regulations issued under this law that the others name articles of
+under AS (
+    SELECT DISTINCT r.id, r.bwb_id
+    FROM named n
+    JOIN {COLLECTION_INSTRUMENTS} r ON r.bwb_id = n.law
+    WHERE n.law <> %(bwb)s AND EXISTS (
+        SELECT 1 FROM {COLLECTION_EDGES} e2
+        JOIN {COLLECTION_ARTICLES} y ON y.id = e2.to_id
+        WHERE e2.from_id = r.id AND e2.relation = %(based_on)s
+          AND e2.to_collection = '{COLLECTION_ARTICLES}' AND y.bwb_id = %(bwb)s
+    )
+),
+pairs AS (
+    SELECT n.other, 'inbound' AS direction, NULL::text AS via, n.key, n.id,
+           n.article_number, n.position, n.display_name, n.meta
+    FROM named n WHERE n.law = %(bwb)s
+    UNION ALL
+    SELECT o.id, 'outbound', NULL, m.key, m.id, m.article_number, m.position,
+           m.display_name, m.meta
+    FROM others o JOIN names m ON m.law = o.bwb_id
+    UNION ALL
+    SELECT n.other, 'via', u.id, n.key, n.id, n.article_number, n.position,
+           n.display_name, n.meta
+    FROM named n JOIN under u ON u.bwb_id = n.law
+)
+SELECT p.other, p.direction,
+       (SELECT {summary_json("v")} FROM {COLLECTION_INSTRUMENTS} v WHERE v.id = p.via)
+           AS via,
+       json_agg(json_build_object(
+           'id', p.id, 'key', p.key, 'article_number', p.article_number,
+           'display_name', p.display_name, 'meta', p.meta
+       ) ORDER BY p.position NULLS LAST, p.key) AS articles
+FROM pairs p
+GROUP BY p.other, p.direction, p.via
+"""
+
+# The order in which a pair is said to be one of a delegation: issued under this law, this
+# law issued under it, issued under a regulation issued under this law.
+_BASIS_ORDER = ("inbound", "outbound", "via")
+
+
+def _pair_bases(
+    store: GraphStore, bwb_id: str, others: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Per instrument id of *others* the way it and the law *bwb_id* are one of a
+    delegation, if they are: ``{direction, via, articles}`` (``inbound``: it is issued
+    under articles of the law; ``outbound``: the law is issued under articles of it;
+    ``via``: it is issued under articles of the regulation ``via``, which is issued under
+    the law), the first of those (of two regulations ``via``, the first by key). One
+    query."""
+    found: dict[str, dict[str, Any]] = {}
+    rows = store.query(
+        _PAIR_BASES_SQL,
+        {"bwb": bwb_id, "others": others, "based_on": RELATION_BASED_ON},
+    )
+    for row in rows:
+        basis = {
+            "direction": row["direction"],
+            "via": row["via"],
+            "articles": row["articles"],
+        }
+        held = found.get(row["other"])
+        if held is None or _basis_rank(basis) < _basis_rank(held):
+            found[row["other"]] = basis
+    return found
+
+
+def _basis_rank(basis: dict[str, Any]) -> tuple[int, str]:
+    """The first way of :data:`_BASIS_ORDER`; of two regulations ``via``, the first key."""
+    via = basis["via"] or {}
+    return _BASIS_ORDER.index(basis["direction"]), str(via.get("_key") or "")
+
+
+# The references between the articles of two instruments, both ways: per edge the article
+# that refers, the article it refers to and the meta of the reference. The articles of the
+# focal instrument by their indexed bwb_id / celex, their edges by the covering index of each
+# end, as ``_reference_bucket``.
+def _references_sql(prop: str, other_prop: str) -> str:
+    def side(own: str, other: str, direction: str) -> str:
+        other_collection = f"{other.split('_')[0]}_collection"
+        return f"""
+        SELECT '{direction}' AS direction, e.from_id, e.to_id, e.meta, e.semantic_type,
+               e.key
+        FROM focal f
+        CROSS JOIN LATERAL (
+            SELECT e.from_id, e.to_id, e.doc -> 'meta' AS meta, e.semantic_type, e.key
+            FROM edges e
+            WHERE e.{own} = f.id AND e.relation = %(refers_to)s
+              AND e.{other_collection} = '{COLLECTION_ARTICLES}'
+            OFFSET 0
+        ) e
+        JOIN articles x ON x.id = e.{other}
+        WHERE x.{other_prop} = %(other)s AND x.repealed IS NOT TRUE
+        """
+
+    def article(alias: str) -> str:
+        return (
+            f"json_build_object('id', {alias}.id, 'key', {alias}.key, 'bwb_id', "
+            f"{alias}.bwb_id, 'celex', {alias}.celex, 'article_number', "
+            f"{alias}.article_number, 'display_name', {alias}.props -> 'display_name')"
+        )
+
+    return f"""
+        WITH focal AS (
+            SELECT id FROM articles WHERE {prop} = %(bwb)s AND repealed IS NOT TRUE
+        ),
+        pairs AS (
+            {side("from_id", "to_id", "outbound")}
+            UNION ALL
+            {side("to_id", "from_id", "inbound")}
+        )
+        SELECT p.direction, {article("a")} AS "from", {article("b")} AS "to",
+               p.meta, p.semantic_type
+        FROM pairs p
+        JOIN articles a ON a.id = p.from_id
+        JOIN articles b ON b.id = p.to_id
+        ORDER BY p.direction DESC NULLS LAST, a.position NULLS LAST, a.key, b.position NULLS LAST,
+                 b.key, p.key
+    """
+
+
+def get_instrument_references(
+    store: GraphStore, identifier: str, other: str
+) -> list[dict[str, Any]]:
+    """The references between the articles in force of the instruments *identifier* and
+    *other* (BWB ids or CELEX numbers), both ways: ``{direction, from, to, meta,
+    semantic_type}``; ``direction`` is ``outbound`` (an article of *identifier* refers to one
+    of *other*) or ``inbound``; first the outbound, then the inbound, each in the order of
+    the referring and the referred article. One query."""
+    scope, other_scope = scope_of(identifier), scope_of(other)
+    if scope.value == other_scope.value:
+        return []
+    return list(
+        store.query(
+            _references_sql(scope.prop, other_scope.prop),
+            {
+                "bwb": scope.value,
+                "other": other_scope.value,
+                "refers_to": RELATION_REFERS_TO,
+            },
+        )
+    )
 
 
 # The fields of the free-text search over the ``search_instruments`` view.

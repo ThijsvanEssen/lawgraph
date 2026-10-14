@@ -10,7 +10,12 @@ from xml.etree import ElementTree
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey
-from lawgraph.api.schemas.common import FacetCountDTO, WithPath
+from lawgraph.api.schemas.common import (
+    FacetCountDTO,
+    JudgmentOutcomeFields,
+    WithPath,
+    judgment_outcome_fields,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import (
@@ -51,6 +56,19 @@ FeedKind = Literal[
 ]
 PersonRole = Literal["indiener", "medeindiener", "bewindspersoon"]
 PublicationSeries = Literal["stb", "stcrt", "trb"]
+PublicationEffect = Literal["establishes", "amends", "introduces", "repeals"]
+MatchedField = Literal["title", "dossier_title", "laws"]
+ViaRelation = Literal[
+    "establishes",
+    "amends",
+    "introduces",
+    "repeals",
+    "proposes",
+    "version_of",
+    "based_on",
+    "refers_to",
+    "legislated_in",
+]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 _OUTCOME = {True: "aangenomen", False: "verworpen"}
@@ -189,6 +207,24 @@ class FeedInstrumentDTO(BaseModel):
     official_url: str | None = None
 
 
+class FeedChangedInstrumentDTO(FeedInstrumentDTO):
+    """A law a publication enacts or changes."""
+
+    effect: PublicationEffect = Field(
+        ...,
+        description="``establishes``: the publication enacted the law (the law names it as "
+        "the publication that enacted it); ``amends``, ``introduces`` or ``repeals``: every "
+        "change it makes in the law is of that kind (``AMENDS``, ``INTRODUCES``, "
+        "``REPEALS`` of its articles or of the law), ``amends`` where they are of more "
+        "kinds.",
+    )
+    article_count: int | None = Field(
+        None,
+        description="The articles it changes, adds or repeals; of a law it enacts, the "
+        "articles of the law.",
+    )
+
+
 class FeedPublicationDTO(BaseModel):
     """A ``publicatie`` in the Staatsblad, the Staatscourant or the Tractatenblad."""
 
@@ -197,10 +233,42 @@ class FeedPublicationDTO(BaseModel):
     series: PublicationSeries | None = None
     year: int | None = None
     number: str | None = None
-    instruments: list[FeedInstrumentDTO] = Field(
+    instruments: list[FeedChangedInstrumentDTO] = Field(
         default_factory=list,
-        description="The laws it amends, introduces or repeals (or articles of), by title; "
-        "at most ten.",
+        description="The laws it enacts, then those it amends, introduces or repeals (or "
+        "articles of), by title; at most ten.",
+    )
+
+
+class FeedPublicationRefDTO(WithPath):
+    """The publication a new version of a law came from."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "instruments"
+
+    key: str | None = Field(
+        None,
+        description="Its node key (``stb_2026_187``); null when it is not in the data.",
+    )
+    series: PublicationSeries | None = None
+    year: int | None = None
+    number: str | None = None
+
+
+class FeedBasisDTO(BaseModel):
+    """The law a regulation is issued under: what its preamble ("Gelet op") names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: FeedInstrumentDTO
+    kind: str | None = Field(
+        None,
+        description="The kind of the regulation itself, in lower case as ``/delegated`` "
+        "gives it: ``amvb``, ``ministeriele-regeling``.",
+    )
+    articles: list[str] = Field(
+        default_factory=list,
+        description="The article numbers of the law it names, in the order of the law.",
     )
 
 
@@ -214,11 +282,30 @@ class FeedCommencementDTO(BaseModel):
     changed_articles: int = Field(
         0, description="The articles with a version that begins that day."
     )
+    articles: list[str] = Field(
+        default_factory=list,
+        description="Their numbers, in the order of the law; at most fifty.",
+    )
+    new: bool = Field(
+        False,
+        description="The law itself comes into force: the day is the one it came into "
+        "force as enacted (its ``date_in_force``).",
+    )
+    publication: FeedPublicationRefDTO | None = Field(
+        None,
+        description="The publication most of those versions came from (their "
+        "``origin_publication``): of a new law the one that enacted it; null without.",
+    )
+    based_on: FeedBasisDTO | None = Field(
+        None,
+        description="The law the regulation is issued under (``BASED_ON``), the one its "
+        "preamble names most articles of; null for a law issued under none.",
+    )
 
 
-class FeedJudgmentDTO(WithPath):
+class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
-    publicatie``), of the highest courts unless a ``tier`` is asked for."""
+    publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
     model_config = ConfigDict(extra="forbid")
     path_collection = "judgments"
@@ -261,6 +348,90 @@ class FeedHeadlineDTO(BaseModel):
     short_title: str | None = Field(
         None,
         description="The short title of the event's dossier (``dossier.short_title``).",
+    )
+
+
+class FeedMatchDTO(BaseModel):
+    """Where an event holds a word of ``q``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    term: str = Field(..., description="The word of ``q``, as it was asked.")
+    field: MatchedField = Field(
+        ...,
+        description="``title``: the title of the event (of a bill its own, which may not "
+        "be the ``title`` the item shows: that of its dossier); ``dossier_title``: the "
+        "whole title of its first dossier; ``laws``: of a publication, the names of the "
+        "laws it enacts or changes (the official title of a law it enacts too). The first "
+        "of these that holds it.",
+    )
+
+
+class FeedViaDTO(BaseModel):
+    """How an event is tied to the law ``instrument`` (and ``article``) follows."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relation: ViaRelation = Field(
+        ...,
+        description="Of a publication: it ``establishes`` the law, or ``amends``, "
+        "``introduces`` or ``repeals`` articles of it; of a paper: it ``proposes`` to "
+        "change it; of a new version: of the law itself (``version_of``) or of a "
+        "regulation ``based_on`` it; of a judgment: it ``refers_to`` it; of an event of a "
+        "dossier (``dossier``): the law or a publication of it was ``legislated_in`` that "
+        "dossier, or a paper of it ``proposes`` to change the law.",
+    )
+    article: str | None = Field(
+        None,
+        description="The number of the article of the law it touches, the first in the "
+        "order of the law; null where it is tied to the law as a whole or by a dossier.",
+    )
+    dossier: str | None = Field(
+        None, description="The label of the dossier it is tied by; null for the others."
+    )
+
+
+class FeedLinkDTO(WithPath):
+    """A paper or a commitment an event is tied to."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="``collection/key`` of its node.")
+    kind: str | None = Field(
+        None,
+        description="Of a paper its ``Document.Soort`` (``Motie (gewijzigd/nader)``); "
+        "``toezegging`` for a commitment.",
+    )
+    title: str | None = None
+    date: str | None = None
+    number: str | None = Field(
+        None,
+        description="Of a paper its nr. in its dossier (``31``), of a commitment its "
+        "number (``TZ202609-124``).",
+    )
+    dossier: str | None = Field(
+        None, description="Of a paper the label of its own dossier (``36764``)."
+    )
+    surname: str | None = Field(
+        None, description="Of a paper its first signatory: ``Kathmann``."
+    )
+
+
+class FeedArticleDTO(WithPath):
+    """An article an event is tied to."""
+
+    model_config = ConfigDict(extra="forbid")
+    path_collection = "articles"
+
+    key: str
+    bwb_id: str | None = None
+    number: str | None = Field(None, description="Its number: ``3:2``.")
+    law: str | None = Field(None, description="The citation title of its law.")
+    law_short: str | None = Field(
+        None, description="The abbreviation its law is cited by: ``Awb``; null without."
+    )
+    effect: Literal["amends", "introduces", "repeals"] | None = Field(
+        None, description="Of an amendment: what it proposes to do with the article."
     )
 
 
@@ -326,6 +497,42 @@ class FeedItemDTO(WithPath):
     publication: FeedPublicationDTO | None = None
     commencement: FeedCommencementDTO | None = None
     judgment: FeedJudgmentDTO | None = None
+    matched: list[FeedMatchDTO] = Field(
+        default_factory=list,
+        description="With ``q``: per word the event holds, where it holds it; empty "
+        "without ``q``.",
+    )
+    via: FeedViaDTO | None = Field(
+        None,
+        description="With ``instrument``: how the event is tied to the law; null "
+        "without.",
+    )
+    answers: list[FeedLinkDTO] = Field(
+        default_factory=list,
+        description="Of a letter of the government: the motions and commitments it "
+        "answers (``ANSWERS``); empty for the other kinds.",
+    )
+    answered_by: list[FeedLinkDTO] = Field(
+        default_factory=list,
+        description="Of a commitment: the letters that fulfil it (``ANSWERS``); empty "
+        "for the other kinds.",
+    )
+    amends_articles: list[FeedArticleDTO] = Field(
+        default_factory=list,
+        description="Of an amendment: the articles it proposes to change, add or repeal "
+        "(``AMENDS``, ``INTRODUCES``, ``REPEALS``, ``voorgesteld``), in the order of "
+        "their law; at most twenty.",
+    )
+    replaces: FeedLinkDTO | None = Field(
+        None,
+        description="Of a changed motion or amendment: the paper it replaces "
+        '("ter vervanging van nr. 19", ``REVISES``); null for the others.',
+    )
+    cites: list[FeedArticleDTO] = Field(
+        default_factory=list,
+        description="Of a judgment: the articles it cites (``REFERS_TO``), the most "
+        "mentioned first; at most five.",
+    )
 
     @classmethod
     def from_row(
@@ -380,6 +587,13 @@ class FeedItemDTO(WithPath):
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
             commencement=_commencement(row) if kind == EVENT_COMMENCEMENT else None,
             judgment=_judgment(props) if kind == EVENT_JUDGMENT else None,
+            matched=[FeedMatchDTO(**m) for m in row.get("matched") or []],
+            via=FeedViaDTO(**row["via"]) if row.get("via") else None,
+            answers=[_link(r) for r in row.get("answers") or [] if r],
+            answered_by=[_link(r) for r in row.get("answered_by") or [] if r],
+            amends_articles=[_article(r) for r in row.get("amends_articles") or []],
+            replaces=_link(row["replaces"]) if row.get("replaces") else None,
+            cites=[_article(r) for r in row.get("cites") or []],
         )
 
 
@@ -531,6 +745,7 @@ def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
         decided_on=props.get("date_eff"),
         advocate_general=props.get("advocate_general"),
         advocate_general_role=props.get("advocate_general_role"),
+        **judgment_outcome_fields(props),
     )
 
 
@@ -566,22 +781,108 @@ def _instrument(row: dict[str, Any]) -> FeedInstrumentDTO:
     )
 
 
+def _changed(row: dict[str, Any]) -> FeedChangedInstrumentDTO:
+    return FeedChangedInstrumentDTO(
+        **_instrument(row).model_dump(),
+        effect=row["effect"],
+        article_count=row.get("article_count"),
+    )
+
+
 def _publication(props: dict[str, Any], row: dict[str, Any]) -> FeedPublicationDTO:
     series = str(props.get("publication_kind") or "").lower()
     return FeedPublicationDTO(
         series=series if series in ("stb", "stcrt", "trb") else None,  # type: ignore[arg-type]
         year=props.get("publication_year"),
         number=props.get("publication_number"),
-        instruments=[_instrument(i) for i in row.get("changed_instruments") or []],
+        instruments=[_changed(i) for i in row.get("changed_instruments") or []],
     )
 
 
 def _commencement(row: dict[str, Any]) -> FeedCommencementDTO:
     instrument = row.get("instrument")
+    commenced = row.get("commenced") or {}
+    basis = commenced.get("based_on")
+    in_force = (instrument or {}).get("date_in_force")
+    kind = (instrument or {}).get("kind")
     return FeedCommencementDTO(
         instrument=_instrument(instrument) if instrument else None,
         article_count=(instrument or {}).get("article_count"),
         changed_articles=int(row.get("changed_articles") or 0),
+        articles=[str(a) for a in commenced.get("articles") or [] if a is not None],
+        new=bool(in_force) and in_force == row.get("date"),
+        publication=_publication_ref(commenced.get("publication")),
+        based_on=(
+            FeedBasisDTO(
+                instrument=_instrument(basis),
+                kind=kind.lower() if isinstance(kind, str) else None,
+                articles=[str(a) for a in basis.get("articles") or [] if a is not None],
+            )
+            if basis
+            else None
+        ),
+    )
+
+
+def _publication_ref(found: dict[str, Any] | None) -> FeedPublicationRefDTO | None:
+    """The publication a version came from, as its ``origin_publication`` names it."""
+    if not found:
+        return None
+    publication = found.get("publication") or {}
+    series = str(publication.get("kind") or "").lower()
+    number = publication.get("number")
+    return FeedPublicationRefDTO(
+        key=found.get("key"),
+        series=series if series in get_args(PublicationSeries) else None,  # type: ignore[arg-type]
+        year=publication.get("year")
+        if isinstance(publication.get("year"), int)
+        else None,
+        number=str(number) if number is not None else None,
+    )
+
+
+def _link(row: dict[str, Any]) -> FeedLinkDTO:
+    """A paper (its light props, subject and first signatory) or a commitment."""
+    props = row.get("props") or {}
+    collection, _ = parse_node_id(row["id"])
+    if collection == COLLECTION_COMMITMENTS:
+        return FeedLinkDTO(
+            id=row["id"],
+            path_props={"number": props.get("number")},
+            kind=EVENT_COMMITMENT,
+            title=props.get("display_name") or props.get("text"),
+            date=row.get("made_on"),
+            number=props.get("number"),
+            dossier=None,
+            surname=None,
+        )
+    label = props.get("dossier_number")
+    suffix = props.get("dossier_suffix")
+    signatory = row.get("signatory")
+    return FeedLinkDTO(
+        id=row["id"],
+        path_props={field: props[field] for field in _PATH_PROPS if field in props},
+        kind=props.get("kind"),
+        title=row.get("subject") or props.get("title") or props.get("display_name"),
+        date=props.get("date"),
+        number=paper_number(CHAMBER_TK, props),
+        dossier=f"{label}-{suffix}" if label and suffix else label,
+        surname=_surname(signatory) if isinstance(signatory, dict) else None,
+    )
+
+
+def _article(row: dict[str, Any]) -> FeedArticleDTO:
+    return FeedArticleDTO(
+        key=row["key"],
+        path_props={
+            "bwb_id": row.get("bwb_id"),
+            "article_number": row.get("article_number"),
+        },
+        bwb_id=row.get("bwb_id"),
+        number=row.get("article_number"),
+        law=row.get("law"),
+        law_short=row.get("law_short"),
+        effect=row.get("effect"),
     )
 
 

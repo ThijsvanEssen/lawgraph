@@ -19,6 +19,20 @@ def collapse_ws(text: str | None) -> str:
     return " ".join(text.split()) if text else ""
 
 
+def after_nonspace(text: str, count: int) -> int:
+    """The offset in *text* right after its *count* th character that is no whitespace (0
+    for none): where a place counted in such characters lies once whitespace is collapsed."""
+    if count <= 0:
+        return 0
+    seen = 0
+    for index, char in enumerate(text):
+        if not char.isspace():
+            seen += 1
+            if seen == count:
+                return index + 1
+    return len(text)
+
+
 def text_of(element: ET.Element | None, sep: str = "") -> str:
     """Stripped text content of *element* and all its descendants ('' for None).
 

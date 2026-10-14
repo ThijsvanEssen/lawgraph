@@ -8,10 +8,11 @@ law a section is about, with the bill of the dossier for a heading that names it
 dossier changed::
 
     Document --PART_OF--> Dossier <--LEGISLATED_IN-- Instrument
-    Instrument --AMENDS/INTRODUCES/REPEALS--> Article
+    Instrument --AMENDS/INTRODUCES/REPEALS/ESTABLISHES--> Article
 
 and writes ``EXPLAINS`` to the ArticleVersion the change created (the Article when it names
-none), with the section in ``meta``.
+none), with the section in ``meta``. The law the bill makes is the one a publication of the
+dossier established (``core.mvt_articles.new_law``): its articles are those of the bill.
 
 An edge is one per (document, article), so an article that several sections explain has one
 edge that lists them all: ``meta.section_anchor`` and the fields beside it describe the surest
@@ -44,7 +45,7 @@ from lawgraph.core.mvt_articles import (
     amendment_references,
     explained_targets,
     find_references,
-    is_introduction,
+    new_law,
 )
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -244,10 +245,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
     def _explain(self, row: dict[str, Any]) -> dict[str, list[Reference]]:
         """The articles the sections of one memorandum explain."""
         changes = _changes(row.get("changes") or [])
-        own = row.get("own") or []
-        own_bwb_id = (
-            own[0] if len(own) == 1 and is_introduction(changes, own[0]) else None
-        )
+        own_bwb_id = new_law([str(b) for b in row.get("own") or []], changes)
         references = find_references(
             row["text"],
             row.get("sections") or [],

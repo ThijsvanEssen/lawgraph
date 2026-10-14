@@ -205,6 +205,11 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             "date_eff": "1990-01-01",
             "advocate_general": None,
             "advocate_general_role": None,
+            "outcome": None,
+            "outcome_text": None,
+            "conclusion_outcome": None,
+            "conclusion_outcome_text": None,
+            "echr_findings": None,
         },
     }
     assert many["cited_articles"] == [
@@ -233,6 +238,11 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "date_eff": None,
         "advocate_general": None,
         "advocate_general_role": None,
+        "outcome": None,
+        "outcome_text": None,
+        "conclusion_outcome": None,
+        "conclusion_outcome_text": None,
+        "echr_findings": None,
     }
 
     items, total = instruments.get_instrument_judgments(
@@ -449,9 +459,8 @@ def test_amended_by_grouped_per_instrument_newest_first(
 
     monkeypatch.setattr(instruments, "get_dossier_titles", titles)
     data = instruments.get_instrument_amended_by(store, BWB)
-    assert data.total == 7
+    assert data.total == 6
     assert [i["instrument"]["_key"] for i in data.items] == [
-        "doc1",
         "p2",
         "p1",
         "p3b",
@@ -459,9 +468,10 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "p3c",
         "p4",
     ]
-    p1 = data.items[2]
+    p1 = data.items[1]
     assert list(p1) == [
         "instrument",
+        "establishes",
         "amends",
         "introduces",
         "repeals",
@@ -469,6 +479,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "first_effective_date",
     ]
     assert {k: v for k, v in p1.items() if k != "instrument"} == {
+        "establishes": 0,
         "amends": 2,
         "introduces": 1,
         "repeals": 1,
@@ -476,15 +487,203 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "first_effective_date": "2020-03-01",
     }
     assert p1["instrument"]["_id"] == "instruments/p1"
-    assert data.items[1]["first_effective_date"] is None
+    assert data.items[0]["first_effective_date"] is None
+    # a paper proposes, it is no publication
+    assert [p["instrument"]["_key"] for p in data.proposals] == ["doc1"]
+    assert data.proposals_total == 1
     assert asked == [["35000", "36000"]]
     assert data.dossier_titles == {"36000": "Wet X"}
 
-    page = instruments.get_instrument_amended_by(store, BWB, limit=2, offset=5)
-    assert page.total == 7
+    page = instruments.get_instrument_amended_by(store, BWB, limit=2, offset=4)
+    assert page.total == 6
     assert [i["instrument"]["_key"] for i in page.items] == ["p3c", "p4"]
     beyond = instruments.get_instrument_amended_by(store, BWB, offset=10)
-    assert (beyond.items, beyond.total, beyond.dossier_titles) == ([], 7, {})
+    assert (beyond.items, beyond.total) == ([], 6)
+
+
+def _seed_proposals(store: GraphStore) -> None:
+    """Papers that propose to change article 1, and what became of each."""
+    _seed_articles(store)
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _doc("37000", "dossier", label="37000", title="Wet Y"),
+            # the bill that made the law (or one rejected): closed
+            _doc("36764", "dossier", label="36764", closed=True, outcome="aangenomen"),
+        ],
+    )
+
+    def paper(key: str, kind: str, dossier: str, **props: Any) -> dict[str, Any]:
+        return _doc(
+            key, "document", kind=kind, date="2026-03-01", dossier_numbers=[dossier],
+            dossier_number=dossier, dossier_suffix=None, display_name=f"Stuk {key}",
+            text="Lange tekst", **props,
+        )  # fmt: skip
+
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            paper("bill", "Voorstel van wet", "37000", sequence=2),
+            paper("own_bill", "Voorstel van wet", "36764", sequence=2),
+            paper("adopted", "Amendement", "37000", sequence=8),
+            paper("rejected", "Amendement", "37000", sequence=9),
+            paper("replaced", "Amendement", "37000", sequence=10),
+            paper("withdrawn", "Amendement", "37000", sequence=11),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _doc("d_withdrawn", "decision", decision_kind="Stemmen - ingetrokken"),
+            _doc("d_other", "decision", decision_kind="Stemmen - aangenomen"),
+        ],
+    )
+    papers = ("bill", "own_bill", "adopted", "rejected", "replaced", "withdrawn")
+    store.bulk_insert_or_update_edges(
+        [
+            *(
+                {**_edge(f"documents/{p}", "articles/a1", "AMENDS"),
+                 "status": "voorgesteld"}
+                for p in papers
+            ),
+            _edge("documents/withdrawn", "cases/z1", "PART_OF"),
+            _edge("decisions/d_withdrawn", "cases/z1", "ABOUT"),
+            # a decision on another case of the bill withdraws nothing
+            _edge("documents/bill", "cases/z2", "PART_OF"),
+            _edge("decisions/d_other", "cases/z2", "ABOUT"),
+        ]
+    )  # fmt: skip
+    store.execute(
+        "INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)"
+        " VALUES ('documents/adopted', 'documents/adopted', '2026-03-01', 'aangenomen'),"
+        " ('documents/rejected', 'documents/rejected', '2026-03-01', 'verworpen'),"
+        " ('documents/newer', 'documents/replaced', '2026-03-01', 'other')"
+    )
+
+
+def test_amended_by_lists_only_the_pending_proposals(store: GraphStore) -> None:
+    _seed_proposals(store)
+
+    data = instruments.get_instrument_amended_by(store, BWB)
+
+    assert (data.items, data.total) == ([], 0)
+    assert data.proposals_total == 2
+    assert [(p["instrument"]["_key"], p["outcome"]) for p in data.proposals] == [
+        ("bill", None),
+        ("adopted", "aangenomen"),
+    ]
+    # the row of a paper, without its text
+    assert data.proposals[0]["instrument"]["props"] == {
+        "date": "2026-03-01",
+        "display_name": "Stuk bill",
+        "dossier_number": "37000",
+        "dossier_numbers": ["37000"],
+        "dossier_suffix": None,
+        "kind": "Voorstel van wet",
+        "sequence": 2,
+    }
+
+
+def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
+    _seed_proposals(store)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/instruments/{BWB}/amended-by").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert (body["total"], body["items"]) == (0, [])
+    assert body["proposals_total"] == 2
+    adopted = body["proposals"][1]
+    assert adopted == {
+        "id": "documents/adopted",
+        "key": "adopted",
+        "display_name": "Stuk adopted",
+        "kind": "Amendement",
+        "number": "8",
+        "date": "2026-03-01",
+        "dossiers": [
+            {
+                "number": "37000",
+                "key": "37000",
+                "title": "Wet Y",
+                "short_title": None,
+                "path": "/dossiers/37000",
+            }
+        ],
+        "outcome": "aangenomen",
+        "amends": 1,
+        "introduces": 0,
+        "repeals": 0,
+        "articles_affected": 1,
+        "path": adopted["path"],
+    }
+    assert adopted["path"]
+
+
+CBW = "BWBR0052872"
+
+
+def test_the_publication_that_enacted_a_law_establishes_it(store: GraphStore) -> None:
+    """The Cyberbeveiligingswet: Stb. 2026, 187 enacted it (``ESTABLISHES`` its articles)
+    and a later publication amends one of them; both are publications of the law, the
+    first as the one that established it."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _doc("bwbr0052872_1", "article", bwb_id=CBW, article_number="1"),
+            _doc("bwbr0052872_16", "article", bwb_id=CBW, article_number="16"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc("stb_2026_187", "instrument", date_published="2026-07-20"),
+            _doc("stb_2026_300", "instrument", date_published="2026-11-01"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "instruments/stb_2026_187",
+                f"articles/bwbr0052872_{n}",
+                "ESTABLISHES",
+                effective_date="2026-08-15",
+                effect="nieuwe-regeling",
+            )
+            for n in ("1", "16")
+        ]
+        + [_edge("instruments/stb_2026_300", "articles/bwbr0052872_16", "AMENDS")]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/instruments/{CBW}/amended-by").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert body["total"] == 2
+    counts = [
+        {k: i[k] for k in ("key", "establishes", "amends", "introduces", "repeals")}
+        for i in body["items"]
+    ]
+    assert counts == [
+        {
+            "key": "stb_2026_300",
+            "establishes": 0,
+            "amends": 1,
+            "introduces": 0,
+            "repeals": 0,
+        },
+        {
+            "key": "stb_2026_187",
+            "establishes": 2,
+            "amends": 0,
+            "introduces": 0,
+            "repeals": 0,
+        },
+    ]
+    assert body["items"][1]["articles_affected"] == 2
+    assert body["items"][1]["first_effective_date"] == "2026-08-15"
 
 
 def test_amended_by_of_nothing_asks_no_titles(store: GraphStore) -> None:
@@ -503,6 +702,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _doc("f2", "article", bwb_id=BWB),
             _doc("x1", "article", bwb_id="BWBR0000002"),
             _doc("x2", "article", bwb_id="BWBR0000002"),
+            _doc("x3", "article", bwb_id="BWBR0000002", repealed=True),
             _doc("y1", "article", bwb_id="BWBR0000003"),
             _doc("z1", "article", bwb_id="BWBR0000004"),
             _doc("n1", "article", bwb_id="BWBR0000005"),
@@ -522,6 +722,9 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         [
             _edge("articles/f1", "articles/x1", "REFERS_TO"),
             _edge("articles/f2", "articles/x2", "REFERS_TO"),
+            # a second edge of the same pair, and one to a repealed article: not counted
+            _edge("articles/f2", "articles/x2", "REFERS_TO") | {"_key": "again"},
+            _edge("articles/f1", "articles/x3", "REFERS_TO"),
             _edge("articles/y1", "articles/f1", "REFERS_TO"),
             _edge("articles/f1", "articles/y1", "REFERS_TO"),
             _edge("articles/z1", "articles/f2", "REFERS_TO"),
@@ -544,7 +747,16 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         ("bwbr0000002", 2, 0),
         ("bwbr0000004", 1, 1),
     ]
-    assert list(items[0]) == ["instrument", "outbound_count", "inbound_count"]
+    assert list(items[0]) == [
+        "instrument",
+        "outbound_count",
+        "outbound_cited_count",
+        "inbound_count",
+        "inbound_cited_count",
+        "basis",
+    ]
+    # two articles of this law refer to two of the other; none is issued under another
+    assert (items[1]["outbound_cited_count"], items[1]["basis"]) == (2, None)
     assert list(items[0]["instrument"]) == ["_key", "_id", "type", "labels", "props"]
     items, total = instruments.get_instrument_related_instruments(store, BWB, limit=1)
     assert (total, len(items)) == (3, 1)
@@ -579,13 +791,14 @@ def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
     )
     items, total = instruments.get_instrument_related_instruments(store, CELEX)
     assert total == 3
+    # articles, not edges: the two edges from nl1 are one article
     assert [
         (i["instrument"]["_key"], i["outbound_count"], i["inbound_count"])
         for i in items
     ] == [
-        (BWB.lower(), 0, 2),
         ("32000l0001", 1, 0),
         ("bwbr0000009", 1, 0),
+        (BWB.lower(), 0, 1),
     ]
 
 

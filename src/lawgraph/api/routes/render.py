@@ -60,6 +60,7 @@ IMAGES = {
     "dossier": "/og/dossier.png",
     "bijlage": "/og/wet.png",
     "zaak": "/og/dossier.png",
+    "activiteit": "/og/dossier.png",
 }
 NOT_FOUND = Page(
     title="Niet gevonden",

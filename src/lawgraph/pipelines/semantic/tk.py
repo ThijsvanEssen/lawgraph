@@ -10,7 +10,6 @@ from typing import Any, Callable, Iterable
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    MAX_SEMANTIC_TEXT_LENGTH,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
@@ -19,17 +18,18 @@ from lawgraph.core.citations import (
     LAW_CONNECTOR_RE,
     CitationHit,
     DutchCitationExtractor,
-    coerce_text,
     hit_reason,
     make_snippet,
 )
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.paper_text import PaperText
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
@@ -120,6 +120,8 @@ def _instrument_hit(
         confidence=0.6,
         raw_match=text[start:end],
         snippet=make_snippet(text, (start, end)),
+        start=start,
+        end=end,
     )
 
 
@@ -154,7 +156,24 @@ def _collect_tk_hits(
 
 
 class TKSemanticPipeline(SemanticPipelineBase):
-    """Pipeline connecting TK documents to the articles and instruments they cite."""
+    """Pipeline connecting TK documents to the articles and instruments they cite.
+
+    The edges of a document are derived in full each time it is read: one its words no
+    longer make (an earlier rule, an earlier text) goes. An edge says where its citation
+    stands in what ``/api/documents/{key}`` serves (``core.paper_text``): ``meta.place``,
+    ``{part, start, end}`` with ``part`` ``title``, ``text`` (and ``section_id``) or
+    ``footnote`` (and ``footnote``, ``footnote_id``), and ``meta.snippet`` from that part
+    alone."""
+
+    def __init__(
+        self, *, store: Any, after: str | None = None, limit: int | None = None
+    ) -> None:
+        """*after* and *limit*: a slice of a run over all, past that document key, so
+        many documents; the log names the last one read."""
+        super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self.last_document_read: str | None = None
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -176,47 +195,66 @@ class TKSemanticPipeline(SemanticPipelineBase):
         )
 
         edges = EdgeWriter(self.store, what=None)
+        read: list[str] = []
+        kept: dict[str, set[str]] = {}
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
-            text = self._extract_document_text(document)
-            if not text:
+            self.last_document_read = document.key
+            read.append(str(document.node_id))
+            words = PaperText.of(document.props)
+            if not words.text:
                 result.skipped += 1
                 continue
 
-            hits = _collect_tk_hits(text, extractor, named_acts)
-            if not hits:
-                continue
-
-            for hit in hits:
-                target_node = self._resolve_target_node(hit)
-                if not target_node:
-                    continue
-                meta = {
-                    k: v
-                    for k, v in {
-                        "raw_match": hit.raw_match,
-                        "snippet": hit.snippet,
-                        "reason": hit_reason(hit),
-                        "qualifier": hit.qualifier,
-                        **parse_qualifier(hit.qualifier).to_dict(),
-                    }.items()
-                    if v
-                }
-                edge_doc = self._make_edge_doc(
-                    from_node=document,
-                    to_node=target_node,
-                    relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
-                    confidence=hit.confidence,
-                    meta=meta,
-                )
+            for hit in _collect_tk_hits(words.text, extractor, named_acts):
+                edge_doc = self._edge_of(document, hit, words)
                 if edge_doc:
                     edges.add_doc(edge_doc)
+                    kept.setdefault(edge_doc["_from"], set()).add(edge_doc["_key"])
 
         edges.flush_into(result)
-
+        removed = semantic_edges.remove_edges_from(
+            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
+        )
+        logger.info("Removed %d citations the documents no longer make.", removed)
+        if self.after or self.limit is not None:
+            last = self.last_document_read
+            logger.info("The last read was %s (go on with --after %s).", last, last)
         return result
+
+    def _edge_of(
+        self, document: Node, hit: CitationHit, words: PaperText
+    ) -> dict[str, Any] | None:
+        """The REFERS_TO edge of one hit, or None when its target is not in the graph;
+        *words*: what was read of the paper, which places the hit."""
+        target_node = self._resolve_target_node(hit)
+        if not target_node:
+            return None
+        meta = {
+            k: v
+            for k, v in {
+                "raw_match": hit.raw_match,
+                "snippet": hit.snippet,
+                "reason": hit_reason(hit),
+                "qualifier": hit.qualifier,
+                **parse_qualifier(hit.qualifier).to_dict(),
+            }.items()
+            if v
+        }
+        place, snippet = words.place(hit.start, hit.end)
+        # null for a citation over two parts: a relink clears an earlier place
+        meta["place"] = place
+        if snippet:
+            meta["snippet"] = snippet
+        return self._make_edge_doc(
+            from_node=document,
+            to_node=target_node,
+            relation=RELATION_REFERS_TO,
+            source=SEMANTIC_SOURCE,
+            confidence=hit.confidence,
+            meta=meta,
+        )
 
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         """TK documents; only a Document may be the source of a REFERS_TO edge."""
@@ -226,7 +264,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
             if not recent_ids:
                 return
             ids = sorted(recent_ids)
-        for doc in semantic_tk.tk_documents(self.store, ids):
+        for doc in semantic_tk.tk_documents(
+            self.store, ids, after=self.after, limit=self.limit
+        ):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)
 
     def _recent_external_ids(self, since_iso: str) -> set[str]:
@@ -268,83 +308,3 @@ class TKSemanticPipeline(SemanticPipelineBase):
             return node
 
         return None
-
-    def _extract_document_text(self, document: Node) -> str | None:
-        fragments: list[str] = []
-        total_length = 0
-        for key in ("title", "summary", "body", "text"):
-            candidate = document.props.get(key)
-            text_value = coerce_text(candidate)
-            if not text_value:
-                continue
-            fragments.append(text_value)
-            total_length += len(text_value)
-        # A footnote is no part of ``text`` (``normalize tk-content`` moves it out), and cites
-        # laws as much as the text does.
-        notes = coerce_text(
-            "\n".join(
-                str(note.get("text") or "")
-                for note in document.props.get("footnotes") or []
-                if isinstance(note, dict)
-            )
-        )
-        if notes:
-            fragments.append(notes)
-            total_length += len(notes)
-
-        total_length = self._collect_raw_text(
-            document.props.get("raw"), fragments, total_length
-        )
-        if not fragments:
-            return None
-        text = "\n".join(fragments)
-        if len(text) >= MAX_SEMANTIC_TEXT_LENGTH:
-            logger.debug(
-                "TK semantic: document text reached collection limit of %d chars (node %s).",
-                MAX_SEMANTIC_TEXT_LENGTH,
-                document.key,
-            )
-        return text
-
-    def _collect_raw_text(
-        self,
-        value: Any,
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-            return current_length
-        if isinstance(value, str):
-            snippet = value.strip()
-            if snippet:
-                fragments.append(snippet)
-                current_length += len(snippet)
-        elif isinstance(value, dict):
-            current_length = self._collect_from_dict(value, fragments, current_length)
-        elif isinstance(value, list):
-            current_length = self._collect_from_list(value, fragments, current_length)
-        return current_length
-
-    def _collect_from_dict(
-        self,
-        value: dict[str, Any],
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        for child in value.values():
-            current_length = self._collect_raw_text(child, fragments, current_length)
-            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-                break
-        return current_length
-
-    def _collect_from_list(
-        self,
-        value: list[Any],
-        fragments: list[str],
-        current_length: int,
-    ) -> int:
-        for item in value:
-            current_length = self._collect_raw_text(item, fragments, current_length)
-            if current_length >= MAX_SEMANTIC_TEXT_LENGTH:
-                break
-        return current_length

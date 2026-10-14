@@ -5,8 +5,8 @@ The rows are written from the reading of every kind of event the feed itself mak
 (``queries/feed.py``: each kind's table, its condition, its first dossier, its signatures),
 so a period counts what the feed's facets count under the same filters. Each row keeps what
 those filters read: its kind, date, chamber, ministry, factions and dossier labels, and the
-texts the feed matches ``q`` against, its title and that of its first dossier, in lower
-case. ``words`` (their tokens of letters and digits) finds the rows that may hold ``q`` by
+texts the feed matches ``q`` against, its title (of a publication with the names of the
+laws it changes or enacts) and that of its first dossier, in lower case. ``words`` (their tokens of letters and digits) finds the rows that may hold ``q`` by
 index; the feed's own pattern then decides, on those texts.
 
 ``lawgraph feed-events`` writes them: all of them into a new table that then takes the
@@ -87,6 +87,9 @@ def _rows_of_kind(kind: _Kind) -> str:
     """SQL: the rows of one kind (``COLUMNS``), dated from ``%(since)s``."""
     source = kind.source
     title = f"lower({_text('t.title')})"
+    if source.laws:
+        # with the names of its laws, which the feed matches as its title
+        title = f"lower(concat_ws(' ', {_text('t.title')}, {source.laws}))"
     dossier_title = f"lower({_text('fd.title')})" if kind.first_dossier else "NULL"
     values = (
         _lit(source.kind),
@@ -266,15 +269,10 @@ def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
     bind: dict[str, Any] = {}
     for n, word in enumerate(words):
         bind[f"q_{n}"] = word
-        bind[f"w_{n}"] = _whole(word)
+        bind[f"w_{n}"] = _words.whole(word)
     with store.pool.connection() as conn:
         row = conn.execute(f"SELECT {statement}", bind).fetchone()
     return list(row or ())
-
-
-def _whole(word: str) -> bool:
-    """Whether the feed matches *word* as a whole word (``_words.word_pattern``)."""
-    return len(word) <= _words.WHOLE_WORD_MAX and word[-1:].isalnum()
 
 
 def _words_filter(
@@ -587,4 +585,6 @@ def unsupported(filters: FeedFilters) -> list[str]:
         found.append("member")
     if filters.tiers:
         found.append("tier")
+    if filters.instrument:
+        found.append("instrument")
     return found
