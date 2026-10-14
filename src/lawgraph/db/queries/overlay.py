@@ -5,12 +5,10 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
 )
 from lawgraph.db import GraphStore, version_cache
 
@@ -42,12 +40,7 @@ def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
 
 # Every article-level signal, whatever its timestamp: references and amendments. Those
 # edges may carry no created_at but are permanent signals of activity on an article.
-_ARTICLE_CITATION_RELATIONS = [
-    RELATION_REFERS_TO,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-]
+_ARTICLE_CITATION_RELATIONS = [RELATION_REFERS_TO, *CHANGE_RELATIONS]
 
 
 def get_heat_counts(

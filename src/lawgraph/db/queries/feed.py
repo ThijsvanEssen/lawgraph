@@ -26,6 +26,7 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
@@ -41,10 +42,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
     RELATION_PART_OF,
-    RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
@@ -378,9 +376,7 @@ def _tier_part(tier: str) -> str:
     return f"n.tier = {_lit(tier)}"
 
 
-_CHANGES = ", ".join(
-    _lit(r) for r in (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
-)
+_CHANGES = ", ".join(_lit(r) for r in CHANGE_RELATIONS)
 
 # The key of the instrument an edge of a paper changes: of an article, the instrument it is
 # of by its BWB id (``LOWER(null)`` is ``""``), else the target's own key.

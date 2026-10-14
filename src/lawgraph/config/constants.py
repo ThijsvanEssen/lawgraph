@@ -100,6 +100,12 @@ RELATION_ACCOMPANIES = "ACCOMPANIES"
 RELATION_SECOND_READING_OF = "SECOND_READING_OF"
 RELATION_SERVED_IN = "SERVED_IN"
 
+# What a law or a bill does to an article: changes it, or (enacting a regulation) sets it;
+# and what a publication does, its nota van toelichting included.
+CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+ENACTING_RELATIONS = (RELATION_ESTABLISHES, *CHANGE_RELATIONS)
+PUBLICATION_RELATIONS = (*ENACTING_RELATIONS, RELATION_EXPLAINS)
+
 # ── Semantic relationship types ───────────────────────────────────────────────
 # Curated semantic layer stored on edges as `semantic_type`. Orthogonal to
 # `relation` (which says *that* two nodes are linked); semantic_type says

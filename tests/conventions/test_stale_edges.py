@@ -27,7 +27,7 @@ def test_semantic_pipelines_remove_stale_edges_through_the_edge_writer() -> None
     offenders = [
         f"{path.name}: {needle}"
         for path in sorted(semantic.glob("*.py"))
-        for needle in ("edge_key", "semantic_edges.remove", "semantic_edges.removed")
+        for needle in ("edge_key", "removals.")
         if needle in path.read_text()
     ]
     assert not offenders

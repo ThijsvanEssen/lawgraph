@@ -51,7 +51,11 @@ from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
-from lawgraph.core.publications import SERIES, parse_koop_id
+from lawgraph.core.publications import (
+    SERIES,
+    official_of_instrument_key,
+    parse_koop_id,
+)
 
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
@@ -234,7 +238,7 @@ def _instrument(key: str, props: dict[str, Any]) -> str | None:
     celex = _text(props.get("celex")) or key
     if CELEX.match(celex):
         return pad_href(Pad("wet", celex.upper()))
-    official = _text(props.get("official_id")) or key.replace("_", "-")
+    official = _text(props.get("official_id")) or official_of_instrument_key(key)
     parsed = parse_koop_id(official)
     if parsed is None:
         return None

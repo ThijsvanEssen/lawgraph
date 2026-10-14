@@ -26,23 +26,24 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_AUTHORED,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
 from lawgraph.core import models
-from lawgraph.core.models import key_of, make_node_key, parse_node_id
+from lawgraph.core.models import key_of, parse_node_id
+from lawgraph.core.publications import (
+    note_key,
+    official_of_instrument_key,
+    official_of_note_key,
+)
 from lawgraph.core.readable_paths import Pad, focus_of_pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
@@ -627,15 +628,6 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 # ── publications, commitments and decisions ───────────────────────────────────
 
-# What a publication does to a regulation, and what its nota van toelichting does.
-_CHANGES = (
-    RELATION_ESTABLISHES,
-    RELATION_INTRODUCES,
-    RELATION_AMENDS,
-    RELATION_REPEALS,
-    RELATION_EXPLAINS,
-)
-
 
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A publication in the Staatsblad or Tractatenblad: the instrument the BWB names, its
@@ -647,14 +639,12 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         row = _node(store, COLLECTION_INSTRUMENTS, node_id)
         if row is None:
             return None
-        official = str((row["props"] or {}).get("official_id") or key.replace("_", "-"))
-        note_id = models.node_id(
-            COLLECTION_DOCUMENTS, make_node_key(official.split("-")[0], official)
-        )
+        props = row["props"] or {}
+        official = str(props.get("official_id") or official_of_instrument_key(key))
+        note_id = models.node_id(COLLECTION_DOCUMENTS, note_key(official))
     else:
-        # the document of its own source: ``stb_stb_2026_94`` is stb-2026-94
         row, note_id = None, node_id
-        official = key.partition("_")[2].replace("_", "-")
+        official = official_of_note_key(key)
     note = _first(
         store,
         f"""
@@ -748,7 +738,7 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
         ORDER BY name ASC NULLS LAST, i.id
         LIMIT %(limit)s
         """,
-        {"sources": sources, "changes": list(_CHANGES), "limit": LAWS},
+        {"sources": sources, "changes": list(PUBLICATION_RELATIONS), "limit": LAWS},
     )
     return [r for r in rows if r["name"]]
 

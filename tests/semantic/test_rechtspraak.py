@@ -6,8 +6,8 @@ import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
@@ -51,7 +51,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
 
 
 def _paragraph(number: str | None, text: str) -> dict[str, Any]:

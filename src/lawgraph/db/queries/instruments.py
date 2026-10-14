@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    ENACTING_RELATIONS,
     RELATION_AMENDS,
     RELATION_BASED_ON,
     RELATION_ESTABLISHES,
@@ -38,14 +39,6 @@ from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
-
-# Edges from a publication to the articles it sets (enacting their regulation) or changes.
-_MUTATION_RELATIONS = [
-    RELATION_ESTABLISHES,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-]
 
 
 @dataclass
@@ -503,7 +496,7 @@ def get_instrument_dossiers(
         {
             "bwb": scope.value,
             "instrument_id": instrument_id,
-            "mutations": _MUTATION_RELATIONS,
+            "mutations": list(ENACTING_RELATIONS),
             "legislated_in": RELATION_LEGISLATED_IN,
             "dossiers": COLLECTION_DOSSIERS,
             "limit": limit,
@@ -659,7 +652,7 @@ def _amending_ctes(collection: str, prop: str) -> str:
 def _amending_bind(bwb: str) -> dict[str, Any]:
     return {
         "bwb": bwb,
-        "mutations": _MUTATION_RELATIONS,
+        "mutations": list(ENACTING_RELATIONS),
         "establishes": RELATION_ESTABLISHES,
         "amends": RELATION_AMENDS,
         "introduces": RELATION_INTRODUCES,

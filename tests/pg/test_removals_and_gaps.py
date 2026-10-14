@@ -1,4 +1,4 @@
-"""The removals of the normalize and semantic phases and the reads of the gaps on a real
+"""The removals of nodes and edges and the reads of the gaps on a real
 PostgreSQL: which nodes and edges go, which stay, the counts, and the rows and order of
 every gaps list."""
 
@@ -18,8 +18,7 @@ from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.db.queries.normalize import edges as normalize_edges
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.store import raw_key
 
 
@@ -78,11 +77,11 @@ def derived(store: GraphStore) -> GraphStore:
     return store
 
 
-def test_remove_edges_of_source_except_keeps_the_kept_and_the_others(
+def test_remove_edges_except_of_a_source_keeps_the_kept_and_the_others(
     derived: GraphStore,
 ) -> None:
-    removed = semantic_edges.remove_edges_of_source_except(
-        derived, "REFERS_TO", "s", ["ab", "ca"]
+    removed = removals.remove_edges_except(
+        derived, "REFERS_TO", ["ab", "ca"], source="s"
     )
     assert removed == 3  # ac, ba, bc
     assert _edge_keys(derived) == sorted(
@@ -90,49 +89,62 @@ def test_remove_edges_of_source_except_keeps_the_kept_and_the_others(
     )
 
 
-def test_remove_edges_of_source_except_with_nothing_kept(derived: GraphStore) -> None:
-    assert semantic_edges.remove_edges_of_source_except(derived, "AMENDS", "s", []) == 2
-    assert semantic_edges.remove_edges_of_source_except(derived, "AMENDS", "s", []) == 0
+def test_remove_edges_except_of_a_source_with_nothing_kept(derived: GraphStore) -> None:
+    assert removals.remove_edges_except(derived, "AMENDS", [], source="s") == 2
+    assert removals.remove_edges_except(derived, "AMENDS", [], source="s") == 0
 
 
-def test_remove_edges_from_per_node_keep_and_chunks(derived: GraphStore) -> None:
-    removed = semantic_edges.remove_edges_from(
+def test_remove_edges_at_from_per_node_keep_and_chunks(
+    derived: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(removals, "CHUNK", 1)
+    removed = removals.remove_edges_at(
         derived,
-        "REFERS_TO",
-        "s",
+        "from_id",
+        ["REFERS_TO"],
         ["articles/a", "articles/b", "articles/missing"],
         # a keeps ab; b keeps "ac", which is no edge of b: bc and ba both go
         {"articles/a": {"ab"}, "articles/b": {"ac"}, "articles/c": {"ca"}},
-        chunk=1,
+        source="s",
     )
-    assert removed == 3  # ac, ba, bc
+    assert sorted(removed) == [  # ac, ba, bc
+        ("articles/a", "articles/c"),
+        ("articles/b", "articles/a"),
+        ("articles/b", "articles/c"),
+    ]
     assert _edge_keys(derived) == sorted(
         ["ab", "ca", "a-other-source", "a-other-relation", "c-amends-a"]
     )
 
 
-def test_remove_edges_from_a_node_without_keep_loses_them_all(
+def test_remove_edges_at_a_node_without_keep_loses_them_all(
     derived: GraphStore,
 ) -> None:
-    assert (
-        semantic_edges.remove_edges_from(derived, "REFERS_TO", "s", ["articles/c"], {})
-        == 1
+    removed = removals.remove_edges_at(
+        derived, "from_id", ["REFERS_TO"], ["articles/c"], {}, source="s"
     )
+    assert removed == [("articles/c", "articles/a")]
     assert "ca" not in _edge_keys(derived)
-    assert semantic_edges.remove_edges_from(derived, "REFERS_TO", "s", [], {}) == 0
+    assert (
+        removals.remove_edges_at(derived, "from_id", ["REFERS_TO"], [], {}, source="s")
+        == []
+    )
 
 
-def test_remove_edges_to_per_node_keep_and_relations(derived: GraphStore) -> None:
-    removed = semantic_edges.remove_edges_to(
+def test_remove_edges_at_to_per_node_keep_and_relations(
+    derived: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(removals, "CHUNK", 1)
+    removed = removals.remove_edges_at(
         derived,
+        "to_id",
         ["REFERS_TO", "AMENDS"],
-        "s",
         ["articles/a", "articles/c"],
         {"articles/a": {"ca"}},
-        chunk=1,
+        source="s",
     )
     # into a: ba and c-amends-a go, ca stays; into c: ac, bc, a-other-relation go
-    assert removed == 5
+    assert len(removed) == 5
     assert _edge_keys(derived) == sorted(["ab", "ca", "a-other-source"])
 
 
@@ -171,7 +183,7 @@ def tk_graph(store: GraphStore) -> GraphStore:
 
 
 def test_remove_nodes_takes_their_edges_along(tk_graph: GraphStore) -> None:
-    removed = normalize_edges.remove_nodes(tk_graph, "decisions", ["d1", "dx", "d3"])
+    removed = removals.remove_nodes(tk_graph, "decisions", ["d1", "dx", "d3"])
     assert removed == 2  # dx is no node
     assert _node_keys(tk_graph, "decisions") == ["d2", "d4", "d5", "d6", "d7"]
     # e1 from d1, e2 into d1, e8 from d3
@@ -181,22 +193,20 @@ def test_remove_nodes_takes_their_edges_along(tk_graph: GraphStore) -> None:
 def test_remove_nodes_in_chunks(
     tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(normalize_edges, "_REMOVE_CHUNK", 1)
-    assert normalize_edges.remove_nodes(tk_graph, "decisions", ["d1", "d2"]) == 2
-    assert normalize_edges.remove_nodes(tk_graph, "decisions", []) == 0
+    monkeypatch.setattr(removals, "CHUNK", 1)
+    assert removals.remove_nodes(tk_graph, "decisions", ["d1", "d2"]) == 2
+    assert removals.remove_nodes(tk_graph, "decisions", []) == 0
 
 
 def test_remove_nodes_except(tk_graph: GraphStore) -> None:
-    assert normalize_edges.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
+    assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
     assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
     assert len(_edge_keys(tk_graph)) == 8  # the edges stay, as in ArangoDB
 
 
 def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:
-    assert normalize_edges.remove_nodes_of_records(tk_graph, "decisions", []) == 0
-    removed = normalize_edges.remove_nodes_of_records(
-        tk_graph, "decisions", ["r1", "r3"]
-    )
+    assert removals.remove_nodes_of_records(tk_graph, "decisions", []) == 0
+    removed = removals.remove_nodes_of_records(tk_graph, "decisions", ["r1", "r3"])
     # d1 (r1), d3 (r1, r3), d5 ([] and r1); not d4 (r9), d6 (7), d2, d7
     assert removed == 3
     assert _node_keys(tk_graph, "decisions") == ["d2", "d4", "d6", "d7"]
@@ -204,8 +214,8 @@ def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:
 
 
 def test_remove_edges_of_records(tk_graph: GraphStore) -> None:
-    assert normalize_edges.remove_edges_of_records(tk_graph, []) == 0
-    removed = normalize_edges.remove_edges_of_records(tk_graph, ["r1", "r2", "r3"])
+    assert removals.remove_edges_of_records(tk_graph, []) == 0
+    removed = removals.remove_edges_of_records(tk_graph, ["r1", "r2", "r3"])
     # e1, e2, e4 are made of them alone; e3 names r9, e5 names 5, e6-e8 name none
     assert removed == 3
     assert _edge_keys(tk_graph) == ["e3", "e5", "e6", "e7", "e8"]
@@ -214,14 +224,14 @@ def test_remove_edges_of_records(tk_graph: GraphStore) -> None:
 def test_remove_edges_of_records_in_chunks_against_all(
     tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(normalize_edges, "_REMOVE_CHUNK", 1)
+    monkeypatch.setattr(removals, "CHUNK", 1)
     # e2 (r1, r2) is in two chunks and goes once; it is made of the whole list alone
-    assert normalize_edges.remove_edges_of_records(tk_graph, ["r1", "r2"]) == 2
+    assert removals.remove_edges_of_records(tk_graph, ["r1", "r2"]) == 2
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7", "e8"]
 
 
 def test_remove_edges_into_except(tk_graph: GraphStore) -> None:
-    removed = normalize_edges.remove_edges_into_except(
+    removed = removals.remove_edges_into_except(
         tk_graph, "REFERS_TO", ["factions/f", "factions/g"], ["e1"]
     )
     assert removed == 3  # e3, e4, e5
@@ -230,7 +240,7 @@ def test_remove_edges_into_except(tk_graph: GraphStore) -> None:
 
 def test_remove_edges_except(tk_graph: GraphStore) -> None:
     tk_graph.bulk_insert_or_update_edges([_edge("x1", "a/1", "b/1", relation="AMENDS")])
-    assert normalize_edges.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
+    assert removals.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
     assert _edge_keys(tk_graph) == ["e2", "e8", "x1"]
 
 
@@ -239,15 +249,31 @@ def test_the_keep_removals_write_in_chunks(
 ) -> None:
     """Read in full, removed a few keys at a time: the same rows go as in one statement."""
     monkeypatch.setattr(chunks, "CHUNK", 2)
-    assert normalize_edges.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
+    assert removals.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
     assert _edge_keys(tk_graph) == ["e2", "e8"]
-    assert normalize_edges.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
+    assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
     assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
-    assert (
-        semantic_edges.remove_edges_of_source_except(tk_graph, "REFERS_TO", "s", [])
-        == 2
-    )
+    assert removals.remove_edges_except(tk_graph, "REFERS_TO", [], source="s") == 2
     assert _edge_keys(tk_graph) == []
+
+
+def test_removals_past_one_chunk(store: GraphStore) -> None:
+    """More ids than one statement takes: every chunk is removed, each node with its edges."""
+    count = removals.CHUNK + 1
+    keys = [f"n{i:05}" for i in range(count)]
+    store.bulk_insert_or_update_nodes("decisions", [_node(k) for k in keys])
+    ids = [f"decisions/{k}" for k in keys]
+    store.bulk_insert_or_update_edges(
+        [_edge(f"e{i:05}", i_d, "factions/f") for i, i_d in enumerate(ids)]
+        + [_edge(f"x{i:05}", "members/m", i_d) for i, i_d in enumerate(ids)]
+    )
+    removed = removals.remove_edges_at(
+        store, "from_id", ["REFERS_TO"], ids, {ids[0]: {"e00000"}}, source="s"
+    )
+    assert len(removed) == count - 1
+    assert removals.remove_nodes(store, "decisions", keys) == count
+    assert _node_keys(store, "decisions") == []
+    assert _edge_keys(store) == []
 
 
 # ── gaps: laws ───────────────────────────────────────────────────────────────
