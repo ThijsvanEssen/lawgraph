@@ -230,10 +230,13 @@ def test_remove_edges_of_records_in_chunks_against_all(
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7", "e8"]
 
 
-def test_remove_edges_into_except(tk_graph: GraphStore) -> None:
-    removed = removals.remove_edges_into_except(
-        tk_graph, "REFERS_TO", ["factions/f", "factions/g"], ["e1"]
-    )
+@pytest.mark.parametrize("chunk", [500, 1])
+def test_remove_edges_into_except(
+    tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch, chunk: int
+) -> None:
+    monkeypatch.setattr(removals, "INTO_CHUNK", chunk)
+    written = {"factions/f": ["e1"], "factions/g": []}
+    removed = removals.remove_edges_into_except(tk_graph, "REFERS_TO", written)
     assert removed == 3  # e3, e4, e5
     assert _edge_keys(tk_graph) == ["e1", "e2", "e6", "e7", "e8"]
 

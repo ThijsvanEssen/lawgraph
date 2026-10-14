@@ -36,6 +36,14 @@ from typing import Literal, NamedTuple
 
 from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
 from lawgraph.core.identifiers import EU_ACT_KINDS, EUInstrumentKind, parse_celex
+from lawgraph.core.provenance import (
+    REASON_BWB_ARTICLE,
+    REASON_BWB_INSTRUMENT,
+    REASON_CELEX_ARTICLE,
+    REASON_CELEX_INSTRUMENT,
+    REASON_UNKNOWN,
+    Reason,
+)
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
 from lawgraph.core.xml import XML_TAG_RE, collapse_ws
 
@@ -131,17 +139,17 @@ def format_celex(kind: EUInstrumentKind, year: str, number: str) -> str:
     return f"3{year}{act.letter}{int(number):04d}"
 
 
-def hit_reason(hit: CitationHit) -> str:
+def hit_reason(hit: CitationHit) -> Reason:
     """Derive a short reason label from a CitationHit's populated fields."""
     if hit.bwb_id and hit.article_number:
-        return "bwb_article"
+        return REASON_BWB_ARTICLE
     if hit.celex and hit.article_number:
-        return "celex_article"
+        return REASON_CELEX_ARTICLE
     if hit.bwb_id:
-        return "bwb_instrument"
+        return REASON_BWB_INSTRUMENT
     if hit.celex:
-        return "celex_instrument"
-    return "unknown"
+        return REASON_CELEX_INSTRUMENT
+    return REASON_UNKNOWN
 
 
 def coerce_text(value: object) -> str | None:

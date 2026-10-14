@@ -193,7 +193,9 @@ def link_votes(
             keys.append(edge["_key"])
             writer.add_doc(edge)
     writer.flush()
-    removed = _remove_other_votes(store, written)
+    # A decision is its live rows together, all read, so an edge no row gives (a vote the
+    # Kamer deleted, a voter the graph no longer holds) goes.
+    removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)
     logger.info(
         "Wrote %d VOTED edges; removed %d no live vote gives.", writer.added, removed
     )
@@ -216,23 +218,6 @@ def _vote_edge(
             "record_ids": [cast.record_id] if cast.record_id else [],
         },
     )
-
-
-# Decisions whose other VOTED edges are removed in one query.
-_DECISION_CHUNK = 500
-
-
-def _remove_other_votes(store: Store, written: dict[str, list[str]]) -> int:
-    """Remove the VOTED edges into the decisions of *written* that this run did not write:
-    a decision is its live rows together, all read, so an edge no row gives (a vote the
-    Kamer deleted, a voter the graph no longer holds) goes."""
-    decisions = sorted(written)
-    removed = 0
-    for start in range(0, len(decisions), _DECISION_CHUNK):
-        chunk = decisions[start : start + _DECISION_CHUNK]
-        keep = [key for decision in chunk for key in written[decision]]
-        removed += removals.remove_edges_into_except(store, RELATION_VOTED, chunk, keep)
-    return removed
 
 
 def _report_lost_votes(lost: dict[str, list[str]]) -> None:

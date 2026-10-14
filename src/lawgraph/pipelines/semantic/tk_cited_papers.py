@@ -38,6 +38,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers, motion_papers
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
+from lawgraph.core.provenance import BASIS_FOOTNOTE, BASIS_SUBJECT, BASIS_TEXT
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, dossier_label, is_motion
 from lawgraph.core.xml import collapse_ws
@@ -50,9 +51,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "tk-cited-papers"
-BASIS = "subject"
-BASIS_TEXT = "text"
-BASIS_FOOTNOTE = "footnote"
 # An answer read from the text: sure of the motion, less of what the letter does with it.
 TEXT_CONFIDENCE = 0.9
 RELATIONS = (RELATION_ANSWERS, RELATION_REFERS_TO)
@@ -217,7 +215,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 relation,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
-                meta={"basis": BASIS, "text": text, "reference": ref.text},
+                meta={"basis": BASIS_SUBJECT, "text": text, "reference": ref.text},
             )
         written.update({r: n for r in RELATIONS if (n := edges.written(r))})
         return written

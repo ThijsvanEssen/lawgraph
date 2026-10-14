@@ -73,19 +73,28 @@ def remove_edges_at(
     return removed
 
 
+# The nodes whose other edges ``remove_edges_into_except`` removes in one statement.
+INTO_CHUNK = 500
+
+
 def remove_edges_into_except(
-    store: Store, relation: str, to_ids: list[str], keep: list[str]
+    store: Store, relation: str, written: dict[str, list[str]]
 ) -> int:
-    """Remove the *relation* edges into *to_ids* whose key is not in *keep*; how many went.
-    For the edges of a node one run derives in full (the votes on a decision)."""
+    """Remove the *relation* edges into each node of *written* whose key is not among the
+    keys written into it; how many went. For the edges of a node one run derives in full
+    (the votes on a decision)."""
     statement = f"""
         DELETE FROM edges e
         WHERE e.to_id = ANY(%(to_ids)s::text[]) AND e.relation = %(relation)s
           AND {_NOT_KEPT.format(key="e.key")}
         RETURNING 1
     """
-    bind = {"to_ids": to_ids, "relation": relation, "keep": keep}
-    return len(store.execute(statement, bind))
+    removed = 0
+    for to_ids in chunked(sorted(written), INTO_CHUNK):
+        keep = [key for to_id in to_ids for key in written[to_id]]
+        bind = {"to_ids": to_ids, "relation": relation, "keep": keep}
+        removed += len(store.execute(statement, bind))
+    return removed
 
 
 def remove_edges_of_records(store: Store, record_ids: list[str]) -> int:
