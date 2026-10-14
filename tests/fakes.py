@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+import math
+import sys
+import threading
+import time
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 import pytest
@@ -79,3 +83,89 @@ def patch_pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(state_queries, "covered_until", covered_until)
     monkeypatch.setattr(state_queries, "set_covered_until", set_covered_until)
+
+
+# How long a test waits at most for something that happens at once in another thread: only
+# reached when it never happens, so it can be ample.
+PATIENCE = 10.0
+
+
+def until(condition: Callable[[], bool], seconds: float = PATIENCE) -> bool:
+    """Whether *condition* holds within *seconds* (another thread makes it true)."""
+    end = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > end:
+            return False
+        time.sleep(0.005)
+    return True
+
+
+class ManualClock:
+    """A clock that stands still until the test moves it. A wait on it ends when it is
+    notified or once the clock is moved past its deadline; ``waiting_until`` is that
+    deadline while a wait lasts."""
+
+    def __init__(self) -> None:
+        self._now = 0.0
+        self.waiting_until: float | None = None
+
+    def now(self) -> float:
+        return self._now
+
+    def wait(self, condition: threading.Condition, timeout: float) -> bool:
+        deadline = self._now + timeout
+        self.waiting_until = deadline
+        try:
+            while self._now < deadline:
+                if condition.wait(timeout=0.005):
+                    return True
+            return False
+        finally:
+            self.waiting_until = None
+
+    def waits_until(self, deadline: float) -> bool:
+        """Whether a wait until *deadline* starts (another thread waits)."""
+        return until(
+            lambda: (
+                self.waiting_until is not None
+                and math.isclose(self.waiting_until, deadline)
+            )
+        )
+
+    def move_to_wait(self, deadline: float) -> None:
+        """Once a wait until *deadline* lasts, move the clock to its end."""
+        assert self.waits_until(deadline), f"no wait until {deadline}"
+        self._now = max(self._now, deadline, self.waiting_until or deadline)
+
+
+# What a computation that is linear in its input may take at most (seconds): one that is
+# not (backtracking) takes minutes on the same input, so a busy machine never reaches it.
+FAST = 5.0
+
+
+def assert_fast(function: Callable[[], Any], budget: float = FAST) -> Any:
+    """The result of *function*, which must return within *budget* seconds."""
+    started = time.perf_counter()
+    result = function()
+    took = time.perf_counter() - started
+    assert took < budget, f"took {took:.2f} s, more than {budget} s"
+    return result
+
+
+def calls_made(function: Callable[[], Any]) -> int:
+    """How many functions, Python and built-in, *function* calls in this thread: a cost
+    that a busy machine does not change."""
+    count = 0
+
+    def profile(frame: Any, event: str, arg: Any) -> None:
+        nonlocal count
+        if event in ("call", "c_call"):
+            count += 1
+
+    previous = sys.getprofile()
+    sys.setprofile(profile)
+    try:
+        function()
+    finally:
+        sys.setprofile(previous)
+    return count

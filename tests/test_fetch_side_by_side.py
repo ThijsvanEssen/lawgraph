@@ -9,19 +9,20 @@ import pytest
 
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.retrieve.base import fetched_side_by_side
+from tests.fakes import PATIENCE
 
 
 def test_the_latency_of_one_request_is_not_the_limit() -> None:
-    """At 0.2 s a request, 5 a second was the ceiling whatever the host allows."""
+    """At 0.2 s a request, 5 a second was the ceiling whatever the host allows: the
+    requests of every worker are under way at the same time."""
+    all_under_way = threading.Barrier(8, timeout=PATIENCE)
 
     def fetch(name: str) -> str:
-        time.sleep(0.05)
+        all_under_way.wait()  # broken when fewer than 8 are under way at once
         return name.upper()
 
     names = [f"ecli-{n}" for n in range(40)]
-    started = time.monotonic()
     fetched = list(fetched_side_by_side(names, fetch, workers=8))
-    assert time.monotonic() - started < 40 * 0.05 / 3  # one by one: 2.0 s
     assert fetched == [(name, name.upper()) for name in names]  # in the order asked
 
 

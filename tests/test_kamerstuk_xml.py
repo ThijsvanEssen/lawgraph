@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.core import kamerstuk_xml
 from lawgraph.core.kamerstuk_xml import ParsedKamerstuk, Section, parse_kamerstuk
+from tests.fakes import assert_fast
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
@@ -488,14 +489,10 @@ def test_a_long_heading_is_read_in_linear_time() -> None:
     """A line read as an article heading can be a whole table row: ", " parts with spaces
     around them and no "van de" made the law pattern try every way to split it (minutes on
     kst-34939-3 and kst-33161-3)."""
-    import time
-
     from lawgraph.core.kamerstuk_xml import _law_and_refs
 
     rest = "".join(f" ,  deel  {i}  " for i in range(60))
-    started = time.perf_counter()
-    refs, law = _law_and_refs(rest, ["1"])
-    assert time.perf_counter() - started < 0.5
+    refs, law = assert_fast(lambda: _law_and_refs(rest, ["1"]))
     assert law is None and refs == [{"number": "1", "of": "self"}]
     named = _law_and_refs(", eerste lid, van de Huisvestingswet 2014", ["9"])[1]
     assert named == "Huisvestingswet 2014"

@@ -260,15 +260,28 @@ def test_a_case_never_produces_an_edge() -> None:
     assert not any(e["_from"].startswith("cases/") for e in store.edges.values())
 
 
-def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
+def test_detect_amends_instrument_stays_fast_with_many_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Thousands of names must not mean thousands of compiled patterns per title."""
-    import time
+    import re
 
-    aliases = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
-    aliases["Wegenwet"] = ("BWBR0001948", None)
+    looked_up: list[object] = []
+    compiled = re._compile  # every pattern of ``re`` passes it, cached or not
+
+    def counting(pattern: object, flags: object) -> object:
+        looked_up.append(pattern)
+        return compiled(pattern, flags)
+
+    monkeypatch.setattr(re, "_compile", counting)
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
+    one = {"Wegenwet": ("BWBR0001948", None)}
+    many = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
 
-    started = time.perf_counter()
-    hits = detect_amends_instrument(title, aliases)
-    assert hits == [("BWBR0001948", None, 0.85)]
-    assert time.perf_counter() - started < 0.5
+    assert detect_amends_instrument(title, one) == [("BWBR0001948", None, 0.85)]
+    patterns_for_one = len(looked_up)
+    looked_up.clear()
+    assert detect_amends_instrument(title, {**many, **one}) == [
+        ("BWBR0001948", None, 0.85)
+    ]
+    assert len(looked_up) == patterns_for_one
