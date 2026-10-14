@@ -262,7 +262,8 @@ def _international_link(
     description=(
         "Its begripsbepalingen, as its text gives them, in the order of the text: each "
         "`term` with its `text`, the article and letter it stands in, where it holds "
-        "(`scope`: the whole regulation, or a chapter or paragraph of it) and the "
+        "(`scope`: the whole regulation, or a chapter or paragraph of it, and whether in "
+        "the regulations issued under it too) and the "
         "regulation a definition is (`refers_to`: `wet`, de Zorgverzekeringswet). Empty for "
         "one that defines nothing. 404 for an unknown instrument."
     ),

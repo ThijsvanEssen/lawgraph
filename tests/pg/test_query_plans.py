@@ -756,3 +756,16 @@ def test_a_zaak_and_a_member_are_found_by_their_index_without_its_statistics(
     assert not any(
         line.endswith(("cases_key", "members_key")) for line in case + member
     )
+
+
+def test_an_article_reads_the_definitions_its_regulation_takes(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """The article route reads the regulations its regulation is issued under (two levels
+    of ``BASED_ON``) for the definitions it takes: planned above with the rest."""
+    from lawgraph.db.queries.definitions import _BASES_SQL
+
+    assert any(
+        url == f"/api/articles/{BWB}/1" and _text(statement) == _text(_BASES_SQL)
+        for url, statement, _ in statements
+    )

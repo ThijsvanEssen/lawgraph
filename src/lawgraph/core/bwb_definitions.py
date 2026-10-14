@@ -11,7 +11,12 @@ the same, in two forms:
 
 A sentence that defines one term ("In deze wet wordt verstaan onder werkgever: …") is the
 third form. The announcement says where the definitions hold (``scope``): the whole
-regulation, or a chapter, section or article of it (``path``: its ``bwb-ng-variabel-deel``).
+regulation, or a chapter, section or article of it (``path``: its ``bwb-ng-variabel-deel``);
+and whether they hold in the regulations issued under it too (``reach``: ``own_and_based``
+for "In deze wet en de daarop berustende bepalingen", else ``own``). A regulation issued
+under a law (its ``BASED_ON``) uses the definitions of that law that reach it
+(``inherited``): of the part of the law its basis articles stand in, its own definition of
+the same term first.
 A definition whose text links to a regulation (``<extref bwb-id>``: "wet: de
 Zorgverzekeringswet") names it (``refers_to``). An onderdeel without a term before a colon
 is left out: nothing is guessed.
@@ -36,6 +41,14 @@ _SCOPE = re.compile(
     r"titel|titeldeel|artikel|bijlage|boek|deel|onderdeel)\b",
     re.IGNORECASE,
 )
+# "… en de daarop berustende bepalingen", "… en de op deze wet berustende bepalingen": the
+# definitions hold in the regulations issued under the part too.
+_BASED = re.compile(
+    r"\ben\s+de\s+(?:daarop|op\s+(?:deze|dit)\s+\w+)\s+(?:be)?rustende\b",
+    re.IGNORECASE,
+)
+OWN = "own"
+OWN_AND_BASED = "own_and_based"
 # "In deze wet wordt verstaan onder werkgever: de …": one term, defined in one sentence.
 _ONE = re.compile(
     r"^(?:in|voor de toepassing van)\b.{0,200}?\bwordt\b.{0,120}?\bverstaan\s+onder\s+"
@@ -202,10 +215,17 @@ def _regulation_named(text: str, element: ET.Element) -> str | None:
 
 
 def _scope(sentence: str, article_path: str) -> dict[str, str]:
-    """Where an announcement's definitions hold: ``kind`` (``wet``, ``hoofdstuk``, …) and
+    """Where an announcement's definitions hold: ``kind`` (``wet``, ``hoofdstuk``, …),
     ``path``, the ``bwb-ng-variabel-deel`` of that part ("" for the whole regulation, the
-    article's own for ``artikel``)."""
-    match = _SCOPE.search(sentence)
+    article's own for ``artikel``), and ``reach``: ``own_and_based`` where the words before
+    "verstaan" add "en de daarop berustende bepalingen", else ``own``."""
+    head = re.split(r"\bverstaan\b", sentence, maxsplit=1, flags=re.IGNORECASE)[0]
+    reach = OWN_AND_BASED if _BASED.search(head) else OWN
+    return {**_part(head, article_path), "reach": reach}
+
+
+def _part(head: str, article_path: str) -> dict[str, str]:
+    match = _SCOPE.search(head)
     kind = match.group(1).lower() if match else "wet"
     if kind in _WHOLE:
         return {"kind": kind, "path": ""}
@@ -227,6 +247,50 @@ def applies(definition: dict[str, Any], article_path: str) -> bool:
     return not path or article_path == path or article_path.startswith(path + "/")
 
 
+def reaches(definition: dict[str, Any], basis_paths: list[str]) -> bool:
+    """Whether *definition* holds in a regulation issued under the articles at
+    *basis_paths* of its own: it reaches the regulations based on it, and one of those
+    articles stands in its part."""
+    reach = (definition.get("scope") or {}).get("reach")
+    return reach == OWN_AND_BASED and any(applies(definition, p) for p in basis_paths)
+
+
+def inherited(bases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The definitions a regulation takes from the regulations it is issued under: *bases*
+    ``{level, paths, definitions, given_by}``, level 1 the regulations its preamble names
+    (``BASED_ON``), level 2 theirs. Of each, those that reach it (``reaches``), each with
+    ``given_by`` (the regulation that gives it); of one term in one regulation the narrower
+    scope, as in the regulation itself. Of one term the nearest level; two of one level
+    that say different things leave the term out (two laws that each define "Onze
+    Minister"): nothing is guessed."""
+    chosen: dict[str, tuple[int, dict[str, Any] | None]] = {}
+    for base in sorted(bases, key=lambda b: b["level"]):
+        for term, entry in _narrowest(base).items():
+            seen = chosen.get(term)
+            if seen is None:
+                chosen[term] = (base["level"], entry)
+            elif seen[0] == base["level"] and (
+                seen[1] is None or seen[1]["text"] != entry["text"]
+            ):
+                chosen[term] = (base["level"], None)
+    return [entry for _, entry in chosen.values() if entry is not None]
+
+
+def _narrowest(base: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The definitions of *base* that reach the regulation issued under it, one per term:
+    the one of the narrowest part."""
+    found: dict[str, dict[str, Any]] = {}
+    for definition in base["definitions"]:
+        if not reaches(definition, base["paths"]):
+            continue
+        term = definition["term"].lower()
+        path = definition["scope"].get("path") or ""
+        seen = found.get(term)
+        if seen is None or len(path) > len(seen["scope"].get("path") or ""):
+            found[term] = {**definition, "given_by": base["given_by"]}
+    return found
+
+
 def definition_ref(definition: dict[str, Any]) -> str:
     """How a span names its definition: the article, the letter of the onderdeel and the
     term (``bwbr0018492_1:a:wet``), the article and the term where there is no letter. The
@@ -239,13 +303,18 @@ def definition_ref(definition: dict[str, Any]) -> str:
 
 class TermMatcher:
     """The defined terms of one regulation, found in a text in one pass: one alternation of
-    every term, the longest first, as a whole word, whatever its case."""
+    every term, the longest first, as a whole word, whatever its case. Its own definitions
+    (*found*) and those it takes from the regulations it is issued under (*taken*,
+    ``inherited``): its own where one holds."""
 
-    def __init__(self, found: list[dict[str, Any]]) -> None:
+    def __init__(
+        self, found: list[dict[str, Any]], taken: list[dict[str, Any]] | None = None
+    ) -> None:
         self._by_term: dict[str, list[dict[str, Any]]] = {}
         for definition in found:
             self._by_term.setdefault(definition["term"].lower(), []).append(definition)
-        terms = sorted(self._by_term, key=len, reverse=True)
+        self._taken = {d["term"].lower(): d for d in taken or []}
+        terms = sorted(self._by_term.keys() | self._taken.keys(), key=len, reverse=True)
         self._pattern = (
             re.compile(
                 r"(?<!\w)(?:" + "|".join(re.escape(t) for t in terms) + r")(?!\w)",
@@ -259,19 +328,21 @@ class TermMatcher:
         self, text: str, article_path: str
     ) -> list[tuple[int, int, dict[str, Any]]]:
         """``(start, end, definition)`` of every term of *text* whose definition holds in
-        the article at *article_path*: of two of the same term, the narrower scope."""
+        the article at *article_path*: of two of the same term, the narrower scope; one
+        taken where none of its own holds."""
         if self._pattern is None:
             return []
         found = []
         for match in self._pattern.finditer(text):
+            term = match.group(0).lower()
             holding = [
-                d
-                for d in self._by_term.get(match.group(0).lower(), [])
-                if applies(d, article_path)
+                d for d in self._by_term.get(term, []) if applies(d, article_path)
             ]
             if holding:
                 narrowest = max(
                     holding, key=lambda d: len(d["scope"].get("path") or "")
                 )
                 found.append((match.start(), match.end(), narrowest))
+            elif term in self._taken:
+                found.append((match.start(), match.end(), self._taken[term]))
         return found
