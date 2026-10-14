@@ -35,7 +35,6 @@ from lawgraph.db.queries.nodes import (
     FULL_BUCKET_LIMIT,
     NEIGHBORHOOD_CAP,
     NeighborFilter,
-    NodeNotFoundError,
     UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
@@ -267,9 +266,6 @@ def get_node_graph(
     except UnsupportedCollectionError as err:
         logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
         raise HTTPException(status_code=400, detail=str(err)) from err
-    except NodeNotFoundError as err:
-        logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
-        raise HTTPException(status_code=404, detail=str(err)) from err
 
     names = load_dossier_names(store)
     buckets = [
@@ -380,8 +376,6 @@ def get_node_neighborhood_route(
         )
     except UnsupportedCollectionError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
-    except NodeNotFoundError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
 
     focal = data["focal"]
     # for the canvas a paper, an activity or a decision is described by its dossier's name,
