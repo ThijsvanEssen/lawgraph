@@ -257,15 +257,13 @@ def _dossiers(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: (row["suffix"] or "").upper() != wanted)
 
 
-def _dossier_targets(
-    rows: list[dict[str, Any]], notation: Notation, kind: str = "dossier"
-) -> list[dict[str, Any]]:
-    """The dossier asked for at citation confidence; other suffixes of its number below."""
-    wanted = notation.suffix or ""
+def _dossier_targets(rows: list[dict[str, Any]], wanted: str) -> list[dict[str, Any]]:
+    """The dossier with the suffix *wanted* at citation confidence; the other suffixes of
+    its number below."""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
     others = [r for r in rows if r not in exact]
-    return [_target(r, kind, CONFIDENCE_CITATION) for r in exact] + [
-        _target(r, kind, CONFIDENCE_AMBIGUOUS) for r in others
+    return [_target(r, "dossier", CONFIDENCE_CITATION) for r in exact] + [
+        _target(r, "dossier", CONFIDENCE_AMBIGUOUS) for r in others
     ]
 
 
@@ -281,7 +279,7 @@ def _commitment(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
 
 
 def _dossier(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    return _dossier_targets(_dossiers(store, notation), notation)
+    return _dossier_targets(_dossiers(store, notation), notation.suffix or "")
 
 
 # The papers with a number in the dossiers asked for (``ids``), each once, in the order of
@@ -321,13 +319,20 @@ LIMIT %(limit)s
 
 
 def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    """Paper *sequence* of a dossier, or the dossier when the graph has not that paper."""
+    """Paper *sequence* of a dossier, or the dossier when the graph has not that paper. A
+    number behind a hyphen that is the suffix of a dossier of the number is that subdossier
+    (``21501-31``: the Landbouw- en Visserijraad, not paper 31 of each subdossier of 21501);
+    ``21501-31, nr. 3`` and ``21501, nr. 31`` are papers."""
     rows = _dossiers(store, notation)
     if not rows:
         return []
+    sequence = notation.sequence or ""
+    if notation.hyphenated and any(
+        (r["suffix"] or "").upper() == sequence for r in rows
+    ):
+        return _dossier_targets(rows, sequence)
     wanted = notation.suffix or ""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
-    sequence = notation.sequence or ""
     params = {
         "ids": [r["id"] for r in exact or rows],
         "sequence": int(sequence) if sequence.isdigit() else None,
