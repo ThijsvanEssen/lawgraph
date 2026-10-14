@@ -9,7 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STB_AMVB,
     SOURCE_STAATSBLAD,
 )
-from lawgraph.core.logging import describe, get_logger
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore
@@ -18,6 +18,7 @@ from lawgraph.db.queries import raw as raw_queries
 from .base import (
     RetrievePipelineBase,
     RetrieveRecord,
+    listed,
     missing_record,
 )
 
@@ -69,7 +70,6 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """
         bwb_ids = {identifier: bwb_id for bwb_id, identifier in todo}
         wanted = self._without_missing(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, bwb_ids)
-        self.progress.expect(len(wanted))
 
         def records(identifier: str, xml: str) -> list[RetrieveRecord]:
             meta = {"identifier": identifier}
@@ -137,28 +137,17 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         return {row for row in rows if isinstance(row, str)}
 
     def run_full(self) -> PipelineResult:
-        """Full-load mode: enumerate all AMvBs via SRU and fetch each."""
-        logger.info("Staatsblad full-load: searching for all AMvBs via SRU.")
-        try:
-            amvbs = self.client.search_amvbs()
-        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
-            result = PipelineResult()
-            msg = f"Staatsblad SRU search failed: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
-            return result
+        """Full-load mode: every AMvB the SRU lists that is new or modified since stored."""
 
-        if not amvbs:
-            result = PipelineResult()
-            result.add_error("The Staatsblad listing is empty; nothing was retrieved.")
-            return result
-        identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
-        logger.info(
-            "Staatsblad full-load: %d AMvBs listed, %d new or modified since they were "
-            "stored.",
-            len(amvbs),
-            len(identifiers),
-        )
-        if not identifiers:
-            return PipelineResult()
-        return self.run(identifiers=identifiers)
+        def listing() -> Iterator[RetrieveRecord]:
+            amvbs = listed(self.client.search_amvbs(), "Staatsblad AMvBs")
+            identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
+            logger.info(
+                "Staatsblad full-load: %d AMvBs listed, %d new or modified since they "
+                "were stored.",
+                len(amvbs),
+                len(identifiers),
+            )
+            yield from self._fetch_publications([(None, i) for i in identifiers])
+
+        return self._store_all(listing(), what="publications")

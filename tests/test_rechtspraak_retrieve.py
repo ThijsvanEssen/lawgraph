@@ -12,11 +12,9 @@ import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
-from lawgraph.pipelines.retrieve.rechtspraak import (
-    RechtspraakRetrievePipeline,
-    resolve_courts,
-)
+from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, external_ids, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
@@ -152,11 +150,11 @@ def test_a_failing_page_raises_after_the_earlier_ones_were_yielded() -> None:
 
 
 def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
-    assert resolve_courts(["HR", "rvs"]) == [
+    assert owms_terms(["HR", "rvs"]) == [
         "Hoge_Raad_der_Nederlanden",
         "Raad_van_State",
     ]
-    hoven = resolve_courts(["gerechtshof"])
+    hoven = owms_terms(["gerechtshof"])
     assert "Gerechtshof_Amsterdam" in hoven and "Gerechtshof_'s-Hertogenbosch" in hoven
     # the courts of appeal before 2013 too: the index keeps their judgments
     assert "Gerechtshof_Leeuwarden" in hoven and len(hoven) == 7
@@ -164,29 +162,27 @@ def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
 
 def test_a_court_the_index_cannot_be_filtered_by_or_an_unknown_name_raises() -> None:
     with pytest.raises(ValueError, match="cannot be filtered"):
-        resolve_courts(["XX"])  # the foreign courts: no OWMS term
+        owms_terms(["XX"])  # the foreign courts: no OWMS term
     with pytest.raises(ValueError, match="unknown court"):
-        resolve_courts(["hoven"])
+        owms_terms(["hoven"])
 
 
 def test_all_is_every_court_so_no_filter_at_all() -> None:
     """The rechtbanken and every other court of the index are in it, none left out."""
-    assert resolve_courts(["all"]) == []
-    assert resolve_courts(["HR", "all"]) == []
+    assert owms_terms(["all"]) == []
+    assert owms_terms(["HR", "all"]) == []
 
 
 def test_a_court_is_listed_once() -> None:
     assert (
-        resolve_courts(["HR", "hr", "gerechtshof", "GHAMS"]).count(
-            "Gerechtshof_Amsterdam"
-        )
+        owms_terms(["HR", "hr", "gerechtshof", "GHAMS"]).count("Gerechtshof_Amsterdam")
         == 1
     )
 
 
 def test_an_unknown_court_is_named_with_the_known_ones() -> None:
     with pytest.raises(ValueError, match="unknown court 'nope'.*gerechtshof"):
-        resolve_courts(["nope"])
+        owms_terms(["nope"])
 
 
 # ── the pipeline ─────────────────────────────────────────────────────────────
