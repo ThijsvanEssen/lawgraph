@@ -74,6 +74,7 @@ from lawgraph.core.tk_records import (
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._lists import FACET_AGG, FacetFilters, facet, facet_of, where
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.feed_relations import (
     CITATIONS_OF_LAW,
@@ -625,7 +626,7 @@ def _kinds(filters: FeedFilters) -> tuple[str, ...] | None:
     return None if filters.tiers else DEFAULT_KINDS
 
 
-def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, str]:
+def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> FacetFilters:
     """The filter of each facet dimension that is asked for, on the columns of ``events``."""
     clauses: dict[str, str] = {}
     kinds = _kinds(filters)
@@ -647,7 +648,7 @@ def _dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> dict[str, 
     if filters.coalition:
         clauses["coalition"] = "%(coalition)s = ANY(coalition)"
         bind["coalition"] = filters.coalition
-    return clauses
+    return FacetFilters(own=clauses)
 
 
 # The filters that hold for every facet, on the laterals of a kind's rows: ``l.labels``
@@ -731,13 +732,6 @@ def _kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[_Source]:
     return sources
 
 
-def _where(clauses: list[str], indent: str) -> str:
-    if not clauses:
-        return ""
-    joined = f"\n{indent}  AND ".join(f"({clause})" for clause in clauses)
-    return f"\n{indent}WHERE {joined}"
-
-
 @dataclass(frozen=True)
 class _Plan:
     """What the rows of one request are read under."""
@@ -745,7 +739,7 @@ class _Plan:
     filters: FeedFilters
     facets: bool
     shared: list[str]
-    dimensions: dict[str, str]
+    dimensions: FacetFilters
     cursor: FeedCursor | None
     # the law followed is cited by many judgments: its judgments are read in date order
     # and tested one by one (``feed_relations.CITES_LAW``), not looked up all of them
@@ -1011,7 +1005,8 @@ def _rows_query(source: _Source, plan: _Plan) -> str:
             head, order = [], ""
     return f"""(
         SELECT {kind.select()}
-        FROM {table}{kind.laterals()}{_where(head + tail, "        ")}{order}
+        FROM {table}{kind.laterals()}
+        {where(head + tail)}{order}
     )"""
 
 
@@ -1032,20 +1027,14 @@ def _first_page(source: _Source, head: list[str]) -> str:
     indent = "            "
     order = _newest_first(source, "n.")
     if not source.parts:
-        return f"\n{indent}SELECT * FROM {source.collection} n{_where(head, indent)}{order}\n"
-    where = [source.where if clause == source.condition else clause for clause in head]
+        return f"\n{indent}SELECT * FROM {source.collection} n {where(head)}{order}\n"
+    kept = [source.where if clause == source.condition else clause for clause in head]
     pages = "\n        UNION ALL ".join(
-        f"(SELECT * FROM {source.collection} n{_where([*where, part], indent)}{order})"
+        f"(SELECT * FROM {source.collection} n {where([*kept, part])}{order})"
         for part in source.parts
     )
     merged = _newest_first(source, "")
     return f"\n        SELECT * FROM (\n        {pages}\n        ) n{merged}\n"
-
-
-_FACET_AGG = (
-    "SELECT coalesce(json_agg(json_build_object('value', value, 'count', cnt)"
-    f" ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY})"
-)
 
 
 def _per_faction(rows: str) -> str:
@@ -1063,37 +1052,26 @@ def _per_coalition(rows: str) -> str:
 
 def _facet(plan: _Plan, name: str) -> str:
     """A facet: the rows under every filter but its own, counted per value."""
-    others = [clause for dim, clause in plan.dimensions.items() if dim != name]
-    where = _where(others, "                ")
+    others = plan.dimensions.where(name)
     if name == "cabinet":
-        return f"""({_FACET_AGG} FROM (
-            SELECT value, sum(n)::int AS cnt
+        return facet_of(f"""
+            SELECT value, sum(n)::int AS count
             FROM (
                 SELECT {_cabinet_on("per_day.date")} AS value, per_day.n
-                FROM (SELECT date, count(*) AS n FROM events{where}
+                FROM (SELECT date, count(*) AS n FROM events {others}
                       GROUP BY date) per_day
             ) dated
-            GROUP BY value
-        ) counted)"""
+            GROUP BY value""")
     if name == "faction":
         # a row counts once for a faction, however many of its signers signed for it
-        return f"""({_FACET_AGG} FROM (
-            SELECT value, count(*)::int AS cnt
-            FROM (SELECT DISTINCT fx.faction AS value, id FROM {_per_faction("events")}{where}) once
-            GROUP BY 1
-        ) counted)"""
+        once = f"""(
+                SELECT DISTINCT fx.faction AS value, id FROM {_per_faction("events")} {others}
+            ) once"""
+        return facet("value", once)
     if name == "coalition":
         # a vote counts for each that holds; an event without one counts for none
-        return f"""({_FACET_AGG} FROM (
-            SELECT value, count(*)::int AS cnt
-            FROM {_per_coalition("events")}{where}
-            GROUP BY 1
-        ) counted)"""
-    return f"""({_FACET_AGG} FROM (
-            SELECT {name} AS value, count(*)::int AS cnt
-            FROM events{where}
-            GROUP BY 1
-        ) counted)"""
+        return facet("value", _per_coalition("events"), others)
+    return facet(name, "events", others)
 
 
 _OWN_ACTORS = "props -> 'actors'"
@@ -1430,9 +1408,8 @@ def _page_query(plan: _Plan) -> str:
     facets = ",\n            ".join(
         f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
     )
-    matching = _where(list(plan.dimensions.values()), "        ")
     return f""",
-    matching AS (SELECT * FROM events{matching}),
+    matching AS (SELECT * FROM events {plan.dimensions.where()}),
     page AS (
         SELECT * FROM matching{after}
         ORDER BY {_ORDER}
@@ -1492,18 +1469,18 @@ _HIGHLIGHT = (
 def _summary(dimensions: str, items: str) -> str:
     """SQL: the summary of ``events`` under *dimensions* (a WHERE), with *items*."""
     return f""",
-    matching AS (SELECT * FROM events{dimensions}),
+    matching AS (SELECT * FROM events {dimensions}),
     day_kinds AS (
-        SELECT date, json_agg(json_build_object('value', kind, 'count', cnt)
-                              ORDER BY cnt DESC, kind ASC NULLS FIRST) AS value
-        FROM (SELECT date, kind, count(*)::int AS cnt FROM matching GROUP BY date, kind) x
+        SELECT date, json_agg(json_build_object('value', kind, 'count', count)
+                              ORDER BY count DESC, kind ASC NULLS FIRST) AS value
+        FROM (SELECT date, kind, count(*)::int AS count FROM matching GROUP BY date, kind) x
         GROUP BY date
     ),
     day_dossiers AS (
-        SELECT date, json_agg(json_build_object('kind', kind, 'number', dossier, 'count', cnt)
-                              ORDER BY rank ASC, cnt DESC, dossier ASC NULLS FIRST) AS value
+        SELECT date, json_agg(json_build_object('kind', kind, 'number', dossier, 'count', count)
+                              ORDER BY rank ASC, count DESC, dossier ASC NULLS FIRST) AS value
         FROM (
-            SELECT date, kind, rank, dossier, count(*)::int AS cnt
+            SELECT date, kind, rank, dossier, count(*)::int AS count
             FROM matching WHERE dossier IS NOT NULL
             GROUP BY date, kind, rank, dossier
         ) x
@@ -1511,11 +1488,11 @@ def _summary(dimensions: str, items: str) -> str:
     ),
     day_votes AS (
         SELECT date, json_agg(json_build_object(
-                   'chamber', chamber, 'subkind', subkind, 'passed', passed, 'count', cnt)
-                   ORDER BY cnt DESC, chamber ASC NULLS FIRST, subkind ASC NULLS FIRST,
+                   'chamber', chamber, 'subkind', subkind, 'passed', passed, 'count', count)
+                   ORDER BY count DESC, chamber ASC NULLS FIRST, subkind ASC NULLS FIRST,
                             passed ASC NULLS FIRST) AS value
         FROM (
-            SELECT date, chamber, subkind, passed, count(*)::int AS cnt
+            SELECT date, chamber, subkind, passed, count(*)::int AS count
             FROM matching WHERE kind = {_lit(EVENT_VOTE)}
             GROUP BY date, chamber, subkind, passed
         ) x
@@ -1585,8 +1562,7 @@ def summary_query(
         cursor=None,
     )
     bind["until"] = plan.until
-    dimensions = _where(list(plan.dimensions.values()), "        ")
-    summary = _summary(dimensions, _items(filters))
+    summary = _summary(plan.dimensions.where(), _items(filters))
     return _rows_of(filters, plan, facets=True) + summary, bind
 
 
@@ -1848,7 +1824,7 @@ def counts_per_kind_query(filters: FeedFilters) -> tuple[str, dict[str, Any]]:
         filters=filters,
         facets=True,
         shared=_shared_filters(filters, bind),
-        dimensions={},
+        dimensions=FacetFilters(),
         cursor=None,
     )
     bind["until"] = plan.until
@@ -1871,8 +1847,7 @@ def counts_per_kind_query(filters: FeedFilters) -> tuple[str, dict[str, Any]]:
     SELECT json_build_object(
         'total', (SELECT json_object_agg(set_id, n) FROM (
             SELECT set_id, count(*)::int AS n FROM in_set GROUP BY set_id) t),
-        'kind', ({_FACET_AGG} FROM (
-            SELECT kind AS value, count(*)::int AS cnt FROM events GROUP BY 1) counted),
+        'kind', {facet("kind", "events")},
         {per_set}
     )""",
         bind,
@@ -1883,26 +1858,25 @@ def _facet_per_set(name: str) -> str:
     """SQL: per set of ``in_set`` the facet *name*, as ``_facet`` counts it (no other
     filter than the set's kinds), by set id."""
     if name == "cabinet":
-        counted = f"""SELECT set_id, value, sum(n)::int AS cnt FROM (
+        counted = f"""SELECT set_id, value, sum(n)::int AS count FROM (
                 SELECT set_id, {_cabinet_on("per_day.date")} AS value, per_day.n
                 FROM (SELECT set_id, date, count(*) AS n FROM in_set
                       GROUP BY set_id, date) per_day
             ) dated GROUP BY set_id, value"""
     elif name == "faction":
-        counted = f"""SELECT set_id, value, count(*)::int AS cnt FROM (
+        counted = f"""SELECT set_id, value, count(*)::int AS count FROM (
                 SELECT DISTINCT set_id, fx.faction AS value, id
                 FROM {_per_faction("in_set")}
             ) once GROUP BY set_id, value"""
     elif name == "coalition":
-        counted = f"""SELECT set_id, value, count(*)::int AS cnt
+        counted = f"""SELECT set_id, value, count(*)::int AS count
             FROM {_per_coalition("in_set")}
             GROUP BY set_id, value"""
     else:
-        counted = f"""SELECT set_id, {name} AS value, count(*)::int AS cnt
+        counted = f"""SELECT set_id, {name} AS value, count(*)::int AS count
             FROM in_set GROUP BY set_id, value"""
     return f"""(SELECT json_object_agg(set_id, facet) FROM (
-            SELECT set_id, coalesce(json_agg(json_build_object('value', value, 'count', cnt)
-                ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY}) AS facet
+            SELECT set_id, {FACET_AGG} AS facet
             FROM ({counted}) counted
             GROUP BY set_id
         ) per_set)"""

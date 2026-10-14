@@ -26,6 +26,7 @@ from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
 from lawgraph.core.tk_records import KIND_AMENDMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._lists import FacetFilters
 from lawgraph.db.queries.feed import (
     _CABINET_PERIOD,
     _DIMENSIONS,
@@ -70,7 +71,7 @@ _PLAN = _Plan(
     filters=FeedFilters(q=("x",)),
     facets=True,
     shared=[],
-    dimensions={},
+    dimensions=FacetFilters(),
     cursor=None,
 )
 _LABELS = (
@@ -440,7 +441,6 @@ def counts_query(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
     )
     cabinet = _CABINET_PERIOD if filters.cabinet else ""
-    every = " AND ".join(f"({clause})" for clause in dimensions.values()) or "TRUE"
     facets = ",\n            ".join(
         f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
     )
@@ -453,7 +453,7 @@ def counts_query(
         FROM {FEED_EVENTS_TABLE} e
         WHERE {" AND ".join(f"({clause})" for clause in where)}
     )
-    SELECT (SELECT count(*)::int FROM events WHERE {every}) AS total,
+    SELECT (SELECT count(*)::int FROM events {dimensions.where()}) AS total,
         json_build_object(
             {facets}
         ) AS facets""",

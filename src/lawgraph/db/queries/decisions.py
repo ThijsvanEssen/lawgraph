@@ -25,6 +25,7 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
@@ -137,30 +138,25 @@ def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     return clauses
 
 
-def _kind_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if not filters.kinds:
-        return []
-    bind["kinds"] = list(filters.kinds)
-    return ["r.kind = ANY(%(kinds)s)"]
-
-
-def _passed_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if filters.passed is None:
-        return []
-    bind["passed"] = filters.passed
-    return ["r.passed = %(passed)s"]
-
-
-def _coalition_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if filters.coalition is None:
-        return []
+def _own_filters(filters: DecisionFilters, bind: dict[str, Any]) -> FacetFilters:
+    """The filters on the kind, the outcome and what the coalition did (on the row ``r``),
+    each a facet's own."""
+    own: dict[str, str] = {}
+    if filters.kinds:
+        bind["kinds"] = list(filters.kinds)
+        own["kind"] = "r.kind = ANY(%(kinds)s)"
+    if filters.passed is not None:
+        bind["passed"] = filters.passed
+        own["passed"] = "r.passed = %(passed)s"
     if filters.coalition in COALITION_FLAGS:
-        return [f"r.coalition_{filters.coalition} IS TRUE"]
-    bind["coalition"] = filters.coalition
-    return ["r.coalition_pattern = %(coalition)s"]
+        own["coalition"] = f"r.coalition_{filters.coalition} IS TRUE"
+    elif filters.coalition is not None:
+        bind["coalition"] = filters.coalition
+        own["coalition"] = "r.coalition_pattern = %(coalition)s"
+    return FacetFilters(own=own)
 
 
-def _coalition_facet(where: list[str]) -> str:
+def _coalition_facet(condition: str) -> str:
     """SQL: ``[{value, count}]`` of the filtered decisions per thing the coalition did,
     in the order of ``COALITION_VALUES``, those with none left out."""
     counts = ", ".join(
@@ -178,7 +174,7 @@ def _coalition_facet(where: list[str]) -> str:
         SELECT coalesce(json_agg(
             json_build_object('value', x.v, 'count', x.n) ORDER BY x.o
         ), '[]'::json)
-        FROM (SELECT {counts} FROM filtered r {_where(where)}) c
+        FROM (SELECT {counts} FROM filtered r {condition}) c
         CROSS JOIN LATERAL (VALUES {values}) AS x(o, v, n)
         WHERE x.n > 0
     )"""
@@ -210,10 +206,6 @@ _COALITION_CABINETS = f"""(
     ) x
     LEFT JOIN cabinets cab ON cab.key = x.cabinet
 )"""
-
-
-def _where(clauses: list[str]) -> str:
-    return f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
 
 def _object_or_empty(value: str) -> str:
@@ -259,22 +251,6 @@ _ITEM = f"""json_build_object(
 _ORDER = "r.date DESC NULLS LAST, r.key ASC"
 
 
-def _facet(value: str, rows: str, where: list[str]) -> str:
-    """SQL: the JSON array ``[{value, count}]`` of *rows* per *value*, most first, then
-    by value."""
-    return f"""(
-        SELECT coalesce(json_agg(
-            json_build_object('value', value, 'count', count)
-            ORDER BY count DESC, value ASC NULLS FIRST
-        ), '[]'::json)
-        FROM (
-            SELECT {value} AS value, count(*)::int AS count
-            FROM {rows} r {_where(where)}
-            GROUP BY 1
-        ) facet
-    )"""
-
-
 # How many of the rows ``r`` there are, carried and did not.
 _OUTCOMES = (
     "count(*)::int AS count,"
@@ -283,7 +259,7 @@ _OUTCOMES = (
 )
 
 
-def _kind_facet(where: list[str]) -> str:
+def _kind_facet(condition: str) -> str:
     """SQL: ``[{value, count, passed, rejected}]`` of the filtered decisions per kind,
     most first, then by kind."""
     return f"""(
@@ -295,7 +271,7 @@ def _kind_facet(where: list[str]) -> str:
         ), '[]'::json)
         FROM (
             SELECT r.kind AS value, {_OUTCOMES}
-            FROM filtered r {_where(where)}
+            FROM filtered r {condition}
             GROUP BY 1
         ) facet
     )"""
@@ -450,23 +426,19 @@ def _page(
         "chambers": [CHAMBER_TK, CHAMBER_EK],
     }
     common = _common_filters(filters, bind)
-    rest = (
-        _kind_filter(filters, bind)
-        + _passed_filter(filters, bind)
-        + _coalition_filter(filters, bind)
-    )
+    own = _own_filters(filters, bind)
     statement = f"""
     WITH r AS (
         SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind, d.passed,
                c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
-        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}
     )
     SELECT coalesce(json_agg({_ITEM} ORDER BY page.n), '[]'::json) AS items
     FROM (
         SELECT r.id, row_number() OVER (ORDER BY {_ORDER}) AS n
-        FROM r {_where(rest)}
+        FROM r {own.where()}
         ORDER BY {_ORDER}
         LIMIT %(limit)s OFFSET %(offset)s
     ) page
@@ -512,16 +484,14 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
     carried, not) under all of them. There is one decision per Besluit, so the filtered ones
     are read once, three fields each, and every count is made from that."""
     bind: dict[str, Any] = {"chambers": [CHAMBER_TK, CHAMBER_EK]}
-    kind = _kind_filter(filters, bind)
-    passed = _passed_filter(filters, bind)
-    coalition = _coalition_filter(filters, bind)
+    own = _own_filters(filters, bind)
     statement = f"""
     {_matching(filters, bind)}
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
         'facets', json_build_object(
-            'kind', {_kind_facet(passed + coalition)},
-            'passed', {_facet("r.passed", "filtered", kind + coalition)},
+            'kind', {_kind_facet(own.where("kind"))},
+            'passed', {facet("r.passed", "filtered r", own.where("passed"))},
             'days', (
                 SELECT coalesce(json_agg(
                     json_build_object('date', date, 'count', count, 'passed', passed)
@@ -549,7 +519,7 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
                 ) year
             ),
             'party_votes', '[]'::json,
-            'coalition', {_coalition_facet(kind + passed)},
+            'coalition', {_coalition_facet(own.where("coalition"))},
             'coalition_cabinets', {_COALITION_CABINETS}
         )
     )
@@ -651,20 +621,16 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``WITH`` the decisions under every filter but kind and outcome (``filtered``:
     id, key, kind, passed, date) and under all of them (``matching``)."""
     common = _common_filters(filters, bind)
-    rest = (
-        _kind_filter(filters, bind)
-        + _passed_filter(filters, bind)
-        + _coalition_filter(filters, bind)
-    )
+    own = _own_filters(filters, bind)
     return f"""WITH filtered AS MATERIALIZED (
         SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date,
                c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
-        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}
     ),
     matching AS MATERIALIZED (
-        SELECT * FROM filtered r {_where(rest)}
+        SELECT * FROM filtered r {own.where()}
     )"""
 
 
