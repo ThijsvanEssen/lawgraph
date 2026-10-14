@@ -9,7 +9,13 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
+from lawgraph.core.readable_paths import (
+    Pad,
+    focus_of_pad,
+    pad_href,
+    parse_path,
+    path_of,
+)
 
 CASES: dict[str, Any] = json.loads(
     (Path(__file__).parent / "data" / "readable-paths.json").read_text()
@@ -41,3 +47,12 @@ def test_a_path_in_another_spelling_reads_as_its_canonical(
 @pytest.mark.parametrize("path", CASES["invalid"])
 def test_any_other_path_is_no_readable_address(path: str) -> None:
     assert parse_path(path) is None
+
+
+@pytest.mark.parametrize("case", CASES["focus"], ids=lambda c: c["path"])
+def test_an_address_names_the_key_its_node_is_stored_under(
+    case: dict[str, Any],
+) -> None:
+    pad = parse_path(case["path"])
+    assert pad is not None
+    assert focus_of_pad(pad) == case["focus"]

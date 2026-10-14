@@ -59,8 +59,25 @@ def test_corrigenda_are_left_out_of_the_query() -> None:
 
 
 def test_a_failing_page_raises_instead_of_returning_a_cut_off_list() -> None:
-    client = _client([["32010L0064"] * 500, requests.HTTPError("500 Server Error")], [])
-    with pytest.raises(RuntimeError, match="offset=500"):
+    failure = _http_error(500)
+    client = _client([["32010L0064"] * 500, failure], [])
+    with pytest.raises(requests.HTTPError) as raised:
+        client.enumerate_all_ids()
+    assert raised.value is failure  # its status is still there for the step
+    assert raised.value.__notes__ == ["SPARQL page (cdm_type=directive) at offset 500"]
+
+
+def test_a_page_that_is_not_json_raises_with_its_offset() -> None:
+    client = _client([], [])
+
+    def not_json(url, *, params=None, timeout=30, **_kw):
+        def read() -> Any:
+            raise requests.JSONDecodeError("Expecting value", "<html>", 0)
+
+        return SimpleNamespace(json=read)
+
+    client._get_raw_absolute_with_retry = not_json  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="offset 0 is not JSON"):
         client.enumerate_all_ids()
 
 

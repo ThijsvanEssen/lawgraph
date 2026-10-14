@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from lawgraph.core.logging import current_step, get_logger, log_step
+from lawgraph.core.logging import current_step, describe, get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
 from lawgraph.db import GraphStore
@@ -190,11 +190,10 @@ def run_command(
         started = time.monotonic()
         try:
             result = command(argv)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a step that fails is an Outcome
             took = format_duration(time.monotonic() - started)
-            logger.error("Failed after %s: %s: %s", took, type(exc).__name__, exc)
-            logger.debug("The traceback of %s:", label, exc_info=True)
-            failure = PipelineResult(errors=[f"{type(exc).__name__}: {exc}"])
+            logger.error("Failed after %s: %s", took, describe(exc), exc_info=True)
+            failure = PipelineResult(errors=[describe(exc)])
             return Outcome(label, State.FAILED, failure, time.monotonic() - started)
 
         seconds = time.monotonic() - started

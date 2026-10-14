@@ -5,7 +5,10 @@ the parliament on a day."""
 from __future__ import annotations
 
 import json
+from functools import partial
 from typing import Any
+
+from psycopg.types.json import Json
 
 from lawgraph.db import GraphStore
 
@@ -14,33 +17,28 @@ def write(
     store: Any, terms: list[dict[str, Any]], stretches: list[dict[str, Any]]
 ) -> None:
     """Replace every term and stretch, in one transaction."""
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("DELETE FROM lg_ek_seats")
-        conn.execute("DELETE FROM lg_ek_terms")
-        for term in terms:
-            conn.execute(
+    store.execute_together(
+        [
+            ("DELETE FROM lg_ek_seats", None),
+            ("DELETE FROM lg_ek_terms", None),
+            (
                 "INSERT INTO lg_ek_terms (start, election, source, checked, mismatches)"
-                " VALUES (%s, %s, %s, %s, %s)",
-                (
-                    term["start"],
-                    term["election"],
-                    json.dumps(term["source"]),
-                    term["checked"],
-                    json.dumps(term["mismatches"], ensure_ascii=False),
-                ),
-            )
-        for stretch in stretches:
-            conn.execute(
+                " SELECT * FROM json_to_recordset(%(rows)s::json) AS r(start text,"
+                " election text, source json, checked boolean, mismatches json)",
+                {"rows": _json(terms)},
+            ),
+            (
                 "INSERT INTO lg_ek_seats (from_date, to_date, term, seats, events)"
-                " VALUES (%s, %s, %s, %s, %s)",
-                (
-                    stretch["from_date"],
-                    stretch["to_date"],
-                    stretch["term"],
-                    json.dumps(stretch["seats"], ensure_ascii=False),
-                    json.dumps(stretch["events"], ensure_ascii=False),
-                ),
-            )
+                " SELECT * FROM json_to_recordset(%(rows)s::json) AS r(from_date text,"
+                " to_date text, term text, seats json, events json)",
+                {"rows": _json(stretches)},
+            ),
+        ]
+    )
+
+
+def _json(rows: list[dict[str, Any]]) -> Json:
+    return Json(rows, dumps=partial(json.dumps, ensure_ascii=False))
 
 
 def stretches_between(store: GraphStore, start: str, end: str) -> list[dict[str, Any]]:

@@ -73,7 +73,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         for identifier in todo:
             try:
                 xml = self.client.fetch_publication_xml(identifier)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
                 # One publication that always answers 500 must not end every run at the
                 # same place: the rest is fetched, and a dead source ends the step.
                 self.progress.fail(

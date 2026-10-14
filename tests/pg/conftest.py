@@ -20,7 +20,7 @@ import pytest
 from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 from lawgraph.db.schema import ensure_schema
-from tests.databases import fresh_database
+from tests.databases import fresh_database, require_test_server, skip_unless_asked_for
 
 TEST_URL = os.environ.get(
     "LAWGRAPH_TEST_DB_URL",
@@ -28,29 +28,16 @@ TEST_URL = os.environ.get(
 )
 
 
-def _reachable() -> bool:
-    try:
-        psycopg.connect(TEST_URL, connect_timeout=3).close()
-    except psycopg.OperationalError:
-        return False
-    return True
+def pytest_sessionstart(session: pytest.Session) -> None:
+    require_test_server(
+        TEST_URL, "docker compose -f docker-compose.test.yml up -d postgres-test"
+    )
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    if os.environ.get("ALLOW_DB_TESTS") != "1":
-        reason = "Database tests disabled (set ALLOW_DB_TESTS=1 to enable)."
-    elif not _reachable():
-        reason = (
-            f"No PostgreSQL at {TEST_URL} "
-            "(docker compose -f docker-compose.test.yml up -d postgres-test)."
-        )
-    else:
-        return
-    for item in items:
-        if "tests/pg" in str(item.fspath):
-            item.add_marker(pytest.mark.skip(reason=reason))
+    skip_unless_asked_for(items, "tests/pg")
 
 
 @pytest.fixture()

@@ -129,7 +129,7 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
         progress = self.progress
         try:
             xml = self.client.fetch_kamerstuk_xml(identifier)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
             progress.fail(f"download failed ({failure_reason(exc)})", identifier)
             streak.failed(identifier, exc)
             return None
