@@ -5,13 +5,13 @@ from __future__ import annotations
 
 import ast
 import re
-from pathlib import Path
 
 import pytest
 
 from lawgraph.db.queries import _json_sql
+from tests.conventions._scan import DB
 
-_QUERIES = Path(__file__).parents[1] / "src" / "lawgraph" / "db" / "queries"
+_QUERIES = DB / "queries"
 _HELPERS = _QUERIES / "_json_sql.py"
 _HELPER_NAMES = [
     name

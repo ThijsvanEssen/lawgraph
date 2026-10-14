@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBERS,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -16,10 +17,12 @@ from lawgraph.config.constants import (
     RELATION_REVISES,
     RELATION_VERSION_OF,
 )
+from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
+from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.version_cache import cached_rows
 
 
@@ -107,55 +110,31 @@ def get_document_passages(
     """The sections of a document that explain an article, one row per section.
 
     The edges are ``EXPLAINS`` from the document to the article or to one of its versions
-    (the same ``bwb_id`` and ``stam_id``), each with the sections in ``meta.sections``. A
-    section that several of those edges name is one row, with the highest confidence.
-    Unsorted; an unknown article has none.
+    (``explained_targets``), each with the sections in ``meta.sections``. A section that
+    several of those edges name is one row, with the highest confidence (of equally
+    confident ones the first edge's by key). Unsorted; an unknown article has none.
     """
     article = store.get_document(
         COLLECTION_ARTICLES, make_node_key(bwb_id, article_number)
     )
     if article is None:
         return []
-    props = article.get("props") or {}
-    bind: dict[str, Any] = {
-        "document_id": document_id,
-        "explains": RELATION_EXPLAINS,
-        "article_id": article["_id"],
-    }
-    targets = "e.to_id = %(article_id)s"
-    if props.get("stam_id"):
-        # an article without a bwb_id matches the versions without one (null == null)
-        same_law = "v.bwb_id = %(bwb_id)s"
-        if props.get("bwb_id") is None:
-            same_law = "v.bwb_id IS NULL"
-        targets = f"""({targets} OR e.to_id IN (
-            SELECT v.id FROM {COLLECTION_ARTICLE_VERSIONS} v
-            WHERE {same_law} AND v.stam_id = %(stam_id)s
-        ))"""
-        bind.update(bwb_id=props.get("bwb_id"), stam_id=props["stam_id"])
-    # Of equally confident sections the first edge's is kept.
+    targets, bind = explained_targets(article, bwb_id, article_number)
+    bind.update(document_id=document_id, explains=RELATION_EXPLAINS)
     edges = store.query(
         f"""
         SELECT e.doc -> 'meta' -> 'sections'
         FROM {COLLECTION_EDGES} e
         WHERE e.from_id = %(document_id)s AND e.relation = %(explains)s
-          AND {targets}
+          AND e.to_id IN (SELECT t.id FROM ({targets}) t)
           AND json_typeof(e.doc -> 'meta' -> 'sections') = 'array'
         ORDER BY e.key
         """,
         bind,
     )
-    best: dict[str, dict[str, Any]] = {}
-    for sections in edges:
-        for section in sections:
-            known = best.get(section["section_anchor"])
-            if known is None or section["confidence"] > known["confidence"]:
-                best[section["section_anchor"]] = section
-    return list(best.values())
+    return surest_per_anchor([section for sections in edges for section in sections])
 
 
-# The chambers a paper can be of: its label (``TK``; ``EK`` with ``EersteKamer``).
-_CHAMBERS = ("TK", "EK")
 _CHAMBER_OF = chamber_sql("d")
 
 
@@ -202,7 +181,7 @@ def _facet(value: str, where: str) -> str:
 def list_documents(
     store: GraphStore,
     *,
-    chambers: tuple[str, ...] = _CHAMBERS,
+    chambers: tuple[str, ...] = CHAMBERS,
     kinds: tuple[str, ...] | None = None,
     dossier: str | None = None,
     date_from: str | None = None,
@@ -220,7 +199,7 @@ def list_documents(
     """
     bind: dict[str, Any] = {
         "chambers": list(chambers),
-        "all_chambers": list(_CHAMBERS),
+        "all_chambers": list(CHAMBERS),
         "from": date_from or "0",
         "to": date_to or "9",
         "limit": limit,
@@ -288,17 +267,17 @@ def list_documents(
 # The papers an amended amendment or motion replaces, and those that replace it: ``REVISES``
 # with the rule ``vervanging`` (``Zaak.VervangenVanuit``, ``semantic tk-dossier-relations``),
 # each other paper with its number (``sequence``) from ``lg_document_light``, never its props.
-_REPLACEMENTS_SQL = """
+_REPLACEMENTS_SQL = f"""
 SELECT 'replaces' AS side, e.from_id AS paper, e.to_id AS other,
        lg_num(l.props -> 'sequence') AS sequence
 FROM edges e LEFT JOIN lg_document_light l ON l.id = e.to_id
 WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
-  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = '{RULE_REPLACEMENT}'
 UNION ALL
 SELECT 'replaced_by', e.to_id, e.from_id, lg_num(l.props -> 'sequence')
 FROM edges e LEFT JOIN lg_document_light l ON l.id = e.from_id
 WHERE e.to_id = ANY(%(ids)s::text[]) AND e.relation = %(revises)s
-  AND e.from_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
+  AND e.from_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = '{RULE_REPLACEMENT}'
 ORDER BY 1, 2, 4 NULLS LAST, 3
 """
 

@@ -52,6 +52,7 @@ from lawgraph.core.dossier_numbers import (
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._json_sql import (
@@ -144,7 +145,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
     ],
 }
 
-# TK writes 'Eerste ondertekenaar' / 'Mede ondertekenaar'; the frontend shows
+# TK writes ``Eerste ondertekenaar`` or ``Mede ondertekenaar``; the frontend shows
 # who submitted a document and who co-signed it.
 _SIGNATORY_ROLES = {
     "eerste ondertekenaar": "indiener",
@@ -182,22 +183,27 @@ def _json_order(value: str, direction: str) -> str:
     return ", ".join(f"{key} {direction} {nulls}" for key in _json_keys(value))
 
 
-# The documents of one dossier (``%(dossier_id)s``): directly PART_OF it, or PART_OF a
-# case that is PART_OF it; each once.
-_DOSSIER_DOCUMENT_IDS = f"""
+def _in_dossier(relation: str, collection: str) -> str:
+    """SQL: the ``id`` of the nodes of *collection* with an edge *relation* (a parameter)
+    to the dossier ``%(dossier_id)s``, or to a case PART_OF it; each once."""
+    return f"""
     SELECT e.from_id AS id
     FROM {COLLECTION_EDGES} e
-    WHERE e.to_id = %(dossier_id)s AND e.relation = %(part_of)s
-      AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+    WHERE e.to_id = %(dossier_id)s AND e.relation = {relation}
+      AND e.from_collection = '{collection}'
     UNION
     SELECT e2.from_id
     FROM {COLLECTION_EDGES} e1
     JOIN {COLLECTION_EDGES} e2
-      ON e2.to_id = e1.from_id AND e2.relation = %(part_of)s
-     AND e2.from_collection = '{COLLECTION_DOCUMENTS}'
+      ON e2.to_id = e1.from_id AND e2.relation = {relation}
+     AND e2.from_collection = '{collection}'
     WHERE e1.to_id = %(dossier_id)s AND e1.relation = %(part_of)s
       AND e1.from_collection = '{COLLECTION_CASES}'
 """
+
+
+# The documents of one dossier: directly PART_OF it, or PART_OF a case that is PART_OF it.
+_DOSSIER_DOCUMENT_IDS = _in_dossier("%(part_of)s", COLLECTION_DOCUMENTS)
 
 
 @dataclass
@@ -313,11 +319,14 @@ _TIMELINE_BODY = f"""(
         )"""
 
 
+TimelineOrder = Literal["asc", "desc"]
+
+
 def get_dossier_timeline(
     store: GraphStore,
     dossier_id: str,
     *,
-    order: Literal["desc", "asc"] = "desc",
+    order: TimelineOrder = "desc",
     kind_filter: list[str] | None = None,
     include_planned: bool = True,
     limit: int = 200,
@@ -531,7 +540,7 @@ def _document_summary(
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
-        "dictum_excerpt": " ".join(text.split())[:_DICTUM_EXCERPT_CHARS] or None,
+        "dictum_excerpt": collapse_ws(text)[:_DICTUM_EXCERPT_CHARS] or None,
         "signatories": signatories,
     }
 
@@ -698,20 +707,7 @@ links AS (
 hub_instruments AS (
     SELECT DISTINCT l.instrument_id, l.relation, l.status FROM links l
 ),
-activity_ids AS (
-    SELECT e.from_id AS id
-    FROM {COLLECTION_EDGES} e
-    WHERE e.to_id = %(dossier_id)s AND e.relation = %(about)s
-      AND e.from_collection = '{COLLECTION_ACTIVITIES}'
-    UNION
-    SELECT e2.from_id
-    FROM {COLLECTION_EDGES} e1
-    JOIN {COLLECTION_EDGES} e2
-      ON e2.to_id = e1.from_id AND e2.relation = %(about)s
-     AND e2.from_collection = '{COLLECTION_ACTIVITIES}'
-    WHERE e1.to_id = %(dossier_id)s AND e1.relation = %(part_of)s
-      AND e1.from_collection = '{COLLECTION_CASES}'
-),
+activity_ids AS ({_in_dossier("%(about)s", COLLECTION_ACTIVITIES)}),
 lead_ids AS (
     SELECT DISTINCT led.to_id AS id
     FROM activity_ids a

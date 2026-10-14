@@ -31,16 +31,9 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from lawgraph.core.identifiers import parse_celex
-from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.dutch_dates import dutch_day
+from lawgraph.core.identifiers import EU_ACT_KINDS, parse_celex
 
-# The Dutch word for each kind of act (CELEX letters live in core.identifiers).
-_KIND_LABELS: dict[str, str] = {
-    "directive": "Richtlijn",
-    "regulation": "Verordening",
-    "decision": "Besluit",
-    "framework_decision": "Kaderbesluit",
-}
 _MAASTRICHT = "1993-11-01"
 _LISBON = "2009-12-01"
 _NEW_NUMBERING = 2015  # year/number with the domain before it
@@ -70,9 +63,7 @@ def citation_title(
     parsed = parse_celex(celex)
     if parsed is None or parsed.kind is None:
         return None
-    label = designation or _KIND_LABELS.get(parsed.kind)
-    if not label:
-        return None
+    label = designation or EU_ACT_KINDS[parsed.kind].noun
     year = int(parsed.year)
     number = str(int(parsed.number))
     domain = _domain(parsed.kind, adopted or f"{year:04d}-01-01")
@@ -102,7 +93,9 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
     printed_title = " ".join(paragraphs)
     designation = _designation(paragraphs[0]) if paragraphs else None
     cited = citation_title(
-        celex, adopted=parse_date(printed_title), designation=designation
+        celex,
+        adopted=dutch_day(printed_title, abbreviations=True),
+        designation=designation,
     )
     if not paragraphs:
         return EuActNames(None, cited, None)
@@ -115,7 +108,9 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
             first = cited
     title = " ".join([first, *paragraphs[1:]])
     parsed = parse_celex(celex)
-    kind = designation or _KIND_LABELS.get(parsed.kind or "", "") if parsed else ""
+    kind = designation or (
+        EU_ACT_KINDS[parsed.kind].noun if parsed and parsed.kind else ""
+    )
     return EuActNames(title, cited, _short_title(title, kind))
 
 

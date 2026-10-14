@@ -10,7 +10,13 @@ A citation of the code names the book in front of the colon (``art. 6:162 BW`` i
 of book 6), so the code itself never stands for one regulation, whichever books are loaded.
 
 ``data/code_families.json`` holds the families ``CODE_FAMILIES`` reads; ``lawgraph
-code-families build`` makes it from the stored WTI records (``retrieve bwb``).
+code-families build`` makes it from the stored WTI records (``retrieve bwb``). Its ``names``
+are the names a code goes by besides its abbreviation (``Burgerlijk Wetboek``), which no WTI
+lists; a build keeps them.
+
+A code is looked up in any case (``BW``, ``bw``, ``Bw``); an article of a book is cited with
+its book (``cited_number``: ``6:162``) and stored with its own number (``native_number``:
+``162``).
 """
 
 from __future__ import annotations
@@ -19,9 +25,11 @@ import json
 import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from typing import Any
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "code_families.json"
+from lawgraph.config.constants import DATA_DIR
+
+DATA = DATA_DIR / "code_families.json"
 
 # ``BW Boek 7A``: the code and the book, as a WTI writes the book.
 _BOOK = re.compile(r"^(?P<code>.+?)\s+Boek\s+(?P<book>\d+[A-Z]?)$", re.IGNORECASE)
@@ -59,13 +67,78 @@ def families_from_wti(
     }
 
 
-def load_families(path: Path = DATA) -> dict[str, dict[str, str]]:
-    """The families of ``data/code_families.json``."""
-    families: dict[str, dict[str, str]] = json.loads(path.read_text(encoding="utf-8"))[
-        "families"
-    ]
-    return families
-
-
+_DOCUMENT: dict[str, Any] = json.loads(DATA.read_text(encoding="utf-8"))
 # Code -> book -> BWB id (``BW`` -> ``6`` -> ``BWBR0005289``).
-CODE_FAMILIES: dict[str, dict[str, str]] = load_families()
+CODE_FAMILIES: dict[str, dict[str, str]] = _DOCUMENT["families"]
+# Code -> the names it goes by besides its abbreviation (``Burgerlijk Wetboek``).
+FAMILY_NAMES: dict[str, list[str]] = _DOCUMENT["names"]
+
+
+def code_of(name: str | None) -> str | None:
+    """The code whose abbreviation *name* is, in any case (``bw``: ``BW``); ``None`` for
+    none."""
+    key = (name or "").strip().casefold()
+    return next((code for code in CODE_FAMILIES if code.casefold() == key), None)
+
+
+def is_code_family(name: str | None) -> bool:
+    """Whether *name* is the abbreviation of a code with books, in any case."""
+    return code_of(name) is not None
+
+
+def family_named(name: str | None) -> str | None:
+    """The code *name* names: by its abbreviation or by a name it goes by
+    (``Burgerlijk Wetboek``), in any case."""
+    key = (name or "").strip().casefold()
+    return code_of(key) or next(
+        (
+            code
+            for code, names in FAMILY_NAMES.items()
+            if key in (n.casefold() for n in names)
+        ),
+        None,
+    )
+
+
+def _book(bwb_id: str | None) -> tuple[str, str] | None:
+    """``(code, book)`` of a regulation that is a book of a code."""
+    wanted = (bwb_id or "").upper()
+    return next(
+        (
+            (code, book)
+            for code, books in CODE_FAMILIES.items()
+            for book, law_id in books.items()
+            if law_id.upper() == wanted
+        ),
+        None,
+    )
+
+
+def family_of(bwb_id: str | None) -> str | None:
+    """The code a regulation is a book of (``BW`` for ``BWBR0005289``)."""
+    found = _book(bwb_id)
+    return found[0] if found else None
+
+
+def book_of(bwb_id: str | None) -> str | None:
+    """The book a regulation is of its code (``6`` for ``BWBR0005289``)."""
+    found = _book(bwb_id)
+    return found[1] if found else None
+
+
+def cited_number(bwb_id: str | None, number: str) -> str:
+    """The number an article is cited by: ``6:162`` for article 162 of Boek 6. A number
+    that names its book already, or of a law that is no book of a code, stays."""
+    book = book_of(bwb_id)
+    return f"{book}:{number}" if book and ":" not in number else number
+
+
+def native_number(bwb_id: str | None, number: str) -> str:
+    """The number an article has in its own book of a code: ``162`` for ``6:162`` under
+    BW Boek 6 (BWBR0005289); ``cited_number`` undone. A number of another book, or of a law
+    that is no book of a code (the Awb's ``8:69`` is its own), stays."""
+    book = book_of(bwb_id)
+    prefix = f"{book}:"
+    return (
+        number[len(prefix) :] if book and number.upper().startswith(prefix) else number
+    )

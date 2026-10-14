@@ -10,7 +10,6 @@ and one without, an amending publication and the bills of the dossier.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pytest
@@ -63,6 +62,7 @@ from lawgraph.db.queries.dossiers import (
     tk_values,
 )
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from tests.fakes import assert_fast
 
 # ── dossier documents and timeline ──
 
@@ -733,13 +733,10 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
         g.edge(document, RELATION_PART_OF, dossier)
     g.write()
 
-    started = time.monotonic()
-    hub = get_dossier_hub(store, "dossiers/36004")
-    elapsed = time.monotonic() - started
+    hub = assert_fast(lambda: get_dossier_hub(store, "dossiers/36004"))
 
     assert len(hub["instruments"]) == 300
     assert hub["documents_by_kind"] == {"Motie": 600}
-    assert elapsed < 2.0, elapsed
 
     # the edges are read by their ends, never whole (every document here is the
     # dossier's, so its table may be read whole)

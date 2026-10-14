@@ -16,7 +16,7 @@ from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
 )
-from tests.fakes import InMemoryStore, patch_alias_rows
+from tests.fakes import InMemoryStore, calls_made, patch_alias_rows
 
 # ---------------------------------------------------------------------------
 # Pure detection helpers
@@ -213,15 +213,16 @@ def test_a_case_never_produces_an_edge() -> None:
 
 
 def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
-    """Thousands of names must not mean thousands of compiled patterns per title."""
-    import time
-
-    aliases = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
-    aliases["Wegenwet"] = ("BWBR0001948", None)
-    named_acts = NamedActs(aliases)
+    """Thousands of names must not mean thousands of steps per title: a title costs the
+    same against one name as against twenty thousand and one."""
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
+    one = {"Wegenwet": ("BWBR0001948", None)}
+    many = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
+    few_acts, many_acts = NamedActs(one), NamedActs({**many, **one})
 
-    started = time.perf_counter()
-    hits = detect_amends_instrument(title, named_acts)
-    assert hits == [("BWBR0001948", None, 0.85)]
-    assert time.perf_counter() - started < 0.5
+    hits = [("BWBR0001948", None, 0.85)]
+    assert detect_amends_instrument(title, few_acts) == hits
+    assert detect_amends_instrument(title, many_acts) == hits
+    assert calls_made(lambda: detect_amends_instrument(title, many_acts)) == calls_made(
+        lambda: detect_amends_instrument(title, few_acts)
+    )

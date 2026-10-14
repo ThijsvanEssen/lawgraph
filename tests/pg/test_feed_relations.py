@@ -412,6 +412,7 @@ def test_a_new_version_says_its_articles_publication_and_basis(
         "series": "stb",
         "year": 2026,
         "number": "187",
+        "citation": "Stb. 2026, 187",
         "path": "/stb/2026/187",
     }
     assert commenced["based_on"] is None

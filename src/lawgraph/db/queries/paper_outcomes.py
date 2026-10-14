@@ -6,11 +6,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_DECISIONS, RELATION_REVISES
+from lawgraph.config.constants import (
+    COLLECTION_DECISIONS,
+    RELATION_REVISES,
+    SOURCE_EERSTEKAMER,
+)
 from lawgraph.core.batching import chunked
+from lawgraph.core.dossier_relations import RULE_REPLACEMENT
+from lawgraph.core.tk_records import DECIDED_KINDS, KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_present
-from lawgraph.db.queries.decisions import MOTION_KINDS, motion_papers
+from lawgraph.db.queries.decisions import motion_papers
 
 # Decisions whose papers are looked up in one query.
 _CHUNK = 5_000
@@ -32,21 +38,21 @@ ORDER BY d.id
 """
 
 # The motions and amendments a newer paper replaces ("ter vervanging van nr. 19").
-_REPLACED = """
+_REPLACED = f"""
 SELECT DISTINCT e.to_id AS id
 FROM edges e
 JOIN documents d ON d.id = e.to_id
 WHERE e.relation = %(revises)s AND e.from_collection = 'documents'
-  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = 'vervanging'
-  AND (starts_with(d.kind, 'Motie') OR starts_with(d.kind, 'Amendement'))
+  AND e.to_collection = 'documents' AND e.doc -> 'meta' ->> 'rule' = '{RULE_REPLACEMENT}'
+  AND (starts_with(d.kind, '{KIND_MOTION}') OR starts_with(d.kind, '{KIND_AMENDMENT}'))
 """
 
 # The status the page of a motion of the Eerste Kamer states (``normalize
 # eerstekamer-motions``), of those that have one.
-_STATED = """
+_STATED = f"""
 SELECT d.id, lg_str(d.props -> 'status') AS status
 FROM documents d
-WHERE d.source = 'eerstekamer' AND starts_with(d.kind, 'Motie')
+WHERE d.source = '{SOURCE_EERSTEKAMER}' AND starts_with(d.kind, '{KIND_MOTION}')
   AND lg_str(d.props -> 'status') IS NOT NULL
 """
 
@@ -62,7 +68,7 @@ WHERE {is_present("l.props -> 'outcome'")}
 def paper_decisions(store: Store) -> dict[str, list[dict[str, Any]]]:
     """Paper id -> the decisions taken on it (``{key, date, passed, decision_kind, result,
     tally}``), each paper as ``motion_papers`` finds it."""
-    decisions = list(store.query(_DECISIONS, {"kinds": list(MOTION_KINDS)}))
+    decisions = list(store.query(_DECISIONS, {"kinds": list(DECIDED_KINDS)}))
     by_paper: dict[str, list[dict[str, Any]]] = {}
     for chunk in chunked(decisions, _CHUNK):
         for decision, (paper, _) in zip(

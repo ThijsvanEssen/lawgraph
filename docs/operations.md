@@ -159,7 +159,7 @@ passed to the pipelines that accept it and the others run in full.
 | `bwb-captions` | `--since`: the regulations whose toestand was fetched since then (the daily run); without it every one, also in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps per article its `caption`, what its title says it is about |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
-| `staatscourant` | `--since`: publications dated since then |
+| `staatscourant` | `--since`: publications dated since then, their edges derived again; without it every publication, and the edges no longer derived go (weekly) |
 | `rechtspraak-appeal` | `--since`: only the judgments whose raw record was fetched since then (the daily run): their edges, and those from the later instances they name, are added, none removed. Three things wait for a run without it (`weekly.sh`): an older judgment that names a judgment fetched since as an earlier or later instance, an older appeal whose text names a decision fetched since, and the removal of edges and `unresolved_appeal_targets` no longer derived |
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (every regulation that names or implements an EU act, and every retrieved national implementing measure, on every run) |
@@ -598,11 +598,12 @@ mypy                                  # src, configured in pyproject.toml
 ```
 
 The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
-functions of `db/queries/` the code calls, answered from one store in memory (`tests/fakes.py`,
+functions of `db/queries/` the code calls, answered from one store in memory (`tests/fakes/`,
 with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
-no unit test runs or reads a query (`tests/test_conventions.py`), what a query does is tested in
+no unit test runs or reads a query (`tests/conventions/`), what a query does is tested in
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
-statement (`ALLOW_DB_TESTS=1`, a scratch database of its own).
+statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). A guard on a convention of the
+whole code base is a file of its own in `tests/conventions/`: a new guard is a new file.
 
 What only a server shows under real load is in `tests/integration` and `tests/pg`: the real code and the real
 CLI against a second, deliberately small PostgreSQL (`docker-compose.test.yml`, a compose project of its own:

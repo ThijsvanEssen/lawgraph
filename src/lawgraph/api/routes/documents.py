@@ -8,7 +8,7 @@ GET /api/documents/{key}/passages — the passages of a memorandum that explain 
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
@@ -22,6 +22,7 @@ from lawgraph.api.schemas.documents import (
     PassageDTO,
     readable_sections,
 )
+from lawgraph.config.constants import Chamber
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import get_document_decisions
@@ -54,7 +55,7 @@ router = APIRouter()
 def list_chamber_documents(
     store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
-        Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
+        Chamber | None, Query(description="One chamber; both by default.")
     ] = None,
     kind: Annotated[
         str | None,

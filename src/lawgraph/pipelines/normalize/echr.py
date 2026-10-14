@@ -75,7 +75,6 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             else:
                 node, writer = self._judgment_node(record, best_language), judgments
             if node is None:
-                result.skipped += 1
                 continue
             writer.add(node)
             count += 1
@@ -92,9 +91,11 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         translation of a judgment whose record in a better language was seen already."""
         payload = self._payload_json(record)
         if not payload or not isinstance(payload, dict):
+            self.progress.skip("no payload", record.get("external_id"))
             return None
         item_id = str(payload.get("itemid") or record.get("external_id") or "")
         if not item_id:
+            self.progress.skip("no item id", record.get("_key"))
             return None
 
         appno = payload.get("appno") or ""
@@ -116,12 +117,12 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             # of the record: a decision is in HUDOC once per language (``echr-versions``)
             "language": payload.get("languageisocode") or None,
         }
-        importance = payload.get("importance")
-        if importance is not None:
-            try:
-                props["importance"] = int(importance)
-            except (TypeError, ValueError):
-                props["importance"] = importance
+        # HUDOC gives 1 (a key case) to 4, as a string
+        importance = str(payload.get("importance") or "")
+        if importance.isdigit():
+            props["importance"] = int(importance)
+        elif importance:
+            self.progress.problem("importance not a number", f"{item_id}: {importance}")
 
         # By its ECLI when it has one: that is what a Dutch judgment cites, so the stub
         # of a cited judgment and the judgment itself are the same node. HUDOC holds a
@@ -132,6 +133,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             props["ecli"] = ecli
             rank = _language_rank(payload.get("languageisocode"))
             if best_language.get(ecli, rank) < rank:
+                self.progress.skip("a translation; a better language is kept", item_id)
                 return None
             best_language[ecli] = rank
         return _judgment(ecli or None, item_id, props)
@@ -141,11 +143,12 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         item_id = str(record.get("external_id") or "")
         xml_text = self._payload_text(record)
         if not item_id or not xml_text:
+            self.progress.skip("no text", item_id or record.get("_key"))
             return None
         try:
             text, paragraphs = read_judgment(xml_text)
         except ValueError as exc:
-            logger.warning("ECHR text %s cannot be read: %s", item_id, exc)
+            self.progress.fail("text not readable", f"{item_id}: {exc}")
             return None
         ecli = str((record.get("meta") or {}).get("ecli") or "").upper() or None
         props: dict[str, Any] = {"source": SOURCE_ECHR, "text": text}

@@ -4,7 +4,7 @@ Both chambers handle the same bill. An EK Kamerstuk carries the number of the TK
 kamerstukdossier (``dossier_number``, plus ``dossier_suffix`` for a budget chapter such as
 ``35925 VII``; a paper on more than one bill names the others in ``dossier_numbers``), which
 is enough to write the same PART_OF edge the TK documents get, just
-cross-chamber.
+cross-chamber. Derived in full on every run: an edge no paper supports any more goes.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 from itertools import chain
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_PART_OF,
@@ -38,14 +39,9 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
             semantic_tk.ek_papers_in_tk_dossiers(self.store),
             semantic_tk.ek_papers_in_other_dossiers(self.store),
         )
-        rows = list(self._track(papers, "Eerste Kamer papers"))
-        if not rows:
-            logger.info("EK dossier link: no EK stuk matches a TK dossier.")
-            return result
-
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store, what=None)
-        for row in rows:
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        for row in self._track(papers, "Eerste Kamer papers"):
             pair = (row["document_key"], row["dossier_key"])
             if pair in seen:
                 continue
@@ -68,10 +64,16 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     meta={
                         "dossier_number": str(row["dossier_number"]),
                         "dossier_suffix": row.get("dossier_suffix"),
-                        "chamber": "EK",
+                        "chamber": CHAMBER_EK,
                     },
                 )
             )
 
         edges.flush_into(result)
+        removed = edges.remove_stale_of_source(RELATION_PART_OF, SEMANTIC_SOURCE)
+        logger.info(
+            "EK dossier link: %d edges; %d no paper supports any more removed.",
+            edges.written(RELATION_PART_OF),
+            removed,
+        )
         return result

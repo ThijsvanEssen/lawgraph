@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass, field
 
 from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, ek_dossier_label
-from lawgraph.core.eerstekamer_composition import text
+from lawgraph.core.xml import html_text
 
 PLENARY_PATH = "/menukeuze_plenair"  # forwards to the next plenary sitting
 COMMITTEE_DAYS_PATH = "/commissievergaderingen_op"  # the next day of committee meetings
@@ -128,7 +128,7 @@ def plenary(path: str, page: str) -> Plenary:
     day = _PLENARY_DATE.search(path)
     items = []
     for block_id, heading, papers in _BLOCK.findall(page):
-        head = text(heading)
+        head = html_text(heading)
         timed = _TIME.match(head)
         items.append(
             AgendaItem(
@@ -138,7 +138,7 @@ def plenary(path: str, page: str) -> Plenary:
                 dossiers=[
                     label
                     for _, name in _LINKED_PAPER.findall(papers)
-                    if (number := _NUMBERED.search(text(name)))
+                    if (number := _NUMBERED.search(html_text(name)))
                     and (label := ek_dossier_label(number[1]))
                 ],
             )
@@ -160,23 +160,23 @@ def _meeting(block: str) -> Meeting | None:
     points = []
     for number, point_id, reference, rest in _POINT.findall(block):
         subject, decision = _SUBJECT.search(rest), _DECISION.search(rest)
-        ref = text(reference)
+        ref = html_text(reference)
         points.append(
             DecisionPoint(
                 id=point_id,
-                number=text(number),
+                number=html_text(number),
                 reference=ref,
                 dossiers=reference_dossiers(ref),
-                subject=text(subject[1]) or None if subject else None,
-                decision=text(decision[1]) or None if decision else None,
+                subject=html_text(subject[1]) or None if subject else None,
+                decision=html_text(decision[1]) or None if decision else None,
             )
         )
     return Meeting(
         path=link[1],
         date=f"{link[2]}-{link[3]}-{link[4]}",
-        committees=text(link[5]),
-        kind=text(kind[1]) or None if kind else None,
-        time=text(hour[1]) or None if hour else None,
+        committees=html_text(link[5]),
+        kind=html_text(kind[1]) or None if kind else None,
+        time=html_text(hour[1]) or None if hour else None,
         points=points,
     )
 

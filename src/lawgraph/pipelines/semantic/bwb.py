@@ -3,6 +3,10 @@
 The BWB XML states every reference explicitly: articles normalized from it carry
 ``props.references`` (from ``<extref>``/``<intref>``), and those structured
 references are the only source. An article without them produces no edges.
+
+The edges are derived in full: a full run removes every edge of the step it did not write
+(also of an article whose references are gone, which it does not read); a run under
+``--since`` those of the articles it read.
 """
 
 from __future__ import annotations
@@ -67,8 +71,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
         hits_detected = 0
         articles_seen = 0
-        # the articles read: the edges of an article are derived in full, so one its
-        # references no longer support goes
+        # the articles read: under --since the edges of those go that their references no
+        # longer support
         read: list[str] = []
         edges = EdgeWriter(self.store, what=None, remembers=True)
         # Stream articles (they carry full text) and process them in chunks so
@@ -108,7 +112,10 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        if since is None:
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+        else:
+            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info(
             "%d references read; %d edges the references no longer support removed.",
             hits_detected,

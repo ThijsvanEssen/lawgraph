@@ -34,13 +34,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
-from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
-from lawgraph.core.logging import get_logger
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
+from lawgraph.core.identifiers import EU_ACT_KINDS, EUInstrumentKind, parse_celex
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
-from lawgraph.core.xml import XML_TAG_RE
-
-logger = get_logger(__name__)
+from lawgraph.core.xml import XML_TAG_RE, collapse_ws
 
 # ---------------------------------------------------------------------------
 # Types
@@ -120,29 +117,18 @@ def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
     return normalized
 
 
-def format_celex(
-    kind: Literal["directive", "regulation", "decision", "framework_decision"],
-    year: str,
-    number: str,
-) -> str:
-    """Render a numeric CELEX identifier.
+def format_celex(kind: EUInstrumentKind, year: str, number: str) -> str:
+    """The CELEX number of an EU act: ``format_celex("directive", "2010", "64")`` is
+    ``32010L0064`` (the letters are those of :data:`lawgraph.core.identifiers.EU_ACT_KINDS`).
 
-    Supported kinds and their CELEX sector-3 letters (see
-    :data:`lawgraph.core.identifiers.CELEX_KIND_TO_LETTER`):
-    - ``"directive"`` → ``L``
-    - ``"regulation"`` → ``R``
-    - ``"decision"`` → ``D``
-    - ``"framework_decision"`` → ``F``
-
-    Example: ``format_celex("directive", "2010", "64")`` → ``"32010L0064"``
+    Raises ``ValueError`` for an unknown kind or a number that is not one.
     """
-    letter = CELEX_KIND_TO_LETTER.get(kind, "L")
-    padded = 0
-    try:
-        padded = int(number)
-    except ValueError:
-        logger.debug("Could not parse CELEX number %r; using 0 as fallback", number)
-    return f"3{year}{letter}{padded:04d}"
+    act = EU_ACT_KINDS.get(kind)
+    if act is None:
+        raise ValueError(f"no kind of EU act: {kind!r}")
+    if not (number.isascii() and number.isdigit()):
+        raise ValueError(f"no number of an EU act: {number!r}")
+    return f"3{year}{act.letter}{int(number):04d}"
 
 
 def hit_reason(hit: CitationHit) -> str:
@@ -168,8 +154,7 @@ def coerce_text(value: object) -> str | None:
 
 def strip_xml(text: str) -> str:
     """Remove XML/HTML tags and collapse whitespace for clean regex matching."""
-    stripped = XML_TAG_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", stripped).strip()
+    return collapse_ws(XML_TAG_RE.sub(" ", text))
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +460,7 @@ class DutchCitationExtractor:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
-            if k and v and k.strip().upper() not in CODE_FAMILIES
+            if k and v and not is_code_family(k)
         }
         # "CBW" -> "Cbw": a code of one word as its source writes it, when *as_written*
         self._spelling: dict[str, str] = (
@@ -521,7 +506,7 @@ class DutchCitationExtractor:
                 if key.strip()
                 and " " not in key.strip()
                 and key.strip().upper() not in self._code_map
-                and key.strip().upper() not in CODE_FAMILIES
+                and not is_code_family(key)
             }
             if as_written
             else {}

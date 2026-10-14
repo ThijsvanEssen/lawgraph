@@ -18,16 +18,20 @@ own that a newer one replaces ("ter vervanging van nr. 19", ``REVISES`` with the
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
-ADOPTED = "aangenomen"
-REJECTED = "verworpen"
-WITHDRAWN = "ingetrokken"
-HELD = "aangehouden"
-LAPSED = "vervallen"
-REPLACED = "vervangen"
-
-OUTCOMES = (ADOPTED, REJECTED, WITHDRAWN, HELD, LAPSED, REPLACED)
+# What a vote decided; a paper can also end without one.
+VoteOutcome = Literal["aangenomen", "verworpen"]
+PaperOutcome = Literal[
+    VoteOutcome, "ingetrokken", "aangehouden", "vervallen", "vervangen"
+]
+OUTCOMES: tuple[PaperOutcome, ...] = get_args(PaperOutcome)
+ADOPTED: Final[VoteOutcome] = "aangenomen"
+REJECTED: Final[VoteOutcome] = "verworpen"
+WITHDRAWN: Final[PaperOutcome] = "ingetrokken"
+HELD: Final[PaperOutcome] = "aangehouden"
+LAPSED: Final[PaperOutcome] = "vervallen"
+REPLACED: Final[PaperOutcome] = "vervangen"
 
 # The words of a decision that is no vote, as ``BesluitSoort`` (``Stemmen - ingetrokken``) or
 # the result of the Eerste Kamer writes them, and the outcome each says.

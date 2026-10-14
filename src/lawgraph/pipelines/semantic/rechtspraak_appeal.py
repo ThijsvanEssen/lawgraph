@@ -48,6 +48,7 @@ from lawgraph.core.appeals import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.relations import BASIS_FORMAL
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -57,7 +58,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-appeal-linker"
-BASIS_FORMAL = "formal_relation"
 BASIS_LATER = "later_instance"
 BASIS_TEXT = "appeal_text"
 CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER: 0.95, BASIS_TEXT: 0.9}

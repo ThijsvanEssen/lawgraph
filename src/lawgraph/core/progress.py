@@ -153,14 +153,16 @@ class Progress:
     def track(
         self, items: Iterable[T], size: Callable[[T], int] | None = None
     ) -> Iterator[T]:
-        """Pass *items* on, counting each as done when the loop asks for the next one;
-        *size*: the bytes of an item."""
+        """Pass *items* on, counting each as done when the loop asks for the next one,
+        unless the loop skipped or failed it; *size*: the bytes of an item."""
         try:
             for item in items:
+                handled = self.handled
                 yield item
                 if size is not None:
                     self.bytes += size(item)
-                self.ok()
+                if self.handled == handled:
+                    self.ok()
         finally:
             self.finish()
 

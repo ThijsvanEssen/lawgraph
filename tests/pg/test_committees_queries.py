@@ -6,7 +6,6 @@ a faction of the Eerste Kamer; and the routes in front of them."""
 from __future__ import annotations
 
 import json
-import time
 from collections.abc import Iterator
 from typing import Any
 
@@ -50,6 +49,7 @@ from lawgraph.db.queries.committees import (
     get_members,
     get_seats_on,
 )
+from tests.fakes import assert_fast
 
 FIRST = "Eerste ondertekenaar"
 CO = "Mede ondertekenaar"
@@ -1318,22 +1318,16 @@ def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(
         g.edge(activity, RELATION_LED_BY, committee)
     g.write()
 
-    started = time.monotonic()
-    result = get_actor_dossiers(store, faction, limit=10)
-    faction_seconds = time.monotonic() - started
-    started = time.monotonic()
-    page = get_committee_activities(store, "a", limit=10, offset=100)
-    committee_seconds = time.monotonic() - started
+    result = assert_fast(lambda: get_actor_dossiers(store, faction, limit=10))
+    page = assert_fast(
+        lambda: get_committee_activities(store, "a", limit=10, offset=100)
+    )
 
     assert result["total"] == 50 and len(result["items"]) == 10
     assert (
         result["items"][0]["document_count"] == 300
     )  # 15,000 documents over 50 dossiers
     assert page is not None and page["total"] == 3000 and len(page["items"]) == 10
-    assert faction_seconds < 5.0 and committee_seconds < 2.0, (
-        faction_seconds,
-        committee_seconds,
-    )
 
 
 def test_a_committee_page_is_read_once_per_data_version(

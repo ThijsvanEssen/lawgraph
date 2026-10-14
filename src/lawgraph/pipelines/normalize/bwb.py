@@ -87,15 +87,12 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 payload_text = self._payload_text(record)
                 bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
                 if not payload_text or not bwb_id:
-                    logger.warning(
-                        "BWB record %s has no text payload or bwb_id; skipping.",
-                        record.get("_key"),
-                    )
+                    self.progress.skip("no payload or BWB id", record.get("_key"))
                     continue
                 try:
                     toestand = parse_toestand(payload_text)
                 except ET.ParseError as exc:
-                    logger.warning("XML parsing failed for BWB %s: %s", bwb_id, exc)
+                    self.progress.fail("toestand not XML", f"{bwb_id}: {exc}")
                     continue
 
                 instrument = instruments_by_bwb.get(bwb_id)
@@ -293,13 +290,14 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
             payload_text = self._payload_text(record)
             if not bwb_id or not payload_text:
+                self.progress.skip("no WTI payload or BWB id", record.get("_key"))
                 continue
             try:
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
                 titles_by_bwb[bwb_id] = parse_citation_titles(payload_text)
                 parsed[bwb_id] = parse_subjects(payload_text)
             except ET.ParseError as exc:
-                logger.warning("XML parsing failed for BWB WTI %s: %s", bwb_id, exc)
+                self.progress.fail("WTI not XML", f"{bwb_id}: {exc}")
 
         short_titles = choose_short_titles(abbreviations_by_bwb)
         rows = [

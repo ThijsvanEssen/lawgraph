@@ -12,6 +12,7 @@ from typing import Any
 from psycopg import sql
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
@@ -579,7 +580,7 @@ def faction_names(store: Store) -> Iterator[dict[str, Any]]:
     SELECT key, props -> 'name' AS name, props -> 'abbreviation' AS abbreviation,
            props -> 'aliases' AS aliases
     FROM {COLLECTION_FACTIONS}
-    WHERE lg_str(props -> 'chamber') IS DISTINCT FROM 'EK'
+    WHERE lg_str(props -> 'chamber') IS DISTINCT FROM '{CHAMBER_EK}'
     ORDER BY key COLLATE "C"
     """
     return store.query(statement)
@@ -590,10 +591,10 @@ def faction_names(store: Store) -> Iterator[dict[str, Any]]:
 # edge key.
 _EK_COMPOSITION_SQL = f"""
 WITH ek_factions AS (
-    SELECT key, props FROM {COLLECTION_FACTIONS} WHERE lg_str(props -> 'chamber') = 'EK'
+    SELECT key, props FROM {COLLECTION_FACTIONS} WHERE lg_str(props -> 'chamber') = '{CHAMBER_EK}'
 ),
 ek_committees AS (
-    SELECT key, props FROM {COLLECTION_COMMITTEES} WHERE lg_str(props -> 'chamber') = 'EK'
+    SELECT key, props FROM {COLLECTION_COMMITTEES} WHERE lg_str(props -> 'chamber') = '{CHAMBER_EK}'
 ),
 targets AS (
     SELECT '{COLLECTION_FACTIONS}/' || key AS id, 0 AS part, key FROM ek_factions

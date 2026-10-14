@@ -45,6 +45,10 @@ from lawgraph.core.models import COLLECTIONS
 CONCEPTS: dict[str, str] = {spec.concept: spec.name for spec in COLLECTIONS}
 _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
 
+# ``meta.basis`` of a relation between judgments that the metadata of one of them names
+# (its ``dcterms:relation``), as the descriptions below call it.
+BASIS_FORMAL = "formal_relation"
+
 
 @dataclass(frozen=True)
 class RelationSpec:

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from lawgraph.core.xml import collapse_ws
+
 # "Wetboek van Strafvordering", "Burgerlijk Wetboek"; "Algemene wet bestuursrecht", "Wet op
 # de rechterlijke organisatie", "Wet van 2 juli ..."; a compound ending in "wet"
 # ("Vreemdelingenwet 2000", "Opiumwet", "Participatiewet").
@@ -56,7 +58,7 @@ def laws_in_title(title: str | None) -> list[str]:
     gezondheidszorg") ends there."""
     names: list[str] = []
     for match in _LAW_NAME.finditer(title or ""):
-        name = " ".join(match.group(0).split())
+        name = collapse_ws(match.group(0))
         if name.lower() in _KINDS:
             continue
         if name not in names:

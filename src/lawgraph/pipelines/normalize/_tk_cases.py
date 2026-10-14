@@ -12,6 +12,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
@@ -33,17 +34,18 @@ from lawgraph.core.models import Node, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.db import EdgeWriter, NodeWriter, Store
 from lawgraph.db.queries.normalize import tk as normalize_tk
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 
 logger = get_logger(__name__)
 
 
 def normalize_activities(
-    store: Store, raw_records: Iterable[dict[str, Any]]
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Activiteit nodes, keyed by TK ``Id``."""
     nodes = _write_nodes(
-        store,
+        pipeline,
         raw_records,
         tk_records.activity,
         COLLECTION_ACTIVITIES,
@@ -53,11 +55,11 @@ def normalize_activities(
 
 
 def normalize_commitments(
-    store: Store, raw_records: Iterable[dict[str, Any]]
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Toezegging nodes, keyed by TK ``Id``."""
     nodes = _write_nodes(
-        store,
+        pipeline,
         raw_records,  # walked once: a second walk is a second read of every record
         tk_records.commitment,
         COLLECTION_COMMITMENTS,
@@ -67,15 +69,15 @@ def normalize_commitments(
 
 
 def normalize_documents(
-    store: Store, raw_records: Iterable[dict[str, Any]]
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Document (Kamerstuk) nodes, keyed by TK ``Id``."""
     nodes = _write_nodes(
-        store,
+        pipeline,
         raw_records,
         tk_records.document,
         COLLECTION_DOCUMENTS,
-        labels=["TK", "Kamerstuk"],
+        labels=[CHAMBER_TK, "Kamerstuk"],
     )
     logger.info("Normalized %d documents.", len(nodes))
     return nodes
@@ -380,7 +382,7 @@ def link_node(node: Node) -> Node:
 
 
 def _write_nodes(
-    store: Store,
+    pipeline: PipelineBase,
     raw_records: Iterable[dict[str, Any]],
     read: Any,
     collection: str,
@@ -391,23 +393,27 @@ def _write_nodes(
 
     With 130K documents the full nodes are over a gigabyte; the edges need a few props.
     A record the Kamer deleted (``Verwijderd``, its id and nothing else) is no node: the
-    node an earlier run wrote of it is removed, with its edges.
+    node an earlier run wrote of it is removed, with its edges. A record left out is
+    skipped on the progress of *pipeline*, with its reason.
     """
+    store = pipeline.store
     nodes: dict[str, Node] = {}
     deleted = Deleted(collection)
     with NodeWriter(store) as writer:
         for raw in raw_records:
             payload = payload_json(raw)
             if deleted(payload):
+                pipeline.progress.skip(DELETED, payload.get("Id"))
                 continue
             parsed = read(payload)
             if parsed is None:
+                pipeline.progress.skip("no Id", raw.get("_key"))
                 continue
             key, props = parsed
             node = Node(
                 collection=collection,
                 key=key,
-                labels=labels or ["TK"],
+                labels=labels or [CHAMBER_TK],
                 props=props,
             )
             writer.add(node)

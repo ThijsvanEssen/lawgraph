@@ -8,10 +8,12 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     RAW_KIND_EU_CELEX,
     RELATION_ANSWERS,
     SOURCE_BWB,
     SOURCE_EURLEX,
+    TREATY_KINDS,
 )
 from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db.counting import Store
@@ -162,9 +164,10 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
         """
         SELECT props -> 'external_id' FROM instruments
         WHERE stub IS TRUE
-          AND kind IN ('verdrag', 'bilateraalverdrag', 'multilateraalverdrag')
+          AND kind = ANY(%(kinds)s::text[])
         ORDER BY key
-        """
+        """,
+        {"kinds": list(TREATY_KINDS)},
     )
 
 
@@ -185,7 +188,7 @@ def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, An
                props -> 'sequence' AS sequence,
                props -> 'date' AS date
         FROM documents
-        WHERE 'TK' = ANY(labels)
+        WHERE '{CHAMBER_TK}' = ANY(labels)
           AND {is_present("props -> 'dossier_number'")} AND {is_present("props -> 'sequence'")}
           AND EXISTS (
             SELECT 1 FROM unnest(%(kinds)s::text[]) AS w
@@ -262,10 +265,10 @@ def dossiers_named_by_papers(store: Store) -> list[str]:
     """The dossier labels (``36996``, ``31700-VI``) that a Tweede Kamer paper or case is part
     of and that no dossier has."""
     rows = store.query(
-        """
+        f"""
         WITH named AS (
             SELECT unnest(dossier_numbers) AS label
-            FROM documents WHERE 'TK' = ANY(labels)
+            FROM documents WHERE '{CHAMBER_TK}' = ANY(labels)
             UNION
             SELECT unnest(lg_text_array(props -> 'dossier_numbers')) FROM cases
         )
@@ -282,11 +285,11 @@ def dossiers_missing_papers(store: Store) -> list[str]:
     of them: nr. 48 of the Wmcz 2018 without nr. 1 to 47. Each paper counts in the dossier
     it is numbered in, a chapter of a budget (``36600-XV``) on its own."""
     rows = store.query(
-        """
+        f"""
         SELECT DISTINCT number FROM (
             SELECT dossier_number AS number
             FROM documents
-            WHERE 'TK' = ANY(labels)
+            WHERE '{CHAMBER_TK}' = ANY(labels)
               AND dossier_number IS NOT NULL
               AND lg_num(props -> 'sequence') IS NOT NULL
             GROUP BY dossier_number, props ->> 'dossier_suffix'

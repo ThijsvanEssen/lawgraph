@@ -14,10 +14,12 @@ November 2006 (``TK_SEATS_FROM``); a cabinet that began before has no seat timel
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
+
+from lawgraph.core.time import day_before, shift_day
+from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
 
 # The first day every seat of the Tweede Kamer is known (FractieZetelPersoon).
 TK_SEATS_FROM = "2006-11-30"
@@ -35,10 +37,6 @@ class Period:
 
     def covers(self, day: str) -> bool:
         return self.start <= day and (self.end is None or day <= self.end)
-
-
-def _next_day(day: str) -> str:
-    return (dt.date.fromisoformat(day) + dt.timedelta(days=1)).isoformat()
 
 
 def _period(row: Mapping[str, Any], start_key: str, end_key: str) -> Period | None:
@@ -63,7 +61,7 @@ def change_days(periods: Iterable[Period], start: str, end: str) -> list[str]:
     ends; *start* first, each once, in order."""
     days = {start}
     for period in periods:
-        for day in (period.start, _next_day(period.end) if period.end else None):
+        for day in (period.start, shift_day(period.end, 1) if period.end else None):
             if day and start < day <= end:
                 days.add(day)
     return sorted(days)
@@ -144,18 +142,17 @@ def seat_timeline(
         if segments and segments[-1]["factions"] == factions:
             continue  # nothing changed that day: the stretch goes on
         if segments:
-            segments[-1]["to_date"] = (
-                dt.date.fromisoformat(day) - dt.timedelta(days=1)
-            ).isoformat()
+            segments[-1]["to_date"] = day_before(day)
         segments.append(segment)
     return segments
 
 
-# The choices that count as a vote cast (``VOTED`` ``meta.choice``); any other is none.
-VOTE_FOR, VOTE_AGAINST = "Voor", "Tegen"
 # The pattern of the coalition on a vote: all its votes on one side, on both sides, or on
 # both sides while the side that won holds coalition and opposition seats.
-PATTERN_TOGETHER, PATTERN_SPLIT, PATTERN_WISSEL = "together", "split", "wissel"
+CoalitionPattern = Literal["together", "split", "wissel"]
+PATTERN_TOGETHER: Final[CoalitionPattern] = "together"
+PATTERN_SPLIT: Final[CoalitionPattern] = "split"
+PATTERN_WISSEL: Final[CoalitionPattern] = "wissel"
 
 
 def vote_pattern(
@@ -253,7 +250,7 @@ def tk_events(
       left, or that was vacant, is taken by another;
     - ``coalitie``: the factions of the coalition change (a party joins or leaves).
     """
-    before = (dt.date.fromisoformat(day) - dt.timedelta(days=1)).isoformat()
+    before = day_before(day)
     began = [m for m in memberships if m.get("from_date") == day]
     ended = [m for m in memberships if m.get("to_date") == before]
     events: list[dict[str, Any]] = []

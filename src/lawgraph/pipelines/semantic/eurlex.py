@@ -20,7 +20,7 @@ from lawgraph.core.citations import (
     make_snippet,
     normalize_code_aliases,
 )
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, code_of
 from lawgraph.core.eu_citations import (
     ARTICLE_NUMBER_ONE_LETTER,
     EUCitationConfidence,
@@ -121,9 +121,10 @@ def _alias_article(
     """``(bwb_id, article_number)`` of ``artikel <number> <alias>``. A code family (``BW``)
     never stands for one regulation: the book in front of the colon names it (``6:162`` is
     article 162 of book 6), as in ``core.citations``; without a book there is none."""
-    family = CODE_FAMILIES.get(alias)
-    if family is None:
+    code = code_of(alias)
+    if code is None:
         return codes.get(alias), number
+    family = CODE_FAMILIES[code]
     book, colon, article = number.partition(":")
     if not colon:
         return None, number
@@ -134,7 +135,10 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Inspect EU instruments for referenced articles and persist semantic edges."""
+        """Inspect EU instruments for referenced articles and persist semantic edges.
+
+        The edges of an article are derived in full: one its text no longer supports goes,
+        of the articles read under *since*, of every article without it."""
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         code_aliases = self._load_code_aliases()
@@ -147,8 +151,11 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
             self._load_eu_documents(since_iso=since_iso), "EU articles"
         )
 
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        read: list[str] = []
         for document in documents:
+            if document.node_id:
+                read.append(document.node_id)
             text = self._extract_document_text(document)
             if not text:
                 result.skipped += 1
@@ -182,6 +189,11 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                 )
 
         edges.flush_into(result)
+        if since is None:
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+        else:
+            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        logger.info("EU articles: %d edges no text supports removed.", removed)
         return result
 
     def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:

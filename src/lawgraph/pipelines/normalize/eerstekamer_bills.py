@@ -5,7 +5,7 @@ dossier, as the page gives it (``core.eerstekamer_bills``): the day it was submi
 (``Kerngegevens``: ``ingediend``), its progress block by block (phase, house, state as the
 page marks it, and its papers with kind, date and number), the heading of the list of its
 committee it was found under, and the page it was taken over from with the day it was read.
-A bill whose dossier the graph does not hold is passed over.
+A bill whose dossier the graph does not hold is skipped.
 """
 
 from __future__ import annotations
@@ -20,19 +20,15 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_BILL,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_bills
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
-
-
-def _absolute(url: str) -> str:
-    return url if "://" in url else EERSTEKAMER_SITE.rstrip("/") + url
 
 
 def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
@@ -46,8 +42,7 @@ def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any
             {
                 **{k: v for k, v in asdict(step).items() if k != "papers"},
                 "papers": [
-                    {**asdict(paper), "url": _absolute(paper.url)}
-                    for paper in step.papers
+                    {**asdict(paper), "url": ek_url(paper.url)} for paper in step.papers
                 ],
             }
             for step in bill.progress
@@ -76,10 +71,12 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase):
         for record in raw:
             bill = eerstekamer_bills.bill(self._payload_text(record) or "")
             if not bill.label:
-                result.skipped += 1
+                self.progress.skip("no dossier on the page", record.get("external_id"))
                 continue
             found[make_node_key(bill.label)] = ek_bill(bill, self._meta(record))
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(found))
+        for key in sorted(set(found) - known):
+            self.progress.skip("dossier not in the graph", key)
         nodes = [
             Node(
                 collection=COLLECTION_DOSSIERS,

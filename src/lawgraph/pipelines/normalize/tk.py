@@ -12,12 +12,17 @@ import datetime as dt
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_CASES, RAW_KIND_TK_ZAAK, SOURCE_TK
+from lawgraph.config.constants import (
+    CHAMBER_TK,
+    COLLECTION_CASES,
+    RAW_KIND_TK_ZAAK,
+    SOURCE_TK,
+)
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -59,20 +64,18 @@ class TKNormalizePipeline(NormalizePipelineBase):
         for raw in raw_records:
             payload = self._payload_json(raw)
             if deleted(payload):
+                self.progress.skip(DELETED, payload.get("Id"))
                 continue
             parsed = tk_records.case(payload)
             if parsed is None:
-                logger.warning(
-                    "Skipping a TK Zaak without an identifier (_key=%s).",
-                    raw.get("_key"),
-                )
+                self.progress.skip("no Zaak identifier", raw.get("_key"))
                 continue
             key, props = parsed
             writer.add(
                 Node(
                     collection=COLLECTION_CASES,
                     key=key,
-                    labels=["TK"],
+                    labels=[CHAMBER_TK],
                     props=props,
                 )
             )

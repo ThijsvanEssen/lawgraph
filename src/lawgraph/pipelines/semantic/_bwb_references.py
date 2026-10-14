@@ -16,7 +16,7 @@ from lawgraph.core.citations import (
     number_shape,
     parse_article_numbers,
 )
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, family_of
 from lawgraph.core.qualifiers import Qualifier
 
 REASON_XML_REF = "bwb_xml_ref"
@@ -54,10 +54,8 @@ class ArticleReferenceHit:
 
 def _books_of(law_id: str) -> dict[str, str]:
     """The books of the code (``CODE_FAMILIES``) that *law_id* is a book of."""
-    for books in CODE_FAMILIES.values():
-        if law_id in books.values():
-            return books
-    return {}
+    code = family_of(law_id)
+    return CODE_FAMILIES[code] if code else {}
 
 
 def text_target(

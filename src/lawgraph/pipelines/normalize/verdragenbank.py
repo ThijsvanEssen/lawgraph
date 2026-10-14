@@ -20,6 +20,9 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
+    KIND_BILATERAL_TREATY,
+    KIND_MULTILATERAL_TREATY,
+    KIND_TREATY,
     MAX_TITLE_CHARS,
     RAW_KIND_VERDRAG,
     RAW_KIND_VERDRAG_XML,
@@ -62,15 +65,13 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
         for record in raw:
             if record.get("kind") == RAW_KIND_VERDRAG_XML:
                 node = self._item_node(record)
-                if node is None:
-                    result.skipped += 1
-                else:
+                if node is not None:
                     writer.add(node)
                     count += 1
                 continue
             payload = self._payload_json(record)
             if not payload or not isinstance(payload, dict):
-                result.skipped += 1
+                self.progress.skip("no payload", record.get("external_id"))
                 continue
 
             uri = payload.get("uri") or ""
@@ -78,7 +79,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                 record.get("external_id") or uri.rstrip("/").rsplit("/", 1)[-1]
             )
             if not external_id:
-                result.skipped += 1
+                self.progress.skip("no treaty id", record.get("_key"))
                 continue
 
             title_nl = payload.get("title_nl") or ""
@@ -92,12 +93,12 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             date_in_force = _iso_date(payload.get("date_in_force"))
 
             # Derive a kind label from the type URI or text
-            kind = "verdrag"
+            kind = KIND_TREATY
             type_lower = treaty_type.lower()
             if "multilateral" in type_lower or "multilateraal" in type_lower:
-                kind = "multilateraalverdrag"
+                kind = KIND_MULTILATERAL_TREATY
             elif "bilateral" in type_lower or "bilateraal" in type_lower:
-                kind = "bilateraalverdrag"
+                kind = KIND_BILATERAL_TREATY
 
             is_in_force = status.lower() == "inwerkinggetreden"
 
@@ -150,13 +151,12 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
         external_id = record.get("external_id")
         text = self._payload_text(record)
         if not external_id or not text:
+            self.progress.skip("no item XML", external_id or record.get("_key"))
             return None
         try:
             props = parse_treaty_xml(text)
         except ValueError as exc:
-            logger.warning(
-                "Verdragenbank %s: item XML not read (%s).", external_id, exc
-            )
+            self.progress.fail("item XML not read", f"{external_id}: {exc}")
             return None
         return Node(
             collection=COLLECTION_INSTRUMENTS,

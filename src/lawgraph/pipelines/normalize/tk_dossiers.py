@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import datetime as dt
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_CASES,
     COLLECTION_DOSSIERS,
@@ -45,7 +46,6 @@ from lawgraph.config.constants import (
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
-    dossier_display_name,
     last_activity,
     opened_on,
     phase_props,
@@ -53,7 +53,6 @@ from lawgraph.core.dossier_stages import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -63,7 +62,7 @@ from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 
 logger = get_logger(__name__)
@@ -139,93 +138,61 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             return self._run_committees()
         return super().run(since=since)
 
+    def _alone(self, step: Callable[[], object]) -> PipelineResult:
+        """Run *step* alone; what it wrote and what it left out is the result."""
+        self.store.reset_counts()
+        step()
+        return self._counted(PipelineResult())
+
     def _run_persons(self) -> PipelineResult:
         """Normalize every stored Persoon record again into its member."""
-        result = PipelineResult()
-        self.store.reset_counts()
-        tk_members.normalize_members(
-            self.store,
-            RawRecords(
-                self,
-                source=SOURCE_TK,
-                kinds=[RAW_KIND_TK_PERSOON],
-                since=None,
-                batch_size=1000,
-            ),
+        return self._alone(
+            lambda: tk_members.normalize_members(self, self._every(RAW_KIND_TK_PERSOON))
         )
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        result.unchanged += writes.unchanged
-        return result
 
     def _run_factions(self) -> PipelineResult:
         """Normalize every stored Fractie record again into its faction."""
-        result = PipelineResult()
-        self.store.reset_counts()
-        tk_members.normalize_factions(
-            self.store,
-            RawRecords(
-                self,
-                source=SOURCE_TK,
-                kinds=[RAW_KIND_TK_FRACTIE],
-                since=None,
-                batch_size=1000,
-            ),
-            self._every_seat(),
+        return self._alone(
+            lambda: tk_members.normalize_factions(
+                self, self._every(RAW_KIND_TK_FRACTIE), self._every_seat()
+            )
         )
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        result.unchanged += writes.unchanged
-        return result
 
     def _run_committees(self) -> PipelineResult:
         """Normalize every stored Commissie record again into its committee, and link its
         seats again."""
-        result = PipelineResult()
-        self.store.reset_counts()
-        records = RawRecords(
-            self,
-            source=SOURCE_TK,
-            kinds=[RAW_KIND_TK_COMMISSIE],
-            since=None,
-            batch_size=1000,
-        )
-        tk_members.normalize_committees(self.store, records)
-        tk_members.link_members_to_committees(self.store, records, source=EDGE_SOURCE)
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        result.unchanged += writes.unchanged
-        return result
+
+        def step() -> None:
+            records = self._every(RAW_KIND_TK_COMMISSIE)
+            tk_members.normalize_committees(self, records)
+            tk_members.link_members_to_committees(
+                self.store, records, source=EDGE_SOURCE
+            )
+
+        return self._alone(step)
 
     def _run_seats(self) -> PipelineResult:
         """Link every stored FractieZetelPersoon record again to its member and faction:
         the MEMBER_OF edges and each member's faction timeline, from the stored members
         and factions."""
-        result = PipelineResult()
-        self.store.reset_counts()
-        tk_members.link_members_to_factions(
-            self.store, self._every_seat(), *self._stored_holders(), source=EDGE_SOURCE
+        return self._alone(
+            lambda: tk_members.link_members_to_factions(
+                self, self._every_seat(), *self._stored_holders(), source=EDGE_SOURCE
+            )
         )
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        result.unchanged += writes.unchanged
-        return result
 
     def _run_mixed_votes(self, limit: int | None) -> PipelineResult:
         """Normalize the votes of the mixed decisions again from their stored Stemming
         rows (each carries its Besluit): their tally, kind and VOTED edges."""
-        result = PipelineResult()
-        self.store.reset_counts()
         self._incremental = True
-        ids = normalize_tk.mixed_vote_decisions(self.store, limit)
-        logger.info("%d decisions read as a roll call with few votes.", len(ids))
-        if ids:
+
+        def step() -> None:
+            ids = normalize_tk.mixed_vote_decisions(self.store, limit)
+            logger.info("%d decisions read as a roll call with few votes.", len(ids))
+            if not ids:
+                return
             votes = tk_votes.read_votes(
-                raw_queries.vote_rows_of_decisions(self.store, ids)
+                self, raw_queries.vote_rows_of_decisions(self.store, ids)
             )
             decisions = tk_votes.normalize_decisions(self.store, votes)
             tk_votes.link_votes(
@@ -235,11 +202,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 self._stored(COLLECTION_FACTIONS),
                 source=EDGE_SOURCE,
             )
-        writes = self.store.writes
-        result.created += writes.created
-        result.updated += writes.updated
-        result.unchanged += writes.unchanged
-        return result
+
+        return self._alone(step)
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
@@ -293,7 +257,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             set(raw_queries.decisions_voted_since(self.store, since_iso))
             | set(voted_on)
         )
-        progress = Progress(f"{RAW_KIND_TK_STEMMING} records")
+        progress = self._loop(f"{RAW_KIND_TK_STEMMING} records")
         yield from progress.track(
             raw_queries.vote_rows_of_decisions(self.store, decisions)
             if decisions
@@ -318,25 +282,25 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         result: PipelineResult,
     ) -> dict[str, Any]:
         store = self.store
-        votes = tk_votes.read_votes(raw[RAW_KIND_TK_STEMMING])
+        votes = tk_votes.read_votes(self, raw[RAW_KIND_TK_STEMMING])
         self._add_bill_decisions(votes, raw[RAW_KIND_TK_BESLUIT])
 
         normalized: dict[str, Any] = {
             "committees": tk_members.normalize_committees(
-                store, raw[RAW_KIND_TK_COMMISSIE]
+                self, raw[RAW_KIND_TK_COMMISSIE]
             ),
-            "members": tk_members.normalize_members(store, raw[RAW_KIND_TK_PERSOON]),
+            "members": tk_members.normalize_members(self, raw[RAW_KIND_TK_PERSOON]),
             "factions": tk_members.normalize_factions(
-                store, raw[RAW_KIND_TK_FRACTIE], self._every_seat()
+                self, raw[RAW_KIND_TK_FRACTIE], self._every_seat()
             ),
             "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
             "activities": tk_cases.normalize_activities(
-                store, raw[RAW_KIND_TK_ACTIVITEIT]
+                self, raw[RAW_KIND_TK_ACTIVITEIT]
             ),
             "commitments": tk_cases.normalize_commitments(
-                store, raw[RAW_KIND_TK_TOEZEGGING]
+                self, raw[RAW_KIND_TK_TOEZEGGING]
             ),
-            "documents": tk_cases.normalize_documents(store, raw[RAW_KIND_TK_DOCUMENT]),
+            "documents": tk_cases.normalize_documents(self, raw[RAW_KIND_TK_DOCUMENT]),
             "votes": votes.by_decision,
         }
         normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
@@ -351,11 +315,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """Add the Besluiten on bills, also those without votes (a hamerstuk). An
         incremental run first reads the stored vote rows of those its window holds no
         rows of, so a Besluit that changed does not lose its votes."""
-        payloads = [
-            payload
-            for raw in raw_records
-            if not votes.struck(payload := self._payload_json(raw))
-        ]
+        payloads = []
+        for raw in raw_records:
+            payload = self._payload_json(raw)
+            if votes.struck(payload):
+                self.progress.skip(DELETED, payload.get("Id"))
+            elif not payload.get("Id"):
+                self.progress.skip("no Id", raw.get("_key"))
+            else:
+                payloads.append(payload)
         if self._incremental:
             unseen = [
                 decision_id
@@ -367,7 +335,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 tk_votes.merge_votes(
                     votes,
                     tk_votes.read_votes(
-                        raw_queries.vote_rows_of_decisions(self.store, unseen)
+                        self, raw_queries.vote_rows_of_decisions(self.store, unseen)
                     ),
                 )
         added = tk_votes.add_decisions(votes, payloads)
@@ -429,26 +397,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             store, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
         tk_members.link_members_to_factions(
-            store, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
+            self, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
         )
         # every vacancy and every faction, also on a run over a window: they are few; with
         # every holding of a seat, which a vacancy of that seat cannot overlap
         tk_members.keep_faction_vacancies(
-            store,
-            RawRecords(
-                self,
-                source=SOURCE_TK,
-                kinds=[RAW_KIND_TK_FRACTIEZETELVACATURE],
-                since=None,
-                batch_size=1000,
-            ),
-            RawRecords(
-                self,
-                source=SOURCE_TK,
-                kinds=[RAW_KIND_TK_FRACTIEZETELPERSOON],
-                since=None,
-                batch_size=1000,
-            ),
+            self,
+            self._every(RAW_KIND_TK_FRACTIEZETELVACATURE),
+            self._every_seat(),
             {
                 **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
                 **normalized["factions"],
@@ -511,16 +467,16 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         )
         return found
 
+    def _every(self, kind: str) -> RawRecords:
+        """Every stored TK record of *kind*, also on a run over a window."""
+        return RawRecords(
+            self, source=SOURCE_TK, kinds=[kind], since=None, batch_size=1000
+        )
+
     def _every_seat(self) -> RawRecords:
         """Every FractieZetelPersoon record, also on a run over a window: the seats date a
         faction (1,236 records)."""
-        return RawRecords(
-            self,
-            source=SOURCE_TK,
-            kinds=[RAW_KIND_TK_FRACTIEZETELPERSOON],
-            since=None,
-            batch_size=1000,
-        )
+        return self._every(RAW_KIND_TK_FRACTIEZETELPERSOON)
 
     def _seats_and_holders(
         self, raw: dict[str, Iterable[dict[str, Any]]], normalized: dict[str, Any]
@@ -597,15 +553,17 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         for raw in raw_records:
             payload = self._payload_json(raw)
             if deleted(payload):
+                self.progress.skip(DELETED, payload.get("Id"))
                 continue
             parsed = tk_records.dossier(payload)
             if parsed is None:
+                self.progress.skip("no Id or number", raw.get("_key"))
                 continue
             key, label, props = parsed
             node = Node(
                 collection=COLLECTION_DOSSIERS,
                 key=key,
-                labels=["TK"],
+                labels=[CHAMBER_TK],
                 props=props,
             )
             nodes[props["external_id"]] = node
@@ -737,7 +695,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             return 0
         node.props["title"] = title
         node.props["title_source"] = "document"
-        node.props["display_name"] = dossier_display_name(
+        node.props["display_name"] = tk_records.dossier_display_name(
             node.props.get("number") or node.key or "",
             node.props.get("suffix"),
             title or "",

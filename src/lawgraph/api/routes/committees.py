@@ -42,9 +42,10 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentsResponse,
 )
 from lawgraph.api.schemas.common import dossier_names_of
-from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
-from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
+from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS, Chamber
+from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.eerstekamer_votes import VOTES_PATH
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
@@ -96,7 +97,7 @@ def _day(day: dt.date | None) -> str | None:
 def list_committees(
     store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."
@@ -244,7 +245,7 @@ def list_members(
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."
@@ -409,7 +410,7 @@ def list_factions(
         ),
     ] = None,
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."
@@ -537,7 +538,7 @@ def list_faction_votes(
             for item in raw.get("items") or []
         ],
         source=EkSourceDTO(
-            url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
+            url=ek_url(VOTES_PATH),
             retrieved_on=None,  # each vote has its own day of reading
             composition_date=None,
             data_since=None,

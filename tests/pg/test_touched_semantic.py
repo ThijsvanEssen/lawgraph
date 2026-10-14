@@ -17,10 +17,13 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+)
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import government as government_queries
-from lawgraph.db.queries.government import ROLE_FIRST_SIGNATORY
 from lawgraph.pipelines.semantic import _touched as touched
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
@@ -116,7 +119,7 @@ def _fill(store: GraphStore) -> None:
                 f"documents/{_key(G_PAPER)}",
                 "AUTHORED",
                 OLD,
-                role=ROLE_FIRST_SIGNATORY,
+                role=FIRST_SIGNATORY,
                 capacity=CAPACITY_MEMBER,
             ),
             # 400: a Stemming of its decision was fetched again (the VOTED edge is old)
@@ -222,7 +225,7 @@ def _signed(paper: str, at: str, capacity: str, function: str) -> dict:
         f"documents/{paper}",
         "AUTHORED",
         at,
-        role=ROLE_FIRST_SIGNATORY,
+        role=FIRST_SIGNATORY,
         capacity=capacity,
         function=function,
     )

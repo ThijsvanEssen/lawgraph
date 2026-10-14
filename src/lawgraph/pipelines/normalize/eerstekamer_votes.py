@@ -15,7 +15,8 @@ tk-dossier-outcomes``, of the votes on the bill.
 
 The votes of a day are derived in full each time the day is read: a decision of that day
 that the list no longer gives goes, with its edges (one made before the votes on motions
-were told apart, a motion counted as a vote on its bill). A day not read is left as it is.
+were told apart, a motion counted as a vote on its bill). A day not read, or whose page
+gives no vote, is skipped and left as it is.
 
 The list of rejected bills (``ek-rejected-html``) gives the dossier of each bill it names
 ``ek_rejected``: the day the Eerste Kamer rejected it (also before June 2015), with the
@@ -29,6 +30,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
     RAW_KIND_EK_REJECTED,
@@ -37,7 +39,6 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_votes
 from lawgraph.core.eerstekamer_votes import (
     LABEL_AGAINST,
@@ -49,6 +50,8 @@ from lawgraph.core.eerstekamer_votes import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
@@ -70,15 +73,8 @@ CHOICES = {
     LABEL_NOTED: "Aantekening gevraagd",
 }
 
-# The kind of a decision on a motion, as the Tweede Kamer names the case of one.
-KIND_MOTION = "Motie"
-
 # Decisions whose other VOTED edges are removed in one query.
 _DECISION_CHUNK = 500
-
-
-def _url(path: str | None) -> str | None:
-    return EERSTEKAMER_SITE.rstrip("/") + path if path else None
 
 
 def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
@@ -90,7 +86,7 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
         motion: dict[str, Any] = {
             "kind": KIND_MOTION,
             "letter": vote.letter,
-            "motion_url": _url(vote.motion_path),
+            "motion_url": ek_url(vote.motion_path),
         }
     else:
         key = make_node_key("ek", vote.date, vote.label, str(position))
@@ -98,10 +94,10 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
     return Node(
         collection=COLLECTION_DECISIONS,
         key=key,
-        labels=["EK"],
+        labels=[CHAMBER_EK],
         props={
             **motion,
-            "chamber": "EK",
+            "chamber": CHAMBER_EK,
             "date": vote.date,
             "subject": vote.title,
             "display_name": f"Eerste Kamer {vote.date}: {vote.title} ({number})",
@@ -112,8 +108,8 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
             "factions_for": vote.factions.get(LABEL_FOR) or [],
             "factions_against": vote.factions.get(LABEL_AGAINST) or [],
             "factions_noted": vote.factions.get(LABEL_NOTED) or [],
-            "bill_url": _url(vote.bill_path),
-            "source_url": _url(vote.report_path),
+            "bill_url": ek_url(vote.bill_path),
+            "source_url": ek_url(vote.report_path),
             "retrieved_on": retrieved_on,
         },
     )
@@ -141,7 +137,10 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
         rejected_from: dict[str, Any] = {}
         days: list[str] = []
         for record in raw:
-            text = self._payload_text(record) or ""
+            text = self._payload_text(record)
+            if not text:
+                self.progress.skip("no page", record.get("external_id"))
+                continue
             meta = self._meta(record)
             read_on = meta.get("read_on")
             if record.get("kind") == RAW_KIND_EK_REJECTED:
@@ -149,9 +148,13 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
                 rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
                 continue
             day = str(record["external_id"])
+            votes = eerstekamer_votes.votes(day, text)
+            if not votes:
+                self.progress.skip("no votes on the page", day)
+                continue
             days.append(day)
             seen: dict[str, int] = {}
-            for vote in eerstekamer_votes.votes(day, text):
+            for vote in votes:
                 if vote.letter is None:  # a motion has a letter, not a place
                     seen[vote.label] = seen.get(vote.label, 0) + 1
                 decisions.append(decision_node(vote, seen.get(vote.label, 0), read_on))

@@ -12,7 +12,6 @@ their order is held to D3.
 
 from __future__ import annotations
 
-import datetime as dt
 import functools
 import hashlib
 import json
@@ -24,12 +23,21 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    COLLECTION_INSTRUMENTS,
+    RELATION_LEGISLATED_IN,
+)
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dutch_names import PARTICLES, TITLES
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
+from lawgraph.core.text_fold import ACCENTS
+from lawgraph.core.time import shift_day
 from lawgraph.core.word_forms import word_forms
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
@@ -111,8 +119,7 @@ class Period:
         if self.start:
             found["_period_from"] = self.start
         if self.end:
-            day = dt.date.fromisoformat(self.end) + dt.timedelta(days=1)
-            found["_period_until"] = day.isoformat()
+            found["_period_until"] = shift_day(self.end, 1)
         return found
 
     def keeps(self, table: str) -> bool:
@@ -873,9 +880,7 @@ PERSON_MIN = 3
 # wethouders") is in far more, and the first found stand for them.
 PERSON_CANDIDATES = 2_000
 # The words of a name a query may leave out: a title, an article or a particle.
-_NAME_EXTRAS = frozenset(
-    "mr dr drs prof ir ing de het der den van ten ter te op in uit la le du da".split()
-)
+_NAME_EXTRAS = frozenset(TITLES) | PARTICLES
 _PERSON_HIT = """
     json_build_object(
         'id', doc.id, 'key', doc.key,
@@ -1118,8 +1123,8 @@ def _search_documents(
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
                 'sequence', doc.props -> 'sequence',
                 'number', CASE {_CHAMBER}
-                              WHEN 'EK' THEN doc.props ->> 'number'
-                              WHEN 'TK' THEN doc.props ->> 'sequence'
+                              WHEN '{CHAMBER_EK}' THEN doc.props ->> 'number'
+                              WHEN '{CHAMBER_TK}' THEN doc.props ->> 'sequence'
                           END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}
@@ -1419,18 +1424,14 @@ _NAME_LIST_FIELDS = ("aliases",)
 _CONTEXT_LIST_FIELDS = ("division_titles",)
 
 
-# The marks ``lg_fold`` takes off a letter after NFD (U+0300-U+036F).
-_ACCENTS = re.compile("[\u0300-\u036f]")
-
-
 def _folded(value: Any) -> str:
     """*value* as ``lg_fold`` folds it (lower case, without accents: "yesilgoz" is part of
     "Yeşilgöz-Zegerius"), its spaces one each."""
     if not value:
         return ""
     plain = unicodedata.normalize("NFD", str(value).lower())
-    plain = unicodedata.normalize("NFC", _ACCENTS.sub("", plain))
-    return " ".join(plain.split())
+    plain = unicodedata.normalize("NFC", ACCENTS.sub("", plain))
+    return collapse_ws(plain)
 
 
 def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:

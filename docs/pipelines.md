@@ -165,7 +165,8 @@ is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Ti
 exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make nothing of it, and each normalizer removes, through one shared
+`normalize tk-dossiers` make nothing of it (the record is counted as skipped, `deleted by the
+Kamer`), and each normalizer removes, through one shared
 `Deleted` (`pipelines/normalize/_tk_deleted.py`), what an earlier run made of it alone: the
 node keyed by the record id (case, activity, commitment, document, committee, member), the node
 that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes when all its
@@ -1013,8 +1014,11 @@ and `check`, see [operations](operations.md#other-commands)) is made from the st
 (`core/code_families.families_from_wti`). A code is an abbreviation that two or more regulations
 list, each of which also lists a book of it (`BW` with `BW Boek 6`): the book is the number of
 that abbreviation (`7A` too), the code keeps the spelling most regulations give it. So the
-families follow the WTI; nothing is kept by hand. A book whose WTI record is not stored is not in
-its family.
+families follow the WTI. Only `names`, the names a code goes by besides its abbreviation
+(`Burgerlijk Wetboek`), which no WTI lists, is kept by hand; a build keeps it. A book whose WTI
+record is not stored is not in its family. `core/code_families` answers every question about a
+code: whether a name is one, in any case (`is_code_family`), and the number an article of a book
+is cited by (`cited_number`: `6:162`) or stored by (`native_number`: `162`).
 
 **Normalize `bwb-history`.** Reads every stored toestand once (`bwb_xml.read_toestand`: the
 text, references and parts of an article are read only for a version it has not met, so a
@@ -1070,7 +1074,8 @@ the words name, the link counts.
 An edge is keyed by its two articles, so an article that refers to another twice keeps the span
 of one; `props.references` keeps both. Self references are dropped and targets must exist —
 nothing is stubbed. The edges of an article are derived in full: one its references no longer
-support is removed.
+support is removed (without `--since` every edge of the step it did not write, also of an
+article whose references are gone).
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
@@ -1301,7 +1306,8 @@ several, the one the composition observed that day, else the last before it), `c
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
 was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
 of a day are derived in full every time the day is read: a decision of that day the list no
-longer gives goes, with its edges (logged per day); a day not read is left as it is. A vote
+longer gives goes, with its edges (logged per day); a day not read, or whose page gives no
+vote, is skipped and left as it is. A vote
 on a motion decides no bill (`semantic tk-dossier-outcomes` reads the votes on the bill). A
 rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
@@ -1337,7 +1343,7 @@ too. Pages are read one at a time on the lane of eerstekamer.nl.
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
-`ek_bill` on the dossier of that number, when the graph holds it.
+`ek_bill` on the dossier of that number, when the graph holds it (else the page is skipped).
 
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
@@ -1470,7 +1476,8 @@ about 100 s the first time (on average 170 KB of XML, 22 KB compressed, the larg
 **Normalize.** Judgment per judgment: by its ECLI (the node a Dutch judgment that cites it
 has), else by item (`echr_<itemid>`); the English item's record, else the French one's, else
 another; `appno`, `title`, `date`, `articles`, `conclusion` (and from it what the Court found
-per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance`. A text
+per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance` (a number;
+another value is a problem and is left out). A text
 record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").

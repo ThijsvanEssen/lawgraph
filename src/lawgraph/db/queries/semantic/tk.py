@@ -38,6 +38,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
@@ -502,7 +503,7 @@ _MEMORANDA = f"""{_EXPLANATORY}
 
 # ... or an adopted amendment: the last of its chain (no paper REVISES it), and the latest
 # decision with an outcome on a case it is part of passed.
-_ADOPTED_AMENDMENTS = f"""starts_with(d.kind, 'Amendement')
+_ADOPTED_AMENDMENTS = f"""starts_with(d.kind, '{KIND_AMENDMENT}')
       AND NOT EXISTS (
           SELECT 1 FROM {COLLECTION_EDGES} r
           WHERE r.to_id = d.id AND r.relation = %(revises)s
@@ -557,7 +558,7 @@ LEFT JOIN LATERAL (
       ON e.to_id = u.dossier AND e.relation = %(part_of)s
      AND e.from_collection = '{COLLECTION_DOCUMENTS}'
     JOIN {COLLECTION_DOCUMENTS} b ON b.id = e.from_id
-    WHERE starts_with(b.kind, 'Voorstel van wet')
+    WHERE starts_with(b.kind, '{KIND_BILL}')
     ORDER BY b.date NULLS LAST, b.key
     LIMIT 1
 ) bill ON true
@@ -738,7 +739,7 @@ SELECT json_build_object(
           AND e.from_collection = '{COLLECTION_DECISIONS}'
           AND lg_str(dc.props -> 'chamber') = '{CHAMBER_EK}'
           -- the votes on the bill, not those on a motion about it
-          AND lg_str(dc.props -> 'kind') IS DISTINCT FROM 'Motie'
+          AND lg_str(dc.props -> 'kind') IS DISTINCT FROM '{KIND_MOTION}'
     )
 )
 FROM unnest(%(dossier_ids)s::text[]) WITH ORDINALITY AS a(dossier_id, ord)
