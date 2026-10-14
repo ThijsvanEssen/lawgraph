@@ -12,6 +12,7 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.pipelines.semantic.tk import NamedActs
 from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
@@ -23,11 +24,12 @@ from tests.fakes import ExistingKeysFake
 # ---------------------------------------------------------------------------
 
 
+SR = NamedActs({"Wetboek van Strafrecht": ("BWBR0001854", None)})
+
+
 def test_detect_amends_instrument_matches_alias() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
     hits = detect_amends_instrument(
-        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)",
-        aliases,
+        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)", SR
     )
     assert len(hits) == 1
     bwb_id, celex, confidence = hits[0]
@@ -37,13 +39,20 @@ def test_detect_amends_instrument_matches_alias() -> None:
 
 
 def test_detect_amends_instrument_requires_wijziging_keyword() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
-    hits = detect_amends_instrument("Debat over het Wetboek van Strafrecht", aliases)
-    assert hits == []
+    assert detect_amends_instrument("Debat over het Wetboek van Strafrecht", SR) == []
 
 
 def test_detect_amends_instrument_none_title_returns_empty() -> None:
-    assert detect_amends_instrument(None, {"Sr": ("BWBR0001854", None)}) == []
+    assert detect_amends_instrument(None, SR) == []
+
+
+def test_a_law_name_inside_a_longer_word_is_no_law_amended() -> None:
+    erfgoedwet = NamedActs({"Erfgoedwet": ("BWBR0037521", None)})
+    title = "Wijziging van de Erfgoedwetgeving in verband met de archieven"
+    assert detect_amends_instrument(title, erfgoedwet) == []
+    assert detect_amends_instrument("Wijziging van de Erfgoedwet", erfgoedwet) == [
+        ("BWBR0037521", None, 0.85)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -266,9 +275,10 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
 
     aliases = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
     aliases["Wegenwet"] = ("BWBR0001948", None)
+    named_acts = NamedActs(aliases)
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
 
     started = time.perf_counter()
-    hits = detect_amends_instrument(title, aliases)
+    hits = detect_amends_instrument(title, named_acts)
     assert hits == [("BWBR0001948", None, 0.85)]
     assert time.perf_counter() - started < 0.5
