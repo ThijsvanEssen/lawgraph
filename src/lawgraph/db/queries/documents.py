@@ -22,6 +22,7 @@ from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
+from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.queries.committees import with_member_slugs
 from lawgraph.db.version_cache import cached_rows
@@ -166,21 +167,6 @@ _ITEM = f"""json_build_object(
     )"""
 
 
-def _facet(value: str, where: str) -> str:
-    """The count per *value* of the papers of ``base`` under *where*, the largest first;
-    the value settles equal counts."""
-    return f"""(
-        SELECT coalesce(json_agg(json_build_object('value', f.value, 'count', f.count)
-                                 ORDER BY f.count DESC, f.value NULLS FIRST), '[]'::json)
-        FROM (
-            SELECT {value} AS value, count(*)::int AS count
-            FROM base d
-            WHERE {where}
-            GROUP BY 1
-        ) f
-    )"""
-
-
 def list_documents(
     store: GraphStore,
     *,
@@ -217,12 +203,11 @@ def list_documents(
     if dossier:
         shared.append("d.dossier_numbers @> ARRAY[%(dossier)s::text]")
         bind["dossier"] = dossier
-    by_chamber = "d.labels && %(chambers)s::text[]"
-    by_kind = "TRUE"
+    own = {"chamber": "d.labels && %(chambers)s::text[]"}
     if kinds:
-        by_kind = "d.kind = ANY(%(kinds)s::text[])"
+        own["kind"] = "d.kind = ANY(%(kinds)s::text[])"
         bind["kinds"] = list(kinds)
-    where = " AND ".join(f"({c})" for c in shared)
+    filters = FacetFilters(shared, own)
     # The page is chosen by id first: an item is built (and the props read) only for the
     # papers on it, not for every paper a deep offset skips.
     items = f"""(
@@ -231,7 +216,7 @@ def list_documents(
         FROM (
             SELECT d.id
             FROM {COLLECTION_DOCUMENTS} d
-            WHERE {where} AND {by_chamber} AND {by_kind}
+            {filters.where()}
             ORDER BY d.date DESC NULLS LAST, d.key
             LIMIT %(limit)s OFFSET %(offset)s
         ) page
@@ -243,19 +228,20 @@ def list_documents(
         return {"items": page, "total": None, "facets": None}
     # The counts are the same on every page and for every visitor: kept per data version
     # under the filters alone (on the full graph they read 650,000 papers).
-    counted = {k: v for k, v in bind.items() if k not in ("limit", "offset")}
+    counted = without_page(bind)
+    facet_filters = FacetFilters(own=own)
     row = cached_rows(
         store,
         f"""
         WITH base AS (
             SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
             FROM {COLLECTION_DOCUMENTS} d
-            WHERE {where}
+            {where(shared)}
         )
         SELECT
-            (SELECT count(*)::int FROM base d WHERE {by_chamber} AND {by_kind}) AS total,
-            {_facet("d.kind", by_chamber)} AS kind,
-            {_facet("d.chamber", by_kind)} AS chamber
+            (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
+            {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
+            {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
         """,
         counted,
         tables=(COLLECTION_DOCUMENTS,),

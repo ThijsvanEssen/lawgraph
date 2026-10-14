@@ -167,13 +167,15 @@ def get_eu_links(
     )
 
 
-# ``own``: the articles of the instrument. ``treaty_rows``: their REFERS_TO edges into a
-# treaty instrument, or into an article of one (whose instrument is the first by key with
-# its ``bwb_id``). ``judgment_edges``: the REFERS_TO edges of ECHR judgments into the
-# instrument or its articles, with only what sorts them; the page is read whole.
-_INTERNATIONAL_SQL = f"""
+def _international_sql(scope: str, judgment_edges: str) -> str:
+    """SQL: ``own``, the articles of the instrument (*scope*: a condition on ``a``).
+    ``treaty_rows``: their REFERS_TO edges into a treaty instrument, or into an article of
+    one (whose instrument is the first by key with its ``bwb_id``). ``judgment_edges`` (the
+    CTE *judgment_edges*): the REFERS_TO edges of ECHR judgments into the instrument or its
+    articles, with only what sorts them; the page is read whole."""
+    return f"""
 WITH own AS (
-    SELECT a.id FROM {COLLECTION_ARTICLES} a WHERE {{scope}}
+    SELECT a.id FROM {COLLECTION_ARTICLES} a WHERE {scope}
 ),
 treaty_rows AS (
     SELECT treaty.id AS treaty_id, treaty.key AS treaty_key, e.key AS edge_key,
@@ -206,7 +208,7 @@ treaty_rows AS (
       )
       AND (treaty.kind = 'verdrag' OR treaty.jurisdiction = 'int')
 ),
-{{judgment_edges}}
+{judgment_edges}
 SELECT
     (SELECT count(*)::int FROM treaty_rows) AS treaties_total,
     (
@@ -316,9 +318,7 @@ def get_international_links(
         if (cited or 0) >= ECHR_SIDE_FROM
         else _JUDGMENT_EDGES_BY_TARGET
     )
-    sql = _INTERNATIONAL_SQL.replace("{scope}", condition).replace(
-        "{judgment_edges}", judgment_edges.strip()
-    )
+    sql = _international_sql(condition, judgment_edges.strip())
     rows = list(store.query(sql, bind))
     row = rows[0] if rows else {}
     return InternationalLinksData(

@@ -346,7 +346,7 @@ def test_edges_tk_government_does_not_read_touch_no_dossier_of_it(
 def test_a_signature_of_a_case_is_no_paper_of_a_first_signature(
     store: GraphStore,
 ) -> None:
-    """The first signature is that of a paper; a case is none (``_FIRST_SIGNATURES_SQL``),
+    """The first signature is that of a paper; a case is none (``_first_signatures_sql``),
     so an AUTHORED edge to a case dated before the first cannot change it."""
     store.bulk_insert_or_update_nodes("dossiers", [_node("920", kind="Wetgeving")])
     store.bulk_insert_or_update_nodes("cases", [_node("case_92", date="2020-01-01")])

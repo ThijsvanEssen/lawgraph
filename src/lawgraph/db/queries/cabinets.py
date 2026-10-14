@@ -28,6 +28,7 @@ from lawgraph.db.queries._json_sql import (
     is_absent,
     truthy_or,
 )
+from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import lasting
 
@@ -433,27 +434,14 @@ def get_commitments(
         bind["no_date"] = NO_DUE_DATE
     order = _COMMITMENT_SORTS.get(sort, _COMMITMENT_SORTS["date"])
 
-    def where(*clauses: str) -> str:
-        return f"WHERE {' AND '.join(clauses)}" if clauses else ""
-
+    filters = FacetFilters(shared, own)
     per_facet = ",\n".join(
-        f"""'{name}', (
-            SELECT coalesce(json_agg(
-                json_build_object('value', value, 'count', count)
-                ORDER BY count DESC, value ASC NULLS FIRST
-            ), '[]'::json)
-            FROM (
-                SELECT {column} AS value, count(*)::int AS count
-                FROM commitments c
-                {where(*shared, *(c for n, c in own.items() if n != name))}
-                GROUP BY 1
-            ) facet
-        )"""
+        f"'{name}', {facet(column, 'commitments c', filters.where(name))}"
         for name, column in _COMMITMENT_FACETS.items()
     )
     statement = f"""
     WITH matching AS MATERIALIZED (
-        SELECT c.id FROM commitments c {where(*shared, *own.values())}
+        SELECT c.id FROM commitments c {filters.where()}
     )
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
