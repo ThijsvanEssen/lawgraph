@@ -42,7 +42,7 @@ from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult, node_id
-from lawgraph.core.time import format_duration
+from lawgraph.core.time import covers, format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import government as government_queries
@@ -92,9 +92,7 @@ def held_ministry(
         for post in (person or {}).get("posts") or []
         if post.get("ministry")
         and (kind is None or post_kind(post.get("function")) == kind)
-        and post.get("from_date")
-        and post["from_date"] <= day
-        and (post.get("to_date") is None or day <= post["to_date"])
+        and covers(post, day)
     }
     return found.pop() if len(found) == 1 else None
 

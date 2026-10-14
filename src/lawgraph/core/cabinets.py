@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.core.text_fold import fold, slug
+from lawgraph.core.time import covers
 
 
 def cabinet_name(label: str | None) -> str | None:
@@ -61,11 +62,5 @@ def cabinet_on(day: str | None, cabinets: Iterable[dict[str, Any]]) -> str | Non
     next, the next. *cabinets* are ``{key, from_date, to_date}``."""
     if not day:
         return None
-    held = [
-        (c["from_date"], c["key"])
-        for c in cabinets
-        if c.get("from_date")
-        and c["from_date"] <= day
-        and (not c.get("to_date") or day <= c["to_date"])
-    ]
+    held = [(c["from_date"], c["key"]) for c in cabinets if covers(c, day)]
     return max(held)[1] if held else None
