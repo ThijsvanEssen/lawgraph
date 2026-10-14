@@ -5,7 +5,11 @@
 All configuration is read in `src/lawgraph/config/settings.py`. Importing it loads `.env`
 (searched from the working directory upwards), so every command, the API and any script sees
 the same values; a variable already set in the process environment wins over `.env`. Copy
-`.env.example` to `.env`.
+`.env.example` to `.env`. A variable `LAWGRAPH_<SETTING>` sets `settings.<SETTING>`. Unset or
+empty is the default; a flag takes `true`/`false` (or `1`/`0`, `yes`/`no`, `on`/`off`), a count
+or a ceiling a positive whole number, and any value a setting cannot read stops the start with
+the name of the variable. `BWB_IDS` and `EK_ATTRIBUTION` still set under those names stop it
+too: they are `LAWGRAPH_BWB_IDS` and `LAWGRAPH_EK_ATTRIBUTION`.
 
 ### Database
 
@@ -50,15 +54,15 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 
 | Variable | Default |
 |----------|---------|
-| `EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
+| `LAWGRAPH_EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
 
 ### Pipelines
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
+| `LAWGRAPH_BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
-| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
+| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | `false` | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
 
@@ -77,8 +81,8 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level |
-| `LAWGRAPH_LOG_FORMAT` | plain | `json` for one JSON object per line |
+| `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case) |
+| `LAWGRAPH_LOG_FORMAT` | `text` | `json` for one JSON object per line |
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
@@ -109,7 +113,7 @@ and exits 1 when any of them failed.
 | `retrieve rechtspraak` | `--court` (repeatable; default `all`, every court of the index; an ECLI court code such as `HR` or a tier such as `gerechtshof` narrows it), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve eurlex-nim` | `--mode incremental\|full` (full: every measure), `--since` (default `30d`: the measures CELLAR changed since then), `--country NLD` |
-| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
+| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `LAWGRAPH_BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
 | `retrieve bwb-history` | optional BWB ids (default: every regulation of which the current toestand is stored), `--mode incremental` (default: the toestanden not stored yet) or `full` (every one again) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
@@ -195,8 +199,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 
 ### Skip variables
 
-`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (case-insensitive `true`; any other value does not skip)
-skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
+`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (a flag like every other; a value no flag takes fails
+the step) skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
 pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
@@ -279,7 +283,7 @@ in `pipeline_state`; a run whose own `--since` lies after that mark leaves a hol
 not move it (it says so). Before the first complete run `--since last` is refused (exit 2):
 `bootstrap`, or a run with a date such as `--since 7d`, puts one on record.
 
-Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
+Incremental `retrieve bwb` needs `LAWGRAPH_BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
 Incremental `retrieve bwb-history` reads which toestanden exist (the SRU listing, about 150
 pages, once there are 150 regulations or more; else one query per regulation) and downloads
 those it has no record of: a new toestand of a known regulation, and every toestand of a
@@ -291,7 +295,7 @@ Law abbreviations (`instruments.props.short_title` and `aliases`, used by the ci
 detectors) come from the WTI records that `retrieve bwb` stores and are written by `normalize
 bwb`, so run both before `semantic`. A law is only cited once it is loaded: `retrieve bwb
 --mode full` enumerates every regulation and treaty of the BWB; an incremental build needs
-its ids in `BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
+its ids in `LAWGRAPH_BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
 `BWBR0001830`, AWR `BWBR0002320`, Vw 2000 `BWBR0011823`, the EVRM `BWBV0001000`). The laws
 judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.

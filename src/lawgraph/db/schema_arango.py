@@ -3,7 +3,6 @@ PostgreSQL, `schema.py`)."""
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from arango.exceptions import CollectionCreateError
@@ -28,12 +27,13 @@ from lawgraph.config.constants import (
     DOCUMENT_COLLECTIONS,
     TEXT_ANALYZER,
 )
+from lawgraph.core.logging import get_logger
 
 if TYPE_CHECKING:
     from arango.database import StandardDatabase
     from arango.result import Result
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar("T")
 
