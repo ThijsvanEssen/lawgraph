@@ -135,8 +135,8 @@ def tk_documents(
     after: str | None = None,
     limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with the props ``semantic tk`` reads (title, text and
-    footnotes; not the record they came with), only those with an external id in *ids* when
+    """The Tweede Kamer documents with the props ``semantic tk`` reads (title, text,
+    footnotes and the sections that place a citation; not the record they came with), only those with an external id in *ids* when
     it is given. A slice: past the document key *after*, *limit* of them."""
     clauses = [f"'{CHAMBER_TK}' = ANY(d.labels)"]
     if ids is not None:
@@ -145,7 +145,7 @@ def tk_documents(
         clauses.append("d.key > %(after)s")
     sql = f"""
         SELECT d.id, d.key, d.type, d.labels,
-               coalesce({_cut("d", "title", "text", "footnotes")}, '{{}}'::json) AS props
+               coalesce({_cut("d", "title", "text", "footnotes", "sections")}, '{{}}'::json) AS props
         FROM {COLLECTION_DOCUMENTS} d
         WHERE {" AND ".join(clauses)}
         ORDER BY d.key

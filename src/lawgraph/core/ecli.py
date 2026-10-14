@@ -84,24 +84,45 @@ def is_valid_ecli(ecli: str, *, this_year: int | None = None) -> bool:
 def cited_eclis(text: str | None) -> list[str]:
     """The valid ECLIs *text* names, repaired where it shows what was meant, upper-cased and
     once each, in the order of their first appearance."""
+    return list(dict.fromkeys(ecli for ecli, _, _ in ecli_mentions(text)))
+
+
+def ecli_mentions(text: str | None) -> list[tuple[str, int, int]]:
+    """Every place *text* names a valid ECLI, as :func:`cited_eclis` reads it: ``(ecli,
+    start, end)``, ``text[start:end]`` the ECLI as written (a range or a repaired LJN gives
+    each of its ECLIs at the same place), in their order."""
     if not text:
         return []
-    text = _GLUED_ECLI.sub(" ", text)
-    found: dict[str, None] = {}
-    for match in _CANDIDATE.finditer(text):
-        for ecli in _repaired(match, text[match.end() : match.end() + 12]):
+    glued = [match.start() for match in _GLUED_ECLI.finditer(text)]
+    spaced = _GLUED_ECLI.sub(" ", text)
+    found: list[tuple[str, int, int]] = []
+    for match in _CANDIDATE.finditer(spaced):
+        start, end = _unspaced(match.start(), glued), _unspaced(match.end(), glued)
+        for ecli in _repaired(match, spaced[match.end() : match.end() + 12]):
             if is_valid_ecli(ecli):
-                found.setdefault(ecli)
-    return list(found)
+                found.append((ecli, start, end))
+    return found
+
+
+def _unspaced(position: int, glued: list[int]) -> int:
+    """*position* in the text with a space put in at each of *glued* (offsets into the text
+    as written, ascending), as an offset into the text as written."""
+    return position - sum(1 for index, at in enumerate(glued) if at + index < position)
 
 
 def cited_ljns(text: str | None) -> list[str]:
     """The LJNs *text* names on its own ("LJN BK9271"), upper-cased and once each, in the
     order of their first appearance."""
-    found: dict[str, None] = {}
-    for match in _CITED_LJN.finditer(text or ""):
-        found.setdefault((match["letters"] + match["digits"]).upper())
-    return list(found)
+    return list(dict.fromkeys(ljn for ljn, _, _ in ljn_mentions(text)))
+
+
+def ljn_mentions(text: str | None) -> list[tuple[str, int, int]]:
+    """Every place *text* names an LJN on its own: ``(ljn, start, end)``, ``text[start:end]``
+    the citation as written ("LJN BK9271"), in their order."""
+    return [
+        ((match["letters"] + match["digits"]).upper(), match.start(), match.end())
+        for match in _CITED_LJN.finditer(text or "")
+    ]
 
 
 def ljn_of(ecli: str) -> str | None:

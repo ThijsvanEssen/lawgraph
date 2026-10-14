@@ -298,9 +298,13 @@ def test_a_paper_without_articles_has_text_and_no_articles() -> None:
 def test_footnotes_are_moved_out_of_the_text() -> None:
     parsed = _paper("kst_28844_269")
     assert len(parsed.footnotes) == 15
-    assert parsed.footnotes[0] == {"number": "1", "text": "Kamerstuk 28 844, nr. 266."}
+    first = parsed.footnotes[0]
+    assert first == {"number": "1", "text": "Kamerstuk 28 844, nr. 266.", "at": 265}
     assert "nr. 266" not in parsed.text
     assert "In het debat met de vaste commissie voor Binnenlandse Zaken" in parsed.text
+    # the marker stood right after "9 mei 2023"
+    assert parsed.text[: first["at"]].endswith("op 9 mei 2023")
+    assert all("at" in note for note in parsed.footnotes)
 
 
 def test_a_legacy_footnote_and_its_marker() -> None:
@@ -309,9 +313,12 @@ def test_a_legacy_footnote_and_its_marker() -> None:
         {
             "number": "1",
             "text": "Ter inzage gelegd bij de afdeling Parlementaire Documentatie.",
+            "at": 34134,
         }
     ]
     assert "Ter inzage gelegd" not in parsed.text
+    # its voetref stands at the end of a heading
+    assert parsed.text[:34134].endswith("6. Advies Onderwijsraad en overige adviezen")
 
 
 def test_tables_are_lines_of_tab_separated_cells_and_lists_are_lines() -> None:
@@ -337,11 +344,43 @@ def test_the_header_and_the_signature_are_not_text() -> None:
 def test_whitespace_and_inline_markup_collapse() -> None:
     parsed = parse_kamerstuk(
         "<kamerwrk><body><stuk><al>Een\n   <nadruk>vet</nadruk>\xa0woord,\n  en <sup>2</sup>"
-        "<voetref refid='v1' nr='1'/>.</al><voetnoot nr='1'><al>Noot\n tekst</al></voetnoot>"
+        "<voetref refid='v1' nr='1'/>.</al>"
+        "<voetnoot id='v1' nr='1'><al>Noot\n tekst</al></voetnoot>"
         "</stuk></body></kamerwrk>"
     )
     assert parsed.text == "Een vet woord, en 2."
-    assert parsed.footnotes == [{"number": "1", "text": "Noot tekst"}]
+    assert parsed.footnotes == [{"number": "1", "text": "Noot tekst", "at": 19}]
+
+
+def test_a_footnote_marker_leaves_the_text_as_it_was_and_says_where_it_stood() -> None:
+    noot = "<noot id='n{n}'><noot.nr>{n}</noot.nr><noot.al>Noot {n}.</noot.al></noot>"
+    parsed = parse_kamerstuk(
+        "<officiele-publicatie><kamerstuk><stuk><algemeen><vrije-tekst>"
+        f"<tussenkop>Kop{noot.format(n=1)}</tussenkop>"
+        f"<al>Een woord {noot.format(n=2)} en nog een{noot.format(n=3)}.</al>"
+        f"<al>{noot.format(n=4)}Vooraan</al>"
+        "<table><tgroup><tbody><row><entry>a</entry>"
+        f"<entry>b{noot.format(n=5)}</entry></row></tbody></tgroup></table>"
+        "</vrije-tekst></algemeen></stuk></kamerstuk></officiele-publicatie>"
+    )
+    assert parsed.text == "Kop\nEen woord en nog een.\nVooraan\na\tb"
+    at = {note["number"]: note["at"] for note in parsed.footnotes}
+    text = parsed.text
+    assert text[: at["1"]] == "Kop"
+    assert text[: at["2"]].endswith("Een woord")
+    assert text[: at["3"]].endswith("en nog een")
+    assert text[at["4"] :].startswith("Vooraan")
+    assert text[: at["5"]].endswith("a\tb")
+    assert [s.heading for s in parsed.sections] == ["Kop"]
+
+
+def test_a_footnote_without_a_marker_in_the_text_has_no_place() -> None:
+    parsed = parse_kamerstuk(
+        "<kamerwrk><body><stuk><al>Tekst.</al>"
+        "<voetnoot id='v1' nr='1'><al>Ter inzage gelegd.</al></voetnoot>"
+        "</stuk></body></kamerwrk>"
+    )
+    assert parsed.footnotes == [{"number": "1", "text": "Ter inzage gelegd."}]
 
 
 # ── budget papers ────────────────────────────────────────────────────────────

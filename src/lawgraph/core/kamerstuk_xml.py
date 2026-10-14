@@ -8,8 +8,9 @@ article: the artikelsgewijs part of an explanatory memorandum is a run of headin
 XML to text, one line per heading, paragraph, list item or table row, and reads the sections
 from the headings.
 
-Text: whitespace is collapsed, a footnote is moved out to ``footnotes``, a table row is one line
-with tab-separated cells, the metadata and the signature are left out. Sections: every heading
+Text: whitespace is collapsed, a footnote is moved out to ``footnotes`` (with ``at``, where its
+marker stood in the text), a table row is one line with tab-separated cells, the metadata and the
+signature are left out. Sections: every heading
 opens one, and it spans its heading, its body and everything nested under it, as offsets into
 the text (``text[char_start:char_end]``).
 
@@ -30,7 +31,7 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.xml import collapse_ws, local_name
+from lawgraph.core.xml import after_nonspace, collapse_ws, local_name
 
 logger = get_logger(__name__)
 
@@ -93,8 +94,15 @@ _SKIP = frozenset(
     }
 )
 # What stands inside a paragraph and is no text of it: the marker of a legacy footnote (the
-# footnote itself is an element of the root; a modern ``noot`` is collected where it stands).
+# footnote itself is an element of the root; a modern ``noot`` is collected where it stands),
+# and a second marker of a modern one (it stands at its first).
 _MARKERS = frozenset({"voetref", "nootref"})
+# Where a footnote's marker stood, kept in the text while it is read and taken out of every
+# line: ``_ANCHOR`` + a reference to the footnote + ``_ANCHOR_END``. Characters of the
+# private use area, which no paper writes.
+_ANCHOR = "\ue000"
+_ANCHOR_END = "\ue001"
+_ANCHOR_RE = re.compile(f"{_ANCHOR}([^{_ANCHOR_END}]*){_ANCHOR_END}")
 # Inline elements that keep what is on either side of them apart.
 _BLOCKISH = frozenset({"al", "al-groep", "lijst", "li", "noot.al"})
 # The header of the paper is a ``kop`` of the root; every other ``kop`` is a heading.
@@ -111,6 +119,26 @@ class _Line:
     flat: bool = False  # a heading that is no kop of a divisie
     number: str | None = None  # the ``nr`` of a kop, apart from its title
     title: str = ""  # the ``titel`` of a kop
+    # the footnote markers that stood in it: (reference, offset into ``text``)
+    anchors: list[tuple[str, int]] = field(default_factory=list)
+
+
+def _unanchored(text: str) -> tuple[str, list[tuple[str, int]]]:
+    """*text* without its footnote markers, whitespace collapsed as without them, and where
+    each stood: ``(reference, offset)``, the offset after the words before it."""
+    if _ANCHOR not in text:
+        return text, []
+    found: list[tuple[str, int]] = []
+    words = (
+        0  # characters other than whitespace before the marker: collapsing keeps them
+    )
+    position = 0
+    for match in _ANCHOR_RE.finditer(text):
+        words += sum(1 for c in text[position : match.start()] if not c.isspace())
+        found.append((match[1], words))
+        position = match.end()
+    clean = collapse_ws(_ANCHOR_RE.sub("", text))
+    return clean, [(ref, after_nonspace(clean, count)) for ref, count in found]
 
 
 class _Flattener:
@@ -119,6 +147,9 @@ class _Flattener:
     def __init__(self) -> None:
         self.lines: list[_Line] = []
         self.footnotes: list[dict[str, str]] = []
+        # the reference of each footnote's marker: ``#<n>`` for a modern one (its place in
+        # ``footnotes``), ``@<id>`` for a legacy one (its ``id``, the ``refid`` of a ``voetref``)
+        self.refs: dict[str, int] = {}
 
     def run(self, root: ET.Element) -> None:
         for child in root:
@@ -168,8 +199,10 @@ class _Flattener:
             depth,
             flat=flat,
             # "Artikel" + "3" is the words of a heading, not a number in front of them
-            number=None if "label" in parts else parts.get("nr") or None,
-            title=parts.get("titel", ""),
+            number=None
+            if "label" in parts
+            else _unanchored(parts.get("nr", ""))[0] or None,
+            title=_unanchored(parts.get("titel", ""))[0],
         )
 
     def _heading(
@@ -181,14 +214,18 @@ class _Flattener:
         number: str | None = None,
         title: str = "",
     ) -> None:
+        text, anchors = _unanchored(text)
         if text:
             self.lines.append(
-                _Line(text, True, depth, flat, number, title if number else text)
+                _Line(
+                    text, True, depth, flat, number, title if number else text, anchors
+                )
             )
 
     def _body(self, text: str) -> None:
+        text, anchors = _unanchored(text)
         if text:
-            self.lines.append(_Line(text))
+            self.lines.append(_Line(text, anchors=anchors))
 
     def _list(self, element: ET.Element) -> None:
         for item in element:
@@ -209,17 +246,30 @@ class _Flattener:
             if name == "title":
                 self._body(self._inline(node))
             elif name == "row":
-                cells = [
-                    self._inline(cell)
-                    for cell in node
-                    if local_name(cell.tag) == "entry"
-                ]
-                if any(cells):
-                    self.lines.append(_Line("\t".join(cells)))
+                self._row(
+                    [
+                        _unanchored(self._inline(cell))
+                        for cell in node
+                        if local_name(cell.tag) == "entry"
+                    ]
+                )
+
+    def _row(self, cells: list[tuple[str, list[tuple[str, int]]]]) -> None:
+        anchors: list[tuple[str, int]] = []
+        offset = 0
+        for text, marks in cells:
+            anchors += [(ref, offset + at) for ref, at in marks]
+            offset += len(text) + 1
+        if any(text for text, _ in cells):
+            self.lines.append(
+                _Line("\t".join(text for text, _ in cells), anchors=anchors)
+            )
 
     def _legacy_footnote(self, element: ET.Element) -> None:
-        text = self._inline(element)
+        text = _unanchored(self._inline(element))[0]
         if text:
+            if element.get("id"):
+                self.refs[f"@{element.get('id')}"] = len(self.footnotes)
             self.footnotes.append({"number": element.get("nr") or "", "text": text})
 
     def _inline(self, element: ET.Element, *, skip: set[str] | None = None) -> str:
@@ -239,7 +289,11 @@ class _Flattener:
         name = local_name(element.tag)
         if not top:
             if name == "noot":
-                self._footnote(element)
+                if (ref := self._footnote(element)) is not None:
+                    parts.append(f"{_ANCHOR}{ref}{_ANCHOR_END}")
+                return
+            if name == "voetref" and element.get("refid"):
+                parts.append(f"{_ANCHOR}@{element.get('refid')}{_ANCHOR_END}")
                 return
             if name in _MARKERS or name in skip:
                 return
@@ -251,17 +305,22 @@ class _Flattener:
             parts.append(child.tail or "")
         parts.append(" " if block else "")
 
-    def _footnote(self, element: ET.Element) -> None:
+    def _footnote(self, element: ET.Element) -> str | None:
+        """Keep a modern footnote; the reference of its marker (None for an empty one)."""
         number = ""
         body: list[str] = []
         for child in element:
             if local_name(child.tag) == "noot.nr":
-                number = self._inline(child)
+                number = _unanchored(self._inline(child))[0]
             else:
                 body.append(self._inline(child))
-        text = collapse_ws(" ".join(body))
-        if text:
-            self.footnotes.append({"number": number, "text": text})
+        text = _unanchored(collapse_ws(" ".join(body)))[0]
+        if not text:
+            return None
+        ref = f"#{len(self.footnotes)}"
+        self.refs[ref] = len(self.footnotes)
+        self.footnotes.append({"number": number, "text": text})
+        return ref
 
 
 # ── headings ─────────────────────────────────────────────────────────────────
@@ -553,7 +612,7 @@ class ParsedKamerstuk:
 
     text: str = ""
     sections: list[Section] = field(default_factory=list)
-    footnotes: list[dict[str, str]] = field(default_factory=list)
+    footnotes: list[dict[str, Any]] = field(default_factory=list)
     dialect: str | None = None
     structure_quality: str = QUALITY_NONE
     budget: bool = False
@@ -789,12 +848,30 @@ def _parse(
     return ParsedKamerstuk(
         text="\n".join(line.text for line in lines),
         sections=sections,
-        footnotes=flattener.footnotes,
+        footnotes=_anchored(flattener, lines, starts),
         dialect=dialect,
         structure_quality=_structure_quality(sections),
         budget=_is_budget(root) if structure else False,
         truncated=truncated,
     )
+
+
+def _anchored(
+    flattener: _Flattener, lines: list[_Line], starts: list[int]
+) -> list[dict[str, Any]]:
+    """The footnotes, each with ``at``: the offset into the text where its (first) marker
+    stood, the words before it ending there; none for a footnote whose marker is not in
+    the text kept (a legacy one without a ``voetref``, one in a line cut off)."""
+    at: dict[int, int] = {}
+    for line, start in zip(lines, starts, strict=True):
+        for ref, offset in line.anchors:
+            index = flattener.refs.get(ref)
+            if index is not None:
+                at.setdefault(index, start + offset)
+    return [
+        {**note, "at": at[index]} if index in at else dict(note)
+        for index, note in enumerate(flattener.footnotes)
+    ]
 
 
 def _cut(lines: list[_Line], max_chars: int | None) -> tuple[list[_Line], bool]:

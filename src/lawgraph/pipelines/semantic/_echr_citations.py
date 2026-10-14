@@ -9,7 +9,8 @@ says how many citations a level of the case (all its decisions) would add.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.echr_citations import Cited, Unresolved, decisions_by_appno, resolve
@@ -27,6 +28,12 @@ CONFIDENCE_DATED = 0.9
 CONFIDENCE_NUMBER = 0.8
 
 
+def confidence(citation: Cited) -> float:
+    """How sure a citation is of the decision it resolves to: by number and date, or by
+    number alone."""
+    return CONFIDENCE_DATED if citation.date else CONFIDENCE_NUMBER
+
+
 def decisions_index(store: Store) -> dict[str, list[tuple[str | None, str]]]:
     """Application number -> ``(date, id)`` of each ECHR decision of it, read once."""
     return decisions_by_appno(list(semantic_rechtspraak.echr_decisions(store)))
@@ -39,9 +46,12 @@ def link(
     *,
     source: str,
     result: PipelineResult,
+    places: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
 ) -> dict[str, set[str]]:
     """Write ``REFERS_TO`` from each citing node to the decision it cites; the keys of the
-    edges written, per citing node. A citation of the citing decision itself is none."""
+    edges written, per citing node. A citation of the citing decision itself is none.
+    *places*: per ``(citing id, application number)`` where the text cites it, as the edge
+    keeps it (``rechtspraak_citations.places_meta``)."""
     kept: dict[str, set[str]] = {}
     left: Counter[str] = Counter()
     edges = EdgeWriter(store, what=None)
@@ -52,15 +62,16 @@ def link(
             continue
         if to_id == from_id:
             continue
-        meta: dict[str, str] = {"cited_appno": citation.appno}
+        meta: dict[str, Any] = {"cited_appno": citation.appno}
         if citation.date:
             meta["cited_date"] = citation.date
+        meta.update((places or {}).get((from_id, citation.appno)) or {})
         if edges.add(
             from_id,
             to_id,
             RELATION_REFERS_TO,
             source=source,
-            confidence=CONFIDENCE_DATED if citation.date else CONFIDENCE_NUMBER,
+            confidence=confidence(citation),
             meta=meta,
         ):
             kept.setdefault(from_id, set()).add(

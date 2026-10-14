@@ -22,10 +22,15 @@ A decision of the ECHR is cited by application number ("EHRM 28 maart 2000, nr. 
 ``REFERS_TO`` to the decision of that number and date, or without a date to the only decision of
 the number (``_echr_citations``).
 
-An edge to a judgment cited by ECLI keeps the numbers of the paragraphs that name it
-(``meta.paragraphs``: "4.3", "5.1", as the judgment prints them, ``core.judgments
-.extract_sections``), so a list of citing judgments shows where each one cites without
-reading its text; none when no numbered paragraph names it.
+An edge keeps every place in the judgment that names the judgment it cites (by ECLI, LJN or
+application number), as a judgment→article edge does (``core.mentions``): ``meta.mentions``,
+each with the paragraph (``paragraph_id``, ``paragraph_number``), the ``start`` and ``end`` of
+the citation in its text and a ``snippet``; one in a footnote (``core.judgments.judgment_text``)
+with the footnote's ``label`` (``footnote``) and offsets into the text of the footnote, its
+paragraph the one that refers to it. ``meta.mention_count`` counts them all, ``meta.paragraphs``
+lists the numbers of their paragraphs ("4.3", "5.1", as the judgment prints them), so a list of
+citing judgments shows where each one cites without reading its text. A judgment named only
+outside the first ``<uitspraak>`` or ``<conclusie>`` has no mentions.
 """
 
 from __future__ import annotations
@@ -43,10 +48,17 @@ from lawgraph.config.constants import (
     RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.echr_citations import Cited, cited_in_dutch
-from lawgraph.core.ecli import cited_eclis, cited_ljns, ljn_of
-from lawgraph.core.judgments import body_text, extract_sections, parse_judgment
+from lawgraph.core.echr_citations import Cited, cited_in_dutch, dutch_mentions
+from lawgraph.core.ecli import (
+    cited_eclis,
+    cited_ljns,
+    ecli_mentions,
+    ljn_mentions,
+    ljn_of,
+)
+from lawgraph.core.judgments import body_text, judgment_text, parse_judgment
 from lawgraph.core.logging import get_logger
+from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -60,6 +72,8 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "judgment-citation-linker"
+# How sure a citation by ECLI is.
+CONFIDENCE = 0.95
 # The edges that tie two judgments of one case; such a pair is not also a citation.
 PROCEDURAL_RELATIONS = (
     RELATION_APPEAL_OF,
@@ -77,21 +91,49 @@ def cited(text: str, by_ljn: Mapping[str, str]) -> list[str]:
     return list(dict.fromkeys([*cited_eclis(text), *ljns]))
 
 
-def paragraphs_citing(
-    paragraphs: list[dict[str, Any]], by_ljn: Mapping[str, str] | None = None
-) -> dict[str, list[str]]:
-    """Cited ECLI -> the numbers of the paragraphs that name it (or its LJN, *by_ljn*), in
-    their order, each once; a paragraph without a number counts for none."""
-    found: dict[str, list[str]] = {}
-    for paragraph in paragraphs:
-        number = paragraph.get("number")
-        if not number:
-            continue
-        for ecli in cited(str(paragraph.get("text") or ""), by_ljn or {}):
-            numbers = found.setdefault(ecli, [])
-            if number not in numbers:
-                numbers.append(str(number))
-    return found
+def judgment_mentions(
+    texts: list[dict[str, Any]], by_ljn: Mapping[str, str] | None = None
+) -> tuple[dict[str, list[Mention]], dict[str, list[Mention]]]:
+    """Where *texts* name the judgments they cite: ``(by ECLI, by application number)``,
+    each the places in reading order. *texts* are the paragraphs of a judgment and its
+    footnotes as ``core.mentions.footnote_paragraphs`` gives them; an LJN counts for the
+    ECLI *by_ljn* gives it."""
+    by_ecli: dict[str, list[Mention]] = {}
+    by_appno: dict[str, list[Mention]] = {}
+    for paragraph in texts:
+        text = str(paragraph.get("text") or "")
+        named = [
+            *ecli_mentions(text),
+            *(
+                (by_ljn[ljn], start, end)
+                for ljn, start, end in ljn_mentions(text)
+                if by_ljn and ljn in by_ljn
+            ),
+        ]
+        for ecli, start, end in sorted(named, key=lambda found: found[1]):
+            by_ecli.setdefault(ecli, []).append(
+                Mention.read(paragraph, text, (start, end), confidence=CONFIDENCE)
+            )
+        for cited_echr, start, end in dutch_mentions(text):
+            sure = _echr_citations.confidence(cited_echr)
+            by_appno.setdefault(cited_echr.appno, []).append(
+                Mention.read(paragraph, text, (start, end), confidence=sure)
+            )
+    return by_ecli, by_appno
+
+
+def places_meta(mentions: list[Mention]) -> dict[str, Any]:
+    """The places of a citation as an edge keeps them: ``paragraphs`` (the numbers of their
+    paragraphs, each once), ``mentions`` (the first ``MAX_MENTIONS_PER_EDGE``) and
+    ``mention_count``; nothing without places."""
+    if not mentions:
+        return {}
+    numbers = [m.paragraph_number for m in mentions if m.paragraph_number]
+    return {
+        **({"paragraphs": list(dict.fromkeys(numbers))} if numbers else {}),
+        "mentions": [m.to_dict(parts=False) for m in mentions[:MAX_MENTIONS_PER_EDGE]],
+        "mention_count": len(mentions),
+    }
 
 
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
@@ -103,8 +145,10 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         """*after* and *limit*: a slice of a run over all, past that record key, so many
         judgments; the log names the last one read."""
         super().__init__(store)
-        # (citing id, cited ECLI) -> the numbers of the paragraphs that name it
-        self._places: dict[tuple[str, str], list[str]] = {}
+        # (citing id, cited ECLI) -> the places that name it, as the edge keeps them
+        self._places: dict[tuple[str, str], dict[str, Any]] = {}
+        # (citing id, application number) -> the same
+        self._echr_places: dict[tuple[str, str], dict[str, Any]] = {}
         self._by_ljn: dict[str, str] | None = (
             None  # read once, when a text names an LJN
         )
@@ -113,7 +157,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        self._places = {}
+        self._places, self._echr_places = {}, {}
         pending, all_cited_eclis, read, by_appno = self._collect_references(
             iso_timestamp(since)
         )
@@ -134,6 +178,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 _echr_citations.decisions_index(self.store),
                 source=SEMANTIC_SOURCE,
                 result=result,
+                places=self._echr_places,
             ).items():
                 kept.setdefault(from_id, set()).update(keys)
         removed = semantic_edges.remove_edges_from(
@@ -169,15 +214,23 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             read.append(judgment.node_id)
             source_ecli = str(judgment.props["ecli"]).upper()
             by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
-            where = paragraphs_citing(extract_sections(root), by_ljn)
+            paragraphs, footnotes = judgment_text(root)
+            by_ecli, by_number = judgment_mentions(
+                [*paragraphs, *footnote_paragraphs(paragraphs, footnotes)], by_ljn
+            )
             for ecli in cited(text, by_ljn):
                 if ecli == source_ecli:
                     continue
                 pending.append((judgment.node_id, ecli))
                 all_cited_eclis.add(ecli)
-                if where.get(ecli):
-                    self._places[(judgment.node_id, ecli)] = where[ecli]
-            by_appno += [(judgment.node_id, c) for c in cited_in_dutch(text)]
+                if by_ecli.get(ecli):
+                    self._places[(judgment.node_id, ecli)] = places_meta(by_ecli[ecli])
+            for echr in cited_in_dutch(text):
+                by_appno.append((judgment.node_id, echr))
+                if by_number.get(echr.appno):
+                    self._echr_places[(judgment.node_id, echr.appno)] = places_meta(
+                        by_number[echr.appno]
+                    )
         return pending, all_cited_eclis, read, by_appno
 
     def _judgments_by_ljn(self) -> dict[str, str]:
@@ -237,14 +290,10 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 to_node=to_node,
                 relation=RELATION_REFERS_TO,
                 source=SEMANTIC_SOURCE,
-                confidence=0.95,
+                confidence=CONFIDENCE,
                 meta={
                     "cited_ecli": cited_ecli,
-                    **(
-                        {"paragraphs": paragraphs}
-                        if (paragraphs := self._places.get((from_id, cited_ecli)))
-                        else {}
-                    ),
+                    **self._places.get((from_id, cited_ecli), {}),
                 },
                 status=EDGE_STATUS_CANONIEK,
             )
