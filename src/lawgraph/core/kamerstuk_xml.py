@@ -32,7 +32,7 @@ from lawgraph.core.citations import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.qualifiers import ORDINAL, ordinal_number
-from lawgraph.core.xml import after_nonspace, collapse_ws, local_name
+from lawgraph.core.xml import after_nonspace, child_named, collapse_ws, local_name
 
 logger = get_logger(__name__)
 
@@ -232,9 +232,8 @@ class _Flattener:
         for item in element:
             if local_name(item.tag) != "li":
                 continue
-            number = next(
-                (self._inline(c) for c in item if local_name(c.tag) == "li.nr"), ""
-            )
+            marker = child_named(item, "li.nr")
+            number = self._inline(marker) if marker is not None else ""
             body = self._inline(item, skip={"li.nr", "lijst"})
             self._body(collapse_ws(f"{number} {body}"))
             for nested in item:
