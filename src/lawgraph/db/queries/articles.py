@@ -42,7 +42,7 @@ from lawgraph.db.queries._helpers import (
 )
 from lawgraph.db.queries._json_sql import array_or_empty, first_present
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
-from lawgraph.db.queries.judgment_light import outcome_pairs
+from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.schema import dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
@@ -712,20 +712,7 @@ def _cited_by_sql(order: str) -> str:
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(
-                'judgment', json_build_object(
-                    '_id', j.id,
-                    '_key', j.key,
-                    'props', json_build_object(
-                        'ecli', j.pj_ecli,
-                        'display_name', j.pj_display_name,
-                        'court_code', j.pj_court_code,
-                        'tier', j.pj_tier,
-                        'court_kind', j.pj_court_kind,
-                        'date_eff', j.pj_date_eff,
-                        'inbound_citation_count', j.pj_inbound_citation_count,
-                        {outcome_pairs("l.props")}
-                    )
-                ),
+                'judgment', {listed_judgment("j", "l", "'inbound_citation_count', j.pj_inbound_citation_count")},
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
             ) ORDER BY r.n), '[]'::json)
             FROM ranked r

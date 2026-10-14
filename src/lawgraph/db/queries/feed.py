@@ -279,14 +279,14 @@ _COMMITMENT_PERSONS = f"""json_build_array(json_build_object(
         ))"""
 
 # The signatures of the document a vote decided: a paper of the case it singled out, the
-# newest that has signatures. A case key is its TK GUID made a node key (lower case, ``_``).
+# newest that has signatures. A case key is its TK GUID made a node key.
 _CASE_ID = as_text("n.props -> 'primary_case_id'")
 _DECIDED_PERSONS = f"""coalesce((
             SELECT {truthy_or(_ACTORS_OF_PAPER, EMPTY_ARRAY)}
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOCUMENTS} paper ON paper.id = e.from_id
             WHERE e.to_id = {_lit(COLLECTION_CASES + "/")}
-                            || replace(lower({_CASE_ID}), '-', '_')
+                            || lg_node_key({_CASE_ID})
               AND e.relation = {_lit(RELATION_PART_OF)}
               AND e.from_collection = {_lit(COLLECTION_DOCUMENTS)}
               AND {has_length(_ACTORS_OF_PAPER)}
@@ -352,9 +352,9 @@ def _tier_part(tier: str) -> str:
 _CHANGES = ", ".join(_lit(r) for r in CHANGE_RELATIONS)
 
 # The key of the instrument an edge of a paper changes: of an article, the instrument it is
-# of by its BWB id (``LOWER(null)`` is ``""``), else the target's own key.
+# of by its BWB id, else the target's own key.
 _LAW_KEY = f"""CASE WHEN e.to_collection = {_lit(COLLECTION_ARTICLES)}
-                                THEN lower(coalesce(a.bwb_id, ''))
+                                THEN lg_node_key(a.bwb_id)
                             ELSE substr(e.to_id, length(e.to_collection) + 2) END"""
 _LAW_EDGES = f"""FROM {COLLECTION_EDGES} e
                         LEFT JOIN {COLLECTION_ARTICLES} a
@@ -465,7 +465,7 @@ _SOURCES: dict[str, _Source] = {
             chamber="NULL",
             title=(
                 f"(SELECT {_CITATION_TITLE} FROM {COLLECTION_INSTRUMENTS} i"
-                f" WHERE i.key = lower({_BWB_ID}))"
+                f" WHERE i.key = lg_node_key({_BWB_ID}))"
             ),
             # the versions of the instruments whose title holds the words: by the index
             # on the citation title, or without one (its title then) every such instrument
@@ -1103,7 +1103,7 @@ def _official_short(label: str) -> str:
                      FROM json_array_elements({_CASE_IDS})
                          WITH ORDINALITY AS ids(case_id, ord)
                      JOIN {COLLECTION_CASES} c ON c.id = {_lit(COLLECTION_CASES + "/")}
-                         || replace(lower(ids.case_id {_JSON_TEXT}), '-', '_')
+                         || lg_node_key(ids.case_id {_JSON_TEXT})
                      WHERE {is_present("c.props -> 'citation_title'")}
                      ORDER BY ids.ord
                      LIMIT 1) AS case_title,
@@ -1126,19 +1126,15 @@ _SIGNATURES = f"""CASE pg.kind
                 ELSE {_ACTORS} END"""
 
 # A signature as an item shows it: with the key and name of its member (a member's key is
-# its TK GUID made a node key: lower case, ``_``) and its faction. The keys MERGE adds come in the
+# its TK GUID made a node key) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
-_MEMBER_NAME = truthy_or(
-    truthy_or("m.props -> 'name'", "m.props -> 'known_as'"),
-    "m.props -> 'government_name'",
-)
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
                 CASE WHEN json_typeof(s.p) = 'object' THEN lg_merge(s.p, json_build_object(
                     'faction', (SELECT json_build_object('key', fo.key, 'short', fo.short)
                                 FROM faction_of fo
                                 WHERE fo.fid = lg_str(s.p -> 'faction_id')),
-                    'member_name', {_MEMBER_NAME},
+                    'member_name', m.list_name,
                     'member_key', who.key
                 )) END
                 ORDER BY s.o), {EMPTY_ARRAY}) AS value
@@ -1147,10 +1143,10 @@ _PERSONS = f"""CROSS JOIN LATERAL (
             CROSS JOIN LATERAL (SELECT CASE
                 WHEN lg_truthy(s.p -> 'member_key') THEN s.p -> 'member_key'
                 WHEN {is_present("s.p -> 'person_id'")}
-                    THEN to_json(replace(lower(s.p ->> 'person_id'), '-', '_'))
+                    THEN to_json(lg_node_key(s.p ->> 'person_id'))
             END AS key) who
             LEFT JOIN LATERAL (
-                SELECT props FROM {COLLECTION_MEMBERS} WHERE key = (who.key {_JSON_TEXT})
+                SELECT list_name FROM {COLLECTION_MEMBERS} WHERE key = (who.key {_JSON_TEXT})
             ) m ON true
         ) persons"""
 
@@ -1307,7 +1303,7 @@ _ITEMS = f"""(
                 'kind', i.props -> 'kind'
             ) AS value
             FROM {COLLECTION_INSTRUMENTS} i
-            WHERE pg.kind = {_lit(EVENT_COMMENCEMENT)} AND i.key = lower({_BWB_ID})
+            WHERE pg.kind = {_lit(EVENT_COMMENCEMENT)} AND i.key = lg_node_key({_BWB_ID})
         ) instrument ON true
     )"""
 

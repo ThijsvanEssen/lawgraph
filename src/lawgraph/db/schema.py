@@ -276,6 +276,19 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT normalize(regexp_replace(normalize(lower(t), NFD), '[̀-ͯ]', '', 'g'), NFC)
 $$;
 
+-- The node key ``core.models.make_node_key`` makes of the identifier t: its compatibility
+-- form without accents, in lower case, without what is not ASCII (``Straße`` is
+-- ``strae``), each run of other than a letter or a digit one '_', none at the ends;
+-- ``node`` when nothing is left. Null of null.
+CREATE OR REPLACE FUNCTION lg_node_key(t text) RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT CASE WHEN t IS NOT NULL THEN coalesce(nullif(trim(both '_' from regexp_replace(
+        regexp_replace(
+            lower(regexp_replace(normalize(t, NFKD), '[̀-ͯ]', '', 'g')),
+            '[^\x01-\x7f]', '', 'g'),
+        '[^a-z0-9]+', '_', 'g')), ''), 'node') END
+$$;
+
 -- text_nl: the folded text cut into words as ArangoDB does (letters, digits and '_'; ':'
 -- and apostrophes join letters, '.' and ',' join digits), each word stemmed by the Dutch
 -- snowball stemmer without stop words. In order, with repeats (probe P3).
