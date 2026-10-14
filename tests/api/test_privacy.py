@@ -41,8 +41,8 @@ def test_the_rate_limit_still_counts_each_full_address(monkeypatch) -> None:
     """Two visitors of one /24 have a limit each: the limiter keys on the address."""
     import asyncio
 
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_CALLS", 1)
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_PERIOD", 60)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_CALLS", 1)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_PERIOD", 60)
 
     async def ok(scope, receive, send) -> None:
         await send({"type": "http.response.start", "status": 200, "headers": []})

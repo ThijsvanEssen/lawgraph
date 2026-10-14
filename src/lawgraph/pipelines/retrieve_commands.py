@@ -250,7 +250,7 @@ def bwb_args(parser: argparse.ArgumentParser) -> None:
         dest="bwb_ids",
         action="append",
         help="Incremental mode: regulation to fetch (repeatable); default: the "
-        "BWB_IDS environment variable.",
+        "LAWGRAPH_BWB_IDS environment variable.",
     )
     parser.add_argument(
         "--min-stubs",

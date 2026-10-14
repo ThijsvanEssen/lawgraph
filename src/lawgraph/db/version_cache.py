@@ -26,7 +26,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Hashable, Iterator
 from typing import Any, TypeVar
 
-from lawgraph.config.settings import API_WARM_UP_MIN_INTERVAL
+from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.db.store import (
     ReadTimedOut,
@@ -150,7 +150,7 @@ VERSION_POLL = 30.0
 # Seconds from the start of one warm-up of a database to the start of the next at the least
 # (``LAWGRAPH_WARM_UP_MIN_INTERVAL``, in minutes; 0: none). A warm-up that falls due sooner
 # waits, still for the newest data; the first one never does.
-WARM_UP_MIN_INTERVAL = API_WARM_UP_MIN_INTERVAL * 60
+WARM_UP_MIN_INTERVAL = settings.WARM_UP_MIN_INTERVAL * 60
 
 
 class WarmUpClock:

@@ -144,7 +144,7 @@ hamerstuk, `Stemmen - verworpen`, `Stemmen - uitstellen`, …; `text`, `date`; n
 `ek_outcome` (the outcome of the bill in the Eerste Kamer, as eerstekamer.nl gives it:
 `outcome` `Aangenomen`/`Verworpen`, `date`, `method` (`Hamerstuk`, `Stemming bij zitten en
 opstaan, aangenomen`, …; null for a rejection before June 2015), `source_url` (the report of the
-vote, or the list of rejected bills), `retrieved_on`, and `attribution` (`EK_ATTRIBUTION`: the
+vote, or the list of rejected bills), `retrieved_on`, and `attribution` (`LAWGRAPH_EK_ATTRIBUTION`: the
 source to name with it); null when the Eerste Kamer has not decided; its outcome closes the
 dossier: `aangenomen` or `verworpen` on the day of the vote, a Staatsblad publication dating an
 adopted law),
@@ -195,7 +195,7 @@ today's plan only, so `hall_read_on` is the day it was read: with a `date` befor
 places no seat). Everything taken over from eerstekamer.nl
 carries `source` (`url`, `retrieved_on`, `composition_date`: the day of the composition shown,
 `data_since`: the day of the first snapshot, before which nothing is known, and `attribution`:
-`EK_ATTRIBUTION`, to name with it).
+`LAWGRAPH_EK_ATTRIBUTION`, to name with it).
 A member of the Eerste Kamer who was a member of the Tweede Kamer is one member: the one born
 that day whose surname ends their name, when exactly one is; else a member of their own,
 `ek_<slug>`.
