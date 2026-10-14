@@ -8,6 +8,8 @@ database, where queries filter on them.
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import uuid
 from collections.abc import Callable
 from subprocess import CompletedProcess
@@ -27,6 +29,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.payloads import S3PayloadStore, decode
+from tests.integration.conftest import ROOT
 from tests.integration.seed import seed
 
 XML = "<open-rechtspraak><uitspraak>Tekst</uitspraak></open-rechtspraak>"
@@ -125,19 +128,18 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
 S3_URL = os.environ.get("LAWGRAPH_TEST_S3_URL", "http://localhost:8531")
 
 
-def _s3_reachable() -> bool:
-    try:
-        requests.get(S3_URL, timeout=2)
-    except requests.RequestException:
-        return False
-    return True
-
-
 @pytest.fixture()
 def bucket() -> str:
-    if not _s3_reachable():
-        pytest.skip(
-            f"No S3 test server at {S3_URL} (docker compose -f docker-compose.test.yml up -d)."
+    """A fresh bucket on the S3 test server, when ``ALLOW_S3_TESTS=1`` asks for these tests;
+    asked for, a server that does not answer fails them."""
+    if os.environ.get("ALLOW_S3_TESTS") != "1":
+        pytest.skip("S3 tests disabled (set ALLOW_S3_TESTS=1 to enable).")
+    try:
+        requests.get(S3_URL, timeout=2)
+    except requests.RequestException as error:
+        pytest.fail(
+            f"ALLOW_S3_TESTS=1, but no S3 server answers at {S3_URL} "
+            f"(docker compose -f docker-compose.test.yml up -d s3-test): {error}"
         )
     import boto3
 
@@ -188,6 +190,41 @@ def test_the_chain_runs_on_an_s3_store(
     )
     assert len(rows) >= 4 and all(row["payload_text"].startswith("<") for row in rows)
     assert not [p for p in check(store, edges=False).problems if "payloads" in p]
+
+
+def _s3_tests(**switches: str) -> subprocess.CompletedProcess[str]:
+    """``pytest`` over the S3 tests of this file, against no S3 server at all."""
+    env = {key: value for key, value in os.environ.items() if key != "ALLOW_S3_TESTS"}
+    env.update(LAWGRAPH_TEST_S3_URL="http://127.0.0.1:1", **switches)
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "no:cacheprovider",
+            "-q",
+            f"{__file__}::test_an_s3_store_gives_back_what_it_was_given",
+            f"{__file__}::test_the_chain_runs_on_an_s3_store",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+
+def test_a_requested_s3_server_that_does_not_answer_fails_the_s3_tests() -> None:
+    done = _s3_tests(ALLOW_S3_TESTS="1")
+    assert done.returncode != 0, done.stdout
+    assert "no S3 server answers at http://127.0.0.1:1" in done.stdout
+
+
+def test_without_the_switch_the_s3_tests_are_skipped() -> None:
+    done = _s3_tests()
+    assert done.returncode == 0, done.stdout
+    assert "2 skipped" in done.stdout
 
 
 def test_a_payload_store_that_fails_stops_the_step_and_keeps_the_buffer(
