@@ -9,7 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STB_AMVB,
     SOURCE_STAATSBLAD,
 )
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore
@@ -83,7 +83,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         for bwb_id, identifier in todo:
             try:
                 xml = self.client.fetch_publication_xml(identifier)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — see below
                 # one publication the source could not serve (an HTTP 500): stored nothing,
                 # so the next run asks for it again; a source that is down still stops
                 # the step (``FailureStreak``)
@@ -162,10 +162,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         logger.info("Staatsblad full-load: searching for all AMvBs via SRU.")
         try:
             amvbs = self.client.search_amvbs()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
             result = PipelineResult()
-            msg = f"Staatsblad SRU search failed: {exc}"
-            logger.error(msg)
+            msg = f"Staatsblad SRU search failed: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
             return result
 

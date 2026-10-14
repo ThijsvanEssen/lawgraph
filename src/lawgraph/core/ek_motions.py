@@ -16,7 +16,8 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_votes import dossier_label, text
+from lawgraph.core.eerstekamer_bills import ek_dossier_label
+from lawgraph.core.eerstekamer_votes import text
 from lawgraph.core.rijksoverheid import parse_date
 
 _ROW = re.compile(
@@ -78,7 +79,7 @@ def motion_page(page: str) -> MotionPage | None:
     """The motion the page is of, None for a page without a number of a motion."""
     rows = {text(name).lower(): cell for name, cell in _ROW.findall(page)}
     number = _NUMBER.match(text(rows.get("nummer", "")))
-    label = dossier_label(number["number"]) if number else None
+    label = ek_dossier_label(number["number"]) if number else None
     if not number or not label:
         return None
     summary = _SUMMARY.search(page)

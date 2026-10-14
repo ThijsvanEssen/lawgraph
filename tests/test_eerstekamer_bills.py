@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from lawgraph.core import eerstekamer_bills as eb
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -12,6 +14,29 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def _read(name: str) -> str:
     return (FIXTURES / name).read_text()
+
+
+@pytest.mark.parametrize(
+    ("number", "label"),
+    [
+        ("36.791", "36791"),
+        ("36.600 VII", "36600-VII"),
+        ("36.600  VII", "36600-VII"),
+        ("36.600 B", "36600-B"),
+        ("36.455 (R2188)", "36455-(R2188)"),
+        ("36.647\n\t (R2204)", "36647-(R2204)"),
+        ("6.791", "6791"),
+        ("Wet 36791", None),
+        ("CXLIV", None),
+        ("nr. 12", None),
+        ("Brief regering", None),
+        ("E260009", None),
+    ],
+)
+def test_the_number_of_the_eerste_kamer_is_the_label_of_the_tweede_kamer(
+    number: str, label: str | None
+) -> None:
+    assert eb.ek_dossier_label(number) == label
 
 
 def test_a_committee_lists_its_bills_under_the_kamers_headings() -> None:

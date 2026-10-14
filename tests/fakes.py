@@ -31,7 +31,7 @@ class RawSourcesFake:
             fields = {k: v for k, v in doc.items() if k not in ("_key", "fetched_at")}
             try:
                 self.insert_raw_source(**fields)  # type: ignore[attr-defined]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — as the store: a failure per document is returned
                 failures.append((doc, str(exc)))
         return failures
 

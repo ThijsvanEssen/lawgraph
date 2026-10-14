@@ -20,7 +20,7 @@ from typing import Any
 from lawgraph.clients.bwb import BWBClient
 from lawgraph.config.constants import EXPLANATORY_KIND_MARKER
 from lawgraph.core.judgments import Referral
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
@@ -99,14 +99,24 @@ def _resolve_names_from_bwb(
     """
     result = dict(known)
     client = BWBClient()
+    failures: list[tuple[str, Exception]] = []
     for bwb_id in [b for b in bwb_ids if b.upper() not in result][:max_lookups]:
         try:
             meta = client.latest_toestand(bwb_id)
-        except Exception as exc:
-            logger.debug("Could not resolve title for %s: %s", bwb_id, exc)
+        except Exception as exc:  # noqa: BLE001 — a title only names a law in the report
+            failures.append((bwb_id, exc))
             continue
         if meta and meta.get("title"):
             result[bwb_id.upper()] = str(meta["title"])
+    if failures:
+        first_id, first = failures[0]
+        logger.warning(
+            "%d law titles not fetched; the first, %s: %s",
+            len(failures),
+            first_id,
+            describe(first),
+            exc_info=first,
+        )
     return result
 
 

@@ -130,7 +130,8 @@ def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None
         raise RuntimeError("no route to host")
 
     assert run_command("normalize x", fail, []).state is State.FAILED
-    assert "Failed after 1m05s: RuntimeError: no route to host" in lines()[-1]
+    said = "Failed after 1m05s: RuntimeError: no route to host"
+    assert any(line.endswith(said) for line in lines())
 
 
 def test_every_error_of_a_result_is_a_line(lines) -> None:
@@ -254,4 +255,11 @@ def test_a_line_names_the_notes_and_what_is_still_running(lines) -> None:
     )
     assert said[1].endswith(
         "2 of 2 ended: retrieve rechtspraak ok in 0s, nothing to do."
+    )
+
+
+def test_a_failure_is_described_by_its_type_and_message() -> None:
+    assert lg.describe(KeyError("x")) == "KeyError: 'x'"
+    assert lg.describe(RuntimeError("no route to host")) == (
+        "RuntimeError: no route to host"
     )

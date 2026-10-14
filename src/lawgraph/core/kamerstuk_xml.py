@@ -829,11 +829,11 @@ def parse_kamerstuk(
         return ParsedKamerstuk()
     try:
         return _parse(root, dialect, max_chars, structure=True)
-    except Exception:  # a paper that is odd in a way nobody expected still has its text
+    except Exception:  # noqa: BLE001 — a paper that is odd in a way nobody expected still has its text
         logger.warning("Kamerstuk XML could not be structured; keeping the text only.")
     try:
         return _parse(root, dialect, max_chars, structure=False)
-    except Exception:
+    except Exception:  # noqa: BLE001 — a paper that cannot be parsed has no text
         return ParsedKamerstuk()
 
 
