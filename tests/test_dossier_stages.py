@@ -12,7 +12,6 @@ from lawgraph.core.dossier_stages import (
     DossierOutcome,
     current_phase,
     derive_outcome,
-    dossier_display_name,
     dossier_kind,
     dossier_phases,
     last_activity,
@@ -22,6 +21,7 @@ from lawgraph.core.dossier_stages import (
     phase_props,
     select_title,
 )
+from lawgraph.core.tk_records import dossier_display_name
 
 
 def _doc(kind: str, date: str | None = None, title: str | None = None) -> dict:

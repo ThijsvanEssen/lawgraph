@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Literal, get_args
 
 from pydantic import ValidationError
 
@@ -75,6 +75,11 @@ class PipelineResult:
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
         return ", ".join(parts) if parts else "nothing to do"
+
+
+# The way an edge is followed from a node: the edges that leave it, or those that reach it.
+Direction = Literal["outbound", "inbound"]
+DIRECTIONS: tuple[Direction, ...] = get_args(Direction)
 
 
 class NodeType(str, Enum):

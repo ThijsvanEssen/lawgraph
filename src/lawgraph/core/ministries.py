@@ -29,6 +29,10 @@ POST_DEPUTY_PRIME_MINISTER = "viceminister-president"
 POST_MINISTER = "minister"
 POST_MINISTER_WITHOUT_PORTFOLIO = "minister_zonder_portefeuille"
 POST_STATE_SECRETARY = "staatssecretaris"
+# The ministry of the minister-president: Algemene Zaken.
+MINISTRY_GENERAL_AFFAIRS = "az"
+# How a function without a ministry begins, in plain words.
+WITHOUT_PORTFOLIO = "minister zonder portefeuille"
 
 # In the order a cabinet lists them: the prime minister first, a state secretary last.
 POSTS: tuple[str, ...] = (
@@ -198,8 +202,8 @@ def classify_function(
     if plain.startswith(("viceminister president", "vice minister president")):
         return POST_DEPUTY_PRIME_MINISTER, None
     if plain.startswith("minister president"):
-        return POST_PRIME_MINISTER, "az"
-    if plain.startswith("minister zonder portefeuille"):
+        return POST_PRIME_MINISTER, MINISTRY_GENERAL_AFFAIRS
+    if plain.startswith(WITHOUT_PORTFOLIO):
         return POST_MINISTER_WITHOUT_PORTFOLIO, None
     for prefix, post in (
         ("staatssecretaris", POST_STATE_SECRETARY),

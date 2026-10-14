@@ -42,7 +42,7 @@ from lawgraph.api.schemas.committees import (
     TouchedInstrumentsResponse,
 )
 from lawgraph.api.schemas.common import dossier_names_of
-from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
+from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS, Chamber
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
 from lawgraph.core.eerstekamer_votes import VOTES_PATH
 from lawgraph.db import GraphStore
@@ -96,7 +96,7 @@ def _day(day: dt.date | None) -> str | None:
 def list_committees(
     store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."
@@ -244,7 +244,7 @@ def list_members(
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."
@@ -409,7 +409,7 @@ def list_factions(
         ),
     ] = None,
     chamber: Annotated[
-        Literal["TK", "EK"],
+        Chamber,
         Query(
             description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
             "(periods as observed: ``observed_from``, ``observed_until``)."

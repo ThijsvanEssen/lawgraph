@@ -22,6 +22,7 @@ from dataclasses import asdict
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
     RAW_KIND_EK_COMMITTEE_DAY,
@@ -44,7 +45,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "eerstekamer-agenda"
-CHAMBER = "EK"
 # What a plenary block is a part of, as the site names its page.
 PLENARY_KIND = "plenaire vergadering"
 _ABBREVIATION = re.compile(r"\(([^()]+)\)")
@@ -55,10 +55,10 @@ def _activity(key: str, props: dict[str, Any], meta: dict[str, Any]) -> Node:
         collection=COLLECTION_ACTIVITIES,
         type=NodeType.ACTIVITY,
         key=key,
-        labels=[CHAMBER],
+        labels=[CHAMBER_EK],
         props={
             **props,
-            "chamber": CHAMBER,
+            "chamber": CHAMBER_EK,
             "source_url": meta.get("url"),
             "retrieved_on": meta.get("read_on"),
             "display_name": activity_display_name(

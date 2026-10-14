@@ -60,7 +60,6 @@ _PUBLICATION_ID = re.compile(
 _PAPER_ID = re.compile(
     r"^kst-(?P<dossier>\d{1,6}(?:-[^-]+)?)-(?P<number>[0-9A-Za-z]+)$"
 )
-SERIES = ("stb", "stcrt", "trb")
 
 
 def _one(store: GraphStore, statement: str, params: dict[str, Any]) -> str | None:

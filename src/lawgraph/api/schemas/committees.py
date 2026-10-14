@@ -9,9 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
-from lawgraph.api.schemas.dossiers import DossierSummaryDTO, SigningCapacity
+from lawgraph.api.schemas.dossiers import DossierSummaryDTO
+from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EK_ATTRIBUTION
+from lawgraph.core.eerstekamer_votes import VoteLabel
 from lawgraph.core.member_role import has_role
+from lawgraph.core.tk_records import CommitteeKind, SigningCapacity, VoteKind
 
 
 class VoteOfficeDTO(BaseModel):
@@ -59,7 +62,7 @@ class MemberVoteDTO(BaseModel):
         description="The faction they sat in on ``date``, also of their own vote; null "
         "where no period of theirs holds the day.",
     )
-    vote_source: Literal["member", "faction"] = Field(
+    vote_source: VoteKind = Field(
         "member",
         description="``member``: their own vote, on a roll-call (hoofdelijke stemming); "
         "``faction``: their faction's, cast while they belonged to it.",
@@ -140,11 +143,6 @@ class FactionDetailDTO(BaseModel):
     props: dict[str, Any] | None = None
 
 
-CommitteeKind = Literal[
-    "vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"
-]
-
-
 _OBSERVED_FROM = (
     "Of the Eerste Kamer: the day a snapshot of eerstekamer.nl first showed it (not the day "
     "it began: the site gives no start as data); null for the Tweede Kamer."
@@ -217,7 +215,7 @@ class CommitteeDTO(WithPath):
 
     id: str
     key: str
-    chamber: Literal["TK", "EK"] = "TK"
+    chamber: Chamber = "TK"
     name: str | None = None
     abbreviation: str | None = None
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
@@ -267,7 +265,7 @@ class FactionDTO(WithPath):
 
     id: str
     key: str
-    chamber: Literal["TK", "EK"] = "TK"
+    chamber: Chamber = "TK"
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
     observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
     board: list[FactionBoardSeatDTO] = Field(
@@ -338,7 +336,7 @@ class EkFactionVoteDTO(BaseModel):
         description="Whether it is the vote that decided the bill (else a vote on a "
         "motion on it).",
     )
-    choice: Literal["voor", "tegen", "aantekening gevraagd"] = Field(
+    choice: VoteLabel = Field(
         ..., description="As the list of the Eerste Kamer names the faction's vote."
     )
 
@@ -663,7 +661,7 @@ class MemberCommitteeDTO(CommitteeSeatDTO):
     slug: str | None = None
     name: str | None = None
     abbreviation: str | None = None
-    chamber: Literal["TK", "EK"] = "TK"
+    chamber: Chamber = "TK"
     observed_from: str | None = Field(None, description=_OBSERVED_FROM)
     observed_until: str | None = Field(None, description=_OBSERVED_UNTIL)
     periods: list[CommitteeSeatDTO] = Field(

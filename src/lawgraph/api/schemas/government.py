@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO, WithPath
+from lawgraph.core.cabinet_phases import PhaseKind
+from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
+from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
 from lawgraph.core.tk_records import NO_DUE_DATE
 
 # The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
@@ -19,10 +22,6 @@ COMMITMENT_STATUS_DESCRIPTION = (
     "it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, "
     "`Vervallen`; null when it gives none."
 )
-# The kinds of ``core.cabinet_phases.PHASE_KINDS``.
-PhaseKind = Literal[
-    "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
-]
 
 
 class MinistryPeriodDTO(BaseModel):
@@ -339,7 +338,7 @@ class CabinetPostDTO(BaseModel):
         description="Which dates the rules of a seat set, and why.",
     )
     acting: bool = Field(False, description="A stand-in (ad interim).")
-    acting_reason: Literal["source", "held_other_seat"] | None = Field(
+    acting_reason: ActingReason | None = Field(
         None,
         description="Why a post is acting: `source`, the page says so (its words in "
         "`acting_basis`); `held_other_seat`, the holder held another seat throughout and "
@@ -353,16 +352,14 @@ class CabinetPostDTO(BaseModel):
     acting_other_seat: ActingOtherSeatDTO | None = Field(
         None, description="For `held_other_seat`: the seat the holder held throughout."
     )
-    ministry_source: (
-        Literal["page", "tk_signatures", "tk_commitments", "staatscourant"] | None
-    ) = Field(
+    ministry_source: MinistrySource | None = Field(
         None,
         description="Where the ministry of the post comes from: `page` (its function "
         "names it), `tk_signatures` (the functions the holder signed Tweede Kamer papers "
         "in), `tk_commitments` (the ministry of their commitments), `staatscourant` (the "
         "ministry that issued the publications naming the post).",
     )
-    ministry_missing: Literal["no_source", "ambiguous"] | None = Field(
+    ministry_missing: MinistryMissing | None = Field(
         None,
         description="Why a post has no ministry: `no_source` (no official source names "
         "one), `ambiguous` (the sources split between ministries).",

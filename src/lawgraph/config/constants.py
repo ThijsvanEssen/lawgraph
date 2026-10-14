@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Final, Literal, get_args
+
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -53,8 +55,10 @@ TEXT_ANALYZER = "text_nl"
 
 # ── Edge status values ────────────────────────────────────────────────────────
 
-EDGE_STATUS_CANONIEK = "canoniek"  # current law
-EDGE_STATUS_VOORGESTELD = "voorgesteld"  # pending mutation from an open dossier
+EdgeStatus = Literal["canoniek", "voorgesteld"]
+EDGE_STATUS_CANONIEK: Final[EdgeStatus] = "canoniek"  # current law
+# A pending mutation from an open dossier.
+EDGE_STATUS_VOORGESTELD: Final[EdgeStatus] = "voorgesteld"
 
 # ── Relation type constants ───────────────────────────────────────────────────
 # One constant per relation in ``core.relations.RELATIONS``; the names and their
@@ -162,8 +166,10 @@ SOURCE_KIESRAAD = "kiesraad"
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
 # The chambers of the States General, as a document or decision carries them in its labels.
-CHAMBER_TK = "TK"
-CHAMBER_EK = "EK"
+Chamber = Literal["TK", "EK"]
+CHAMBER_TK: Final[Chamber] = "TK"
+CHAMBER_EK: Final[Chamber] = "EK"
+CHAMBERS: tuple[Chamber, ...] = get_args(Chamber)
 
 # A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
@@ -174,8 +180,16 @@ EXPLANATORY_KIND_MARKER = "toelichting"
 EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
 # The edge `source` of what `semantic verdragenbank` derives from the register of a treaty.
 EDGE_SOURCE_VERDRAGENBANK = "verdragenbank"
-IMPLEMENTS_BASIS_NIM = "national_implementing_measure"
-IMPLEMENTS_BASIS_CONSIDERANS = "considerans"
+# The kinds of a treaty instrument of the Verdragenbank, by the parties to it.
+KIND_TREATY = "verdrag"
+KIND_BILATERAL_TREATY = "bilateraalverdrag"
+KIND_MULTILATERAL_TREATY = "multilateraalverdrag"
+TREATY_KINDS = (KIND_TREATY, KIND_BILATERAL_TREATY, KIND_MULTILATERAL_TREATY)
+# What an IMPLEMENTS edge rests on (`meta.bases`).
+ImplementsBasis = Literal["national_implementing_measure", "considerans"]
+IMPLEMENTS_BASIS_NIM: Final[ImplementsBasis] = "national_implementing_measure"
+IMPLEMENTS_BASIS_CONSIDERANS: Final[ImplementsBasis] = "considerans"
+IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
 
 # International instruments the graph has a name for: BWB treaties carry a BWBV id. The
 # Convention of the ECHR is one of them: the treaty whose articles ECHR judgments apply.

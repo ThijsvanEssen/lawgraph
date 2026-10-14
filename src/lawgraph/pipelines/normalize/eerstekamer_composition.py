@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_COMMITTEES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
@@ -47,7 +48,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "eerstekamer-composition"
-CHAMBER = "EK"
 
 
 def _slug(path: str) -> str:
@@ -199,7 +199,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_MEMBERS,
                 type=NodeType.MEMBER,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props=props,
             )
         return nodes
@@ -227,7 +227,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_MEMBERS,
                 type=NodeType.MEMBER,
                 key=row["key"],
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"ek": {**row["ek"], "observed_until": shot.day}},
             )
             for row in state["members"]
@@ -249,7 +249,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                     collection=COLLECTION_FACTIONS,
                     type=NodeType.FACTION,
                     key=key,
-                    labels=[CHAMBER],
+                    labels=[CHAMBER_EK],
                     props={
                         **self._observed(stored.get(key), shot),
                         "name": page.title or listed.name,
@@ -277,7 +277,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_FACTIONS,
                 type=NodeType.FACTION,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"observed_until": shot.day, "active": False, "seats": 0},
             )
             for key, props in stored.items()
@@ -296,7 +296,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                     collection=COLLECTION_COMMITTEES,
                     type=NodeType.COMMITTEE,
                     key=key,
-                    labels=[CHAMBER],
+                    labels=[CHAMBER_EK],
                     props={
                         **self._observed(stored.get(key), shot),
                         "name": listed.name,
@@ -313,7 +313,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_COMMITTEES,
                 type=NodeType.COMMITTEE,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"observed_until": shot.day},
             )
             for key, props in stored.items()
@@ -328,7 +328,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         ``data_since`` (of the first)."""
         open_ = stored is not None and not stored.get("observed_until")
         return {
-            "chamber": CHAMBER,
+            "chamber": CHAMBER_EK,
             "observed_from": stored["observed_from"] if open_ and stored else shot.day,
             "observed_until": None,
             "retrieved_on": shot.day,
@@ -374,7 +374,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 RELATION_MEMBER_OF,
                 source=EDGE_SOURCE,
                 meta={
-                    "chamber": CHAMBER,
+                    "chamber": CHAMBER_EK,
                     "observed_from": before.get("observed_from") if open_ else shot.day,
                     "observed_until": None,
                     **extra,
