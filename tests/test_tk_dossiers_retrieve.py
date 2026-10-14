@@ -8,17 +8,11 @@ from lawgraph.pipelines.retrieve.tk_dossiers import (
     PAPER_DECISION_KINDS,
     TKDossiersRetrievePipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 
-class _Store(RawSourcesFake):
-    def __init__(self) -> None:
-        self.stored: list[tuple[str, str]] = []
-
-    def insert_raw_source(
-        self, *, kind: str, external_id: str | None = None, **_: Any
-    ) -> None:
-        self.stored.append((kind, external_id or ""))
+def _stored(store: InMemoryStore) -> list[tuple[str, str]]:
+    return [(doc["kind"], doc["external_id"]) for doc in store.raw.values()]
 
 
 class _Client:
@@ -41,7 +35,7 @@ class _Client:
 
 def test_the_backfill_of_a_dossier_stores_the_dossier_and_its_documents() -> None:
     """Without the dossier its documents are part of nothing, and no law is legislated in it."""
-    store, client = _Store(), _Client()
+    store, client = InMemoryStore(), _Client()
     result = TKDossiersRetrievePipeline(store=store, client=client).run(  # type: ignore[arg-type]
         dossier_number=35786
     )
@@ -50,7 +44,7 @@ def test_the_backfill_of_a_dossier_stores_the_dossier_and_its_documents() -> Non
         ("dossiers", {"since": None, "number": 35786}),
         ("documents", {"since": None, "number": 35786}),
     ]
-    assert store.stored == [
+    assert _stored(store) == [
         ("tk-dossier", "dossier-35786"),
         ("tk-document", "doc-1"),
         ("tk-document", "doc-2"),
@@ -64,12 +58,12 @@ class _SomeUnknown(_Client):
 
 
 def test_the_gaps_are_fetched_and_an_unknown_number_is_remembered() -> None:
-    store, client = _Store(), _SomeUnknown()
+    store, client = InMemoryStore(), _SomeUnknown()
     result = TKDossiersRetrievePipeline(store=store, client=client).run_gaps(  # type: ignore[arg-type]
         ["19952", "35790"]
     )
     assert result.errors == []
-    assert store.stored == [
+    assert _stored(store) == [
         ("tk-dossier-missing", "19952"),  # asked again once it is due
         ("tk-dossier", "dossier-35790"),
         ("tk-document", "doc-1"),
@@ -97,7 +91,7 @@ class _Decisions:
 
 
 def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
-    store, client = _Store(), _Decisions()
+    store, client = InMemoryStore(), _Decisions()
     TKDossiersRetrievePipeline(store=store, client=client).run(skip_members=True)  # type: ignore[arg-type]
     assert ((*PAPER_DECISION_KINDS,), True) in client.decisions
     assert PAPER_DECISION_KINDS == ("Amendement", "Motie")
@@ -105,8 +99,8 @@ def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
 
 def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> None:
     """``retrieve tk-dossiers --mode unvoted``: about 25,000 Besluiten, not a whole window."""
-    store, client = _Store(), _Decisions()
+    store, client = InMemoryStore(), _Decisions()
     result = TKDossiersRetrievePipeline(store=store, client=client).run_unvoted()  # type: ignore[arg-type]
     assert result.errors == []
     assert client.decisions == [(("Amendement", "Motie"), True)]
-    assert store.stored == [("tk-besluit", "besluit-1")]
+    assert _stored(store) == [("tk-besluit", "besluit-1")]
