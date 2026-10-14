@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import judgment_xml, seed
+from lawgraph.db import GraphStore
+from tests.integration.seed import seed, seed_judgment_xml, write_judgments
 
 
 def _stub_flag(store: GraphStore, ecli: str) -> Any:
@@ -24,16 +23,7 @@ def test_a_cited_judgment_is_a_stub_until_it_is_loaded(database: str, cli: Any) 
     assert _stub_flag(store, cited) is True
 
     # a gaps run downloads it; here it arrives the same way.
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=cited,
-                payload_text=judgment_xml(5),
-                meta={"ecli": cited},
-            )
-        )
+    write_judgments(store, {cited: seed_judgment_xml(5)})
     cli("normalize", "rechtspraak")
 
     # Upserts merge props: without a word from the normalizer the flag would stay, the API

@@ -16,12 +16,9 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
-    RAW_KIND_RS_CONTENT,
-    SOURCE_BWB,
-    SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_judgment_mentions import _judgment_xml
+from lawgraph.db import GraphStore
+from tests.integration.seed import judgment_xml, write_judgments, write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 BW6, BW7 = "BWBR0005289", "BWBR0005290"
@@ -39,7 +36,7 @@ def _seed(store: GraphStore) -> None:
         .replace("BW Boek 1", "BW Boek 7")
         .replace("BW1", "BW7")
     )
-    judgment = _judgment_xml(
+    judgment = judgment_xml(
         ECLI,
         "2020-03-01",
         [
@@ -49,34 +46,19 @@ def _seed(store: GraphStore) -> None:
             )
         ],
     )
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=BW7,
-                payload_text=toestand,
-                meta={"bwb_id": BW7, "state_url": f"https://repo/{BW7}/x.xml"},
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                BW7,
+                toestand,
+                {"bwb_id": BW7, "state_url": f"https://repo/{BW7}/x.xml"},
             )
-        )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_WTI_GENERAL,
-                external_id=BW7,
-                payload_text=wti,
-                meta={"bwb_id": BW7},
-            )
-        )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=ECLI,
-                payload_text=judgment,
-                meta={"ecli": ECLI},
-            )
-        )
+        ],
+    )
+    write_toestanden(store, [(RAW_KIND_BWB_WTI_GENERAL, BW7, wti, {"bwb_id": BW7})])
+    write_judgments(store, {ECLI: judgment})
 
 
 def test_a_citation_of_a_book_lands_in_that_book(database: str, cli: Any) -> None:

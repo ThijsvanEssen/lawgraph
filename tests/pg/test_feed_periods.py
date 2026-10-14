@@ -25,7 +25,8 @@ from lawgraph.db.queries.feed_events import (
     write_all,
     write_since,
 )
-from tests.pg.test_feed_queries import _document, _node, _seed
+from tests.pg.feed_graph import feed_document, feed_node, seed_feed
+from tests.pg.plans import plan_nodes
 
 
 def _topics(store: GraphStore) -> None:
@@ -34,15 +35,15 @@ def _topics(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "37100", number="37100",
+                feed_node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "37100", number="37100",
                       label="37100", title="Uitvoering van de AI-verordening"),
-                _document("motion_101", "Motie", "2026-09-08", "37000",
+                feed_document("motion_101", "Motie", "2026-09-08", "37000",
                           subject="Motie over toezicht op de AI-verordening"),
-                _document("letter_102", "Brief regering", "2026-09-15", "37100",
+                feed_document("letter_102", "Brief regering", "2026-09-15", "37100",
                           subject="Stand van zaken"),
-                _document("motion_103", "Motie", "2026-10-01", "37000",
+                feed_document("motion_103", "Motie", "2026-10-01", "37000",
                           subject="Motie over universitaire opleidingen"),
-                _document("letter_104", "Brief regering", "2025-12-30", "37000",
+                feed_document("letter_104", "Brief regering", "2025-12-30", "37000",
                           subject="Brief over AI in het onderwijs"),
             ]
         )  # fmt: skip
@@ -50,7 +51,7 @@ def _topics(store: GraphStore) -> None:
 
 @pytest.fixture()
 def seeded(store: GraphStore) -> GraphStore:
-    _seed(store)
+    seed_feed(store)
     _topics(store)
     write_all(store)
     return store
@@ -128,7 +129,7 @@ def test_the_total_and_facets_of_words_are_the_feeds_own(
 def test_the_feed_counts_its_own_rows_where_the_table_cannot_tell(
     store: GraphStore,
 ) -> None:
-    _seed(store)
+    seed_feed(store)
     _topics(store)
     words = FeedFilters(q=("ai",))
     assert get_counts(store, words, 60.0) is None  # never written
@@ -166,7 +167,7 @@ def test_a_month_and_its_days(seeded: GraphStore) -> None:
 def test_the_days_since_are_written_again_in_place(seeded: GraphStore) -> None:
     with NodeWriter(seeded) as writer:
         writer.add(
-            _document("motion_105", "Motie", "2026-10-02", "37000", subject="Nieuw")
+            feed_document("motion_105", "Motie", "2026-10-02", "37000", subject="Nieuw")
         )
     month = FeedFilters(kinds=("Motie",), since="2026-10-01", until="2026-10-31")
     assert get_periods(seeded, month, "month")["periods"][0]["total"] == 1
@@ -199,19 +200,7 @@ def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
         )
         conn.execute("ANALYZE lg_feed_events")
         plan = conn.execute("EXPLAIN (FORMAT JSON) " + statement, bind).fetchone()[0]
-    nodes: list[dict[str, Any]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if "Node Type" in node:
-                nodes.append(node)
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    nodes = list(plan_nodes(plan[0]["Plan"]))
     scans = {
         n["Node Type"] for n in nodes if n.get("Relation Name") == "lg_feed_events"
     }

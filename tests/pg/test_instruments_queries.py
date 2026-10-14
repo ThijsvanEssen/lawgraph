@@ -12,6 +12,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.core.text_fold import ascii_slug
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import instruments
+from tests.pg.plans import explain, plan_nodes, recorded
 
 BWB = "BWBR0001854"
 CELEX = "32016R0679"
@@ -1389,7 +1390,7 @@ def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
 
 
 def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Of every judgment that cites a law only its date is read before the page is cut,
     and from ``judgments_citing``: a row of the table holds the text, and the Awb is
@@ -1409,44 +1410,24 @@ def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
         [{"_key": f"e{n}", "_from": f"judgments/j{n}", "_to": f"articles/a{1 + n % 3}",
           "relation": "REFERS_TO", "source": "t"} for n in range(1, 21)]
     )  # fmt: skip
-    seen: list[tuple[Any, Any]] = []
-    stream = store._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        seen.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded  # type: ignore[method-assign]
-    try:
-        found = instruments.get_citing_judgments(store, BWB, limit=5)
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch, "_stream")
+    found = instruments.get_citing_judgments(store, BWB, limit=5)
     assert (found.total, len(found.items)) == (20, 5)
-    ((statement, params),) = seen
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_seqscan = off")
-        plan = conn.execute(
-            "EXPLAIN (FORMAT JSON) " + str(statement), params
-        ).fetchone()[0]
-    scans: list[tuple[str, str | None]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == "judgments":
-                scans.append((node["Node Type"], node.get("Index Name")))
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    ((statement, params, *_),) = seen
+    plan = explain(store, statement, params, disable=("seqscan",))
+    scans = [
+        (node["Node Type"], node.get("Index Name"))
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "judgments"
+    ]
     # the dates of every citing judgment by the covering index; the page's rows by key
     assert ("Index Only Scan", "judgments_citing") in scans
     assert sum(1 for kind, _ in scans if kind != "Index Only Scan") <= 1
 
 
-def test_the_judgments_citing_a_law_are_kept_per_request(store: GraphStore) -> None:
+def test_the_judgments_citing_a_law_are_kept_per_request(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [{"_key": "a1", "type": "article", "labels": ["BWB"],
@@ -1468,19 +1449,9 @@ def test_the_judgments_citing_a_law_are_kept_per_request(store: GraphStore) -> N
           "relation": "REFERS_TO", "source": "t"}]
     )  # fmt: skip
     first = instruments.get_citing_judgments(store, BWB)
-    calls = 0
-    stream = store._stream
-
-    def counted(*a: Any, **k: Any) -> Any:
-        nonlocal calls
-        calls += 1
-        return stream(*a, **k)
-
-    store._stream = counted  # type: ignore[method-assign]
-    try:
-        again = instruments.get_citing_judgments(store, BWB)
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    reads = recorded(store, monkeypatch, "_stream")
+    again = instruments.get_citing_judgments(store, BWB)
+    calls = len(reads)
     assert again == first
     assert calls == 0
 
@@ -1507,7 +1478,7 @@ def test_without_facets_the_page_and_the_total_alone(
 
 
 def test_related_instruments_read_only_the_references_between_articles(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The Awb has hundreds of thousands of citations from judgments into its articles: the
     references to other laws are read from the edges between articles alone, a range of the
@@ -1528,39 +1499,17 @@ def test_related_instruments_read_only_the_references_between_articles(
         + [_edge(f"judgments/j{n}", "articles/f1", "REFERS_TO") for n in range(300)]
     )
     store.vacuum_analyze()  # planned on statistics, as the real tables are
-    seen: list[tuple[Any, Any]] = []
-    stream = store._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        seen.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded  # type: ignore[method-assign]
-    try:
-        items, total = instruments.get_instrument_related_instruments(store, BWB)
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch, "_stream")
+    items, total = instruments.get_instrument_related_instruments(store, BWB)
     assert total == 1 and items[0]["outbound_count"] == 1
     # the statement of the answer, not the read of the data version it is kept under
-    ((statement, params),) = [(s, p) for s, p in seen if "focal" in str(s)]
-    with store.pool.connection() as conn, conn.transaction():
-        conn.execute("SET LOCAL enable_seqscan = off")
-        plan = conn.execute(
-            "EXPLAIN (FORMAT JSON) " + str(statement), params
-        ).fetchone()[0]
-    edge_scans: list[dict[str, Any]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == "edges":
-                edge_scans.append(node)
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    ((statement, params),) = [
+        (c.statement, c.params) for c in seen if "focal" in c.text
+    ]
+    plan = explain(store, statement, params, disable=("seqscan",))
+    edge_scans = [
+        node for node in plan_nodes(plan) if node.get("Relation Name") == "edges"
+    ]
     assert edge_scans
     for scan in edge_scans:
         condition = scan.get("Index Cond") or ""
@@ -1568,24 +1517,14 @@ def test_related_instruments_read_only_the_references_between_articles(
 
 
 def test_the_total_of_the_list_is_counted_once_for_every_page(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The total tests every instrument for a SAME_AS edge (2.7 s on prod): kept under the
     filters, the next page and another limit read their page alone."""
     _seed_list(store)
-    totals = []
-    query = store.query
-
-    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
-        if "AS total FROM" in str(statement):
-            totals.append(1)
-        return query(statement, params, **options)
-
-    store.query = counting  # type: ignore[method-assign]
-    try:
-        first = instruments.get_instruments_list(store, limit=1)
-        second = instruments.get_instruments_list(store, limit=2, offset=1)
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
+    first = instruments.get_instruments_list(store, limit=1)
+    second = instruments.get_instruments_list(store, limit=2, offset=1)
+    totals = [1 for c in calls if "AS total FROM" in c.text]
     assert first["total"] == second["total"] > 1
     assert totals == [1]

@@ -17,10 +17,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_ZAAK,
     SOURCE_EERSTEKAMER,
-    SOURCE_TK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 CHAPTER = {"Id": uid(2, 3), "Nummer": 37020, "Toevoeging": "XV"}
 ZAAK = {
@@ -111,16 +110,7 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     """The Zaak names Nummer 37020 with Toevoeging XV: the case, the bill, the debate
     and the vote belong to 37020-XV, and the Miljoenennota (37020) gets none of them."""
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records())
 
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")

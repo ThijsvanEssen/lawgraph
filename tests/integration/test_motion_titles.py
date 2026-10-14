@@ -16,13 +16,12 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.fakes import http_error
-from tests.integration.seed import FIXTURES, uid
+from tests.integration.seed import FIXTURES, uid, write_tk
 
 DOSSIER_TITLE = "Rechtsstaat en Rechtsorde"
 DOSSIER = {"Id": uid(1, 3), "Nummer": 29279, "Toevoeging": None, "Titel": DOSSIER_TITLE}
@@ -131,19 +130,6 @@ GONE_ACTIVITY = {
 }
 
 
-def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
-
-
 def _records() -> list[tuple[str, dict[str, Any]]]:
     return [
         (RAW_KIND_TK_DOSSIER, DOSSIER),
@@ -172,7 +158,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    _write(store, _records())
+    write_tk(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
 
@@ -227,7 +213,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
 
         # The Kamer deletes a motie, its case and an activity: each becomes a record with
         # an id and nothing else. The next run takes their nodes and edges away.
-        _write(
+        write_tk(
             store,
             [
                 (RAW_KIND_TK_DOCUMENT, _deleted(GONE["Id"])),
@@ -278,7 +264,7 @@ class _Repository:
 
 def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -> None:
     store = GraphStore()
-    _write(store, _records())
+    write_tk(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
 

@@ -18,8 +18,8 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_judgments
 
 NS = (
     'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
@@ -134,20 +134,6 @@ JUDGMENTS = {
 }
 
 
-def _store_raw(store: GraphStore, judgments: dict[str, str]) -> None:
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in judgments.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
-
-
 def _series(store: GraphStore) -> dict[str, tuple[Any, Any]]:
     sql = """
     SELECT ecli, props -> 'series_id' AS series, props -> 'series_size' AS size
@@ -160,7 +146,7 @@ def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    _store_raw(store, JUDGMENTS)
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-series")
 
@@ -189,7 +175,7 @@ def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(
     }
 
     # 2680 turns out to be another judgment: on the next run both lose their series.
-    _store_raw(
+    write_judgments(
         store,
         {
             "ECLI:NL:GHAMS:2026:2680": _xml(
@@ -216,7 +202,7 @@ def test_long_parallel_cases_with_their_own_facts_are_a_series(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    _store_raw(
+    write_judgments(
         store,
         {
             "ECLI:NL:RVS:2026:5181": _xml(

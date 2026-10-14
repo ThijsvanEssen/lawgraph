@@ -19,6 +19,7 @@ from lawgraph.db.queries.cabinets import (
     get_commitment,
     get_commitments,
 )
+from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
@@ -388,7 +389,7 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
 
 
 def test_what_its_members_signed_read_by_date_reads_no_paper(
-    government: GraphStore,
+    government: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Once ``lg_authored`` is dated, the counts of a member are a range of its index by
     capacity and date: the same answer, and no paper or case read for its date (a minister
@@ -401,35 +402,16 @@ def test_what_its_members_signed_read_by_date_reads_no_paper(
     assert member_authored.is_dated(government)
     version_cache.clear()
 
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = government.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "served_in" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    government.query = recording  # type: ignore[method-assign]
-    try:
-        dated = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
-    finally:
-        government.query = query  # type: ignore[method-assign]
+    calls = recorded(government, monkeypatch)
+    dated = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
     assert json.dumps(dated) == json.dumps(walked)
 
-    statement, params = statements[0]
-    with government.pool.connection() as conn:
-        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def relations(node: Any) -> set[str]:
-        found = {node["Relation Name"]} if "Relation Name" in node else set()
-        for child in node.get("Plans", []):
-            found |= relations(child)
-        return found
-
-    assert not relations(plan[0]["Plan"]) & {"documents", "cases"}
+    statement, params, *_ = [c for c in calls if c.params and "served_in" in c.params][
+        0
+    ]
+    plan = explain(government, statement, params)
+    relations = {n["Relation Name"] for n in plan_nodes(plan) if "Relation Name" in n}
+    assert not relations & {"documents", "cases"}
     # and the date is what is read: a signature dated before jetten leaves it
     government.execute(
         "UPDATE lg_authored SET date = '2000-01-01' WHERE member_id = 'members/m1'"
@@ -667,14 +649,8 @@ def test_the_commitments_without_facets_the_page_and_the_total_alone(
 ) -> None:
     """``facets=False``: the same page and total, ``facets`` None, and no facet counted."""
     with_facets = get_commitments(government, status="Openstaand", limit=1)
-    statements: list[str] = []
-    query = government.query
-
-    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(government, "query", counting)
+    calls = recorded(government, monkeypatch)
     without = get_commitments(government, status="Openstaand", limit=1, facets=False)
+    statements = [c.text for c in calls]
     assert without == {**with_facets, "facets": None}
     assert statements and not [s for s in statements if "GROUP BY" in s]

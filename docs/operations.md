@@ -618,6 +618,12 @@ correctly and stays inside the server's memory limit against realistically large
 heavily-cited data. A problem found in a real run gets a test here first: small data on a
 small server fails the way the corpus does on the real one.
 
+A test module imports no other test module (`tests/conventions/test_test_module_imports.py`):
+what tests share is a module of its own. `seed.py` writes raw records as the retrieve
+pipelines store them (`write_tk`, `write_judgments`, `write_toestanden`) and builds judgment
+XML; `tests/pg/plans.py` records the statements a store runs (`recorded`) and plans them
+(`explain`, `plan_nodes`); fakes live in `tests/fakes/`.
+
 Each test creates its own database (`lawgraph_it_<checkout>_<pid>_<n>`: the directory of the
 checkout, the process of the run) on the test server and drops it afterwards, so tests stay
 independent of each other and runs from several worktrees can share the server; a run starts

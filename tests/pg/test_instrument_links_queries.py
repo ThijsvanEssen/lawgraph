@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import EDGE_SOURCE_BWB_IMPLEMENTS, SOURCE_ECHR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_links import get_eu_links, get_international_links
 from lawgraph.db.queries.instrument_scope import InstrumentScope
+from tests.pg.plans import explain, recorded
 
 REGULATION = "instruments/bwbr0009001"
 OTHER_REGULATION = "instruments/bwbr0009002"
@@ -346,7 +349,6 @@ def test_the_echr_judgments_of_a_law_cited_much_are_found_from_their_side(
     import json
 
     from lawgraph.db.queries import instrument_links
-    from lawgraph.db.store import _query
 
     _seed(store)
     scope = InstrumentScope("bwb_id", "BWBR0009001")
@@ -357,24 +359,11 @@ def test_the_echr_judgments_of_a_law_cited_much_are_found_from_their_side(
     assert much == little
     assert [r["judgment"]["_key"] for r in much.judgments][0] == "echr_2"
 
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        statements = recorded(store, monkeypatch)
         for cited in (None, instrument_links.ECHR_SIDE_FROM):
             get_international_links(store, REGULATION, scope, cited=cited)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    plans = []
-    with store.pool.connection() as conn:
-        for statement, params in statements:
-            explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-            plans.append(json.dumps(conn.execute(explain, params).fetchone()[0]))
+    plans = [json.dumps(explain(store, c.statement, c.params)) for c in statements]
     by_target, by_echr = plans
     # the law cited much reads no edge into it: the edges of the ECHR judgments first
     assert "echr_edges" in by_echr and "edges_to" not in by_echr

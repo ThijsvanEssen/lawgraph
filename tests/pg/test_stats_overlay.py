@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import overlay, stats
+from tests.pg.plans import recorded
 
 
 def _node(
@@ -161,7 +164,7 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
 
 
 def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every proposed edge is read (5.9 s on prod): kept until the edges change, then
     counted again, whatever is written to other tables."""
@@ -169,28 +172,19 @@ def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
         [_edge("1", "articles/a", "AMENDS", status="voorgesteld")]
     )
     assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
-    calls = []
-    query = store.query
-
-    def counted(statement, params=None, **options):  # type: ignore[no-untyped-def]
-        if "%(proposed)s" in str(statement):  # the count, not a read of the version
-            calls.append(1)
-        return query(statement, params, **options)
-
-    store.query = counted  # type: ignore[method-assign]
-    try:
-        store.bulk_insert_or_update_nodes(
-            "instruments",
-            [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
-        )
-        assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
-        assert calls == []  # kept: no edge changed
-        store.bulk_insert_or_update_edges(
-            [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
-        )
-        assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch)
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+    # the count, not a read of the version
+    calls = [1 for c in seen if "%(proposed)s" in c.text]
+    assert calls == []  # kept: no edge changed
+    store.bulk_insert_or_update_edges(
+        [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
 
 
 def test_heat_of_named_nodes_and_of_the_whole_map(store: GraphStore) -> None:

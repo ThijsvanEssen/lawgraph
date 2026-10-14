@@ -4,7 +4,6 @@ data version it is done (``/api/health`` ``warm``)."""
 from __future__ import annotations
 
 from functools import partial
-from typing import Any
 
 import pytest
 
@@ -12,6 +11,7 @@ from lawgraph.api import warm
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
 from tests.fakes import ManualClock, until
+from tests.pg.plans import recorded
 
 
 def test_the_warm_up_is_done_for_the_data_as_it_was(
@@ -111,9 +111,9 @@ def test_the_warm_up_leaves_a_word_most_judgments_hold(
     from collections import Counter
 
     from lawgraph.core import search_stats
-    from tests.pg.test_search_statistics import _judgments_with_words
+    from tests.pg.search_graph import judgments_with_words
 
-    _judgments_with_words(store, 2000)
+    judgments_with_words(store, 2000)
     searched: list[str] = []
     monkeypatch.setattr(warm, "search_all", lambda store_, q, **k: searched.append(q))
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
@@ -292,14 +292,8 @@ def test_the_list_of_every_judgment_is_warmed(
         ],
     )  # fmt: skip
     warm.warm_up(store)
-    seen: list[str] = []
-    query = store.query
-
-    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
-        seen.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recorded)
+    calls = recorded(store, monkeypatch)
     found = get_judgments_list(store, JudgmentFilters(), limit=20)
+    seen = [c.text for c in calls]
     assert found["total"] == 5 and found["facets"]
     assert not [s for s in seen if "GROUP BY" in s or "count(*)" in s]

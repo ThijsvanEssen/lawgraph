@@ -20,9 +20,7 @@ from lawgraph.config.constants import (
     RELATION_SERVED_IN,
 )
 from lawgraph.db import GraphStore, make_edge_doc
-from tests.integration.seed import uid
-from tests.integration.test_member_periods import _faction, _person
-from tests.integration.test_member_seats_window import _write
+from tests.integration.seed import tk_faction, tk_person, uid, write_tk
 
 D66 = uid(1, 7)
 
@@ -40,25 +38,27 @@ def _vacancy(n: int, start: str, until: str | None) -> dict[str, Any]:
 
 def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
     store = GraphStore()
-    _write(
+    write_tk(
         store,
-        (RAW_KIND_TK_FRACTIE, _faction(D66, "D66", "1966-10-14", None, 26)),
-        (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(1, "2026-02-23", "2026-02-25")),
-        # the seat's member until the day before (a seat no one ever held has no vacancy)
-        (
-            RAW_KIND_TK_FRACTIEZETELPERSOON,
-            {
-                "Id": uid(1, 3),
-                "Persoon_Id": uid(1, 2),
-                "FractieZetel_Id": uid(1, 5),
-                "FractieZetel": {"Id": uid(1, 5), "Fractie_Id": D66},
-                "Van": "2025-11-12T00:00:00+01:00",
-                "TotEnMet": "2026-02-22T00:00:00+01:00",
-                "Functie": "Lid",
-            },
-        ),
-        # a record of the source that ends before it begins
-        (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(2, "2026-02-23", "2026-02-22")),
+        [
+            (RAW_KIND_TK_FRACTIE, tk_faction(D66, "D66", "1966-10-14", None, 26)),
+            (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(1, "2026-02-23", "2026-02-25")),
+            # the seat's member until the day before (a seat no one ever held has no vacancy)
+            (
+                RAW_KIND_TK_FRACTIEZETELPERSOON,
+                {
+                    "Id": uid(1, 3),
+                    "Persoon_Id": uid(1, 2),
+                    "FractieZetel_Id": uid(1, 5),
+                    "FractieZetel": {"Id": uid(1, 5), "Fractie_Id": D66},
+                    "Van": "2025-11-12T00:00:00+01:00",
+                    "TotEnMet": "2026-02-22T00:00:00+01:00",
+                    "Functie": "Lid",
+                },
+            ),
+            # a record of the source that ends before it begins
+            (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(2, "2026-02-23", "2026-02-22")),
+        ],
     )
     cli("normalize", "tk-dossiers")
     since = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -157,10 +157,10 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
     vacancy again."""
     store = GraphStore()
     people = {name: uid(n, 3) for n, name in enumerate("PQRS", start=1)}
-    _write(
+    write_tk(
         store,
-        (RAW_KIND_TK_FRACTIE, _faction(BBB, "BBB", "2019-01-01", None, 2)),
-        *[(RAW_KIND_TK_PERSOON, _person(pid, n, n)) for n, pid in people.items()],
+        [(RAW_KIND_TK_FRACTIE, tk_faction(BBB, "BBB", "2019-01-01", None, 2)),
+        *[(RAW_KIND_TK_PERSOON, tk_person(pid, n, n)) for n, pid in people.items()],
         (RAW_KIND_TK_FRACTIEZETELPERSOON, _on_seat(1, 1, people["P"], "2023-09-01", "2025-03-04")),
         (RAW_KIND_TK_FRACTIEZETELPERSOON, _on_seat(2, 1, people["Q"], "2025-03-05", None)),
         (RAW_KIND_TK_FRACTIEZETELPERSOON, _on_seat(3, 2, people["R"], "2023-09-01", "2026-02-16")),
@@ -168,7 +168,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         # never closed, while P and then Q held the seat
         (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy_of(11, 1, "2025-02-05", None)),
         # from R's last day until S took the seat
-        (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy_of(12, 2, "2026-02-16", "2026-02-25")),
+        (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy_of(12, 2, "2026-02-16", "2026-02-25"))],
     )  # fmt: skip
     cli("normalize", "tk-dossiers")
     as_the_source_said = [

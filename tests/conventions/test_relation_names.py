@@ -12,12 +12,7 @@ import re
 import pytest
 
 from lawgraph.core.relations import RELATION_NAMES
-from tests.conventions._scan import SRC, _python_files
-
-RELATION_NAME_HOMES = {
-    SRC / "config" / "constants.py",
-    SRC / "core" / "relations.py",
-}
+from tests.conventions._scan import RELATION_NAME_HOMES, SRC, _python_files
 
 
 def _quoted_relation_names(source: str) -> set[str]:

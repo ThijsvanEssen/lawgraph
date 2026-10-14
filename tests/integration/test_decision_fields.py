@@ -12,11 +12,10 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_STEMMING,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 DOSSIER = {"Id": uid(1, 3), "Nummer": 36774, "Toevoeging": None, "Titel": "Wet ACM"}
 ZAAK = {
@@ -49,20 +48,14 @@ VOTE = {
 
 def test_a_decision_names_its_dossiers_and_its_chamber(database: str, cli: Any) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in (
+    write_tk(
+        store,
+        (
             (RAW_KIND_TK_DOSSIER, DOSSIER),
             (RAW_KIND_TK_FRACTIE, {"Id": uid(1, 8), "Afkorting": "F1", "NaamNL": "F1"}),
             (RAW_KIND_TK_STEMMING, VOTE),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+        ),
+    )
     cli("normalize", "tk-dossiers")
 
     app.dependency_overrides[get_store] = lambda: store

@@ -12,13 +12,16 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
-    RAW_KIND_RS_CONTENT,
     RELATION_REFERS_TO,
-    SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_citations import SEMANTIC_SOURCE
-from tests.integration.test_judgment_relations import _relation, _xml
+from tests.integration.graph import cited_judgments
+from tests.integration.seed import (
+    rechtspraak_relation,
+    rechtspraak_xml,
+    write_judgments,
+)
 
 RULING = "ECLI:NL:HR:2021:10"
 CITED = "ECLI:NL:HR:2015:1"
@@ -26,58 +29,35 @@ CONCLUSION = "ECLI:NL:PHR:2021:5"
 APPEALED = "ECLI:NL:GHDHA:2020:7"
 
 JUDGMENTS = {
-    RULING: _xml(
+    RULING: rechtspraak_xml(
         RULING,
         "Hoge Raad",
         "2021-03-05",
         "20/00001",
         procedure="Cassatie",
-        relations=_relation(CONCLUSION, "conclusie", "eerdereAanleg")
-        + _relation(APPEALED, "uitspraak", "eerdereAanleg"),
+        relations=rechtspraak_relation(CONCLUSION, "conclusie", "eerdereAanleg")
+        + rechtspraak_relation(APPEALED, "uitspraak", "eerdereAanleg"),
         text=f"Zoals de Hoge Raad eerder oordeelde (HR 1 mei 2015, {CITED}), faalt het "
         "middel.",
     ),
-    CITED: _xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
-    CONCLUSION: _xml(
+    CITED: rechtspraak_xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
+    CONCLUSION: rechtspraak_xml(
         CONCLUSION,
         "Parket bij de Hoge Raad",
         "2021-01-15",
         "20/00001",
         document_type="Conclusie",
-        relations=_relation(RULING, "conclusie", "latereAanleg"),
+        relations=rechtspraak_relation(RULING, "conclusie", "latereAanleg"),
     ),
-    APPEALED: _xml(APPEALED, "Gerechtshof Den Haag", "2020-02-04", "200.000.001"),
+    APPEALED: rechtspraak_xml(
+        APPEALED, "Gerechtshof Den Haag", "2020-02-04", "200.000.001"
+    ),
 }
-
-
-def _cited(store: GraphStore) -> set[tuple[str, str]]:
-    sql = """
-    SELECT f.ecli AS from_ecli, t.ecli AS to_ecli
-    FROM edges e
-    LEFT JOIN judgments f ON f.id = e.from_id
-    LEFT JOIN judgments t ON t.id = e.to_id
-    WHERE e.relation = %(relation)s
-        AND e.from_collection = 'judgments' AND e.to_collection = 'judgments'
-    """
-    return {
-        (row["from_ecli"], row["to_ecli"])
-        for row in store.query(sql, {"relation": RELATION_REFERS_TO})
-    }
 
 
 def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the metadata
     with EdgeWriter(store, what=None) as edges:
@@ -96,7 +76,7 @@ def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> N
 
     cli("semantic", "rechtspraak-citations")
 
-    assert _cited(store) == {(RULING, CITED)}
+    assert cited_judgments(store) == {(RULING, CITED)}
 
 
 # Before 2013 a decision is cited by its LJN, the number of its ECLI.
@@ -107,7 +87,7 @@ LJN_CITED = "ECLI:NL:CRVB:2009:BG6197"
 def test_an_ljn_cites_the_judgment_whose_ecli_has_it(database: str, cli: Any) -> None:
     store = GraphStore()
     judgments = {
-        LJN_CITING: _xml(
+        LJN_CITING: rechtspraak_xml(
             LJN_CITING,
             "Centrale Raad van Beroep",
             "2011-02-01",
@@ -115,24 +95,14 @@ def test_an_ljn_cites_the_judgment_whose_ecli_has_it(database: str, cli: Any) ->
             text="De Raad verwijst naar zijn uitspraak van 3 februari 2009, LJN BG6197, "
             "en naar LJN ZZ9999, die niet geladen is.",
         ),
-        LJN_CITED: _xml(
+        LJN_CITED: rechtspraak_xml(
             LJN_CITED, "Centrale Raad van Beroep", "2009-02-03", "07/1 WWB"
         ),
     }
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in judgments.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, judgments)
     cli("normalize", "rechtspraak")
 
     cli("semantic", "rechtspraak-citations")
 
     # the LJN no judgment has makes no stub
-    assert _cited(store) == {(LJN_CITING, LJN_CITED)}
+    assert cited_judgments(store) == {(LJN_CITING, LJN_CITED)}

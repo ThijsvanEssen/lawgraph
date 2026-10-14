@@ -13,23 +13,14 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_STEMMING,
     RELATION_MEMBER_OF,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+from tests.integration.seed import write_tk
 
 
 def _store_raw(store: GraphStore, kind: str, *payloads: dict[str, Any]) -> None:
-    with RawSourceWriter(store) as writer:
-        for payload in payloads:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, [(kind, payload) for payload in payloads])
 
 
 def _vote(vote_id: str, faction_id: str, label: str) -> dict[str, Any]:

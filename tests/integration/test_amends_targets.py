@@ -13,15 +13,14 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_ZAAK,
     RELATION_AMENDS,
     RELATION_LEGISLATED_IN,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
     SEMANTIC_SOURCE as ARTICLES_SOURCE,
 )
 from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 TITLE = (
     "Wijziging van de Wet op het financieel toezicht, de Wet toezicht "
@@ -83,20 +82,14 @@ def test_a_bill_amends_the_laws_it_changes_only(database: str, cli: Any) -> None
             for key, ids, name in INSTRUMENTS
         ],
     )
-    with RawSourceWriter(store) as writer:
-        for kind, payload in (
+    write_tk(
+        store,
+        (
             (RAW_KIND_TK_DOSSIER, DOSSIER),
             (RAW_KIND_TK_ZAAK, CASE),
             (RAW_KIND_TK_DOCUMENT, BILL),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+        ),
+    )
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
     # the published act names its dossier (BWB brondata)

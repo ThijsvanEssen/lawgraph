@@ -16,16 +16,14 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_KIND_RS_CONTENT,
     RELATION_REFERS_TO,
-    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.pipelines.semantic.rechtspraak import SEMANTIC_SOURCE
-from tests.integration.test_echr_convention import _cited, _put
-from tests.integration.test_judgment_mentions import _judgment_xml
+from tests.integration.graph import cited_articles, put_node
+from tests.integration.seed import judgment_xml, write_judgments
 
 CBW = "BWBR0052872"
 VW = "BWBR0011823"
@@ -37,7 +35,7 @@ ALIENS = "ECLI:NL:RBDHA:2013:13683"
 ALIENS_1998 = "ECLI:NL:RBSGR:1998:AA6560"
 
 JUDGMENTS = {
-    FURNITURE: _judgment_xml(
+    FURNITURE: judgment_xml(
         FURNITURE,
         "2026-07-22",
         [
@@ -48,10 +46,10 @@ JUDGMENTS = {
             )
         ],
     ),
-    CYBER: _judgment_xml(
+    CYBER: judgment_xml(
         CYBER, "2026-09-01", [("4.1", "De zorgplicht van artikel 21 Cbw geldt.")]
     ),
-    BOTH_SPELLINGS: _judgment_xml(
+    BOTH_SPELLINGS: judgment_xml(
         BOTH_SPELLINGS,
         "2026-09-02",
         [
@@ -62,7 +60,7 @@ JUDGMENTS = {
             ),
         ],
     ),
-    CONDITIONS_2000: _judgment_xml(
+    CONDITIONS_2000: judgment_xml(
         CONDITIONS_2000,
         "2000-12-12",
         [
@@ -72,7 +70,7 @@ JUDGMENTS = {
             )
         ],
     ),
-    ALIENS: _judgment_xml(
+    ALIENS: judgment_xml(
         ALIENS,
         "2013-09-17",
         [
@@ -83,7 +81,7 @@ JUDGMENTS = {
             )
         ],
     ),
-    ALIENS_1998: _judgment_xml(
+    ALIENS_1998: judgment_xml(
         ALIENS_1998,
         "1998-05-06",
         [("2", "Ingevolge artikel 1a Vw is verweerder bevoegd.")],
@@ -93,7 +91,7 @@ JUDGMENTS = {
 
 def _load_the_law(store: GraphStore) -> None:
     """The Cyberbeveiligingswet as ``normalize bwb`` writes it: its WTI abbreviation is Cbw."""
-    _put(
+    put_node(
         store,
         COLLECTION_INSTRUMENTS,
         make_node_key(CBW),
@@ -107,7 +105,7 @@ def _load_the_law(store: GraphStore) -> None:
         date_published="2026-07-10",
         date_in_force="2026-08-15",
     )
-    _put(
+    put_node(
         store,
         COLLECTION_INSTRUMENTS,
         make_node_key(VW),
@@ -125,7 +123,7 @@ def _load_the_law(store: GraphStore) -> None:
         (VW, "1a"),
         (VW, "66a"),
     ]:
-        _put(
+        put_node(
             store,
             COLLECTION_ARTICLES,
             make_node_key(law, number),
@@ -141,17 +139,7 @@ def test_a_judgment_cites_the_law_by_its_abbreviation_as_written(
 ) -> None:
     store = GraphStore()
     _load_the_law(store)
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "rechtspraak")
     # what the earlier rule made of "artikel 12 van de CBW-voorwaarden"
     furniture = make_node_key(FURNITURE)
@@ -169,16 +157,20 @@ def test_a_judgment_cites_the_law_by_its_abbreviation_as_written(
 
     cli("semantic", "rechtspraak")
 
-    assert _cited(store, furniture) == {}
+    assert cited_articles(store, furniture) == {}
     (unresolved,) = store.query(
         "SELECT props -> 'unresolved_citations' AS cited FROM judgments WHERE key = %(k)s",
         {"k": furniture},
     )
     assert [c["law"] for c in unresolved] == ["CBW"]
-    assert set(_cited(store, make_node_key(CYBER))) == {make_node_key(CBW, "21")}
-    assert set(_cited(store, make_node_key(BOTH_SPELLINGS))) == {
+    assert set(cited_articles(store, make_node_key(CYBER))) == {
+        make_node_key(CBW, "21")
+    }
+    assert set(cited_articles(store, make_node_key(BOTH_SPELLINGS))) == {
         make_node_key(CBW, "12")
     }
-    assert _cited(store, make_node_key(CONDITIONS_2000)) == {}
-    assert set(_cited(store, make_node_key(ALIENS))) == {make_node_key(VW, "66a")}
-    assert _cited(store, make_node_key(ALIENS_1998)) == {}
+    assert cited_articles(store, make_node_key(CONDITIONS_2000)) == {}
+    assert set(cited_articles(store, make_node_key(ALIENS))) == {
+        make_node_key(VW, "66a")
+    }
+    assert cited_articles(store, make_node_key(ALIENS_1998)) == {}

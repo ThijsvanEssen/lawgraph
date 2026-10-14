@@ -15,15 +15,13 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_RS_CONTENT,
     RELATION_REFERS_TO,
-    SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak import (
     SEMANTIC_SOURCE as RECHTSPRAAK_LINKER,
 )
-from tests.integration.seed import seed
+from tests.integration.seed import judgment_xml, seed, write_judgments
 
 GRONDWET = "BWBR0001840"
 LAW = "artikel 1 van de Grondwet"
@@ -31,24 +29,9 @@ LAW_LID_3 = "artikel 1, derde lid, van de Grondwet"
 LAW_LID_2 = "artikel 1, tweede lid, van de Grondwet"
 
 
-def _judgment_xml(ecli: str, date: str, paragraphs: list[tuple[str, str]]) -> str:
-    body = "".join(
-        f"<paragroup><nr>{number}</nr><para>{text}</para></paragroup>"
-        for number, text in paragraphs
-    )
-    return (
-        '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
-        'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
-        f"<dcterms:identifier>{ecli}</dcterms:identifier>"
-        f"<dcterms:creator>Een rechter</dcterms:creator><dcterms:date>{date}</dcterms:date>"
-        "</rdf:Description></rdf:RDF><uitspraak><section>"
-        f"<title><nr>1</nr>Overwegingen</title>{body}</section></uitspraak></open>"
-    )
-
-
 JUDGMENTS = {
     # two citations in one paragraph, one in the next
-    "ECLI:NL:HR:2020:1": _judgment_xml(
+    "ECLI:NL:HR:2020:1": judgment_xml(
         "ECLI:NL:HR:2020:1",
         "2020-03-01",
         [
@@ -56,10 +39,10 @@ JUDGMENTS = {
             ("1.2", f"Zie ook {LAW_LID_2}."),
         ],
     ),
-    "ECLI:NL:GHAMS:2021:2": _judgment_xml(
+    "ECLI:NL:GHAMS:2021:2": judgment_xml(
         "ECLI:NL:GHAMS:2021:2", "2021-05-05", [("4.2", f"Op grond van {LAW_LID_3}.")]
     ),
-    "ECLI:NL:RBAMS:2019:3": _judgment_xml(
+    "ECLI:NL:RBAMS:2019:3": judgment_xml(
         "ECLI:NL:RBAMS:2019:3", "2019-01-01", [("2", f"Het {LAW} is van belang.")]
     ),
 }
@@ -69,17 +52,7 @@ JUDGMENTS = {
 def client(database: str, cli: Any) -> Iterator[TestClient]:
     store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=1)
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "bwb")
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak")

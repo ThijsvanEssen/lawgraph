@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.models import Node
-from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter
+from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ECLI = "ECLI:NL:RBZWB:2026:1134"
@@ -40,16 +40,7 @@ def _seed(store: GraphStore, xml: str | None = None) -> None:
                 props={"bwb_id": BW10, "article_number": "56"},
             )
         )
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=ECLI,
-                payload_text=xml or XML,
-                meta={"ecli": ECLI},
-            )
-        )
+    write_judgments(store, {ECLI: xml or XML})
 
 
 def test_a_citation_in_a_footnote_is_linked_for_its_paragraph(

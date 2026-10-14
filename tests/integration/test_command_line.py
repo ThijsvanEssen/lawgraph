@@ -11,7 +11,7 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.state import covered_until
-from tests.integration.seed import seed
+from tests.integration.seed import seed, write_judgments
 
 
 def test_a_step_that_went_well_exits_0_and_says_what_it_wrote(
@@ -60,21 +60,10 @@ def test_a_judgment_that_is_no_xml_is_left_out_and_named(
     database: str, cli: Any
 ) -> None:
     """It became a judgment without court, date or text, and the run said "1 created"."""
-    from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-    from lawgraph.db import RawSourceWriter, raw_source_doc
 
     store = GraphStore()
     seed(store, documents=0, judgments=2, regulations=0)
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id="ECLI:NL:HR:2020:999",
-                payload_text="<open",
-                meta={"ecli": "ECLI:NL:HR:2020:999"},
-            )
-        )
+    write_judgments(store, {"ECLI:NL:HR:2020:999": "<open"})
     done = cli("normalize", "rechtspraak", check=False)
     assert store.count("judgments") == 2
     assert done.returncode != 0  # unreadable: the step fails, as retrieve does
