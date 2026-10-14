@@ -13,6 +13,21 @@ def _el(xml: str) -> ET.Element:
     return ET.fromstring(xml)
 
 
+def test_children_named_and_child_named() -> None:
+    root = _el('<a xmlns="urn:x"><b>1</b><c><b>deep</b></c><b>2</b></a>')
+    assert [b.text for b in core_xml.children_named(root, "b")] == ["1", "2"]
+    assert core_xml.children_named(None, "b") == []
+    first = core_xml.child_named(root, "b")
+    assert first is not None and first.text == "1"
+    assert core_xml.child_named(root, "d") is None
+    assert core_xml.child_named(None, "b") is None
+
+
+def test_words_of() -> None:
+    assert core_xml.words_of(_el("<p> a\n<b>b </b> c</p>")) == "a b c"
+    assert core_xml.words_of(None) == ""
+
+
 def test_collapse_ws_and_text_of() -> None:
     assert core_xml.collapse_ws(" a \n b\t c ") == "a b c"
     assert core_xml.collapse_ws("") == ""

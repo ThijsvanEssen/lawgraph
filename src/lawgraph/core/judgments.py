@@ -15,8 +15,10 @@ from typing import Any
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.dutch_dates import DATE, dutch_day
+from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
+    child_named,
     collapse_ws,
     first_named,
     iter_named,
@@ -35,11 +37,10 @@ def derive_court(
     court table does not know."""
     if not ecli:
         return None, None, None
-    parts = ecli.split(":")
-    court_code = parts[2].upper() if len(parts) >= 3 else None
-    found = court_of(court_code, court)
+    code = court_code(ecli)
+    found = court_of(code, court)
     return (
-        court_code,
+        code,
         found.tier if found else None,
         found.court_kind if found else None,
     )
@@ -79,7 +80,7 @@ _PLACEHOLDER_SUMMARIES = frozenset({"kopje volgt"})
 def is_placeholder_summary(summary: str | None) -> bool:
     """Whether an inhoudsindicatie only holds a place: empty, dashes or dots, or a known
     placeholder ("kopje volgt")."""
-    plain = " ".join((summary or "").split()).lower().rstrip(".")
+    plain = collapse_ws(summary).lower().rstrip(".")
     return not plain.strip("-. ") or plain in _PLACEHOLDER_SUMMARIES
 
 
@@ -426,7 +427,6 @@ def case_number_keys(case_number: str | None) -> list[str]:
 # The paragraphs a ruling tells its referral in: the start ("1 De prejudiciële procedure"),
 # after the parties and, when two courts asked, the procedure of each.
 REFERRAL_PARAGRAPHS = 40
-_ECLI_IN_TEXT = re.compile(r"\bECLI:NL:[A-Z]{2,8}:\d{4}:[A-Z0-9]{1,8}\b", re.IGNORECASE)
 # "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 # rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
 # 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021"; "verwijst de Hoge Raad naar de
@@ -488,7 +488,7 @@ def _referral_of(text: str, referred: Referral | None) -> Referral | None:
     lowered = text.lower()
     if "prejudici" not in lowered or "gesteld" not in lowered:
         return None
-    eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
+    eclis = tuple(e for e in cited_eclis(text) if country_code(e) == "NL")
     if eclis:
         return Referral(eclis=eclis)
     match, numbers = _cases_and_date(text)
@@ -979,7 +979,7 @@ class _Sections:
             self.add(KIND_BODY, str(place), _unit_text(item, self._kop), [item])
 
     def section(self, section: ET.Element, depth: int) -> None:
-        title = next((c for c in section if local_name(c.tag) == "title"), None)
+        title = child_named(section, "title")
         if title is not None and id(title) not in self._kop:
             number = collapse_ws(text_of(first_named(title, "nr"))) or None
             text = collapse_ws(text_of(title, " "))
@@ -996,7 +996,7 @@ class _Sections:
 
     def paragroup(self, group: ET.Element, depth: int) -> None:
         """A numbered unit: its own paragraphs are one entry, nested units follow."""
-        nr = next((c for c in group if local_name(c.tag) == "nr"), None)
+        nr = child_named(group, "nr")
         number = collapse_ws(text_of(nr)) or None
         if number is None:
             self.walk(group, depth)
@@ -1287,7 +1287,7 @@ def text_id(text: str) -> str:
     """The id of a paragraph without a number: ``p-`` and the first 8 hex of the SHA-1 of
     its text, its whitespace collapsed. It follows the text, not the position, so a
     paragraph keeps its deep link when another one before it comes or goes."""
-    digest = hashlib.sha1(" ".join(text.split()).encode(), usedforsecurity=False)
+    digest = hashlib.sha1(collapse_ws(text).encode(), usedforsecurity=False)
     return f"p-{digest.hexdigest()[:8]}"
 
 

@@ -25,20 +25,12 @@ from lawgraph.core.cabinet_posts import (
     CORRECTED_BY_PREDECESSOR,
     CORRECTED_BY_SUCCESSOR,
     CORRECTED_TO_CABINET,
-    SEAT_DEPUTY,
+    end_of,
+    overlaps,
+    posts_by_seat,
     seat_gaps,
 )
 from lawgraph.core.time import OPEN_END
-
-
-def _by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    seats: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for post in posts:
-        if post.get("seat") != SEAT_DEPUTY:
-            seats[post.get("seat") or ""].append(post)
-    for held in seats.values():
-        held.sort(key=lambda p: (p["from_date"] or "", p["to_date"] or OPEN_END))
-    return seats
 
 
 def _who(post: dict[str, Any]) -> str:
@@ -49,8 +41,7 @@ def _post_violations(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> li
     start, end = cabinet["from_date"], cabinet["to_date"] or OPEN_END
     found = []
     for post in posts:
-        to = post["to_date"] or OPEN_END
-        if not post["from_date"] or post["from_date"] < start or to > end:
+        if not post["from_date"] or post["from_date"] < start or end_of(post) > end:
             found.append(
                 f"{cabinet['key']}: {_who(post)} in {post['seat']} "
                 f"{post['from_date']}–{post['to_date']} lies outside the cabinet"
@@ -63,12 +54,13 @@ def _post_violations(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> li
             found.append(
                 f"{cabinet['key']}: {_who(post)} in {post['seat']} ends before it starts"
             )
-    for seat, held in _by_seat(posts).items():
+    for seat, held in posts_by_seat(posts).items():
+        held.sort(key=lambda p: (p["from_date"] or "", end_of(p)))
         for i, a in enumerate(held):
             for b in held[i + 1 :]:
                 if _who(a) == _who(b):
                     continue
-                if b["from_date"] < (a["to_date"] or OPEN_END) and not (
+                if overlaps(a, b) and not (
                     a.get("overlaps_with") and b.get("overlaps_with")
                 ):
                     found.append(
@@ -123,7 +115,7 @@ def cabinet_row(cabinet: dict[str, Any], posts: list[dict[str, Any]]) -> dict[st
         "from_date": cabinet["from_date"],
         "source": (cabinet.get("source") or {}).get("name"),
         "posts": len(posts),
-        "seats": len(_by_seat(posts)),
+        "seats": len(posts_by_seat(posts)),
         "gaps": len({g["seat"] for g in seat_gaps(posts)}),
         "overlaps": len(overlapping),
         "acting": sum(1 for p in posts if p.get("acting")),

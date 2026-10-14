@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from lawgraph.core.member_slugs import new_slugs, slugify
+from lawgraph.core.member_slugs import new_slugs
+from lawgraph.core.text_fold import ascii_slug
 
 
 def test_a_name_becomes_a_slug() -> None:
-    assert slugify("Rob Jetten") == "rob-jetten"
-    assert slugify("Dilan Yeşilgöz-Zegerius") == "dilan-yesilgoz-zegerius"
-    assert slugify("mr. B.O. Dittrich") == "mr-b-o-dittrich"
-    assert slugify(None) == ""
+    assert ascii_slug("Rob Jetten") == "rob-jetten"
+    assert ascii_slug("Dilan Yeşilgöz-Zegerius") == "dilan-yesilgoz-zegerius"
+    assert ascii_slug("mr. B.O. Dittrich") == "mr-b-o-dittrich"
+    assert ascii_slug(None) == ""
 
 
 def test_a_member_is_named_as_the_api_names_them() -> None:

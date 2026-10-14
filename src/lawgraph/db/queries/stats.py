@@ -33,8 +33,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
-from lawgraph.core.cache import TTLCache
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 
 _NODE_COLLECTIONS = (
     COLLECTION_INSTRUMENTS,
@@ -221,19 +220,17 @@ _NEWEST: dict[str, str] = {
 }
 
 
-_data_as_of_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=4, ttl=60.0)
-
-
 def cached_data_as_of(store: GraphStore) -> dict[str, Any]:
     """``get_data_as_of``, read at most once a minute per database (``/api/stats`` and every
-    page of the feed carry it)."""
-    key = store.name
-    hit = _data_as_of_cache.get(key)
-    if isinstance(hit, dict):
-        return hit
-    value = get_data_as_of(store)
-    _data_as_of_cache.set(key, value)
-    return value
+    page of the feed carry it), in the request that finds it older. Kept by age, not by the
+    data version: a retrieve changes ``retrieved_at`` and no table of the graph."""
+    return version_cache.lasting(
+        store,
+        ("data as of",),
+        lambda: get_data_as_of(store),
+        60.0,
+        inline=True,
+    )
 
 
 # The newest fetch per source, a source without one first. The sources are walked one by

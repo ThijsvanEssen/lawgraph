@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     RELATION_REFERRED_BY,
 )
 from lawgraph.core.dutch_dates import DATE, dutch_day
+from lawgraph.core.ecli import court_code
 from lawgraph.core.judgments import (
     PROCEDURE_PRELIMINARY_RULING,
     same_case_number,
@@ -37,12 +38,6 @@ CASSATION_COURT = "HR"
 APPEAL_PROCEDURE = re.compile(
     r"\b(?:hoger beroep|cassatie|verwijzing|artikel 8(?:0a|1) ro)\b", re.IGNORECASE
 )
-
-
-def court_of(ecli: str) -> str:
-    """The court code of an ECLI: ``HR`` of ``ECLI:NL:HR:2019:1858``."""
-    parts = ecli.upper().split(":")
-    return parts[2] if len(parts) > 2 else ""
 
 
 @dataclass(frozen=True)
@@ -91,10 +86,10 @@ def earlier_instance_relation(later: Instance, earlier: Instance) -> str | None:
         return None
     if later.date and earlier.date and earlier.date > later.date:
         return None
-    same_court = court_of(later.ecli) == court_of(earlier.ecli)
+    same_court = court_code(later.ecli) == court_code(earlier.ecli)
     if same_court and later.same_case(earlier):
         return RELATION_CONTINUES
-    if court_of(earlier.ecli) == CASSATION_COURT and not same_court:
+    if court_code(earlier.ecli) == CASSATION_COURT and not same_court:
         if earlier.procedure == PROCEDURE_PRELIMINARY_RULING:
             return None
         return RELATION_REFERRED_BY

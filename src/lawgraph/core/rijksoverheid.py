@@ -22,7 +22,6 @@ Nothing is completed here: a date the page does not give stays ``None``.
 
 from __future__ import annotations
 
-import html as html_lib
 import re
 from typing import Any
 
@@ -31,6 +30,7 @@ from lawgraph.core.dutch_dates import (
     MONTH_OR_ABBREVIATION,
     dutch_day,
 )
+from lawgraph.core.xml import collapse_ws, html_text
 
 # ``3 juni 2025``, ``15 sept. 1947``, ``8 sep.1977``: the page abbreviates its months.
 _DAY = DATE_ABBREVIATED
@@ -56,15 +56,9 @@ def _range(match: re.Match[str]) -> tuple[str | None, str | None]:
     return _date(f"{d1} {m1 or m2} {y1 or y2}"), _date(f"{d2} {m2} {y2}")
 
 
-def _text(fragment: str) -> str:
-    """*fragment* of HTML as one line of plain text."""
-    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment))
-    return re.sub(r"\s+", " ", text.replace("\xa0", " ")).strip()
-
-
 def _lines(fragment: str) -> list[str]:
     """The lines of *fragment*: split at ``<br>``, empty ones left out."""
-    return [line for line in map(_text, re.split(r"<br\s*/?>", fragment)) if line]
+    return [line for line in map(html_text, re.split(r"<br\s*/?>", fragment)) if line]
 
 
 def _blocks(page: str) -> list[tuple[str, str]]:
@@ -73,10 +67,10 @@ def _blocks(page: str) -> list[tuple[str, str]]:
     blocks = []
     for block in re.findall(r'<div class="rich-text">(.*?)</div>', page, re.S):
         parts = re.split(r"<h[23][^>]*>(.*?)</h[23]>", block, flags=re.S)
-        if parts[0].strip() and _text(parts[0]):
+        if parts[0].strip() and html_text(parts[0]):
             blocks.append(("", parts[0]))
         for heading, body in zip(parts[1::2], parts[2::2], strict=True):
-            blocks.append((_text(heading), body))
+            blocks.append((html_text(heading), body))
     return blocks
 
 
@@ -91,7 +85,7 @@ def _section(heading: str) -> str | None:
 
 def _intro(page: str) -> str:
     match = re.search(r'<div class="rich-text larger-text">(.*?)</div>', page, re.S)
-    return _text(match.group(1)) if match else ""
+    return html_text(match.group(1)) if match else ""
 
 
 def intro_period(intro: str) -> tuple[str | None, str | None]:
@@ -114,7 +108,7 @@ _FACT = re.compile(rf"^([^:]{{3,60}}?)\s*:\s*({_DAY})\s*\.?$", re.IGNORECASE)
 def _facts(heading: str, body: str) -> list[dict[str, Any]]:
     facts = []
     for item in re.split(r"<br\s*/?>|</?(?:li|p|ul)[^>]*>", body):
-        line = _text(item)
+        line = html_text(item)
         match = _FACT.match(line)
         if match:
             facts.append(
@@ -167,10 +161,10 @@ def parse_page(page: str) -> dict[str, Any]:
             seats.extend(_seats(section, body))
             continue
         facts.extend(_facts(heading, body))
-        resignations.extend(_resignations(_text(body)))
+        resignations.extend(_resignations(html_text(body)))
     start, end = intro_period(intro)
     return {
-        "name": _text(title.group(1)) if title else None,
+        "name": html_text(title.group(1)) if title else None,
         "intro": intro,
         "intro_from": start,
         "intro_to": end,
@@ -318,7 +312,7 @@ _UNOPENED_PARTY = re.compile(r"^([^()]+?)\s+([A-Z][A-Z0-9'-]+)\)")
 
 def _party(text: str) -> str | None:
     """``VVD`` of ``VVD``; ``partijloos`` of ``op voordracht van NSC; partijloos``."""
-    plain = re.sub(r"\s+", " ", text).strip()
+    plain = collapse_ws(text)
     if not plain:
         return None
     if "partijloos" in plain.lower():

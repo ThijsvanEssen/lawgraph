@@ -76,7 +76,7 @@ _DECISION = {
 class _MockStore:
     """Knows no node; every route under test has its query functions monkeypatched."""
 
-    def get_node(self, collection: str, key: str):
+    def get_document(self, collection: str, key: str):
         return None
 
 

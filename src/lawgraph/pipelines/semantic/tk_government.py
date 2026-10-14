@@ -46,8 +46,6 @@ from lawgraph.core.time import format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import government as government_queries
-from lawgraph.db.queries.semantic import edges as semantic_edges
-from lawgraph.db.store import edge_key
 
 from . import _touched as touched
 from .base import SemanticPipelineBase
@@ -192,8 +190,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
 
         commitments = []
         matched = total = 0
-        makers = EdgeWriter(self.store, what=None)
-        kept: dict[str, set[str]] = {}
+        makers = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
         for row in self._track(
             list(government_queries.commitment_makers(self.store, some_commitments)),
@@ -215,7 +212,6 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
                     source=SEMANTIC_SOURCE,
                     meta={"role": ROLE_COMMITTED, "function": row.get("role")},
                 )
-                kept[commitment] = {edge_key(member, RELATION_AUTHORED, commitment)}
         dossiers = []
         brought = 0
         for row in self._track(
@@ -238,9 +234,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         # who made each commitment, as an edge too: written after the member keys, removed
         # where the match is gone
         makers.flush_into(result)
-        semantic_edges.remove_edges_to(
-            self.store, [RELATION_AUTHORED], SEMANTIC_SOURCE, read, kept
-        )
+        makers.remove_stale_to([RELATION_AUTHORED], SEMANTIC_SOURCE, read)
         result.updated = len(commitments) + len(dossiers)
         logger.info(
             "%d of %d commitments matched to a member; %d dossiers brought in by a "

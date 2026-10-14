@@ -208,8 +208,6 @@ API_WARM_UP_MIN_INTERVAL = float(os.getenv("LAWGRAPH_WARM_UP_MIN_INTERVAL", "0")
 API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
 API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
 API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))
-API_CACHE_TTL = float(os.getenv("LAWGRAPH_CACHE_TTL", "60"))
-API_CACHE_MAXSIZE = int(os.getenv("LAWGRAPH_CACHE_MAXSIZE", "512"))
 # The front end (Concordans) the Atom feed links its pages to, without a trailing slash.
 SITE_URL = os.getenv("LAWGRAPH_SITE_URL", "http://localhost:5173").rstrip("/")
 # The built shell of the front end (``index.html`` of its build) the server HTML of a page

@@ -13,19 +13,20 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.identifiers import clean_ids
-from lawgraph.core.logging import describe, get_logger
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
+    DOWNLOAD_FAILURES,
+    FETCH_WORKERS,
+    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
     failure_reason,
-    fetched_side_by_side,
-    is_not_found,
+    listed,
     missing_record,
-    status_of,
 )
 
 logger = get_logger(__name__)
@@ -65,7 +66,6 @@ class _Download:
 
     records: list[RetrieveRecord] = field(default_factory=list)
     skip: str | None = None
-    fail: str | None = None
     problem: str | None = None
 
 
@@ -94,15 +94,19 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         left alone when the stored toestand is the same one; an id given without it is
         always looked up and downloaded.
         """
-        normalized = clean_ids(bwb_ids)
-        result = PipelineResult()
+        return self._store_all(
+            self._fetch_current(clean_ids(bwb_ids), current or {}), what="regulations"
+        )
 
+    def _fetch_current(
+        self, normalized: Sequence[str], current: Mapping[str, ToestandMeta]
+    ) -> Iterator[RetrieveRecord]:
+        """The WTI general information of each regulation, followed by its current toestand."""
         if not normalized:
             logger.warning("BWB retrieve: no IDs to process.")
-            return result
-
+            return
         done = self._recently_stored(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
-        todo = self._without_missing(
+        bwb_ids = self._without_missing(
             SOURCE_BWB,
             RAW_KIND_BWB_TOESTAND,
             [bwb_id for bwb_id in normalized if bwb_id not in done],
@@ -110,16 +114,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         logger.info(
             "Starting BWB retrieve for %d IDs (%d already stored in the last 24 hours).",
             len(normalized),
-            len(normalized) - len(todo),
+            len(normalized) - len(bwb_ids),
         )
-        return self._store_all(
-            self._fetch_current(todo, current or {}), what="regulations"
-        )
-
-    def _fetch_current(
-        self, bwb_ids: Sequence[str], current: Mapping[str, ToestandMeta]
-    ) -> Iterator[RetrieveRecord]:
-        """The WTI general information of each regulation, followed by its current toestand."""
         stored = self._stored_toestanden() if current else {}
         today = dt.date.today().isoformat()
         wti_fresh = (
@@ -129,7 +125,6 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if current
             else set()
         )
-        self.progress.expect(len(bwb_ids))
 
         def download(bwb_id: str) -> _Download:
             """What one regulation needs of the network; the outcome is reported below."""
@@ -141,32 +136,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                 if bwb_id not in wti_fresh:
                     self._add_wti_general_info(meta, got)
                 return got
-            if meta is None:
-                try:
-                    meta = self.client.latest_toestand(bwb_id)
-                except Exception as exc:  # noqa: BLE001 — a failed download is counted per law
-                    reason = f"toestand metadata not fetched ({failure_reason(exc)})"
-                    return _Download(fail=reason)
+            meta = meta or self.client.latest_toestand(bwb_id)
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
-            try:
-                xml_text = self.client.fetch_toestand_xml(meta)
-            except Exception as exc:
-                if not is_not_found(exc):
-                    raise
-                # Listed by the SRU, so asked for again in a few days.
-                return _Download(
-                    records=[
-                        missing_record(
-                            SOURCE_BWB,
-                            RAW_KIND_BWB_TOESTAND,
-                            bwb_id,
-                            listed=True,
-                            status=status_of(exc) or 404,
-                        )
-                    ],
-                    skip=f"no toestand file at the source ({failure_reason(exc)})",
-                )
+            xml_text = self.client.fetch_toestand_xml(meta)
             got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
@@ -186,20 +159,26 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             )
             return got
 
-        # Side by side: a regulation is up to three requests, each slower than the pace the
-        # hosts ask for (3.9 regulations a second in the rebuild, at 0.1 s a request).
-        for bwb_id, got in fetched_side_by_side(bwb_ids, download):
-            if isinstance(got, Exception):
-                self.progress.fail(f"download failed ({failure_reason(got)})", bwb_id)
-                continue
+        def records(bwb_id: str, got: _Download) -> list[RetrieveRecord]:
             if got.problem:
                 self.progress.problem(got.problem, bwb_id)
-            if got.fail:
-                self.progress.fail(got.fail, bwb_id)
-                continue
-            yield from got.records
             if got.skip:
                 self.progress.skip(got.skip, bwb_id)
+            return got.records
+
+        # Side by side: a regulation is up to three requests, each slower than the pace the
+        # hosts ask for (3.9 regulations a second in the rebuild, at 0.1 s a request).
+        # Listed by the SRU, a toestand without a file is asked for again in a few days.
+        yield from self._download_each(
+            bwb_ids,
+            download,
+            records,
+            source="BWB",
+            missing=lambda bwb_id, status: missing_record(
+                SOURCE_BWB, RAW_KIND_BWB_TOESTAND, bwb_id, listed=True, status=status
+            ),
+            workers=FETCH_WORKERS,
+        )
 
     def _stored_toestanden(self) -> dict[str, dict[str, Any]]:
         """``{bwb_id: {url, end_date, at}}`` of the stored current toestanden."""
@@ -215,7 +194,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         bwb_id = meta["bwb_id"]
         try:
             general_info = self.client.fetch_wti_general_info(meta)
-        except Exception as exc:  # noqa: BLE001 — the toestand is kept without its WTI
+        except DOWNLOAD_FAILURES as exc:  # the toestand is kept without its WTI
             got.problem = f"WTI general information not fetched ({failure_reason(exc)})"
             return
         if general_info is None:
@@ -277,13 +256,18 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             for bwb_id in bwb_ids:
                 yield bwb_id, listed.get(bwb_id, [])
             return
+        streak = FailureStreak("BWB SRU")
         for bwb_id in bwb_ids:
             try:
-                yield bwb_id, self.client.search_toestanden(bwb_id)
-            except Exception as exc:  # noqa: BLE001 — a failed list is counted per law
+                toestanden = self.client.search_toestanden(bwb_id)
+            except DOWNLOAD_FAILURES as exc:
                 self.progress.fail(
                     f"toestanden list not fetched ({failure_reason(exc)})", bwb_id
                 )
+                streak.failed(bwb_id, exc)
+                continue
+            streak.ok()
+            yield bwb_id, toestanden
 
     def _fetch_history(
         self, bwb_ids: Sequence[str], stored: set[str]
@@ -301,64 +285,51 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, list(todo)
         )
         logger.info("%d toestanden are not stored yet.", len(wanted))
-        self.progress.expect(len(wanted))
 
         def download(external_id: str) -> str:
             return self.client.fetch_toestand_xml(todo[external_id])
 
-        for external_id, xml_text in fetched_side_by_side(wanted, download):
+        def records(external_id: str, xml_text: str) -> list[RetrieveRecord]:
             meta = todo[external_id]
-            if isinstance(xml_text, Exception):
-                exc = xml_text
-                if is_not_found(exc):
-                    self.progress.skip("no toestand file at the source", external_id)
-                    yield missing_record(
-                        SOURCE_BWB,
-                        RAW_KIND_BWB_TOESTAND_ALL,
-                        external_id,
-                        listed=True,
-                        status=status_of(exc) or 404,
-                    )
-                else:
-                    self.progress.fail(
-                        f"download failed ({failure_reason(exc)})", external_id
-                    )
-                continue
-            yield RetrieveRecord(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND_ALL,
-                external_id=external_id,
-                payload_text=xml_text,
-                meta={
-                    "bwb_id": meta["bwb_id"],
-                    "state_url": meta["locatie_toestand"],
-                    "start_date": meta.get("geldigheidsperiode_startdatum")
-                    or "unknown",
-                    "end_date": meta.get("geldigheidsperiode_einddatum"),
-                },
-            )
+            return [
+                RetrieveRecord(
+                    source=SOURCE_BWB,
+                    kind=RAW_KIND_BWB_TOESTAND_ALL,
+                    external_id=external_id,
+                    payload_text=xml_text,
+                    meta={
+                        "bwb_id": meta["bwb_id"],
+                        "state_url": meta["locatie_toestand"],
+                        "start_date": meta.get("geldigheidsperiode_startdatum")
+                        or "unknown",
+                        "end_date": meta.get("geldigheidsperiode_einddatum"),
+                    },
+                )
+            ]
+
+        yield from self._download_each(
+            wanted,
+            download,
+            records,
+            source="BWB",
+            missing=lambda external_id, status: missing_record(
+                SOURCE_BWB,
+                RAW_KIND_BWB_TOESTAND_ALL,
+                external_id,
+                listed=True,
+                status=status,
+            ),
+            workers=FETCH_WORKERS,
+        )
 
     def run_full(self) -> PipelineResult:
-        """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch each.
+        """Full-load mode: every regulation the SRU lists (``BWBClient.enumerate_latest``,
+        with its current toestand), downloaded when new or changed. Safe to interrupt and
+        re-run."""
 
-        ``BWBClient.enumerate_latest()`` lists every regulation with its current toestand;
-        ``run`` downloads those that are new or changed. Safe to interrupt and re-run.
-        """
-        logger.info("BWB full-load: enumerating all BWBR IDs via SRU wildcard.")
-        try:
-            current = self.client.enumerate_latest()
-        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
-            result = PipelineResult()
-            msg = f"BWB SRU enumeration failed: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
-            return result
+        def listing() -> Iterator[RetrieveRecord]:
+            current = listed(self.client.enumerate_latest(), "BWB regulations")
+            logger.info("BWB full-load: %d regulations listed.", len(current))
+            yield from self._fetch_current(list(current), current)
 
-        if not current:
-            # Thousands of regulations exist: an empty listing is a broken question or a
-            # broken source, not "nothing to do".
-            result = PipelineResult()
-            result.add_error("The BWB listing is empty; nothing was retrieved.")
-            return result
-        logger.info("BWB full-load: %d IDs found; starting retrieval.", len(current))
-        return self.run(bwb_ids=list(current), current=current)
+        return self._store_all(listing(), what="regulations")

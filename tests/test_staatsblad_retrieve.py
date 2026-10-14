@@ -18,15 +18,13 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import (
+    MAX_FAILURES_IN_A_ROW,
     MISSING_FOR_DAYS,
     missing_record,
     spread_days,
 )
-from lawgraph.pipelines.retrieve.staatsblad import (
-    MAX_DOWNLOAD_FAILURES,
-    StaatsbladRetrievePipeline,
-)
-from tests.fakes import InMemoryStore, external_ids, raw_record
+from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from tests.fakes import InMemoryStore, external_ids, http_error, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -65,9 +63,11 @@ class _Client:
         self.fetched: list[str] = []
         self.missing = missing or set()
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
-        return None if identifier in self.missing else f"<xml>{identifier}</xml>"
+        if identifier in self.missing:
+            raise http_error(404)
+        return f"<xml>{identifier}</xml>"
 
 
 def _row(bwb_id: str, xml: str | None, kind: str = RAW_KIND_BWB_TOESTAND) -> dict:
@@ -185,12 +185,10 @@ class _Failing(_Client):
         super().__init__()
         self.broken = broken
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         if identifier in self.broken:
             self.fetched.append(identifier)
-            response = requests.Response()
-            response.status_code = 500
-            raise requests.HTTPError("500 Server Error", response=response)
+            raise http_error(500)
         return super().fetch_publication_xml(identifier)
 
 
@@ -210,8 +208,8 @@ def test_one_publication_the_source_cannot_serve_is_asked_again_next_run() -> No
     assert _stored(store) == ["stb-2002-2"]
 
 
-def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
-    count = MAX_DOWNLOAD_FAILURES + 1
+def test_failed_downloads_apart_are_skips_and_a_run_of_them_fails_the_step() -> None:
+    count = MAX_FAILURES_IN_A_ROW + 1
     rows = []
     for n in range(count):  # a broken one, then a served one: the source is not down
         rows.append(_row(f"BWBR{n:07d}", _toestand("2015", str(n))))
@@ -221,10 +219,16 @@ def test_more_failed_downloads_than_allowed_fail_the_step() -> None:
     result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
         store
     )
-    assert result.created == count
-    assert result.errors == [
-        f"1 x more than {MAX_DOWNLOAD_FAILURES} downloads failed ({count})"
-    ]
+    assert (result.created, result.errors) == (count, [])
+
+    down = [_row(f"BWBR{n:07d}", _toestand("2015", str(n))) for n in range(60)]
+    client = _Failing({f"stb-2015-{n}" for n in range(60)})
+    store = _store(down)
+    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
+        store
+    )
+    assert len(client.fetched) < 2 * MAX_FAILURES_IN_A_ROW
+    assert any("seems to be down" in error for error in result.errors)
 
 
 def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> None:

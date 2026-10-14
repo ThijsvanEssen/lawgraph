@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 
 from lawgraph.core.dutch_dates import long_date
+from lawgraph.core.ecli import country_code, court_code
 
 _FIXED = {
     "HR": "HR",
@@ -29,9 +30,8 @@ def court_cite(ecli: str, court_name: str | None = None) -> str:
     """The court as it is cited, from the court code of the ECLI and, for a rechtbank or
     hof, its place from the name: HR, Conclusie (the Parket), ABRvS, CRvB, CBb, Hof
     Amsterdam, Rb. Den Haag, HvJ EU, EHRM."""
-    parts = ecli.strip().upper().split(":")
-    country = parts[1] if len(parts) > 1 else ""
-    code = parts[2] if len(parts) > 2 else ""
+    country = country_code(ecli) or ""
+    code = court_code(ecli) or ""
     if country == "CE" and code == "ECHR":
         return "EHRM"
     if country == "EU":

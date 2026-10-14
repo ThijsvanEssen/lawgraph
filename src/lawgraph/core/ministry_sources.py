@@ -23,22 +23,16 @@ ways the sources write a name. A curated name no source names is left out.
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
+from lawgraph.core.text_fold import plain_words
 from lawgraph.core.time import day_before, shift_day
 
 SOURCE_TOOI = "tooi"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_CURATED = "curated"
-
-
-def _plain(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return " ".join(re.findall(r"[a-z0-9]+", plain))
 
 
 def _day(value: str | None) -> str | None:
@@ -157,14 +151,17 @@ def _name_on(names: list[dict[str, Any]], tooi: str, day: str) -> dict[str, Any]
 def _key_for(name: dict[str, Any], by_name: dict[str, str], taken: set[str]) -> str:
     """The key of a name: the one the table has for it, else its abbreviation in lower
     case (``aenm`` of ``AenM``)."""
-    known = by_name.get(_plain(name["name"]))
+    known = by_name.get(plain_words(name["name"]))
     if known:
         return known
-    key = _plain(name["abbreviation"] or name["name"]).replace(" ", "") or "ministerie"
+    key = (
+        plain_words(name["abbreviation"] or name["name"]).replace(" ", "")
+        or "ministerie"
+    )
     while key in taken:
         key += "_"
     taken.add(key)
-    by_name[_plain(name["name"])] = key
+    by_name[plain_words(name["name"])] = key
     return key
 
 
@@ -267,7 +264,7 @@ def build_ministries(
     list lacks comes at the end, keyed by its abbreviation."""
     order = curated["ministries"]
     successions = curated.get("successions") or {}
-    by_name = {_plain(m["name"]): m["key"] for m in order}
+    by_name = {plain_words(m["name"]): m["key"] for m in order}
     taken = {m["key"] for m in order}
     official = tooi_periods(tooi, by_name, taken)
     spans = page_spans(cabinets)

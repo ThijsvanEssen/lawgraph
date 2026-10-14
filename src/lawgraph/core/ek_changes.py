@@ -16,7 +16,6 @@ but that no pattern reads is reported (``unread``)."""
 
 from __future__ import annotations
 
-import html as html_lib
 import re
 from collections import Counter
 from collections.abc import Iterable
@@ -26,6 +25,7 @@ from dataclasses import dataclass, field, replace
 from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
 from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.time import day_before, shift_day
+from lawgraph.core.xml import html_text
 
 _ITEM = re.compile(
     r'<a href="(/nieuws/\d{8}/[^"]+)">.*?<div>\s*(.*?)\s*</div>\s*</a>\s*'
@@ -45,15 +45,6 @@ _COMPOSITION = re.compile(
 BASIS = "tekst"
 # The list of changes of the current term; it links those of the terms before.
 MUTATIONS_PATH = "/personele_mutaties"
-
-
-def plain(fragment: str) -> str:
-    """The text of an HTML fragment, its whitespace folded."""
-    without = re.sub(
-        r"<script.*?</script>|<style.*?</style>|<!--.*?-->", "", fragment, flags=re.S
-    )
-    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", without))
-    return re.sub(r"\s+", " ", text.replace("\xa0", " ")).strip()
 
 
 @dataclass(frozen=True)
@@ -80,9 +71,11 @@ def term_page(page: str) -> TermPage:
     title = _TERM_TITLE.search(page)
     items = []
     for path, headline, day in _ITEM.findall(page):
-        date = dutch_day(plain(day))
+        date = dutch_day(html_text(day, page=True))
         if date:
-            items.append(Listed(date=date, headline=plain(headline), path=path))
+            items.append(
+                Listed(date=date, headline=html_text(headline, page=True), path=path)
+            )
     return TermPage(
         title=title.group(0) if title else "",
         items=items,
@@ -105,7 +98,7 @@ def article(page: str, date: str, headline: str) -> Article:
     start = page.find("Nieuwsoverzicht")
     end = page.find("Terug naar boven", start)
     body = page[start:end] if start >= 0 and end > start else page
-    text = plain(body).removeprefix("Nieuwsoverzicht").strip()
+    text = html_text(body, page=True).removeprefix("Nieuwsoverzicht").strip()
     # the item's own date stands first: a day of the text is one after it
     text = re.sub(rf"^{_DAY}\s*", "", text)
     # the links to other items under it ("Lees ook: …") are not its text
@@ -782,7 +775,7 @@ def faction_history(page: str) -> list[Change]:
     september 2026 was de naam van de fractie GroenLinks-PvdA`` (a rename on the second day)
     and ``Voor die datum waren er twee fracties, een voor GroenLinks en een voor de PvdA`` (a
     merge on the first)."""
-    text = plain(page)
+    text = html_text(page, page=True)
     since, named = _SINCE.search(text), _NAMED.search(text)
     if not since or not named:
         return []

@@ -20,11 +20,11 @@ labelled fields are parsed, never a sentence.
 
 from __future__ import annotations
 
-import html as html_lib
 import re
 from dataclasses import dataclass, field
 
 from lawgraph.core.dutch_dates import dutch_day
+from lawgraph.core.xml import html_text
 
 FACTIONS_PATH = "/fracties"
 COMMITTEES_PATH = "/commissies"
@@ -112,11 +112,6 @@ class Page:
     board: list[BoardSeat] = field(default_factory=list)
 
 
-def text(fragment: str) -> str:
-    plain = html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment))
-    return re.sub(r"\s+", " ", plain.replace("\xa0", " ")).strip()
-
-
 def _main(page: str) -> str:
     match = _MAIN.search(page)
     return match[0] if match else page
@@ -126,7 +121,7 @@ def factions(page: str) -> list[Listed]:
     """The factions of ``/fracties`` with their seats."""
     found = []
     for path, label in _FACTION.findall(_main(page)):
-        match = _SEATS.match(text(label))
+        match = _SEATS.match(html_text(label))
         if match:
             found.append(
                 Listed(
@@ -140,7 +135,7 @@ def committees(page: str) -> list[Listed]:
     """The committees of ``/commissies``: ``Financiën (FIN)`` is ``Financiën``, ``FIN``."""
     found = []
     for path, label in _COMMITTEE.findall(_main(page)):
-        name = text(label)
+        name = html_text(label)
         match = _NAME_ABBREVIATION.match(name)
         found.append(
             Listed(path=path, name=match[1], abbreviation=match[2])
@@ -156,15 +151,15 @@ def _birth_date(value: str | None) -> str | None:
 
 
 def _person(path: str, body: str) -> Person:
-    fields = {text(k): text(v) for k, v in _FIELD.findall(body)}
+    fields = {html_text(k): html_text(v) for k, v in _FIELD.findall(body)}
     days = _DAYS.match(fields.get(LABEL_SENIORITY, ""))
     caption = _CAPTION.search(body)
     # the unlabelled lines of the caption after the name: the faction, then a role
-    plain = [text(v) for v in _PLAIN_DIV.findall(caption[1])] if caption else []
+    plain = [html_text(v) for v in _PLAIN_DIV.findall(caption[1])] if caption else []
     name = _NAME.search(body)
     return Person(
         path=path,
-        name=text(name[1]) if name else "",
+        name=html_text(name[1]) if name else "",
         seniority_days=int(days[1]) if days else None,
         residence=fields.get(LABEL_RESIDENCE) or None,
         birth_date=_birth_date(fields.get(LABEL_BIRTH)),
@@ -178,13 +173,13 @@ def page(html: str) -> Page:
     title = re.search(r"<h1[^>]*>([^<]+)</h1>", html)
     main = _main(html)
     return Page(
-        title=text(title[1]) if title else None,
+        title=html_text(title[1]) if title else None,
         members=[_person(path, body) for path, body in _PERSON.findall(main)],
         board=[
             BoardSeat(
                 function=function.strip(),
                 path=path,
-                name=text(name),
+                name=html_text(name),
                 since=dutch_day(since, abbreviations=True),
             )
             for function, path, name, since in _BOARD.findall(main)

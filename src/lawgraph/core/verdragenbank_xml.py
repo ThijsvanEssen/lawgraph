@@ -24,7 +24,12 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.core.xml import local_name
+from lawgraph.core.xml import (
+    child_named,
+    children_named,
+    find_own_text,
+    first_named,
+)
 
 # "1951, 154", "1964, 163": year and number of a Tractatenblad.
 _TRB_TEXT = re.compile(r"^\s*(\d{4})\s*,\s*(\d+)\s*$")
@@ -32,19 +37,9 @@ _TRB_TEXT = re.compile(r"^\s*(\d{4})\s*,\s*(\d+)\s*$")
 _RESERVATIONS_URL = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{treaty_id}_p.html#Voorbehouden"
 
 
-def _children(element: ET.Element | None, name: str) -> list[ET.Element]:
-    if element is None:
-        return []
-    return [child for child in element if local_name(child.tag) == name]
-
-
-def _first(element: ET.Element | None, name: str) -> ET.Element | None:
-    return next(iter(_children(element, name)), None)
-
-
 def _text(element: ET.Element | None, name: str) -> str | None:
     """The text of the child *name* of *element*: None when absent, empty or nil."""
-    child = _first(element, name)
+    child = child_named(element, name)
     text = (child.text or "").strip() if child is not None else ""
     return text or None
 
@@ -73,15 +68,9 @@ def reservations_url(
     return _RESERVATIONS_URL.format(treaty_id=treaty_id)
 
 
-def _anywhere(root: ET.Element, name: str) -> ET.Element | None:
-    """The first element *name* of the document: the Tractatenbladen and Kamerstukken stand
-    in its meta part, not in ``<verdrag>``."""
-    return next((e for e in root.iter() if local_name(e.tag) == name), None)
-
-
 def _tractatenblad(root: ET.Element) -> list[dict[str, Any]]:
     found = []
-    for trb in _children(_anywhere(root, "Tractatenbladen"), "Tractatenblad"):
+    for trb in children_named(first_named(root, "Tractatenbladen"), "Tractatenblad"):
         text = _text(trb, "TractatenbladText")
         if text:
             found.append(
@@ -96,7 +85,7 @@ def _tractatenblad(root: ET.Element) -> list[dict[str, Any]]:
 
 def _parties(verdrag: ET.Element) -> list[dict[str, Any]]:
     found = []
-    for party in _children(_first(verdrag, "Partijen"), "Partij"):
+    for party in children_named(child_named(verdrag, "Partijen"), "Partij"):
         name = _text(party, "NaamPartij")
         if not name:
             continue
@@ -128,7 +117,9 @@ def _kingdom_parts(verdrag: ET.Element) -> list[dict[str, Any]]:
             "retroactive": _text(part, "DatumTerugwerkendeKracht"),
             "terminated": _text(part, "DatumBuitenwerkingtreding"),
         }
-        for part in _children(_first(verdrag, "Koninkrijksdelen"), "Koninkrijksdeel")
+        for part in children_named(
+            child_named(verdrag, "Koninkrijksdelen"), "Koninkrijksdeel"
+        )
         if _text(part, "NaamKoninkrijksdeel")
     ]
 
@@ -137,7 +128,7 @@ def _kamerstukken(root: ET.Element) -> list[dict[str, Any]]:
     """The dossiers of its approval, each once, in order: the dossier number, and the
     number of a rijkswet (``R2188``) and the sub-number as the source writes them."""
     found: list[dict[str, Any]] = []
-    for paper in _children(_anywhere(root, "Kamerstukken"), "Kamerstuk"):
+    for paper in children_named(first_named(root, "Kamerstukken"), "Kamerstuk"):
         dossier = _text(paper, "DossierNummer") or _text(paper, "KamerstukDossier")
         if not dossier:
             continue
@@ -160,14 +151,9 @@ def _related(verdrag: ET.Element, group: str, prefix: str) -> list[dict[str, Any
             "date": _text(treaty, f"Datum{prefix}Verdrag"),
             "place": _text(treaty, f"Plaats{prefix}Verdrag"),
         }
-        for treaty in _children(_first(verdrag, group), f"{prefix}verdrag")
+        for treaty in children_named(child_named(verdrag, group), f"{prefix}verdrag")
         if _text(treaty, f"{prefix}VerdragID")
     ]
-
-
-def _place_signed(root: ET.Element) -> str | None:
-    place = _anywhere(root, "sluitingsPlaats")
-    return ((place.text or "").strip() or None) if place is not None else None
 
 
 def parse_treaty_xml(xml_text: str) -> dict[str, Any]:
@@ -178,11 +164,11 @@ def parse_treaty_xml(xml_text: str) -> dict[str, Any]:
         root = ET.fromstring(xml_text.lstrip("﻿"))
     except ET.ParseError as exc:
         raise ValueError(f"not XML: {exc}") from exc
-    verdrag = next((e for e in root.iter() if local_name(e.tag) == "verdrag"), None)
+    verdrag = first_named(root, "verdrag")
     if verdrag is None:
         raise ValueError("no <verdrag> in the item XML")
     return {
-        "place_signed": _place_signed(root),
+        "place_signed": find_own_text(root, "sluitingsPlaats"),
         "tractatenblad": _tractatenblad(root),
         "parties": _parties(verdrag),
         "kingdom_parts": _kingdom_parts(verdrag),

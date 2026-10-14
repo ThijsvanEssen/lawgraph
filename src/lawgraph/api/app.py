@@ -58,6 +58,7 @@ from lawgraph.config.settings import (
 from lawgraph.core.logging import describe, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
+from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
 from lawgraph.db.store import (
     Cancellation,
@@ -566,6 +567,12 @@ async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
         content={"detail": "The query took too long. Try again later, or narrow it."},
         headers=_RETRY_AFTER,
     )
+
+
+@app.exception_handler(NotFound)
+async def _not_found(request: Request, exc: NotFound) -> JSONResponse:
+    """What a query or route did not find is a 404; any other error stays a 500."""
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
 def _run_server() -> None:

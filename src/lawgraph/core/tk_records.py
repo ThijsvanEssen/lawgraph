@@ -22,8 +22,10 @@ from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
+from lawgraph.core.slugs import claim_numbered
 from lawgraph.core.time import day_before, iso_date, shift_day
 from lawgraph.core.values import first_str
+from lawgraph.core.xml import collapse_ws
 
 Payload = dict[str, Any]
 Record = tuple[str, dict[str, Any]]
@@ -385,12 +387,7 @@ def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
         for props in group[1:]:
             year = (props.get("started_on") or props.get("ended_on") or "")[:4]
             base = f"{slug}-{year}" if year else slug
-            candidate, n = base, 1
-            while candidate in taken:
-                n += 1
-                candidate = f"{base}-{n}"
-            props["slug"] = candidate
-            taken.add(candidate)
+            props["slug"] = claim_numbered(base, taken)
 
 
 @dataclass(frozen=True)
@@ -493,10 +490,10 @@ def member(payload: Payload) -> Record | None:
     # a member of old the Kamer knows by initials alone: ``W.B. Buma`` (1807-1848)
     initials = _dotted_initials(_text(payload, "Initialen"))
     first = payload.get("Voornamen") or initials
-    full_name = " ".join(f"{first} {surname}".split())
+    full_name = collapse_ws(f"{first} {surname}")
     # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
     called = payload.get("Roepnaam") or first
-    name = " ".join(f"{called} {surname}".split())
+    name = collapse_ws(f"{called} {surname}")
     props: dict[str, Any] = {
         "external_id": external_id,
         "full_name": full_name or None,
@@ -1300,4 +1297,4 @@ def display_person_name(actor_name: str | None) -> str | None:
     if not actor_name:
         return None
     family, _, initials = actor_name.partition(",")
-    return " ".join(f"{initials.strip()} {family.strip()}".split()) or None
+    return collapse_ws(f"{initials.strip()} {family.strip()}") or None

@@ -360,9 +360,11 @@ relations and status.
   `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
   own `items`, `total` and `next_offset`.
 - Errors: 400 a node collection the API does not serve or an unknown search type, 404
-  unknown resource, 422 invalid parameter, 429 rate limited, and 503 with `Retry-After: 30`
-  from any route when the database is unreachable or refused (an outdated schema, another
-  collation; until the API restarts) or when its reads ran past
+  unknown resource (`"<What> '<key>' not found."`, from `NotFound` in
+  `db/queries/not_found.py`; `/api/lookup` answers `not_in_data`), 422 invalid parameter,
+  429 rate limited, and 503 with `Retry-After: 30` from any route when the database is
+  unreachable or refused (an outdated schema, another collation; until the API restarts) or
+  when its reads ran past
   `LAWGRAPH_API_REQUEST_TIMEOUT_MS` (30 s for the request in all) or `LAWGRAPH_READ_TIMEOUT_MS`.
   Any other error is a 500 with a line in the request log.
 - Responses of the route handlers carry an `X-Request-ID` header.
@@ -376,7 +378,6 @@ relations and status.
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared store (`GraphStore`, on PostgreSQL) |
-| `core/cache.py` | `TTLCache`: in-process LRU with TTL (`LAWGRAPH_CACHE_TTL` 60 s, `LAWGRAPH_CACHE_MAXSIZE` 512) used by several routes and the search |
 | `db/queries/` | the queries of the routes, one module per domain (the API writes no AQL; see `docs/architecture.md`, Layering); user input only through bind variables |
 
 ## Middleware
