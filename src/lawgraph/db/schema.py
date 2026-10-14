@@ -48,6 +48,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.logging import get_logger
+from lawgraph.core.models import COLLECTIONS
 
 logger = get_logger(__name__)
 
@@ -56,24 +57,7 @@ COLLATION = "und-u-kf-upper"
 
 # The node collections: every collection but the raw records, the pipeline state and the
 # edges, which have tables of their own.
-NODE_COLLECTIONS: tuple[str, ...] = (
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_ARTICLES,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_CASES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_JUDGMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_ACTIVITIES,
-    COLLECTION_DECISIONS,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_COMMITTEES,
-    COLLECTION_MEMBERS,
-    COLLECTION_FACTIONS,
-    COLLECTION_CABINETS,
-    COLLECTION_ANNEXES,
-)
+NODE_COLLECTIONS: tuple[str, ...] = tuple(spec.name for spec in COLLECTIONS)
 
 # ── SQL helpers ──────────────────────────────────────────────────────────────
 

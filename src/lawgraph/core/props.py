@@ -1,4 +1,4 @@
-"""Typed props schemas for every ArangoDB collection.
+"""Typed props schemas for every node collection (``models.COLLECTIONS``).
 
 Each node collection has a corresponding Pydantic model with ``extra="forbid"``.
 This catches typos in field names (e.g. ``bwbr_id`` instead of ``bwb_id``) and
@@ -19,25 +19,6 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
-
-from lawgraph.config.constants import (
-    COLLECTION_ACTIVITIES,
-    COLLECTION_ANNEXES,
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_ARTICLES,
-    COLLECTION_CABINETS,
-    COLLECTION_CASES,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_COMMITTEES,
-    COLLECTION_DECISIONS,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_FACTIONS,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_JUDGMENTS,
-    COLLECTION_MEMBERS,
-)
 
 
 class _StrictBase(BaseModel):
@@ -881,27 +862,3 @@ class AnnexProps(_CommonProps):
     # abbreviation, as an article keeps them
     instrument_citation_title: str | None = None
     instrument_abbreviation: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Registry — maps collection name → props validator class
-# ---------------------------------------------------------------------------
-
-COLLECTION_SCHEMAS: dict[str, type[_StrictBase]] = {
-    COLLECTION_INSTRUMENTS: InstrumentProps,
-    COLLECTION_ARTICLES: ArticleProps,
-    COLLECTION_INSTRUMENT_VERSIONS: InstrumentVersionProps,
-    COLLECTION_ARTICLE_VERSIONS: ArticleVersionProps,
-    COLLECTION_JUDGMENTS: JudgmentProps,
-    COLLECTION_DOCUMENTS: DocumentProps,
-    COLLECTION_DOSSIERS: DossierProps,
-    COLLECTION_ACTIVITIES: ActivityProps,
-    COLLECTION_DECISIONS: DecisionProps,
-    COLLECTION_COMMITMENTS: CommitmentProps,
-    COLLECTION_COMMITTEES: CommitteeProps,
-    COLLECTION_MEMBERS: MemberProps,
-    COLLECTION_FACTIONS: FactionProps,
-    COLLECTION_CABINETS: CabinetProps,
-    COLLECTION_CASES: CaseProps,
-    COLLECTION_ANNEXES: AnnexProps,
-}

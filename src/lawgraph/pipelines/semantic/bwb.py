@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -104,7 +104,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     for hit in hits
                     for key in _target_keys(hit)
                 },
-                NodeType.ARTICLE,
             )
             for article, hits in scanned:
                 self._link(article, hits, edges)

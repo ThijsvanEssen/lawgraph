@@ -11,7 +11,7 @@ from lawgraph.config.constants import (
     RELATION_EXPLAINS,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, collection_from_id
+from lawgraph.core.models import Node, PipelineResult, collection_from_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -68,13 +68,11 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
 
             pub_node = Node(
                 collection=pub_collection,
-                type=NodeType.DOCUMENT,
                 key=pub_key,
                 props={},
             )
             inst_node = Node(
                 collection=inst_collection,
-                type=NodeType.INSTRUMENT,
                 key=inst_key,
                 props={},
             )

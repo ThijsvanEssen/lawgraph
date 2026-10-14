@@ -126,13 +126,7 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
         related="ECLI:NL:PHR:2020:1",
     )
     target_key = make_node_key(target_ecli)
-    target_node = Node(
-        collection="judgments",
-        type=NodeType.JUDGMENT,
-        key=target_key,
-        props={"ecli": target_ecli},
-        _skip_validation=True,
-    )
+    target_node = Node.skeleton("judgments", target_key, {"ecli": target_ecli})
     store = _Store(judgment_docs=[source_doc], judgments=[target_node])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()

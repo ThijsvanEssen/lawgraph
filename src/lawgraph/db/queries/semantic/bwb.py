@@ -22,13 +22,14 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.semantic import (
-    absent_sql,
-    differs_sql,
-    nonempty_sql,
-    present_sql,
-    slim_sql,
+from lawgraph.db.queries._json_sql import (
+    array_or_empty,
+    differs,
+    has_length,
+    is_absent,
+    is_present,
 )
+from lawgraph.db.queries.semantic import slim_sql
 from lawgraph.db.store import _rounds
 
 # The fields an article is filtered on by law: generated columns of ``articles``.
@@ -104,7 +105,7 @@ def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
 _BASIS_SQL = f"""
 SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'basis' AS basis
 FROM instruments
-WHERE lg_str(props -> 'source') = %(source)s AND {nonempty_sql("props -> 'basis'")}
+WHERE lg_str(props -> 'source') = %(source)s AND {has_length("props -> 'basis'")}
 ORDER BY key
 """
 
@@ -182,7 +183,7 @@ def article_bwb_ids(store: Store) -> Iterator[Any]:
 _WITH_REFERENCES_SQL = f"""
 SELECT {slim_sql("a", "bwb_id", "article_number", "references")}
 FROM articles a
-WHERE a.bwb_id = ANY(%(bwb_ids)s) AND {present_sql("a.props -> 'references'")}
+WHERE a.bwb_id = ANY(%(bwb_ids)s) AND {is_present("a.props -> 'references'")}
 ORDER BY a.key
 """
 
@@ -203,7 +204,7 @@ _TITLED_ANNEXES_SQL = f"""
 SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'label' AS label,
        props -> 'title' AS title
 FROM annexes
-WHERE {present_sql("props -> 'title'")} AND {present_sql("props -> 'bwb_id'")}
+WHERE {is_present("props -> 'title'")} AND {is_present("props -> 'bwb_id'")}
 ORDER BY key
 """
 
@@ -255,7 +256,7 @@ SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id,
        props -> 'origin_publication' AS origin,
        props -> 'commencement_publication' AS commencement
 FROM article_versions v
-WHERE {present_sql("props -> 'origin_publication'")} AND v.stam_id IS NOT NULL
+WHERE {is_present("props -> 'origin_publication'")} AND v.stam_id IS NOT NULL
 ORDER BY v.bwb_id NULLS FIRST, v.stam_id NULLS FIRST, v.key
 """
 
@@ -269,10 +270,9 @@ ORDER BY key
 """
 
 
-_REGULATION_DOSSIERS_SQL = """
+_REGULATION_DOSSIERS_SQL = f"""
 SELECT key,
-       CASE WHEN json_typeof(props -> 'dossier_numbers') = 'array'
-            THEN props -> 'dossier_numbers' ELSE '[]'::json END AS dossiers
+       {array_or_empty("props -> 'dossier_numbers'")} AS dossiers
 FROM instruments
 WHERE bwb_id IS NOT NULL
 ORDER BY key
@@ -314,7 +314,7 @@ JOIN (
     WHERE e.relation = %(relation)s AND e.from_collection = 'articles'
     GROUP BY e.from_id
 ) es ON es.from_id = a.id
-WHERE {present_sql("a.props -> 'text'")}
+WHERE {is_present("a.props -> 'text'")}
 ORDER BY a.key
 """
 
@@ -329,7 +329,7 @@ def articles_with_classifiable_edges(store: Store) -> Iterator[dict[str, Any]]:
 
 
 _CLASSIFICATION_DIFFERS = " OR ".join(
-    differs_sql(stored, wanted)
+    differs(stored, wanted)
     for stored, wanted in (
         ("t.doc -> 'semantic_type'", "u.value -> 'semantic_type'"),
         ("t.doc -> 'explanation'", "u.value -> 'explanation'"),
@@ -376,8 +376,8 @@ def update_edge_classifications(
     return updated
 
 
-_HAS_BWB_ID = present_sql("pub.props -> 'bwb_id'")
-_NO_BWB_ID = absent_sql("pub.props -> 'bwb_id'")
+_HAS_BWB_ID = is_present("pub.props -> 'bwb_id'")
+_NO_BWB_ID = is_absent("pub.props -> 'bwb_id'")
 
 
 def _text_longer_than(n: int) -> str:

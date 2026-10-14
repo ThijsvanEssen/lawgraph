@@ -36,7 +36,7 @@ from lawgraph.core.curated import LISTS
 from lawgraph.core.echr_citations import appnos, cited_in_english
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -145,7 +145,6 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
             read.append(row["j_id"])
             judgment = Node(
                 collection=COLLECTION_JUDGMENTS,
-                type=NodeType.JUDGMENT,
                 key=row["j_key"],
                 props={},
             )
@@ -250,7 +249,6 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
             if bwb_id:
                 found[bwb_id] = Node(
                     collection=COLLECTION_INSTRUMENTS,
-                    type=NodeType.INSTRUMENT,
                     key=doc["_key"],
                     props={},
                 )

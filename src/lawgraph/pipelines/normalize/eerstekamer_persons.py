@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
 from lawgraph.core import ek_persons
 from lawgraph.core.ek_changes import member_key
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import ek_seats
@@ -86,7 +86,6 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
                 writer.add(
                     Node(
                         collection=COLLECTION_MEMBERS,
-                        type=NodeType.MEMBER,
                         key=key,
                         props={"ek_faction_memberships": periods},
                     )

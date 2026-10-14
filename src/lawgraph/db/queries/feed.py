@@ -71,6 +71,14 @@ from lawgraph.core.tk_records import (
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._json_sql import (
+    EMPTY_ARRAY,
+    array_or_empty,
+    as_text,
+    has_length,
+    is_present,
+    truthy_or,
+)
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.feed_relations import (
     CITATIONS_OF_LAW,
@@ -145,46 +153,12 @@ _ITEM_PROPS = (
 # up to the full stop or the end of its line, without the spaces around it.
 _CITED = r"wordt aangehaald als:?\s*([^.\s][^.\n]{1,148}[^.\s])"
 
-_EMPTY = "'[]'::json"
 _JSON_TEXT = "#>> '{}'"
 
 
 def _lit(value: str) -> str:
     """SQL: *value* as a string literal."""
     return "'" + value.replace("'", "''") + "'"
-
-
-def _or(value: str, other: str) -> str:
-    """SQL: AQL ``value OR other`` of two JSON values."""
-    return f"CASE WHEN lg_truthy({value}) THEN {value} ELSE {other} END"
-
-
-def _not_null(value: str) -> str:
-    """SQL: the JSON *value* is neither null nor missing (AQL ``value != null``)."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
-
-def _array(value: str) -> str:
-    """SQL: the JSON *value* when it is an array, else ``[]``: what a FOR walks."""
-    return f"CASE WHEN json_typeof({value}) = 'array' THEN {value} ELSE {_EMPTY} END"
-
-
-def _has_length(value: str) -> str:
-    """SQL: AQL ``LENGTH(value) > 0``: an array or object that is not empty, a string that
-    is not, any number, true."""
-    return (
-        f"CASE json_typeof({value})"
-        f" WHEN 'array' THEN json_array_length({value}) > 0"
-        f" WHEN 'object' THEN EXISTS (SELECT 1 FROM json_each({value}))"
-        " WHEN 'number' THEN true"
-        f" ELSE lg_truthy({value}) END"
-    )
-
-
-def _text(value: str) -> str:
-    """SQL: the JSON *value* as AQL's LOWER reads it: a string as itself, a number or a
-    boolean as written, null as ``""``."""
-    return f"coalesce(({value}) {_JSON_TEXT}, '')"
 
 
 def _kind_parts(field: str, kind: str) -> tuple[str, str]:
@@ -206,7 +180,7 @@ def _of_kind(field: str, kind: str) -> str:
 
 def _elements(value: str) -> str:
     """SQL: the elements ``x.v`` of the JSON *value* (none when it is no array)."""
-    return f"json_array_elements({_array(value)}) AS x(v)"
+    return f"json_array_elements({array_or_empty(value)}) AS x(v)"
 
 
 @dataclass(frozen=True)
@@ -284,12 +258,12 @@ _ACTORS_OF_N = "n.pj_actors"
 _ACTORS_OF_PAPER = "paper.pj_actors"
 _ACTORS_OF_O = "o.pj_actors"
 
-_DOSSIER_NUMBERS = _or("n.props -> 'dossier_numbers'", _EMPTY)
-_PAPER_DOSSIER_NUMBERS = _or("n.pj_dossier_numbers", _EMPTY)
+_DOSSIER_NUMBERS = truthy_or("n.props -> 'dossier_numbers'", EMPTY_ARRAY)
+_PAPER_DOSSIER_NUMBERS = truthy_or("n.pj_dossier_numbers", EMPTY_ARRAY)
 
 _COMMITMENT_DOSSIERS = f"""(
             SELECT coalesce(json_agg(d.props -> 'label' ORDER BY d.label ASC NULLS FIRST),
-                            {_EMPTY})
+                            {EMPTY_ARRAY})
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id
             WHERE e.from_id = n.id AND e.relation = {_lit(RELATION_ABOUT)}
@@ -306,38 +280,38 @@ _COMMITMENT_PERSONS = f"""json_build_array(json_build_object(
 
 # The signatures of the document a vote decided: a paper of the case it singled out, the
 # newest that has signatures. A case key is its TK GUID made a node key (lower case, ``_``).
-_CASE_ID = _text("n.props -> 'primary_case_id'")
+_CASE_ID = as_text("n.props -> 'primary_case_id'")
 _DECIDED_PERSONS = f"""coalesce((
-            SELECT {_or(_ACTORS_OF_PAPER, _EMPTY)}
+            SELECT {truthy_or(_ACTORS_OF_PAPER, EMPTY_ARRAY)}
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOCUMENTS} paper ON paper.id = e.from_id
             WHERE e.to_id = {_lit(COLLECTION_CASES + "/")}
                             || replace(lower({_CASE_ID}), '-', '_')
               AND e.relation = {_lit(RELATION_PART_OF)}
               AND e.from_collection = {_lit(COLLECTION_DOCUMENTS)}
-              AND {_has_length(_ACTORS_OF_PAPER)}
+              AND {has_length(_ACTORS_OF_PAPER)}
             ORDER BY paper.date DESC NULLS LAST, paper.key DESC
             LIMIT 1
-        ), {_EMPTY})"""
+        ), {EMPTY_ARRAY})"""
 
 # The signatures of a bill: its own, else those of the first memorie van toelichting of its
 # dossier, which the source signs where it leaves the voorstel itself unsigned. ``{label}``
 # is the bill's first dossier label.
-_BILL_PERSONS = f"""CASE WHEN {_has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
+_BILL_PERSONS = f"""CASE WHEN {has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
         ELSE coalesce((
-            SELECT {_or(_ACTORS_OF_O, _EMPTY)}
+            SELECT {truthy_or(_ACTORS_OF_O, EMPTY_ARRAY)}
             FROM {COLLECTION_DOCUMENTS} o
             WHERE {{label}} IS NOT NULL AND o.dossier_numbers @> ARRAY[{{label}}]
               AND starts_with(o.kind, {_lit(KIND_EXPLANATORY_MEMORANDUM)})
-              AND {_has_length(_ACTORS_OF_O)}
+              AND {has_length(_ACTORS_OF_O)}
             ORDER BY o.date ASC NULLS FIRST, o.key ASC
             LIMIT 1
-        ), {_EMPTY}) END"""
+        ), {EMPTY_ARRAY}) END"""
 
-_ACTORS = _or(_ACTORS_OF_N, _EMPTY)
+_ACTORS = truthy_or(_ACTORS_OF_N, EMPTY_ARRAY)
 
 # The chamber of a vote: one of the Eerste Kamer carries ``chamber`` ``EK``.
-_VOTE_CHAMBER = "lg_str(" + _or("n.props -> 'chamber'", "'\"TK\"'::json") + ")"
+_VOTE_CHAMBER = "lg_str(" + truthy_or("n.props -> 'chamber'", "'\"TK\"'::json") + ")"
 
 
 def _number(value: str) -> str:
@@ -363,7 +337,7 @@ def _document_source(kind: str) -> _Source:
         parts=_kind_parts("n.kind", kind),
         dossiers=_PAPER_DOSSIER_NUMBERS,
         persons=_BILL_PERSONS if kind == EVENT_BILL else _ACTORS,
-        title=_or("n.pj_subject", "n.pj_title"),
+        title=truthy_or("n.pj_subject", "n.pj_title"),
         found=f"{feed_title('n')} LIKE {_words.FOLDED_LIKE}",
         dossier_found="n.dossier_numbers && ARRAY({titled})",
     )
@@ -394,12 +368,12 @@ _LAW_EDGES = f"""FROM {COLLECTION_EDGES} e
 # implementatie …"): the title of the publication itself.
 _PUBLICATION_LAWS = f"""(
             SELECT string_agg(DISTINCT x.name, ' | ') FROM (
-                SELECT {_text(_or("i.props -> 'citation_title'", "i.props -> 'title'"))} AS name
+                SELECT {as_text(truthy_or("i.props -> 'citation_title'", "i.props -> 'title'"))} AS name
                 FROM {COLLECTION_INSTRUMENTS} i
                 WHERE i.key IN (SELECT {_LAW_KEY} {_LAW_EDGES.replace("{paper}", "n.id")})
                 UNION ALL
                 SELECT unnest(ARRAY[
-                    {_text(_or("r.props -> 'citation_title'", "r.props -> 'title'"))},
+                    {as_text(truthy_or("r.props -> 'citation_title'", "r.props -> 'title'"))},
                     lg_str(r.props -> 'official_title')])
                 FROM {COLLECTION_INSTRUMENTS} r
                 WHERE {ENACTED} = {PUBLICATION_IDENTIFIER} AND {ENACTED_OF_REGULATION}
@@ -407,8 +381,8 @@ _PUBLICATION_LAWS = f"""(
             WHERE x.name <> ''
         )"""
 
-_CITATION_TITLE = _or("i.props -> 'citation_title'", "i.props -> 'title'")
-_BWB_ID = _text("n.props -> 'bwb_id'")
+_CITATION_TITLE = truthy_or("i.props -> 'citation_title'", "i.props -> 'title'")
+_BWB_ID = as_text("n.props -> 'bwb_id'")
 
 _SOURCES: dict[str, _Source] = {
     source.kind: source
@@ -517,8 +491,8 @@ _DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber", "coalition")
 # What every request reads first: factions by the ids of their Fractie records (an id two
 # factions claim goes to the first by key) and the cabinets with a start; each read once
 # (MATERIALIZED), not again for every lookup in it.
-_SHORT = _or("f.props -> 'abbreviation'", "f.props -> 'name'")
-_EXTERNAL_IDS = _or("f.props -> 'external_ids'", _EMPTY)
+_SHORT = truthy_or("f.props -> 'abbreviation'", "f.props -> 'name'")
+_EXTERNAL_IDS = truthy_or("f.props -> 'external_ids'", EMPTY_ARRAY)
 _PREAMBLE = f"""
     faction_of AS MATERIALIZED (
         SELECT DISTINCT ON (u.fid) u.fid, f.key, {_SHORT} AS short
@@ -559,7 +533,7 @@ _CABINET_PERIOD = f""",
         ) cf
         CROSS JOIN LATERAL (
             SELECT (SELECT c.props -> 'from_date' FROM {COLLECTION_CABINETS} c
-                    WHERE {_not_null("cf.v")}
+                    WHERE {is_present("cf.v")}
                       AND lg_str(c.props -> 'from_date') > lg_str(cf.v)
                     ORDER BY lg_str(c.props -> 'from_date') ASC NULLS FIRST
                     LIMIT 1) AS v
@@ -643,7 +617,7 @@ _WORDS = "{words}"
 def _contains(text: str, count: int) -> str:
     """SQL: the JSON *text* holds any of the *count* words of ``q`` (``_words``, the binds
     ``q_word_0`` …)."""
-    return " OR ".join(_words.holds(_text(text), f"q_word_{n}") for n in range(count))
+    return " OR ".join(_words.holds(as_text(text), f"q_word_{n}") for n in range(count))
 
 
 def _words_of(filters: FeedFilters) -> list[str]:
@@ -849,7 +823,7 @@ class _Kind:
         """``l`` (the labels), ``fd`` (the first dossier), ``p`` (the signatures) and
         ``t`` (the title), those the plan needs."""
         joins = [
-            f"CROSS JOIN LATERAL (SELECT {self.source.dossiers or _EMPTY}"
+            f"CROSS JOIN LATERAL (SELECT {self.source.dossiers or EMPTY_ARRAY}"
             " AS labels OFFSET 0) l"
         ]
         if self.first_dossier:
@@ -859,7 +833,7 @@ class _Kind:
                 " ORDER BY d.key ASC LIMIT 1) fd ON true"
             )
         if self.plan.needs_persons:
-            persons = (self.source.persons or _EMPTY).replace("{label}", _LABEL)
+            persons = (self.source.persons or EMPTY_ARRAY).replace("{label}", _LABEL)
             joins.append(f"CROSS JOIN LATERAL (SELECT {persons} AS persons OFFSET 0) p")
         if self.plan.filters.q:
             joins.append(
@@ -1011,7 +985,7 @@ def _first_page(source: _Source, head: list[str], order: str) -> str:
 
 _FACET_AGG = (
     "SELECT coalesce(json_agg(json_build_object('value', value, 'count', cnt)"
-    f" ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY})"
+    f" ORDER BY cnt DESC, value ASC NULLS FIRST), {EMPTY_ARRAY})"
 )
 _PER_FACTION = (
     "events CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 0"
@@ -1094,7 +1068,7 @@ _PAPER_TEXT = (
     "CASE WHEN lg_truthy(paper.props -> 'text') THEN paper.props ->> 'text' ELSE '' END"
 )
 # ``case_ids OR []`` and ``signatures OR []`` walked: a value that is no array as ``[]``.
-_CASE_IDS = _array("paper.props -> 'case_ids'")
+_CASE_IDS = array_or_empty("paper.props -> 'case_ids'")
 
 
 def _official_short(label: str) -> str:
@@ -1109,8 +1083,8 @@ def _official_short(label: str) -> str:
                     'title', os.cited, 'basis', 'citation'::text)
                 WHEN os.case_title IS NOT NULL THEN json_build_object(
                     'title', os.case_title, 'basis', 'case'::text)
-                WHEN {_not_null("law.props -> 'bwb_id'")}
-                     AND {_not_null("law.props -> 'citation_title'")}
+                WHEN {is_present("law.props -> 'bwb_id'")}
+                     AND {is_present("law.props -> 'citation_title'")}
                     THEN json_build_object(
                         'title', law.props -> 'citation_title',
                         'basis', 'amended_law'::text)
@@ -1130,7 +1104,7 @@ def _official_short(label: str) -> str:
                          WITH ORDINALITY AS ids(case_id, ord)
                      JOIN {COLLECTION_CASES} c ON c.id = {_lit(COLLECTION_CASES + "/")}
                          || replace(lower(ids.case_id {_JSON_TEXT}), '-', '_')
-                     WHERE {_not_null("c.props -> 'citation_title'")}
+                     WHERE {is_present("c.props -> 'citation_title'")}
                      ORDER BY ids.ord
                      LIMIT 1) AS case_title,
                     ARRAY(
@@ -1154,8 +1128,9 @@ _SIGNATURES = f"""CASE pg.kind
 # A signature as an item shows it: with the key and name of its member (a member's key is
 # its TK GUID made a node key: lower case, ``_``) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
-_MEMBER_NAME = _or(
-    _or("m.props -> 'name'", "m.props -> 'known_as'"), "m.props -> 'government_name'"
+_MEMBER_NAME = truthy_or(
+    truthy_or("m.props -> 'name'", "m.props -> 'known_as'"),
+    "m.props -> 'government_name'",
 )
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
@@ -1166,12 +1141,12 @@ _PERSONS = f"""CROSS JOIN LATERAL (
                     'member_name', {_MEMBER_NAME},
                     'member_key', who.key
                 )) END
-                ORDER BY s.o), {_EMPTY}) AS value
-            FROM json_array_elements({_array("sig.value")})
+                ORDER BY s.o), {EMPTY_ARRAY}) AS value
+            FROM json_array_elements({array_or_empty("sig.value")})
                 WITH ORDINALITY AS s(p, o)
             CROSS JOIN LATERAL (SELECT CASE
                 WHEN lg_truthy(s.p -> 'member_key') THEN s.p -> 'member_key'
-                WHEN {_not_null("s.p -> 'person_id'")}
+                WHEN {is_present("s.p -> 'person_id'")}
                     THEN to_json(replace(lower(s.p ->> 'person_id'), '-', '_'))
             END AS key) who
             LEFT JOIN LATERAL (
@@ -1179,7 +1154,7 @@ _PERSONS = f"""CROSS JOIN LATERAL (
             ) m ON true
         ) persons"""
 
-_CHANGED_TITLE = _or("c.props -> 'citation_title'", "c.props -> 'title'")
+_CHANGED_TITLE = truthy_or("c.props -> 'citation_title'", "c.props -> 'title'")
 # The laws a publication enacts (``establishes``: the regulations that name it as the one
 # that enacted them, with their articles) and those it changes, each once: ``amends``,
 # ``introduces`` or ``repeals`` where every change it makes in the law is of that one kind,
@@ -1191,7 +1166,7 @@ _CHANGED_INSTRUMENTS = f"""CASE WHEN pg.kind = {_lit(EVENT_PUBLICATION)} THEN (
                     'bwb_id', c.props -> 'bwb_id',
                     'effect', c.effect,
                     'article_count', c.articles
-                ) ORDER BY c.rank, c.citation_title ASC NULLS FIRST, c.key ASC), {_EMPTY})
+                ) ORDER BY c.rank, c.citation_title ASC NULLS FIRST, c.key ASC), {EMPTY_ARRAY})
                 FROM (
                     SELECT c.*
                     FROM (
@@ -1222,7 +1197,7 @@ _CHANGED_INSTRUMENTS = f"""CASE WHEN pg.kind = {_lit(EVENT_PUBLICATION)} THEN (
                     ORDER BY c.rank, c.citation_title ASC NULLS FIRST, c.key ASC
                     LIMIT {MAX_CHANGED_INSTRUMENTS}
                 ) c
-            ) ELSE {_EMPTY} END"""
+            ) ELSE {EMPTY_ARRAY} END"""
 
 _CHANGED_ARTICLES = f"""CASE WHEN pg.kind = {_lit(EVENT_COMMENCEMENT)} THEN (
                 SELECT count(*)::int FROM {COLLECTION_ARTICLE_VERSIONS} v
@@ -1239,14 +1214,14 @@ _MATCHED_TITLE = f"""lower(CASE pg.kind
                 WHEN {_lit(EVENT_PUBLICATION)} THEN n.props ->> 'citation_title'
                 WHEN {_lit(EVENT_JUDGMENT)} THEN n.props ->> 'display_name'
                 WHEN {_lit(EVENT_COMMENCEMENT)} THEN instrument.value ->> 'title'
-                ELSE {_text(_or("n.props -> 'subject'", "n.props -> 'title'"))} END)"""
+                ELSE {as_text(truthy_or("n.props -> 'subject'", "n.props -> 'title'"))} END)"""
 # Per word of ``q`` that an item holds, where it holds it (``{term, field}``): its ``title``,
 # else the ``dossier_title`` of its first dossier, else the names of its ``laws`` (of a
 # publication, as ``lawgraph feed-events`` wrote them with its title); read for the items
 # of the page alone.
 _MATCHED = f"""(
                 SELECT coalesce(json_agg(json_build_object('term', w.term, 'field', w.field)
-                                         ORDER BY w.n), {_EMPTY})
+                                         ORDER BY w.n), {EMPTY_ARRAY})
                 FROM (
                     SELECT w.n, w.term, CASE
                         WHEN {_MATCHED_TITLE} ~ w.pattern THEN 'title'
@@ -1297,7 +1272,7 @@ _ITEMS = f"""(
             'via', {{via}},
             'coalition', {coalition_object("co")},
             'coalition_factions', {coalition_factions("co")}
-        ) ORDER BY {_PAGE_ORDER}), {_EMPTY})
+        ) ORDER BY {_PAGE_ORDER}), {EMPTY_ARRAY})
         FROM page pg
         {_node_of("pg")}
         -- of a paper: whether its text is in the data and a motion's dictum, kept light
@@ -1484,9 +1459,9 @@ _SUMMARY = f""",
             'date', d.date,
             'total', d.total,
             'kinds', k.value,
-            'dossiers', coalesce(ds.value, {_EMPTY}),
-            'votes', coalesce(v.value, {_EMPTY})
-        ) ORDER BY d.date DESC NULLS LAST), {_EMPTY}) AS value
+            'dossiers', coalesce(ds.value, {EMPTY_ARRAY}),
+            'votes', coalesce(v.value, {EMPTY_ARRAY})
+        ) ORDER BY d.date DESC NULLS LAST), {EMPTY_ARRAY}) AS value
         FROM (SELECT date, count(*)::int AS total FROM matching GROUP BY date) d
         JOIN day_kinds k ON k.date = d.date
         LEFT JOIN day_dossiers ds ON ds.date = d.date
@@ -1498,7 +1473,7 @@ _SUMMARY = f""",
             'key', d.key,
             'title', d.props -> 'title',
             'official_short', {_official_short("nums.number")}
-        ) ORDER BY nums.number ASC), {_EMPTY}) AS value
+        ) ORDER BY nums.number ASC), {EMPTY_ARRAY}) AS value
         FROM (SELECT DISTINCT dossier AS number FROM matching WHERE dossier IS NOT NULL) nums
         CROSS JOIN LATERAL (
             SELECT d.key, d.props FROM {COLLECTION_DOSSIERS} d
@@ -1862,7 +1837,7 @@ def _facet_per_set(name: str) -> str:
             FROM in_set GROUP BY set_id, value"""
     return f"""(SELECT json_object_agg(set_id, facet) FROM (
             SELECT set_id, coalesce(json_agg(json_build_object('value', value, 'count', cnt)
-                ORDER BY cnt DESC, value ASC NULLS FIRST), {_EMPTY}) AS facet
+                ORDER BY cnt DESC, value ASC NULLS FIRST), {EMPTY_ARRAY}) AS facet
             FROM ({counted}) counted
             GROUP BY set_id
         ) per_set)"""

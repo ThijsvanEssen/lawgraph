@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import NodeWriter
 
 
@@ -18,13 +18,7 @@ class _Store:
 
 
 def _node(key: str, collection: str = "documents", **props) -> Node:
-    return Node(
-        collection=collection,
-        type=NodeType.DOCUMENT,
-        key=key,
-        props=props,
-        _skip_validation=True,
-    )
+    return Node.skeleton(collection, key, props)
 
 
 def test_batches_nodes_and_flushes_the_rest() -> None:
@@ -76,13 +70,7 @@ def test_two_nodes_with_one_key_in_a_batch_merge_as_the_store_does() -> None:
 
 
 def test_node_without_key_is_rejected() -> None:
-    node = Node(
-        collection="documents",
-        type=NodeType.DOCUMENT,
-        key=None,
-        props={},
-        _skip_validation=True,
-    )
+    node = Node.skeleton("documents", None)
     with pytest.raises(ValueError):
         NodeWriter(_Store()).add(node)
 
@@ -109,14 +97,6 @@ def test_a_batch_of_large_nodes_is_written_by_size() -> None:
     writer = NodeWriter(store)
     big = "x" * (nodes_module.MAX_BATCH_BYTES // 4)
     for number in range(9):
-        writer.add(
-            Node(
-                collection="judgments",
-                type=NodeType.JUDGMENT,
-                key=f"j{number}",
-                props={"text": big},
-                _skip_validation=True,
-            )
-        )
+        writer.add(Node.skeleton("judgments", f"j{number}", {"text": big}))
     writer.flush()
     assert [len(docs) for _, docs in store.calls] == [4, 4, 1]

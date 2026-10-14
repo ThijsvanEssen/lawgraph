@@ -9,7 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db import store as store_module
 
@@ -200,16 +200,14 @@ def test_raw_records_keep_their_payload_in_the_payload_store(
 
 
 def test_single_node_writes_and_lookups(store: GraphStore) -> None:
-    node = Node(
-        collection="dossiers", type=NodeType.DOSSIER, key="7", props={"title": "x"}
-    )
+    node = Node(collection="dossiers", key="7", props={"title": "x"})
     stored, created = store.insert_or_update(node)
     assert created and stored.props == {"title": "x"}
     _, created = store.insert_or_update(node)
     assert not created
-    stub = store.ensure_stub_node("judgments", "ecli_x", "judgment", {"ecli": "ECLI:X"})
+    stub = store.ensure_stub_node("judgments", "ecli_x", {"ecli": "ECLI:X"})
     assert stub is not None and stub.props == {"ecli": "ECLI:X", "stub": True}
-    again = store.ensure_stub_node("judgments", "ecli_x", "judgment", {"other": 1})
+    again = store.ensure_stub_node("judgments", "ecli_x", {"other": 1})
     assert again is not None and again.props == {"ecli": "ECLI:X", "stub": True}
     assert store.has_node("dossiers", "7") and not store.has_node("dossiers", "8")
     assert store.existing_keys("dossiers", ["7", "8"]) == {"7"}

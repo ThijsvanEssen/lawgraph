@@ -34,7 +34,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import publication_key, publication_props
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.publications import parse_koop_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
@@ -67,7 +67,6 @@ def trb_node(official_id: str) -> Node | None:
     )
     return Node(
         collection=COLLECTION_INSTRUMENTS,
-        type=NodeType.INSTRUMENT,
         key=publication_key(official_id),
         labels=["Verdrag", "Publication"],
         props={**props, "source": EDGE_SOURCE_VERDRAGENBANK},

@@ -199,7 +199,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 self.store,
                 votes.by_decision,
                 decisions,
-                self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                self._stored(COLLECTION_FACTIONS),
                 source=EDGE_SOURCE,
             )
 
@@ -379,7 +379,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             store,
             normalized["commitments"],
             {
-                **self._stored(COLLECTION_ACTIVITIES, NodeType.ACTIVITY),
+                **self._stored(COLLECTION_ACTIVITIES),
                 **normalized["activities"],
             },
             source=EDGE_SOURCE,
@@ -406,7 +406,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             self._every(RAW_KIND_TK_FRACTIEZETELVACATURE),
             self._every_seat(),
             {
-                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION, ["vacancies"]),
+                **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
                 **normalized["factions"],
             },
         )
@@ -415,7 +415,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             normalized["votes"],
             normalized["decisions"],
             {
-                **self._stored(COLLECTION_FACTIONS, NodeType.FACTION),
+                **self._stored(COLLECTION_FACTIONS),
                 **normalized["factions"],
             },
             source=EDGE_SOURCE,
@@ -514,16 +514,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         """The stored members and factions by TK ``Id``, with the props
         ``link_members_to_factions`` reads."""
         return (
-            self._stored(COLLECTION_MEMBERS, NodeType.MEMBER, ["name"]),
+            self._stored(COLLECTION_MEMBERS, ["name"]),
             self._stored(
                 COLLECTION_FACTIONS,
-                NodeType.FACTION,
                 ["name", "abbreviation", "aliases", "seats_changed_on"],
             ),
         )
 
     def _stored(
-        self, collection: str, node_type: NodeType, names: list[str] | None = None
+        self, collection: str, names: list[str] | None = None
     ) -> dict[str, Node]:
         """The stored nodes of *collection* by TK ``Id``, with the props the edges read
         (or *names*). A faction is reached by the id of each of its Fractie records
@@ -537,13 +536,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         for row in rows:
             props = row["props"]
             ids = props.pop(EXTERNAL_IDS, None) or []
-            node = Node(
-                collection=collection,
-                type=node_type,
-                key=row["key"],
-                props=props,
-                _skip_validation=True,
-            )
+            node = Node.skeleton(collection, row["key"], props)
             for external_id in {row["id"], *ids}:
                 found[external_id] = node
         return found
@@ -569,7 +562,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             key, label, props = parsed
             node = Node(
                 collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
                 key=key,
                 labels=[CHAMBER_TK],
                 props=props,

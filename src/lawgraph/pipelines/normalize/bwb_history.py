@@ -419,7 +419,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     ) -> Node:
         return Node(
             collection=COLLECTION_INSTRUMENT_VERSIONS,
-            type=NodeType.INSTRUMENT_VERSION,
             key=key,
             labels=["BWB", "Version"],
             props={
@@ -449,7 +448,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         props["last_seen"] = start_date  # raised in build_edges
         return Node(
             collection=COLLECTION_ARTICLE_VERSIONS,
-            type=NodeType.ARTICLE_VERSION,
             key=key,
             labels=["BWB", "ArticleVersion"],
             props=props,
@@ -504,7 +502,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         self._upsert_nodes(
             Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key=key,
                 labels=["BWB"],
                 props=seed[by_key[key]],
@@ -616,7 +613,6 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         label = row.get("label") or (article_label(number) if number else None)
         return Node(
             collection=COLLECTION_ARTICLES,
-            type=NodeType.ARTICLE,
             key=key,
             labels=["BWB", "Article"],
             props={

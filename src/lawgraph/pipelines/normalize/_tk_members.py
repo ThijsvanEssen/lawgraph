@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import seat_periods, tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import OPEN_END
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
@@ -60,7 +60,6 @@ def normalize_committees(
         key, props = parsed
         nodes[props["external_id"]] = Node(
             collection=COLLECTION_COMMITTEES,
-            type=NodeType.COMMITTEE,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -93,7 +92,6 @@ def normalize_members(
         key, props = parsed
         nodes[props["external_id"]] = Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -167,7 +165,6 @@ def normalize_factions(
         )
         node = Node(
             collection=COLLECTION_FACTIONS,
-            type=NodeType.FACTION,
             key=key,
             labels=[CHAMBER_TK],
             props=props,

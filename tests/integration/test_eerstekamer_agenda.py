@@ -24,9 +24,7 @@ SITE = "https://www.eerstekamer.nl"
 
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=["EK"], props=props
-    )
+    return Node(collection=collection, key=key, labels=["EK"], props=props)
 
 
 def test_the_agendas_become_activities_about_their_dossiers(

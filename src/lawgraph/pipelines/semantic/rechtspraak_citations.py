@@ -59,7 +59,7 @@ from lawgraph.core.ecli import (
 from lawgraph.core.judgments import body_text, judgment_text, parse_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -274,12 +274,8 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 continue
             from_coll, from_key = from_id.split("/", 1)
             to_coll, to_key = to_id.split("/", 1)
-            from_node = Node(
-                collection=from_coll, type=NodeType.JUDGMENT, key=from_key, props={}
-            )
-            to_node = Node(
-                collection=to_coll, type=NodeType.JUDGMENT, key=to_key, props={}
-            )
+            from_node = Node(collection=from_coll, key=from_key, props={})
+            to_node = Node(collection=to_coll, key=to_key, props={})
             edges.add_doc(
                 self._make_edge_doc(
                     from_node=from_node,

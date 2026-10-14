@@ -22,6 +22,7 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
+from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
@@ -287,7 +288,7 @@ def _count_facets(
 
 # The lids an edge cites, from its ``meta``: ``lid``, ``leden``, and the ``leden`` of each
 # of its ``mentions`` (a judgment cites an article in several places).
-_LIDS = """ARRAY(
+_LIDS = f"""ARRAY(
     SELECT DISTINCT lid FROM (
         SELECT e.doc -> 'meta' ->> 'lid'
         UNION ALL
@@ -295,8 +296,7 @@ _LIDS = """ARRAY(
         UNION ALL
         SELECT unnest(lg_text_array(m.mention -> 'leden'))
         FROM json_array_elements(
-            CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array'
-                 THEN e.doc -> 'meta' -> 'mentions' END
+            {array_or_empty("e.doc -> 'meta' -> 'mentions'")}
         ) AS m(mention)
     ) AS l(lid)
     WHERE lid IS NOT NULL AND lid <> ''

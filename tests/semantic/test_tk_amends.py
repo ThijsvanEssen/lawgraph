@@ -103,13 +103,7 @@ def _make_instrument_node(bwb_id: str, title: str | None = None) -> Node:
     props: dict[str, Any] = {"bwb_id": bwb_id}
     if title:
         props["title"] = title
-    return Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key=key,
-        props=props,
-        _skip_validation=True,
-    )
+    return Node.skeleton("instruments", key, props)
 
 
 def _amends_store() -> _Store:
@@ -174,12 +168,10 @@ def test_a_bill_amends_neither_the_eu_act_it_implements_nor_its_own_act() -> Non
     own = _make_instrument_node(
         "BWBR0052854", title="Wet implementatie Europees centraal toegangspunt"
     )
-    eu = Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key="32023r2869",
-        props={"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
-        _skip_validation=True,
+    eu = Node.skeleton(
+        "instruments",
+        "32023r2869",
+        {"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
     )
     store = _Store(
         pub_docs=[bill],

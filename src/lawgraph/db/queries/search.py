@@ -42,6 +42,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
+from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
     INSTRUMENT_DATE_IN_FORCE,
@@ -65,14 +66,6 @@ SCORE_WORDS = 0.1  # it matched on stems or text only
 _RANK_WEIGHTS = "{0.25, 0.375, 0.5, 1.0}"
 
 Query = tuple[str, dict[str, Any]]
-
-
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, …)`` of JSON values: the first that is neither missing nor null."""
-    cases = " ".join(
-        f"WHEN coalesce(json_typeof({v}), 'null') <> 'null' THEN {v}" for v in values
-    )
-    return f"(CASE {cases} END)"
 
 
 # ── a period ──────────────────────────────────────────────────────────────────
@@ -506,14 +499,12 @@ _ARTICLE_HIT = f"""
             'heading', doc.props -> 'heading',
             'division_titles', (
                 SELECT coalesce(json_agg(b -> 'title' ORDER BY n), '[]'::json)
-                FROM json_array_elements(
-                    CASE WHEN json_typeof(doc.props -> 'breadcrumb') = 'array'
-                         THEN doc.props -> 'breadcrumb' ELSE '[]'::json END
-                ) WITH ORDINALITY AS c(b, n)
-                WHERE coalesce(json_typeof(b -> 'title'), 'null') <> 'null'
+                FROM json_array_elements({array_or_empty("doc.props -> 'breadcrumb'")})
+                    WITH ORDINALITY AS c(b, n)
+                WHERE {is_present("b -> 'title'")}
             ),
             'instrument_title', {
-    _not_null(
+    first_present(
         f"{_INSTRUMENT_PROPS} -> 'citation_title'", f"{_INSTRUMENT_PROPS} -> 'title'"
     )
 },
@@ -734,7 +725,7 @@ _INSTRUMENT_HIT = f"""
         'id', doc.id, 'key', doc.key,
         'collection', 'instruments', 'type', doc.type,
         'display_name', {
-    _not_null(
+    first_present(
         "doc.props -> 'citation_title'",
         "doc.props -> 'display_name'",
         "doc.props -> 'title'",
@@ -862,7 +853,7 @@ def _search_judgments(
             OFFSET 0
         ) doc
         ORDER BY doc.date_eff DESC NULLS LAST,
-                 coalesce(json_typeof(doc.props -> 'translation_of'), 'null') <> 'null',
+                 {is_present("doc.props -> 'translation_of'")},
                  doc.key
         LIMIT %(limit)s
         """,
@@ -1053,7 +1044,7 @@ def _search_dossiers(
         json_build_object(
             'id', doc.id, 'key', doc.key,
             'collection', 'dossiers', 'type', doc.type,
-            'display_name', {_not_null("doc.props -> 'title'", "doc.props -> 'display_name'")},
+            'display_name', {first_present("doc.props -> 'title'", "doc.props -> 'display_name'")},
             'snippet', doc.props -> 'label',
             'extra', json_build_object(
                 'number', doc.props -> 'label',
@@ -1123,7 +1114,7 @@ def _search_documents(
         json_build_object(
             'id', doc.id, 'key', doc.key,
             'collection', 'documents', 'type', doc.type,
-            'display_name', {_not_null("doc.props -> 'title'", "doc.props -> 'display_name'")},
+            'display_name', {first_present("doc.props -> 'title'", "doc.props -> 'display_name'")},
             'snippet', doc.props -> 'kind',
             'extra', json_build_object(
                 'kind', doc.props -> 'kind',

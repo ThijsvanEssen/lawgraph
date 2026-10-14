@@ -29,7 +29,7 @@ from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import annex_article_number
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._annex_detect import (
@@ -138,13 +138,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _annex(key: str) -> Node:
-        return Node(
-            collection=COLLECTION_ANNEXES,
-            type=NodeType.ANNEX,
-            key=key,
-            props={},
-            _skip_validation=True,
-        )
+        return Node.skeleton(COLLECTION_ANNEXES, key)
 
     def _ensure_annex(
         self, bwb_id: str, label: str | None, known_keys: set[str]
@@ -156,7 +150,6 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
         node = self.store.ensure_stub_node(
             COLLECTION_ANNEXES,
             key,
-            NodeType.ANNEX,
             {
                 "bwb_id": bwb_id,
                 "label": label,

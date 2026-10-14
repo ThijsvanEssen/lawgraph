@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import (
     EdgeWriter,
     GraphStore,
@@ -65,7 +65,6 @@ def _member(
 ) -> Node:
     return Node(
         collection=COLLECTION_MEMBERS,
-        type=NodeType.MEMBER,
         key=key,
         labels=["TK"],
         props={
@@ -180,14 +179,12 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
             [
                 Node(
                     collection=COLLECTION_MEMBERS,
-                    type=NodeType.MEMBER,
                     key=VAN_WEEL,
                     labels=["TK"],
                     props={"external_id": VAN_WEEL_ID, "name": "", "display_name": ""},
                 ),
                 Node(
                     collection=COLLECTION_DOCUMENTS,
-                    type=NodeType.DOCUMENT,
                     key="letter",
                     labels=["TK"],
                     props={
@@ -252,7 +249,6 @@ def _signed(store: GraphStore, member: str, key: str, day: str, function: str) -
         writer.add(
             Node(
                 collection=COLLECTION_DOCUMENTS,
-                type=NodeType.DOCUMENT,
                 key=key,
                 labels=["TK"],
                 props={"date": day},
@@ -277,7 +273,6 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
             [
                 Node(
                     collection=COLLECTION_FACTIONS,
-                    type=NodeType.FACTION,
                     key="vvd",
                     labels=["TK"],
                     props={"name": "VVD", "abbreviation": "VVD"},

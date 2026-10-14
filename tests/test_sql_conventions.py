@@ -47,22 +47,18 @@ _SAFE = re.compile(
 
 # (file, term) -> why the term cannot be null.
 _REVIEWED: dict[tuple[str, str], str] = {
+    ("db/queries/_json_sql.py", 'k COLLATE "C"'): "a key of a json object",
     ("db/queries/checks.py", "match"): "a CASE of two strings",
     ("db/queries/checks.py", "named"): "a comparison of a coalesce",
     ("db/queries/nodes.py", "direction"): "a constant of each branch",
     ("db/queries/raw.py", "source"): "filtered on equality",
     ("db/queries/raw.py", "kind"): "filtered on equality",
     ("db/queries/raw.py", "decision"): "filtered on IS NOT NULL",
-    (
-        "db/queries/semantic/__init__.py",
-        'kept.name COLLATE "C"',
-    ): "a key of a json object",
     ("db/queries/semantic/eu.py", "source"): "filtered on equality",
     ("db/queries/semantic/eu.py", "kind"): "filtered on equality",
     ("db/queries/semantic/eu.py", "publication"): (
         "a DISTINCT ON key; the result is ordered by part and n"
     ),
-    ("db/queries/semantic/rechtspraak.py", 'k COLLATE "C"'): "a key",
     ("db/queries/semantic/rechtspraak.py", "fingerprint"): (
         "the md5 of a summary that is there"
     ),
@@ -74,7 +70,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_eff DESC"): "filtered on date_eff <= today",
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
-    ("db/queries/government.py", 'k COLLATE "C"'): "a key",
     ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
     ("db/schema.py", "grp"): "a group number lg_update computes",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
