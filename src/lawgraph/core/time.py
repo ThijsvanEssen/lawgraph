@@ -139,3 +139,7 @@ def long_date(iso: Any) -> str:
     if not (1 <= month <= 12 and 1 <= day <= 31):
         return ""
     return f"{day} {MONTHS[month - 1]} {year}"
+
+
+# The last day of a period that has not ended: it sorts after every real day.
+OPEN_END = "9999-12-31"

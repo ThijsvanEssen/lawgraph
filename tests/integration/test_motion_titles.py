@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, uid
 
 DOSSIER_TITLE = "Rechtsstaat en Rechtsorde"
@@ -268,11 +269,11 @@ class _Repository:
     def __init__(self) -> None:
         self.fetched: list[str] = []
 
-    def fetch_kamerstuk_xml(self, identifier: str) -> str | None:
+    def fetch_kamerstuk_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
         if identifier == "kst-29279-1301":
             return (FIXTURES / "kst_35786_7.xml").read_text(encoding="utf-8")
-        return None
+        raise http_error(404)
 
 
 def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -> None:

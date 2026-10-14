@@ -22,7 +22,6 @@ Flow:
 from __future__ import annotations
 
 import datetime as dt
-import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from typing import Any
 
@@ -33,10 +32,8 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import (
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
     missing_record,
 )
 
@@ -93,10 +90,8 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
             dry_run: When True, log what would happen but make no changes.
         """
         papers = _gaps.kamerstuk_gaps(self.store, kinds)
-        if limit and len(papers) > limit:
-            rest = _gaps.Gaps(papers[:limit])
-            rest.note = f"{limit:,} of {len(papers):,} Kamerstukken without XML, again for the rest"
-            papers = rest
+        if limit:
+            papers = _gaps.Gaps.capped(papers, "Kamerstukken without XML", limit)
         if not papers:
             logger.info("No papers without XML found for kinds %s.", list(kinds))
             return PipelineResult()
@@ -112,50 +107,36 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
     def _fetch_papers(
         self, papers: list[dict[str, Any]], dry_run: bool
     ) -> Iterator[RetrieveRecord]:
-        self.progress.expect(len(papers))
-        streak = FailureStreak("Kamerstuk XML")
-        for paper in papers:
-            identifier = paper["identifier"]
-            if dry_run:
-                self.progress.skip("dry run", identifier)
-                continue
-            record = self._fetch_one(paper, identifier, streak)
-            if record is not None:
-                yield record
-
-    def _fetch_one(
-        self, paper: dict[str, Any], identifier: str, streak: FailureStreak
-    ) -> RetrieveRecord | None:
-        progress = self.progress
-        try:
-            xml = self.client.fetch_kamerstuk_xml(identifier)
-        except Exception as exc:  # noqa: BLE001 — a failed download is counted; a streak stops the step
-            progress.fail(f"download failed ({failure_reason(exc)})", identifier)
-            streak.failed(identifier, exc)
-            return None
-        streak.ok()
-
-        if xml is None:
-            progress.skip("no XML in the repository (HTTP 404)", identifier)
-            return missing_record(
+        if dry_run:
+            self.progress.expect(len(papers))
+            for paper in papers:
+                self.progress.skip("dry run", paper["identifier"])
+            return
+        by_id = {paper["identifier"]: paper for paper in papers}
+        yield from self._download_each(
+            list(by_id),
+            self.client.fetch_kamerstuk_xml,
+            lambda identifier, xml: [
+                RetrieveRecord(
+                    source=SOURCE_TK,
+                    kind=RAW_KIND_TK_KAMERSTUK_XML,
+                    external_id=identifier,
+                    payload_text=xml,
+                    meta={"document": by_id[identifier]["key"]},
+                )
+            ],
+            source="Kamerstuk XML",
+            missing=lambda identifier, status: missing_record(
                 SOURCE_TK,
                 RAW_KIND_TK_KAMERSTUK_XML,
                 identifier,
-                days=_FRESH_RETRY_DAYS if _is_fresh(paper.get("date")) else None,
-            )
-        try:
-            ET.fromstring(xml.lstrip("﻿"))
-        except ET.ParseError:
-            # An error page that answered 200 must not be kept for a paper: it is not asked
-            # for again once a record exists.
-            progress.fail("the XML cannot be read", identifier)
-            return None
-        return RetrieveRecord(
-            source=SOURCE_TK,
-            kind=RAW_KIND_TK_KAMERSTUK_XML,
-            external_id=identifier,
-            payload_text=xml,
-            meta={"document": paper["key"]},
+                status=status,
+                days=(
+                    _FRESH_RETRY_DAYS
+                    if _is_fresh(by_id[identifier].get("date"))
+                    else None
+                ),
+            ),
         )
 
 

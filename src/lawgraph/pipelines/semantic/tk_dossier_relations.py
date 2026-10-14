@@ -52,8 +52,7 @@ from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.core.tk_records import KIND_MOTION
-from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
@@ -88,7 +87,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         )
 
         written: Counter[str] = Counter()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for relation, links in found:
             for link in links:
                 from_key = make_node_key(link.from_label)
@@ -105,11 +104,10 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         written["RELATED_TO between cases"] = self._relate_cases(cases, edges)
         written["moved activities"] = self._continue_moved(edges)
         written["replaced papers"] = self._revise_replaced(edges)
-        made_in = self._motions_made_in(edges)
-        written["motions submitted in a debate"] = len(made_in)
+        written["motions submitted in a debate"] = self._motions_made_in(edges)
         edges.flush_into(result)
-        written["MADE_IN removed"] = semantic_edges.remove_edges_of_source_except(
-            self.store, RELATION_MADE_IN, SEMANTIC_SOURCE, made_in
+        written["MADE_IN removed"] = edges.remove_stale_of_source(
+            RELATION_MADE_IN, SEMANTIC_SOURCE
         )
         logger.info(
             "Dossier relations: %s.",
@@ -156,11 +154,10 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
             count += 1
         return count
 
-    def _motions_made_in(self, edges: EdgeWriter) -> list[str]:
+    def _motions_made_in(self, edges: EdgeWriter) -> int:
         """``MADE_IN`` from each motion to the debate it was submitted in
-        (``semantic_tk.motions_submitted``; ``meta.reason`` ``ingediend``); the keys of the
-        edges, so that one no longer derived goes."""
-        keys = []
+        (``semantic_tk.motions_submitted``; ``meta.reason`` ``ingediend``); how many."""
+        count = 0
         for row in semantic_tk.motions_submitted(
             self.store, KIND_MOTION, ACTIVITY_HELD
         ):
@@ -171,8 +168,8 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 source=SEMANTIC_SOURCE,
                 meta={"reason": "ingediend"},
             )
-            keys.append(edge_key(row["paper"], RELATION_MADE_IN, row["activity"]))
-        return keys
+            count += 1
+        return count
 
     def _continue_moved(self, edges: EdgeWriter) -> int:
         """``CONTINUES`` from the activity that replaced a moved one to it."""

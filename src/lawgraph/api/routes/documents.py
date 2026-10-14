@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import parse_choices
@@ -34,6 +34,7 @@ from lawgraph.db.queries.documents import (
     list_documents,
 )
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 
@@ -116,9 +117,7 @@ def get_document_text(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
-    doc = get_document(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
+    doc = require(get_document(store, key), "Document", key)
     return DocumentTextResponse.from_document(
         doc,
         get_document_links(store, doc["_id"]),
@@ -155,9 +154,7 @@ def get_document_article_passages(
         ),
     ],
 ) -> DocumentPassagesResponse:
-    doc = get_document(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
+    doc = require(get_document(store, key), "Document", key)
     props = doc.get("props") or {}
     text: str | None = props.get("text")
     if not text:

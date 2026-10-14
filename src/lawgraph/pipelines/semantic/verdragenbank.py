@@ -35,8 +35,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION, publication_key
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
-from lawgraph.db import EdgeWriter, NodeWriter, edge_key
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
 
 from .base import SemanticPipelineBase
@@ -95,8 +94,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         )
         wanted = self._wanted(treaties)
         present = self._present(wanted)
-        edges = EdgeWriter(self.store, what=None)
-        kept: dict[str, set[str]] = {}
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         with NodeWriter(self.store) as nodes:
             for source_id, target_id, relation, meta in wanted:
                 if target_id not in present:
@@ -113,35 +111,26 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     confidence=1.0,
                     meta=meta,
                 )
-                kept.setdefault(source_id, set()).add(
-                    edge_key(source_id, relation, target_id)
-                )
         read = [f"{COLLECTION_INSTRUMENTS}/{t['key']}" for t in treaties]
-        same = self._same_as(edges)
+        self._same_as(edges)
         edges.flush_into(result)
         removed = sum(
-            semantic_edges.remove_edges_from(
-                self.store, relation, EDGE_SOURCE_VERDRAGENBANK, read, kept
-            )
+            edges.remove_stale(relation, EDGE_SOURCE_VERDRAGENBANK, read)
             for relation in _RELATIONS
-        ) + semantic_edges.remove_edges_to(
-            self.store, [RELATION_SAME_AS], EDGE_SOURCE_VERDRAGENBANK, read, same
-        )
+        ) + edges.remove_stale_to([RELATION_SAME_AS], EDGE_SOURCE_VERDRAGENBANK, read)
         logger.info(
             "%d treaties: %d edges, %d SAME_AS from their BWB text; removed %d the "
             "register no longer names.",
             len(treaties),
-            sum(len(keys) for keys in kept.values()),
-            sum(len(keys) for keys in same.values()),
+            sum(edges.written(relation) for relation in _RELATIONS),
+            edges.written(RELATION_SAME_AS),
             removed,
         )
         return result
 
-    def _same_as(self, edges: EdgeWriter) -> dict[str, set[str]]:
+    def _same_as(self, edges: EdgeWriter) -> None:
         """Queue SAME_AS from the BWB text of a treaty to its Verdragenbank treaty, by
-        treaty number; the keys queued, per Verdragenbank treaty. Derived in full: an edge
-        whose number no longer matches goes."""
-        kept: dict[str, set[str]] = {}
+        treaty number. Derived in full: an edge whose number no longer matches goes."""
         for row in semantic_verdragenbank.same_treaties(self.store):
             text_id, register_id = row["text_id"], row["register_id"]
             edges.add(
@@ -151,10 +140,6 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 source=EDGE_SOURCE_VERDRAGENBANK,
                 confidence=1.0,
             )
-            kept.setdefault(register_id, set()).add(
-                edge_key(text_id, RELATION_SAME_AS, register_id)
-            )
-        return kept
 
     @staticmethod
     def _wanted(

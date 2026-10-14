@@ -40,9 +40,7 @@ from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.eurlex_nim import measure_publication, measure_summary
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
-from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries.normalize import edges as normalize_edges
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import eu as semantic_eu
 
 from .base import SemanticPipelineBase
@@ -186,29 +184,29 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         result: PipelineResult,
     ) -> set[tuple[str, str]]:
         """Write IMPLEMENTS to the acts in the graph; ``(source id, CELEX)`` written."""
-        keep: list[str] = []
         written: set[tuple[str, str]] = set()
-        with EdgeWriter(self.store, what=None) as edges:
-            for (source_id, celex), link in sorted(links.items()):
-                target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
-                if celex not in acts or source_id == target_id:
-                    continue
-                edges.add(
-                    source_id,
-                    target_id,
-                    RELATION_IMPLEMENTS,
-                    source=EDGE_SOURCE_BWB_IMPLEMENTS,
-                    confidence=1.0,
-                    meta=link.meta(),
-                )
-                keep.append(edge_key(source_id, RELATION_IMPLEMENTS, target_id))
-                written.add((source_id, celex))
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        for (source_id, celex), link in sorted(links.items()):
+            target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
+            if celex not in acts or source_id == target_id:
+                continue
+            edges.add(
+                source_id,
+                target_id,
+                RELATION_IMPLEMENTS,
+                source=EDGE_SOURCE_BWB_IMPLEMENTS,
+                confidence=1.0,
+                meta=link.meta(),
+            )
+            written.add((source_id, celex))
         edges.flush_into(result)
         # the only writer of IMPLEMENTS: every edge it no longer derives goes
-        removed = normalize_edges.remove_edges_except(
-            self.store, RELATION_IMPLEMENTS, keep
+        removed = edges.remove_stale_of_source(RELATION_IMPLEMENTS, None)
+        logger.info(
+            "IMPLEMENTS: %d edges, %d no longer derived.",
+            edges.written(RELATION_IMPLEMENTS),
+            removed,
         )
-        logger.info("IMPLEMENTS: %d edges, %d no longer derived.", len(keep), removed)
         return written
 
     def _write_mentions(
@@ -220,28 +218,28 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
     ) -> None:
         """REFERS_TO from a regulation to the EU acts its text names and it does not
         implement."""
-        keep: list[str] = []
-        with EdgeWriter(self.store, what=None) as edges:
-            for source_id, celexes in sorted(named.items()):
-                for celex in sorted(celexes):
-                    target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
-                    if celex not in acts or (source_id, celex) in implemented:
-                        continue
-                    if source_id == target_id:
-                        continue
-                    edges.add(
-                        source_id,
-                        target_id,
-                        RELATION_REFERS_TO,
-                        source=EDGE_SOURCE_BWB_IMPLEMENTS,
-                        confidence=1.0,
-                        meta={"celex": celex},
-                    )
-                    keep.append(edge_key(source_id, RELATION_REFERS_TO, target_id))
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        for source_id, celexes in sorted(named.items()):
+            for celex in sorted(celexes):
+                target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
+                if celex not in acts or (source_id, celex) in implemented:
+                    continue
+                if source_id == target_id:
+                    continue
+                edges.add(
+                    source_id,
+                    target_id,
+                    RELATION_REFERS_TO,
+                    source=EDGE_SOURCE_BWB_IMPLEMENTS,
+                    confidence=1.0,
+                    meta={"celex": celex},
+                )
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_of_source_except(
-            self.store, RELATION_REFERS_TO, EDGE_SOURCE_BWB_IMPLEMENTS, keep
+        removed = edges.remove_stale_of_source(
+            RELATION_REFERS_TO, EDGE_SOURCE_BWB_IMPLEMENTS
         )
         logger.info(
-            "REFERS_TO an EU act: %d edges, %d no longer derived.", len(keep), removed
+            "REFERS_TO an EU act: %d edges, %d no longer derived.",
+            edges.written(RELATION_REFERS_TO),
+            removed,
         )

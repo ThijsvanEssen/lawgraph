@@ -24,11 +24,14 @@ from typing import Callable, Iterable
 
 from lawgraph.core.citations import (
     CitationHit,
-    EUInstrumentKind,
     format_celex,
     make_snippet,
 )
-from lawgraph.core.identifiers import BWB_ID_PATTERN, has_possible_year
+from lawgraph.core.identifiers import (
+    BWB_ID_PATTERN,
+    EUInstrumentKind,
+    has_possible_year,
+)
 
 HitRecorder = Callable[[CitationHit], None]
 

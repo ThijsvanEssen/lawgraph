@@ -537,7 +537,8 @@ downloaded. A judgment that is stored and was fetched after its last change (`up
 index) is skipped, so a re-run or a resumed run only downloads the rest. The index is asked
 for `type=Uitspraak` only, so a conclusion arrives through `--ecli` or `--mode gaps` (a
 conclusion that is cited). A judgment that answers HTTP 404 becomes an `rs-content-missing`
-record (data model, raw_sources), which `--mode gaps` leaves out while it waits.
+record (data model, raw_sources), which `--mode gaps` leaves out while it waits. A page that is
+not XML is not stored, and 25 failed downloads in a row fail the step.
 
 | Option | Meaning |
 |--------|---------|
@@ -854,7 +855,8 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 Stored as `eu-celex-html` while the acts are fetched; an act stored in the last 24 hours is
 skipped. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
-(data model, raw_sources).
+(data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
+fails the step, and so does `com` on a graph without EU acts.
 
 **Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
 `NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;
@@ -1204,7 +1206,9 @@ that node comes from `bwb-amendments`.
 Staatsblad records, which are dropped: about 13,800 regulations).
 
 **Retrieve.** `incremental` (default) searches the SRU (`--since`), `full` fetches all,
-`--identifiers` fetches given `stcrt-YYYY-N` identifiers.
+`--identifiers` fetches given `stcrt-YYYY-N` identifiers. An empty listing fails the step
+unless it has a `--since`; a page that is not XML is not stored, and 25 failed downloads in a
+row fail the step.
 
 **Normalize.** Document (`kind` "Ministeriële regeling", `title`, `text`, `bwb_id`, `date`),
 key `stcrt_<identifier>`.

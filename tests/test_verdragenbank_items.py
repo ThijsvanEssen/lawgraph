@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 import requests
 
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -20,7 +21,7 @@ from lawgraph.core.progress import Progress
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from tests.fakes import FakeResponse, InMemoryStore
+from tests.fakes import FakeResponse, InMemoryStore, http_error
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # Convention for the protection of the architectural heritage of Europe (Granada, 1985)
@@ -150,17 +151,13 @@ def _client(answer: Any) -> VerdragenbankClient:
     return client
 
 
-def _http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status}", response=response)
-
-
-def test_the_client_returns_the_item_xml_and_none_for_a_404() -> None:
+def test_the_client_returns_the_item_xml_and_raises_for_what_is_not() -> None:
     assert _client(GRANADA).fetch_treaty_xml("https://x/000004.xml") == GRANADA
-    assert _client(_http_error(404)).fetch_treaty_xml("https://x/000009.xml") is None
-    with pytest.raises(requests.HTTPError):
-        _client(_http_error(503)).fetch_treaty_xml("https://x/000004.xml")
+    for status in (404, 503):
+        with pytest.raises(requests.HTTPError):
+            _client(http_error(status)).fetch_treaty_xml("https://x/000004.xml")
+    with pytest.raises(UnexpectedAnswer):
+        _client("<html>Bad gateway").fetch_treaty_xml("https://x/000026.xml")
 
 
 # ── the retrieve ─────────────────────────────────────────────────────────────
@@ -184,7 +181,7 @@ class _Client:
             for identifier in self.items
         ]
 
-    def fetch_treaty_xml(self, item_url: str) -> str | None:
+    def fetch_treaty_xml(self, item_url: str) -> str:
         self.asked.append(item_url)
         answer = self.items[item_url.rsplit("/", 1)[-1].removesuffix(".xml")]
         if isinstance(answer, Exception):
@@ -221,7 +218,9 @@ def test_the_retrieve_keeps_the_summary_and_the_item_xml_of_each_treaty() -> Non
 
 
 def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
-    records, _ = _retrieve({"000009": None, "000026": "<html>Bad gateway"})
+    records, _ = _retrieve(
+        {"000009": http_error(404), "000026": UnexpectedAnswer("not XML")}
+    )
 
     items = [r for r in records if r.kind != RAW_KIND_VERDRAG]
     assert [(r.kind, r.external_id) for r in items] == [

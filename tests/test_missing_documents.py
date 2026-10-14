@@ -15,17 +15,11 @@ from lawgraph.config.constants import (
 from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-from tests.fakes import InMemoryStore
+from tests.fakes import InMemoryStore, http_error
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
 MISSING_KIND = RAW_KIND_EU_CELEX + RAW_KIND_MISSING_SUFFIX
-
-
-def _http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status} Client Error", response=response)
 
 
 def _missing(store: InMemoryStore, celex: str) -> dict[str, Any]:
@@ -47,7 +41,7 @@ class _Eu:
 
 def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
     store = InMemoryStore()
-    eu = _Eu({"32010L0064": "<html/>", "31958R0001(01)": _http_error(404)})
+    eu = _Eu({"32010L0064": "<html/>", "31958R0001(01)": http_error(404)})
     ids = ["32010L0064", "31958R0001(01)"]
 
     first = EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=ids)  # type: ignore[arg-type]
@@ -70,7 +64,7 @@ def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
 
 def test_a_missing_document_is_tried_again_after_thirty_days() -> None:
     store = InMemoryStore()
-    eu = _Eu({"31958R0001(01)": _http_error(404)})
+    eu = _Eu({"31958R0001(01)": http_error(404)})
     EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["31958R0001(01)"])  # type: ignore[arg-type]
 
     _missing(store, "31958R0001(01)")["meta"]["retry_after"] = "2020-01-01T00:00:00Z"
@@ -81,7 +75,7 @@ def test_a_missing_document_is_tried_again_after_thirty_days() -> None:
 
 def test_a_failure_that_is_not_a_404_is_not_remembered() -> None:
     store = InMemoryStore()
-    eu = _Eu({"32010L0064": _http_error(503)})
+    eu = _Eu({"32010L0064": http_error(503)})
     EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["32010L0064"])  # type: ignore[arg-type]
     assert store.raw == {}
 
@@ -89,9 +83,9 @@ def test_a_failure_that_is_not_a_404_is_not_remembered() -> None:
 def test_a_run_of_4xx_answers_does_not_mean_the_source_is_down() -> None:
     streak = FailureStreak("EUR-Lex", limit=3)
     for _ in range(10):
-        streak.failed("some act", _http_error(400))
+        streak.failed("some act", http_error(400))
     for status in (500, 429):
-        streak.failed("some act", _http_error(status))
+        streak.failed("some act", http_error(status))
     with pytest.raises(SourceDown):
         streak.failed("some act", requests.ConnectionError("no route"))
 
@@ -118,4 +112,4 @@ def test_a_source_that_refuses_everything_is_down_not_a_list_of_skips() -> None:
     streak = FailureStreak("Rechtspraak", limit=3)
     with pytest.raises(SourceDown):
         for _ in range(3):
-            streak.failed("some judgment", _http_error(403))
+            streak.failed("some judgment", http_error(403))

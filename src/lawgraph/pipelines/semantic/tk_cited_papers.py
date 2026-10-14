@@ -40,9 +40,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, is_motion
-from lawgraph.db import EdgeWriter, edge_key
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
@@ -68,9 +67,6 @@ class NamedInText:
     ref: PaperRef
     basis: str
     place: str
-
-
-Kept = dict[str, dict[str, set[str]]]  # relation -> paper -> keys of its edges
 
 
 def relation_of(source_kind: str | None, target_kind: str | None) -> str:
@@ -136,9 +132,11 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 ),
             )
         }
-        kept, written = self._write(named, found, result)
-        self._write_answers_in_text(in_text, named, found, kept, written, result)
-        removed = self._remove_stale(kept, ids)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        written = self._write(named, found, edges)
+        written += self._write_answers_in_text(in_text, named, found, edges)
+        edges.flush_into(result)
+        removed = self._remove_stale(edges, ids)
         result.skipped += written["not found"]
         logger.info(
             "Kamerstukken named: %d in %d papers; %s; removed %d.",
@@ -196,13 +194,11 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         self,
         named: Iterable[tuple[dict[str, Any], PaperRef]],
         found: dict[PaperKey, dict[str, Any]],
-        result: PipelineResult,
-    ) -> tuple[Kept, Counter[str]]:
-        """Write an edge for every paper named that is in the graph; the keys kept per
-        relation and paper, and how many of each relation and how many not found."""
-        kept: Kept = {relation: {} for relation in RELATIONS}
+        edges: EdgeWriter,
+    ) -> Counter[str]:
+        """Queue an edge for every paper named that is in the graph; how many of each
+        relation and how many not found."""
         written: Counter[str] = Counter()
-        edges = EdgeWriter(self.store, what=None)
         for row, ref in named:
             target = found.get(_key(ref))
             if target is None:
@@ -222,28 +218,22 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 confidence=1.0,
                 meta={"basis": BASIS, "text": text, "reference": ref.text},
             )
-            key = edge_key(source_id, relation, target_id)
-            if key not in kept[relation].setdefault(source_id, set()):
-                kept[relation][source_id].add(key)
-                written[relation] += 1
-        edges.flush_into(result)
-        return kept, written
+        written.update({r: n for r in RELATIONS if (n := edges.written(r))})
+        return written
 
     def _write_answers_in_text(
         self,
         in_text: list[NamedInText],
         named: list[tuple[dict[str, Any], PaperRef]],
         found: dict[PaperKey, dict[str, Any]],
-        kept: Kept,
-        written: Counter[str],
-        result: PipelineResult,
-    ) -> None:
-        """``ANSWERS`` from a letter to each motion its text or footnotes name that its
-        subject does not, once per letter and motion (the first place it is named)."""
+        edges: EdgeWriter,
+    ) -> Counter[str]:
+        """Queue ``ANSWERS`` from a letter to each motion its text or footnotes name that
+        its subject does not, once per letter and motion (the first place it is named);
+        how many."""
         by_subject = {
             (str(row["id"]), _key(ref)) for row, ref in named if _key(ref) in found
         }
-        edges = EdgeWriter(self.store, what=None)
         done: set[tuple[str, PaperKey]] = set()
         for item in in_text:
             target = found.get(_key(item.ref))
@@ -270,25 +260,17 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                     "reference": item.ref.text,
                 },
             )
-            key = edge_key(item.letter, RELATION_ANSWERS, str(target["id"]))
-            kept[RELATION_ANSWERS].setdefault(item.letter, set()).add(key)
-            written[f"{RELATION_ANSWERS} from the text"] += 1
-        edges.flush_into(result)
+        return Counter({f"{RELATION_ANSWERS} from the text": len(done)})
 
-    def _remove_stale(self, kept: Kept, ids: list[str] | None) -> int:
+    @staticmethod
+    def _remove_stale(edges: EdgeWriter, ids: list[str] | None) -> int:
         """Remove the edges of this step no longer derived: of the papers *ids*, or of
         every paper when it is ``None``."""
-        removed = 0
-        for relation, per_paper in kept.items():
-            if ids is None:
-                removed += semantic_edges.remove_edges_of_source_except(
-                    self.store,
-                    relation,
-                    SEMANTIC_SOURCE,
-                    sorted(key for keys in per_paper.values() for key in keys),
-                )
-            else:
-                removed += semantic_edges.remove_edges_from(
-                    self.store, relation, SEMANTIC_SOURCE, ids, per_paper
-                )
-        return removed
+        if ids is None:
+            return sum(
+                edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+                for relation in RELATIONS
+            )
+        return sum(
+            edges.remove_stale(relation, SEMANTIC_SOURCE, ids) for relation in RELATIONS
+        )

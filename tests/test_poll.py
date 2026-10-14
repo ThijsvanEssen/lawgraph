@@ -7,11 +7,11 @@ import datetime as dt
 import pytest
 
 from lawgraph.commands import poll
+from lawgraph.core.courts import owms_terms
 from lawgraph.core.feed import FEED_TIERS
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.command import Outcome, State
-from lawgraph.pipelines.retrieve.rechtspraak import resolve_courts
 
 
 def _ran(
@@ -70,7 +70,7 @@ def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> 
     argv = dict(ran)["retrieve rechtspraak"]
     courts = [argv[i + 1] for i, option in enumerate(argv) if option == "--court"]
     assert courts == list(FEED_TIERS)
-    assert len(resolve_courts(courts)) == len(FEED_TIERS)  # each a known tier
+    assert len(owms_terms(courts)) == len(FEED_TIERS)  # each a known tier
     assert "--since" in dict(ran)["normalize rechtspraak"]
 
 

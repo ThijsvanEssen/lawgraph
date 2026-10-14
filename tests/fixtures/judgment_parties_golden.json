@@ -1,0 +1,268 @@
+{
+ "rechtspraak_crvb_2025_1295.xml": {
+  "administrative": "26b08869994fa689a4a540de729e0f33f9d53ffd356632888a788ca523d06595",
+  "civil": "ce40f52f705897daab19812d58d398b7ce83aa52283217f95cc3fa5aff8722c9",
+  "criminal": "ce40f52f705897daab19812d58d398b7ce83aa52283217f95cc3fa5aff8722c9",
+  "none": "ce40f52f705897daab19812d58d398b7ce83aa52283217f95cc3fa5aff8722c9",
+  "own": "26b08869994fa689a4a540de729e0f33f9d53ffd356632888a788ca523d06595"
+ },
+ "rechtspraak_ghams_2026_2678.xml": {
+  "administrative": "a9c230abbd533c7a0bd667a81c79a2e1e57437a1c8877b7432ee21d2c6af5b3a",
+  "civil": "a9c230abbd533c7a0bd667a81c79a2e1e57437a1c8877b7432ee21d2c6af5b3a",
+  "criminal": "a9c230abbd533c7a0bd667a81c79a2e1e57437a1c8877b7432ee21d2c6af5b3a",
+  "none": "a9c230abbd533c7a0bd667a81c79a2e1e57437a1c8877b7432ee21d2c6af5b3a",
+  "own": "a9c230abbd533c7a0bd667a81c79a2e1e57437a1c8877b7432ee21d2c6af5b3a"
+ },
+ "rechtspraak_ghams_2026_2707.xml": {
+  "administrative": "68c8503e48f373adc364d2091340940ea941eec036378d8b77a4f883b1e099c8",
+  "civil": "68c8503e48f373adc364d2091340940ea941eec036378d8b77a4f883b1e099c8",
+  "criminal": "68c8503e48f373adc364d2091340940ea941eec036378d8b77a4f883b1e099c8",
+  "none": "68c8503e48f373adc364d2091340940ea941eec036378d8b77a4f883b1e099c8",
+  "own": "68c8503e48f373adc364d2091340940ea941eec036378d8b77a4f883b1e099c8"
+ },
+ "rechtspraak_gharl_2026_6033.xml": {
+  "administrative": "858265de9f012b9f4fbe6b31c2029d6ac155757b93829ed9384447f00e47e3ba",
+  "civil": "e428be2a0403d55afda49c8abc7eb16aec7522e9618d68bc88c8479bd56b0cff",
+  "criminal": "410d597c3d97d5a281fbb35e02c885b6646eb16ce7ad3ad4fe03686b5bacac9e",
+  "none": "bc2c237b309635788864df65f9c0175c2210569b396e28627f9a6d8f25e30b26",
+  "own": "e428be2a0403d55afda49c8abc7eb16aec7522e9618d68bc88c8479bd56b0cff"
+ },
+ "rechtspraak_gharl_2026_6060.xml": {
+  "administrative": "cd27f50aba1c3b0ee825c1edbb9c0a4460a5ee924b2a00206fb8d6b69e9d5e68",
+  "civil": "cd27f50aba1c3b0ee825c1edbb9c0a4460a5ee924b2a00206fb8d6b69e9d5e68",
+  "criminal": "133f4904c03e5309ef749e63b1f390b3a0682eddf0b40c26150c81d3d5044242",
+  "none": "cd27f50aba1c3b0ee825c1edbb9c0a4460a5ee924b2a00206fb8d6b69e9d5e68",
+  "own": "133f4904c03e5309ef749e63b1f390b3a0682eddf0b40c26150c81d3d5044242"
+ },
+ "rechtspraak_ghdha_2026_2908.xml": {
+  "administrative": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "civil": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "criminal": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "none": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "own": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f"
+ },
+ "rechtspraak_ghshe_2026_2210.xml": {
+  "administrative": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "civil": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "criminal": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "none": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "own": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f"
+ },
+ "rechtspraak_hr_1965_ab7079.xml": {
+  "administrative": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "civil": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "criminal": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "none": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "own": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+ },
+ "rechtspraak_hr_2019_1278.xml": {
+  "administrative": "695df713e14eb6df4f1e0a18b663124b06788e682ecdd814d67a544feebb1630",
+  "civil": "695df713e14eb6df4f1e0a18b663124b06788e682ecdd814d67a544feebb1630",
+  "criminal": "695df713e14eb6df4f1e0a18b663124b06788e682ecdd814d67a544feebb1630",
+  "none": "695df713e14eb6df4f1e0a18b663124b06788e682ecdd814d67a544feebb1630",
+  "own": "695df713e14eb6df4f1e0a18b663124b06788e682ecdd814d67a544feebb1630"
+ },
+ "rechtspraak_hr_2019_2006.xml": {
+  "administrative": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "civil": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "criminal": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "none": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "own": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570"
+ },
+ "rechtspraak_hr_2019_2006_text.xml": {
+  "administrative": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "civil": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "criminal": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "none": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570",
+  "own": "4cb5efa62dd32be547eba5aea2868d79f8af66ba0644a7d8e975f1d3bebd0570"
+ },
+ "rechtspraak_hr_2019_2007.xml": {
+  "administrative": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "civil": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "criminal": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "none": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "own": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+ },
+ "rechtspraak_hr_2021_1215.xml": {
+  "administrative": "8457ec9935285dc5e036fe3c333c151fa3c53f7a99ec82e9fc429d6fbeced170",
+  "civil": "8457ec9935285dc5e036fe3c333c151fa3c53f7a99ec82e9fc429d6fbeced170",
+  "criminal": "8457ec9935285dc5e036fe3c333c151fa3c53f7a99ec82e9fc429d6fbeced170",
+  "none": "8457ec9935285dc5e036fe3c333c151fa3c53f7a99ec82e9fc429d6fbeced170",
+  "own": "8457ec9935285dc5e036fe3c333c151fa3c53f7a99ec82e9fc429d6fbeced170"
+ },
+ "rechtspraak_hr_2026_1356.xml": {
+  "administrative": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "civil": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "criminal": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "none": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "own": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f"
+ },
+ "rechtspraak_hr_2026_1357.xml": {
+  "administrative": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "civil": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "criminal": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "none": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f",
+  "own": "89a9735ce1433998ae3723fa3ed07b16d909442c2aef5d5786b1f4f8930de11f"
+ },
+ "rechtspraak_hr_2026_1434.xml": {
+  "administrative": "5c7b81f056ebcc16ae9e768f27538b0a0db95efbaffb055bf3b1a26c3a4dfb92",
+  "civil": "5c7b81f056ebcc16ae9e768f27538b0a0db95efbaffb055bf3b1a26c3a4dfb92",
+  "criminal": "5c7b81f056ebcc16ae9e768f27538b0a0db95efbaffb055bf3b1a26c3a4dfb92",
+  "none": "5c7b81f056ebcc16ae9e768f27538b0a0db95efbaffb055bf3b1a26c3a4dfb92",
+  "own": "5c7b81f056ebcc16ae9e768f27538b0a0db95efbaffb055bf3b1a26c3a4dfb92"
+ },
+ "rechtspraak_hr_2026_1504.xml": {
+  "administrative": "1598c78a69568d5ce61212546b59bcfcb6833f0a89a1fd6f8f6ec67d225e4809",
+  "civil": "1598c78a69568d5ce61212546b59bcfcb6833f0a89a1fd6f8f6ec67d225e4809",
+  "criminal": "1598c78a69568d5ce61212546b59bcfcb6833f0a89a1fd6f8f6ec67d225e4809",
+  "none": "1598c78a69568d5ce61212546b59bcfcb6833f0a89a1fd6f8f6ec67d225e4809",
+  "own": "1598c78a69568d5ce61212546b59bcfcb6833f0a89a1fd6f8f6ec67d225e4809"
+ },
+ "rechtspraak_hr_2026_1530.xml": {
+  "administrative": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "civil": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "criminal": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "none": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "own": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+ },
+ "rechtspraak_phr_2020_453.xml": {
+  "administrative": "452cb9584627bb79916e9a95f985ce49f2d07113fb5a280256cdbec84f8ae946",
+  "civil": "f3af83acdbb77fb4e142ea9ee0a867da8efcf578fff9809eb0831c32120ac978",
+  "criminal": "4e7317d9768b2d3261271701434b657a2d68e1eff39d88cdea8c2c0d4225dbf8",
+  "none": "7b6411499bea067cffdbff825df3d3b7333ffd4999e46305047c442155edcfb6",
+  "own": "f3af83acdbb77fb4e142ea9ee0a867da8efcf578fff9809eb0831c32120ac978"
+ },
+ "rechtspraak_phr_2023_1042.xml": {
+  "administrative": "b7be77a90fa1c36529357247b78e13869f1254b7e1f90bbb039b5eee19004e78",
+  "civil": "c58bc2678ef3122f92a25054c32fee20e33ab58dd7565dcea7798365e4d68ac5",
+  "criminal": "50b25c3dcd6f64a8f4c49f9789401892882f724aa33a5e68c459e48ec9d454f9",
+  "none": "8e7466dfbed59dff50f22779ac410281f1a91490c09ac45356199ca3b353bb79",
+  "own": "b7be77a90fa1c36529357247b78e13869f1254b7e1f90bbb039b5eee19004e78"
+ },
+ "rechtspraak_phr_2026_619.xml": {
+  "administrative": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "civil": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "criminal": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "none": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "own": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf"
+ },
+ "rechtspraak_phr_2026_901.xml": {
+  "administrative": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "civil": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "criminal": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "none": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf",
+  "own": "ca97eea82c12001839e1504a064a4867d727072719d2cf7a91ab7e5e29f1ffaf"
+ },
+ "rechtspraak_rbams_2024_81.xml": {
+  "administrative": "bb90f092f0936baed815e2c2826da0a9cd52ef19e552816084b3951a2658c795",
+  "civil": "893dac3815f551514d51f032ab94c2f2f4da5d5da08fb8b9eeab97ca6325263a",
+  "criminal": "4e19ea765bb73335d959c8134361920ca988bd73a23cc72374162c1ec3c4aa1c",
+  "none": "f390a95427c678f291c3cb8edef5f5e6bd8faaebafd6187b553a7439c8114a5f",
+  "own": "893dac3815f551514d51f032ab94c2f2f4da5d5da08fb8b9eeab97ca6325263a"
+ },
+ "rechtspraak_rbams_2025_3600.xml": {
+  "administrative": "c73609ab171c81612f5663f5a9877df61ee3dcf52d4ce4bbdabd07c668da4531",
+  "civil": "c73609ab171c81612f5663f5a9877df61ee3dcf52d4ce4bbdabd07c668da4531",
+  "criminal": "c73609ab171c81612f5663f5a9877df61ee3dcf52d4ce4bbdabd07c668da4531",
+  "none": "c73609ab171c81612f5663f5a9877df61ee3dcf52d4ce4bbdabd07c668da4531",
+  "own": "c73609ab171c81612f5663f5a9877df61ee3dcf52d4ce4bbdabd07c668da4531"
+ },
+ "rechtspraak_rbams_2025_8258.xml": {
+  "administrative": "a7c0fe4095fd6d8a2bd8473f0393aff70131c418b2bf7b5460ff425b2b38ccdd",
+  "civil": "a7c0fe4095fd6d8a2bd8473f0393aff70131c418b2bf7b5460ff425b2b38ccdd",
+  "criminal": "a7c0fe4095fd6d8a2bd8473f0393aff70131c418b2bf7b5460ff425b2b38ccdd",
+  "none": "a7c0fe4095fd6d8a2bd8473f0393aff70131c418b2bf7b5460ff425b2b38ccdd",
+  "own": "a7c0fe4095fd6d8a2bd8473f0393aff70131c418b2bf7b5460ff425b2b38ccdd"
+ },
+ "rechtspraak_rbdha_2026_12077.xml": {
+  "administrative": "eed7101e7857ac168ac0fbac26503ee596b9aaa236093d674e8fe5fbfbf0e36b",
+  "civil": "eed7101e7857ac168ac0fbac26503ee596b9aaa236093d674e8fe5fbfbf0e36b",
+  "criminal": "eed7101e7857ac168ac0fbac26503ee596b9aaa236093d674e8fe5fbfbf0e36b",
+  "none": "eed7101e7857ac168ac0fbac26503ee596b9aaa236093d674e8fe5fbfbf0e36b",
+  "own": "eed7101e7857ac168ac0fbac26503ee596b9aaa236093d674e8fe5fbfbf0e36b"
+ },
+ "rechtspraak_rbmne_2026_3708.xml": {
+  "administrative": "efa53528b851bb08cfc5557855ae0f8356f1f0dd373b9e1eaa62ace761bf8a92",
+  "civil": "0fbcbc281dbb876895beddb55954efac659bc2d21a49394873cbd15258df400f",
+  "criminal": "9c1f73d0f4a23d100de3432a1ad0efd4cf10806c41fb49bd5e402062706cd017",
+  "none": "0fbcbc281dbb876895beddb55954efac659bc2d21a49394873cbd15258df400f",
+  "own": "9c1f73d0f4a23d100de3432a1ad0efd4cf10806c41fb49bd5e402062706cd017"
+ },
+ "rechtspraak_rbmne_2026_3889.xml": {
+  "administrative": "d5395d307c084dc520ffdc2064e81028a6675dc4f5c22f37dd56c4cda3d596c3",
+  "civil": "d5395d307c084dc520ffdc2064e81028a6675dc4f5c22f37dd56c4cda3d596c3",
+  "criminal": "d5395d307c084dc520ffdc2064e81028a6675dc4f5c22f37dd56c4cda3d596c3",
+  "none": "d5395d307c084dc520ffdc2064e81028a6675dc4f5c22f37dd56c4cda3d596c3",
+  "own": "d5395d307c084dc520ffdc2064e81028a6675dc4f5c22f37dd56c4cda3d596c3"
+ },
+ "rechtspraak_rbnne_2026_2437.xml": {
+  "administrative": "47aa5a47cdf9d9854c1654c2f0473fd3d570aed3f730fef5df298e96fb5fd9a7",
+  "civil": "47aa5a47cdf9d9854c1654c2f0473fd3d570aed3f730fef5df298e96fb5fd9a7",
+  "criminal": "47aa5a47cdf9d9854c1654c2f0473fd3d570aed3f730fef5df298e96fb5fd9a7",
+  "none": "47aa5a47cdf9d9854c1654c2f0473fd3d570aed3f730fef5df298e96fb5fd9a7",
+  "own": "47aa5a47cdf9d9854c1654c2f0473fd3d570aed3f730fef5df298e96fb5fd9a7"
+ },
+ "rechtspraak_rbrot_2022_10632.xml": {
+  "administrative": "facd8742dc360cc24f1f3ab09b0dbe76302f0375b53de6f9e77579495ea3b57e",
+  "civil": "ff2c78a7c029f558ba0fb70577bea329fb8b9cc877daddc7109e99984e0aef9a",
+  "criminal": "ff2c78a7c029f558ba0fb70577bea329fb8b9cc877daddc7109e99984e0aef9a",
+  "none": "ff2c78a7c029f558ba0fb70577bea329fb8b9cc877daddc7109e99984e0aef9a",
+  "own": "facd8742dc360cc24f1f3ab09b0dbe76302f0375b53de6f9e77579495ea3b57e"
+ },
+ "rechtspraak_rbrot_2022_12313.xml": {
+  "administrative": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b",
+  "civil": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b",
+  "criminal": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b",
+  "none": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b",
+  "own": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b"
+ },
+ "rechtspraak_rbzwb_2026_1134.xml": {
+  "administrative": "75e4ec7f393590b746ef24b476918dc8490fa079a8b070243e840fea5d560416",
+  "civil": "43169015316700d2a4add7dd4b709dc931956f86be17523dac89f978a5a237f6",
+  "criminal": "c8faf25336985ad397ab7535cb851f054bfdf18c1a350c8b1172d96a398d0d03",
+  "none": "ab4ed49a8338e090ec12e9fd6addbaa9a759863793ed777855a04a1b0173a073",
+  "own": "43169015316700d2a4add7dd4b709dc931956f86be17523dac89f978a5a237f6"
+ },
+ "rechtspraak_rvs_2007_bb0782.xml": {
+  "administrative": "09a5cd1220c8da2498c90eede1964b5136fab5edc6a83443d3bd650ecef9e1dd",
+  "civil": "09a5cd1220c8da2498c90eede1964b5136fab5edc6a83443d3bd650ecef9e1dd",
+  "criminal": "09a5cd1220c8da2498c90eede1964b5136fab5edc6a83443d3bd650ecef9e1dd",
+  "none": "09a5cd1220c8da2498c90eede1964b5136fab5edc6a83443d3bd650ecef9e1dd",
+  "own": "09a5cd1220c8da2498c90eede1964b5136fab5edc6a83443d3bd650ecef9e1dd"
+ },
+ "rechtspraak_rvs_2019_1427.xml": {
+  "administrative": "f38dbf1dbc76b01be423d2f36cabbf52e6eecd9b4e8095574abd538957dce828",
+  "civil": "f38dbf1dbc76b01be423d2f36cabbf52e6eecd9b4e8095574abd538957dce828",
+  "criminal": "31370ce4a6509453a36aaa3ede5553fc2aa849d9e0a5aa49628e95443fc857c7",
+  "none": "f38dbf1dbc76b01be423d2f36cabbf52e6eecd9b4e8095574abd538957dce828",
+  "own": "f38dbf1dbc76b01be423d2f36cabbf52e6eecd9b4e8095574abd538957dce828"
+ },
+ "rechtspraak_rvs_2026_5642.xml": {
+  "administrative": "acdc847ef75679ce19c9d6fdbe3530461a0df8801e212c0f8359ad73e064afce",
+  "civil": "acdc847ef75679ce19c9d6fdbe3530461a0df8801e212c0f8359ad73e064afce",
+  "criminal": "acdc847ef75679ce19c9d6fdbe3530461a0df8801e212c0f8359ad73e064afce",
+  "none": "acdc847ef75679ce19c9d6fdbe3530461a0df8801e212c0f8359ad73e064afce",
+  "own": "acdc847ef75679ce19c9d6fdbe3530461a0df8801e212c0f8359ad73e064afce"
+ },
+ "rechtspraak_rvs_2026_5659.xml": {
+  "administrative": "6126aa07389bfa34563e1d0617d844a7dbdb21fc87dec69110e283fad0ec6c77",
+  "civil": "6126aa07389bfa34563e1d0617d844a7dbdb21fc87dec69110e283fad0ec6c77",
+  "criminal": "6126aa07389bfa34563e1d0617d844a7dbdb21fc87dec69110e283fad0ec6c77",
+  "none": "6126aa07389bfa34563e1d0617d844a7dbdb21fc87dec69110e283fad0ec6c77",
+  "own": "6126aa07389bfa34563e1d0617d844a7dbdb21fc87dec69110e283fad0ec6c77"
+ },
+ "rechtspraak_rvs_2026_5668.xml": {
+  "administrative": "6c3d7a6e92ce4e63dd909a69778ed1a362ea559a0311acdfb601b7194ce4bd3f",
+  "civil": "72fb0d4fd56e3a1d1105fcb03e772a66039dc63d6f5e18b6b943b368bd5c0eb5",
+  "criminal": "72fb0d4fd56e3a1d1105fcb03e772a66039dc63d6f5e18b6b943b368bd5c0eb5",
+  "none": "72fb0d4fd56e3a1d1105fcb03e772a66039dc63d6f5e18b6b943b368bd5c0eb5",
+  "own": "6c3d7a6e92ce4e63dd909a69778ed1a362ea559a0311acdfb601b7194ce4bd3f"
+ },
+ "rechtspraak_rvs_2026_5682.xml": {
+  "administrative": "10bc8684282935de7b70dae67d56e28b4fb7169209871b054781e0209064140c",
+  "civil": "41372d7eb63b2688553fd77df0bbb7fa940b87029848bb900a10578c2a938023",
+  "criminal": "41372d7eb63b2688553fd77df0bbb7fa940b87029848bb900a10578c2a938023",
+  "none": "41372d7eb63b2688553fd77df0bbb7fa940b87029848bb900a10578c2a938023",
+  "own": "10bc8684282935de7b70dae67d56e28b4fb7169209871b054781e0209064140c"
+ }
+}

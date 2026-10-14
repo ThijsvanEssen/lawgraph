@@ -35,7 +35,11 @@ from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
 from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
+from lawgraph.core.identifiers import (
+    CELEX_KIND_TO_LETTER,
+    EUInstrumentKind,
+    parse_celex,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
 from lawgraph.core.xml import XML_TAG_RE
@@ -118,9 +122,6 @@ def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
             continue
         normalized[alias.strip().upper()] = target.strip().upper()
     return normalized
-
-
-EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
 
 
 def format_celex(

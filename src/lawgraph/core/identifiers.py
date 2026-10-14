@@ -6,6 +6,7 @@ import datetime as dt
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal
 
 # BWB ids: BWBR + 7 digits for statutes and regulations, BWBV + 7 digits for treaties.
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
@@ -21,6 +22,8 @@ def is_bwb_id(value: str) -> bool:
 # CELEX
 # ---------------------------------------------------------------------------
 
+# The kinds of an EU act a citation names.
+EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
 # Sector-3 (legislation) CELEX type letters: 3 + year + letter + number.
 # R=regulation, L=directive, D=decision, F=framework decision, H=recommendation.
 CELEX_KIND_TO_LETTER: dict[str, str] = {
@@ -143,43 +146,3 @@ def find_bwb_id(text: str) -> str | None:
     """First BWB id found in *text*, upper-cased, or ``None``."""
     match = BWB_ID_PATTERN.search(text)
     return match.group(1).upper() if match else None
-
-
-# ---------------------------------------------------------------------------
-# ECLI
-# ---------------------------------------------------------------------------
-
-# ECLI:<country>:<court>:<year>:<case number>; the case number is alphanumeric and may
-# contain dots, underscores or hyphens (ECLI:NL:HR:2005:AU1234, ECLI:CE:ECHR:2019:0101JUD001234510).
-_ECLI_BODY = r"ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9]+(?:[._-][A-Z0-9]+)*"
-ECLI_PATTERN = re.compile(rf"\b{_ECLI_BODY}\b", re.IGNORECASE)
-_ECLI_FULL = re.compile(_ECLI_BODY, re.IGNORECASE)
-
-# ECLI prefix -> judgment source.
-ECLI_SOURCES: tuple[tuple[str, str], ...] = (
-    ("ECLI:NL:", "rechtspraak"),
-    ("ECLI:CE:ECHR:", "echr"),
-    ("ECLI:EU:", "cjeu"),
-)
-
-
-def is_ecli(value: str) -> bool:
-    """True for a complete ECLI."""
-    return bool(_ECLI_FULL.fullmatch(value.strip()))
-
-
-def find_eclis(text: str | None) -> list[str]:
-    """Unique ECLIs in *text*, upper-cased, in order of first appearance."""
-    if not text:
-        return []
-    return list(dict.fromkeys(m.group(0).upper() for m in ECLI_PATTERN.finditer(text)))
-
-
-def ecli_source(ecli: str | None) -> str | None:
-    """Judgment source (``rechtspraak`` / ``echr`` / ``cjeu``) from the ECLI prefix."""
-    if not ecli:
-        return None
-    upper = ecli.upper()
-    return next(
-        (source for prefix, source in ECLI_SOURCES if upper.startswith(prefix)), None
-    )

@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import nodes as node_queries
+from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.store import _query
 
 
@@ -104,7 +105,7 @@ def test_filters_on_relation_status_and_type(graph: GraphStore) -> None:
 
 
 def test_a_missing_node_and_an_unknown_collection(graph: GraphStore) -> None:
-    with pytest.raises(node_queries.NodeNotFoundError):
+    with pytest.raises(NotFound):
         node_queries.get_node_with_neighbors(graph, "dossiers", "x")
     with pytest.raises(node_queries.UnsupportedCollectionError):
         node_queries.get_node_with_neighbors(graph, "raw_sources", "x")

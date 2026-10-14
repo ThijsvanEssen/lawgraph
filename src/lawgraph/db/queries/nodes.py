@@ -22,12 +22,9 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
+from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
-
-
-class NodeNotFoundError(ValueError):
-    """Raised when a requested node does not exist in the collection."""
 
 
 class UnsupportedCollectionError(ValueError):
@@ -161,10 +158,7 @@ class NodeGraphData:
 def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise UnsupportedCollectionError("unsupported collection")
-    node = store.get_document(collection, key)
-    if node is None:
-        raise NodeNotFoundError("node not found")
-    return node
+    return require_node(store, collection, key, "Node")
 
 
 def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:

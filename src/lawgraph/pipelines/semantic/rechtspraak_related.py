@@ -16,8 +16,7 @@ from lawgraph.config.constants import RELATION_RELATED_TO
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.related_cases import RelatedCases, read_related_cases
-from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from .base import SemanticPipelineBase
@@ -77,8 +76,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 self.store, sorted({target for _, target, _ in links})
             )
         }
-        edges = EdgeWriter(self.store, what=None)
-        kept: list[str] = []
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for source_id, target, text in links:
             target_id = ids.get(target)
             if target_id is None:
@@ -94,18 +92,15 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 confidence=1.0,
                 meta={"basis": BASIS, "text": text},
             )
-            kept.append(edge_key(source_id, RELATION_RELATED_TO, target_id))
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_of_source_except(
-            self.store, RELATION_RELATED_TO, SEMANTIC_SOURCE, kept
-        )
+        removed = edges.remove_stale_of_source(RELATION_RELATED_TO, SEMANTIC_SOURCE)
         result.skipped += unresolved
         logger.info(
             "Connected cases: %d sentences in %d judgments; %d edges, %d named cases not "
             "found (not loaded, not published, or no exact match); removed %d.",
             len(named),
             len({source for source, _, _ in named}),
-            len(set(kept)),
+            edges.written(RELATION_RELATED_TO),
             unresolved,
             removed,
         )
