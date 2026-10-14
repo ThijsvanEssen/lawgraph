@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import country_code, court_code
 
@@ -32,7 +33,7 @@ def court_cite(ecli: str, court_name: str | None = None) -> str:
     Amsterdam, Rb. Den Haag, HvJ EU, EHRM."""
     country = country_code(ecli) or ""
     code = court_code(ecli) or ""
-    if country == "CE" and code == "ECHR":
+    if country == "CE" and code == CODE_ECHR:
         return "EHRM"
     if country == "EU":
         return "Gerecht EU" if code == "T" else "HvJ EU"

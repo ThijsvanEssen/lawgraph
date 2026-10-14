@@ -15,8 +15,8 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_MOTION, SOURCE_EERSTEKAMER
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core.logging import get_logger
+from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 
@@ -42,11 +42,8 @@ class EerstekamerMotionsRetrievePipeline(RetrievePipelineBase):
     def wanted(self) -> list[str]:
         """The paths of the pages to fetch, in order."""
         stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_MOTION)
-        site = EERSTEKAMER_SITE.rstrip("/")
-        paths = (
-            url.removeprefix(site) for url in normalize_ek.voted_motion_urls(self.store)
-        )
-        return [path for path in paths if path.startswith("/") and path not in stored]
+        paths = (ek_path(url) for url in normalize_ek.voted_motion_urls(self.store))
+        return [path for path in paths if path and path not in stored]
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
@@ -59,7 +56,7 @@ class EerstekamerMotionsRetrievePipeline(RetrievePipelineBase):
             len(wanted) - len(now),
         )
         for path in now:
-            url, page = self.client.bill_page(path)
+            url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_MOTION,

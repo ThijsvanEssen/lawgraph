@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_COMMITTEES,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -54,7 +55,7 @@ def normalize_committees(
             collection=COLLECTION_COMMITTEES,
             type=NodeType.COMMITTEE,
             key=key,
-            labels=["TK"],
+            labels=[CHAMBER_TK],
             props=props,
         )
     tk_records.unique_committee_slugs([node.props for node in nodes.values()])
@@ -84,7 +85,7 @@ def normalize_members(
             collection=COLLECTION_MEMBERS,
             type=NodeType.MEMBER,
             key=key,
-            labels=["TK"],
+            labels=[CHAMBER_TK],
             props=props,
         )
     _write(store, nodes.values())
@@ -153,7 +154,7 @@ def normalize_factions(
             collection=COLLECTION_FACTIONS,
             type=NodeType.FACTION,
             key=key,
-            labels=["TK"],
+            labels=[CHAMBER_TK],
             props=props,
         )
         for external_id in props["external_ids"]:

@@ -22,7 +22,8 @@ from typing import Any
 import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
-from lawgraph.core.feed import EVENT_VOTE, FEED_KINDS
+from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
+from lawgraph.core.tk_records import KIND_AMENDMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.feed import (
@@ -143,13 +144,13 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 #   decision that singles it out (``primary_case_id``), of those the latest with an outcome
 #   (``passed``), else the latest; ``aangenomen``, ``verworpen``, else ``other``
 #   (withdrawn, held, postponed, lapsed, not voted yet).
-CHAINS = """
+CHAINS = f"""
 WITH RECURSIVE papers AS (
     SELECT l.id, lg_str(l.props -> 'date') AS date, lg_num(l.props -> 'sequence') AS number
     FROM lg_document_light l
     WHERE json_typeof(l.props -> 'case_kinds') = 'array'
       AND EXISTS (SELECT 1 FROM json_array_elements_text(l.props -> 'case_kinds') k
-                  WHERE k = 'Amendement')
+                  WHERE k = '{KIND_AMENDMENT}')
 ),
 revises AS (
     SELECT DISTINCT e.from_id AS newer, e.to_id AS older
@@ -515,10 +516,10 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
         by_period.setdefault(row["period"], {})[row["kind"]] = row["n"]
     chains = (
         _count_chains(store, filters, per, queries)
-        if not filters.kinds or AMENDMENT in filters.kinds
+        if not filters.kinds or EVENT_AMENDMENT in filters.kinds
         else None
     )
-    order = {kind: n for n, kind in enumerate(FEED_KINDS)}
+    order: dict[str, int] = {kind: n for n, kind in enumerate(FEED_KINDS)}
     periods = sorted(set(by_period) | set(chains or {}))
     return [
         {
@@ -540,8 +541,6 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
     ]
 
 
-# The kind of event of an amendment (``core.feed``): its chains are counted beside it.
-AMENDMENT = "Amendement"
 OUTCOMES = ("aangenomen", "verworpen", "other")
 
 
@@ -556,7 +555,7 @@ def _count_chains(
     is an event under *filters* (of whatever day), each once, in the period of its first
     paper and by its outcome."""
     ctes, where, bind = _matching(
-        replace(filters, kinds=(AMENDMENT,), since=None, until=None), queries
+        replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )
     bind["since"] = filters.since or "0"
     period = _period(per).replace("e.date", "c.first_date")

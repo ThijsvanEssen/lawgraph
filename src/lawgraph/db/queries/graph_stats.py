@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_SAME_AS,
 )
-from lawgraph.core.courts import COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
+from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
@@ -101,7 +101,7 @@ def refresh_instruments(store: Store, *, dry_run: bool) -> int:
     )
 
 
-_JUDGMENTS = """
+_JUDGMENTS = f"""
     SELECT j.id, j.court_code, j.tier, j.court_kind, j.date_eff,
            j.inbound_citation_count, j.outbound_citation_count,
            coalesce(j.stored_kind, %(kind_of_court_kind)s::jsonb ->> j.court_kind) AS decision_kind,
@@ -115,7 +115,7 @@ _JUDGMENTS = """
             SELECT d.*,
                    CASE
                        WHEN d.court_code IS NULL THEN NULL
-                       WHEN d.court_code = 'XX'
+                       WHEN d.court_code = '{CODE_OTHER}'
                             AND %(other_court_by_name)s::jsonb
                                 ? coalesce(nullif(d.court_name, ''), '')
                        THEN %(other_court_by_name)s::jsonb -> d.court_name

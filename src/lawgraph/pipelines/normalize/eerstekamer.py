@@ -19,19 +19,20 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
     RAW_KIND_EK_KAMERSTUK,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
-from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date
-from lawgraph.core.tk_records import dossier_label
+from lawgraph.core.tk_records import dossier_display_name, dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -78,7 +79,7 @@ def _dossier(key: str, papers: list[tuple[str, str, str | None, str]]) -> Node:
         collection=COLLECTION_DOSSIERS,
         type=NodeType.DOSSIER,
         key=key,
-        labels=["EK"],
+        labels=[CHAMBER_EK],
         props={
             "number": number,
             "suffix": suffix or "",
@@ -202,7 +203,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             collection=COLLECTION_DOCUMENTS,
             type=NodeType.DOCUMENT,
             key=make_node_key("ek", identifier),
-            labels=["EersteKamer", "EK"],
+            labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
             props=props,
         )
 

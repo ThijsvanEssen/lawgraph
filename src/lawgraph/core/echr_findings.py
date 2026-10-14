@@ -15,10 +15,12 @@ other findings (admissibility, just satisfaction) are no finding on an article.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Final, Literal
 
-VIOLATION = "schending"
-NO_VIOLATION = "geen schending"
+EchrFinding = Literal["schending", "geen schending"]
+EchrAspect = Literal["materieel", "procedureel"]
+VIOLATION: Final[EchrFinding] = "schending"
+NO_VIOLATION: Final[EchrFinding] = "geen schending"
 
 _FINDING = re.compile(
     r"^(?P<finding>no\s+violation\s+of|non-violation\s+de|violation\s+of|violation\s+de)"
@@ -26,7 +28,7 @@ _FINDING = re.compile(
     r"(?:\s+(?:of\s+protocol\s+no\.?|du\s+protocole\s+n[°o]\.?)\s*(?P<protocol>\d+))?",
     re.IGNORECASE,
 )
-_ASPECTS = {
+_ASPECTS: dict[str, EchrAspect] = {
     "substantive aspect": "materieel",
     "volet matériel": "materieel",
     "procedural aspect": "procedureel",

@@ -24,6 +24,7 @@ from dataclasses import dataclass, replace
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -56,16 +57,19 @@ from lawgraph.core.feed import (
     EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    EXPLANATORY_MEMORANDUM,
     FEED_KINDS,
     FEED_TIERS,
-    FIRST_SIGNATORY,
     KIND_RANK,
     FeedCursor,
 )
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.time import day_before
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+    KIND_EXPLANATORY_MEMORANDUM,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
@@ -326,7 +330,7 @@ _BILL_PERSONS = f"""CASE WHEN {_has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
             SELECT {_or(_ACTORS_OF_O, _EMPTY)}
             FROM {COLLECTION_DOCUMENTS} o
             WHERE {{label}} IS NOT NULL AND o.dossier_numbers @> ARRAY[{{label}}]
-              AND starts_with(o.kind, {_lit(EXPLANATORY_MEMORANDUM)})
+              AND starts_with(o.kind, {_lit(KIND_EXPLANATORY_MEMORANDUM)})
               AND {_has_length(_ACTORS_OF_O)}
             ORDER BY o.date ASC NULLS FIRST, o.key ASC
             LIMIT 1
@@ -442,7 +446,7 @@ _SOURCES: dict[str, _Source] = {
             # by the bill too)
             where=(
                 "lg_bool(n.props -> 'passed') IS NOT NULL"
-                " AND (lg_str(n.props -> 'chamber') IS DISTINCT FROM 'EK'"
+                f" AND (lg_str(n.props -> 'chamber') IS DISTINCT FROM '{CHAMBER_EK}'"
                 " OR lg_bool(n.props -> 'bill_decision') IS TRUE)"
             ),
             dossiers=_DOSSIER_NUMBERS,
@@ -510,7 +514,6 @@ _SOURCES: dict[str, _Source] = {
 
 # The kinds that are no event of either chamber: a filter on the chamber leaves them out.
 _NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT, EVENT_JUDGMENT)
-CHAMBER_EK = "EK"
 
 # The dimensions that are counted as facets; each is a filter on the rows too.
 _DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber", "coalition")

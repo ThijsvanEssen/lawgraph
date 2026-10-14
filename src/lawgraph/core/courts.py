@@ -12,9 +12,9 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from typing import Any
 
-from lawgraph.config.constants import RECHTSPRAAK_EVERY_COURT
+from lawgraph.config.constants import DATA_DIR, RECHTSPRAAK_EVERY_COURT
 from lawgraph.core.court_sources import (
     TIER_ANDERE,
     TIER_BUITENLAND,
@@ -32,8 +32,11 @@ from lawgraph.core.court_sources import (
     TIER_RECHTBANK,
     TIER_TUCHTCOLLEGE,
 )
+from lawgraph.core.curated import LISTS
 
 CODE_OTHER = "XX"
+# The court code of the European Court of Human Rights (``ECLI:CE:ECHR:…``).
+CODE_ECHR = "ECHR"
 
 
 @dataclass(frozen=True)
@@ -49,32 +52,33 @@ class Court:
     owms_term: str | None = None  # the creator of the index: Gerechtshof_Amsterdam
 
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "courts.json"
-OUTSIDE = (
-    Path(__file__).resolve().parents[1] / "data" / "curated" / "courts_outside.json"
-)
+DATA = DATA_DIR / "courts.json"
 
 
-def load_courts(path: Path) -> tuple[Court, ...]:
-    """The courts of a court file, in its order."""
-    return tuple(
-        Court(
-            code=c["code"],
-            name=c["name"],
-            tier=c["tier"],
-            court_kind=c["court_kind"],
-            type=c.get("type"),
-            from_date=c.get("from"),
-            until=c.get("until"),
-            court=c.get("court"),
-            owms_term=c.get("owms_term"),
-        )
-        for c in json.loads(path.read_text(encoding="utf-8"))["courts"]
+def _court(c: dict[str, Any]) -> Court:
+    return Court(
+        code=c["code"],
+        name=c["name"],
+        tier=c["tier"],
+        court_kind=c["court_kind"],
+        type=c.get("type"),
+        from_date=c.get("from"),
+        until=c.get("until"),
+        court=c.get("court"),
+        owms_term=c.get("owms_term"),
     )
 
 
+def _outside(key: str, value: dict[str, Any]) -> Court:
+    """A curated court, keyed ``ECHR`` or ``XX:<court>`` (``LISTS["courts-outside"]``)."""
+    code, _, court = key.partition(":")
+    return _court({"code": code, "court": court or None, **value})
+
+
 # The courts of the value list, then the curated ones.
-COURTS: tuple[Court, ...] = load_courts(DATA) + load_courts(OUTSIDE)
+COURTS: tuple[Court, ...] = tuple(
+    _court(c) for c in json.loads(DATA.read_text(encoding="utf-8"))["courts"]
+) + tuple(_outside(k, v) for k, v in LISTS["courts-outside"].entries().items())
 COURT_BY_CODE: dict[str, Court] = {c.code: c for c in COURTS if c.court is None}
 # Code XX: the court by the name its judgments give.
 OTHER_COURT_BY_NAME: dict[str, Court] = {c.court: c for c in COURTS if c.court}

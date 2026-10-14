@@ -21,6 +21,8 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
+from lawgraph.core.coalition import EK_SEATS
+
 # A day of an item: "11 juli 2023", "5 juli" (the year of the item).
 from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
 from lawgraph.core.dutch_dates import dutch_day
@@ -811,7 +813,6 @@ def faction_history(page: str) -> list[Change]:
 
 # ── the seats of a term, day by day ────────────────────────────────────────────
 
-SEATS = 75
 # Within so many days of a term's first day, a member sworn in with no seat open was elected.
 LATE_DAYS = 60
 # Of the changes of one day: the factions merged and renamed first, then the members who go,
@@ -914,9 +915,9 @@ class _Seats:
             self.member_of[member] = faction_key(change.to or "")
         elif change.kind == "beëdiging":
             self._sworn(member, change)
-        if sum(self.count.values()) > SEATS:
+        if sum(self.count.values()) > EK_SEATS:
             self.mismatches.append(
-                f"{change.date}: more than {SEATS} seats ({change.words})"
+                f"{change.date}: more than {EK_SEATS} seats ({change.words})"
             )
 
     def _sworn(self, member: str, change: Change) -> None:

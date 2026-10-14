@@ -22,7 +22,8 @@ from lawgraph.config.constants import (
     SOURCE_TOOI,
 )
 from lawgraph.core.cabinet_sources import build_cabinets
-from lawgraph.core.ministries import CURATED, DATA
+from lawgraph.core.curated import LISTS
+from lawgraph.core.ministries import DATA
 from lawgraph.core.ministry_sources import build_ministries
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_json, payload_text
@@ -44,7 +45,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     args = parser.parse_args(argv)
     result = PipelineResult()
     current = json.loads(DATA.read_text(encoding="utf-8"))
-    curated = json.loads(CURATED.read_text(encoding="utf-8"))
+    curated = LISTS["ministries"].document()
     rebuilt, dropped = rebuild(GraphStore(), current, curated)
     changes = differences(current["ministries"], rebuilt["ministries"])
     for key in dropped:

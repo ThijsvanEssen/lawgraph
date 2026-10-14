@@ -12,6 +12,7 @@ from __future__ import annotations
 from itertools import chain
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_PART_OF,
@@ -65,7 +66,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     meta={
                         "dossier_number": str(row["dossier_number"]),
                         "dossier_suffix": row.get("dossier_suffix"),
-                        "chamber": "EK",
+                        "chamber": CHAMBER_EK,
                     },
                 )
             )

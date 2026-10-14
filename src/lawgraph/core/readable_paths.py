@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, get_args
 from urllib.parse import quote, unquote
 
+from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
@@ -54,24 +55,10 @@ CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
 ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
-REEKSEN = ("stb", "stcrt", "trb")
+# The series of an official publication: Staatsblad, Staatscourant, Tractatenblad.
+PublicationSeries = Literal["stb", "stcrt", "trb"]
+SERIES: tuple[PublicationSeries, ...] = get_args(PublicationSeries)
 _PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
-
-# The boeken of the Burgerlijk Wetboek and their BWB ids: an article is cited with its
-# book before the number (6:162).
-BW_BOOKS = {
-    "1": "BWBR0002656",
-    "2": "BWBR0003045",
-    "3": "BWBR0005291",
-    "4": "BWBR0002761",
-    "5": "BWBR0005288",
-    "6": "BWBR0005289",
-    "7": "BWBR0005290",
-    "7a": "BWBR0006000",
-    "8": "BWBR0005034",
-    "10": "BWBR0030068",
-}
-_BOOK_OF = {bwb: book.upper() for book, bwb in BW_BOOKS.items()}
 
 
 @dataclass(frozen=True)
@@ -87,10 +74,10 @@ class Pad:
     c: str = ""
 
 
-def book_number(bwb_id: str | None, number: str) -> str:
-    """The number an article is cited by: ``6:162`` for article 162 of Boek 6."""
-    book = _BOOK_OF.get((bwb_id or "").upper())
-    return f"{book}:{number}" if book and ":" not in number else number
+def series_of(kind: object) -> PublicationSeries | None:
+    """The series of a publication kind as a source writes it (``Stb``); None for another."""
+    wanted = str(kind or "").lower()
+    return next((series for series in SERIES if series == wanted), None)
 
 
 # The addresses of one segment after their prefix: the kind, the pattern of the segment
@@ -126,7 +113,7 @@ def parse_path(pathname: str) -> Pad | None:
     if first == "wetten" and n == 4 and b == "bijlage" and BWB.match(a):
         return Pad("bijlage", a.upper(), c.upper()) if ANNEX_LABEL.match(c) else None
     if (
-        first in REEKSEN
+        first in SERIES
         and n == 3
         and re.fullmatch(r"\d{4}", a)
         and re.fullmatch(r"\d+", b)
@@ -231,7 +218,7 @@ def _article(key: str, props: dict[str, Any]) -> str | None:
     # A number with a space ("bijlage 2 artikel 6") has no address of its own.
     if not law or not number or re.search(r"\s", number):
         return None
-    return pad_href(Pad("artikel", law, book_number(law, number)))
+    return pad_href(Pad("artikel", law, cited_number(law, number)))
 
 
 def _instrument(key: str, props: dict[str, Any]) -> str | None:

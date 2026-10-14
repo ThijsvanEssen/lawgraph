@@ -22,6 +22,7 @@ from dataclasses import asdict
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
     RAW_KIND_EK_COMMITTEE_DAY,
@@ -30,10 +31,10 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -44,7 +45,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "eerstekamer-agenda"
-CHAMBER = "EK"
 # What a plenary block is a part of, as the site names its page.
 PLENARY_KIND = "plenaire vergadering"
 _ABBREVIATION = re.compile(r"\(([^()]+)\)")
@@ -55,10 +55,10 @@ def _activity(key: str, props: dict[str, Any], meta: dict[str, Any]) -> Node:
         collection=COLLECTION_ACTIVITIES,
         type=NodeType.ACTIVITY,
         key=key,
-        labels=[CHAMBER],
+        labels=[CHAMBER_EK],
         props={
             **props,
-            "chamber": CHAMBER,
+            "chamber": CHAMBER_EK,
             "source_url": meta.get("url"),
             "retrieved_on": meta.get("read_on"),
             "display_name": activity_display_name(
@@ -102,7 +102,7 @@ def committee_activities(page: str, meta: dict[str, Any]) -> list[Node]:
                 ),
                 "decision_points": [asdict(point) for point in meeting.points],
             },
-            {**meta, "url": EERSTEKAMER_SITE.rstrip("/") + meeting.path},
+            {**meta, "url": ek_url(meeting.path)},
         )
         for meeting in agenda.committee_day(page).meetings
     ]
