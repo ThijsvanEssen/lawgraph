@@ -11,9 +11,11 @@ from typing import Any
 import pytest
 
 from lawgraph.api.seo import shell
+from lawgraph.api.seo.pages import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import seo
 from lawgraph.db.queries import sitemaps as queries
 
 
@@ -285,7 +287,20 @@ def test_publications_and_commitments(store: GraphStore) -> None:
             publication("stb-2017-5", "2017-01-10"),  # before 2018
             publication("stcrt-2025-9", "2025-02-01"),  # the Staatscourant
             publication("stb-2026-187", "2026-07-20"),  # enacts a law: establishes it
-            _node("bwbr0005289", "instrument", bwb_id="BWBR0005289", kind="wet"),
+            _node(
+                "bwbr0005289",
+                "instrument",
+                bwb_id="BWBR0005289",
+                kind="wet",
+                citation_title="Burgerlijk Wetboek Boek 6",
+            ),
+            _node(
+                "bwbr0052872",
+                "instrument",
+                bwb_id="BWBR0052872",
+                kind="wet",
+                citation_title="Wet een",
+            ),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -350,6 +365,13 @@ def test_publications_and_commitments(store: GraphStore) -> None:
     assert _paths(kinds, "toezeggingen") == [
         ("/toezeggingen/TZ202609-124", "2026-09-10")
     ]
+    # the sitemap names exactly the publications (of its series) whose page is indexed
+    listed = {row["id"] for row in queries.publications(store)}
+    for official in ("stb-2025-263", "stb-2025-300", "trb-2024-12", "stb-2025-301",
+                     "stb-2026-94", "stb-2026-187"):  # fmt: skip
+        node_id = f"instruments/{official.replace('-', '_')}"
+        page = publication_page(seo.publication(store, node_id) or {})
+        assert page.index == (node_id in listed), official
 
 
 def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None:
