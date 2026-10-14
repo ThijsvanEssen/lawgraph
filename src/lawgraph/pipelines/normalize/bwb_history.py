@@ -70,6 +70,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.time import OPEN_END, shift_day
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
@@ -79,7 +80,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
-_OPEN_ENDED_DATE = "9999-12-31"
 # What a toestand shows for an article before its commencement.
 _PLACEHOLDER = re.compile(r"^\s*Dit onderdeel is nog niet in\s*werking getreden", re.I)
 _LAPSED = re.compile(r"^\s*Vervallen\b", re.I)
@@ -244,9 +244,9 @@ def _first_start_after(starts: list[str], day: str | None) -> str | None:
 def exclusive_end(end_date: str | None) -> str | None:
     """A toestand's inclusive end date (ISO) as the first day it no longer holds; null for
     an open one."""
-    if not end_date or end_date == _OPEN_ENDED_DATE:
+    if not end_date or end_date == OPEN_END:
         return None
-    return (dt.date.fromisoformat(end_date) + dt.timedelta(days=1)).isoformat()
+    return shift_day(end_date, 1)
 
 
 def is_iso_date(value: str) -> bool:
@@ -426,7 +426,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 "bwb_id": bwb_id,
                 "valid_from": start_date,
                 "valid_until": exclusive_end(end_date),
-                "current": end_date == _OPEN_ENDED_DATE,
+                "current": end_date == OPEN_END,
                 "state_url": meta.get("state_url"),
             },
         )

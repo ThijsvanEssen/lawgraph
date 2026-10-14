@@ -170,13 +170,13 @@ def test_a_memorandum_that_names_no_article_is_skipped() -> None:
     assert not store.edges
 
 
-def test_a_row_that_cannot_be_read_does_not_stop_the_others() -> None:
+def test_a_row_the_query_did_not_shape_fails_the_run() -> None:
+    """Nothing in reading a paper raises on its data: an error is a bug, not a paper."""
     broken = {**ROW, "document": "documents/mvt-2", "sections": [{"id": "s-0"}]}
     store = _Store([broken, ROW])
 
-    result = TKMvtArticlesSemanticPipeline(store=store).run()
-
-    assert (result.created, result.skipped) == (1, 1)
+    with pytest.raises(KeyError):
+        TKMvtArticlesSemanticPipeline(store=store).run()
 
 
 def test_the_dossier_level_confidence_claims_less_than_any_section() -> None:
@@ -185,8 +185,8 @@ def test_the_dossier_level_confidence_claims_less_than_any_section() -> None:
 
 def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None:
     """A full run replaces its section edges: the removal names every memorandum read,
-    with the keys of the edges it wrote; a memorandum that could not be read keeps its own."""
-    store = _Store([ROW, {"document": "documents/broken"}])
+    with the keys of the edges it wrote."""
+    store = _Store([ROW])
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 

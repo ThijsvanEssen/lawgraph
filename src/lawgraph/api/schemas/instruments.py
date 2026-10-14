@@ -36,9 +36,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
-from lawgraph.core.eurlex_nim import publication_citation
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import article_url, instrument_url
+from lawgraph.core.publications import koop_citation
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -1189,7 +1189,7 @@ class ImplementingMeasureDTO(BaseModel):
                 if isinstance(m, dict) and m.get("publication")
             ]
         return [
-            cls(publication=p, citation=publication_citation(p), title=None, type=None)
+            cls(publication=p, citation=koop_citation(p) or p, title=None, type=None)
             for p in meta.get("publications") or []
             if isinstance(p, str)
         ]

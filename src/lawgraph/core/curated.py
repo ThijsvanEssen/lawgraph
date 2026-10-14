@@ -24,11 +24,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from lawgraph.config.constants import CHAMBERS
+from lawgraph.config.constants import CHAMBERS, DATA_DIR
 from lawgraph.core.coalition import TK_SEATS
 from lawgraph.core.ecli import is_valid_ecli
 
-CURATED = Path(__file__).resolve().parents[1] / "data" / "curated"
+CURATED = DATA_DIR / "curated"
 
 Entries = dict[str, Any]
 

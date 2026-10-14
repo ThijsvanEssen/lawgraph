@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_agenda as agenda
 from lawgraph.core.logging import get_logger
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.db.queries import state
 
@@ -176,5 +177,5 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
             kind=kind.raw_kind,
             external_id=external_id,
             payload_text=page,
-            meta={"url": self.client.url(path), "read_on": today},
+            meta={"url": ek_url(path), "read_on": today},
         )

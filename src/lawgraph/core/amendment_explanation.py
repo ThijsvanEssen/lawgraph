@@ -15,6 +15,8 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from lawgraph.core.display import shorten
+
 # The characters of an explanation at most.
 EXPLANATION_CHARS = 400
 
@@ -64,5 +66,4 @@ def _cut(paragraph: str) -> str:
     ends = [m.end() for m in _SENTENCE_END.finditer(paragraph, 0, EXPLANATION_CHARS)]
     if ends:
         return paragraph[: ends[-1]]
-    words = paragraph[: EXPLANATION_CHARS - 1].rsplit(" ", 1)[0]
-    return f"{words.rstrip(' ,;:')}…"
+    return shorten(paragraph, EXPLANATION_CHARS)

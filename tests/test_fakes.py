@@ -103,5 +103,5 @@ def test_a_fake_store_has_the_methods_of_graph_store(fake: ast.ClassDef) -> None
         ]
     assert not problems, (
         f"{fake.name} stands in for a GraphStore it does not match; answer a query "
-        f"function by patching it (see tests/fakes.py): {problems}"
+        f"function by patching it (see tests/fakes/): {problems}"
     )

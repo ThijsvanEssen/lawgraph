@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Final, Literal, get_args
+
+# The data the package carries: the tables built from the sources and, under ``curated/``,
+# the lists kept by hand (``core.curated``).
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 # ── Collection name constants ─────────────────────────────────────────────────
 
@@ -176,6 +181,8 @@ Chamber = Literal["TK", "EK"]
 CHAMBER_TK: Final[Chamber] = "TK"
 CHAMBER_EK: Final[Chamber] = "EK"
 CHAMBERS: tuple[Chamber, ...] = get_args(Chamber)
+# The label the nodes taken over from the Eerste Kamer carry besides ``CHAMBER_EK``.
+LABEL_EERSTE_KAMER = "EersteKamer"
 
 # A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.

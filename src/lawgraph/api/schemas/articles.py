@@ -39,6 +39,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
+from lawgraph.core.display import shorten
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
@@ -681,13 +682,7 @@ def passage_excerpt(opening: Any, heading: str | None) -> str | None:
     first, _, rest = opening.partition("\n")
     if heading and collapse_ws(first) == collapse_ws(heading):
         opening = rest
-    text = collapse_ws(opening)
-    if not text:
-        return None
-    if len(text) <= EXCERPT_CHARS:
-        return text
-    head = text[: EXCERPT_CHARS - 1].rsplit(" ", 1)[0].rstrip(",;:.")
-    return f"{head}…"
+    return shorten(collapse_ws(opening), EXCERPT_CHARS) or None
 
 
 class ArticleExplanationDTO(BaseModel):

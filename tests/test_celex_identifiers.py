@@ -6,20 +6,19 @@ import pytest
 
 from lawgraph.core.citations import format_celex
 from lawgraph.core.identifiers import (
-    CELEX_KIND_TO_LETTER,
     CELEX_PATTERN,
+    EU_ACT_KINDS,
     find_celex_ids,
     parse_celex,
 )
 
 
 def test_sector3_letters_follow_eu_convention() -> None:
-    assert CELEX_KIND_TO_LETTER == {
+    assert {kind: act.letter for kind, act in EU_ACT_KINDS.items()} == {
         "regulation": "R",
         "directive": "L",
         "decision": "D",
         "framework_decision": "F",
-        "recommendation": "H",
     }
 
 
@@ -122,3 +121,11 @@ def test_the_eu_acts_of_a_regulation_are_the_possible_ids_and_the_rebuilt_ones()
         " <!-- 32010L0064 --></al>"
     )
     assert celex_refs(xml) == ["32010L0064", "32016R0679", "32021R0784"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "number"), [("directive", ""), ("directive", "²"), ("recommendation", "1")]
+)
+def test_format_celex_refuses_what_is_no_eu_act(kind: str, number: str) -> None:
+    with pytest.raises(ValueError):
+        format_celex(kind, "2010", number)  # type: ignore[arg-type]

@@ -94,6 +94,11 @@ class NormalizePipelineBase(PipelineBase, ABC):
                 "Written before the failure: %s.", self.store.writes.describe()
             )
             raise
+        return self._counted(result)
+
+    def _counted(self, result: PipelineResult) -> PipelineResult:
+        """*result* with what the store wrote since ``reset_counts`` and what every loop
+        counted (``add_outcomes``)."""
         writes = self.store.writes
         result.created += writes.created
         result.updated += writes.updated

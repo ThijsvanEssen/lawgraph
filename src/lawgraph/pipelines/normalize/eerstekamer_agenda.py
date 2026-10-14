@@ -31,10 +31,10 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -102,7 +102,7 @@ def committee_activities(page: str, meta: dict[str, Any]) -> list[Node]:
                 ),
                 "decision_points": [asdict(point) for point in meeting.points],
             },
-            {**meta, "url": EERSTEKAMER_SITE.rstrip("/") + meeting.path},
+            {**meta, "url": ek_url(meeting.path)},
         )
         for meeting in agenda.committee_day(page).meetings
     ]
@@ -127,12 +127,19 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
     ) -> list[Node]:
         nodes: list[Node] = []
         for record in raw:
-            page = self._payload_text(record) or ""
+            path = str(record["external_id"])
+            page = self._payload_text(record)
+            if not page:
+                self.progress.skip("no page", path)
+                continue
             meta = self._meta(record)
             if record.get("kind") == RAW_KIND_EK_PLENARY:
-                nodes += plenary_activities(str(record["external_id"]), page, meta)
+                activities = plenary_activities(path, page, meta)
             else:
-                nodes += committee_activities(page, meta)
+                activities = committee_activities(page, meta)
+            if not activities:
+                self.progress.skip("no activities on the page", path)
+            nodes += activities
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
         logger.info("Eerste Kamer: %d activities from its agendas.", len(nodes))

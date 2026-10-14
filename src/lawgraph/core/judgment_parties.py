@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from lawgraph.core.dutch_names import PLACE, TITLE
 from lawgraph.core.judgments import (
     AREA_ADMINISTRATIVE,
     AREA_CIVIL,
@@ -279,20 +280,20 @@ _LEGAL_SUFFIX = re.compile(
 # "(gemachtigde: mr. Y)", "advocaten: mr. A en mr. B, beiden kantoorhoudende te ..."
 _REPRESENTATIVE = re.compile(
     r"^\(?\s*(?P<kind>(?:proces)?advoca(?:at|te|ten)|advocaat\s+en\s+procureur|procureur|"
-    r"raads(?:man|vrouw)|gemachtigden?)\b(?:[^:()]{0,60}:|\s+(?=mr\.?\s))\s*"
+    rf"raads(?:man|vrouw)|gemachtigden?)\b(?:[^:()]{{0,60}}:|\s+(?={TITLE}))\s*"
     r"(?P<names>.+?)\s*\)?\s*[.,;]?$",
     re.IGNORECASE,
 )
 # "De gemachtigde van de betrokkene is mr. R. de Nekker, kantoorhoudende te Heerenveen."
 _REPRESENTATIVE_SENTENCE = re.compile(
     r"^de\s+(?P<kind>gemachtigde|advocaat|raads(?:man|vrouw))\s+van\s+.{1,60}?\s+is\s+"
-    r"(?P<names>(?:mr|dr|prof)\.?\s.+?)\s*[.,;]?$",
+    rf"(?P<names>{TITLE}.+?)\s*[.,;]?$",
     re.IGNORECASE,
 )
 _REPRESENTATIVE_TAIL = re.compile(
     r",?\s*(?:\b(?:beiden|allen|allebei|ieder)\b.*|kantoor\s*houdend.*|voormeld.*|"
     r"advoca(?:at|ten)\b.*|"
-    r"\b(?:te|in|uit)\s+[A-Z’'][\w’'-]*(?:\s+[A-Z][\w-]*)*\s*)$"
+    rf"\b(?:te|in|uit)\s+{PLACE}\s*)$"
 )
 
 # Lines about a party that are no party: where it lives, when it was born.
@@ -380,7 +381,7 @@ _DESIGNATION = re.compile(
 )
 _CASE_NUMBER = re.compile(r"^[\w./ -]*\d[\w./ -]*$")
 # A person by title: the one who acts for a party, or whose lawyers' names run on.
-_PERSON = re.compile(r"(?:mr|dr|prof)\.?\s", re.IGNORECASE)
+_PERSON = re.compile(TITLE)
 
 
 # ── the parties ──────────────────────────────────────────────────────────────
@@ -452,10 +453,7 @@ def _clean(text: str) -> str:
 
 
 # Where the representatives practise, at the end of their line: "kantoorhoudende te Utrecht".
-_REPRESENTATIVE_PLACE = re.compile(
-    r"\b(?:te|in)\s+(?P<place>(?:'s[-\s])?[A-Z][\w'’-]*(?:\s+(?:(?:aan|den|de|der|op|bij|"
-    r"in|het|ter|ten)\s+)*[A-Z][\w'’-]*)*)\s*[.,;)]?\s*$"
-)
+_REPRESENTATIVE_PLACE = re.compile(rf"\b(?:te|in)\s+(?P<place>{PLACE})\s*[.,;)]?\s*$")
 
 
 def _representatives(kind: str, names: str, criminal: bool) -> list[dict[str, Any]]:
@@ -464,9 +462,7 @@ def _representatives(kind: str, names: str, criminal: bool) -> list[dict[str, An
     role = representative_role(kind, criminal=criminal) or REPRESENTATIVE_LAWYER
     place = _REPRESENTATIVE_PLACE.search(names.strip())
     names = _REPRESENTATIVE_TAIL.sub("", names.strip())
-    parts = re.split(
-        r"\s*(?:,|\ben\b)\s*(?=(?:mr|dr|prof|drs|ing)\.?\s|[A-Z]\.)", names, flags=re.I
-    )
+    parts = re.split(rf"\s*(?:,|\ben\b)\s*(?={TITLE}|[A-Z]\.)", names, flags=re.I)
     return [
         representative(_clean(p), role, place["place"] if place else None)
         for p in parts

@@ -208,6 +208,63 @@ def test_echr_normalize_skips_empty_payload():
     assert nodes == 0
 
 
+def test_echr_names_why_a_record_gives_no_judgment():
+    from lawgraph.config.constants import RAW_KIND_ECHR_TEXT
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    english = {**_ECHR_PAYLOAD, "ecli": "ECLI:CE:ECHR:2022:0315JUD001234567"}
+    french = {**english, "itemid": "001-12346", "languageisocode": "FRE"}
+    text = {"kind": RAW_KIND_ECHR_TEXT}
+    pipeline = ECHRNormalizePipeline(store=InMemoryStore())
+    progress = pipeline.progress
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [
+            _raw("001-1", payload_json=None),
+            _raw("", payload_json={"docname": "CASE OF NOBODY"}),
+            _raw("001-12345", payload_json={**english, "languageisocode": "ENG"}),
+            _raw("001-12346", payload_json=french),
+            {**_raw("001-2", payload_text=""), **text},
+            {**_raw("001-3", payload_text="<w:document"), **text},
+        ],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1
+    assert progress.skips == {
+        "no payload": 1,
+        "no item id": 1,
+        "a translation; a better language is kept": 1,
+        "no text": 1,
+    }
+    assert progress.failures == {"text not readable": 1}
+    assert result.skipped == 5
+    (error,) = result.errors
+    assert "001-3" in error
+
+
+@pytest.mark.parametrize(
+    ("importance", "kept"), [("2", 2), (1, 1), (None, None), ("", None), ("key", None)]
+)
+def test_echr_importance_is_a_number_or_left_out(importance: Any, kept: Any) -> None:
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    store = InMemoryStore()
+    pipeline = ECHRNormalizePipeline(store=store)
+    progress = pipeline.progress
+    pipeline.normalize_nodes(
+        [_raw("001-12345", payload_json={**_ECHR_PAYLOAD, "importance": importance})],
+        PipelineResult(),
+    )
+
+    assert _written(store).props.get("importance") == kept
+    assert progress.problems == (
+        {"importance not a number": 1} if importance == "key" else {}
+    )
+
+
 # ---------------------------------------------------------------------------
 # Verdragenbank
 # ---------------------------------------------------------------------------
@@ -279,6 +336,37 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
     assert in_force("Inwerkinggetreden") is True
     for status in ("Buitenwerkinggetreden", "Totstandgekomen", "Geratificeerd"):
         assert in_force(status) is False
+
+
+def test_verdragenbank_names_why_a_record_gives_no_treaty():
+    from lawgraph.config.constants import RAW_KIND_VERDRAG_XML
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    item = {"kind": RAW_KIND_VERDRAG_XML}
+    pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
+    progress = pipeline.progress
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [
+            _raw("1", payload_json=None),
+            _raw("", payload_json={"title_nl": "Verdrag zonder nummer"}),
+            {**_raw("2", payload_text=""), **item},
+            {**_raw("3", payload_text="<verdrag"), **item},
+            _raw("12345", payload_json=_VERDRAG_PAYLOAD),
+        ],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1
+    assert progress.skips == {"no payload": 1, "no treaty id": 1, "no item XML": 1}
+    assert progress.failures == {"item XML not read": 1}
+    assert result.skipped == 4
+    (error,) = result.errors
+    assert "3" in error and "not XML" in error
 
 
 # ---------------------------------------------------------------------------

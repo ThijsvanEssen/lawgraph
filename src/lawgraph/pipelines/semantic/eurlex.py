@@ -20,7 +20,7 @@ from lawgraph.core.citations import (
     make_snippet,
     normalize_code_aliases,
 )
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, code_of
 from lawgraph.core.eu_citations import (
     ARTICLE_NUMBER_ONE_LETTER,
     EUCitationConfidence,
@@ -121,9 +121,10 @@ def _alias_article(
     """``(bwb_id, article_number)`` of ``artikel <number> <alias>``. A code family (``BW``)
     never stands for one regulation: the book in front of the colon names it (``6:162`` is
     article 162 of book 6), as in ``core.citations``; without a book there is none."""
-    family = CODE_FAMILIES.get(alias)
-    if family is None:
+    code = code_of(alias)
+    if code is None:
         return codes.get(alias), number
+    family = CODE_FAMILIES[code]
     book, colon, article = number.partition(":")
     if not colon:
         return None, number

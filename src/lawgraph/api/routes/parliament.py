@@ -20,9 +20,11 @@ from lawgraph.api.schemas.parliament import (
     SeatingPlanDTO,
 )
 from lawgraph.config.constants import Chamber
-from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
+from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.coalition import vacant_on
 from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
+from lawgraph.core.ek_changes import MUTATIONS_PATH
+from lawgraph.core.official_urls import ek_url
 from lawgraph.core.parties import (
     CHAMBER_COLOR_SOURCES,
     CHAMBER_COLORS,
@@ -205,7 +207,7 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
         factions=items,
         seating_plan=None,
         source=EkSourceDTO(
-            url=EERSTEKAMER_SITE.rstrip("/") + FACTIONS_PATH,
+            url=ek_url(FACTIONS_PATH),
             retrieved_on=read_on or None,
             composition_date=read_on or None,
             data_since=min(
@@ -267,7 +269,7 @@ def _ek_seats_on(store: GraphStore, day: str) -> ParliamentSeatsResponse:
         factions=items,
         seating_plan=None,
         source=EkSourceDTO(
-            url=EERSTEKAMER_SITE.rstrip("/") + "/personele_mutaties",
+            url=ek_url(MUTATIONS_PATH),
             retrieved_on=kiesraad.get("read_on"),
             composition_date=stretch["from_date"],
             data_since=None,
@@ -307,7 +309,7 @@ def _hall(store: GraphStore) -> HallDTO | None:
     if not places:
         return None
     places.sort(key=lambda p: (_BLOCKS[p.block], p.row, p.column))
-    return HallDTO(url=EERSTEKAMER_SITE.rstrip("/") + HALL_PATH, seats=places)
+    return HallDTO(url=ek_url(HALL_PATH), seats=places)
 
 
 party_router = APIRouter()

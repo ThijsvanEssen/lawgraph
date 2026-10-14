@@ -16,32 +16,20 @@ but that no pattern reads is reported (``unread``)."""
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
 from lawgraph.core.coalition import EK_SEATS
+
+# A day of an item: "11 juli 2023", "5 juli" (the year of the item).
+from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
+from lawgraph.core.dutch_dates import dutch_day
+from lawgraph.core.dutch_names import PARTICLE, PARTICLES
+from lawgraph.core.time import day_before, shift_day
 from lawgraph.core.xml import html_text
 
-MONTHS = {
-    "januari": 1,
-    "februari": 2,
-    "maart": 3,
-    "april": 4,
-    "mei": 5,
-    "juni": 6,
-    "juli": 7,
-    "augustus": 8,
-    "september": 9,
-    "oktober": 10,
-    "november": 11,
-    "december": 12,
-}
-_MONTH = "|".join(MONTHS)
-# "11 juli 2023", "5 juli" (the year of the item), "1 februari"
-_DAY = rf"(\d{{1,2}}) ({_MONTH})(?: (\d{{4}}))?"
 _ITEM = re.compile(
     r'<a href="(/nieuws/\d{8}/[^"]+)">.*?<div>\s*(.*?)\s*</div>\s*</a>\s*'
     r"<span>([^<]+)</span>",
@@ -60,18 +48,6 @@ _COMPOSITION = re.compile(
 BASIS = "tekst"
 # The list of changes of the current term; it links those of the terms before.
 MUTATIONS_PATH = "/personele_mutaties"
-
-
-def iso_day(text: str, year: int) -> str | None:
-    """``11 juli 2023`` (or ``5 juli`` in *year*) as ISO; None for no such day."""
-    found = re.search(_DAY, text)
-    if not found:
-        return None
-    day, month, of_year = found.groups()
-    try:
-        return dt.date(int(of_year or year), MONTHS[month], int(day)).isoformat()
-    except ValueError:
-        return None
 
 
 @dataclass(frozen=True)
@@ -98,7 +74,7 @@ def term_page(page: str) -> TermPage:
     title = _TERM_TITLE.search(page)
     items = []
     for path, headline, day in _ITEM.findall(page):
-        date = iso_day(html_text(day, page=True), 0)
+        date = dutch_day(html_text(day, page=True))
         if date:
             items.append(
                 Listed(date=date, headline=html_text(headline, page=True), path=path)
@@ -183,7 +159,7 @@ def faction_key(name: str) -> str:
 # A name as the texts write it: "Robert van Gasteren", "Marjolein Faber-van de Klashorst",
 # "Annabel Nanninga", "Cees van de Sanden".
 _NAME = (
-    r"[A-Z][\w'’.-]+(?: (?:van|de|der|den|het|ten|ter|op|in|'t)| [A-Z][\w'’.-]+)*?"
+    rf"[A-Z][\w'’.-]+(?: {PARTICLE}| [A-Z][\w'’.-]+)*?"
     r"(?: [A-Z][\w'’.-]+)?"
 )
 # A faction as a text names it: "(VVD)", "( Fractie-Beukering )", "voor de VVD", "de BBB-fractie",
@@ -213,7 +189,7 @@ def surname(name: str) -> str:
     words = _TITLE.sub("", name.strip()).split()
     if len(words) < 2:
         return name.strip()
-    if words[0] in ("Van", "De", "Der", "Den", "Ten", "Ter", "Het"):
+    if words[0].istitle() and words[0].lower() in PARTICLES:
         return " ".join(words)
     rest = " ".join(words[1:])
     return rest[:1].upper() + rest[1:]
@@ -369,7 +345,7 @@ _BEFORE = re.compile(rf"(?:sinds|van|tot(?: en met)?|vanaf) {_DAY}")
 def _day_in(sentence: str, item: Article, year: int) -> str:
     """The day a change in *sentence* takes effect: a day it names, not one that dates
     something before it (``sinds 13 juni 2023``); else the day of the item."""
-    return iso_day(_BEFORE.sub(" ", sentence), year) or item.date
+    return dutch_day(_BEFORE.sub(" ", sentence), year=year) or item.date
 
 
 _INSTALLED_LIST = re.compile(
@@ -459,7 +435,7 @@ def _installed(sentence: str, item: Article, year: int) -> list[Change]:
             made.append((m.group(2), m.group(4) or m.group(3)))
     elif m := _HAS_SWORN.search(sentence):
         made = [
-            (n, f) for n, f in ((m.group(4), m.group(5)), (m.group(6), m.group(7))) if n
+            (n, f) for n, f in ((m.group(1), m.group(2)), (m.group(3), m.group(4))) if n
         ]
     elif m := _SWORN.search(sentence):
         made.append((m.group(1), m.group(2)))
@@ -525,7 +501,7 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
     for m in _FOLLOWS.finditer(sentence):
         rest = sentence[m.end() :]
         died = re.search(rf"(?:op|per) {_DAY}", rest)
-        day = (iso_day(died.group(0), year) if died else None) or item.date
+        day = (dutch_day(died.group(0), year=year) if died else None) or item.date
         by = m.group(1) if m.group(1) not in (None, "Hij", "Zij") else None
         found.append(
             Change(
@@ -541,7 +517,7 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
         clause = re.split(r"\s*,", m.group(1))[0]
         name = re.search(rf"({_NAME})\s*\.?$", clause)
         per = _PER.search(clause) or re.search(rf"op {_DAY}", clause)
-        day = (iso_day(per.group(0), year) if per else None) or item.date
+        day = (dutch_day(per.group(0), year=year) if per else None) or item.date
         if name:
             found.append(
                 Change("vertrek", day, item.headline, member=surname(name.group(1)))
@@ -609,7 +585,7 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
         if len(named := _named_list(m.group(1))) > 1:
             rest = sentence[m.end() :]
             when = re.search(rf"op {_DAY}", rest)
-            day = (iso_day(when.group(0), year) if when else None) or item.date
+            day = (dutch_day(when.group(0), year=year) if when else None) or item.date
             return [
                 Change("vertrek", day, item.headline, source=f, member=surname(n))
                 for n, f in named
@@ -626,9 +602,9 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
         until = re.search(rf"tot en met {_DAY}", item.text)
         left = item.date
         if until:
-            last = iso_day(until.group(0), year)
+            last = dutch_day(until.group(0), year=year)
             if last:
-                left = (dt.date.fromisoformat(last) + dt.timedelta(days=1)).isoformat()
+                left = shift_day(last, 1)
         return [
             Change(
                 "vertrek",
@@ -663,7 +639,7 @@ def _resigned(sentence: str, item: Article, year: int) -> list[Change]:
     if not _RESIGNS.search(sentence):
         return []
     per = _PER.search(sentence)
-    day = (iso_day(per.group(0), year) if per else None) or item.date
+    day = (dutch_day(per.group(0), year=year) if per else None) or item.date
     named = _NAMED_WITH.findall(sentence)
     if not named and re.search(r"\b(?:hun|zijn|haar)\b", sentence, re.I):
         before = item.text[: item.text.find(sentence)]
@@ -808,9 +784,9 @@ def faction_history(page: str) -> list[Change]:
         return []
     current = re.sub(r"\s*\([^)]*\)\s*$", "", since.group(1).split(". ")[-1]).strip()
     short = re.search(r"\(([^)]+)\)", since.group(1))
-    first = iso_day(named.group(1), 0)
-    renamed = iso_day(named.group(5), 0)
-    old = named.group(9).strip()
+    first = dutch_day(named.group(1))
+    renamed = dutch_day(named.group(2))
+    old = named.group(3).strip()
     changes = []
     if two := _TWO.search(text):
         if first:
@@ -972,8 +948,7 @@ def walk(start: str, seats: dict[str, int], changes: list[Change], until: str) -
     """The seats of a term from its first day (*start*, *seats* per faction by name) through
     *changes* to *until*. A member's faction is the one the change names, else the one the
     walk last saw them in; a member already gone is gone once."""
-    late = dt.date.fromisoformat(start) + dt.timedelta(days=LATE_DAYS)
-    state = _Seats(seats, late.isoformat())
+    state = _Seats(seats, shift_day(start, LATE_DAYS))
     stretches = [Stretch(start, None, state.now())]
     kept = sorted(
         (c for c in changes if start <= c.date <= until),
@@ -990,8 +965,7 @@ def walk(start: str, seats: dict[str, int], changes: list[Change], until: str) -
             last.seats = current
             last.events.append(change)
         else:
-            day_before = dt.date.fromisoformat(change.date) - dt.timedelta(days=1)
-            last.to_date = day_before.isoformat()
+            last.to_date = day_before(change.date)
             stretches.append(Stretch(change.date, None, current, [change]))
     for stretch in stretches:
         stretch.seats = {state.names[k]: v for k, v in stretch.seats.items() if v}
@@ -1133,7 +1107,7 @@ _FROM = (
     r"(?:de ([\w-]+?)-fractie|de fractie van ([A-Z][^.(,]*?)"
     r"(?= \(| in de| stappen| maar| met|\s*[.,]))"
 )
-_INTO = r"(Fractie-[A-Z][\w']*(?:[ -](?:van|de|der|den|[A-Z][\w']*))*)"
+_INTO = rf"(Fractie-[A-Z][\w']*(?:[ -](?:{PARTICLE}|[A-Z][\w']*))*)"
 # "X en Y stappen uit de fractie van F … sluiten zich aan bij de Fractie-Z"
 _BOTH_JOIN = re.compile(
     rf"({_NAME}) en ({_NAME}) stappen uit {_FROM}\s*\..*?sluiten zich aan bij de {_INTO}"
@@ -1172,7 +1146,7 @@ def _regrouped(item: Article, year: int, read: list[Change]) -> list[Change]:
     sentences: two who leave a faction for another, a split of many, a rename."""
     text, head = item.text, item.headline
     since = re.search(rf"met ingang van (?:\w+dag )?{_DAY}", text)
-    day = (iso_day(since.group(0), year) if since else None) or item.date
+    day = (dutch_day(since.group(0), year=year) if since else None) or item.date
     if m := _BOTH_JOIN.search(text):
         f = m.group(3) or m.group(4)
         return [
