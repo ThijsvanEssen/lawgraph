@@ -228,15 +228,15 @@ def test_a_write_is_sent_again_when_the_database_was_unreachable(
     waits: list[float] = []
     monkeypatch.setattr(store_module, "_sleep", waits.append)
     calls = {"n": 0}
-    real = store.execute
+    real = store.pool.connection
 
-    def flaky(*args: object, **kwargs: object) -> list[object]:
+    def flaky(*args: Any, **kwargs: Any) -> Any:
         calls["n"] += 1
         if calls["n"] == 1:
             raise psycopg.OperationalError("server closed the connection unexpectedly")
-        return real(*args, **kwargs)  # type: ignore[arg-type]
+        return real(*args, **kwargs)
 
-    monkeypatch.setattr(store, "execute", flaky)
+    monkeypatch.setattr(store.pool, "connection", flaky)
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", a=1)]) == (1, 0)
     assert waits == [2.0]
 
