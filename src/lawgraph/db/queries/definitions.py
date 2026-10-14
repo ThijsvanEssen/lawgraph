@@ -1,5 +1,6 @@
 """``lg_instrument_definitions``: the definitions each regulation gives itself
-(``core.bwb_definitions``), kept by ``semantic bwb-definitions``."""
+(``core.bwb_definitions``), kept by ``semantic bwb-definitions``; and those a regulation
+takes from the regulations it is issued under (``BASED_ON``, two levels)."""
 
 from __future__ import annotations
 
@@ -8,13 +9,17 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
     RAW_KIND_BWB_TOESTAND,
+    RELATION_BASED_ON,
     SOURCE_BWB,
 )
-from lawgraph.core.bwb_definitions import TermMatcher, definition_ref
+from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
 from lawgraph.core.models import make_node_key
 from lawgraph.db.counting import Store
+from lawgraph.db.schema import DEFINITIONS_TABLE
 from lawgraph.db.version_cache import cached
 
 
@@ -95,13 +100,86 @@ def definitions_of(store: Store, instrument_id: str) -> list[dict[str, Any]]:
     return list(found) if isinstance(found, list) else []
 
 
+# The regulations a regulation is issued under that give definitions: level 1 those whose
+# articles its preamble names (its ``BASED_ON`` edges, by the ``edges_from_cover`` index),
+# level 2 those of each of them; each with the paths of the articles named (where in the
+# law its basis stands) and its definitions. A regulation of both levels counts at the
+# first. A handful of edges and rows by their keys: the definitions of each regulation
+# found by its key, not the table of definitions walked for them.
+_BASES_SQL = f"""
+WITH first AS (
+    SELECT a.bwb_id, array_agg(DISTINCT coalesce(a.props ->> 'path', '')) AS paths
+    FROM {COLLECTION_EDGES} e JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
+    WHERE e.from_id = %(id)s AND e.relation = %(based_on)s
+      AND e.to_collection = '{COLLECTION_ARTICLES}'
+    GROUP BY a.bwb_id
+),
+second AS (
+    SELECT a.bwb_id, array_agg(DISTINCT coalesce(a.props ->> 'path', '')) AS paths
+    FROM first f
+    JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = f.bwb_id
+    JOIN {COLLECTION_EDGES} e ON e.from_id = i.id AND e.relation = %(based_on)s
+     AND e.to_collection = '{COLLECTION_ARTICLES}'
+    JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
+    WHERE a.bwb_id NOT IN (SELECT bwb_id FROM first)
+    GROUP BY a.bwb_id
+),
+bases AS (
+    SELECT 1 AS level, bwb_id, paths FROM first
+    UNION ALL
+    SELECT 2, bwb_id, paths FROM second
+),
+given AS (
+    SELECT b.level, b.bwb_id, b.paths, i.key,
+           i.props -> 'citation_title' AS citation_title,
+           i.props -> 'short_title' AS short_title,
+           i.props -> 'abbreviation' AS abbreviation,
+           (SELECT d.definitions FROM {DEFINITIONS_TABLE} d
+            WHERE d.instrument_id = i.id) AS definitions
+    FROM bases b JOIN {COLLECTION_INSTRUMENTS} i ON i.bwb_id = b.bwb_id
+    WHERE i.id <> %(id)s
+)
+SELECT json_build_object(
+    'level', g.level,
+    'paths', to_json(g.paths),
+    'definitions', g.definitions,
+    'given_by', json_build_object(
+        'key', g.key,
+        'bwb_id', g.bwb_id,
+        'citation_title', g.citation_title,
+        'short_title', g.short_title,
+        'abbreviation', g.abbreviation
+    )
+)
+FROM given g
+WHERE g.definitions IS NOT NULL
+ORDER BY g.level ASC NULLS LAST, g.bwb_id ASC NULLS LAST
+"""
+
+
+def taken_definitions(store: Any, instrument_id: str) -> list[dict[str, Any]]:
+    """The definitions *instrument_id* takes from the regulations it is issued under
+    (``core.bwb_definitions.inherited``), each with ``given_by``. One query."""
+    return inherited(
+        list(
+            store.query(
+                _BASES_SQL, {"id": instrument_id, "based_on": RELATION_BASED_ON}
+            )
+        )
+    )
+
+
 def term_matcher(store: Any, instrument_id: str) -> TermMatcher:
-    """The compiled matcher of the defined terms of *instrument_id*, kept per data version
-    (``cached``): an article of the Wft does not compile its hundreds of terms again."""
+    """The compiled matcher of the defined terms of *instrument_id*, its own and those it
+    takes, kept per data version (``cached``): an article of the Wft does not compile its
+    hundreds of terms again."""
     return cached(
         store,
         ("term_matcher", instrument_id),
-        lambda: TermMatcher(definitions_of(store, instrument_id)),
+        lambda: TermMatcher(
+            definitions_of(store, instrument_id),
+            taken_definitions(store, instrument_id),
+        ),
     )
 
 

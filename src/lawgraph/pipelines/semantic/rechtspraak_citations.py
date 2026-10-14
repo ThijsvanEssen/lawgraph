@@ -48,7 +48,6 @@ from lawgraph.config.constants import (
     RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.citations import make_snippet
 from lawgraph.core.echr_citations import Cited, cited_in_dutch, dutch_mentions
 from lawgraph.core.ecli import (
     cited_eclis,
@@ -61,7 +60,6 @@ from lawgraph.core.judgments import body_text, judgment_text, parse_judgment
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Node, NodeType, PipelineResult
-from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -114,33 +112,14 @@ def judgment_mentions(
         ]
         for ecli, start, end in sorted(named, key=lambda found: found[1]):
             by_ecli.setdefault(ecli, []).append(
-                _mention(paragraph, text, (start, end), CONFIDENCE)
+                Mention.read(paragraph, text, (start, end), confidence=CONFIDENCE)
             )
         for cited_echr, start, end in dutch_mentions(text):
             sure = _echr_citations.confidence(cited_echr)
             by_appno.setdefault(cited_echr.appno, []).append(
-                _mention(paragraph, text, (start, end), sure)
+                Mention.read(paragraph, text, (start, end), confidence=sure)
             )
     return by_ecli, by_appno
-
-
-def _mention(
-    paragraph: Mapping[str, Any], text: str, span: tuple[int, int], confidence: float
-) -> Mention:
-    number, label = paragraph.get("number"), paragraph.get("footnote")
-    start, end = span
-    return Mention(
-        paragraph_id=str(paragraph.get("id")),
-        paragraph_number=str(number) if number else None,
-        start=start,
-        end=end,
-        raw_match=text[start:end],
-        qualifier=None,
-        parts=Qualifier(),
-        snippet=make_snippet(text, span),
-        confidence=confidence,
-        footnote=str(label) if label else None,
-    )
 
 
 def places_meta(mentions: list[Mention]) -> dict[str, Any]:

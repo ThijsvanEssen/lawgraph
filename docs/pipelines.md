@@ -444,7 +444,7 @@ in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number
 
 | Edge | Rule | In the source (24 Sep 2026) |
 |------|------|-----------------------------|
-| `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
+| `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds, `meta.pairs` the papers of the 5 newest pairs (two dossiers may share hundreds: `21501-02`): per pair of papers of the two cases' own kinds (the letter, the motion; not an attachment) `{kinds, from, to}`, a side `{case, paper, kind, dossier_number, dossier_suffix, sequence, date}` or `{case, paper: null}` for a case without such a paper in the graph. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
 | `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
 | `REVISES` (papers) | a paper of a case that replaces another (an amended amendment or motion, "Gewijzigd amendement … ter vervanging van nr. 21": `Zaak.VervangenVanuit`, read by `normalize tk` as `replaces_cases`) revises each paper of that case, Document → Document, `meta.rule` `vervanging` | 11,641 cases that replace another (9 Oct 2026) |
 | `ACCOMPANIES` | "(wijziging samenhangende met de Voorjaarsnota)" of year Y goes with the dossier "Voorjaarsnota Y", likewise the Najaarsnota. The Miljoenennota of Prinsjesdag in year Y presents the budgets of Y + 1, so a change of year Y "samenhangende met de Miljoenennota" goes with the dossier "Nota over de toestand van ’s Rijks Financiën" whose number holds the budgets of Y + 1. `meta.nota` names it | 912: 412 Voorjaarsnota, 404 Najaarsnota, 96 Miljoenennota; 15 changes "samenhangende met" something else (an incidental supplementary budget, the refinancing of covid loans) get none |
@@ -461,15 +461,22 @@ The same step ties the two cases of each Kamer relation themselves: `RELATED_TO`
 (`meta.case_kinds`), also within one dossier or without one, when both cases are stored. And a moved
 activity (`Verplaatst`) is `CONTINUES`d by the activity that replaced it: `replaced_by`
 (`Activiteit.VervangenDoor`) names that one's number, the edge runs from it to the moved one
-(`meta.reason` `verplaatst`).
+(`meta.reason` `verplaatst`). A motion is `MADE_IN` the debate it was submitted in
+(`meta.reason` `ingediend`): the activity that has the motion's case on its agenda
+(`Agendapunt.Zaak`, `ABOUT`), was held (`Uitgevoerd`) on the day the case started
+(`Zaak.GestartOp`, the day it was submitted) and took no decision on it (no decision `MADE_IN`
+it is `ABOUT` the case): the vote is an activity of its own (`Stemmingen`) with the case on its
+agenda too, on the same day when the votes follow a tweeminutendebat. A paper of the Kamer names
+no activity of a motion (`Document.Activiteit` is the record of a debate only).
 
 It reads every dossier, every related case and every activity on every run, since a node loaded
 today can be the other end of a relation stated earlier. It only adds and updates edges: an edge
-whose evidence is gone stays until the database is built again.
+whose evidence is gone stays until the database is built again; but a motion's `MADE_IN` no
+longer derived goes on every run.
 
 <a id="semantic-tk-cited-papers"></a>
-**Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number
-(`core/kamerstuk_refs.py`). A letter that carries out a motion is often a case of its own, with
+**Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number, and
+the motions a letter of the government names in its text (`core/kamerstuk_refs.py`). A letter that carries out a motion is often a case of its own, with
 no `Zaak.GerelateerdNaar` to the motion; only its subject names it: "Uitvoering van de motie van
 het lid Vliegenthart c.s. over … (Kamerstuk 25424-795)". The forms read after "Kamerstuk(ken)":
 `25424-795`, `36945-XIV-1` (a suffix), `21501-02-3465` (a numeric suffix, when that dossier
@@ -482,7 +489,20 @@ Each paper named is found by `dossier_number`, `dossier_suffix` and `sequence`
 government (`Brief regering`) `ANSWERS` a motion (`Motie`, `Motie (gewijzigd/nader)`): the
 appreciatie, the reaction, the carrying out; every other paper `REFERS_TO` what it names (a list
 of questions, an inbreng or the decision note about a letter). `meta.basis` is `subject`,
-`meta.text` the reference as written. Only the subject (else the title) is read, never the text.
+`meta.reference` the reference as written, and `meta.text` of an `ANSWERS` the whole subject
+(what the letter says it does with the motion), of a `REFERS_TO` the reference.
+
+A letter of the government also names the motions it answers in its text, mostly in a
+footnote ("Uw Kamer heeft met de motie van het lid Kathmann¹ …", note 1 "Kamerstuk 36 764,
+nr. 28") or in brackets after "motie" without the word Kamerstuk ("de motie-Kathmann (36764,
+nr. 31)"). Of every letter whose text says "motie" each line and each footnote (`footnotes` of
+`normalize tk-content`) is read in the forms above; a paper named that is a motion and that the
+subject does not name gets `ANSWERS`, confidence 0.9, `meta.basis` `text` or `footnote`,
+`meta.text` the line or the footnote (of a long line the 400 characters around the reference), `meta.reference` the reference. Other papers the text
+names get no edge. A letter has its text when `retrieve tk-content` fetched its XML, which it
+does for a letter only when asked (`--kind "brief regering"`), not by default. With `--since`
+it reads the papers fetched since then and those whose XML was (their text comes with
+`normalize tk-content`, often a day later).
 
 On `lawgraph_small` (12 Oct 2026, 23,423 papers): 596 subjects say "Kamerstuk", 420 name a paper
 (451 references), 86 references are in the graph (82 papers with an edge; most others name a
@@ -656,7 +676,8 @@ the law is loaded, the next run links the citation and drops it from the list.
 
 One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
 `meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
-`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `confidence`),
+`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `snippet_start`,
+`confidence`),
 `meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
 lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
 bwb` and `semantic tk` do. Text of a judgment outside its `paragraphs` (the `inhoudsindicatie`)
@@ -1044,8 +1065,14 @@ begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term g
 definition before it); and a sentence that defines one term. Per definition `term`, `text`,
 `article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`, and
 none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
-…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation; `reach`: `own_and_based` where the
+announcement adds "en de daarop berustende bepalingen", else `own`) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+A regulation marks the terms of the regulations it is issued under too (`BASED_ON`, two
+levels: a ministeriële regeling under an AMvB under a law): their definitions of reach
+`own_and_based` whose part holds an article its preamble names, its own definition of a term
+first, the nearest level first, and none for a term two regulations of one level define
+differently. The article routes read them per data version (`term_matcher`).
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
@@ -1057,9 +1084,17 @@ regulations whose toestand was fetched since then (the daily run); without it ev
 in slices (`--after BWB-ID`, `--limit N`; the log names the last one read).
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
-`Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
-and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
-which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+`Gelet op` paragraph, 1.0, `meta = {text, doc, basis_kind}`: `text` the reference without its
+list word and law (`artikelen 3` is `3`, `107 van de Cyberbeveiligingswet` is `107`),
+`basis_kind` `delegates` when the leden named of the article (none: all of it) hold a
+delegation formula or another wording of a power ("bij besluit", "bij regeling", "kan nadere
+regels stellen", "kan beleidsregels vaststellen"), else `mentioned` (`core/delegations.py`,
+read from the text of the article). The BWB links a range ("artikelen 26 tot en met 30") as
+one link to its first article: every article in force from the first to the last, in the
+order of the law, gets an edge with the text of the range. Entries without an article, self
+references and targets that are not in the graph are skipped. It reads `props.basis` of the
+regulations, which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+Every run reads all of them, also under `--since`.
 
 **Semantic `bwb-amendments`.** Reads the article versions that carry `origin_publication`:
 
@@ -1757,7 +1792,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
-| semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) |
-| semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases), `normalize tk-dossiers` (the dossiers and their titles) and `normalize tk-content` (the text of the memoranda) |
+| semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
+| semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
 | semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |

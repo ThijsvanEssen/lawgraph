@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
+    RELATION_MADE_IN,
     RELATION_PART_OF,
     RELATION_REPEALS,
     RELATION_REVISES,
@@ -35,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_SECOND_READING_OF,
     SOURCE_EERSTEKAMER,
 )
+from lawgraph.core.models import make_node_key
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import (
@@ -201,6 +203,24 @@ def papers_naming_kamerstukken(
     only = "AND d.id = ANY(%(ids)s::text[])" if ids is not None else ""
     return store.query(
         f"{_NAMING_KAMERSTUKKEN_SQL} {only} ORDER BY d.key", {"ids": ids}
+    )
+
+
+def letters_naming_motions(
+    store: Store, kind: str, ids: list[str] | None
+) -> Iterator[dict[str, Any]]:
+    """``{id, text, footnotes}`` of every paper of *kind* (a letter of the government)
+    whose text names a motion ("motie"), by key; only those of *ids* (node ids) when it is
+    given. The kind is a column, the text is read only of those."""
+    only = "AND d.id = ANY(%(ids)s::text[])" if ids is not None else ""
+    return store.query(
+        f"""
+        SELECT d.id, d.props ->> 'text' AS text, d.props -> 'footnotes' AS footnotes
+        FROM {COLLECTION_DOCUMENTS} d
+        WHERE d.kind = %(kind)s AND d.props ->> 'text' ILIKE '%%motie%%' {only}
+        ORDER BY d.key
+        """,
+        {"kind": kind, "ids": ids},
     )
 
 
@@ -762,6 +782,76 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, kind, dossier_numbers, related_cases}`` of every case the Kamer relates to
     another."""
     return store.query(_RELATED_CASES_SQL)
+
+
+def case_papers(store: Store, cases: list[str]) -> dict[str, dict[str, Any]]:
+    """Per case of *cases* (TK ids) that is stored: its ``number`` and its ``papers`` of its
+    own kind (a letter of a ``Brief regering``, the motion of a ``Motie``, not an
+    attachment), each ``{id, kind, dossier_number, dossier_suffix, sequence, date}``, by
+    date and id."""
+    found: dict[str, dict[str, Any]] = {}
+    for row in store.query(
+        f"""
+        SELECT lg_str(c.props -> 'external_id') AS case_id,
+               lg_str(c.props -> 'number') AS number,
+               (
+                   SELECT coalesce(json_agg(json_build_object(
+                       'id', l.id, 'kind', l.props -> 'kind',
+                       'dossier_number', l.props -> 'dossier_number',
+                       'dossier_suffix', l.props -> 'dossier_suffix',
+                       'sequence', l.props -> 'sequence', 'date', l.props -> 'date'
+                   ) ORDER BY lg_str(l.props -> 'date') ASC NULLS LAST, l.id), '[]'::json)
+                   FROM {COLLECTION_EDGES} e
+                   JOIN lg_document_light l ON l.id = e.from_id
+                   WHERE e.to_id = c.id AND e.relation = '{RELATION_PART_OF}'
+                     AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+                     AND starts_with(coalesce(lg_str(l.props -> 'kind'), ''),
+                                     coalesce(lg_str(c.props -> 'kind'), ''))
+               ) AS papers
+        FROM {COLLECTION_CASES} c
+        WHERE c.key = ANY(%(keys)s::text[])
+        ORDER BY c.key
+        """,
+        {"keys": sorted({make_node_key(case) for case in cases})},
+    ):
+        found[str(row["case_id"])] = {"number": row["number"], "papers": row["papers"]}
+    return found
+
+
+# A motion submitted in a debate: the debate has the motion's case on its agenda
+# (``Agendapunt.Zaak``), was held (``Uitgevoerd``) on the day the case started
+# (``Zaak.GestartOp``, the day it was submitted), and took no decision on it: the vote on a
+# motion is an activity of its own (``Stemmingen``) that has the case on its agenda too.
+_MOTIONS_SUBMITTED_SQL = f"""
+SELECT DISTINCT p.from_id AS paper, a.id AS activity
+FROM {COLLECTION_ACTIVITIES} a
+JOIN {COLLECTION_EDGES} ab ON ab.from_id = a.id AND ab.relation = '{RELATION_ABOUT}'
+    AND ab.to_collection = '{COLLECTION_CASES}'
+JOIN {COLLECTION_CASES} c ON c.id = ab.to_id
+JOIN {COLLECTION_EDGES} p ON p.to_id = c.id AND p.relation = '{RELATION_PART_OF}'
+    AND p.from_collection = '{COLLECTION_DOCUMENTS}'
+JOIN lg_document_light l ON l.id = p.from_id
+WHERE starts_with(coalesce(lg_str(c.props -> 'kind'), ''), %(motion)s)
+  AND starts_with(coalesce(lg_str(l.props -> 'kind'), ''), %(motion)s)
+  AND lg_str(a.props -> 'status') = %(held)s
+  AND a.date = lg_str(c.props -> 'started_on')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM {COLLECTION_EDGES} m
+      JOIN {COLLECTION_EDGES} d ON d.from_id = m.from_id
+          AND d.relation = '{RELATION_ABOUT}' AND d.to_id = c.id
+      WHERE m.to_id = a.id AND m.relation = '{RELATION_MADE_IN}'
+        AND m.from_collection = '{COLLECTION_DECISIONS}'
+  )
+ORDER BY paper NULLS LAST, activity NULLS LAST
+"""
+
+
+def motions_submitted(store: Store, motion: str, held: str) -> Iterator[dict[str, Any]]:
+    """``{paper, activity}``: each motion (a paper of a kind starting with *motion*) and the
+    debate it was submitted in (``_MOTIONS_SUBMITTED_SQL``; *held* is the status of an
+    activity that took place)."""
+    return store.query(_MOTIONS_SUBMITTED_SQL, {"motion": motion, "held": held})
 
 
 def replacing_cases(store: Store) -> Iterator[dict[str, Any]]:

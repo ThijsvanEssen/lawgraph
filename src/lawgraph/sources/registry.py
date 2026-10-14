@@ -1016,7 +1016,8 @@ SEMANTIC: list[Pipeline] = [
         (
             "RELATED_TO, REVISES, ACCOMPANIES and SECOND_READING_OF between dossiers: the cases "
             "the Kamer relates, the budget a budget change revises and the nota it comes with, "
-            "and the first reading of a change in the Grondwet."
+            "and the first reading of a change in the Grondwet; MADE_IN from a motion to the "
+            "debate it was submitted in."
         ),
     ),
     _pipeline(
@@ -1024,7 +1025,7 @@ SEMANTIC: list[Pipeline] = [
         (
             "ANSWERS and REFERS_TO to the Kamerstukken a paper's subject names by dossier "
             'and number, "(Kamerstuk 25424-795)": ANSWERS from a letter of the government '
-            "to a motion."
+            "to a motion, also one its text or a footnote names."
         ),
     ),
     _pipeline(

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
+from lawgraph.core.mentions import Mention
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
 # every node, the node itself too: its text and its raw payloads, which the detail routes
@@ -103,23 +104,46 @@ def light_node_doc(row: dict[str, Any]) -> dict[str, Any]:
     return doc
 
 
-def light_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
+def light_edge_doc(row: dict[str, Any], passages: bool = False) -> dict[str, Any]:
     """``edge_doc`` of the edge of a neighbour, a neighbourhood or a path: its ``meta``
     without ``NEIGHBOUR_EDGE_META_LEFT_OUT``. The paragraphs of a judgment that cites an
     article stay as ``paragraphs`` (``mentioned_paragraphs``), as an edge to a judgment it
-    cites keeps them itself."""
+    cites keeps them itself; with *passages* also its ``passages``
+    (``mentioned_passages``)."""
     doc = edge_doc(row)
     meta = doc.get("meta")
     if isinstance(meta, dict) and any(k in meta for k in NEIGHBOUR_EDGE_META_LEFT_OUT):
-        paragraphs = meta.get("paragraphs") or mentioned_paragraphs(
-            meta.get("mentions")
-        )
+        mentions = meta.get("mentions")
+        paragraphs = meta.get("paragraphs") or mentioned_paragraphs(mentions)
         doc["meta"] = {
             k: v for k, v in meta.items() if k not in NEIGHBOUR_EDGE_META_LEFT_OUT
         }
         if paragraphs:
             doc["meta"]["paragraphs"] = paragraphs
+        if passages and (found := mentioned_passages(mentions)):
+            doc["meta"]["passages"] = found
     return doc
+
+
+# The passages an edge gives with its paragraphs (``mentioned_passages``): the first place in
+# each of its first paragraphs.
+PASSAGES_PER_EDGE = 3
+
+
+def mentioned_passages(mentions: Any) -> list[dict[str, Any]]:
+    """The passages of the ``mentions`` of an edge (``core.mentions.Mention.passage``): the
+    first in each paragraph or footnote, of the first ``PASSAGES_PER_EDGE``, in reading
+    order; none of a mention stored without its place in its snippet."""
+    found: dict[tuple[str, str | None], dict[str, Any]] = {}
+    for stored in mentions if isinstance(mentions, list) else []:
+        mention = Mention.from_dict(stored)
+        if mention is None or (mention.paragraph_id, mention.footnote) in found:
+            continue
+        if (passage := mention.passage()) is not None:
+            found[(mention.paragraph_id, mention.footnote)] = passage
+            if len(found) == PASSAGES_PER_EDGE:
+                break
+    return list(found.values())
 
 
 def mentioned_paragraphs(mentions: Any) -> list[str]:
@@ -201,6 +225,8 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "text",
         "actors",
         "dossier_numbers",
+        # its readable address (``/activiteiten/2026A01323``)
+        "number",
     ),
     "commitments": ("kind", "agenda_title", "title", "text", "actors", "number"),
     "cases": ("kind", "agenda_title", "title", "text", "actors", "number"),
@@ -243,6 +269,7 @@ CANVAS_EDGE_META = (
     "raw_match",
     "reason",
     "edge_id",
+    "passages",
 )
 
 
@@ -297,11 +324,11 @@ def canvas_props(alias: str) -> str:
         WHERE p.key = ANY({keys}))"""
 
 
-def canvas_edge_doc(row: dict[str, Any]) -> dict[str, Any]:
+def canvas_edge_doc(row: dict[str, Any], passages: bool = False) -> dict[str, Any]:
     """``light_edge_doc`` with only the keys of its ``meta`` the canvas reads
     (``CANVAS_EDGE_META``): none is null, never ``{}`` (the explorer keeps a richer meta it
     had for null, and an empty one would take its place)."""
-    doc = light_edge_doc(row)
+    doc = light_edge_doc(row, passages)
     meta = doc.get("meta")
     kept = (
         {k: v for k, v in meta.items() if k in CANVAS_EDGE_META}
