@@ -24,14 +24,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_PART_OF,
-    RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publication_xml import SERIES_NAMES
@@ -263,13 +259,6 @@ def publications(
     page to find (``api/seo/pages.publication_page``): a title of their own (their nota
     van toelichting) or a regulation they enact or change. The day they were published is their
     lastmod."""
-    changes = [
-        RELATION_ESTABLISHES,
-        RELATION_INTRODUCES,
-        RELATION_AMENDS,
-        RELATION_REPEALS,
-        RELATION_EXPLAINS,
-    ]
     yield from store.query(
         f"""
         WITH listed AS (
@@ -300,7 +289,7 @@ def publications(
         {
             "since": since,
             "series": list(SERIES),
-            "changes": changes,
+            "changes": list(PUBLICATION_RELATIONS),
             "series_names": sorted(SERIES_NAMES),
         },
     )

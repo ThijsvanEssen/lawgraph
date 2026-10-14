@@ -26,18 +26,14 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_AUTHORED,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
 )
@@ -622,15 +618,6 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 # ── publications, commitments and decisions ───────────────────────────────────
 
-# What a publication does to a regulation, and what its nota van toelichting does.
-_CHANGES = (
-    RELATION_ESTABLISHES,
-    RELATION_INTRODUCES,
-    RELATION_AMENDS,
-    RELATION_REPEALS,
-    RELATION_EXPLAINS,
-)
-
 
 def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A publication in the Staatsblad or Tractatenblad: the instrument the BWB names, its
@@ -743,7 +730,7 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
         ORDER BY name ASC NULLS LAST, i.id
         LIMIT %(limit)s
         """,
-        {"sources": sources, "changes": list(_CHANGES), "limit": LAWS},
+        {"sources": sources, "changes": list(PUBLICATION_RELATIONS), "limit": LAWS},
     )
     return [r for r in rows if r["name"]]
 

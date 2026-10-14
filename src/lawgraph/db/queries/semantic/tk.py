@@ -22,16 +22,14 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    ENACTING_RELATIONS,
     EXPLANATORY_KIND_MARKER,
     RELATION_ABOUT,
     RELATION_AMENDS,
-    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_MADE_IN,
     RELATION_PART_OF,
-    RELATION_REPEALS,
     RELATION_REVISES,
     RELATION_SAME_AS,
     RELATION_SECOND_READING_OF,
@@ -48,14 +46,6 @@ from lawgraph.db.queries.semantic import (
     slim_sql,
 )
 from lawgraph.db.schema import feed_title
-
-# What a dossier did to an article: changed it, or set it by enacting a new law.
-_CHANGE_RELATIONS = (
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-    RELATION_ESTABLISHES,
-)
 
 # ``CONTAINS(LOWER(doc.props.kind || ""), marker)`` of the document ``d``: the kind column
 # holds a string kind without reading the payload; another kind is read as its text.
@@ -493,7 +483,7 @@ def memorandum_targets(store: Store, *, sections_source: str) -> Iterator[Any]:
         "second_reading_of": RELATION_SECOND_READING_OF,
         "explains": RELATION_EXPLAINS,
         "sections_source": sections_source,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
     }
     return store.query(MEMORANDUM_TARGETS_SQL, params)
 
@@ -653,7 +643,7 @@ def memoranda_with_sections(
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
         "second_reading_of": RELATION_SECOND_READING_OF,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
     }
     return store.query(
         _papers_with_sections_sql(_MEMORANDA), params, batch_size=batch_size
@@ -669,7 +659,7 @@ def adopted_amendments_with_sections(
         "part_of": RELATION_PART_OF,
         "legislated_in": RELATION_LEGISLATED_IN,
         "second_reading_of": RELATION_SECOND_READING_OF,
-        "change_relations": list(_CHANGE_RELATIONS),
+        "change_relations": list(ENACTING_RELATIONS),
         "revises": RELATION_REVISES,
         "about": RELATION_ABOUT,
     }
