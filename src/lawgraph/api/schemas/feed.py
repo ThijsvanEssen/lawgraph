@@ -42,15 +42,15 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
-from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
 from lawgraph.core.readable_paths import PublicationSeries, series_of
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import (
     CAPACITY_MEMBER,
-    NO_DUE_DATE,
     SUBMITTER_FIRST,
     VoteKind,
+    due_date,
 )
+from lawgraph.core.votes import VoteOutcome, vote_outcome
 from lawgraph.core.xml import collapse_ws
 
 MatchedField = Literal["title", "dossier_title", "laws"]
@@ -64,8 +64,6 @@ ViaRelation = Literal[
 ]
 PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
-
-_OUTCOME: dict[bool, VoteOutcome] = {True: ADOPTED, False: REJECTED}
 
 
 class FeedNodeDTO(BaseModel):
@@ -748,7 +746,7 @@ def _vote(props: dict[str, Any], row: dict[str, Any]) -> FeedVoteDTO:
     return FeedVoteDTO(
         chamber=props.get("chamber") or "TK",
         passed=passed,
-        outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,
+        outcome=vote_outcome(passed),
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
         method=props.get("method"),
@@ -763,7 +761,7 @@ def _commitment(props: dict[str, Any]) -> FeedCommitmentDTO:
     status = props.get("status")
     return FeedCommitmentDTO(
         status=status,
-        expected_resolution=due if due and due != NO_DUE_DATE else None,
+        expected_resolution=due_date(due),
     )
 
 
@@ -1030,9 +1028,7 @@ class FeedSummaryResponse(BaseModel):
                         FeedVoteCountDTO(
                             chamber=v.get("chamber") or "TK",
                             subkind=v.get("subkind"),
-                            outcome=_OUTCOME.get(v["passed"])
-                            if isinstance(v.get("passed"), bool)
-                            else None,
+                            outcome=vote_outcome(v.get("passed")),
                             count=v["count"],
                         )
                         for v in day.get("votes") or []

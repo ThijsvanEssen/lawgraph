@@ -24,6 +24,7 @@ import psycopg
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
 from lawgraph.core.tk_records import KIND_AMENDMENT
+from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.feed import (
@@ -182,7 +183,7 @@ chosen AS (
 ),
 outcome AS (
     SELECT DISTINCT ON (f.chain_id) f.chain_id,
-           CASE ch.passed WHEN true THEN 'aangenomen' WHEN false THEN 'verworpen'
+           CASE ch.passed WHEN true THEN '{ADOPTED}' WHEN false THEN '{REJECTED}'
                 ELSE 'other' END AS outcome
     FROM first f
     JOIN documents doc ON doc.id = f.chain_id
@@ -541,7 +542,7 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
     ]
 
 
-OUTCOMES = ("aangenomen", "verworpen", "other")
+OUTCOMES = (ADOPTED, REJECTED, "other")
 
 
 def _no_chains() -> dict[str, int]:

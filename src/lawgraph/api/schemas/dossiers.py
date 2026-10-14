@@ -30,9 +30,9 @@ from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import node_id, parse_node_id
-from lawgraph.core.paper_outcomes import VoteOutcome
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity
+from lawgraph.core.votes import VoteOutcome
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).

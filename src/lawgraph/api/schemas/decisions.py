@@ -10,7 +10,7 @@ from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, numbered_in, paper_number
 from lawgraph.core.models import key_of
-from lawgraph.core.tk_records import VoteChoice
+from lawgraph.core.votes import VoteChoice
 
 _KIND = (
     "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "

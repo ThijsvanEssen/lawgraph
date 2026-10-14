@@ -32,11 +32,12 @@ from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.models import key_of, node_id, parse_node_id
-from lawgraph.core.official_urls import instrument_url, publication_url
+from lawgraph.core.official_urls import instrument_url, judgment_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, path_of
 from lawgraph.core.time import long_date
-from lawgraph.core.tk_records import is_motion_or_amendment, submitters
+from lawgraph.core.tk_records import due_date, is_motion_or_amendment, submitters
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, vote_outcome
 
 SITE = "Concordans"
 # The sources a list of a page links at most.
@@ -418,10 +419,10 @@ def judgment_page(row: dict[str, Any]) -> Page:
             for j in row.get("judgments") or []
         ]
     )
+    official = judgment_url(light)
     source = (
-        f'<p><a href="https://uitspraken.rechtspraak.nl/details?id={escape(ecli)}">'
-        "De uitspraak op rechtspraak.nl</a></p>"
-        if ecli.upper().startswith("ECLI:NL:")
+        f'<p><a href="{escape(official)}">De uitspraak op rechtspraak.nl</a></p>'
+        if official
         else ""
     )
     body = (
@@ -466,9 +467,9 @@ _OF_MEMBERS_AFTER = re.compile(r"^\s*van\s+(?:het\s+lid|de\s+leden)\s+", re.I)
 def _outcome(decisions: list[dict[str, Any]]) -> str | None:
     """``aangenomen`` or ``verworpen``: the outcome of the last vote on a paper."""
     for decision in reversed(decisions):
-        passed = (decision.get("props") or {}).get("passed")
-        if passed is not None:
-            return "aangenomen" if passed else "verworpen"
+        outcome = vote_outcome((decision.get("props") or {}).get("passed"))
+        if outcome:
+            return outcome
     return None
 
 
@@ -505,9 +506,13 @@ def paper_title(
 
 def _votes(decision: dict[str, Any]) -> tuple[list[str], list[str]]:
     """The factions that voted for and against, by name."""
-    voor = [v["name"] for v in decision.get("votes") or [] if v.get("choice") == "Voor"]
+    voor = [
+        v["name"] for v in decision.get("votes") or [] if v.get("choice") == VOTE_FOR
+    ]
     tegen = [
-        v["name"] for v in decision.get("votes") or [] if v.get("choice") == "Tegen"
+        v["name"]
+        for v in decision.get("votes") or []
+        if v.get("choice") == VOTE_AGAINST
     ]
     return voor, tegen
 
@@ -1500,8 +1505,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         if member.get("name")
         else escape(_text(props.get("minister_name")))
     )
-    expected = _text(props.get("expected_resolution"))
-    expected = "" if expected.startswith("0001-") else _day(expected)
+    expected = _day(due_date(props.get("expected_resolution")))
     cabinet = row.get("cabinet") or {}
     facts = [
         ", ".join(
@@ -1581,9 +1585,9 @@ def commitment_page(row: dict[str, Any]) -> Page:
 def decision_outcome(props: dict[str, Any]) -> str:
     """``aangenomen`` or ``verworpen``; the result of the Eerste Kamer as its page writes
     it; else what was decided (``uitstellen``), as the Kamer writes it."""
-    passed = props.get("passed")
-    if passed is not None:
-        return "aangenomen" if passed else "verworpen"
+    outcome = vote_outcome(props.get("passed"))
+    if outcome:
+        return outcome
     result = _text(props.get("result"))
     if result:
         return result

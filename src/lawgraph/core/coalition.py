@@ -19,7 +19,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
-from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 
 # The first day every seat of the Tweede Kamer is known (FractieZetelPersoon).
 TK_SEATS_FROM = "2006-11-30"

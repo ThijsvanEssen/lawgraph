@@ -25,6 +25,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.slugs import claim_numbered
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
+from lawgraph.core.votes import ADOPTED, REJECTED, VOTE_AGAINST, VOTE_FOR
 from lawgraph.core.xml import collapse_ws
 
 Payload = dict[str, Any]
@@ -33,12 +34,6 @@ Record = tuple[str, dict[str, Any]]
 # Toezegging.Status of a commitment still to be kept (the others: Afgedaan, Nagekomen, Niet
 # nagekomen, Deels Afgedaan, Vervallen). A commitment keeps the Status the Kamer gives it.
 COMMITMENT_OPEN = "Openstaand"
-
-# Stemming.Soort values that mean the vote was cast in favour / against; any
-# other value ("Onthouden", "Niet deelgenomen") is kept as the source wrote it.
-VoteChoice = Literal["Voor", "Tegen"]
-VOTE_FOR: Final[VoteChoice] = "Voor"
-VOTE_AGAINST: Final[VoteChoice] = "Tegen"
 
 # Who the votes of a decision come from: the members (a roll call), else the factions.
 VoteKind = Literal["member", "faction"]
@@ -870,6 +865,12 @@ CAPACITY_OTHER: Final[SigningCapacity] = "overig"
 # What a Toezegging holds as ``DatumNakoming`` when the Kamer names no date it is due.
 NO_DUE_DATE = "0001-01-01"
 
+
+def due_date(value: Any) -> str | None:
+    """The day a commitment is due (``DatumNakoming``); None when the Kamer names none."""
+    return value if value and value != NO_DUE_DATE else None
+
+
 # DocumentActor.Functie of a member of the government: "minister van Financiën", "minister voor
 # Klimaat en Energie", "minister-president", "viceminister-president", "staatssecretaris van
 # Defensie". Not "gevolmachtigde minister van Aruba", who speaks for Aruba.
@@ -1294,9 +1295,9 @@ def decision_passed(decision: Payload, tally: dict[str, int]) -> bool | None:
     kind = (
         decision.get("BesluitSoort") or decision.get("StemmingsSoort") or ""
     ).lower()
-    if "aangenomen" in kind or "aannemen" in kind:
+    if ADOPTED in kind or "aannemen" in kind:
         return True
-    if "verworpen" in kind:
+    if REJECTED in kind:
         return False
     if not tally:
         return None

@@ -48,6 +48,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.logging import get_logger
+from lawgraph.core.votes import PAPER_OUTCOME_PROPS
 
 logger = get_logger(__name__)
 
@@ -1445,12 +1446,9 @@ DOCUMENT_LIGHT_PROPS = (
     "dictum",
     # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)
     "explanation",
-    # how a motion or an amendment ended (``core/paper_outcomes.py``), which a row of it
+    # how a motion or an amendment ended (``core/votes.py``), which a row of it
     # shows and ``semantic tk-paper-outcomes`` compares with
-    "outcome",
-    "decided_on",
-    "tally",
-    "decision",
+    *PAPER_OUTCOME_PROPS,
 )
 # ... and, after them, ``has_text``: whether the paper's text is in the data (a string, not
 # empty), which a row of the feed opens on; read from the same pass over the props.

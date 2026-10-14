@@ -1,6 +1,6 @@
 """What ``semantic tk-paper-outcomes`` reads: the decisions on motions and amendments, the
 papers they were taken on, the papers a newer one replaces, and the outcomes kept before
-(``core/paper_outcomes.py``)."""
+(``core/votes.py``)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.tk_records import DECIDED_KINDS, KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.votes import PAPER_OUTCOME_PROPS
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.decisions import motion_papers
 
@@ -56,9 +57,8 @@ WHERE d.source = '{SOURCE_EERSTEKAMER}' AND starts_with(d.kind, '{KIND_MOTION}')
 """
 
 # The outcomes kept before, from the light rows of the papers (``lg_document_light``).
-_KEPT = """
-SELECT l.id, l.props -> 'outcome' AS outcome, l.props -> 'decided_on' AS decided_on,
-       l.props -> 'tally' AS tally, l.props -> 'decision' AS decision
+_KEPT = f"""
+SELECT l.id, {", ".join(f"l.props -> '{name}' AS {name}" for name in PAPER_OUTCOME_PROPS)}
 FROM lg_document_light l
 WHERE coalesce(json_typeof(l.props -> 'outcome'), 'null') <> 'null'
 """
@@ -96,11 +96,6 @@ def kept_outcomes(store: Store) -> dict[str, dict[str, Any]]:
     """Paper id -> ``{outcome, decided_on, tally, decision}`` as kept, of every paper that
     has an outcome."""
     return {
-        row["id"]: {
-            "outcome": row["outcome"],
-            "decided_on": row["decided_on"],
-            "tally": row["tally"],
-            "decision": row["decision"],
-        }
+        row["id"]: {name: row[name] for name in PAPER_OUTCOME_PROPS}
         for row in store.query(_KEPT, {})
     }

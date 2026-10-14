@@ -69,6 +69,7 @@ from lawgraph.core.tk_records import (
     FIRST_SIGNATORY,
     KIND_EXPLANATORY_MEMORANDUM,
 )
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
@@ -350,8 +351,8 @@ def _number(value: str) -> str:
 
 
 # The difference in seats (in members on a roll-call) between for and against.
-_VOOR = "n.props -> 'tally' -> 'Voor'"
-_TEGEN = "n.props -> 'tally' -> 'Tegen'"
+_VOOR = f"n.props -> 'tally' -> '{VOTE_FOR}'"
+_TEGEN = f"n.props -> 'tally' -> '{VOTE_AGAINST}'"
 _MARGIN = f"abs(({_number(_VOOR)}) - ({_number(_TEGEN)}))"
 
 
