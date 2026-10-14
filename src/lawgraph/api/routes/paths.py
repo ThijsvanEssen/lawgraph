@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import EdgeMeta, parse_choices
 from lawgraph.api.schemas.nodes import (
     DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
@@ -89,6 +89,7 @@ def get_paths_route(
     expand_cap: Annotated[
         int, Query(ge=1, le=1000, description="The children of a group, at most.")
     ] = 200,
+    edge_meta: EdgeMeta = "light",
 ) -> PathsResponse:
     asked = _node_ids(ids)
     chosen = parse_choices(relations, RELATION_NAMES, "relations")
@@ -106,6 +107,7 @@ def get_paths_route(
         max_depth,
         Followed(relations=kept, through_laws=through_laws),
         expand_cap=expand_cap if expand == "members" else 0,
+        passages=edge_meta == "passages",
     )
     membership: set[str] = data["membership"]
     return PathsResponse(
@@ -129,21 +131,7 @@ def get_paths_route(
             BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
             for n in data["nodes"]
         ],
-        edges=[
-            NodeNeighborhoodEdge(
-                id=e["_id"],
-                source=e["_from"],
-                target=e["_to"],
-                relation=e.get("relation"),
-                confidence=(
-                    float(e["confidence"])
-                    if isinstance(e.get("confidence"), int | float)
-                    else None
-                ),
-                status=e.get("status"),
-            )
-            for e in data["edges"]
-        ],
+        edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         capped=data["capped"],
         expand=expand,
         expanded=data["expanded"],

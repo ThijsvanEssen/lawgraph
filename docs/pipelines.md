@@ -672,7 +672,8 @@ the law is loaded, the next run links the citation and drops it from the list.
 
 One `REFERS_TO` edge per judgment and article, its `confidence` the strongest mention and
 `meta.mentions` the mentions in reading order (`paragraph_id`, `paragraph_number`, `start`,
-`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `confidence`),
+`end`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `snippet`, `snippet_start`,
+`confidence`),
 `meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
 lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
 bwb` and `semantic tk` do. Text of a judgment outside its `paragraphs` (the `inhoudsindicatie`)
