@@ -188,7 +188,11 @@ def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> 
         "title": "MvT",
         "date": "2025-01-10",
         "dossier_number": "36000",
+        # the row names no number of its own: no nr. and no address
+        "sequence": None,
+        "path": None,
     }
+    assert (item.heading, item.char_start, item.excerpt) == (None, None, None)
 
 
 def test_an_explanation_on_an_article_has_no_version_key() -> None:
@@ -201,6 +205,37 @@ def test_an_explanation_with_a_section_anchor_is_scoped_to_the_article() -> None
     item = _explanation(section_anchor="artikel-5")
 
     assert item.scope == "article" and item.section_anchor == "artikel-5"
+
+
+def test_an_explanation_of_a_section_names_its_paper_heading_and_opening() -> None:
+    """The memorandum by its number (nr. 3) and the section by its heading, with the
+    opening of what it says after that heading: the reader sees which passage explains the
+    article without opening it."""
+    body = "De zorgplicht houdt in dat een entiteit passende maatregelen neemt. " * 8
+    item = _explanation(
+        section_anchor="s-292",
+        heading="Artikel 21 (zorgplicht)",
+        char_start=368033,
+        char_end=375735,
+        opening="Artikel 21 (zorgplicht)\n" + body,
+        paper={"dossier_number": "36764", "dossier_suffix": None, "sequence": 3},
+    )
+
+    assert item.document.sequence == 3
+    assert item.document.path == "/kamerstukken/36764/3"
+    assert (item.heading, item.char_start, item.char_end) == (
+        "Artikel 21 (zorgplicht)",
+        368033,
+        375735,
+    )
+    assert item.excerpt is not None
+    assert item.excerpt.startswith("De zorgplicht houdt in")
+    assert item.excerpt.endswith("…") and len(item.excerpt) <= 300
+    # a short section whole, without the ellipsis
+    short = _explanation(
+        section_anchor="s-1", heading="Artikel 1", opening="Artikel 1\nBegrippen."
+    )
+    assert short.excerpt == "Begrippen."
 
 
 def test_an_explanation_of_a_document_without_dates_or_dossier_is_still_one() -> None:

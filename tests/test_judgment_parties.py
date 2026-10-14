@@ -160,7 +160,14 @@ def test_sides_aliases_and_representatives() -> None:
         "role_stated": True,  # "EISERS in eerste aanleg,"
         "side": "first",
         "alias": "[eisers]",  # "hierna gezamenlijk: [eisers] ,"
-        "representatives": [{"name": "mr. H.J.W. Alt", "role": "advocaat"}],
+        "representatives": [
+            {
+                "name": "mr. H.J.W. Alt",
+                "role": "advocaat",
+                "place": None,
+                "capacity": None,
+            }
+        ],
     }
     # "hierna respectievelijk: de Maatschap en NAM"
     assert parties["MAATSCHAP GRONINGEN"]["alias"] == "de Maatschap"
@@ -194,7 +201,12 @@ def test_the_representative_of_a_party_in_parentheses() -> None:
     (eiser, verweerder) = _parties("rechtspraak_rbams_2025_3600.xml")
 
     assert eiser["representatives"] == [
-        {"name": "mr. P.J. de Booij", "role": "gemachtigde"}
+        {
+            "name": "mr. P.J. de Booij",
+            "role": "gemachtigde",
+            "place": None,
+            "capacity": None,
+        }
     ]
     assert [r["name"] for r in verweerder["representatives"]] == [
         "mr. S. Deaney",

@@ -131,7 +131,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_I,),
         (_A,),
         "The legal basis (delegation basis) an instrument is issued under: "
-        "'Gelet op artikel …' in the preamble.",
+        "'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to "
+        "each article in force in it. `meta.text` is the reference without list word and "
+        "law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden "
+        "named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), "
+        "`mentioned` when the article is only named (Awb 3:4 by a policy rule).",
     ),
     RelationSpec(
         "IMPLEMENTS",
@@ -229,7 +233,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "(`referral_text`). A letter → the commitment it fulfils "
         "(`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its "
         'subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk '
-        '25424-795)" (`meta.basis` `subject`, `meta.text` as written).',
+        '25424-795)" (`meta.basis` `subject`, `meta.text` the whole subject, '
+        "`meta.reference` the reference as written), or its text or a footnote names: "
+        '"Kamerstuk 36 764, nr. 28", "de motie-Kathmann (36764, nr. 31)" (`meta.basis` '
+        "`text` or `footnote`, `meta.text` the line or footnote, confidence 0.9).",
     ),
     RelationSpec(
         "SAME_AS",
@@ -272,7 +279,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (_ACT,),
         "The activity in which a commitment (toezegging) was made, or a decision taken (the "
         "activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the "
-        "record (a stenogram of its debate: `Document.Activiteit`).",
+        "record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: "
+        "the debate held on the day its case started that has the case on its agenda and "
+        "took no decision on it (`meta.reason` `ingediend`).",
     ),
     RelationSpec(
         "MEMBER_OF",
@@ -303,7 +312,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). "
         "Dossier → dossier: the Kamer relates a case of this dossier to a case of the other "
         "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
-        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them. "
+        "answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them, "
+        "`meta.pairs` gives the papers of the 5 newest pairs (`{kinds, from, to}`, a side "
+        "`{case, paper, kind, dossier_number, dossier_suffix, sequence, date}`). "
         'Judgment → judgment: its summary names the other as a connected case, "Samenhang '
         'met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` '
         "`summary_text`, `meta.text` the sentence as written); only on an exact match of the "

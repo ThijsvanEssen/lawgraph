@@ -327,3 +327,192 @@ def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
     for bwb_id in (REGELING, "BWBR0099999"):
         body = _get(store, f"/api/instruments/{bwb_id}/delegated")
         assert body == {"bwb_id": bwb_id, "total": 0, "items": []}
+
+
+SUB = "BWBR0052900"  # a ministerial regulation issued under the AMvB, not the law
+WWKE = "BWBR0052871"  # another law the AMvB names
+
+
+def _seed_chain(store: GraphStore) -> None:
+    """The AMvB names article 7 of another law as well; a ministerial regulation is issued
+    under its articles 2 and 3, and names the law nowhere in its preamble."""
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _instrument(
+                    BESLUIT,
+                    "amvb",
+                    "Cyberbeveiligingsbesluit",
+                    date_in_force="2026-08-15",
+                    basis=[
+                        _basis("16", "artikelen 16, eerste lid"),
+                        _basis("17", "17 van de Cyberbeveiligingswet"),
+                        {
+                            "bwb_id": WWKE,
+                            "article": "7",
+                            "doc": f"jci1.3:c:{WWKE}&artikel=7",
+                            "text": "artikel 7 van de Wet weerbaarheid kritieke entiteiten",
+                        },
+                    ],
+                ),
+                _instrument(WWKE, "wet", "Wet weerbaarheid kritieke entiteiten"),
+                _article(
+                    WWKE, "7", text="Bij ministeriële regeling worden regels gesteld."
+                ),
+                _instrument(
+                    SUB,
+                    "ministeriele-regeling",
+                    "Regeling energiesector",
+                    basis=[
+                        {
+                            "bwb_id": BESLUIT,
+                            "article": "2",
+                            "doc": f"jci1.3:c:{BESLUIT}&artikel=2",
+                            "text": "artikelen 2 tot en met 3 van het Cyberbeveiligingsbesluit",
+                        }
+                    ],
+                ),
+                _article(SUB, "1", position=1),
+            ]
+        )
+    with EdgeWriter(store, what=None) as edges:
+        # the regulation refers to the law, not through a preamble
+        edges.add(
+            f"{COLLECTION_ARTICLES}/{SUB.lower()}_1",
+            f"{COLLECTION_ARTICLES}/{WET.lower()}_16",
+            RELATION_REFERS_TO,
+            source="t",
+            meta={"text": "artikel 16 van de wet", "leden": ["2"], "onderdelen": []},
+        )
+
+
+def test_a_law_gives_the_whole_basis_of_its_regulations(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/instruments/{WET}/delegated")
+    by_id = {i["instrument"]["bwb_id"]: i for i in body["items"]}
+    # the regulation issued under the AMvB is no item of the law
+    assert SUB not in by_id
+    besluit = by_id[BESLUIT]
+
+    # article 16 delegates in the lid named, article 17 has no power: named only
+    assert [
+        (a["article_number"], a["text"], a["basis_kind"]) for a in besluit["articles"]
+    ] == [("16", "16, eerste lid", "delegates"), ("17", "17", "mentioned")]
+    assert besluit["basis_kind"] == "delegates"
+    # the articles of the AMvB that work article 16 out, not the repealed one
+    assert [
+        (r["article_number"], r["leden"]) for r in besluit["articles"][0]["referring"]
+    ] == [("2", []), ("3", ["1"])]
+    assert besluit["articles"][1]["referring"] == []
+
+    # the other law it names
+    assert [
+        (law["instrument"]["bwb_id"], law["kind"], [a["text"] for a in law["articles"]])
+        for law in besluit["also_based_on"]
+    ] == [(WWKE, "wet", ["7"])]
+
+    # one level down: the ministerial regulation on its articles 2 and 3 (a range)
+    (sub,) = besluit["sub_delegated"]
+    assert (sub["instrument"]["bwb_id"], sub["kind"]) == (SUB, "ministeriele-regeling")
+    assert [(a["article_number"], a["text"]) for a in sub["articles"]] == [
+        ("2", "2 tot en met 3"),
+        ("3", "2 tot en met 3"),
+    ]
+    # a regulation with only an article named, and one issued under the law directly
+    assert by_id[OTHER]["basis_kind"] == "mentioned"
+    assert by_id[REGELING]["sub_delegated"] == []
+
+
+def test_a_regulation_gives_its_own_basis(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/instruments/{BESLUIT}/basis")
+
+    # per law, by title, with its articles in the order of the law
+    assert [
+        (i["instrument"]["bwb_id"], i["kind"], i["basis_kind"]) for i in body["items"]
+    ] == [
+        (WET, "wet", "delegates"),
+        (WWKE, "wet", "delegates"),
+    ]
+    cbw = body["items"][0]
+    assert [(a["article_number"], a["leden"]) for a in cbw["articles"]] == [
+        ("16", ["1"]),
+        ("17", []),
+    ]
+    assert [r["article_number"] for r in cbw["articles"][0]["referring"]] == ["2", "3"]
+    assert body["total"] == 2
+
+    # the ministerial regulation: on the AMvB; the law: none; an unknown one: none
+    sub = _get(store, f"/api/instruments/{SUB}/basis")
+    assert [i["instrument"]["bwb_id"] for i in sub["items"]] == [BESLUIT]
+    for bwb_id in (WET, "BWBR0099999"):
+        assert _get(store, f"/api/instruments/{bwb_id}/basis") == {
+            "bwb_id": bwb_id,
+            "total": 0,
+            "items": [],
+        }
+
+
+def test_related_laws_say_their_direction_and_basis(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/instruments/{WET}/related-instruments")
+    by_id = {i["bwb_id"]: i for i in body["items"]}
+
+    # two articles of the AMvB refer to one article of the law (the repealed one not)
+    besluit = by_id[BESLUIT]
+    assert (
+        besluit["direction"],
+        besluit["inbound_count"],
+        besluit["inbound_cited_count"],
+        besluit["outbound_count"],
+    ) == ("inbound", 2, 1, 0)
+    assert (besluit["kind"], besluit["date_in_force"]) == ("amvb", "2026-08-15")
+    assert besluit["based_on"] is True
+    assert besluit["basis"]["direction"] == "inbound"
+    assert [a["article_number"] for a in besluit["basis"]["articles"]] == ["16", "17"]
+
+    # issued under the AMvB, which is issued under the law
+    sub = by_id[SUB]
+    assert sub["based_on"] is True
+    assert sub["basis"]["direction"] == "via"
+    assert sub["basis"]["via"]["bwb_id"] == BESLUIT
+    assert [a["article_number"] for a in sub["basis"]["articles"]] == ["2", "3"]
+
+    # from the AMvB: the law it is issued under
+    back = _get(store, f"/api/instruments/{BESLUIT}/related-instruments")
+    (wet,) = [i for i in back["items"] if i["bwb_id"] == WET]
+    assert (wet["direction"], wet["outbound_count"]) == ("outbound", 2)
+    assert wet["basis"]["direction"] == "outbound"
+
+
+def test_the_references_between_two_laws(database: str) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+
+    body = _get(store, f"/api/instruments/{WET}/references/{BESLUIT}")
+
+    # inbound only, the referring article in its order; not the repealed article 4
+    assert [
+        (i["direction"], i["source"]["article_number"], i["target"]["article_number"])
+        for i in body["items"]
+    ] == [("inbound", "2", "16"), ("inbound", "3", "16")]
+    assert body["items"][1]["leden"] == ["1"]
+    assert body["total"] == 2
+    back = _get(store, f"/api/instruments/{BESLUIT}/references/{WET}")
+    assert [i["direction"] for i in back["items"]] == ["outbound", "outbound"]
+    assert _get(store, f"/api/instruments/{WET}/references/{WET}")["items"] == []

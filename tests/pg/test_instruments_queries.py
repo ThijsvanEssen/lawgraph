@@ -635,6 +635,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _doc("f2", "article", bwb_id=BWB),
             _doc("x1", "article", bwb_id="BWBR0000002"),
             _doc("x2", "article", bwb_id="BWBR0000002"),
+            _doc("x3", "article", bwb_id="BWBR0000002", repealed=True),
             _doc("y1", "article", bwb_id="BWBR0000003"),
             _doc("z1", "article", bwb_id="BWBR0000004"),
             _doc("n1", "article", bwb_id="BWBR0000005"),
@@ -654,6 +655,9 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         [
             _edge("articles/f1", "articles/x1", "REFERS_TO"),
             _edge("articles/f2", "articles/x2", "REFERS_TO"),
+            # a second edge of the same pair, and one to a repealed article: not counted
+            _edge("articles/f2", "articles/x2", "REFERS_TO") | {"_key": "again"},
+            _edge("articles/f1", "articles/x3", "REFERS_TO"),
             _edge("articles/y1", "articles/f1", "REFERS_TO"),
             _edge("articles/f1", "articles/y1", "REFERS_TO"),
             _edge("articles/z1", "articles/f2", "REFERS_TO"),
@@ -676,7 +680,16 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         ("bwbr0000002", 2, 0),
         ("bwbr0000004", 1, 1),
     ]
-    assert list(items[0]) == ["instrument", "outbound_count", "inbound_count"]
+    assert list(items[0]) == [
+        "instrument",
+        "outbound_count",
+        "outbound_cited_count",
+        "inbound_count",
+        "inbound_cited_count",
+        "basis",
+    ]
+    # two articles of this law refer to two of the other; none is issued under another
+    assert (items[1]["outbound_cited_count"], items[1]["basis"]) == (2, None)
     assert list(items[0]["instrument"]) == ["_key", "_id", "type", "labels", "props"]
     items, total = instruments.get_instrument_related_instruments(store, BWB, limit=1)
     assert (total, len(items)) == (3, 1)
@@ -711,13 +724,14 @@ def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
     )
     items, total = instruments.get_instrument_related_instruments(store, CELEX)
     assert total == 3
+    # articles, not edges: the two edges from nl1 are one article
     assert [
         (i["instrument"]["_key"], i["outbound_count"], i["inbound_count"])
         for i in items
     ] == [
-        (BWB.lower(), 0, 2),
         ("32000l0001", 1, 0),
         ("bwbr0000009", 1, 0),
+        (BWB.lower(), 0, 1),
     ]
 
 

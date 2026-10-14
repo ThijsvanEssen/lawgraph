@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
-from lawgraph.core.delegations import DelegationClause, DelegationKind
+from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
@@ -368,14 +368,15 @@ class ArticleDetailResponse(BaseModel):
     term_spans: list[TermSpanDTO] = Field(
         default_factory=list,
         description="Every place the text uses a term its regulation defines (where that "
-        "definition holds: its regulation, or its chapter or paragraph), as `definitions`; "
-        "not inside a citation, which names the definition itself (`definition_ref`) when "
-        "it is the regulation cited.",
+        "definition holds: its regulation, or its chapter or paragraph), or a law or AMvB "
+        "it is issued under defines for the regulations based on it (its own first), as "
+        "`definitions`; not inside a citation, which names the definition itself "
+        "(`definition_ref`) when it is the regulation cited.",
     )
     definitions: list[DefinitionDTO] = Field(
         default_factory=list,
         description="The definitions `term_spans` and `citations` name, as the regulation "
-        "gives them.",
+        "gives them (`given_by` for one of another).",
     )
     references: list[ArticleReferenceDTO] = Field(
         default_factory=list,
@@ -397,6 +398,22 @@ class ArticleDetailResponse(BaseModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+
+
+BASIS_KIND = (
+    "`delegates`: the leden named (none: the whole article) give the power the regulation "
+    'is made under (a delegation formula, "bij besluit van", "kan regels stellen"); '
+    "`mentioned`: the article is only named in the preamble (Awb 3:4 by a policy rule); "
+    "null: not known (an article without text)."
+)
+
+
+def basis_kind_of(meta: dict[str, Any]) -> BasisKind | None:
+    """The ``basis_kind`` of the meta of a ``BASED_ON`` edge."""
+    kind = meta.get("basis_kind")
+    if kind == "delegates":
+        return "delegates"
+    return "mentioned" if kind == "mentioned" else None
 
 
 class DelegatedArticleDTO(QualifierFields):
@@ -433,6 +450,7 @@ class DelegatedRegulationDTO(QualifierFields):
     text: str | None = Field(
         description="The reference in its preamble: `16, eerste en zevende lid`."
     )
+    basis_kind: BasisKind | None = Field(None, description=BASIS_KIND)
     articles: list[DelegatedArticleDTO] = Field(
         default_factory=list,
         description="Its articles that refer to the article, in the order of the "
@@ -626,8 +644,10 @@ class ArticleLegislativeHistoryResponse(BaseModel):
     total: int
 
 
-class ExplainingDocumentDTO(DocumentOrigin):
+class ExplainingDocumentDTO(DocumentOrigin, WithPath):
     """The explanatory document of an explanation."""
+
+    path_collection = "documents"
 
     id: str = Field(..., description="Arango _id of the document.")
     key: str
@@ -638,6 +658,30 @@ class ExplainingDocumentDTO(DocumentOrigin):
         None,
         description="The dossier the document is PART_OF (the lowest, if several).",
     )
+    sequence: int | None = Field(
+        None, description="Its number in its own dossier (nr. 3); null for none."
+    )
+
+
+# The length an excerpt of a passage is cut to.
+EXCERPT_CHARS = 300
+
+
+def passage_excerpt(opening: Any, heading: str | None) -> str | None:
+    """The opening of a passage without its heading, in one line of at most
+    ``EXCERPT_CHARS`` characters, cut at a word with an ellipsis; None without text."""
+    if not isinstance(opening, str):
+        return None
+    first, _, rest = opening.partition("\n")
+    if heading and " ".join(first.split()) == " ".join(heading.split()):
+        opening = rest
+    text = " ".join(opening.split())
+    if not text:
+        return None
+    if len(text) <= EXCERPT_CHARS:
+        return text
+    head = text[: EXCERPT_CHARS - 1].rsplit(" ", 1)[0].rstrip(",;:.")
+    return f"{head}…"
 
 
 class ArticleExplanationDTO(BaseModel):
@@ -676,6 +720,23 @@ class ArticleExplanationDTO(BaseModel):
         description="`id` of the section in `sections` of the document; set when scope "
         "is 'article'.",
     )
+    heading: str | None = Field(
+        None,
+        description="The heading of that section: ``Artikel 21 (zorgplicht)``; null "
+        "when scope is 'dossier'.",
+    )
+    char_start: int | None = Field(
+        None, description="Where the section starts in the `text` of the document."
+    )
+    char_end: int | None = Field(
+        None, description="Where it ends (exclusive): `text[char_start:char_end]`."
+    )
+    excerpt: str | None = Field(
+        None,
+        description="The opening of the section after its heading, about 300 "
+        "characters cut at a word (`…` when it goes on); null without a section or "
+        "without the text.",
+    )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleExplanationDTO:
@@ -683,6 +744,9 @@ class ArticleExplanationDTO(BaseModel):
         collection, key = parse_node_id(row["target_id"])
         target = _TARGET_OF_COLLECTION[collection]
         section_anchor = row.get("section_anchor") or None
+        paper = row.get("paper") or {}
+        sequence = paper.get("sequence")
+        heading = row.get("heading") if isinstance(row.get("heading"), str) else None
         return cls(
             document=ExplainingDocumentDTO(
                 id=row["document_id"],
@@ -691,7 +755,15 @@ class ArticleExplanationDTO(BaseModel):
                 title=row.get("title") or None,
                 date=strip_time_component(row.get("date")),
                 dossier_number=row.get("dossier_number"),
+                sequence=sequence if isinstance(sequence, int) else None,
+                path_props=paper,
                 **origin_fields(row.get("labels"), row.get("source"), row.get("kind")),
+            ),
+            heading=heading if section_anchor else None,
+            char_start=row.get("char_start") if section_anchor else None,
+            char_end=row.get("char_end") if section_anchor else None,
+            excerpt=(
+                passage_excerpt(row.get("opening"), heading) if section_anchor else None
             ),
             target=target,
             target_id=row["target_id"],

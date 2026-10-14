@@ -29,6 +29,7 @@ JUDGMENTS = {
     "ECLI:NL:GHARL:2026:6060": "rechtspraak_gharl_2026_6060.xml",
     "ECLI:NL:HR:2019:1278": "rechtspraak_hr_2019_1278.xml",
     "ECLI:NL:RVS:2026:5668": "rechtspraak_rvs_2026_5668.xml",
+    "ECLI:NL:RVS:2007:BB0782": "rechtspraak_rvs_2007_bb0782.xml",
 }
 # normalized before parties were read
 OLD = "ECLI:NL:HR:2001:1"
@@ -89,7 +90,16 @@ def test_the_kop_keeps_every_line_and_the_parties_are_served(
             "role_stated": True,
             "side": "second",
             "alias": None,
-            "representatives": [],
+            # "wat de verdachte en haar raadsvrouw, mr. M.E. Broekert, ... naar voren
+            # hebben gebracht"
+            "representatives": [
+                {
+                    "name": "mr. M.E. Broekert",
+                    "role": "raadsman",
+                    "place": None,
+                    "capacity": None,
+                }
+            ],
         }
     ]
 
@@ -117,9 +127,71 @@ def test_the_parties_of_the_hoge_raad_with_aliases_and_lawyers(
         ("Verweerder", "DE STAAT DER NEDERLANDEN", "de Staat"),
     ]
     assert parties[4]["representatives"] == [
-        {"name": "mr. J.F. de Groot", "role": "advocaat"},
-        {"name": "mr. P.A. Fruytier", "role": "advocaat"},
+        {
+            "name": "mr. J.F. de Groot",
+            "role": "advocaat",
+            "place": None,
+            "capacity": None,
+        },
+        {
+            "name": "mr. P.A. Fruytier",
+            "role": "advocaat",
+            "place": None,
+            "capacity": None,
+        },
     ]
+
+
+def test_who_the_hearing_names_acts_for_each_party_and_finds_the_judgment(
+    client: TestClient,
+) -> None:
+    """Thijs, 13 Oct: cmd+k "R. van Gelder" did not find ECLI:NL:RVS:2007:BB0782, whose
+    hearing names him as the advocaat of the appellants."""
+    parties = _judgment(client, "ECLI:NL:RVS:2007:BB0782")["parties"]
+
+    assert [
+        (
+            p["name"],
+            [
+                (r["name"], r["role"], r["place"], r["capacity"])
+                for r in p["representatives"]
+            ],
+        )
+        for p in parties
+    ] == [
+        (
+            "[appellanten]",
+            [("mr. drs. R. van Gelder", "advocaat", "Voorschoten", None)],
+        ),
+        (
+            "het college van gedeputeerde staten van Zuid-Holland",
+            [
+                (
+                    "mr. I.T.F. Vermeulen",
+                    "gemachtigde",
+                    None,
+                    "ambtenaar in dienst van de provincie",
+                )
+            ],
+        ),
+        (
+            "de gemeenteraad van Nieuwerkerk aan den IJssel",
+            [("mr. R. van der Meulen MPM", "gemachtigde", None, None)],
+        ),
+    ]
+    for mode in ("full", "live"):
+        response = client.get(
+            "/api/search",
+            params={"q": "R. van Gelder", "types": "judgments", "mode": mode},
+        )
+        assert response.status_code == 200, response.text
+        (hit,) = response.json()["results"]["judgments"]
+        assert hit["extra"]["ecli"] == "ECLI:NL:RVS:2007:BB0782"
+        assert hit["extra"]["person"] == {
+            "name": "mr. drs. R. van Gelder",
+            "role": "advocaat",
+            "party": "[appellanten]",
+        }
 
 
 def test_a_judgment_normalized_before_parties_has_none_yet(client: TestClient) -> None:

@@ -1145,3 +1145,93 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
     assert page["description"]
     assert page["main"] is None
     assert f'<meta name="focus" content="{focus}' in response.text
+
+
+def _seed_debate(store: GraphStore) -> None:
+    """A wetgevingsoverleg with its verslag, a motion submitted in it and a commitment made
+    in it, led by a committee; and the vote of another day, with nothing made in it."""
+    store.bulk_insert_or_update_nodes(
+        "activities",
+        [
+            _node("wgo_1", "activity", number="2026A01323", kind="Wetgevingsoverleg",
+                  date="2026-03-23", status="Uitgevoerd",
+                  agenda_title="Cyberbeveiligingswet (36764)",
+                  dossier_numbers=["36764", "36765"]),
+            _node("stem_1", "activity", number="2026A01400", kind="Stemmingen",
+                  date="2026-03-24", status="Uitgevoerd", agenda_title="Stemmingen"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "committees",
+        [_node("jenv", "committee", name="Justitie en Veiligheid", slug="jenv")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("kst_36764_32", "document", kind="Verslag van een wetgevingsoverleg",
+                  dossier_number="36764", sequence=32, date="2026-04-20",
+                  title="Verslag van een wetgevingsoverleg"),
+            _node("kst_36764_28", "document", kind="Motie", dossier_number="36764",
+                  sequence=28, date="2026-03-23",
+                  title="Motie van het lid Kathmann over de vitaalbeoordeling"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "commitments",
+        [_node("tz_64", "commitment", number="TZ202604-064",
+               text="De minister zegt toe de samenwerkingsafspraken te delen.",
+               made_on="2026-04-10", minister_name="D.M. van Weel",
+               status="Afgedaan")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("l1", "activities/wgo_1", "committees/jenv", "LED_BY"),
+            _edge("m1", "documents/kst_36764_32", "activities/wgo_1", "MADE_IN"),
+            _edge("m2", "documents/kst_36764_28", "activities/wgo_1", "MADE_IN",
+                  reason="ingediend"),
+            _edge("m3", "commitments/tz_64", "activities/wgo_1", "MADE_IN"),
+        ]
+    )  # fmt: skip
+
+
+def test_a_debate_has_its_page_with_what_was_made_in_it(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_debate(store)
+    response = _get(client, "/activiteiten/2026A01323")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == (
+        "Wetgevingsoverleg van 23 maart 2026: Cyberbeveiligingswet (36764), Concordans"
+    )
+    assert page["canonical"] == "https://concordans.nl/activiteiten/2026A01323"
+    assert page["robots"] is None
+    assert 'href="/commissies/jenv"' in page["main"]
+    assert (
+        'href="/dossiers/36764"' in page["main"]
+        and 'href="/dossiers/36765"' in (page["main"])
+    )
+    assert 'href="/kamerstukken/36764/32"' in page["main"]
+    assert 'href="/kamerstukken/36764/28"' in page["main"]
+    assert 'href="/toezeggingen/TZ202604-064"' in page["main"]
+    assert page["data"]["@graph"][0]["@type"] == "Event"
+    assert page["data"]["@graph"][0]["startDate"] == "2026-03-23"
+    assert _focus(response.text) == "activities/wgo_1"
+    lower = _get(client, "/activiteiten/2026a01323")
+    assert (lower.status_code, lower.headers["location"]) == (
+        301,
+        "/activiteiten/2026A01323",
+    )
+    focus = _get(client, "/explore?focus=activities/wgo_1")
+    assert focus.headers["location"] == "/activiteiten/2026A01323"
+    # a vote with nothing made in it has nothing to read
+    assert _head(_get(client, "/activiteiten/2026A01400").text)["robots"] == "noindex"
+    assert _get(client, "/activiteiten/2026A09999").status_code == 404
+    # the commitment says in which debate it was made, and when the Kamer registered it
+    commitment = _head(_get(client, "/toezeggingen/TZ202604-064").text)
+    assert (
+        'Toegezegd in het <a href="/activiteiten/2026A01323">wetgevingsoverleg van '
+        "23 maart 2026</a>" in commitment["main"]
+    )
+    assert "Geregistreerd op 10 april 2026" in commitment["main"]
+    assert commitment["data"]["@graph"][0]["dateCreated"] == "2026-03-23"

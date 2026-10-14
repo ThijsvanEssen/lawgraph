@@ -249,26 +249,87 @@ def related_case_pairs(
             yield own, other_id, {"case_kinds": kinds}
 
 
-def related_dossiers(cases: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink]:
+def related_case_ids(cases: Iterable[Mapping[str, Any]]) -> list[str]:
+    """The TK ids of every case in *cases* and of every case they relate, once each."""
+    ids = {
+        str(i)
+        for case in cases
+        for i in (
+            case.get("id"),
+            *(other.get("id") for other in case.get("related_cases") or []),
+        )
+        if i
+    }
+    return sorted(ids)
+
+
+def _side(
+    case_id: str, papers: Mapping[str, Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """The sides a case gives a pair: one per paper of its own kind (``case_papers``), each
+    with the number of its case; the case alone when it has none in the graph."""
+    found = papers.get(case_id) or {}
+    number = found.get("number")
+    own = [
+        {
+            "case": number,
+            "paper": paper.get("id"),
+            "kind": paper.get("kind"),
+            "dossier_number": paper.get("dossier_number"),
+            "dossier_suffix": paper.get("dossier_suffix"),
+            "sequence": paper.get("sequence"),
+            "date": paper.get("date"),
+        }
+        for paper in found.get("papers") or []
+    ]
+    return own or [{"case": number, "paper": None}]
+
+
+# The pairs of papers an edge between two dossiers keeps (``meta.pairs``): the newest. Two
+# dossiers may share hundreds (21501-02 and a budget); ``meta.cases`` counts them all.
+PAIRS_KEPT = 5
+
+
+def _newest(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The ``PAIRS_KEPT`` newest *pairs*, by the day of their papers (the later side), in
+    that order; a pair without a paper in the graph last."""
+
+    def day(pair: dict[str, Any]) -> str:
+        return max(
+            str(pair["from"].get("date") or ""), str(pair["to"].get("date") or "")
+        )
+
+    return sorted(pairs, key=day, reverse=True)[:PAIRS_KEPT]
+
+
+def related_dossiers(
+    cases: Iterable[Mapping[str, Any]],
+    papers: Mapping[str, Mapping[str, Any]] | None = None,
+) -> Iterator[DossierLink]:
     """``RELATED_TO`` links between the dossiers of two cases the Kamer relates.
 
     A case of dossier A that the Kamer relates to a case of dossier B (``GerelateerdNaar``)
     relates A to B. ``meta.cases`` is how many such pairs of cases there are, ``meta.case_kinds``
-    their kinds ("Brief regering → Motie"). Cases within one dossier relate no dossiers.
+    their kinds ("Brief regering → Motie"), and ``meta.pairs`` the papers of the newest pairs
+    (``PAIRS_KEPT``): per pair of papers of the two cases' own kinds (*papers*,
+    ``case_papers``: the letter and the motion) ``{kinds, from, to}``, each side ``{case,
+    paper, kind, dossier_number, dossier_suffix, sequence, date}``, or ``{case, paper:
+    null}`` for a case without such a paper in the graph. Cases within one dossier relate
+    no dossiers.
     """
-    pairs: dict[tuple[str, str], set[tuple[str, str]]] = {}
-    kinds: dict[tuple[str, str], set[str]] = {}
+    papers = papers or {}
+    pairs: dict[tuple[str, str], set[tuple[str, str, str]]] = {}
     for case in cases:
         own = set(case.get("dossier_numbers") or [])
         for other in case.get("related_cases") or []:
             for from_label in own:
                 for to_label in set(other.get("dossier_numbers") or []) - own:
-                    key = (from_label, to_label)
-                    pairs.setdefault(key, set()).add(
-                        (str(case.get("id") or ""), str(other.get("id") or ""))
-                    )
-                    kinds.setdefault(key, set()).add(
-                        f"{case.get('kind') or '?'} → {other.get('kind') or '?'}"
+                    pairs.setdefault((from_label, to_label), set()).add(
+                        (
+                            str(case.get("id") or ""),
+                            str(other.get("id") or ""),
+                            f"{case.get('kind') or '?'} → {other.get('kind') or '?'}",
+                        )
                     )
     for (from_label, to_label), case_pairs in sorted(pairs.items()):
         yield DossierLink(
@@ -276,7 +337,15 @@ def related_dossiers(cases: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink
             to_label,
             {
                 "cases": len(case_pairs),
-                "case_kinds": sorted(kinds[(from_label, to_label)]),
+                "case_kinds": sorted({kinds for _, _, kinds in case_pairs}),
+                "pairs": _newest(
+                    [
+                        {"kinds": kinds, "from": one, "to": two}
+                        for case, other, kinds in sorted(case_pairs)
+                        for one in _side(case, papers)
+                        for two in _side(other, papers)
+                    ]
+                ),
             },
         )
 

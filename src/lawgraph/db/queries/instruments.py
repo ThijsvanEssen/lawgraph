@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_AMENDS,
+    RELATION_BASED_ON,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
@@ -28,6 +29,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_light import outcome_pairs
@@ -666,15 +668,17 @@ def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _reference_bucket(identity: str, own: str, other: str) -> str:
-    """REFERS_TO edges between an article of the focal instrument (*own* end) and an
-    article outside it (*other* end), counted per *identity* of the other article. Only the
-    edges whose other end is an article: a range of the covering index of the own end by
-    relation and the other end's collection (``edges_from_cover``, ``edges_to_cover``), not
-    every citation of the law's articles by a judgment (hundreds of thousands of the Awb's,
-    7.2 s cold on prod) probed for an article."""
+    """REFERS_TO edges between an article in force of the focal instrument (*own* end) and
+    an article in force outside it (*other* end), per *identity* of the other article: the
+    articles at each end (``own_n``, ``other_n``), not the edges. Only the edges whose other
+    end is an article: a range of the covering index of the own end by relation and the
+    other end's collection (``edges_from_cover``, ``edges_to_cover``), not every citation of
+    the law's articles by a judgment (hundreds of thousands of the Awb's, 7.2 s cold on prod)
+    probed for an article."""
     other_collection = f"{other.split('_')[0]}_collection"
     return f"""
-        SELECT {identity} AS b, count(*)::int AS n
+        SELECT {identity} AS b, count(DISTINCT f.id)::int AS own_n,
+               count(DISTINCT x.id)::int AS other_n
         FROM focal f
         -- per article of the law its own edges: a probe of the covering index by its id,
         -- the relation and the other end's collection (OFFSET 0 keeps it a probe, never a
@@ -686,7 +690,7 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
             OFFSET 0
         ) e
         JOIN articles x ON x.id = e.other_id
-        WHERE e.other_id NOT IN (SELECT id FROM focal)
+        WHERE e.other_id NOT IN (SELECT id FROM focal) AND x.repealed IS NOT TRUE
         GROUP BY 1
     """
 
@@ -694,12 +698,15 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
 def get_instrument_related_instruments(
     store: GraphStore, identifier: str, *, limit: int = 100
 ) -> tuple[list[dict[str, Any]], int]:
-    """Other instruments related by cross-article REFERS_TO links.
+    """Other instruments related by cross-article REFERS_TO links, in force at both ends.
 
-    Returns ``{instrument, outbound_count, inbound_count}`` per related
-    instrument, sorted by total reference count descending. The counterpart of a
-    BWB regulation is a BWB regulation; the counterpart of an EU act is a BWB
-    regulation or another EU act. Kept per data version of what it reads (a law's
+    Returns ``{instrument, outbound_count, outbound_cited_count, inbound_count,
+    inbound_cited_count, basis}`` per related instrument, the most articles first:
+    ``outbound_count`` articles of this one refer to ``outbound_cited_count`` articles of the
+    other, ``inbound_count`` articles of the other to ``inbound_cited_count`` of this one.
+    ``basis`` (:func:`_pair_bases`) says whether one is issued under the other. The
+    counterpart of a BWB regulation is a BWB regulation; the counterpart of an EU act is a
+    BWB regulation or another EU act. Kept per data version of what it reads (a law's
     Verbonden asks it on every visit).
     """
     return cached(
@@ -723,17 +730,21 @@ def _related_instruments(
         identity = "coalesce(x.bwb_id, x.celex)"
         find = "i.bwb_id = c.b OR i.celex = c.b"
     ctes = f"""
-        WITH focal AS ({_articles_of(scope.prop)}),
+        WITH focal AS (
+            SELECT id FROM articles WHERE {scope.prop} = %(bwb)s AND repealed IS NOT TRUE
+        ),
         outbound AS ({_reference_bucket(identity, "from_id", "to_id")}),
         inbound AS ({_reference_bucket(identity, "to_id", "from_id")}),
         counts AS (
-            SELECT b, coalesce(o.n, 0) AS outbound_count, coalesce(i.n, 0) AS inbound_count
+            SELECT b, coalesce(o.own_n, 0) AS outbound_count,
+                   coalesce(o.other_n, 0) AS outbound_cited_count,
+                   coalesce(i.other_n, 0) AS inbound_count,
+                   coalesce(i.own_n, 0) AS inbound_cited_count
             FROM outbound o FULL JOIN inbound i USING (b)
             WHERE b IS NOT NULL AND b <> %(bwb)s
         ),
         resolved AS (
-            SELECT c.b, c.outbound_count, c.inbound_count,
-                   inst.id, inst.key, inst.type, inst.labels, inst.props
+            SELECT c.*, inst.id, inst.key, inst.type, inst.labels, inst.props
             FROM counts c
             JOIN LATERAL (
                 SELECT i.id, i.key, i.type, i.labels, i.props FROM instruments i
@@ -758,15 +769,201 @@ def _related_instruments(
         {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "limit": limit},
     )
     page_rows, total = _split_page(rows)
+    bases = (
+        _pair_bases(store, scope.value, [row["id"] for row in page_rows])
+        if scope.prop == "bwb_id" and page_rows
+        else {}
+    )
     items = [
         {
             "instrument": node_doc(row),
             "outbound_count": row["outbound_count"],
+            "outbound_cited_count": row["outbound_cited_count"],
             "inbound_count": row["inbound_count"],
+            "inbound_cited_count": row["inbound_cited_count"],
+            "basis": bases.get(row["id"]),
         }
         for row in page_rows
     ]
     return items, total
+
+
+# Whether one of a pair of laws is issued under the other, for the law %(bwb)s and the
+# instruments %(others)s: ``inbound`` (the other names articles of this law in its preamble),
+# ``outbound`` (this law names articles of the other) or ``via`` (the other names articles of
+# a regulation that names articles of this law: one level down), each with the articles
+# named (in force) and for ``via`` that regulation. The edges of each instrument by the
+# ``(from_id, relation, to_collection)`` index.
+_PAIR_BASES_SQL = f"""
+WITH others AS (
+    SELECT o.id, o.bwb_id FROM {COLLECTION_INSTRUMENTS} o WHERE o.id = ANY(%(others)s)
+),
+named AS (
+    SELECT o.id AS other, o.bwb_id AS other_bwb, x.id, x.key, x.bwb_id AS law,
+           x.article_number, x.position, x.props -> 'display_name' AS display_name,
+           e.doc -> 'meta' AS meta
+    FROM others o
+    JOIN {COLLECTION_EDGES} e
+      ON e.from_id = o.id AND e.relation = %(based_on)s
+     AND e.to_collection = '{COLLECTION_ARTICLES}'
+    JOIN {COLLECTION_ARTICLES} x ON x.id = e.to_id
+    WHERE x.repealed IS NOT TRUE
+),
+this AS (
+    SELECT t.id FROM {COLLECTION_INSTRUMENTS} t WHERE t.bwb_id = %(bwb)s
+),
+names AS (
+    SELECT x.id, x.key, x.bwb_id AS law, x.article_number, x.position,
+           x.props -> 'display_name' AS display_name, e.doc -> 'meta' AS meta
+    FROM this t
+    JOIN {COLLECTION_EDGES} e
+      ON e.from_id = t.id AND e.relation = %(based_on)s
+     AND e.to_collection = '{COLLECTION_ARTICLES}'
+    JOIN {COLLECTION_ARTICLES} x ON x.id = e.to_id
+    WHERE x.repealed IS NOT TRUE
+),
+-- the regulations issued under this law that the others name articles of
+under AS (
+    SELECT DISTINCT r.id, r.bwb_id
+    FROM named n
+    JOIN {COLLECTION_INSTRUMENTS} r ON r.bwb_id = n.law
+    WHERE n.law <> %(bwb)s AND EXISTS (
+        SELECT 1 FROM {COLLECTION_EDGES} e2
+        JOIN {COLLECTION_ARTICLES} y ON y.id = e2.to_id
+        WHERE e2.from_id = r.id AND e2.relation = %(based_on)s
+          AND e2.to_collection = '{COLLECTION_ARTICLES}' AND y.bwb_id = %(bwb)s
+    )
+),
+pairs AS (
+    SELECT n.other, 'inbound' AS direction, NULL::text AS via, n.key, n.id,
+           n.article_number, n.position, n.display_name, n.meta
+    FROM named n WHERE n.law = %(bwb)s
+    UNION ALL
+    SELECT o.id, 'outbound', NULL, m.key, m.id, m.article_number, m.position,
+           m.display_name, m.meta
+    FROM others o JOIN names m ON m.law = o.bwb_id
+    UNION ALL
+    SELECT n.other, 'via', u.id, n.key, n.id, n.article_number, n.position,
+           n.display_name, n.meta
+    FROM named n JOIN under u ON u.bwb_id = n.law
+)
+SELECT p.other, p.direction,
+       (SELECT {summary_json("v")} FROM {COLLECTION_INSTRUMENTS} v WHERE v.id = p.via)
+           AS via,
+       json_agg(json_build_object(
+           'id', p.id, 'key', p.key, 'article_number', p.article_number,
+           'display_name', p.display_name, 'meta', p.meta
+       ) ORDER BY p.position NULLS LAST, p.key) AS articles
+FROM pairs p
+GROUP BY p.other, p.direction, p.via
+"""
+
+# The order in which a pair is said to be one of a delegation: issued under this law, this
+# law issued under it, issued under a regulation issued under this law.
+_BASIS_ORDER = ("inbound", "outbound", "via")
+
+
+def _pair_bases(
+    store: GraphStore, bwb_id: str, others: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Per instrument id of *others* the way it and the law *bwb_id* are one of a
+    delegation, if they are: ``{direction, via, articles}`` (``inbound``: it is issued
+    under articles of the law; ``outbound``: the law is issued under articles of it;
+    ``via``: it is issued under articles of the regulation ``via``, which is issued under
+    the law), the first of those (of two regulations ``via``, the first by key). One
+    query."""
+    found: dict[str, dict[str, Any]] = {}
+    rows = store.query(
+        _PAIR_BASES_SQL,
+        {"bwb": bwb_id, "others": others, "based_on": RELATION_BASED_ON},
+    )
+    for row in rows:
+        basis = {
+            "direction": row["direction"],
+            "via": row["via"],
+            "articles": row["articles"],
+        }
+        held = found.get(row["other"])
+        if held is None or _basis_rank(basis) < _basis_rank(held):
+            found[row["other"]] = basis
+    return found
+
+
+def _basis_rank(basis: dict[str, Any]) -> tuple[int, str]:
+    """The first way of :data:`_BASIS_ORDER`; of two regulations ``via``, the first key."""
+    via = basis["via"] or {}
+    return _BASIS_ORDER.index(basis["direction"]), str(via.get("_key") or "")
+
+
+# The references between the articles of two instruments, both ways: per edge the article
+# that refers, the article it refers to and the meta of the reference. The articles of the
+# focal instrument by their indexed bwb_id / celex, their edges by the covering index of each
+# end, as ``_reference_bucket``.
+def _references_sql(prop: str, other_prop: str) -> str:
+    def side(own: str, other: str, direction: str) -> str:
+        other_collection = f"{other.split('_')[0]}_collection"
+        return f"""
+        SELECT '{direction}' AS direction, e.from_id, e.to_id, e.meta, e.semantic_type,
+               e.key
+        FROM focal f
+        CROSS JOIN LATERAL (
+            SELECT e.from_id, e.to_id, e.doc -> 'meta' AS meta, e.semantic_type, e.key
+            FROM edges e
+            WHERE e.{own} = f.id AND e.relation = %(refers_to)s
+              AND e.{other_collection} = '{COLLECTION_ARTICLES}'
+            OFFSET 0
+        ) e
+        JOIN articles x ON x.id = e.{other}
+        WHERE x.{other_prop} = %(other)s AND x.repealed IS NOT TRUE
+        """
+
+    def article(alias: str) -> str:
+        return (
+            f"json_build_object('id', {alias}.id, 'key', {alias}.key, 'bwb_id', "
+            f"{alias}.bwb_id, 'celex', {alias}.celex, 'article_number', "
+            f"{alias}.article_number, 'display_name', {alias}.props -> 'display_name')"
+        )
+
+    return f"""
+        WITH focal AS (
+            SELECT id FROM articles WHERE {prop} = %(bwb)s AND repealed IS NOT TRUE
+        ),
+        pairs AS (
+            {side("from_id", "to_id", "outbound")}
+            UNION ALL
+            {side("to_id", "from_id", "inbound")}
+        )
+        SELECT p.direction, {article("a")} AS "from", {article("b")} AS "to",
+               p.meta, p.semantic_type
+        FROM pairs p
+        JOIN articles a ON a.id = p.from_id
+        JOIN articles b ON b.id = p.to_id
+        ORDER BY p.direction DESC NULLS LAST, a.position NULLS LAST, a.key, b.position NULLS LAST,
+                 b.key, p.key
+    """
+
+
+def get_instrument_references(
+    store: GraphStore, identifier: str, other: str
+) -> list[dict[str, Any]]:
+    """The references between the articles in force of the instruments *identifier* and
+    *other* (BWB ids or CELEX numbers), both ways: ``{direction, from, to, meta,
+    semantic_type}``; ``direction`` is ``outbound`` (an article of *identifier* refers to one
+    of *other*) or ``inbound``; first the outbound, then the inbound, each in the order of
+    the referring and the referred article. One query."""
+    scope, other_scope = scope_of(identifier), scope_of(other)
+    if scope.value == other_scope.value:
+        return []
+    return list(
+        store.query(
+            _references_sql(scope.prop, other_scope.prop),
+            {
+                "bwb": scope.value,
+                "other": other_scope.value,
+                "refers_to": RELATION_REFERS_TO,
+            },
+        )
+    )
 
 
 # The fields of the free-text search over the ``search_instruments`` view.
