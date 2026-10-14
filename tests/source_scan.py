@@ -61,14 +61,14 @@ _DOCUMENTED = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
 
 def string_literals(
-    tree: ast.AST, *, docstrings: bool = False
+    tree: ast.AST, *, docstrings: bool = False, pieces: bool = False
 ) -> list[tuple[int, str]]:
-    """``(line, text)`` of every string literal of *tree*, in the order of the lines: an
+    """``(line, text)`` of every string literal of *tree*, in the order of the source: an
     f-string whole, with ``{}`` for each field (a string inside a field is a literal of
-    its own); docstrings only when asked."""
+    its own); docstrings, and each literal piece of an f-string apart, only when asked."""
     skipped: set[int] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.JoinedStr):
+        if isinstance(node, ast.JoinedStr) and not pieces:
             skipped.update(id(part) for part in node.values)
         if not docstrings and isinstance(node, _DOCUMENTED) and node.body:
             first = node.body[0]
@@ -79,14 +79,14 @@ def string_literals(
         if id(node) in skipped:
             continue
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            found.append((node.lineno, node.value))
+            found.append((node.lineno, node.col_offset, node.value))
         elif isinstance(node, ast.JoinedStr):
             text = "".join(
                 str(part.value) if isinstance(part, ast.Constant) else "{}"
                 for part in node.values
             )
-            found.append((node.lineno, text))
-    return sorted(found)
+            found.append((node.lineno, node.col_offset, text))
+    return [(line, text) for line, _, text in sorted(found, key=lambda f: f[:2])]
 
 
 # A whole query (``FOR x IN`` and a clause of its body), a search, or a filter clause built

@@ -39,8 +39,8 @@ def test_docstrings_are_read_only_when_asked() -> None:
     without = string_literals(ast.parse(_SOURCE))
     assert without == [
         (3, "SELECT 1"),
-        (8, ", "),
         (8, "SELECT * FROM {} WHERE key IN ({}) LIMIT {}"),
+        (8, ", "),
         (8, "{}"),
         (18, "shape"),
     ]
@@ -53,3 +53,8 @@ def test_docstrings_are_read_only_when_asked() -> None:
         "The coroutine.",
         "The class.",
     }
+
+
+def test_the_pieces_of_an_f_string_are_read_apart_when_asked() -> None:
+    found = string_literals(ast.parse('X = f"Concordans ({V}) Stb."'), pieces=True)
+    assert found == [(1, "Concordans ({}) Stb."), (1, "Concordans ("), (1, ") Stb.")]

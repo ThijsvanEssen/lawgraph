@@ -13,31 +13,12 @@ import pytest
 from lawgraph.config.sources import HOSTS
 from lawgraph.sources.registry import PIPELINES
 from tests.paths import SRC
+from tests.source_scan import string_literals
 
 CLIENTS = sorted((SRC / "clients").glob("*.py"))
 # The two modules that are the HTTP of the clients.
 _HTTP = {SRC / "clients" / "base.py", SRC / "clients" / "pacing.py"}
 _HOST = re.compile(r"https://\w")
-
-
-def _code_strings(tree: ast.AST) -> list[tuple[int, str]]:
-    """``(line, text)`` of every string literal that is no docstring."""
-    docstrings = {
-        id(node.body[0].value)
-        for node in ast.walk(tree)
-        if isinstance(
-            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-        )
-        and node.body
-        and isinstance(node.body[0], ast.Expr)
-    }
-    return [
-        (node.lineno, node.value)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Constant)
-        and isinstance(node.value, str)
-        and id(node) not in docstrings
-    ]
 
 
 def _session_calls(tree: ast.AST) -> list[int]:
@@ -76,7 +57,7 @@ def _id(path: pathlib.Path) -> str:
 def test_a_client_has_no_host_of_its_own(path: pathlib.Path) -> None:
     lines = [
         line
-        for line, text in _code_strings(ast.parse(path.read_text()))
+        for line, text in string_literals(ast.parse(path.read_text()), pieces=True)
         if _HOST.search(text)
     ]
     assert not lines, (
@@ -108,7 +89,7 @@ def test_the_user_agent_is_named_in_one_place() -> None:
         f"{path.relative_to(SRC)}:{line}"
         for path in sorted(SRC.rglob("*.py"))
         if path not in homes
-        for line, text in _code_strings(ast.parse(path.read_text()))
+        for line, text in string_literals(ast.parse(path.read_text()), pieces=True)
         if text.startswith("Concordans (")
     ]
     assert not offenders, f"use config.sources.USER_AGENT: {offenders}"

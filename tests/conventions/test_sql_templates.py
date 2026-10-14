@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import DB, SRC
+from tests.paths import SRC
+from tests.source_scan import DB
 
 
 def _fills_in_text(node: ast.Call) -> bool:
