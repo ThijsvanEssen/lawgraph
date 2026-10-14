@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_RS_CONTENT,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
@@ -28,6 +29,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_ZAAK,
     SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
+    SOURCE_RIJKSOVERHEID,
     SOURCE_TK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
@@ -59,8 +61,8 @@ def _zaak(number: int) -> dict[str, Any]:
     }
 
 
-def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
-    """``(kind, id, payload)`` for a Tweede Kamer of *documents* papers and as many votes."""
+def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
+    """``(kind, payload)`` for a Tweede Kamer of *documents* papers and as many votes."""
     for number in range(DOSSIERS):
         payload = {
             "Id": uid(number, 3),
@@ -69,32 +71,32 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
             "Titel": f"Wijziging van de Wegenwet ({number})",
             "Afgesloten": False,
         }
-        yield RAW_KIND_TK_DOSSIER, payload["Id"], payload
+        yield RAW_KIND_TK_DOSSIER, payload
     for number in range(FACTIONS):
         payload = {
             "Id": uid(number, 8),
             "Afkorting": f"F{number}",
             "NaamNL": f"Fractie {number}",
         }
-        yield RAW_KIND_TK_FRACTIE, payload["Id"], payload
+        yield RAW_KIND_TK_FRACTIE, payload
     for number in range(MEMBERS):
         payload = {
             "Id": uid(number, 5),
             "Achternaam": f"Lid{number}",
             "Voornamen": "A.",
         }
-        yield RAW_KIND_TK_PERSOON, payload["Id"], payload
+        yield RAW_KIND_TK_PERSOON, payload
     for number in range(5):
         payload = {
             "Id": uid(number, 10),
             "NaamNL": f"Commissie {number}",
             "Afkorting": f"C{number}",
         }
-        yield RAW_KIND_TK_COMMISSIE, payload["Id"], payload
+        yield RAW_KIND_TK_COMMISSIE, payload
 
     for number in range(documents):
         zaak = _zaak(number)
-        yield RAW_KIND_TK_ZAAK, zaak["Id"], zaak
+        yield RAW_KIND_TK_ZAAK, zaak
         document = {
             "Id": uid(number, 1),
             "Soort": "Memorie van toelichting" if number % 25 == 0 else "Motie",
@@ -115,7 +117,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
                 }
             ],
         }
-        yield RAW_KIND_TK_DOCUMENT, document["Id"], document
+        yield RAW_KIND_TK_DOCUMENT, document
         vote = {
             "Id": uid(number, 6),
             "Besluit_Id": uid(number // FACTIONS, 7),
@@ -133,7 +135,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
                 "Zaak": [_zaak(number // FACTIONS)],
             },
         }
-        yield RAW_KIND_TK_STEMMING, vote["Id"], vote
+        yield RAW_KIND_TK_STEMMING, vote
         if number % 10 == 0:
             activity = {
                 "Id": uid(number, 11),
@@ -143,7 +145,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
                 "Voortouwcommissie_Id": uid(number % 5, 10),
                 "Agendapunt": [{"Zaak": [zaak]}],
             }
-            yield RAW_KIND_TK_ACTIVITEIT, activity["Id"], activity
+            yield RAW_KIND_TK_ACTIVITEIT, activity
             commitment = {
                 "Id": uid(number, 12),
                 "Nummer": f"TZ{number}",
@@ -151,26 +153,152 @@ def tk_records(documents: int) -> Iterator[tuple[str, str, dict[str, Any]]]:
                 "Status": "Openstaand",
                 "ActiviteitNummer": activity["Nummer"],
             }
-            yield RAW_KIND_TK_TOEZEGGING, commitment["Id"], commitment
+            yield RAW_KIND_TK_TOEZEGGING, commitment
 
 
-def judgment_xml(number: int, paragraphs: int = 40) -> str:
-    cited = f"ECLI:NL:HR:2020:{number + 1}"
+# The namespaces of the metadata of Rechtspraak, as ``open-rechtspraak`` declares them.
+RECHTSPRAAK_NS = (
+    'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+    'xmlns:dcterms="http://purl.org/dc/terms/" xmlns:psi="http://psi.rechtspraak.nl/" '
+    'xmlns:ecli="https://e-justice.europa.eu/ecli"'
+)
+
+
+def judgment_xml(
+    ecli: str,
+    date: str,
+    paragraphs: list[tuple[str, str]],
+    *,
+    court: str = "Een rechter",
+    summary: str | None = None,
+) -> str:
+    """A judgment of Rechtspraak: its ECLI, court and date, and one section of numbered
+    paragraphs ``(number, text)``, with its *summary* (``inhoudsindicatie``) if any."""
     body = "".join(
-        f"<paragroup><nr>1.{i}</nr><para>De rechtbank overweegt ({number}.{i}) dat "
-        f"artikel 1 van de Grondwet en artikel 8:1 Awb van toepassing zijn, zie ook "
-        f"{cited}.</para></paragroup>"
-        for i in range(paragraphs)
+        f"<paragroup><nr>{number}</nr><para>{text}</para></paragroup>"
+        for number, text in paragraphs
+    )
+    summary_xml = (
+        f"<inhoudsindicatie><para>{summary}</para></inhoudsindicatie>"
+        if summary is not None
+        else ""
     )
     return (
         '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
         'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
-        f"<dcterms:identifier>ECLI:NL:HR:2020:{number}</dcterms:identifier>"
-        "<dcterms:creator>Hoge Raad</dcterms:creator><dcterms:date>2020-01-02</dcterms:date>"
-        "</rdf:Description></rdf:RDF><inhoudsindicatie><para>Samenvatting.</para>"
-        f"</inhoudsindicatie><uitspraak><section><title><nr>1</nr>Overwegingen</title>{body}"
-        "</section></uitspraak></open>"
+        f"<dcterms:identifier>{ecli}</dcterms:identifier>"
+        f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
+        f"</rdf:Description></rdf:RDF>{summary_xml}<uitspraak><section>"
+        f"<title><nr>1</nr>Overwegingen</title>{body}</section></uitspraak></open>"
     )
+
+
+def seed_judgment_xml(number: int, paragraphs: int = 40) -> str:
+    """Judgment *number* of ``seed``: of the Hoge Raad, its paragraphs citing article 1 of
+    the Grondwet, article 8:1 Awb and the next judgment."""
+    cited = f"ECLI:NL:HR:2020:{number + 1}"
+    return judgment_xml(
+        f"ECLI:NL:HR:2020:{number}",
+        "2020-01-02",
+        [
+            (
+                f"1.{i}",
+                f"De rechtbank overweegt ({number}.{i}) dat artikel 1 van de Grondwet en "
+                f"artikel 8:1 Awb van toepassing zijn, zie ook {cited}.",
+            )
+            for i in range(paragraphs)
+        ],
+        court="Hoge Raad",
+        summary="Samenvatting.",
+    )
+
+
+def rechtspraak_relation(ecli: str, kind: str, instance: str) -> str:
+    """A ``dcterms:relation`` of the metadata: to *ecli*, of *kind* (``conclusie``), in
+    *instance* (``eerdereAanleg``)."""
+    return (
+        f'<dcterms:relation ecli:resourceIdentifier="{ecli}" '
+        f'psi:type="http://psi.rechtspraak.nl/{kind}" '
+        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}">{ecli}</dcterms:relation>'
+    )
+
+
+def rechtspraak_xml(
+    ecli: str,
+    court: str,
+    date: str,
+    case_number: str,
+    *,
+    document_type: str = "Uitspraak",
+    procedure: str | None = None,
+    relations: str = "",
+    text: str = "De rechter beslist.",
+) -> str:
+    """A judgment with the metadata that ties it to others: its case number, its type
+    (``Uitspraak`` or ``Conclusie``), its procedure and its *relations*."""
+    procedure_xml = f"<psi:procedure>{procedure}</psi:procedure>" if procedure else ""
+    return (
+        f"<open-rechtspraak {RECHTSPRAAK_NS}><rdf:RDF><rdf:Description>"
+        f"<dcterms:identifier>{ecli}</dcterms:identifier>"
+        f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
+        f"<psi:zaaknummer>{case_number}</psi:zaaknummer>"
+        f"<dcterms:type>{document_type}</dcterms:type>{procedure_xml}{relations}"
+        "</rdf:Description></rdf:RDF><uitspraak><section>"
+        f"<title><nr>1</nr>De procedure</title><paragroup><nr>1.1</nr><para>{text}</para>"
+        "</paragroup></section></uitspraak></open-rechtspraak>"
+    )
+
+
+def write_tk(store: GraphStore, records: Iterable[tuple[str, dict[str, Any]]]) -> int:
+    """Store Tweede Kamer records ``(kind, payload)`` under the ``Id`` of each payload, as
+    ``retrieve tk`` does; returns how many."""
+    with RawSourceWriter(store) as writer:
+        for kind, payload in records:
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_TK,
+                    kind=kind,
+                    external_id=payload["Id"],
+                    payload_json=payload,
+                )
+            )
+    return writer.written
+
+
+def write_judgments(store: GraphStore, judgments: Mapping[str, str]) -> int:
+    """Store the content of judgments ``{ecli: xml}``, as ``retrieve rechtspraak`` does;
+    returns how many."""
+    with RawSourceWriter(store) as writer:
+        for ecli, xml in judgments.items():
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=xml,
+                    meta={"ecli": ecli},
+                )
+            )
+    return writer.written
+
+
+def write_toestanden(
+    store: GraphStore, toestanden: Iterable[tuple[str, str, str, dict[str, Any]]]
+) -> int:
+    """Store BWB records ``(kind, id, xml, meta)``, as ``retrieve bwb`` does (*meta* holds
+    ``bwb_id`` and ``state_url``, and of a toestand its dates); returns how many."""
+    with RawSourceWriter(store) as writer:
+        for kind, external_id, xml, meta in toestanden:
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_BWB,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text=xml,
+                    meta=meta,
+                )
+            )
+    return writer.written
 
 
 def _own_title(toestand_xml: str, copy: int) -> str:
@@ -194,41 +322,88 @@ def seed(
         (FIXTURES / name).read_text()
         for name in ("bwb_grondwet_toestand.xml", "bwb_amvb_toestand.xml")
     ]
-    with RawSourceWriter(store) as writer:
-        for kind, external_id, payload in tk_records(documents):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_json=payload,
-                )
+    regulation_ids = [
+        "BWBR0001840" if number == 0 else f"BWBR{9000000 + number:07d}"
+        for number in range(regulations)
+    ]
+    written = write_tk(store, tk_records(documents))
+    written += write_toestanden(
+        store,
+        (
+            (
+                RAW_KIND_BWB_TOESTAND,
+                bwb_id,
+                _own_title(toestanden[number % len(toestanden)], number),
+                {"bwb_id": bwb_id, "state_url": f"https://repo/{bwb_id}/x.xml"},
             )
-        for number in range(regulations):
-            bwb_id = "BWBR0001840" if number == 0 else f"BWBR{9000000 + number:07d}"
+            for number, bwb_id in enumerate(regulation_ids)
+        ),
+    )
+    written += write_judgments(
+        store,
+        {
+            f"ECLI:NL:HR:2020:{number}": seed_judgment_xml(number)
+            for number in range(judgments)
+        },
+    )
+    return written
+
+
+def tk_faction(fid: str, label: str, start: str, end: str | None, seats: int) -> dict:
+    return {
+        "Id": fid,
+        "Afkorting": label,
+        "NaamNL": label,
+        "DatumActief": f"{start}T00:00:00+02:00",
+        "DatumInactief": f"{end}T00:00:00+02:00" if end else None,
+        "AantalZetels": seats,
+        "GewijzigdOp": "2026-06-23T09:00:00+02:00",
+    }
+
+
+def tk_person(pid: str, first: str, last: str) -> dict:
+    return {"Id": pid, "Voornamen": first, "Roepnaam": first, "Achternaam": last}
+
+
+def tk_seat(
+    number: int, pid: str, fid: str, start: str, end: str | None, role: str = "Lid"
+) -> dict:
+    return {
+        "Id": uid(number, 5),
+        "Persoon_Id": pid,
+        "FractieZetel": {"Id": uid(number, 4), "Fractie_Id": fid},
+        "Van": f"{start}T00:00:00+02:00",
+        "TotEnMet": f"{end}T00:00:00+02:00" if end else None,
+        "Functie": role,
+    }
+
+
+def cabinet_page(name: str, sworn_in: str, *seats: tuple[str, list[str]]) -> str:
+    """A cabinet cabinet_page as Rijksoverheid writes one: title, introduction, ministers and the
+    formatie block with the day of the beëdiging."""
+    items = "".join(f"<li>{h}<br/>{'<br/>'.join(lines)}</li>" for h, lines in seats)
+    return (
+        f"<h1>Kabinet-{name}</h1>"
+        f'<div class="rich-text larger-text"><p>Op {sworn_in} was de beëdiging van het '
+        f"kabinet-{name}.</p></div>"
+        f'<div class="rich-text"><h2>Ministers</h2><ul>{items}</ul></div>'
+        f'<div class="rich-text"><h2>Kabinetsformatie</h2><ul>'
+        f"<li>Beëdiging kabinet: {sworn_in}</li></ul></div>"
+    )
+
+
+def write_cabinet_pages(store: GraphStore, pages: dict[str, str]) -> None:
+    with RawSourceWriter(store) as writer:
+        for slug, html in pages.items():
             writer.add(
                 raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=bwb_id,
-                    payload_text=_own_title(
-                        toestanden[number % len(toestanden)], number
-                    ),
+                    source=SOURCE_RIJKSOVERHEID,
+                    kind=RAW_KIND_RIJKSOVERHEID_CABINET,
+                    external_id=slug,
+                    payload_text=html,
                     meta={
-                        "bwb_id": bwb_id,
-                        "state_url": f"https://repo/{bwb_id}/x.xml",
+                        "url": f"https://example.org/{slug}",
+                        "read_on": "2026-09-25",
                     },
                 )
             )
-        for number in range(judgments):
-            ecli = f"ECLI:NL:HR:2020:{number}"
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=judgment_xml(number),
-                    meta={"ecli": ecli},
-                )
-            )
-    return writer.written

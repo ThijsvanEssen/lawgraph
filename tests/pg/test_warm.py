@@ -102,9 +102,9 @@ def test_the_warm_up_leaves_a_word_most_judgments_hold(
     from collections import Counter
 
     from lawgraph.core import search_stats
-    from tests.pg.test_search_statistics import _judgments_with_words
+    from tests.pg.search_graph import judgments_with_words
 
-    _judgments_with_words(store, 2000)
+    judgments_with_words(store, 2000)
     searched: list[str] = []
     monkeypatch.setattr(warm, "search_all", lambda store_, q, **k: searched.append(q))
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)

@@ -13,7 +13,6 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
-    RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_STCRT_POST_CREATORS,
     RELATION_AUTHORED,
     SOURCE_RIJKSOVERHEID,
@@ -27,37 +26,7 @@ from lawgraph.db import (
     RawSourceWriter,
     raw_source_doc,
 )
-
-
-def page(name: str, sworn_in: str, *seats: tuple[str, list[str]]) -> str:
-    """A cabinet page as Rijksoverheid writes one: title, introduction, ministers and the
-    formatie block with the day of the beëdiging."""
-    items = "".join(f"<li>{h}<br/>{'<br/>'.join(lines)}</li>" for h, lines in seats)
-    return (
-        f"<h1>Kabinet-{name}</h1>"
-        f'<div class="rich-text larger-text"><p>Op {sworn_in} was de beëdiging van het '
-        f"kabinet-{name}.</p></div>"
-        f'<div class="rich-text"><h2>Ministers</h2><ul>{items}</ul></div>'
-        f'<div class="rich-text"><h2>Kabinetsformatie</h2><ul>'
-        f"<li>Beëdiging kabinet: {sworn_in}</li></ul></div>"
-    )
-
-
-def store_pages(store: GraphStore, pages: dict[str, str]) -> None:
-    with RawSourceWriter(store) as writer:
-        for slug, html in pages.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RIJKSOVERHEID,
-                    kind=RAW_KIND_RIJKSOVERHEID_CABINET,
-                    external_id=slug,
-                    payload_text=html,
-                    meta={
-                        "url": f"https://example.org/{slug}",
-                        "read_on": "2026-09-25",
-                    },
-                )
-            )
+from tests.integration.seed import cabinet_page, write_cabinet_pages
 
 
 def _member(
@@ -86,12 +55,12 @@ def _get(store: GraphStore, path: str) -> Any:
 
 JETTEN = "49be3576_cea3_46c0_87eb_89beb108248d"
 PAGES = {
-    "kabinet-rutte-iv": page(
+    "kabinet-rutte-iv": cabinet_page(
         "Rutte IV",
         "10 januari 2022",
         ("Minister voor Klimaat en Energie", ["R.A.A. (Rob) Jetten (D66)"]),
     ),
-    "kabinet-jetten": page(
+    "kabinet-jetten": cabinet_page(
         "Jetten",
         "23 februari 2026",
         (
@@ -124,7 +93,7 @@ def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
                 ),
             ]
         )
-    store_pages(store, PAGES)
+    write_cabinet_pages(store, PAGES)
 
     cli("normalize", "rijksoverheid")
 
@@ -213,10 +182,10 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
                 "capacity": "bewindspersoon",
             },
         )
-    store_pages(
+    write_cabinet_pages(
         store,
         {
-            "kabinet-schoof": page(
+            "kabinet-schoof": cabinet_page(
                 "Schoof",
                 "2 juli 2024",
                 (
@@ -293,7 +262,7 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
     _signed(
         store, ACHAHBAR, "toeslagen", "2024-10-01", "staatssecretaris van Financiën"
     )
-    # J.H. Hoogervorst on the page is J.F. in the Tweede Kamer: he signed as the minister
+    # J.H. Hoogervorst on the cabinet_page is J.F. in the Tweede Kamer: he signed as the minister
     _signed(
         store,
         HOOGERVORST,
@@ -301,10 +270,10 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
         "2004-03-02",
         "minister van Volksgezondheid, Welzijn en Sport",
     )
-    store_pages(
+    write_cabinet_pages(
         store,
         {
-            "kabinet-balkenende-ii": page(
+            "kabinet-balkenende-ii": cabinet_page(
                 "Balkenende II",
                 "27 mei 2003",
                 (
@@ -312,12 +281,12 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
                     ["drs. J.H. Hoogervorst (VVD)"],
                 ),
             ),
-            "kabinet-rutte-iv": page(
+            "kabinet-rutte-iv": cabinet_page(
                 "Rutte IV",
                 "10 januari 2022",
                 ("Minister voor Klimaat en Energie", ["R.A.A. (Rob) Jetten (D66)"]),
             ),
-            "kabinet-schoof": page(
+            "kabinet-schoof": cabinet_page(
                 "Schoof",
                 "2 juli 2024",
                 ("Staatssecretaris Herstel en Toeslagen", ["N. (Nora) Achahbar (NSC)"]),
@@ -357,7 +326,7 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
         for function, p in posts.items()
     }
     assert found == {
-        "Minister van Volksgezondheid, Welzijn en Sport": ("vws", "page", None),
+        "Minister van Volksgezondheid, Welzijn en Sport": ("vws", "cabinet_page", None),
         "Minister voor Klimaat en Energie": ("ezk", "staatscourant", None),
         "Staatssecretaris Herstel en Toeslagen": ("fin", "tk_signatures", None),
         "Minister zonder Portefeuille": (None, None, "no_source"),

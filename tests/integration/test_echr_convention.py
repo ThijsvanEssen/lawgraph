@@ -24,15 +24,14 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
     RELATION_REFERS_TO,
     SOURCE_ECHR,
-    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
-from tests.integration.test_judgment_mentions import _judgment_xml
+from tests.integration.graph import cited_articles, put_node
+from tests.integration.seed import judgment_xml, write_judgments
 
 EVRM = "BWBV0001000"
 ECHR_ECLI = "ECLI:CE:ECHR:2021:0209JUD001098215"
@@ -40,14 +39,9 @@ ECHR_KEY = make_node_key(ECHR_ECLI)
 NL_ECLI = "ECLI:NL:HR:2019:1278"
 
 
-def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
-    store.bulk_insert_or_update_nodes(collection, [doc])
-
-
 def _echr_judgment(store: GraphStore) -> None:
     """As ``normalize echr`` writes it."""
-    _put(
+    put_node(
         store,
         COLLECTION_JUDGMENTS,
         ECHR_KEY,
@@ -65,7 +59,7 @@ def _echr_judgment(store: GraphStore) -> None:
 
 def _load_the_treaty(store: GraphStore) -> None:
     """BWBV0001000 as ``normalize bwb`` writes it: its WTI abbreviation is EVRM."""
-    _put(
+    put_node(
         store,
         COLLECTION_INSTRUMENTS,
         make_node_key(EVRM),
@@ -79,7 +73,7 @@ def _load_the_treaty(store: GraphStore) -> None:
         kind="verdrag",
     )
     for number in ("6", "8", "41"):
-        _put(
+        put_node(
             store,
             COLLECTION_ARTICLES,
             make_node_key(EVRM, number),
@@ -90,23 +84,13 @@ def _load_the_treaty(store: GraphStore) -> None:
         )
 
 
-def _cited(store: GraphStore, judgment_key: str) -> dict[str, dict[str, Any]]:
-    rows = store.query(
-        "SELECT a.key, coalesce(a.stub, false) AS stub, e.doc -> 'meta' AS meta "
-        "FROM edges e LEFT JOIN articles a ON a.id = e.to_id "
-        "WHERE e.from_id = %(j)s AND e.relation = %(r)s",
-        {"j": f"judgments/{judgment_key}", "r": RELATION_REFERS_TO},
-    )
-    return {row["key"]: row for row in rows}
-
-
 def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loaded(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
     _echr_judgment(store)
     # an edge an earlier run made to the Convention of the ECHR pipeline's own
-    _put(store, COLLECTION_ARTICLES, "echr_convention_8", article_number="8")
+    put_node(store, COLLECTION_ARTICLES, "echr_convention_8", article_number="8")
     store.bulk_insert_or_update_edges(
         [
             make_edge_doc(
@@ -121,7 +105,7 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
 
     cli("semantic", "echr")
 
-    cited = _cited(store, ECHR_KEY)
+    cited = cited_articles(store, ECHR_KEY)
     # P1-1 is article 1 of the first Protocol: BWBV0001001, a treaty of its own
     assert set(cited) == {"bwbv0001000_8", "bwbv0001000_41", "bwbv0001001_1"}
     assert cited["bwbv0001000_8"]["stub"] is True
@@ -145,20 +129,16 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore]]:
     store = GraphStore()
     _load_the_treaty(store)
     _echr_judgment(store)
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=NL_ECLI,
-                payload_text=_judgment_xml(
-                    NL_ECLI,
-                    "2019-09-06",
-                    [("3.1", "Het hof heeft art. 8 EVRM geschonden.")],
-                ),
-                meta={"ecli": NL_ECLI},
+    write_judgments(
+        store,
+        {
+            NL_ECLI: judgment_xml(
+                NL_ECLI,
+                "2019-09-06",
+                [("3.1", "Het hof heeft art. 8 EVRM geschonden.")],
             )
-        )
+        },
+    )
     cli("normalize", "rechtspraak")
     cli("semantic", "echr")
     cli("semantic", "rechtspraak")
@@ -173,11 +153,11 @@ def test_the_echr_and_a_dutch_judgment_cite_one_article_of_the_loaded_treaty(
     client: tuple[TestClient, GraphStore],
 ) -> None:
     _, store = client
-    echr = _cited(store, ECHR_KEY)
+    echr = cited_articles(store, ECHR_KEY)
     assert set(echr) == {"bwbv0001000_8", "bwbv0001000_41", "bwbv0001001_1"}
     # the Convention is loaded; the first Protocol, a treaty of its own, is not
     assert {key for key, row in echr.items() if row["stub"]} == {"bwbv0001001_1"}
-    assert "bwbv0001000_8" in _cited(store, make_node_key(NL_ECLI))
+    assert "bwbv0001000_8" in cited_articles(store, make_node_key(NL_ECLI))
     assert list(store.query("SELECT key FROM articles WHERE stub")) == ["bwbv0001001_1"]
 
 
@@ -198,7 +178,7 @@ def test_the_check_counts_the_protocol_articles_that_are_not_linked(
 ) -> None:
     store = GraphStore()
     _echr_judgment(store)  # 8;8-1;8-2;41;P1-1
-    _put(
+    put_node(
         store,
         COLLECTION_JUDGMENTS,
         "echr_001_2",

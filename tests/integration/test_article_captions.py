@@ -10,8 +10,9 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_toestanden
 
 BW6 = "BWBR0005289"
 BOEK = {
@@ -50,16 +51,9 @@ def test_an_article_keeps_what_it_is_about(database: str, cli: Any) -> None:
                      ("afdeling", "Afdeling 1", "Algemene bepalingen")),
         ],
     )  # fmt: skip
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=BW6,
-                payload_text="<toestand/>",
-                meta={"bwb_id": BW6},
-            )
-        )
+    write_toestanden(
+        store, [(RAW_KIND_BWB_TOESTAND, BW6, "<toestand/>", {"bwb_id": BW6})]
+    )
 
     first = cli("semantic", "bwb-captions")
     again = cli("semantic", "bwb-captions")

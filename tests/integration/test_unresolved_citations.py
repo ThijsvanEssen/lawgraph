@@ -21,12 +21,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_KIND_RS_CONTENT,
-    SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_judgment_mentions import _judgment_xml
-from tests.integration.test_resolve import _evrm
+from lawgraph.db import GraphStore
+from tests.integration.graph import write_evrm
+from tests.integration.seed import judgment_xml, write_judgments
 
 ECLI = "ECLI:NL:HR:2019:1278"
 GDPR = "32016R0679"
@@ -46,7 +44,7 @@ def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore, Any]]:
     store = GraphStore()
-    _evrm(store)
+    write_evrm(store)
     _put(
         store,
         COLLECTION_INSTRUMENTS,
@@ -64,18 +62,10 @@ def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore, An
         article_number="6",
         text="Rechtmatigheid van de verwerking.",
     )
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=ECLI,
-                payload_text=_judgment_xml(
-                    ECLI, "2019-09-06", [("3.1", TEXT_1), ("3.2", TEXT_2)]
-                ),
-                meta={"ecli": ECLI},
-            )
-        )
+    write_judgments(
+        store,
+        {ECLI: judgment_xml(ECLI, "2019-09-06", [("3.1", TEXT_1), ("3.2", TEXT_2)])},
+    )
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak")
     app.dependency_overrides[get_store] = lambda: store

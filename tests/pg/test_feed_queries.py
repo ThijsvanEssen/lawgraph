@@ -17,8 +17,6 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
@@ -26,12 +24,9 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
-    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_MEMBERS,
     RELATION_ABOUT,
     RELATION_AMENDS,
-    RELATION_PART_OF,
 )
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
@@ -47,288 +42,15 @@ from lawgraph.db.queries.feed import (
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
+from tests.pg.feed_graph import (
+    AALDERS_KEY,
+    BAKKER_KEY,
+    HEINEN_KEY,
+    feed_document,
+    feed_node,
+    seed_feed,
+)
 from tests.pg.plans import explain, plan_nodes, recorded
-
-# TK GUIDs: a member's key is its GUID made a node key.
-AALDERS = "11111111-1111-1111-1111-111111111111"
-BAKKER = "22222222-2222-2222-2222-222222222222"
-HEINEN = "33333333-3333-3333-3333-333333333333"
-MOTION_CASE = "44444444-4444-4444-4444-444444444444"
-AALDERS_KEY = AALDERS.replace("-", "_")
-BAKKER_KEY = BAKKER.replace("-", "_")
-HEINEN_KEY = HEINEN.replace("-", "_")
-
-
-def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    labels = props.pop("labels", ["TK"])
-    return Node(collection=collection, key=key, labels=labels, props=props)
-
-
-def _actor(person: str, faction: str | None, role: str, capacity: str) -> dict:
-    return {
-        "person_id": person,
-        "faction_id": faction,
-        "name": {AALDERS: "A. Aalders", BAKKER: "B. Bakker", HEINEN: "E. Heinen"}.get(
-            person, "griffier"
-        ),
-        "role": role,
-        "function": "Tweede Kamerlid" if capacity == "kamerlid" else "minister",
-        "capacity": capacity,
-    }
-
-
-FIRST = "Eerste ondertekenaar"
-CO = "Mede ondertekenaar"
-
-
-def _document(key: str, kind: str, date: str, dossier: str, **props: Any) -> Node:
-    return _node(
-        COLLECTION_DOCUMENTS,
-        NodeType.DOCUMENT,
-        key,
-        kind=kind,
-        date=date,
-        dossier_numbers=[dossier],
-        document_number=f"2026D{key[-3:]}",
-        **props,
-    )
-
-
-def _nodes() -> list[Node]:
-    return [
-        _node(COLLECTION_CABINETS, NodeType.CABINET, "schoof", from_date="2024-07-02"),
-        _node(COLLECTION_CABINETS, NodeType.CABINET, "jetten", from_date="2026-02-23"),
-        _node(
-            COLLECTION_FACTIONS,
-            NodeType.FACTION,
-            "vvd",
-            abbreviation="VVD",
-            external_id="f-vvd",
-            external_ids=["f-vvd"],
-        ),
-        _node(
-            COLLECTION_FACTIONS,
-            NodeType.FACTION,
-            "d66",
-            abbreviation="D66",
-            external_id="f-d66",
-            external_ids=["f-d66-old", "f-d66"],
-        ),
-        _node(
-            COLLECTION_MEMBERS,
-            NodeType.MEMBER,
-            AALDERS_KEY,
-            name="Anna Aalders",
-            external_id=AALDERS,
-        ),
-        _node(
-            COLLECTION_MEMBERS,
-            NodeType.MEMBER,
-            BAKKER_KEY,
-            name="Bram Bakker",
-            external_id=BAKKER,
-        ),
-        _node(
-            COLLECTION_MEMBERS,
-            NodeType.MEMBER,
-            HEINEN_KEY,
-            name="Eelco Heinen",
-            external_id=HEINEN,
-        ),
-        _node(
-            COLLECTION_DOSSIERS,
-            NodeType.DOSSIER,
-            "37000",
-            number="37000",
-            label="37000",
-            title="Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
-            ministry="fin",
-        ),
-        _node(
-            COLLECTION_DOSSIERS,
-            NodeType.DOSSIER,
-            "37001_vii",
-            number="37001",
-            suffix="VII",
-            label="37001-VII",
-            title="Begroting Binnenlandse Zaken 2027",
-            ministry="bzk",
-        ),
-        _document(
-            "bill_001",
-            "Voorstel van wet",
-            "2026-03-01",
-            "37000",
-            title="Voorstel van wet ",
-        ),
-        # the source signs the memorandum, not the voorstel: its signatories submitted it
-        _document(
-            "memorandum_008",
-            "Memorie van toelichting",
-            "2026-03-01",
-            "37000",
-            actors=[_actor(HEINEN, None, FIRST, "bewindspersoon")],
-        ),
-        # the bill as the Eerste Kamer received it is not submitted again
-        _document(
-            "ek_bill_002",
-            "Voorstel van wet",
-            "2026-06-15",
-            "37000",
-            labels=["EersteKamer", "EK"],
-        ),
-        _document("note_003", "Nota van wijziging", "2026-04-01", "37000"),
-        _document(
-            "amendment_004",
-            "Amendement",
-            "2026-05-01",
-            "37000",
-            subject="Amendement van het lid Aalders over de grens",
-            actors=[
-                _actor(AALDERS, "f-vvd", FIRST, "kamerlid"),
-                _actor(BAKKER, "f-d66-old", CO, "kamerlid"),
-            ],
-        ),
-        _document(
-            "motion_005",
-            "Motie (gewijzigd/nader)",
-            "2026-05-01",
-            "37001-VII",
-            subject="Gewijzigde motie van het lid Bakker over gemeenten",
-            text="De Kamer, gehoord de beraadslaging, verzoekt de regering de gemeenten te "
-            "steunen, en gaat over tot de orde van de dag.",
-            dictum="verzoekt de regering de gemeenten te steunen",
-            case_ids=[MOTION_CASE],
-            actors=[
-                _actor(BAKKER, "f-d66", FIRST, "kamerlid"),
-                _actor("griffier", None, CO, "overig"),
-            ],
-        ),
-        _document(
-            "letter_006",
-            "Brief regering",
-            "2026-06-01",
-            "37001-VII",
-            subject="Stand van zaken gemeentefonds",
-            actors=[_actor(HEINEN, None, FIRST, "bewindspersoon")],
-        ),
-        # a paper of another kind is no event
-        _document("report_007", "Verslag", "2026-06-02", "37000"),
-        _node(
-            COLLECTION_CASES, NodeType.CASE, MOTION_CASE.replace("-", "_"), kind="Motie"
-        ),
-        _node(
-            COLLECTION_DECISIONS,
-            NodeType.DECISION,
-            "stemming_1",
-            date="2026-05-12",
-            subject="Gewijzigde motie van het lid Bakker over gemeenten",
-            decision_text="Aangenomen.",
-            primary_case_id=MOTION_CASE,
-            dossier_numbers=["37001-VII"],
-            kind="Motie",
-            decision_kind="Stemmen - aangenomen",
-            vote_kind="faction",
-            tally={"Voor": 80, "Tegen": 70},
-            passed=True,
-        ),
-        # a decision without an outcome is no vote
-        _node(
-            COLLECTION_DECISIONS,
-            NodeType.DECISION,
-            "stemming_2",
-            date="2026-05-12",
-            subject="Uitstel",
-            dossier_numbers=["37001-VII"],
-        ),
-        _node(
-            COLLECTION_COMMITMENTS,
-            NodeType.COMMITMENT,
-            "commitment_1",
-            text="De minister stuurt voor de zomer een brief over de grens.",
-            display_name="De minister stuurt voor de zomer een brief…",
-            minister_name="Heinen, E.",
-            minister_role="Minister van Financiën",
-            made_on="2024-09-01",
-            expected_resolution="2025-06-01",
-            status="Openstaand",
-            member_key=HEINEN_KEY,
-            ministry="fin",
-            cabinet="schoof",
-        ),
-        _node(
-            COLLECTION_INSTRUMENTS,
-            NodeType.INSTRUMENT,
-            "bwbr0000001",
-            bwb_id="BWBR0000001",
-            citation_title="Wet voorbeeld",
-            article_count=12,
-        ),
-        _node(
-            COLLECTION_ARTICLES,
-            NodeType.ARTICLE,
-            "bwbr0000001_1",
-            bwb_id="BWBR0000001",
-            article_number="1",
-            labels=["BWB"],
-        ),
-        _node(
-            COLLECTION_INSTRUMENTS,
-            NodeType.INSTRUMENT,
-            "stb_2026_10",
-            kind="publicatie",
-            citation_title="Stb. 2026, 10",
-            publication_kind="Stb",
-            publication_year=2026,
-            publication_number="10",
-            date_published="2026-07-01",
-            dossier_numbers=["37000"],
-            labels=["BWB", "Publication"],
-        ),
-        _node(
-            COLLECTION_INSTRUMENT_VERSIONS,
-            NodeType.INSTRUMENT_VERSION,
-            "bwbr0000001_2026_08_01",
-            bwb_id="BWBR0000001",
-            valid_from="2026-08-01",
-            labels=["BWB", "Version"],
-        ),
-        *(
-            _node(
-                COLLECTION_ARTICLE_VERSIONS,
-                NodeType.ARTICLE_VERSION,
-                f"bwbr0000001_av_{n}_1",
-                bwb_id="BWBR0000001",
-                valid_from="2026-08-01",
-                labels=["BWB"],
-            )
-            for n in (1, 2)
-        ),
-    ]
-
-
-def _seed(store: GraphStore) -> None:
-    with NodeWriter(store) as writer:
-        writer.add_all(_nodes())
-    with EdgeWriter(store, what=None) as edges:
-        edges.add(
-            f"{COLLECTION_COMMITMENTS}/commitment_1",
-            f"{COLLECTION_DOSSIERS}/37000",
-            RELATION_ABOUT,
-            source="t",
-        )
-        edges.add(
-            f"{COLLECTION_DOCUMENTS}/motion_005",
-            f"{COLLECTION_CASES}/{MOTION_CASE.replace('-', '_')}",
-            RELATION_PART_OF,
-            source="t",
-        )
-        edges.add(
-            f"{COLLECTION_INSTRUMENTS}/stb_2026_10",
-            f"{COLLECTION_ARTICLES}/bwbr0000001_1",
-            RELATION_AMENDS,
-            source="t",
-        )
 
 
 def _test_client() -> TestClient:
@@ -344,7 +66,7 @@ def _serve(store: GraphStore) -> None:
 
 @pytest.fixture()
 def client(store: GraphStore) -> Iterator[TestClient]:
-    _seed(store)
+    seed_feed(store)
     _serve(store)
     try:
         yield _test_client()
@@ -716,7 +438,7 @@ def _busy_days() -> list[Node]:
     day = ["2026-07-01", "2026-06-30", "2026-06-29"]
     return [
         *(
-            _node(
+            feed_node(
                 COLLECTION_INSTRUMENTS,
                 NodeType.INSTRUMENT,
                 f"stb_2026_{n}",
@@ -728,7 +450,7 @@ def _busy_days() -> list[Node]:
             for n in range(1, 151)
         ),
         *(
-            _node(
+            feed_node(
                 COLLECTION_DECISIONS,
                 NodeType.DECISION,
                 f"stemming_{n}",
@@ -739,7 +461,7 @@ def _busy_days() -> list[Node]:
             for n in range(1, 91)
         ),
         *(
-            _node(
+            feed_node(
                 COLLECTION_COMMITMENTS,
                 NodeType.COMMITMENT,
                 f"commitment_{n}",
@@ -856,7 +578,7 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
     case = "55555555-5555-5555-5555-555555555555"
     nodes = [
         *(
-            _node(
+            feed_node(
                 COLLECTION_DOSSIERS,
                 NodeType.DOSSIER,
                 number,
@@ -866,32 +588,32 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
             )
             for number in ("38001", "38002", "38003", "38004")
         ),
-        _document(
+        feed_document(
             "bill_101",
             "Voorstel van wet",
             "2026-06-01",
             "38001",
             text="Artikel III\nDeze wet wordt aangehaald als: Wet sterkere archieven.",
         ),
-        _document(
+        feed_document(
             "bill_102", "Voorstel van wet", "2026-06-02", "38002", case_ids=[case]
         ),
-        _document("bill_103", "Voorstel van wet", "2026-06-03", "38003"),
-        _document("bill_104", "Voorstel van wet", "2026-06-04", "38004"),
-        _node(
+        feed_document("bill_103", "Voorstel van wet", "2026-06-03", "38003"),
+        feed_document("bill_104", "Voorstel van wet", "2026-06-04", "38004"),
+        feed_node(
             COLLECTION_CASES,
             NodeType.CASE,
             case.replace("-", "_"),
             citation_title="Wet open overheid",
         ),
-        _node(
+        feed_node(
             COLLECTION_INSTRUMENTS,
             NodeType.INSTRUMENT,
             "bwbr0007376",
             bwb_id="BWBR0007376",
             citation_title="Archiefwet 1995",
         ),
-        _node(
+        feed_node(
             COLLECTION_INSTRUMENTS,
             NodeType.INSTRUMENT,
             "32019l1937",
@@ -957,7 +679,7 @@ def test_the_citation_title_of_a_bill_is_its_whole_name(
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                _node(
+                feed_node(
                     COLLECTION_DOSSIERS,
                     NodeType.DOSSIER,
                     "38001",
@@ -965,7 +687,7 @@ def test_the_citation_title_of_a_bill_is_its_whole_name(
                     label="38001",
                     title="Wijziging van enige wetten",
                 ),
-                _document(
+                feed_document(
                     "bill_101", "Voorstel van wet", "2026-06-01", "38001", text=text
                 ),
             ]
@@ -1063,7 +785,7 @@ ITEM_KEYS = [
 
 
 def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) -> None:
-    _seed(store)
+    seed_feed(store)
     raw = get_feed(store, FeedFilters())
     assert list(raw) == ["items", "total", "facets"]
     assert isinstance(raw["total"], int) and raw["total"] == len(ALL)
@@ -1140,7 +862,7 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
 
 
 def test_a_summary_keeps_its_keys_in_order(store: GraphStore) -> None:
-    _seed(store)
+    seed_feed(store)
     summary = get_feed_summary(
         store, FeedFilters(since="2026-03-01", until="2026-05-12")
     )
@@ -1245,7 +967,7 @@ def test_a_page_as_long_as_the_events_has_no_next(store: GraphStore) -> None:
 def test_one_statement_reads_a_page_whatever_its_size(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _seed(store)
+    seed_feed(store)
     calls = recorded(store, monkeypatch)
     for limit in (1, 50):
         for facets in (True, False):
@@ -1618,7 +1340,7 @@ def test_one_reading_counts_the_feed_and_every_kind_alike(store: GraphStore) -> 
     from lawgraph.core.feed import DEFAULT_KINDS, FEED_KINDS
     from lawgraph.db.queries import feed
 
-    _seed(store)
+    seed_feed(store)
     for since in (None, "2026-01-01"):
         shared = feed._counts_per_kind(store, FeedFilters(since=since))
         assert shared[DEFAULT_KINDS] == feed._counts(store, FeedFilters(since=since))
@@ -1633,7 +1355,7 @@ def test_the_kinds_of_the_feed_are_counted_once_for_all(
     from lawgraph.core.feed import FEED_KINDS
     from lawgraph.db.queries import feed
 
-    _seed(store)
+    seed_feed(store)
     readings: list[FeedFilters] = []
     real = feed._counts_per_kind
 
@@ -2007,7 +1729,7 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
     number in the dossier, so the feed links it directly instead of through
     ``/explore?focus`` and a 301; a commitment by its number. A paper the Kamer has not
     numbered yet has none."""
-    _seed(store)
+    seed_feed(store)
     numbered = {
         "motion_101": ("Motie", "37001", "VII", 12, "/kamerstukken/37001-VII/12"),
         "letter_102": ("Brief regering", "37000", None, 3, "/kamerstukken/37000/3"),
@@ -2016,7 +1738,7 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
         "bill_105": ("Voorstel van wet", "37023", None, 2, "/kamerstukken/37023/2"),
     }
     nodes = [
-        _document(
+        feed_document(
             key,
             kind,
             "2026-09-01",
@@ -2029,7 +1751,7 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
     ]
     # not numbered yet: no number, no dossier (as the source gives a fresh paper)
     nodes.append(
-        _node(
+        feed_node(
             COLLECTION_DOCUMENTS,
             NodeType.DOCUMENT,
             "fresh_106",
@@ -2039,7 +1761,7 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
         )
     )
     nodes.append(
-        _node(
+        feed_node(
             COLLECTION_COMMITMENTS,
             NodeType.COMMITMENT,
             "commitment_107",

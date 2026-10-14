@@ -18,14 +18,13 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.tk_content import DEFAULT_KINDS
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 TITLE_31746 = "Wijziging van boek 2 van het Burgerlijk Wetboek (aandeelhoudersrechten)"
 TITLE_31058 = "Wet vereenvoudiging en flexibilisering bv-recht"
@@ -105,21 +104,8 @@ AMENDMENTS_NOTE = _paper(5, "Nota van wijziging", 8, [BILL_31746], DOSSIER_31746
 LETTER = _paper(6, "Brief regering", 1, [LETTER_36996], DOSSIER_36996)
 
 
-def _write(store: GraphStore, records: list[tuple[str, dict[str, Any]]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
-
-
 def _load(store: GraphStore, cli: Any) -> None:
-    _write(
+    write_tk(
         store,
         [
             (RAW_KIND_TK_DOSSIER, {**DOSSIER_31746, "Titel": TITLE_31746}),

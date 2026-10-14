@@ -63,6 +63,7 @@ from lawgraph.db.queries.dossiers import (
 )
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
+from tests.pg.dossier_graph import DOSSIERS
 from tests.pg.plans import explain, plan_nodes, recorded
 
 # ── dossier documents and timeline ──
@@ -851,66 +852,6 @@ def test_the_hub_names_the_law_its_publication_established(store: GraphStore) ->
 
 
 # ── list ──
-
-TITLE = (
-    "Wijziging van de Uitvoeringswet Algemene verordening gegevensbescherming "
-    "(Verzamelwet gegevensbescherming)"
-)
-
-
-def _dossier(number: str, suffix: str, **props: Any) -> Node:
-    label = f"{number}-{suffix}" if suffix else number
-    return Node(
-        collection=COLLECTION_DOSSIERS,
-        key=label.lower().replace("-", "_"),
-        labels=["TK"],
-        props={
-            "number": number,
-            "suffix": suffix,
-            "label": label,
-            "order": dossier_order(number, suffix),
-            **props,
-        },
-    )
-
-
-DOSSIERS = [
-    _dossier(
-        "36264",
-        "",
-        title=TITLE,
-        kind="Wetgeving",
-        opened_on="2023-01-10",
-        closed=True,
-        closed_on="2026-06-26",
-        outcome="aangenomen",
-    ),
-    _dossier("37020", "", title="Miljoenennota", kind=None, opened_on="2026-09-15"),
-    _dossier(
-        "37020",
-        "XV",
-        title="Begroting SZW",
-        kind="Begroting",
-        opened_on="2026-09-15",
-    ),
-    _dossier(
-        "37020",
-        "IIA",
-        title="Begroting Staten-Generaal",
-        kind="Begroting",
-        opened_on="2026-09-15",
-    ),
-    _dossier(
-        "35000",
-        "",
-        title="Verworpen wet",
-        kind="Wetgeving",
-        opened_on="2018-01-01",
-        closed=True,
-        closed_on="2019-01-01",
-        outcome="verworpen",
-    ),
-]
 
 
 def _get(client: TestClient, path: str, **params: Any) -> Any:

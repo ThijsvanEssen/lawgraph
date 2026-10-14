@@ -20,8 +20,8 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ECLIS = [
@@ -50,17 +50,7 @@ def _edges(store: GraphStore) -> dict[tuple[str, str], dict[str, Any]]:
 @pytest.fixture()
 def store(database: str, cli: Any) -> GraphStore:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli in ECLIS:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=_fixture(ecli),
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, {ecli: _fixture(ecli) for ecli in ECLIS})
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-related")
     return store

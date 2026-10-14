@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_judgment_relations import _xml
+from lawgraph.db import GraphStore
+from tests.integration.seed import rechtspraak_xml, write_judgments
 
 RULING = "ECLI:NL:HR:2019:2006"
 TEXT = (
@@ -62,18 +61,14 @@ def _cited(store: GraphStore, source: str) -> set[tuple[str, str, str | None]]:
 
 def test_a_dutch_judgment_cites_strasbourg_by_number(database: str, cli: Any) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=RULING,
-                payload_text=_xml(
-                    RULING, "Hoge Raad", "2019-12-20", "19/01234", text=TEXT
-                ),
-                meta={"ecli": RULING},
+    write_judgments(
+        store,
+        {
+            RULING: rechtspraak_xml(
+                RULING, "Hoge Raad", "2019-12-20", "19/01234", text=TEXT
             )
-        )
+        },
+    )
     store.bulk_insert_or_update_nodes("judgments", DECISIONS)
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-citations")

@@ -27,11 +27,10 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
     RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import sitemaps
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 DEBATE, VOTES = uid(1, 31), uid(2, 31)
 BILL, MOTION_28, MOTION_23, LETTER_CASE = (uid(n, 32) for n in range(1, 5))
@@ -249,16 +248,7 @@ def _key(guid: str) -> str:
 @pytest.fixture()
 def store(database: str, cli: Any) -> GraphStore:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
     cli("semantic", "tk-dossier-relations")

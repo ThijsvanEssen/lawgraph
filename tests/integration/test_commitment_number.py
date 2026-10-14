@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_TK_TOEZEGGING, SOURCE_TK
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.config.constants import RAW_KIND_TK_TOEZEGGING
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 COMMITMENT = {
     "Id": uid(1, 5),
@@ -31,15 +31,7 @@ def test_a_commitment_is_listed_and_found_by_its_number(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_TK,
-                kind=RAW_KIND_TK_TOEZEGGING,
-                external_id=COMMITMENT["Id"],
-                payload_json=COMMITMENT,
-            )
-        )
+    write_tk(store, [(RAW_KIND_TK_TOEZEGGING, COMMITMENT)])
     cli("normalize", "tk-dossiers")
     app.dependency_overrides[get_store] = lambda: store
     try:

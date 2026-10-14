@@ -19,10 +19,10 @@ from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_VERDRAG,
-    SOURCE_BWB,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.integration.seed import write_toestanden
 
 
 def _toestand(bwb_id: str, number: str | None, title: str) -> str:
@@ -66,17 +66,19 @@ def _verdrag(number: str, title: str) -> dict[str, Any]:
 @pytest.fixture()
 def store(database: str, cli: Callable[..., Any]) -> Iterator[GraphStore]:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for bwb_id, number, title in BWB_TREATIES:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=bwb_id,
-                    payload_text=_toestand(bwb_id, number, title),
-                    meta={"bwb_id": bwb_id, "state_url": f"https://repo/{bwb_id}.xml"},
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                bwb_id,
+                _toestand(bwb_id, number, title),
+                {"bwb_id": bwb_id, "state_url": f"https://repo/{bwb_id}.xml"},
             )
+            for bwb_id, number, title in BWB_TREATIES
+        ],
+    )
+    with RawSourceWriter(store) as writer:
         for number, title in (
             (
                 "005132",

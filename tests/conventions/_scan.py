@@ -92,3 +92,10 @@ def _aql_in(source: str) -> list[int]:
     return [
         line for line, text in _string_texts(ast.parse(source)) if _AQL.search(text)
     ]
+
+
+# The modules where a relation name may be written as a string.
+RELATION_NAME_HOMES = {
+    SRC / "config" / "constants.py",
+    SRC / "core" / "relations.py",
+}

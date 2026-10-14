@@ -11,8 +11,8 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from tests.integration.conftest import ROOT, TEST_SERVER
+from tests.integration.graph import collection_counts, edge_keys
 from tests.integration.seed import seed
-from tests.integration.test_chain import _counts, _edge_keys
 
 # NodeWriter commits the documents per 500: between the quarter (1,000) and all (4,000) the
 # count holds six batches, each far longer (about 0.3 s) than the 50 ms poll.
@@ -60,7 +60,7 @@ def _wait_until_halfway(
 
 def _reference(cli: Any, store: GraphStore) -> tuple[dict[str, int], set[str]]:
     cli("normalize", "all")
-    return _counts(store), _edge_keys(store)
+    return collection_counts(store), edge_keys(store)
 
 
 def test_a_run_that_is_killed_is_completed_by_the_next_run(
@@ -73,7 +73,7 @@ def test_a_run_that_is_killed_is_completed_by_the_next_run(
     _wait_until_halfway(run, store, DOCUMENTS)
     run.send_signal(signal.SIGKILL)
     run.wait(timeout=60)
-    partial = _counts(store)
+    partial = collection_counts(store)
 
     complete, edges = _reference(cli, store)
     assert complete["documents"] == DOCUMENTS
@@ -81,4 +81,4 @@ def test_a_run_that_is_killed_is_completed_by_the_next_run(
 
     # And what a clean database makes of the same records is the same graph.
     cli("normalize", "all")
-    assert (_counts(store), _edge_keys(store)) == (complete, edges)
+    assert (collection_counts(store), edge_keys(store)) == (complete, edges)

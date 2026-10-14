@@ -17,8 +17,8 @@ from lawgraph.db.queries.committees import (
     get_committee_activities,
     get_committee_detail,
 )
+from tests.pg.committee_graph import Graph, committee_graph
 from tests.pg.plans import explain, plan_nodes, recorded
-from tests.pg.test_committees_queries import Graph, _committee_graph
 
 
 def _led(store: GraphStore) -> dict[str, tuple[Any, list[str]]]:
@@ -89,7 +89,7 @@ def _pages(store: GraphStore) -> list[Any]:
 def test_the_pages_from_the_table_are_those_of_the_walk(store: GraphStore) -> None:
     """Before the fill the pages walk the edges; after it the same pages from the table,
     and noted filled; a new database is filled from new by the triggers alone."""
-    _committee_graph(store)
+    committee_graph(store)
     walked = _pages(store)
     store.execute("DELETE FROM lg_led")  # as written before the triggers
     assert not committee_led.is_filled(store)
@@ -115,7 +115,7 @@ def test_the_pages_read_no_edge_and_no_activity_past_the_page(
 ) -> None:
     """Once filled, the dossiers are those kept with the items (no edge read) and the
     activities a range of the table's index, the page's rows alone read from their table."""
-    _committee_graph(store)
+    committee_graph(store)
     committee_led.fill_led(store)
     store.vacuum_analyze()
     version_cache.clear()

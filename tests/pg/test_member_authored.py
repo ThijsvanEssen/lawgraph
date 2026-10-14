@@ -15,8 +15,8 @@ from lawgraph.config.constants import RELATION_AUTHORED, RELATION_PART_OF
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.committees import get_actor_dossiers
+from tests.pg.committee_graph import Graph, authorship_graph, signatures
 from tests.pg.plans import explain, plan_nodes, recorded
-from tests.pg.test_committees_queries import Graph, _authorship_graph, _signatures
 
 
 def _dossiers(store: GraphStore, member: str) -> dict[str, list[str]]:
@@ -70,7 +70,7 @@ def test_a_signature_is_kept_with_the_dossiers_of_its_paper(store: GraphStore) -
     assert list(_dossiers(store, "members/m1")) == ["documents/doc2"]
 
 
-@pytest.mark.parametrize("graph", [_authorship_graph, _signatures])
+@pytest.mark.parametrize("graph", [authorship_graph, signatures])
 def test_the_page_from_the_table_is_that_of_the_walk(
     store: GraphStore, graph: Any
 ) -> None:
@@ -95,7 +95,7 @@ def test_the_page_from_the_table_is_that_of_the_walk(
 
 
 def test_a_paper_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
-    _authorship_graph(store)
+    authorship_graph(store)
     member_authored.fill_authored(store)
     g = Graph(store)
     g.node("dossiers", "39000", title="Nieuw", opened_on="2026-10-10")
@@ -114,7 +114,7 @@ def test_the_page_of_a_member_reads_the_table_not_the_edges(
 ) -> None:
     """Once filled, a member's papers and dossiers are a range of the table's index: no
     edge of their signatures read from the table of edges, no probe of a paper's dossiers."""
-    _signatures(store)
+    signatures(store)
     member_authored.fill_authored(store)
     calls = recorded(store, monkeypatch)
     get_actor_dossiers(store, "members/m1")
@@ -167,7 +167,7 @@ def test_a_signature_is_kept_with_the_date_of_its_paper(store: GraphStore) -> No
 def test_the_dates_are_kept_in_slices_then_marked(store: GraphStore) -> None:
     """Signatures kept before the dates were (no date, no capacity): kept a slice of members
     at a time, each slice saying where the next goes on; the last notes the table dated."""
-    _signatures(store)
+    signatures(store)
     member_authored.fill_authored(store)
     kept = {
         m: _dated(store, m)
@@ -194,7 +194,7 @@ def test_a_table_filled_from_new_is_dated_and_one_filled_before_is_not(
     """On a new database (a rebuild) the table had its dates from its first row, so the
     first fill notes it dated as well, without the pass of ``--authored-dates``; on one
     filled before the dates (prod), the fill leaves that to the pass."""
-    _signatures(store)
+    signatures(store)
     assert not member_authored.is_filled(store)
     member_authored.fill_authored(store)
     assert member_authored.is_filled(store) and member_authored.is_dated(store)

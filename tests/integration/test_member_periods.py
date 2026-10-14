@@ -18,102 +18,63 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_PERSOON,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import tk_faction, tk_person, tk_seat, uid, write_tk
 
 VVD, GLPVDA, PRO = uid(1, 8), uid(2, 8), uid(3, 8)
 KAMP, RUTTE, BLOK, KLAVER = uid(1, 9), uid(2, 9), uid(3, 9), uid(4, 9)
 
 
-def _faction(fid: str, label: str, start: str, end: str | None, seats: int) -> dict:
-    return {
-        "Id": fid,
-        "Afkorting": label,
-        "NaamNL": label,
-        "DatumActief": f"{start}T00:00:00+02:00",
-        "DatumInactief": f"{end}T00:00:00+02:00" if end else None,
-        "AantalZetels": seats,
-        "GewijzigdOp": "2026-06-23T09:00:00+02:00",
-    }
-
-
-def _person(pid: str, first: str, last: str) -> dict:
-    return {"Id": pid, "Voornamen": first, "Roepnaam": first, "Achternaam": last}
-
-
-def _seat(
-    number: int, pid: str, fid: str, start: str, end: str | None, role: str = "Lid"
-) -> dict:
-    return {
-        "Id": uid(number, 5),
-        "Persoon_Id": pid,
-        "FractieZetel": {"Id": uid(number, 4), "Fractie_Id": fid},
-        "Van": f"{start}T00:00:00+02:00",
-        "TotEnMet": f"{end}T00:00:00+02:00" if end else None,
-        "Functie": role,
-    }
-
-
 def _records() -> list[tuple[str, dict[str, Any]]]:
     return [
-        (RAW_KIND_TK_FRACTIE, _faction(VVD, "VVD", "1948-01-23", None, 22)),
+        (RAW_KIND_TK_FRACTIE, tk_faction(VVD, "VVD", "1948-01-23", None, 22)),
         # the record of GroenLinks-PvdA ends a day after its seats; PRO starts a day before
         (
             RAW_KIND_TK_FRACTIE,
-            _faction(GLPVDA, "GroenLinks-PvdA", "2023-10-27", "2026-06-10", 20),
+            tk_faction(GLPVDA, "GroenLinks-PvdA", "2023-10-27", "2026-06-10", 20),
         ),
-        (RAW_KIND_TK_FRACTIE, _faction(PRO, "PRO", "2026-06-09", None, 20)),
-        (RAW_KIND_TK_PERSOON, _person(KAMP, "Henk", "Kamp")),
-        (RAW_KIND_TK_PERSOON, _person(RUTTE, "Mark", "Rutte")),
-        (RAW_KIND_TK_PERSOON, _person(BLOK, "Stef", "Blok")),
-        (RAW_KIND_TK_PERSOON, _person(KLAVER, "Jesse", "Klaver")),
+        (RAW_KIND_TK_FRACTIE, tk_faction(PRO, "PRO", "2026-06-09", None, 20)),
+        (RAW_KIND_TK_PERSOON, tk_person(KAMP, "Henk", "Kamp")),
+        (RAW_KIND_TK_PERSOON, tk_person(RUTTE, "Mark", "Rutte")),
+        (RAW_KIND_TK_PERSOON, tk_person(BLOK, "Stef", "Blok")),
+        (RAW_KIND_TK_PERSOON, tk_person(KLAVER, "Jesse", "Klaver")),
         # Kamp: two seats whose TotEnMet the Kamer typed before their Van
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(1, KAMP, VVD, "2003-01-30", "2003-05-26"),
+            tk_seat(1, KAMP, VVD, "2003-01-30", "2003-05-26"),
         ),
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(2, KAMP, VVD, "2006-11-30", "2003-02-22"),
+            tk_seat(2, KAMP, VVD, "2006-11-30", "2003-02-22"),
         ),
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(3, KAMP, VVD, "2007-02-23", "2003-02-22"),
+            tk_seat(3, KAMP, VVD, "2007-02-23", "2003-02-22"),
         ),
         # Rutte chairs until 2010-10-13; Blok chairs from 2010-10-08
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(4, RUTTE, VVD, "2006-06-28", "2010-10-13", "Fractievoorzitter"),
+            tk_seat(4, RUTTE, VVD, "2006-06-28", "2010-10-13", "Fractievoorzitter"),
         ),
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(5, BLOK, VVD, "2010-10-08", "2012-09-12", "Fractievoorzitter"),
+            tk_seat(5, BLOK, VVD, "2010-10-08", "2012-09-12", "Fractievoorzitter"),
         ),
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(6, KLAVER, GLPVDA, "2023-10-27", "2026-06-09", "Fractievoorzitter"),
+            tk_seat(6, KLAVER, GLPVDA, "2023-10-27", "2026-06-09", "Fractievoorzitter"),
         ),
         (
             RAW_KIND_TK_FRACTIEZETELPERSOON,
-            _seat(7, KLAVER, PRO, "2026-06-10", None, "Fractievoorzitter"),
+            tk_seat(7, KLAVER, PRO, "2026-06-10", None, "Fractievoorzitter"),
         ),
     ]
 
 
 def _load(store: GraphStore) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records())
 
 
 def _periods(member: dict) -> list[tuple[str, str | None, str | None, str | None]]:

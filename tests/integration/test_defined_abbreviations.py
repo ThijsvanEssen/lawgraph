@@ -12,12 +12,10 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
-    RAW_KIND_RS_CONTENT,
     SOURCE_BWB,
-    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_judgment_mentions import _judgment_xml
+from tests.integration.seed import judgment_xml, write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 PW, WWBI = "BWBR0015703", "BWBR0003270"
@@ -48,7 +46,7 @@ def _seed(store: GraphStore) -> None:
         PW: (_wti("Wwb", "Participatiewet", "Wet werk en bijstand"), "Participatiewet"),
         WWBI: (_wti("WWB", "Wet wederzijdse bijstand"), "Wet wederzijdse bijstand"),
     }
-    judgment = _judgment_xml(
+    judgment = judgment_xml(
         ECLI,
         "2011-02-01",
         [
@@ -91,15 +89,7 @@ def _seed(store: GraphStore) -> None:
                     meta={"bwb_id": bwb_id},
                 )
             )
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=ECLI,
-                payload_text=judgment,
-                meta={"ecli": ECLI},
-            )
-        )
+    write_judgments(store, {ECLI: judgment})
 
 
 def test_the_abbreviation_a_judgment_defines_names_that_law(

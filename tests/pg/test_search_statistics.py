@@ -8,6 +8,7 @@ import pytest
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
 from tests.pg.plans import recorded
+from tests.pg.search_graph import judgments_with_words
 
 
 def _instrument(n: int) -> dict[str, object]:
@@ -74,28 +75,6 @@ def test_the_statistics_are_kept_when_the_data_changes(store: GraphStore) -> Non
     assert _bm25._stats(store, "instruments") == first
 
 
-def _judgments_with_words(store: GraphStore, rows: int) -> None:
-    """Judgments whose summaries mix words of every frequency, as the real ones do: a word
-    of the first ones in most summaries, of the last ones in a few."""
-    words = [
-        "beroep", "bestuursrecht", "huurovereenkomst", "ontbinding", "verblijfsvergunning",
-        "asiel", "onrechtmatige", "daad", "schadevergoeding", "aansprakelijkheid",
-        "zeldzaamheid",
-    ]  # fmt: skip
-    store.execute(
-        "INSERT INTO judgments (id, type, props)"
-        " SELECT 'judgments/w_' || n, 'judgment', json_build_object("
-        " 'source', 'rechtspraak', 'ecli', 'ECLI:NL:RBAMS:2020:' || n,"
-        " 'date_eff', '2020-01-01', 'display_name', 'Rechtbank ' || n,"
-        " 'summary', array_to_string(ARRAY("
-        "   SELECT w FROM unnest(%(words)s::text[]) WITH ORDINALITY AS x(w, i)"
-        "   WHERE (n * 7 + i * 13) %% (i + 1) = 0 OR (n %% (i * i + 1)) = 0), ' '))"
-        f" FROM generate_series(1, {rows}) n",
-        {"words": words},
-    )
-    store.execute("ANALYZE judgments")
-
-
 def test_common_words_take_their_frequency_from_the_statistics_alike(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -104,7 +83,7 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
 
-    _judgments_with_words(store, 4000)
+    judgments_with_words(store, 4000)
     queries = [
         "beroep bestuursrecht",
         "huurovereenkomst ontbinding",
@@ -162,7 +141,7 @@ def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
 
-    _judgments_with_words(store, 1500)
+    judgments_with_words(store, 1500)
     monkeypatch.setattr(
         version_cache,
         "_pool",
@@ -233,7 +212,7 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
 
-    _judgments_with_words(store, 300)
+    judgments_with_words(store, 300)
     version_cache.clear()
     monkeypatch.setattr(_bm25, "DF_TIMEOUT", 0.0)
     monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
@@ -257,7 +236,7 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     from lawgraph.db.queries.search import search_all
     from lawgraph.db.store import read_time_left
 
-    _judgments_with_words(store, 300)
+    judgments_with_words(store, 300)
     version_cache.clear()
     monkeypatch.setattr(_bm25, "_common_elements", lambda *a: {})  # every word counted
     df = _bm25._df

@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_TK_STEMMING, SOURCE_TK
+from lawgraph.config.constants import RAW_KIND_TK_STEMMING
 from lawgraph.core.models import Node, make_node_key
-from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from tests.integration.seed import write_tk
 
 BESLUIT = "2a67b884-e78e-4ccb-a21f-b97df9801d99"
 CASE = {"Id": "z-faber", "Soort": "Motie", "Onderwerp": "Motie van het lid Faber"}
@@ -54,16 +55,7 @@ ROWS = [
 
 
 def _seed(store: GraphStore) -> str:
-    with RawSourceWriter(store) as writer:
-        for row in ROWS:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=RAW_KIND_TK_STEMMING,
-                    external_id=row["Id"],
-                    payload_json=row,
-                )
-            )
+    write_tk(store, [(RAW_KIND_TK_STEMMING, row) for row in ROWS])
     key = make_node_key("decision", BESLUIT)
     with NodeWriter(store) as writer:
         writer.add_all(
