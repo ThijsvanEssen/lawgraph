@@ -24,6 +24,7 @@ from dataclasses import dataclass, replace
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -56,17 +57,22 @@ from lawgraph.core.feed import (
     EVENT_JUDGMENT,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    EXPLANATORY_MEMORANDUM,
     FEED_KINDS,
     FEED_TIERS,
-    FIRST_SIGNATORY,
     KIND_RANK,
     FeedCursor,
 )
 from lawgraph.core.judgments import KIND_CONCLUSIE
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.time import day_before
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+    KIND_EXPLANATORY_MEMORANDUM,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.feed_relations import (
     CITATIONS_OF_LAW,
@@ -87,13 +93,7 @@ from lawgraph.db.schema import (
     feed_title,
     search_words,
 )
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget, read_time_left
 from lawgraph.db.version_cache import lasting
 
 # The instruments a publication names at most.
@@ -143,12 +143,9 @@ _ITEM_PROPS = (
     *OUTCOME_KEYS,
     "source",
 )
-# The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven."
-# The AQL wrote ``\s`` and ``\.`` in a string literal, which made them ``s`` and ``.`` (any
-# character but a line end); this is the pattern ArangoDB matched, in any case.
-_CITED = "wordt aangehaald als:?s*([^.\n]{3,150})[^\n\r\u0085  ]"
-# What AQL's TRIM takes off.
-_TRIM = " \t\r\n"
+# The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven.",
+# up to the full stop or the end of its line, without the spaces around it.
+_CITED = r"wordt aangehaald als:?\s*([^.\s][^.\n]{1,148}[^.\s])"
 
 _EMPTY = "'[]'::json"
 _JSON_TEXT = "#>> '{}'"
@@ -333,7 +330,7 @@ _BILL_PERSONS = f"""CASE WHEN {_has_length(_ACTORS_OF_N)} THEN {_ACTORS_OF_N}
             SELECT {_or(_ACTORS_OF_O, _EMPTY)}
             FROM {COLLECTION_DOCUMENTS} o
             WHERE {{label}} IS NOT NULL AND o.dossier_numbers @> ARRAY[{{label}}]
-              AND starts_with(o.kind, {_lit(EXPLANATORY_MEMORANDUM)})
+              AND starts_with(o.kind, {_lit(KIND_EXPLANATORY_MEMORANDUM)})
               AND {_has_length(_ACTORS_OF_O)}
             ORDER BY o.date ASC NULLS FIRST, o.key ASC
             LIMIT 1
@@ -449,7 +446,7 @@ _SOURCES: dict[str, _Source] = {
             # by the bill too)
             where=(
                 "lg_bool(n.props -> 'passed') IS NOT NULL"
-                " AND (lg_str(n.props -> 'chamber') IS DISTINCT FROM 'EK'"
+                f" AND (lg_str(n.props -> 'chamber') IS DISTINCT FROM '{CHAMBER_EK}'"
                 " OR lg_bool(n.props -> 'bill_decision') IS TRUE)"
             ),
             dossiers=_DOSSIER_NUMBERS,
@@ -517,7 +514,6 @@ _SOURCES: dict[str, _Source] = {
 
 # The kinds that are no event of either chamber: a filter on the chamber leaves them out.
 _NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT, EVENT_JUDGMENT)
-CHAMBER_EK = "EK"
 
 # The dimensions that are counted as facets; each is a filter on the rows too.
 _DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber", "coalition")
@@ -1114,7 +1110,7 @@ def _official_short(label: str) -> str:
     return f"""(
             SELECT CASE
                 WHEN os.cited IS NOT NULL THEN json_build_object(
-                    'title', btrim(os.cited, %(trim)s), 'basis', 'citation'::text)
+                    'title', os.cited, 'basis', 'citation'::text)
                 WHEN os.case_title IS NOT NULL THEN json_build_object(
                     'title', os.case_title, 'basis', 'case'::text)
                 WHEN {_not_null("law.props -> 'bwb_id'")}
@@ -1367,7 +1363,6 @@ def _base_bind(filters: FeedFilters, limit: int) -> dict[str, Any]:
         "since": filters.since or "0",
         "page_size": limit + 1,
         "cited": _CITED,
-        "trim": _TRIM,
         "item_props": list(_ITEM_PROPS),
     }
     if filters.instrument:
@@ -1601,20 +1596,13 @@ def get_feed(
         shown.update(partial=True, searched_from=searched_from)
     if not facets:
         return {**shown, "total": None, "facets": None}
-    left = read_time_left()
-    token = set_read_deadline(
-        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
-    )
-    try:
+    with read_budget(COUNTS_BUDGET, "The counts of the feed"):
         return {
             **shown,
             **(_counts_of_events(store, filters) or feed_counts(store, filters)),
         }
-    except ReadTimedOut:
-        # counted on for the next request (``lasting``); this one shows the page now
-        return {**shown, "total": None, "facets": None, "partial": True}
-    finally:
-        reset_read_deadline(token)
+    # counted on for the next request (``lasting``); this one shows the page now
+    return {**shown, "total": None, "facets": None, "partial": True}
 
 
 # Words, a faction or a law without a first day (``q``, ``faction`` or ``instrument``, and no
@@ -1651,19 +1639,16 @@ def _page_items(
     for days in (*WORDS_WINDOWS, None):
         since = (end - dt.timedelta(days=days)).isoformat() if days else None
         window = replace(filters, since=since, until=until)
-        token = set_read_deadline(max(deadline - time.monotonic(), 0.0))
-        try:
+        with read_budget(
+            deadline - time.monotonic(), "The words of the feed"
+        ) as budget:
             items += _rows(store, window, cursor, limit - len(items))
-        except RequestCancelled:
-            raise
-        except ReadTimedOut:
+        if budget.ran_out:
             return items, searched_from
-        finally:
-            reset_read_deadline(token)
         if len(items) > limit or since is None:
             return items[: limit + 1], None
         searched_from = since
-        until = (dt.date.fromisoformat(since) - dt.timedelta(days=1)).isoformat()
+        until = day_before(since)
     return items, None
 
 
@@ -1732,9 +1717,6 @@ def _widely_cited(store: GraphStore, filters: FeedFilters) -> bool:
 # the data does: each reads every event of every kind (a minute on the full graph), and a
 # run of the pipelines hardly moves them. The page itself is read fresh.
 COUNTS_MAX_AGE = 3600.0
-# How long a request waits for them (seconds): under a filter not counted yet (a minute or
-# more, cold) it answers its page without them, ``partial``, and they are counted on.
-COUNTS_BUDGET = 3.0
 
 
 def _counts_of_events(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:

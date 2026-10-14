@@ -5,17 +5,20 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import itertools
-import json
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.courts import court_of
+from lawgraph.core.curated import LISTS
+from lawgraph.core.dutch_dates import DATE, dutch_day
+from lawgraph.core.dutch_names import INITIAL, INITIALS, LONG_WORD, TITLE, surname
+from lawgraph.core.ecli import cited_eclis, country_code, court_code
 from lawgraph.core.xml import (
     after_nonspace,
+    child_named,
     collapse_ws,
     first_named,
     iter_named,
@@ -34,11 +37,10 @@ def derive_court(
     court table does not know."""
     if not ecli:
         return None, None, None
-    parts = ecli.split(":")
-    court_code = parts[2].upper() if len(parts) >= 3 else None
-    found = court_of(court_code, court)
+    code = court_code(ecli)
+    found = court_of(code, court)
     return (
-        court_code,
+        code,
         found.tier if found else None,
         found.court_kind if found else None,
     )
@@ -78,7 +80,7 @@ _PLACEHOLDER_SUMMARIES = frozenset({"kopje volgt"})
 def is_placeholder_summary(summary: str | None) -> bool:
     """Whether an inhoudsindicatie only holds a place: empty, dashes or dots, or a known
     placeholder ("kopje volgt")."""
-    plain = " ".join((summary or "").split()).lower().rstrip(".")
+    plain = collapse_ws(summary).lower().rstrip(".")
     return not plain.strip("-. ") or plain in _PLACEHOLDER_SUMMARIES
 
 
@@ -265,36 +267,31 @@ def area_of_law(subjects: list[str] | None) -> str | None:
 # answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
 # rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
-KIND_ARREST = "arrest"
-KIND_VONNIS = "vonnis"
-KIND_BESCHIKKING = "beschikking"
-KIND_UITSPRAAK = "uitspraak"
-KIND_CONCLUSIE = "conclusie"
-KIND_PRELIMINARY_RULING = "prejudiciële beslissing"
-KIND_BESLISSING = "beslissing"
-DECISION_KINDS: tuple[str, ...] = (
-    KIND_ARREST,
-    KIND_VONNIS,
-    KIND_BESCHIKKING,
-    KIND_UITSPRAAK,
-    KIND_BESLISSING,
-    KIND_CONCLUSIE,
-    KIND_PRELIMINARY_RULING,
-)
+DecisionKind = Literal[
+    "arrest",
+    "vonnis",
+    "beschikking",
+    "uitspraak",
+    "beslissing",
+    "conclusie",
+    "prejudiciële beslissing",
+]
+DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
+KIND_ARREST: Final[DecisionKind] = "arrest"
+KIND_VONNIS: Final[DecisionKind] = "vonnis"
+KIND_BESCHIKKING: Final[DecisionKind] = "beschikking"
+KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
+KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
+KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
+KIND_BESLISSING: Final[DecisionKind] = "beslissing"
 
-# The curated kinds (``data/curated/decision_kinds.json``): the kind a procedure
-# (``psi:procedure``) names where the kop does not; the kind a kind of court gives when
-# nothing else tells (by ``court_kind``: a tier of one kind of court is its own); the kinds
-# of court of every area of law, which give an uitspraak in administrative law (tax law too).
-DECISION_KINDS_FILE = (
-    Path(__file__).resolve().parents[1] / "data" / "curated" / "decision_kinds.json"
-)
-_CURATED_KINDS: dict[str, Any] = json.loads(
-    DECISION_KINDS_FILE.read_text(encoding="utf-8")
-)
-KIND_OF_PROCEDURE: dict[str, str] = _CURATED_KINDS["procedures"]
-KIND_OF_COURT_KIND: dict[str, str] = _CURATED_KINDS["kinds"]
-_GENERAL_COURTS = frozenset(_CURATED_KINDS["general_courts"])
+# The curated kinds: the kind a procedure (``psi:procedure``) names where the kop does not;
+# the kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
+# kind of court is its own); the kinds of court of every area of law, which give an
+# uitspraak in administrative law (tax law too).
+KIND_OF_PROCEDURE: dict[str, str] = LISTS["procedure-kinds"].entries()
+KIND_OF_COURT_KIND: dict[str, str] = LISTS["decision-kinds"].entries()
+_GENERAL_COURTS = frozenset(LISTS["general-courts"].entries())
 
 # A kop line that names the decision: "Arrest", "ARREST", "Uitspraak op het hoger beroep
 # van:", "beschikking van de meervoudige kamer", "Tussenvonnis", "beslissing van de
@@ -425,22 +422,20 @@ def case_number_keys(case_number: str | None) -> list[str]:
 # The paragraphs a ruling tells its referral in: the start ("1 De prejudiciële procedure"),
 # after the parties and, when two courts asked, the procedure of each.
 REFERRAL_PARAGRAPHS = 40
-_ECLI_IN_TEXT = re.compile(r"\bECLI:NL:[A-Z]{2,8}:\d{4}:[A-Z0-9]{1,8}\b", re.IGNORECASE)
-_DATE = r"\d{1,2}\s+[a-z]+\s+\d{4}"
 # "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 # rechtbank ... prejudiciële vragen aan de Hoge Raad gesteld"; "in de zaken 8674876/EJ VERZ
 # 20-213 en 8675941 EJ VERZ 20-214 van 8 februari 2021"; "verwijst de Hoge Raad naar de
 # beschikkingen in de zaak 4986381\EJ VERZ 16-142 en 5026511\EJ VERZ 16-163 van de
 # kantonrechter te Enschede van 26 april 2016 en 20 mei 2016".
 _CASE_THEN_DATE = re.compile(
-    rf"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{{3,160}}?)\s+van\s+(?P<date>{_DATE})"
-    rf"(?:\s+en\s+(?P<last>{_DATE}))?",
+    rf"\bin\s+de\s+za(?:ak|ken)\s+(?P<numbers>.{{3,160}}?)\s+van\s+(?P<date>{DATE})"
+    rf"(?:\s+en\s+(?P<last>{DATE}))?",
     re.IGNORECASE,
 )
 # "Bij tussenvonnis van 14 november 2024 met zaaknummer C/15/351661 / KG ZA 24-199 heeft";
 # "Bij tussenuitspraak van 28 april 2023, in zaak nr. 22/2463T, heeft".
 _DATE_THEN_CASE = re.compile(
-    rf"\bvan\s+(?P<date>{_DATE}),?\s+(?:met\s+zaaknummers?|in\s+(?:de\s+)?zaak\s+nr\.?)"
+    rf"\bvan\s+(?P<date>{DATE}),?\s+(?:met\s+zaaknummers?|in\s+(?:de\s+)?zaak\s+nr\.?)"
     r"\s+(?P<numbers>.{3,120}?)\s*(?:,|\bheeft\b)",
     re.IGNORECASE,
 )
@@ -448,33 +443,13 @@ _DATE_THEN_CASE = re.compile(
 # beslissing van 19 december 2022, nummers 18-018510-21, 18-298097-21 en 18-298079-21,
 # gestelde rechtsvragen".
 _DECISION_NUMBERS = re.compile(
-    rf"\bbij\s+beslissing\s+van\s+(?P<date>{_DATE}),\s+(?:parket)?nummers?\s+"
+    rf"\bbij\s+beslissing\s+van\s+(?P<date>{DATE}),\s+(?:parket)?nummers?\s+"
     r"(?P<numbers>.{3,160}?),\s+gestelde\b",
     re.IGNORECASE,
 )
 _REFERRAL_FORMS = (_CASE_THEN_DATE, _DATE_THEN_CASE, _DECISION_NUMBERS)
 # Where the case numbers of "in de zaak X van de rechtbank Y van <date>" end.
 _COURT_AFTER_NUMBERS = re.compile(r"\s+van\s+(?:de|het)\s", re.IGNORECASE)
-_MONTHS = {
-    month: number
-    for number, month in enumerate(
-        (
-            "januari",
-            "februari",
-            "maart",
-            "april",
-            "mei",
-            "juni",
-            "juli",
-            "augustus",
-            "september",
-            "oktober",
-            "november",
-            "december",
-        ),
-        start=1,
-    )
-}
 
 
 @dataclass(frozen=True)
@@ -488,17 +463,6 @@ class Referral:
     def names(self, case_number: str | None) -> bool:
         """Whether *case_number* (of a judgment, one or more) is one this referral names."""
         return any(same_case_number(own, case_number) for own in self.case_numbers)
-
-
-def _dutch_date(text: str) -> str | None:
-    day, month, year = text.split()
-    number = _MONTHS.get(month.lower())
-    if number is None:
-        return None
-    try:
-        return dt.date(int(year), number, int(day)).isoformat()
-    except ValueError:
-        return None
 
 
 def _cases_and_date(text: str) -> tuple[re.Match[str] | None, tuple[str, ...]]:
@@ -519,12 +483,12 @@ def _referral_of(text: str, referred: Referral | None) -> Referral | None:
     lowered = text.lower()
     if "prejudici" not in lowered or "gesteld" not in lowered:
         return None
-    eclis = tuple(dict.fromkeys(e.upper() for e in _ECLI_IN_TEXT.findall(text)))
+    eclis = tuple(e for e in cited_eclis(text) if country_code(e) == "NL")
     if eclis:
         return Referral(eclis=eclis)
     match, numbers = _cases_and_date(text)
     if match and numbers:
-        return Referral(case_numbers=numbers, date=_dutch_date(match["date"]))
+        return Referral(case_numbers=numbers, date=dutch_day(match["date"]))
     if "laatstgenoemd" in lowered:
         return referred
     return None
@@ -536,7 +500,7 @@ def _referred_to(text: str) -> Referral | None:
     if match is None or not numbers:
         return None
     last = match.groupdict().get("last") or match["date"]
-    return Referral(case_numbers=numbers, date=_dutch_date(last))
+    return Referral(case_numbers=numbers, date=dutch_day(last))
 
 
 def read_referrals(paragraphs: list[dict[str, Any]]) -> list[Referral]:
@@ -837,27 +801,22 @@ def kop_lines(root: ET.Element) -> list[str]:
 # "Advocaat-Generaal", "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel", "Conclusie van den
 # Advocaat-Generaal Mr. Besier."; the signature at the end gives only the office.
 
-_INITIALS = r"(?:(?:[A-Z]|IJ|Th|Chr|Ph)\.\s?)+"
-_PARTICLE = r"(?:van|de|der|den|ten|ter|het|in\s+'t|'t)"
 # A word that follows a name on its line and is no part of it: "Mr. T.N.B.M. Spronken
-# Conclusie inzake:", "D.J.C. Aben Vordering tot cassatie".
+# Conclusie inzake:", "D.J.C. Aben Vordering tot cassatie", "S.V. de Jong te Amsterdam".
 _AFTER_NAME = (
     r"(?:conclusie|nadere|aanvullende|vordering|zitting|datum|advocaat|procureur|"
-    r"raadsheer|staatsraad|parket|en)"
+    r"raadsheer|staatsraad|parket|en|te|in|uit)"
 )
-_SURNAME = (
-    rf"(?:{_PARTICLE}\s+)*[A-Z][\w'’]+"
-    rf"(?:(?:-|\s+)(?!(?i:{_AFTER_NAME})\b)(?:{_PARTICLE}[\s-]+)*[A-Z][\w'’]+)*"
-)
-_PERSON = rf"(?:{_INITIALS})?\s*{_SURNAME}"
+_SURNAME = surname(LONG_WORD, stop=_AFTER_NAME)
+_PERSON = rf"(?:{INITIALS})?\s*{_SURNAME}"
 # All of a line: "T. Hartlief", "mr. Wattel", "F.F. Langemeijer en M.H. Wissink".
 _NAME_LINE = re.compile(
-    rf"^(?:(?P<mr>(?i:mr)\.?)\s*)?(?P<name>(?P<initials>{_INITIALS})?\s*{_SURNAME}"
+    rf"^(?P<mr>{TITLE}+)?(?P<name>(?P<initials>{INITIALS})?\s*{_SURNAME}"
     rf"(?:\s+en\s+{_PERSON})?)\.?$"
 )
-_NAME_IN_LINE = re.compile(rf"\b(?i:mr)\.?\s+(?P<name>{_PERSON})")
+_NAME_IN_LINE = re.compile(rf"\b{TITLE}(?P<name>{_PERSON})")
 # At the end of a line, with initials: "Zaaknr :26/00083 R.H. de Bock".
-_NAME_ENDS_LINE = re.compile(rf"\s(?P<name>{_INITIALS}\s*{_SURNAME})\.?$")
+_NAME_ENDS_LINE = re.compile(rf"\s(?P<name>{INITIALS}\s*{_SURNAME})\.?$")
 # Where the parties begin: a name after it is theirs, or their lawyer's. Not "inzake
 # prejudiciële vraag", which says what the conclusion is on.
 _PARTIES_BEGIN = re.compile(
@@ -1010,7 +969,7 @@ class _Sections:
             self.add(KIND_BODY, str(place), _unit_text(item, self._kop), [item])
 
     def section(self, section: ET.Element, depth: int) -> None:
-        title = next((c for c in section if local_name(c.tag) == "title"), None)
+        title = child_named(section, "title")
         if title is not None and id(title) not in self._kop:
             number = collapse_ws(text_of(first_named(title, "nr"))) or None
             text = collapse_ws(text_of(title, " "))
@@ -1027,7 +986,7 @@ class _Sections:
 
     def paragroup(self, group: ET.Element, depth: int) -> None:
         """A numbered unit: its own paragraphs are one entry, nested units follow."""
-        nr = next((c for c in group if local_name(c.tag) == "nr"), None)
+        nr = child_named(group, "nr")
         number = collapse_ws(text_of(nr)) or None
         if number is None:
             self.walk(group, depth)
@@ -1145,7 +1104,7 @@ def _marker_at(text: str, words: str, before: int) -> int | None:
 
 _NOT_IN_A_HEADING = re.compile(
     r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
-    r"|\b(?:[A-Z]{1,2}|IJ|Th|Chr|Ph)\.(?:[A-Z]{1,2}\.)*\s",
+    rf"|\b(?:[A-Z]{{1,2}}|{INITIAL})\.(?:[A-Z]{{1,2}}\.)*\s",
     re.IGNORECASE,
 )
 
@@ -1318,7 +1277,7 @@ def text_id(text: str) -> str:
     """The id of a paragraph without a number: ``p-`` and the first 8 hex of the SHA-1 of
     its text, its whitespace collapsed. It follows the text, not the position, so a
     paragraph keeps its deep link when another one before it comes or goes."""
-    digest = hashlib.sha1(" ".join(text.split()).encode(), usedforsecurity=False)
+    digest = hashlib.sha1(collapse_ws(text).encode(), usedforsecurity=False)
     return f"p-{digest.hexdigest()[:8]}"
 
 
@@ -1441,9 +1400,9 @@ _TITLE_CASE_NUMBERS = re.compile(r",\s*\d{2}-\d{2}-\d{4},\s*(?P<numbers>.+)$")
 def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
     """``(total, entries)`` of an Atom index page; the total is what the search matched.
 
-    Raises on a page that is not XML (``ET.ParseError``) or not a feed (``ValueError``; a
-    maintenance page can be well-formed): an index that cannot be read must not look like
-    an empty one.
+    Raises on a page that is not XML (``ET.ParseError``), not a feed (``ValueError``; a
+    maintenance page can be well-formed) or with an entry whose time cannot be read
+    (``ValueError``): an index that cannot be read must not look like an empty one.
     """
     root = ET.fromstring(xml_text)
     if local_name(root.tag) != "feed":
@@ -1461,18 +1420,22 @@ def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
                 entries.append(
                     IndexEntry(
                         ecli=fields["id"],
-                        updated=_parse_timestamp(fields.get("updated")),
+                        updated=_parse_timestamp(fields["id"], fields.get("updated")),
                         title=fields.get("title", ""),
                     )
                 )
     return total, entries
 
 
-def _parse_timestamp(value: str | None) -> dt.datetime | None:
+def _parse_timestamp(ecli: str, value: str | None) -> dt.datetime | None:
+    """When the entry of *ecli* was published or last changed (UTC where the feed names no
+    zone); None without a time. A time that cannot be read raises, as an unreadable page."""
     if not value:
         return None
     try:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    except ValueError as error:
+        raise ValueError(
+            f"{ecli}: unreadable <updated> {value!r} in the index"
+        ) from error
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)

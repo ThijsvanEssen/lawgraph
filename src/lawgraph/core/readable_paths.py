@@ -31,10 +31,12 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
 
-from lawgraph.core.identifiers import CELEX_MATCH_LETTERS
+from lawgraph.core.code_families import cited_number
+from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
+from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
+from lawgraph.core.publications import SERIES, parse_koop_id
 
-ECLI = re.compile(r"^ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9.]+$", re.IGNORECASE)
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
 BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
@@ -46,8 +48,6 @@ LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}", re.IGNORECASE)
 # A key or slug as the API gives it: ``rutte_iv``, ``ek_democraten_1966``.
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-# The number of a toezegging: ``TZ202609-124``.
-COMMITMENT_NUMBER = re.compile(r"^TZ\d+-\d+$", re.IGNORECASE)
 # The number of a stuk: a figure in the Tweede Kamer, letters in the Eerste (A, AB).
 STUK = re.compile(r"^(\d+|[A-Z]{1,3})$", re.IGNORECASE)
 # The number of a zaak of the Tweede Kamer: ``2025Z15468``.
@@ -56,25 +56,6 @@ CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
 ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
-REEKSEN = ("stb", "stcrt", "trb")
-_JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9.]+$")
-_PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
-
-# The boeken of the Burgerlijk Wetboek and their BWB ids: an article is cited with its
-# book before the number (6:162).
-BW_BOOKS = {
-    "1": "BWBR0002656",
-    "2": "BWBR0003045",
-    "3": "BWBR0005291",
-    "4": "BWBR0002761",
-    "5": "BWBR0005288",
-    "6": "BWBR0005289",
-    "7": "BWBR0005290",
-    "7a": "BWBR0006000",
-    "8": "BWBR0005034",
-    "10": "BWBR0030068",
-}
-_BOOK_OF = {bwb: book.upper() for book, bwb in BW_BOOKS.items()}
 
 
 @dataclass(frozen=True)
@@ -90,16 +71,10 @@ class Pad:
     c: str = ""
 
 
-def book_number(bwb_id: str | None, number: str) -> str:
-    """The number an article is cited by: ``6:162`` for article 162 of Boek 6."""
-    book = _BOOK_OF.get((bwb_id or "").upper())
-    return f"{book}:{number}" if book and ":" not in number else number
-
-
 # The addresses of one segment after their prefix: the kind, the pattern of the segment
 # and whether it is written in capitals (an ECLI, a BWB id, a number).
 _ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
-    "uitspraken": ("uitspraak", ECLI, True),
+    "uitspraken": ("uitspraak", PATH_ECLI, True),
     "wetten": ("wet", LAW, True),
     "dossiers": ("dossier", DOSSIER, True),
     "leden": ("lid", SLUG, False),
@@ -129,7 +104,7 @@ def parse_path(pathname: str) -> Pad | None:
     if first == "wetten" and n == 4 and b == "bijlage" and BWB.match(a):
         return Pad("bijlage", a.upper(), c.upper()) if ANNEX_LABEL.match(c) else None
     if (
-        first in REEKSEN
+        first in SERIES
         and n == 3
         and re.fullmatch(r"\d{4}", a)
         and re.fullmatch(r"\d+", b)
@@ -180,21 +155,11 @@ def pad_href(pad: Pad) -> str:
     return f"/{prefix}/{pad.a}"
 
 
-def judgment_key(ecli: str) -> str:
-    """A judgment's node key from its ECLI: ``ecli_nl_hr_2019_2006``."""
-    return ecli.lower().replace(":", "_")
-
-
-def key_ecli(key: str) -> str | None:
-    """The ECLI of a judgment's node key, or None."""
-    return key.upper().replace("_", ":") if _JUDGMENT_KEY.match(key) else None
-
-
 def focus_of_pad(pad: Pad) -> str | None:
     """The node id an address names without a lookup: a judgment, a law, a dossier, a
     cabinet and a fractie (their key is their id); None for the others."""
     if pad.soort == "uitspraak":
-        return f"judgments/{judgment_key(pad.a)}"
+        return f"judgments/{make_node_key(pad.a)}"
     if pad.soort == "wet":
         return f"instruments/{pad.a.lower()}"
     if pad.soort == "dossier":
@@ -213,9 +178,11 @@ def _text(value: Any) -> str | None:
 
 
 def _judgment(key: str, props: dict[str, Any]) -> str | None:
-    ecli = _text(props.get("ecli")) or key_ecli(key)
+    ecli = _text(props.get("ecli")) or ecli_of_key(key)
     return (
-        pad_href(Pad("uitspraak", ecli.upper())) if ecli and ECLI.match(ecli) else None
+        pad_href(Pad("uitspraak", ecli.upper()))
+        if ecli and PATH_ECLI.match(ecli)
+        else None
     )
 
 
@@ -242,7 +209,7 @@ def _article(key: str, props: dict[str, Any]) -> str | None:
     # A number with a space ("bijlage 2 artikel 6") has no address of its own.
     if not law or not number or re.search(r"\s", number):
         return None
-    return pad_href(Pad("artikel", law, book_number(law, number)))
+    return pad_href(Pad("artikel", law, cited_number(law, number)))
 
 
 def _instrument(key: str, props: dict[str, Any]) -> str | None:
@@ -252,8 +219,11 @@ def _instrument(key: str, props: dict[str, Any]) -> str | None:
     if CELEX.match(celex):
         return pad_href(Pad("wet", celex.upper()))
     official = _text(props.get("official_id")) or key.replace("_", "-")
-    m = _PUBLICATION_ID.match(official.lower())
-    return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None
+    parsed = parse_koop_id(official)
+    if parsed is None:
+        return None
+    series, year, number = parsed
+    return pad_href(Pad("publicatie", series, str(year), number))
 
 
 def _slug(soort: str, pattern: re.Pattern[str]) -> Any:

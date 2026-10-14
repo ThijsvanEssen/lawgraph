@@ -6,11 +6,11 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
-    COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
-    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_FACTIONS,
@@ -31,14 +31,11 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import committee_led
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
 _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-
-# The chamber a faction, committee or member list is of: the Eerste Kamer's carry
-# ``chamber`` ``EK`` (``normalize eerstekamer-composition``), the Tweede Kamer's none.
-CHAMBER_EK = "EK"
 
 # The columns of a node row (``node_doc``) of the table named ``{t}``.
 _NODE = "{t}.id, {t}.key, {t}.type, {t}.labels, {t}.props"
@@ -134,7 +131,7 @@ def _page(source: str, *order: str) -> str:
 def get_committees(
     store: GraphStore,
     *,
-    chamber: str = "TK",
+    chamber: str = CHAMBER_TK,
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -180,15 +177,6 @@ def _committee(store: GraphStore, slug: str) -> dict[str, Any] | None:
     return node_doc(row) if row else None
 
 
-# A seat with no end date or one still ahead; a seat of the Eerste Kamer ends where a
-# snapshot no longer shows it.
-_CURRENT_MEMBERSHIP = f"""
-    AND ({_is_null("e.doc -> 'meta' -> 'to_date'")}
-         OR lg_str(e.doc -> 'meta' -> 'to_date') >= %(today)s)
-    AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
-"""
-
-
 def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, Any]]:
     """The committees a member sat on, of either chamber, each with its seat (the edge's
     ``meta``): those they sit on now first, then by name and key."""
@@ -196,17 +184,20 @@ def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, A
         f"""
         SELECT c.key, c.props -> 'slug' AS slug, c.props -> 'name' AS name,
                c.props -> 'abbreviation' AS abbreviation,
-               coalesce(lg_str(c.props -> 'chamber'), 'TK') AS chamber,
+               coalesce(lg_str(c.props -> 'chamber'), '{CHAMBER_TK}') AS chamber,
                e.doc -> 'meta' AS meta
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_COMMITTEES} c ON c.id = e.to_id
         WHERE e.from_id = %(member_id)s AND e.relation = %(member_of)s
           AND e.to_collection = '{COLLECTION_COMMITTEES}'
-        ORDER BY ({_is_null("e.doc -> 'meta' -> 'to_date'")}
-                  AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}) DESC,
+        ORDER BY lg_seated(e.doc -> 'meta', %(today)s) DESC NULLS LAST,
                  c.props ->> 'name' ASC NULLS FIRST, c.key ASC
         """,
-        {"member_id": member_id, "member_of": RELATION_MEMBER_OF},
+        {
+            "member_id": member_id,
+            "member_of": RELATION_MEMBER_OF,
+            "today": dt.date.today().isoformat(),
+        },
     )
     return list(rows)
 
@@ -232,7 +223,7 @@ def _committee_members(
         JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
         WHERE e.to_id = %(committee_id)s AND e.relation = %(member_of)s
           AND e.from_collection = '{COLLECTION_MEMBERS}'
-          {_CURRENT_MEMBERSHIP if current_only else ""}
+          {"AND lg_seated(e.doc -> 'meta', %(today)s)" if current_only else ""}
         ORDER BY m.name ASC NULLS FIRST, m.key ASC, e.key ASC
         """,
         bind,
@@ -660,14 +651,17 @@ def get_factions(
     *,
     active: bool | None = None,
     q: str | None = None,
-    chamber: str = "TK",
+    chamber: str = CHAMBER_TK,
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
-    the members the last snapshot shows), seated ones first; with a period (*active_from*,
-    *active_to*) those active in it (``active_from`` to ``active_until``)."""
-    bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
+    """Every parliamentary party of *chamber* with its member count (the seats held today,
+    ``lg_seated``), seated ones first; with a period (*active_from*, *active_to*) those
+    active in it (``active_from`` to ``active_until``)."""
+    bind: dict[str, Any] = {
+        "member_of": RELATION_MEMBER_OF,
+        "today": dt.date.today().isoformat(),
+    }
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
     if _period(bind, active_from, active_to):
         filters.append(
@@ -691,7 +685,7 @@ def get_factions(
             FROM {COLLECTION_EDGES} e
             WHERE e.relation = %(member_of)s
               AND e.to_collection = '{COLLECTION_FACTIONS}'
-              AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
+              AND lg_seated(e.doc -> 'meta', %(today)s)
             GROUP BY e.to_id
         ) counted ON counted.to_id = f.id
         WHERE {" AND ".join(f"({f})" for f in filters)}
@@ -1086,12 +1080,7 @@ _FACTION_AUTHORED = f"""
     FROM {COLLECTION_EDGES} seat
     JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
     JOIN {COLLECTION_EDGES} a ON a.from_id = m.id AND a.relation = %(authored)s
-    CROSS JOIN LATERAL (
-        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-            THEN (SELECT x.date FROM {COLLECTION_DOCUMENTS} x WHERE x.id = a.to_id)
-            ELSE (SELECT lg_str(x.props -> 'date') FROM nodes x WHERE x.id = a.to_id)
-        END AS date
-    ) d
+    CROSS JOIN LATERAL (SELECT {signed_date_sql("a.to_id")} AS date) d
     WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
       AND d.date IS NOT NULL
       AND EXISTS (
@@ -1118,20 +1107,7 @@ _WALKED_FOUND = f"""
         found AS (
             SELECT ids.dossier_id, a.document_id, a.meta
             FROM authored a
-            CROSS JOIN LATERAL (
-                SELECT p.to_id AS dossier_id
-                FROM {COLLECTION_EDGES} p
-                WHERE p.from_id = a.document_id AND p.relation = %(part_of)s
-                  AND p.to_collection = '{COLLECTION_DOSSIERS}'
-                UNION
-                SELECT p2.to_id
-                FROM {COLLECTION_EDGES} p1
-                JOIN {COLLECTION_EDGES} p2
-                  ON p2.from_id = p1.to_id AND p2.relation = %(part_of)s
-                 AND p2.to_collection = '{COLLECTION_DOSSIERS}'
-                WHERE p1.from_id = a.document_id AND p1.relation = %(part_of)s
-                  AND p1.to_collection = '{COLLECTION_CASES}'
-            ) ids
+            CROSS JOIN LATERAL ({dossiers_of_sql("a.document_id")}) AS ids(dossier_id)
         ),
 """
 # The same, of a faction, from ``lg_authored``: of each member who sat in it its periods in
@@ -1219,7 +1195,6 @@ def get_actor_dossiers(
             "limit": limit,
             "offset": offset,
             "authored": RELATION_AUTHORED,
-            "part_of": RELATION_PART_OF,
             "member_of": RELATION_MEMBER_OF,
         },
     )

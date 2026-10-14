@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import pytest
 
+from lawgraph.config.constants import (
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+)
 from lawgraph.core.citations import format_celex
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
     _KOMT_TE_LUIDEN,
@@ -142,62 +147,32 @@ class TestVervangenDoor:
 
 
 class TestDetectAmendmentCitations:
-    """Integration tests for detect_amendment_citations()."""
+    """detect_amendment_citations(): the articles a text says it changes."""
 
     def test_returns_empty_for_blank_text(self) -> None:
-        assert detect_amendment_citations("", "BWBR0001840") == []
+        assert detect_amendment_citations("") == []
 
-    def test_returns_empty_for_blank_bwb_id(self) -> None:
-        assert detect_amendment_citations("Artikel 5 vervalt.", "") == []
+    def test_one_text_gives_each_article_and_relation_once(self) -> None:
+        text = (
+            "Artikel 5 wordt als volgt gewijzigd: a. In artikel 6 wordt 'x' vervangen "
+            "door 'y'. Artikel 7 vervalt. Artikel 5 vervalt. Na artikel 8 wordt een "
+            "nieuw artikel 8a ingevoegd. Artikel 9 komt te luiden: Artikel 7 vervalt."
+        )
+        assert [
+            (hit.article_number, hit.relation, hit.confidence)
+            for hit in detect_amendment_citations(text)
+        ] == [
+            ("5", RELATION_AMENDS, 0.90),
+            ("8a", RELATION_INTRODUCES, 0.85),
+            ("9", RELATION_AMENDS, 0.85),
+            ("7", RELATION_REPEALS, 0.80),
+            ("5", RELATION_REPEALS, 0.80),
+            ("6", RELATION_AMENDS, 0.80),
+        ]
 
-    def test_detects_wijzigt_relation(self) -> None:
-        text = "Artikel 5 wordt als volgt gewijzigd: ..."
-        from lawgraph.config.constants import RELATION_AMENDS
-
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_AMENDS for _, relation in results)
-
-    def test_detects_trekt_in_relation(self) -> None:
-        text = "Artikel 7 vervalt."
-        from lawgraph.config.constants import RELATION_REPEALS
-
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_REPEALS for _, relation in results)
-
-    def test_detects_introduceert_relation(self) -> None:
-        text = "Na artikel 5 wordt een nieuw artikel 5a ingevoegd."
-        from lawgraph.config.constants import RELATION_INTRODUCES
-
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert any(relation == RELATION_INTRODUCES for _, relation in results)
-
-    def test_hit_carries_bwb_id(self) -> None:
-        text = "Artikel 5 vervalt."
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert results
-        hit, _ = results[0]
-        assert hit.bwb_id == "BWBR0001840"
-
-    def test_hit_confidence_voor_gewijzigd(self) -> None:
-        text = "Artikel 5 wordt als volgt gewijzigd:"
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert results
-        hit, _ = results[0]
-        assert hit.confidence == pytest.approx(0.90)
-
-    def test_hit_confidence_voor_vervalt(self) -> None:
-        text = "Artikel 8 vervalt."
-        results = detect_amendment_citations(text, "BWBR0001840")
-        assert results
-        hit, _ = results[0]
-        assert hit.confidence == pytest.approx(0.80)
-
-    def test_deduplication(self) -> None:
-        # Same article + relation should only appear once
-        text = "Artikel 5 vervalt. Artikel 5 vervalt."
-        results = detect_amendment_citations(text, "BWBR0001840")
-        trekt_in = [(h, r) for h, r in results if h.article_number == "5"]
-        assert len(trekt_in) == 1
+    def test_a_hit_carries_its_snippet(self) -> None:
+        (hit,) = detect_amendment_citations("Artikel 5 vervalt.")
+        assert hit.snippet == "Artikel 5 vervalt."
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +201,6 @@ class TestFormatCelex:
     def test_format_celex_large_number(self) -> None:
         assert format_celex("regulation", "2021", "1119") == "32021R1119"
 
-    def test_format_celex_invalid_number_falls_back_to_zero(self) -> None:
-        result = format_celex("directive", "2010", "abc")
-        assert result == "32010L0000"
+    def test_format_celex_refuses_a_number_that_is_none(self) -> None:
+        with pytest.raises(ValueError, match="'abc'"):
+            format_celex("directive", "2010", "abc")

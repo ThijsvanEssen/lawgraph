@@ -10,7 +10,6 @@ treaties whose SRU record is stored already (a small database: no new treaties).
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
@@ -24,10 +23,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 
 from .base import (
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
     missing_record,
 )
 
@@ -94,39 +91,30 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
             len(todo),
             len(listed),
         )
-        self.progress.expect(len(todo))
-        streak = FailureStreak("Verdragenbank item XML")
-        for treaty in todo:
-            record = self._item(treaty, streak)
-            if record is not None:
-                yield record
-
-    def _item(
-        self, treaty: dict[str, Any], streak: FailureStreak
-    ) -> RetrieveRecord | None:
-        identifier, url = treaty["identifier"], treaty["item_url"]
-        try:
-            xml = self.client.fetch_treaty_xml(url)
-        except Exception as exc:
-            self.progress.fail(f"download failed ({failure_reason(exc)})", identifier)
-            streak.failed(identifier, exc)
-            return None
-        streak.ok()
-        if xml is None:
-            self.progress.skip("no item XML in the repository (HTTP 404)", identifier)
-            return missing_record(
-                SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAG_XML, identifier, listed=True
-            )
-        try:
-            ET.fromstring(xml.lstrip("﻿"))
-        except ET.ParseError:
-            # an error page that answered 200 is not kept: it would never be asked again
-            self.progress.fail("the XML cannot be read", identifier)
-            return None
-        return RetrieveRecord(
-            source=SOURCE_VERDRAGENBANK,
-            kind=RAW_KIND_VERDRAG_XML,
-            external_id=identifier,
-            payload_text=xml,
-            meta={"item_url": url, "modified": treaty.get("modified")},
+        by_id = {treaty["identifier"]: treaty for treaty in todo}
+        yield from self._download_each(
+            list(by_id),
+            lambda identifier: self.client.fetch_treaty_xml(
+                by_id[identifier]["item_url"]
+            ),
+            lambda identifier, xml: [
+                RetrieveRecord(
+                    source=SOURCE_VERDRAGENBANK,
+                    kind=RAW_KIND_VERDRAG_XML,
+                    external_id=identifier,
+                    payload_text=xml,
+                    meta={
+                        "item_url": by_id[identifier]["item_url"],
+                        "modified": by_id[identifier].get("modified"),
+                    },
+                )
+            ],
+            source="Verdragenbank item XML",
+            missing=lambda identifier, status: missing_record(
+                SOURCE_VERDRAGENBANK,
+                RAW_KIND_VERDRAG_XML,
+                identifier,
+                listed=True,
+                status=status,
+            ),
         )

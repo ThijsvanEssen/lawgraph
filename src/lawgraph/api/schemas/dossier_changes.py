@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lawgraph.api.schemas.common import ArticleChange
+
 
 class ChangedArticleRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -54,7 +56,7 @@ class DossierChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     article: ChangedArticleRef
-    relation: Literal["amends", "introduces", "repeals"] = Field(
+    relation: ArticleChange = Field(
         description="As the dossier hub names its laws' relations."
     )
     stage: Literal["enacted", "proposed"] = Field(

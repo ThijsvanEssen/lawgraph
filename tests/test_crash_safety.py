@@ -11,41 +11,41 @@ import requests
 
 from lawgraph.clients import _sru
 from lawgraph.clients.eerstekamer import EerstekamerClient
+from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-from tests.fakes import FakeResponse, RawSourcesFake
+from tests.fakes import (
+    FakeResponse,
+    InMemoryStore,
+    external_ids,
+    http_error,
+    raw_record,
+)
+
+pytestmark = pytest.mark.usefixtures("raw_reads")
 
 
-class _Store(RawSourcesFake):
-    """Records what is stored; ``recent`` is what the last 24 hours already hold."""
-
-    def __init__(self, recent: list[str] | None = None) -> None:
-        self.stored: list[str] = []
-        self.recent = recent or []
-        self.stored_at: dict[str, str] = {}
-
-    def insert_raw_source(self, *, external_id: str | None = None, **_kw: Any) -> None:
-        self.stored.append(external_id or "")
-
-
-@pytest.fixture(autouse=True)
-def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The reads of raw_sources, answered from the ``_Store``."""
-
-    def fetch_times(store: _Store, **_kw: Any) -> list[dict[str, str]]:
-        # _stored_at: {id, at} of every stored record
-        return [{"id": i, "at": at} for i, at in store.stored_at.items()]
-
-    monkeypatch.setattr(raw_queries, "fetch_times", fetch_times)
-    monkeypatch.setattr(
-        raw_queries, "ids_stored_since", lambda store, **_kw: list(store.recent)
+def _regeling(external_id: str, fetched_at: str) -> dict[str, Any]:
+    return raw_record(
+        SOURCE_STAATSCOURANT,
+        RAW_KIND_STCRT_REGELING,
+        external_id,
+        fetched_at=fetched_at,
     )
-    # _without_missing: nothing is known to be missing
-    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
+
+
+def _written(store: InMemoryStore, seeded: list[dict[str, Any]]) -> list[str]:
+    """The external ids of the records a run wrote, over what *seeded* the store."""
+    return [
+        doc["external_id"]
+        for doc in store.raw.values()
+        if not any(doc is seed for seed in seeded)
+    ]
 
 
 def _record(external_id: str) -> RetrieveRecord:
@@ -55,7 +55,7 @@ def _record(external_id: str) -> RetrieveRecord:
 
 
 class _Pipeline(RetrievePipelineBase):
-    def __init__(self, store: _Store, source: Iterator[RetrieveRecord]) -> None:
+    def __init__(self, store: InMemoryStore, source: Iterator[RetrieveRecord]) -> None:
         super().__init__(store)
         self.source = source
 
@@ -72,10 +72,10 @@ def test_a_failure_halfway_keeps_what_was_stored_and_is_an_error() -> None:
         yield _record("b")
         raise requests.ConnectionError("connection dropped")
 
-    store = _Store()
+    store = InMemoryStore()
     result = _Pipeline(store, source()).run()
 
-    assert store.stored == ["a", "b"]
+    assert external_ids(store) == ["a", "b"]
     assert result.created == 2
     assert len(result.errors) == 1
     assert "after 2 records were stored" in result.errors[0]
@@ -87,29 +87,23 @@ def test_an_interrupt_keeps_what_was_stored() -> None:
         yield _record("a")
         raise KeyboardInterrupt
 
-    store = _Store()
+    store = InMemoryStore()
     with pytest.raises(KeyboardInterrupt):
         _Pipeline(store, source()).run()
-    assert store.stored == ["a"]
+    assert external_ids(store) == ["a"]
 
 
 def test_a_failing_store_of_one_record_does_not_stop_the_rest() -> None:
-    class Flaky(_Store):
-        def insert_raw_source(self, *, external_id=None, **kw):
-            if external_id == "b":
-                raise RuntimeError("write failed")
-            super().insert_raw_source(external_id=external_id)
-
-    store = Flaky()
+    store = InMemoryStore(refuse={"b"})
     result = _Pipeline(store, iter([_record("a"), _record("b"), _record("c")])).run()
-    assert store.stored == ["a", "c"]
+    assert external_ids(store) == ["a", "c"]
     assert (result.created, result.skipped, len(result.errors)) == (2, 1, 1)
 
 
 def test_a_list_from_fetch_still_works() -> None:
-    store = _Store()
+    store = InMemoryStore()
     result = _Pipeline(store, [_record("a"), _record("b")]).run()  # type: ignore[arg-type]
-    assert (store.stored, result.created) == (["a", "b"], 2)
+    assert (external_ids(store), result.created) == (["a", "b"], 2)
 
 
 # ── a re-run after a crash only does the rest ────────────────────────────────
@@ -120,17 +114,50 @@ def test_recently_stored_asks_for_the_last_24_hours(
 ) -> None:
     asked: dict[str, Any] = {}
 
-    def ids_stored_since(store: _Store, **kwargs: Any) -> list[str]:
+    def ids_stored_since(store: InMemoryStore, **kwargs: Any) -> list[str]:
         asked.update(kwargs)
         return ["x"]
 
     monkeypatch.setattr(raw_queries, "ids_stored_since", ids_stored_since)
-    done = _Pipeline(_Store(), iter([]))._recently_stored("src", "kind")
+    done = _Pipeline(InMemoryStore(), iter([]))._recently_stored("src", "kind")
     assert done == {"x"}
     assert asked["source"] == "src" and asked["kind"] == "kind"
     cutoff = dt.datetime.fromisoformat(asked["cutoff_iso"].replace("Z", "+00:00"))
     age = dt.datetime.now(dt.timezone.utc) - cutoff
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
+
+
+def test_stored_at_reads_fetched_at_as_utc() -> None:
+    store = InMemoryStore(
+        raw=[
+            raw_record("src", "kind", "a", fetched_at="2026-10-14T08:00:00Z"),
+            raw_record("src", "kind", "b", fetched_at="2026-10-14T09:00:00+00:00"),
+        ]
+    )
+
+    stored = _Pipeline(store, iter([]))._stored_at("src", "kind")
+
+    utc = dt.timezone.utc
+    assert stored == {
+        "a": dt.datetime(2026, 10, 14, 8, tzinfo=utc),
+        "b": dt.datetime(2026, 10, 14, 9, tzinfo=utc),
+    }
+
+
+def test_stored_at_fails_on_a_fetched_at_that_is_no_moment() -> None:
+    """``fetched_at`` is always written by ``iso_timestamp``: another value is a bug, not
+    a record to fetch again."""
+    store = InMemoryStore(
+        raw=[
+            raw_record("src", "kind", "a", fetched_at="2026-10-14T08:00:00Z"),
+            raw_record("src", "kind", "b", fetched_at="yesterday"),
+        ]
+    )
+
+    with pytest.raises(ValueError) as raised:
+        _Pipeline(store, iter([]))._stored_at("src", "kind")
+
+    assert "src kind b" in "\n".join(raised.value.__notes__)
 
 
 class _Staatscourant:
@@ -146,22 +173,24 @@ class _Staatscourant:
             for i in self.identifiers
         ]
 
-    def fetch_publication_xml(self, identifier: str) -> str | None:
+    def fetch_publication_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
         if identifier == self.failing:
             raise requests.ConnectionError("dropped")
-        return None if identifier == "stcrt-2020-404" else f"<xml>{identifier}</xml>"
+        if identifier == "stcrt-2020-404":
+            raise http_error(404)
+        return f"<xml>{identifier}</xml>"
 
 
 def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
     client = _Staatscourant(ids, failing="stcrt-2020-3")
-    store = _Store()
+    store = InMemoryStore()
     result = StaatscourantRetrievePipeline(store, client).run()
 
     # One publication that cannot be downloaded is an error, and the rest is fetched: before,
     # every run ended at the same publication.
-    assert store.stored == ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-4"]
+    assert external_ids(store) == ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-4"]
     assert result.created == 3
     assert result.errors == [
         "1 x download failed (ConnectionError) (first: stcrt-2020-3)"
@@ -172,11 +201,15 @@ def test_staatscourant_rerun_downloads_only_the_rest() -> None:
     """Asked for by name (a gaps run): what an interrupted run stored today is not repeated."""
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
-    store = _Store(recent=["stcrt-2020-1", "stcrt-2020-2"])
+    an_hour_ago = iso_timestamp(
+        dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)
+    )
+    recent = [_regeling(i, an_hour_ago) for i in ["stcrt-2020-1", "stcrt-2020-2"]]
+    store = InMemoryStore(raw=recent)
     result = StaatscourantRetrievePipeline(store, client).run(identifiers=ids)
 
     assert client.fetched == ["stcrt-2020-3"]
-    assert store.stored == ["stcrt-2020-3"] and result.created == 1
+    assert _written(store, recent) == ["stcrt-2020-3"] and result.created == 1
 
 
 def test_staatscourant_leaves_alone_what_was_stored_after_it_last_changed() -> None:
@@ -189,22 +222,22 @@ def test_staatscourant_leaves_alone_what_was_stored_after_it_last_changed() -> N
         "stcrt-2020-2": "2026-05-01",  # modified after it was stored
         "stcrt-2020-3": "2025-01-10",  # modified on the day it was stored: once more
     }  # and stcrt-2020-4 is not stored at all
-    store = _Store()
-    store.stored_at = {
-        "stcrt-2020-1": "2025-01-10T08:00:00Z",
-        "stcrt-2020-2": "2025-01-10T08:00:00Z",
-        "stcrt-2020-3": "2025-01-10T08:00:00Z",
-    }
+    store = InMemoryStore(
+        raw=[
+            _regeling(i, "2025-01-10T08:00:00Z")
+            for i in ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
+        ]
+    )
     StaatscourantRetrievePipeline(store, client).run()
     assert client.fetched == ["stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
 
 
 def test_staatscourant_publication_without_xml_is_skipped() -> None:
     client = _Staatscourant(["stcrt-2020-404", "stcrt-2020-5"])
-    store = _Store()
+    store = InMemoryStore()
     result = StaatscourantRetrievePipeline(store, client).run()
     # The publication without XML is remembered as missing (tests/test_missing_documents.py).
-    assert store.stored == ["stcrt-2020-404", "stcrt-2020-5"]
+    assert external_ids(store) == ["stcrt-2020-404", "stcrt-2020-5"]
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
 
 
@@ -213,7 +246,7 @@ def test_staatscourant_a_failing_search_is_an_error_not_a_hang() -> None:
         def search_ministeriele_regelingen(self, *, since=None):
             raise requests.ConnectionError("no route")
 
-    result = StaatscourantRetrievePipeline(_Store(), Down([])).run()
+    result = StaatscourantRetrievePipeline(InMemoryStore(), Down([])).run()
     assert result.created == 0 and "no route" in result.errors[0]
 
 
@@ -277,9 +310,9 @@ def test_eerste_kamer_papers_are_stored_page_by_page() -> None:
             yield {"identifier": "kst-2", "dossier_number": "1"}
             raise requests.ConnectionError("dropped")
 
-    store = _Store()
+    store = InMemoryStore()
     result = EerstekamerRetrievePipeline(store, Failing()).run()
-    assert store.stored == ["kst-1", "kst-2"]
+    assert external_ids(store) == ["kst-1", "kst-2"]
     assert result.created == 2 and result.errors
 
 
@@ -306,21 +339,21 @@ class _TkClient:
 def test_tk_cases_are_stored_while_the_pages_come_in() -> None:
     cases = [{"Id": f"zaak-{n}"} for n in range(5)]
     client = _TkClient(cases, fail_after=3)
-    store = _Store()
+    store = InMemoryStore()
     result = TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
 
-    assert store.stored == ["zaak-0", "zaak-1", "zaak-2"]
+    assert external_ids(store) == ["zaak-0", "zaak-1", "zaak-2"]
     assert result.created == 3 and "after 3 records" in result.errors[0]
 
 
 def test_tk_asks_for_every_case_and_for_no_documents() -> None:
     """``$top=0`` answers no records at all; the documents belong to tk-dossiers."""
     client = _TkClient([{"Id": "zaak-1"}])
-    store = _Store()
+    store = InMemoryStore()
     TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
 
     assert client.top is None
-    assert store.stored == ["zaak-1"]
+    assert external_ids(store) == ["zaak-1"]
 
 
 class _DossierClient:
@@ -336,11 +369,11 @@ class _DossierClient:
 
 
 def test_tk_dossiers_keep_what_was_stored_when_one_entity_fails() -> None:
-    store = _Store()
+    store = InMemoryStore()
     result = TKDossiersRetrievePipeline(store=store, client=_DossierClient()).run(
         since=dt.datetime(2024, 1, 1), skip_members=True
     )
-    assert store.stored[:3] == [
+    assert external_ids(store)[:3] == [
         "d1",
         "d2",
         "a1",

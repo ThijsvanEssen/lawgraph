@@ -6,6 +6,7 @@ import datetime as dt
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal
 
 # BWB ids: BWBR + 7 digits for statutes and regulations, BWBV + 7 digits for treaties.
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
@@ -21,17 +22,30 @@ def is_bwb_id(value: str) -> bool:
 # CELEX
 # ---------------------------------------------------------------------------
 
-# Sector-3 (legislation) CELEX type letters: 3 + year + letter + number.
-# R=regulation, L=directive, D=decision, F=framework decision, H=recommendation.
-CELEX_KIND_TO_LETTER: dict[str, str] = {
-    "regulation": "R",
-    "directive": "L",
-    "decision": "D",
-    "framework_decision": "F",
-    "recommendation": "H",
+EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
+
+
+@dataclass(frozen=True)
+class EuActKind:
+    """A kind of EU act: its sector-3 CELEX letter (3 + year + letter + number), its Dutch
+    name and the article it takes ("de Richtlijn"), the domains that may follow its year and
+    number ("2016/680/EU"), and the name an older act of the kind has ("Beschikking")."""
+
+    letter: str
+    noun: str
+    determiner: str
+    suffixes: str
+    older_nouns: tuple[str, ...] = ()
+
+
+EU_ACT_KINDS: dict[EUInstrumentKind, EuActKind] = {
+    "directive": EuActKind("L", "Richtlijn", "de", "/EU|/EG"),
+    "regulation": EuActKind("R", "Verordening", "de", "/EU|/EG"),
+    "decision": EuActKind("D", "Besluit", "het", "/EU|/EG|/GBVB", ("Beschikking",)),
+    "framework_decision": EuActKind("F", "Kaderbesluit", "het", "/JBZ|/EU"),
 }
-CELEX_LETTER_TO_KIND: dict[str, str] = {
-    letter: kind for kind, letter in CELEX_KIND_TO_LETTER.items()
+_CELEX_LETTER_KINDS: dict[str, EUInstrumentKind] = {
+    act.letter: kind for kind, act in EU_ACT_KINDS.items()
 }
 
 # Letters accepted when *matching* CELEX ids in text.  Deliberately lenient:
@@ -57,7 +71,7 @@ class ParsedCelex:
     year: str
     letter: str
     number: str
-    kind: str | None
+    kind: EUInstrumentKind | None
 
 
 def parse_celex(value: str) -> ParsedCelex | None:
@@ -70,7 +84,7 @@ def parse_celex(value: str) -> ParsedCelex | None:
     if not m:
         return None
     year, letter, number = m.groups()
-    return ParsedCelex(year, letter, number, CELEX_LETTER_TO_KIND.get(letter))
+    return ParsedCelex(year, letter, number, _CELEX_LETTER_KINDS.get(letter))
 
 
 def find_celex_ids(text: str) -> list[str]:
@@ -119,6 +133,11 @@ KST_ID_PATTERN = re.compile(r"kst-(\d+(?:-[A-Za-z]+)?)-(\d+[A-Za-z]?)", re.IGNOR
 _RIJKSWET_ADDITION = re.compile(r"\(R\d+\)", re.IGNORECASE)
 
 
+# The number of a toezegging of the Tweede Kamer, its year and month and a sequence:
+# ``TZ202609-124``.
+COMMITMENT_NUMBER = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
+
+
 def kamerstuk_identifier(number: str, suffix: str | None, sequence: int | str) -> str:
     """``kst-37020-X-2``: dossier number, its addition (a budget chapter) and the paper number."""
     if suffix and _RIJKSWET_ADDITION.fullmatch(suffix):
@@ -138,43 +157,3 @@ def find_bwb_id(text: str) -> str | None:
     """First BWB id found in *text*, upper-cased, or ``None``."""
     match = BWB_ID_PATTERN.search(text)
     return match.group(1).upper() if match else None
-
-
-# ---------------------------------------------------------------------------
-# ECLI
-# ---------------------------------------------------------------------------
-
-# ECLI:<country>:<court>:<year>:<case number>; the case number is alphanumeric and may
-# contain dots, underscores or hyphens (ECLI:NL:HR:2005:AU1234, ECLI:CE:ECHR:2019:0101JUD001234510).
-_ECLI_BODY = r"ECLI:[A-Z]{2}:[A-Z0-9]+:\d{4}:[A-Z0-9]+(?:[._-][A-Z0-9]+)*"
-ECLI_PATTERN = re.compile(rf"\b{_ECLI_BODY}\b", re.IGNORECASE)
-_ECLI_FULL = re.compile(_ECLI_BODY, re.IGNORECASE)
-
-# ECLI prefix -> judgment source.
-ECLI_SOURCES: tuple[tuple[str, str], ...] = (
-    ("ECLI:NL:", "rechtspraak"),
-    ("ECLI:CE:ECHR:", "echr"),
-    ("ECLI:EU:", "cjeu"),
-)
-
-
-def is_ecli(value: str) -> bool:
-    """True for a complete ECLI."""
-    return bool(_ECLI_FULL.fullmatch(value.strip()))
-
-
-def find_eclis(text: str | None) -> list[str]:
-    """Unique ECLIs in *text*, upper-cased, in order of first appearance."""
-    if not text:
-        return []
-    return list(dict.fromkeys(m.group(0).upper() for m in ECLI_PATTERN.finditer(text)))
-
-
-def ecli_source(ecli: str | None) -> str | None:
-    """Judgment source (``rechtspraak`` / ``echr`` / ``cjeu``) from the ECLI prefix."""
-    if not ecli:
-        return None
-    upper = ecli.upper()
-    return next(
-        (source for prefix, source in ECLI_SOURCES if upper.startswith(prefix)), None
-    )

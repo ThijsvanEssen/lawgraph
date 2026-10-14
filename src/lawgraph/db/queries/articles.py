@@ -8,7 +8,6 @@ from typing import Any, cast
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
-    COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -24,6 +23,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
+from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
@@ -45,7 +45,8 @@ from lawgraph.db.queries._helpers import (
 )
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_light import outcome_pairs
-from lawgraph.db.schema import node_of
+from lawgraph.db.queries.not_found import require_node
+from lawgraph.db.schema import dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
 
 
@@ -113,10 +114,7 @@ def get_article_with_relations(
     """Fetch an article with its parent instrument and the number of judgments citing it
     (``metadata.judgment_count``; ``get_article_cited_by`` pages them)."""
     article_key = make_node_key(bwb_id, article_number)
-    article_doc = store.get_document(COLLECTION_ARTICLES, article_key)
-    article_doc = _ensure_doc(article_doc)
-    if article_doc is None:
-        raise ValueError("article not found")
+    article_doc = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
     article_id = article_doc["_id"]
     found = run_together(
@@ -151,6 +149,39 @@ def _version_identity(
     return "v.bwb_id = %(bwb_id)s AND v.article_number = %(identity)s", bind
 
 
+def explained_targets(
+    article: dict[str, Any], bwb_id: str, article_number: str
+) -> tuple[str, dict[str, Any]]:
+    """The SQL of what an EXPLAINS edge of *article* points at, and its parameters: the
+    article itself (``rank`` 1) and its versions as ``get_article_history`` finds them
+    (``rank`` 0, with their ``valid_from``), each by its ``id``."""
+    identity, bind = _version_identity(article, bwb_id, article_number)
+    bind["article_id"] = article["_id"]
+    targets = f"""
+    SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
+    UNION ALL
+    SELECT v.id, 0, v.valid_from
+    FROM {COLLECTION_ARTICLE_VERSIONS} v
+    WHERE {identity}"""
+    return targets, bind
+
+
+# Of the edges ``found`` to the targets of ``explained_targets``, the one that says most
+# first: a version before the article, the newest version first.
+_VERSION_FIRST = "rank, valid_from DESC NULLS LAST, target_id"
+
+
+def surest_per_anchor(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One passage per section anchor, the surest of its matches (the first of equal
+    ones), in the order the anchors first come."""
+    best: dict[str, dict[str, Any]] = {}
+    for section in sections:
+        known = best.get(section["section_anchor"])
+        if known is None or section["confidence"] > known["confidence"]:
+            best[section["section_anchor"]] = section
+    return list(best.values())
+
+
 def get_article_history(
     store: GraphStore,
     bwb_id: str,
@@ -158,16 +189,14 @@ def get_article_history(
 ) -> ArticleHistoryData:
     """All versions of one article identity, oldest first, plus dossier titles.
 
-    The current article is resolved by key (``ValueError`` when unknown). Its
+    The current article is resolved by key (``NotFound`` when unknown). Its
     identity inside the regulation is ``(bwb_id, stam_id)``; an article without a
     ``stam_id`` is matched on ``(bwb_id, article_number)``. Query budget: one for
     the versions and, when the publications name dossiers, one for their titles —
     independent of the number of versions.
     """
     article_key = make_node_key(bwb_id, article_number)
-    article = _ensure_doc(store.get_document(COLLECTION_ARTICLES, article_key))
-    if article is None:
-        raise ValueError("article not found")
+    article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
     identity, bind = _version_identity(article, bwb_id, article_number)
     rows = store.query(
@@ -279,22 +308,14 @@ _DOSSIER_KEY_FROM = len(COLLECTION_DOSSIERS) + 2
 _CHANGES_SQL = f"""
 SELECT
     ARRAY(
-        SELECT k FROM (
-            SELECT substr(e2.to_id, {_DOSSIER_KEY_FROM}) AS k
-            FROM {COLLECTION_EDGES} e2
-            WHERE e2.from_id = e.from_id
-              AND e2.relation = ANY(%(direct)s)
-              AND e2.to_collection = '{COLLECTION_DOSSIERS}'
+        SELECT substr(found.id, {_DOSSIER_KEY_FROM}) AS k FROM (
+            {dossiers_of_sql("e.from_id")}
             UNION
-            SELECT substr(e3.to_id, {_DOSSIER_KEY_FROM})
+            SELECT e2.to_id
             FROM {COLLECTION_EDGES} e2
-            JOIN {COLLECTION_EDGES} e3
-              ON e3.from_id = e2.to_id AND e3.relation = %(part_of)s
-             AND e3.to_collection = '{COLLECTION_DOSSIERS}'
-            WHERE e2.from_id = e.from_id
-              AND e2.relation = %(part_of)s
-              AND e2.to_collection = '{COLLECTION_CASES}'
-        ) dossier_keys
+            WHERE e2.from_id = e.from_id AND e2.relation = %(legislated_in)s
+              AND e2.to_collection = '{COLLECTION_DOSSIERS}'
+        ) found(id)
         ORDER BY k
     ) AS dossier_keys,
     CASE WHEN s.collection = '{COLLECTION_INSTRUMENTS}'
@@ -352,8 +373,7 @@ def get_article_legislative_history(
                     RELATION_INTRODUCES,
                     RELATION_REPEALS,
                 ],
-                "direct": [RELATION_PART_OF, RELATION_LEGISLATED_IN],
-                "part_of": RELATION_PART_OF,
+                "legislated_in": RELATION_LEGISLATED_IN,
             },
         )
     )
@@ -403,13 +423,11 @@ def get_article_legislative_history(
 # article (rank 1) or one of its versions (rank 0); ``picked``: per document and section
 # anchor the edge that says most (a version before the article, the newest version
 # first); ``ranked``: the order of the answer, newest document first.
-_EXPLANATIONS_SQL = f"""
-WITH targets AS (
-    SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
-    UNION ALL
-    SELECT v.id, 0, v.valid_from
-    FROM {COLLECTION_ARTICLE_VERSIONS} v
-    WHERE {{identity}}
+def _explanations_sql(targets: str) -> str:
+    """The statement of ``get_article_explanations``, of the *targets* of
+    ``explained_targets``."""
+    return f"""
+WITH targets AS ({targets}
 ),
 found AS (
     SELECT d.id AS document_id, d.key, d.date, t.rank, t.valid_from,
@@ -429,8 +447,7 @@ found AS (
 picked AS (
     SELECT DISTINCT ON (document_id, section_anchor) *
     FROM found
-    ORDER BY document_id, section_anchor, rank,
-             valid_from DESC NULLS LAST, target_id
+    ORDER BY document_id, section_anchor, {_VERSION_FIRST}
 ),
 ranked AS (
     SELECT p.*, row_number() OVER (
@@ -515,10 +532,9 @@ def get_article_explanations(
     if article is None:
         return {"total": 0, "items": []}
 
-    identity, bind = _version_identity(article, bwb_id, article_number)
+    targets, bind = explained_targets(article, bwb_id, article_number)
     bind.update(
         {
-            "article_id": article["_id"],
             "part_of": RELATION_PART_OF,
             "explains": RELATION_EXPLAINS,
             "limit": limit,
@@ -526,21 +542,19 @@ def get_article_explanations(
             "opening": EXPLANATION_OPENING,
         }
     )
-    rows = list(store.query(_EXPLANATIONS_SQL.replace("{identity}", identity), bind))
+    rows = list(store.query(_explanations_sql(targets), bind))
     return rows[0] if rows else {"total": 0, "items": []}
 
 
 # Per document that explains the article in a passage (``meta.sections`` of its EXPLAINS
 # edges to the article or a version): the version it explains (the newest, as
-# ``_EXPLANATIONS_SQL`` picks it), and the sections of all those edges with their text.
+# ``_explanations_sql`` picks it), and the sections of all those edges with their text.
 # The props of a document (its whole text) are read once, and only the passages leave.
-_PASSAGES_SQL = f"""
-WITH targets AS (
-    SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
-    UNION ALL
-    SELECT v.id, 0, v.valid_from
-    FROM {COLLECTION_ARTICLE_VERSIONS} v
-    WHERE {{identity}}
+def _passages_sql(targets: str) -> str:
+    """The statement of ``get_article_explanation_passages``, of the *targets* of
+    ``explained_targets``."""
+    return f"""
+WITH targets AS ({targets}
 ),
 found AS (
     SELECT e.from_id AS document_id, t.id AS target_id, t.rank, t.valid_from,
@@ -554,7 +568,7 @@ found AS (
 picked AS (
     SELECT DISTINCT ON (document_id) document_id, target_id, valid_from
     FROM found
-    ORDER BY document_id, rank, valid_from DESC NULLS LAST, target_id
+    ORDER BY document_id, {_VERSION_FIRST}
 )
 SELECT json_build_object(
     'document_id', p.document_id,
@@ -612,17 +626,6 @@ WHERE c.text IS NOT NULL
 """
 
 
-def _surest_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One passage per section, the surest of its matches (the first of equal ones), in
-    the order of the text."""
-    best: dict[str, dict[str, Any]] = {}
-    for section in sections:
-        known = best.get(section["section_anchor"])
-        if known is None or section["confidence"] > known["confidence"]:
-            best[section["section_anchor"]] = section
-    return sorted(best.values(), key=lambda s: (s["char_start"], s["section_anchor"]))
-
-
 def _explanation_passages(
     store: GraphStore, bwb_id: str, article_number: str
 ) -> list[dict[str, Any]]:
@@ -631,11 +634,15 @@ def _explanation_passages(
     )
     if article is None:
         return []
-    identity, bind = _version_identity(article, bwb_id, article_number)
-    bind.update({"article_id": article["_id"], "explains": RELATION_EXPLAINS})
+    targets, bind = explained_targets(article, bwb_id, article_number)
+    bind["explains"] = RELATION_EXPLAINS
     rows = []
-    for row in store.query(_PASSAGES_SQL.replace("{identity}", identity), bind):
-        row["passages"] = _surest_sections(row["passages"])
+    for row in store.query(_passages_sql(targets), bind):
+        # in the order of the text
+        row["passages"] = sorted(
+            surest_per_anchor(row["passages"]),
+            key=lambda s: (s["char_start"], s["section_anchor"]),
+        )
         if row["passages"]:
             rows.append(row)
     # of one version the memoranda before the amendments, then by date; the newest
@@ -719,7 +726,7 @@ def _cited_by_sql(order: str) -> str:
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
             WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = 'ECHR'
+              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = '{CODE_ECHR}'
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(

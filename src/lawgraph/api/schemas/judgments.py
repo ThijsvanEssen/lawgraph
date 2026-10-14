@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
-    ConclusionOutcome,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
     QualifierFields,
@@ -18,20 +17,14 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
-from lawgraph.core.identifiers import ecli_source
+from lawgraph.core.ecli import ecli_source
+from lawgraph.core.judgment_outcome import ConclusionOutcome
+from lawgraph.core.judgments import DecisionKind
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
+from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import judgment_url
+from lawgraph.core.props import CounselRole, PartySide
 
-# ``core.judgments.DECISION_KINDS``
-DecisionKind = Literal[
-    "arrest",
-    "vonnis",
-    "beschikking",
-    "uitspraak",
-    "beslissing",
-    "conclusie",
-    "prejudiciële beslissing",
-]
 _DECISION_KIND = (
     "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
     "(the kantonrechter on an appeal against a traffic fine), "
@@ -283,7 +276,7 @@ class JudgmentRepresentative(BaseModel):
         description="As written, titles and all: `mr. drs. R. van Gelder`, "
         "`mr. R. van der Meulen MPM`."
     )
-    role: Literal["advocaat", "gemachtigde", "raadsman"] = Field(
+    role: CounselRole = Field(
         description="The word the judgment gives: `advocaat`; `raadsman` of a suspect, in a "
         "criminal case only; `gemachtigde` for whoever represents a party "
         '("vertegenwoordigd door") without being called its advocaat.'
@@ -325,7 +318,7 @@ class JudgmentParty(BaseModel):
         "the name, an anonymised name that is a role: `[verdachte]`); false when it is "
         "derived from the area of law and the side."
     )
-    side: Literal["first", "second", "other"] = Field(
+    side: PartySide = Field(
         description="The side of the case: `first` before `tegen` or `en`, `second` after "
         "it, `other` for an interested party (belanghebbende)."
     )
@@ -549,7 +542,7 @@ class RelatedLinkDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    direction: Literal["outbound", "inbound"] = Field(
+    direction: Direction = Field(
         description="`outbound`: this judgment's summary names the other; `inbound`: the "
         "other's summary names this one."
     )

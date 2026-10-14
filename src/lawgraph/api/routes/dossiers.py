@@ -12,9 +12,9 @@ GET /api/parties/colors                — party colours for the frontend
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import MinistryKey, parse_choices
@@ -33,7 +33,6 @@ from lawgraph.api.schemas.dossiers import (
     DossierMutationEdge,
     DossierMutationNode,
     DossierMutationsResponse,
-    DossierOutcome,
     DossierSummaryDTO,
     DossierTimelineResponse,
     legal_effect,
@@ -41,6 +40,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
+from lawgraph.core.paper_outcomes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
@@ -49,6 +49,7 @@ from lawgraph.db.queries.dossier_changes import (
 )
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
+    TimelineOrder,
     count_dossier_members,
     enrich_dossier_docs,
     get_dossier_by_number,
@@ -63,6 +64,7 @@ from lawgraph.db.queries.dossiers import (
     get_laws_named,
     get_next_activity,
 )
+from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 
@@ -87,13 +89,6 @@ Subject = Annotated[
 ]
 
 
-def _dossier_or_404(store: GraphStore, number: str) -> dict[str, Any]:
-    dossier = get_dossier_by_number(store, number)
-    if dossier is None:
-        raise HTTPException(status_code=404, detail=f"Dossier {number} not found.")
-    return dossier
-
-
 _PHASE_NAMES = tuple(p.name for p in PHASES)
 
 
@@ -106,7 +101,7 @@ class _ListParams:
             Literal["open", "closed", "all"],
             Query(description="Open dossiers, closed ones (with an outcome) or both."),
         ] = "all",
-        outcome: Annotated[DossierOutcome | None, Query()] = None,
+        outcome: Annotated[VoteOutcome | None, Query()] = None,
         kind: Annotated[
             str | None,
             Query(
@@ -255,7 +250,7 @@ def get_dossier(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierDetailResponse:
-    dossier = _dossier_or_404(store, number)
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     enrich_dossier_docs(store, [dossier])
     relations = get_dossier_relations(store, dossier["_id"])
     enrich_dossier_docs(store, [row["dossier"] for row in relations])
@@ -298,7 +293,7 @@ def list_dossier_documents(
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
-    dossier = _dossier_or_404(store, number)
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     raw = get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
     items = raw.get("items") or []
     chains = get_replacements(store, [d["id"] for d in items])
@@ -321,7 +316,7 @@ def list_dossier_documents(
 def get_timeline(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
-    order: Annotated[Literal["asc", "desc"], Query(description="Date order.")] = "desc",
+    order: Annotated[TimelineOrder, Query(description="Date order.")] = "desc",
     kind: Annotated[
         str | None, Query(description="Comma-separated document kinds.")
     ] = None,
@@ -331,7 +326,7 @@ def get_timeline(
     ] = True,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> DossierTimelineResponse:
-    dossier = _dossier_or_404(store, number)
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     rows = get_dossier_timeline(
         store,
         dossier["_id"],
@@ -363,7 +358,7 @@ def get_changed_articles(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierChangedArticlesResponse:
-    dossier = _dossier_or_404(store, number)
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     laws = [
         DossierChangedLaw(
             law=found["law"],
@@ -399,7 +394,7 @@ def get_mutations(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierMutationsResponse:
-    dossier = _dossier_or_404(store, number)
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     raw = get_dossier_mutations(store, dossier["_id"])
     return DossierMutationsResponse(
         number=number,

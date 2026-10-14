@@ -45,13 +45,14 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Final, Literal
 
+from lawgraph.core.dutch_dates import DATE_ABBREVIATED, dutch_day
 from lawgraph.core.ministries import (
     MINISTRY_BY_KEY,
+    MINISTRY_GENERAL_AFFAIRS,
     POST_DEPUTY_PRIME_MINISTER,
     POST_MINISTER,
     POST_MINISTER_WITHOUT_PORTFOLIO,
@@ -63,12 +64,12 @@ from lawgraph.core.ministries import (
     ministry_of,
 )
 from lawgraph.core.rijksoverheid import (
-    DAY,
     SECTION_STATE_SECRETARIES,
-    parse_date,
     parse_holder,
     split_name,
 )
+from lawgraph.core.text_fold import plain_words, slug
+from lawgraph.core.time import OPEN_END, day_before
 
 SEAT_DEPUTY = "viceminister-president"
 SEAT_PRIME_MINISTER = "az/minister-president"
@@ -76,8 +77,9 @@ SEAT_PRIME_MINISTER = "az/minister-president"
 GAP_DAYS = 14
 
 # Why a post is acting: the source says so, or the holder held another seat throughout.
-ACTING_SOURCE = "source"
-ACTING_HELD_OTHER_SEAT = "held_other_seat"
+ActingReason = Literal["source", "held_other_seat"]
+ACTING_SOURCE: Final[ActingReason] = "source"
+ACTING_HELD_OTHER_SEAT: Final[ActingReason] = "held_other_seat"
 # What the source says, as ``acting_basis``.
 BASIS_AI = "a.i."
 BASIS_TEMPORARY = "tijdelijke voorziening"
@@ -87,37 +89,59 @@ CORRECTED_BY_SUCCESSOR = "to_date: start of the next holder"
 CORRECTED_BY_PREDECESSOR = "from_date: end of the previous holder"
 CORRECTED_TO_CABINET = "clipped to the cabinet's period"
 
+# A post nobody stands in for.
+_NOT_ACTING: dict[str, Any] = {
+    "acting": False,
+    "acting_reason": None,
+    "acting_basis": None,
+    "acting_other_seat": None,
+}
 
-def slug(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return "-".join(re.findall(r"[a-z0-9]+", plain))
+
+def end_of(post: dict[str, Any]) -> str:
+    """The last day of *post*: ``OPEN_END`` while it has not ended."""
+    return post["to_date"] or OPEN_END
+
+
+def overlaps(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Whether posts *a* and *b* share a day."""
+    return a["from_date"] < end_of(b) and b["from_date"] < end_of(a)
+
+
+def posts_by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Seat -> its posts, in the order of *posts*; the viceminister-president, a seat
+    several hold at once, left out."""
+    seats: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for post in posts:
+        if post.get("seat") != SEAT_DEPUTY:
+            seats[post.get("seat") or ""].append(post)
+    return seats
 
 
 def person_key(name: str) -> str:
     """``stm hermans`` of ``Drs. S.Th.M. (Sophie) Hermans``: the initials and the surname,
     which is how Rijksoverheid names one person on every page."""
     parts = split_name(name)
-    return f"{parts['letters']} {slug(parts['surname']).replace('-', ' ')}".strip()
+    return f"{parts['letters']} {plain_words(parts['surname'])}".strip()
 
 
 # ── Headings ─────────────────────────────────────────────────────────────────
 
 _DEPUTY = re.compile(r"^vice-?\s?minister-?\s?president", re.IGNORECASE)
 _QUALIFIER = re.compile(
-    rf"(?:,\s*|\(\s*)?\b(tot|vanaf|per|sinds|met ingang van)\s+({DAY})\s*\)?",
+    rf"(?:,\s*|\(\s*)?\b(tot|vanaf|per|sinds|met ingang van)\s+({DATE_ABBREVIATED})\s*\)?",
     re.IGNORECASE,
 )
-_BARE_QUALIFIER = re.compile(rf"\(\s*({DAY})\s*\)")
+_BARE_QUALIFIER = re.compile(rf"\(\s*({DATE_ABBREVIATED})\s*\)")
 # Where a heading names a further post: ``, minister``, `` en minister``, ``, tevens minister``,
 # `` en vanaf 11 okt. 1947 tevens minister``, ``; minister``.
 _NEXT_PART = re.compile(
-    rf"(?:,|;|\s+en)\s+(?=(?:(?:vanaf|tot|sinds|per)\s+{DAY}\s+)?(?:tevens\s+|ook\s+)?"
+    rf"(?:,|;|\s+en)\s+(?=(?:(?:vanaf|tot|sinds|per)\s+{DATE_ABBREVIATED}\s+)?(?:tevens\s+|ook\s+)?"
     r"(?:vice-?\s?)?minister\b)",
     re.IGNORECASE,
 )
 _RENAMED = re.compile(
-    rf"\((?:vanaf|met ingang van)\s+{DAY}\s+(?:aangeduid met:\s*)?([^)]*)\)",
+    rf"\((?:vanaf|met ingang van)\s+{DATE_ABBREVIATED}\s+(?:aangeduid met:\s*)?([^)]*)\)",
     re.IGNORECASE,
 )
 _CHARGED_WITH = re.compile(
@@ -130,7 +154,7 @@ def _qualifiers(text: str) -> tuple[str, str | None, str | None]:
     """*text* without its ``tot``/``vanaf`` days, and those days: ``(text, from, to)``."""
     start = end = None
     for match in _QUALIFIER.finditer(text):
-        day = parse_date(match.group(2))
+        day = dutch_day(match.group(2), abbreviations=True)
         if match.group(1).lower() == "tot":
             end = day
         else:
@@ -138,7 +162,7 @@ def _qualifiers(text: str) -> tuple[str, str | None, str | None]:
     text = _QUALIFIER.sub(" ", text)
     bare = _BARE_QUALIFIER.search(text)
     if bare:
-        start = parse_date(bare.group(1))
+        start = dutch_day(bare.group(1), abbreviations=True)
         text = _BARE_QUALIFIER.sub(" ", text)
     return re.sub(r"\s+", " ", text).strip(" ,.;"), start, end
 
@@ -155,7 +179,9 @@ def heading_parts(heading: str, section: str) -> list[dict[str, Any]]:
         return [_part(text)]
     parts: list[dict[str, Any]] = []
     for raw in _NEXT_PART.split(heading.strip(" .")):
-        renaming = bool(re.match(rf"^(?:vanaf|per)\s+{DAY}\s+minister", raw, re.I))
+        renaming = bool(
+            re.match(rf"^(?:vanaf|per)\s+{DATE_ABBREVIATED}\s+minister", raw, re.I)
+        )
         part = _part(re.sub(r"^(?:tevens|ook)\s+", "", raw.strip(), flags=re.I))
         if (
             renaming
@@ -213,11 +239,15 @@ def seat_of(
             "named": True,
         }
     post, ministry = classify_function(function, on=on)
-    if post == POST_MINISTER and ministry == "az" or post == POST_PRIME_MINISTER:
+    if (
+        post == POST_MINISTER
+        and ministry == MINISTRY_GENERAL_AFFAIRS
+        or post == POST_PRIME_MINISTER
+    ):
         return {
             "seat": SEAT_PRIME_MINISTER,
             "post": POST_PRIME_MINISTER,
-            "ministry": "az",
+            "ministry": MINISTRY_GENERAL_AFFAIRS,
             "portfolio": None,
             "named": True,
         }
@@ -333,18 +363,10 @@ def _post(
 
 def _split_definitive(post: dict[str, Any], day: str | None) -> list[dict[str, Any]]:
     """An ``a.i.`` post that became ``definitief`` on *day*: acting until then."""
-    if not day or not (post["from_date"] < day < (post["to_date"] or "9999")):
+    if not day or not (post["from_date"] < day < end_of(post)):
         return [post]
     acting = {**post, "to_date": day, "to_date_source": day}
-    held = {
-        **post,
-        "from_date": day,
-        "from_date_source": day,
-        "acting": False,
-        "acting_reason": None,
-        "acting_basis": None,
-        "acting_other_seat": None,
-    }
+    held = {**post, "from_date": day, "from_date_source": day, **_NOT_ACTING}
     return [acting, held]
 
 
@@ -357,10 +379,7 @@ def _deputy(post: dict[str, Any], part: dict[str, Any] | None) -> dict[str, Any]
         "also_named": [],
         "from_date": start,
         "from_date_source": (part or {}).get("from_date") or post["from_date_source"],
-        "acting": False,
-        "acting_reason": None,
-        "acting_basis": None,
-        "acting_other_seat": None,
+        **_NOT_ACTING,
         "taken_over_by": None,
     }
 
@@ -403,12 +422,6 @@ def _days(a: str, b: str) -> int:
     return (dt.date.fromisoformat(b) - dt.date.fromisoformat(a)).days
 
 
-def _overlap(a: dict[str, Any], b: dict[str, Any]) -> bool:
-    return a["from_date"] < (b["to_date"] or "9999") and b["from_date"] < (
-        a["to_date"] or "9999"
-    )
-
-
 # Where a post stands on the page: its heading, the seat the heading names and the name
 # the holder's own line gives the post; dropped when the rules of a seat are done.
 _HEADING = "_heading"
@@ -419,7 +432,7 @@ _OWN_NAME = "_own_name"
 def _concurrent(posts: list[dict[str, Any]]) -> bool:
     """Whether two people among *posts* held them at the same time."""
     return any(
-        a["person"] != b["person"] and _overlap(a, b)
+        a["person"] != b["person"] and overlaps(a, b)
         for i, a in enumerate(posts)
         for b in posts[i + 1 :]
     )
@@ -465,7 +478,7 @@ def _seats_by_their_last_name(
     ends: dict[str, str] = {}
     for post in posts:
         end = post["to_date"] or cabinet.get("to_date") or dt.date.today().isoformat()
-        last = (dt.date.fromisoformat(end) - dt.timedelta(days=1)).isoformat()
+        last = day_before(end)
         last = max(last, post["from_date"])
         ends[post["seat"]] = max(ends.get(post["seat"], ""), last)
     for post in posts:
@@ -489,9 +502,8 @@ def merge_double_listings(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for name in [post["function"], *post["also_named"]]:
             if name != first["function"] and name not in first["also_named"]:
                 first["also_named"].append(name)
-        first["acting"] = first["acting"] and post["acting"]
-        if not first["acting"]:
-            first.update(acting_reason=None, acting_basis=None, acting_other_seat=None)
+        if not (first["acting"] and post["acting"]):
+            first.update(_NOT_ACTING)
     return list(kept.values())
 
 
@@ -510,15 +522,14 @@ def _link_named_seat(posts: list[dict[str, Any]]) -> None:
         if ended:
             later["from_date"] = max(p["to_date"] for p in ended)
             later["corrected"].append(CORRECTED_BY_PREDECESSOR)
-    ordered = sorted(posts, key=lambda p: (p["from_date"], p["to_date"] or "9999"))
+    ordered = sorted(posts, key=lambda p: (p["from_date"], end_of(p)))
     for post in ordered:
         if post["to_date_source"]:
             continue
         nexts = [
             p
             for p in ordered
-            if p["from_date"] > post["from_date"]
-            and p["from_date"] < (post["to_date"] or "9999")
+            if p["from_date"] > post["from_date"] and p["from_date"] < end_of(post)
         ]
         if nexts:
             post["to_date"] = min(p["from_date"] for p in nexts)
@@ -528,14 +539,14 @@ def _link_named_seat(posts: list[dict[str, Any]]) -> None:
 def _lanes(posts: list[dict[str, Any]]) -> None:
     """Holders of a seat the source does not name, in lanes by date: ``#2``, ``#3``."""
     lanes: list[str] = []  # the end of the last post in each lane
-    for post in sorted(posts, key=lambda p: (p["from_date"], p["to_date"] or "9999")):
+    for post in sorted(posts, key=lambda p: (p["from_date"], end_of(p))):
         for i, end in enumerate(lanes):
             if end <= post["from_date"]:
-                lanes[i] = post["to_date"] or "9999"
+                lanes[i] = end_of(post)
                 break
         else:
             i = len(lanes)
-            lanes.append(post["to_date"] or "9999")
+            lanes.append(end_of(post))
         if i:
             post["seat"] = f"{post['seat']}#{i + 1}"
 
@@ -543,12 +554,7 @@ def _lanes(posts: list[dict[str, Any]]) -> None:
 def _stand_ins(posts: list[dict[str, Any]]) -> None:
     """``acting`` by the rule: the holder held another seat through the whole period, and
     the period ended where the next holder of this seat began."""
-    by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for post in posts:
-        by_seat[post["seat"]].append(post)
-    for seat, held in by_seat.items():
-        if seat == SEAT_DEPUTY:
-            continue
+    for seat, held in posts_by_seat(posts).items():
         for post in held:
             if post["acting"] or not post["to_date"]:
                 continue
@@ -563,7 +569,7 @@ def _stand_ins(posts: list[dict[str, Any]]) -> None:
                 if p["person"] == post["person"]
                 and p["seat"] not in (seat, SEAT_DEPUTY)
                 and p["from_date"] <= post["from_date"]
-                and (p["to_date"] or "9999") >= post["to_date"]
+                and end_of(p) >= post["to_date"]
             ]
             if nexts and others:
                 post["acting"] = True
@@ -586,8 +592,7 @@ def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
         holders = [
             p
             for p in posts
-            if p["seat"] == seat
-            and p["from_date"] <= post["to_date"] < (p["to_date"] or "9999")
+            if p["seat"] == seat and p["from_date"] <= post["to_date"] < end_of(p)
         ]
         if len(holders) != 1:
             continue
@@ -633,14 +638,10 @@ def _taken_over(posts: list[dict[str, Any]], cabinet: dict[str, Any]) -> None:
 
 
 def _overlaps(posts: list[dict[str, Any]]) -> None:
-    by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for post in posts:
-        if post["seat"] != SEAT_DEPUTY:
-            by_seat[post["seat"]].append(post)
-    for held in by_seat.values():
+    for held in posts_by_seat(posts).values():
         for i, a in enumerate(held):
             for b in held[i + 1 :]:
-                if a["person"] != b["person"] and _overlap(a, b):
+                if a["person"] != b["person"] and overlaps(a, b):
                     a["overlaps_with"].append(b["person"])
                     b["overlaps_with"].append(a["person"])
 
@@ -652,12 +653,7 @@ def cabinet_posts(
     after the rules of a seat, in order of seat and start."""
     posts = _one_seat_per_heading(page_posts(page, cabinet))
     posts = merge_double_listings(posts)
-    by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for post in posts:
-        by_seat[post["seat"]].append(post)
-    for seat, held in by_seat.items():
-        if seat == SEAT_DEPUTY:
-            continue
+    for held in posts_by_seat(posts).values():
         if held[0]["named"]:
             _link_named_seat(held)
         else:
@@ -679,20 +675,16 @@ def cabinet_posts(
 def seat_gaps(posts: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """``{seat, from_date, to_date}`` of every stretch longer than ``GAP_DAYS`` between two
     holders of one seat."""
-    by_seat: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for post in posts:
-        if post["seat"] != SEAT_DEPUTY:
-            by_seat[post["seat"]].append(post)
     gaps = []
-    for seat, held in sorted(by_seat.items()):
+    for seat, held in sorted(posts_by_seat(posts).items()):
         ordered = sorted(held, key=lambda p: p["from_date"])
-        reach = ordered[0]["to_date"] or "9999"
+        reach = end_of(ordered[0])
         for post in ordered[1:]:
             if reach < post["from_date"] and _days(reach, post["from_date"]) > GAP_DAYS:
                 gaps.append(
                     {"seat": seat, "from_date": reach, "to_date": post["from_date"]}
                 )
-            reach = max(reach, post["to_date"] or "9999")
+            reach = max(reach, end_of(post))
     return gaps
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import time
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
@@ -10,10 +11,17 @@ import requests
 from lawgraph.clients.pacing import PacedSession, retry_after_seconds
 from lawgraph.core.logging import get_logger
 from lawgraph.core.values import next_page_link
+from lawgraph.core.xml import local_name
 
 logger = get_logger(__name__)
 
 RETRY_STATUSES = (429, 502, 503, 504)
+
+
+class UnexpectedAnswer(RuntimeError):
+    """The source answered, but not with what was asked for: an SRU diagnostic, a
+    maintenance page with HTTP 200, a document that is not XML; or it named a document by an
+    identifier that cannot be asked for."""
 
 
 _XML_ENCODING = re.compile(rb"""<\?xml[^>]*encoding=["']([A-Za-z0-9._-]+)""")
@@ -35,6 +43,22 @@ def response_text(resp: requests.Response) -> str:
         return resp.content.decode(encoding, errors="replace")
     except LookupError:
         return resp.content.decode("utf-8", errors="replace")
+
+
+def xml_text(resp: requests.Response) -> str:
+    """The body as text (``response_text``), when it is an XML document.
+
+    An error or maintenance page the server answers with HTTP 200 is not one: stored, it
+    would stand for the document until it changes at the source.
+    """
+    text = response_text(resp)
+    try:
+        root = ET.fromstring(text.lstrip("\ufeff"))
+    except ET.ParseError as exc:
+        raise UnexpectedAnswer(f"not XML ({exc}): {resp.url}") from exc
+    if local_name(root.tag) == "html":
+        raise UnexpectedAnswer(f"an HTML page: {resp.url}")
+    return text
 
 
 class BaseClient:
@@ -129,46 +153,42 @@ class BaseClient:
 
         A ``Retry-After`` of the server is followed when it is longer than the backoff.
         """
-        last_exc: Exception = RuntimeError("unreachable")
         for attempt in range(retries):
             try:
-                resp = self._get_raw_absolute(
+                return self._get_raw_absolute(
                     url,
                     params=params,
                     timeout=timeout,
                     stream=stream,
                     headers=headers,
                 )
-                # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
-                return resp
             except requests.exceptions.HTTPError as exc:
                 if (
-                    exc.response is not None
-                    and exc.response.status_code in RETRY_STATUSES
+                    exc.response is None
+                    or exc.response.status_code not in RETRY_STATUSES
+                    or attempt + 1 == retries
                 ):
-                    last_exc = exc
-                    wait = max(
-                        backoff_factor**attempt,
-                        retry_after_seconds(exc.response) or 0.0,
-                    )
-                    # Not a warning per request: the pacer reports a throttling host once
-                    # a minute, and the last failure is raised to the caller.
-                    logger.debug(
-                        "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
-                        exc.response.status_code,
-                        url,
-                        attempt + 1,
-                        retries,
-                        wait,
-                    )
-                    time.sleep(wait)
-                    continue
-                raise  # non-retryable HTTP error
+                    raise
+                wait = max(
+                    backoff_factor**attempt,
+                    retry_after_seconds(exc.response) or 0.0,
+                )
+                # Not a warning per request: the pacer reports a throttling host once
+                # a minute, and the last failure is raised to the caller.
+                logger.debug(
+                    "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
+                    exc.response.status_code,
+                    url,
+                    attempt + 1,
+                    retries,
+                    wait,
+                )
             except (
                 requests.exceptions.Timeout,
                 requests.exceptions.ConnectionError,
             ) as exc:
-                last_exc = exc
+                if attempt + 1 == retries:
+                    raise
                 wait = backoff_factor**attempt
                 logger.debug(
                     "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
@@ -178,8 +198,8 @@ class BaseClient:
                     wait,
                     exc,
                 )
-                time.sleep(wait)
-        raise last_exc
+            time.sleep(wait)
+        raise ValueError(f"retries must be at least 1, not {retries}")
 
     def _get_json(
         self,

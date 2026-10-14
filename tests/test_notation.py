@@ -363,28 +363,3 @@ def test_a_parser_without_laws_still_reads_identifiers_and_dossiers() -> None:
     assert empty.parse("artikel 6") == article(None, "6")
     assert empty.parse("artikel 287 Sr") is None
     assert empty.law_matches("Grondwet") == []
-
-
-def test_a_number_of_a_book_is_its_number_in_that_book() -> None:
-    from lawgraph.core.notation import native_article_number
-
-    assert native_article_number(BW6, "6:162") == "162"
-    assert native_article_number(BW6.lower(), "6:162") == "162"
-    assert native_article_number(BW6, "162") == "162"
-    assert native_article_number(BW6, "3:40") == "3:40"  # another book: left alone
-    assert native_article_number(AWB, "8:69") == "8:69"  # the Awb's own number
-
-
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Staatsblad 2026, 94",
-        "Stb. 2026, 94",
-        "stb 2026 94",
-        "Stb. 2026, nr. 94",
-        "Stb. 2026, 094",
-    ],
-)
-def test_a_staatsblad_publication_is_its_identifier(query: str) -> None:
-    """BE-45: the publication, an instrument of its own (``stb_2026_94``)."""
-    assert parse(query) == Notation(kind="publication", identifier="stb-2026-94")

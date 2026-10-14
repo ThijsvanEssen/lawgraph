@@ -19,6 +19,8 @@ from lawgraph.db.queries.articles import (
     get_article_legislative_history,
     get_article_with_relations,
 )
+from lawgraph.db.queries.documents import get_document_passages
+from lawgraph.db.queries.not_found import NotFound
 
 BWB = "BWBR0002"
 ARTICLE = "articles/bwbr0002_5"
@@ -110,7 +112,7 @@ def test_an_article_with_its_instrument_and_judgments(store: GraphStore) -> None
     }
     assert data.instrument is not None and data.instrument["_id"] == INSTRUMENT
     assert data.metadata == {"judgment_count": 2}
-    with pytest.raises(ValueError, match="article not found"):
+    with pytest.raises(NotFound):
         get_article_with_relations(store, BWB, "99")
 
 
@@ -165,7 +167,7 @@ def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> 
     without_stam = get_article_history(store, BWB, "7")
     assert [v["_key"] for v in without_stam.versions] == ["av_7s", "av_7"]
 
-    with pytest.raises(ValueError, match="article not found"):
+    with pytest.raises(NotFound):
         get_article_history(store, BWB, "99")
 
 
@@ -1000,6 +1002,52 @@ def test_an_article_without_passages_has_none(store: GraphStore) -> None:
     assert articles.get_article_explanation_passages(store, BWB, "99") == []
     store.execute("DELETE FROM edges WHERE to_id <> %(other)s", {"other": AV_OTHER})
     assert articles.get_article_explanation_passages(store, BWB, "5") == []
+
+
+def test_an_article_without_a_stam_id_is_explained_through_its_versions_by_number(
+    store: GraphStore,
+) -> None:
+    """Without a stam_id an article's versions are those of its law with its number: an
+    edge to one of them explains it on its page and in the document alike."""
+    store.bulk_insert_or_update_nodes("articles", [_article("bwbr0002_7", "7")])
+    store.bulk_insert_or_update_nodes(
+        "article_versions", [_version("av_7", None, "7", valid_from="2024-01-01")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _paper(
+                "mvt_7",
+                "Memorie van toelichting",
+                "2023-06-01",
+                3,
+                _MVT_TEXT,
+                _MVT_SECTIONS,
+            )
+        ],
+    )
+    article_7 = _passage("s-2", "Artikel 5", 20, len(_MVT_TEXT), 0.95)
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "x7",
+                "documents/mvt_7",
+                "article_versions/av_7",
+                "EXPLAINS",
+                meta={"section_anchor": "s-2", "sections": [article_7]},
+            )
+        ]
+    )
+
+    page = get_article_explanations(store, BWB, "7", limit=10, offset=0)
+    assert page["total"] == 1
+    assert page["items"][0]["target_id"] == "article_versions/av_7"
+    rows = articles.get_article_explanation_passages(store, BWB, "7")
+    assert [(r["key"], r["target_id"]) for r in rows] == [
+        ("mvt_7", "article_versions/av_7")
+    ]
+    passages = get_document_passages(store, "documents/mvt_7", BWB, "7")
+    assert [(p["section_anchor"], p["confidence"]) for p in passages] == [("s-2", 0.95)]
 
 
 # ── cited by ─────────────────────────────────────────────────────────────────

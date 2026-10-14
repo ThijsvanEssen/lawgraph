@@ -8,11 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.clients.eu import _measures, _measures_sparql
-from lawgraph.core.eurlex_nim import (
-    measure_publication,
-    measure_summary,
-    publication_citation,
-)
+from lawgraph.core.eurlex_nim import measure_publication, measure_summary
 
 STB = "Staatsblad (Bulletin des Lois et des Décrets royaux)"
 STCRT = "Staatscourant (Journal Officiel néerlandais)"
@@ -95,12 +91,6 @@ def test_a_page_is_asked_by_key_and_window() -> None:
     assert '"2026-01-01T00:00:00"' in query
     assert "country/NLD" in query and "OFFSET" not in query
     assert "?modified >=" not in _measures_sparql("NLD", None, "")
-
-
-def test_how_a_publication_is_cited() -> None:
-    assert publication_citation("stb-2013-102") == "Stb. 2013, 102"
-    assert publication_citation("stcrt-2020-00012") == "Stcrt. 2020, 12"
-    assert publication_citation("trb-1951-154") == "trb-1951-154"
 
 
 def test_what_an_edge_keeps_of_a_measure() -> None:

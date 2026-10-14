@@ -9,23 +9,24 @@ import pytest
 
 from lawgraph.api import warm
 from lawgraph.db import GraphStore
+from tests.fakes import ManualClock, until
 
 
 def test_the_warm_up_is_done_for_the_data_as_it_was(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(warm, "_warmed", None)
-    assert not warm.is_warm(store)
+    assert not warm.is_warm(store.data_version())
 
     warm.warm_up(store)
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
     assert warm.warmed_version() == store.data_version()
 
     store.bulk_insert_or_update_nodes(
         "instruments",
         [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
     )
-    assert not warm.is_warm(store)  # the data changed: warm again
+    assert not warm.is_warm(store.data_version())  # the data changed: warm again
 
 
 def test_a_warm_up_stops_when_newer_data_arrives(
@@ -47,7 +48,7 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     monkeypatch.setattr(warm, "coverage_data", lambda s: asked.append("coverage"))
     warm.warm_up(store)
     assert asked == ["stats"]  # stopped before the next part
-    assert not warm.is_warm(store)
+    assert not warm.is_warm(store.data_version())
 
 
 def test_the_warm_up_counts_the_largest_areas_of_law(
@@ -125,38 +126,33 @@ def test_a_write_waits_for_the_least_time_between_two_warm_ups(
 ) -> None:
     """On a real database: a write raises the data version, and the warm-up of the new
     data waits until ``LAWGRAPH_WARM_UP_MIN_INTERVAL`` has gone by since the last began."""
-    import time
-
     from lawgraph.db import version_cache
 
+    clock = ManualClock()
+    interval = 1.0
     done: list[tuple[float, str]] = []
+    monkeypatch.setattr(version_cache, "_clock", clock)
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0)
     monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.05)
-    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", 1.0)
+    monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", interval)
     monkeypatch.setattr(
         version_cache,
         "_warmers",
-        [lambda s: done.append((time.monotonic(), s.data_version()))],
+        [lambda s: done.append((clock.now(), s.data_version()))],
     )
-
-    def until(count: int, seconds: float) -> bool:
-        end = time.monotonic() + seconds
-        while time.monotonic() < end and len(done) < count:
-            time.sleep(0.02)
-        return len(done) >= count
 
     version_cache._version(store)  # the version this process knows
     version_cache.warm(store, settle=0)
-    assert until(1, 2.0)
+    assert until(lambda: len(done) == 1)
     store.bulk_insert_or_update_nodes(
         "instruments",
         [{"_key": "z", "type": "instrument", "labels": [], "props": {"title": "z"}}],
     )
     version_cache._version(store)  # a request sees the new version: a warm-up is wanted
     assert version_cache.computing(store)  # it waits, and health says so
-    assert not until(2, 0.6)
-    assert until(2, 2.0)
-    assert done[1][0] - done[0][0] >= 1.0
+    clock.move_to_wait(interval)  # not the settle: it is held back
+    assert until(lambda: len(done) == 2)
+    assert done[1][0] - done[0][0] == pytest.approx(interval)
     assert done[1][1] == store.data_version()  # of the new data
 
 
@@ -176,7 +172,7 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
         [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
     )
     warm.warm_up(store)  # a poll wrote: everything else is warmed again
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
     assert searched == [1]
 
     monkeypatch.setattr(warm, "SEARCH_TERMS_EVERY", 0.0)  # an hour later
@@ -208,7 +204,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     warm.warm_up(store)
     assert "coverage" in ran
     assert "instruments" not in ran and "search instruments" not in ran
-    assert warm.is_warm(store)
+    assert warm.is_warm(store.data_version())
 
     ran.clear()
     store.bulk_insert_or_update_nodes(
@@ -261,7 +257,9 @@ def test_the_articles_are_warmed_after_the_warm_up_is_done(
     monkeypatch.setattr(
         warm,
         "_warm_articles",
-        lambda store_, version: warm_while_warming.append(warm.is_warm(store_)),
+        lambda store_, version: warm_while_warming.append(
+            warm.is_warm(store_.data_version())
+        ),
     )
     warm.warm_up(store)
     assert warm_while_warming == [True]

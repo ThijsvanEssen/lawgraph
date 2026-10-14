@@ -11,13 +11,13 @@ import pytest
 import requests
 
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
+from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.courts import owms_terms
 from lawgraph.core.judgments import IndexEntry, Referral, parse_index
-from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.retrieve.rechtspraak import (
-    RechtspraakRetrievePipeline,
-    resolve_courts,
-)
-from tests.fakes import RawSourcesFake
+from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from tests.fakes import InMemoryStore, external_ids, raw_record
+
+pytestmark = pytest.mark.usefixtures("raw_reads")
 
 INDEX_PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "rechtspraak_index_page.xml"
@@ -54,6 +54,23 @@ def test_a_page_that_is_no_feed_is_not_an_empty_index() -> None:
     page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>Onderhoud</body></html>'
     with pytest.raises(ValueError, match="not an Atom feed.*<html>"):
         parse_index(page)
+
+
+def test_an_entry_whose_time_cannot_be_read_raises_with_its_ecli() -> None:
+    page = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>ECLI:NL:HR:2025:1</id>'
+        "<updated>gisteren</updated><title>t</title></entry></feed>"
+    )
+    with pytest.raises(ValueError, match="ECLI:NL:HR:2025:1.*gisteren"):
+        parse_index(page)
+
+
+def test_an_entry_without_a_time_has_none() -> None:
+    page = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>ECLI:NL:HR:2025:1</id>'
+        "<title>t</title></entry></feed>"
+    )
+    assert parse_index(page)[1][0].updated is None
 
 
 # ── the client ───────────────────────────────────────────────────────────────
@@ -150,11 +167,11 @@ def test_a_failing_page_raises_after_the_earlier_ones_were_yielded() -> None:
 
 
 def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
-    assert resolve_courts(["HR", "rvs"]) == [
+    assert owms_terms(["HR", "rvs"]) == [
         "Hoge_Raad_der_Nederlanden",
         "Raad_van_State",
     ]
-    hoven = resolve_courts(["gerechtshof"])
+    hoven = owms_terms(["gerechtshof"])
     assert "Gerechtshof_Amsterdam" in hoven and "Gerechtshof_'s-Hertogenbosch" in hoven
     # the courts of appeal before 2013 too: the index keeps their judgments
     assert "Gerechtshof_Leeuwarden" in hoven and len(hoven) == 7
@@ -162,29 +179,27 @@ def test_codes_and_tiers_resolve_to_the_owms_terms_of_the_court_table() -> None:
 
 def test_a_court_the_index_cannot_be_filtered_by_or_an_unknown_name_raises() -> None:
     with pytest.raises(ValueError, match="cannot be filtered"):
-        resolve_courts(["XX"])  # the foreign courts: no OWMS term
+        owms_terms(["XX"])  # the foreign courts: no OWMS term
     with pytest.raises(ValueError, match="unknown court"):
-        resolve_courts(["hoven"])
+        owms_terms(["hoven"])
 
 
 def test_all_is_every_court_so_no_filter_at_all() -> None:
     """The rechtbanken and every other court of the index are in it, none left out."""
-    assert resolve_courts(["all"]) == []
-    assert resolve_courts(["HR", "all"]) == []
+    assert owms_terms(["all"]) == []
+    assert owms_terms(["HR", "all"]) == []
 
 
 def test_a_court_is_listed_once() -> None:
     assert (
-        resolve_courts(["HR", "hr", "gerechtshof", "GHAMS"]).count(
-            "Gerechtshof_Amsterdam"
-        )
+        owms_terms(["HR", "hr", "gerechtshof", "GHAMS"]).count("Gerechtshof_Amsterdam")
         == 1
     )
 
 
 def test_an_unknown_court_is_named_with_the_known_ones() -> None:
     with pytest.raises(ValueError, match="unknown court 'nope'.*gerechtshof"):
-        resolve_courts(["nope"])
+        owms_terms(["nope"])
 
 
 # ── the pipeline ─────────────────────────────────────────────────────────────
@@ -219,32 +234,18 @@ class _Rs:
         return outcome
 
 
-class _Store(RawSourcesFake):
-    def __init__(self, stored: dict[str, str] | None = None) -> None:
-        self.records: list[dict[str, Any]] = []
-        self.stored = stored or {}  # ecli -> fetched_at
-
-    def insert_raw_source(self, **record: Any) -> None:
-        self.records.append(record)
-
-
-@pytest.fixture(autouse=True)
-def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The fetch times come from the ``_Store``; no judgment is waiting for a retry."""
-    monkeypatch.setattr(
-        raw_queries,
-        "fetch_times",
-        lambda store, **kw: iter(
-            {"id": ecli, "at": at} for ecli, at in store.stored.items()
-        ),
-    )
-    monkeypatch.setattr(
-        raw_queries, "ids_waiting_for_retry", lambda store, **kw: iter([])
+def _store(fetched: dict[str, str] | None = None) -> InMemoryStore:
+    """The judgments stored before, by ECLI with when each was fetched."""
+    return InMemoryStore(
+        raw=[
+            raw_record(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, ecli, fetched_at=at)
+            for ecli, at in (fetched or {}).items()
+        ]
     )
 
 
-def _pipeline(rs: _Rs, store: _Store | None = None):
-    store = store or _Store()
+def _pipeline(rs: _Rs, store: InMemoryStore | None = None):
+    store = store or _store()
     return RechtspraakRetrievePipeline(store=store, rs_client=rs), store
 
 
@@ -254,7 +255,7 @@ def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
     result = pipeline.run(courts=["hr"])
 
     assert (result.created, result.errors) == (2, [])
-    first = store.records[0]
+    first = next(iter(store.raw.values()))
     assert first["source"] == "rechtspraak" and first["kind"] == "rs-content"
     assert (
         first["external_id"] == "ECLI:A"
@@ -282,7 +283,7 @@ def test_every_court_reads_the_index_without_a_court_filter() -> None:
 
 def test_a_judgment_stored_after_its_last_change_is_not_downloaded_again() -> None:
     rs = _Rs([_entry("ECLI:A"), _entry("ECLI:B"), _entry("ECLI:C")])
-    store = _Store(
+    store = _store(
         {
             "ECLI:A": "2025-04-01T00:00:00Z",  # stored after the change: up to date
             "ECLI:B": "2025-02-01T00:00:00Z",  # stored before the change: stale
@@ -295,7 +296,7 @@ def test_a_judgment_stored_after_its_last_change_is_not_downloaded_again() -> No
 
 def test_an_interrupted_download_only_repeats_the_rest() -> None:
     entries = [_entry(f"ECLI:{n}") for n in range(4)]
-    store = _Store()
+    store = _store()
 
     class Interrupted(_Rs):
         def fetch_ecli_content(self, ecli: str) -> str:
@@ -305,11 +306,8 @@ def test_an_interrupted_download_only_repeats_the_rest() -> None:
 
     with pytest.raises(KeyboardInterrupt):
         _pipeline(Interrupted(entries), store)[0].run(courts=["hr"])
-    assert [r["external_id"] for r in store.records] == ["ECLI:0", "ECLI:1"]
+    assert external_ids(store) == ["ECLI:0", "ECLI:1"]
 
-    # the next run sees what was stored (with a fetch time after each change)
-    now = dt.datetime.now(UTC).isoformat()
-    store.stored = {r["external_id"]: now for r in store.records}
     rs = _Rs(entries)
     _pipeline(rs, store)[0].run(courts=["hr"])
     assert rs.fetched == ["ECLI:2", "ECLI:3"]
@@ -322,7 +320,7 @@ def test_a_failing_content_download_is_skipped_and_the_rest_goes_on() -> None:
     )
     pipeline, store = _pipeline(rs)
     pipeline.run(courts=["hr"])
-    assert [r["external_id"] for r in store.records] == ["ECLI:A", "ECLI:C"]
+    assert external_ids(store) == ["ECLI:A", "ECLI:C"]
 
 
 def test_a_failing_index_is_an_error_and_stores_nothing() -> None:
@@ -333,7 +331,7 @@ def test_a_failing_index_is_an_error_and_stores_nothing() -> None:
 
     pipeline, store = _pipeline(Down([]))
     result = pipeline.run(courts=["hr"])
-    assert store.records == [] and "no route" in result.errors[0]
+    assert store.raw == {} and "no route" in result.errors[0]
 
 
 def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
@@ -365,14 +363,14 @@ def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
 def test_an_unknown_court_is_an_error_of_the_step() -> None:
     pipeline, store = _pipeline(_Rs([]))
     result = pipeline.run(courts=["nope"])
-    assert store.records == [] and "unknown court" in result.errors[0]
+    assert store.raw == {} and "unknown court" in result.errors[0]
 
 
 def test_explicit_eclis_are_fetched_unless_stored_in_the_last_24_hours() -> None:
     now = dt.datetime.now(UTC).isoformat()
     old = (dt.datetime.now(UTC) - dt.timedelta(days=3)).isoformat()
     rs = _Rs([])
-    store = _Store({"ECLI:RECENT": now, "ECLI:OLD": old})
+    store = _store({"ECLI:RECENT": now, "ECLI:OLD": old})
     _pipeline(rs, store)[0].run(eclis=["ECLI:RECENT", "ECLI:OLD", "ECLI:NEW"])
     assert rs.fetched == ["ECLI:OLD", "ECLI:NEW"]
     assert rs.index_calls == []  # no courts, no index

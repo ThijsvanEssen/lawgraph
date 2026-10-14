@@ -4,12 +4,8 @@ import importlib
 import os
 import sys
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
 
 import pytest
-
-if TYPE_CHECKING:
-    from lawgraph.core.models import Node
 
 # The suite is offline unless asked otherwise; a developer's .env must not switch that on.
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
@@ -84,73 +80,17 @@ def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(module, "get_store", lambda store=store_stub: store)
 
 
-def remove_edges_from(edges: dict[str, dict], bind: dict) -> Iterator[int]:
-    """What ``semantic_queries.remove_edges_from`` does, on *edges* (key -> edge); with
-    ``relations`` bound, what ``remove_edges_to`` does."""
-    end, relations = (
-        ("_to", bind["relations"])
-        if "relations" in bind
-        else ("_from", [bind["relation"]])
-    )
-    gone = [
-        key
-        for key, edge in edges.items()
-        if edge[end] in bind["ids"]
-        and edge.get("relation") in relations
-        and edge.get("source") == bind["source"]
-        and key not in bind["keep"].get(edge[end], [])
-    ]
-    for key in gone:
-        del edges[key]
-    return iter([1] * len(gone))
+@pytest.fixture()
+def raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The shared reads of raw_sources, answered from the ``raw`` of an ``InMemoryStore``."""
+    from tests.fakes import patch_raw_reads
+
+    patch_raw_reads(monkeypatch)
 
 
-class _BaseFakeStore:
-    """In-memory upserts that report created versus updated like ``GraphStore``."""
+@pytest.fixture()
+def edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The edge removals of the semantic phase, on the ``edges`` of an ``InMemoryStore``."""
+    from tests.fakes import patch_edge_removals
 
-    def __init__(self) -> None:
-        self.edges: dict[str, dict] = {}
-        self.nodes: dict[str, dict[str, dict]] = {}
-
-    def bulk_insert_or_update_nodes(
-        self, collection: str, docs: list[dict]
-    ) -> tuple[int, int]:
-        bucket = self.nodes.setdefault(collection, {})
-        created = 0
-        for doc in docs:
-            if doc["_key"] not in bucket:
-                created += 1
-            bucket[doc["_key"]] = doc
-        return created, len(docs) - created
-
-    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
-        created, _ = self.bulk_insert_or_update_nodes(
-            node.collection, [node.to_document()]
-        )
-        return node, created == 1
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
-        created = 0
-        for doc in docs:
-            key = doc.get("_key", "")
-            is_new = key not in self.edges
-            self.edges[key] = doc
-            if is_new:
-                created += 1
-        return created, len(docs) - created
-
-    def insert_or_update_edge(self, doc: dict) -> tuple[dict, bool]:
-        key = doc.get("_key", "")
-        is_new = key not in self.edges
-        self.edges[key] = doc
-        return doc, is_new
-
-    def remove_edges_from(self, bind: dict) -> Iterator[int]:
-        return remove_edges_from(self.edges, bind)
-
-    def get_node(self, collection: str, key: str) -> dict | None:
-        raise NotImplementedError
-
-    def existing_keys(self, collection: str, keys) -> set[str]:
-        """On top of the ``get_node`` of the subclass."""
-        return {k for k in set(keys) if self.get_node(collection, k) is not None}
+    patch_edge_removals(monkeypatch)

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
-from lawgraph.core.identifiers import find_eclis
+from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -16,7 +17,7 @@ from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 # ---------------------------------------------------------------------------
 # Pure detection helper
@@ -24,25 +25,25 @@ from tests.fakes import RawSourcesFake
 
 
 def test_detect_ecli_references_finds_single() -> None:
-    hits = find_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
+    hits = cited_eclis("Zie ECLI:NL:HR:2020:1234 voor context.")
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_deduplicates() -> None:
     text = "ECLI:NL:HR:2020:1234 en nogmaals ECLI:NL:HR:2020:1234"
-    hits = find_eclis(text)
+    hits = cited_eclis(text)
     assert hits == ["ECLI:NL:HR:2020:1234"]
 
 
 def test_detect_ecli_references_multiple() -> None:
     text = "ECLI:NL:HR:2020:1234 en ECLI:NL:RBAMS:2021:5678"
-    hits = find_eclis(text)
+    hits = cited_eclis(text)
     assert len(hits) == 2
 
 
 def test_detect_ecli_references_empty() -> None:
-    assert find_eclis("") == []
-    assert find_eclis(None) == []
+    assert cited_eclis("") == []
+    assert cited_eclis(None) == []
 
 
 # ---------------------------------------------------------------------------
@@ -50,64 +51,23 @@ def test_detect_ecli_references_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore(RawSourcesFake):
+class _Store(InMemoryStore):
+    """The judgments of the graph, and the stored judgments with their XML as
+    ``with_payloads`` passes them on."""
+
     def __init__(
         self,
         *,
         judgment_docs: list[dict[str, Any]],
-        nodes: dict[tuple[str, str], Node] | None = None,
+        judgments: list[Node] | None = None,
     ) -> None:
-        self._judgment_docs = judgment_docs
-        self._nodes = nodes or {}
-        self.edges: dict[str, dict[str, Any]] = {}
-
-    def payload_rows(self) -> list[dict[str, Any]]:
-        """The stored judgments with their XML, as ``with_payloads`` passes them on."""
-        return [
-            {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
-            for d in self._judgment_docs
-        ]
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return self._nodes.get((collection, key))
-
-    def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        k = doc["_key"]
-        created = k not in self.edges
-        self.edges[k] = dict(doc)
-        return self.edges[k], created
-
-    def bulk_insert_or_update_edges(
-        self, docs: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        created = 0
-        updated = 0
-        for doc in docs:
-            k = doc["_key"]
-            was_created = k not in self.edges
-            self.edges[k] = dict(doc)
-            if was_created:
-                created += 1
-            else:
-                updated += 1
-        return created, updated
-
-    def ensure_stub_node(
-        self,
-        collection: str,
-        key: str,
-        node_type: NodeType,
-        props: dict[str, Any],
-    ) -> Node:
-        node = Node(
-            collection=collection,
-            type=node_type,
-            key=key,
-            props=props,
-            _skip_validation=True,
+        super().__init__(
+            {"judgments": [node.to_document() for node in judgments or []]}
         )
-        self._nodes[(collection, key)] = node
-        return node
+        self.payload_rows = [
+            {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
+            for d in judgment_docs
+        ]
 
 
 @pytest.fixture()
@@ -117,10 +77,10 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     since: list[str | None] = []
 
     def judgment_payload_refs(
-        store: _FakeStore, *, since_iso: str | None, batch_size: int
+        store: _Store, *, since_iso: str | None, batch_size: int
     ) -> Iterator[dict[str, Any]]:
         since.append(since_iso)
-        return iter(store.payload_rows())
+        return iter(store.payload_rows)
 
     monkeypatch.setattr(raw_queries, "count_judgment_records", lambda store: None)
     monkeypatch.setattr(raw_queries, "judgment_payload_refs", judgment_payload_refs)
@@ -173,10 +133,7 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
         props={"ecli": target_ecli},
         _skip_validation=True,
     )
-    store = _FakeStore(
-        judgment_docs=[source_doc],
-        nodes={("judgments", target_key): target_node},
-    )
+    store = _Store(judgment_docs=[source_doc], judgments=[target_node])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
@@ -193,7 +150,7 @@ def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:
     doc = _make_judgment(
         make_node_key(ecli), ecli, f"Dit arrest ({ecli}) overweegt dat..."
     )
-    store = _FakeStore(judgment_docs=[doc])
+    store = _Store(judgment_docs=[doc])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
@@ -205,7 +162,7 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     """The judgments read before have their edges; a cited judgment has the key of its stub."""
     import datetime as dt
 
-    pipeline = RechtspraakCitationsSemanticPipeline(store=_FakeStore(judgment_docs=[]))
+    pipeline = RechtspraakCitationsSemanticPipeline(store=_Store(judgment_docs=[]))
     pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
     assert reads == ["2025-01-01T00:00:00Z"]
 
@@ -260,7 +217,7 @@ def test_a_citation_in_a_footnote_says_where_it_stands(reads: list[str | None]) 
     )
     doc = _make_judgment(make_node_key(source_ecli), source_ecli, "")
     doc["props"]["raw_xml"] = xml
-    store = _FakeStore(judgment_docs=[doc])
+    store = _Store(judgment_docs=[doc])
     RechtspraakCitationsSemanticPipeline(store=store).run()
 
     (edge,) = store.edges.values()
@@ -273,3 +230,38 @@ def test_a_citation_in_a_footnote_says_where_it_stands(reads: list[str | None]) 
     assert mention["footnote"] == "35"
     assert note[mention["start"] : mention["end"]] == target_ecli
     assert mention["snippet"] == note
+
+
+def test_an_unreadable_judgment_fails_the_step_and_names_its_ecli(
+    reads: list[str | None], caplog: pytest.LogCaptureFixture
+) -> None:
+    """The rest is read; the run ends with one error for the cause, with the ECLI."""
+    good, broken = "ECLI:NL:HR:2020:1", "ECLI:NL:HR:2020:2"
+    docs = [
+        _make_judgment(make_node_key(good), good, "Zie ECLI:NL:HR:2019:9."),
+        {
+            **_make_judgment(make_node_key(broken), broken, ""),
+            "props": {"ecli": broken, "raw_xml": "<open-rechtspraak><uitspraak>"},
+        },
+    ]
+    with caplog.at_level(logging.WARNING):
+        result = RechtspraakCitationsSemanticPipeline(
+            store=_Store(judgment_docs=docs)
+        ).run()
+
+    assert result.skipped == 1
+    (error,) = result.errors
+    assert "unreadable judgment XML" in error and broken in error
+    assert any(broken in message for message in caplog.messages)
+
+
+def test_a_judgment_without_stored_xml_is_counted_as_skipped(
+    reads: list[str | None],
+) -> None:
+    ecli = "ECLI:NL:HR:2020:1"
+    store = _Store(judgment_docs=[_make_judgment(make_node_key(ecli), ecli, "")])
+    store.payload_rows = [{"ecli": ecli, "payload_text": None}]
+
+    result = RechtspraakCitationsSemanticPipeline(store=store).run()
+
+    assert (result.skipped, result.errors) == (1, [])

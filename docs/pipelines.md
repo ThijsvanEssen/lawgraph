@@ -165,7 +165,8 @@ is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Ti
 exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
-`normalize tk-dossiers` make nothing of it, and each normalizer removes, through one shared
+`normalize tk-dossiers` make nothing of it (the record is counted as skipped, `deleted by the
+Kamer`), and each normalizer removes, through one shared
 `Deleted` (`pipelines/normalize/_tk_deleted.py`), what an earlier run made of it alone: the
 node keyed by the record id (case, activity, commitment, document, committee, member), the node
 that holds it in `props.external_id(s)` (a dossier, a faction: a faction goes when all its
@@ -276,15 +277,18 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
-`normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
-else its `AMENDS` edges to instruments), except the act of the document's own dossier (the
+`normalize tk-content`) for amendment wording, for the laws the document amends (`props.bwb_id`
+and its `AMENDS` edges to instruments), except the act of the document's own dossier (the
 instrument `LEGISLATED_IN` it): a bill, its memorandum, a nota van wijziging and its amendments
-make that act, they do not change it. Targets must exist. Every edge is written with status
+make that act, they do not change it. A document of one law changes it wherever its text says
+so; a document of several changes each in its own wijzigingsartikel (the roman `article`
+sections, `ARTIKEL I`, `ARTIKEL II` …): the law of a part is the one of them it names first, and
+a part that names none of them (or the text before the first part) changes none. Targets must exist. Every edge is written with status
 `voorgesteld`; the edges are derived in full on every run, and one no longer derived goes.
 
 | Wording | Relation | Confidence |
@@ -534,7 +538,8 @@ downloaded. A judgment that is stored and was fetched after its last change (`up
 index) is skipped, so a re-run or a resumed run only downloads the rest. The index is asked
 for `type=Uitspraak` only, so a conclusion arrives through `--ecli` or `--mode gaps` (a
 conclusion that is cited). A judgment that answers HTTP 404 becomes an `rs-content-missing`
-record (data model, raw_sources), which `--mode gaps` leaves out while it waits.
+record (data model, raw_sources), which `--mode gaps` leaves out while it waits. A page that is
+not XML is not stored, and 25 failed downloads in a row fail the step.
 
 | Option | Meaning |
 |--------|---------|
@@ -851,7 +856,8 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 Stored as `eu-celex-html` while the acts are fetched; an act stored in the last 24 hours is
 skipped. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
-(data model, raw_sources).
+(data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
+fails the step, and so does `com` on a graph without EU acts.
 
 **Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
 `NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;
@@ -943,7 +949,8 @@ the laws the graph refers to and lacks: those with at least `--min-stubs` referr
 every law a loaded regulation is issued under (its "Gelet op"). A regulation stored in the last
 24 hours is not fetched again. In full mode a regulation whose toestand is the stored one is not
 downloaded; its WTI file is read again after 30 days (`WTI_REFRESH_DAYS`), since an
-abbreviation can change on its own.
+abbreviation can change on its own. A page that is not XML is not stored, and 25 failed
+downloads in a row fail the step (also in `bwb-history`).
 
 `retrieve bwb-history` fetches every toestand of a regulation that is not stored yet (`--mode
 full`: every one again), of the given ids or of every regulation whose current toestand is
@@ -1007,8 +1014,11 @@ and `check`, see [operations](operations.md#other-commands)) is made from the st
 (`core/code_families.families_from_wti`). A code is an abbreviation that two or more regulations
 list, each of which also lists a book of it (`BW` with `BW Boek 6`): the book is the number of
 that abbreviation (`7A` too), the code keeps the spelling most regulations give it. So the
-families follow the WTI; nothing is kept by hand. A book whose WTI record is not stored is not in
-its family.
+families follow the WTI. Only `names`, the names a code goes by besides its abbreviation
+(`Burgerlijk Wetboek`), which no WTI lists, is kept by hand; a build keeps it. A book whose WTI
+record is not stored is not in its family. `core/code_families` answers every question about a
+code: whether a name is one, in any case (`is_code_family`), and the number an article of a book
+is cited by (`cited_number`: `6:162`) or stored by (`native_number`: `162`).
 
 **Normalize `bwb-history`.** Reads every stored toestand once (`bwb_xml.read_toestand`: the
 text, references and parts of an article are read only for a version it has not met, so a
@@ -1064,7 +1074,8 @@ the words name, the link counts.
 An edge is keyed by its two articles, so an article that refers to another twice keeps the span
 of one; `props.references` keeps both. Self references are dropped and targets must exist —
 nothing is stubbed. The edges of an article are derived in full: one its references no longer
-support is removed.
+support is removed (without `--since` every edge of the step it did not write, also of an
+article whose references are gone).
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
 `--store-citations` also writes the references onto the article as `props.citations`.
 
@@ -1177,7 +1188,9 @@ the pages must add up to the reported total, and an SRU diagnostic or a failed r
 **Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
 `<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
 `publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
-regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
+regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU. A page that
+is not XML is not stored; a download that fails is skipped and asked for again the next run,
+and 25 failures in a row fail the step.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
@@ -1198,7 +1211,9 @@ that node comes from `bwb-amendments`.
 Staatsblad records, which are dropped: about 13,800 regulations).
 
 **Retrieve.** `incremental` (default) searches the SRU (`--since`), `full` fetches all,
-`--identifiers` fetches given `stcrt-YYYY-N` identifiers.
+`--identifiers` fetches given `stcrt-YYYY-N` identifiers. An empty listing fails the step
+unless it has a `--since`; a page that is not XML is not stored, and 25 failed downloads in a
+row fail the step.
 
 **Normalize.** Document (`kind` "Ministeriële regeling", `title`, `text`, `bwb_id`, `date`),
 key `stcrt_<identifier>`.
@@ -1291,7 +1306,8 @@ several, the one the composition observed that day, else the last before it), `c
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
 was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
 of a day are derived in full every time the day is read: a decision of that day the list no
-longer gives goes, with its edges (logged per day); a day not read is left as it is. A vote
+longer gives goes, with its edges (logged per day); a day not read, or whose page gives no
+vote, is skipped and left as it is. A vote
 on a motion decides no bill (`semantic tk-dossier-outcomes` reads the votes on the bill). A
 rejected bill gives its dossier
 `ek_rejected` (`date`, `source_url`, `retrieved_on`); a rejected bill of a day read that no vote
@@ -1303,8 +1319,8 @@ day of committee meetings (`/commissievergaderingen_op`, record `ek-committee-da
 external id the day). From the next sitting and the next day of meetings the pages are walked
 forward (`latere`) to the last one planned and back (`eerdere`) to `--since`; a run without it
 goes back to June 2015, and keeps where its walk back has got to in `pipeline_state`
-(`retrieve eerstekamer-agenda`) so a run that broke off goes on from there. One page at a
-time on the lane of eerstekamer.nl.
+(`retrieve eerstekamer-agenda`), once the pages before it are stored, so a run that broke off
+goes on from there. One page at a time on the lane of eerstekamer.nl.
 
 **Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
 the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by
@@ -1327,7 +1343,7 @@ too. Pages are read one at a time on the lane of eerstekamer.nl.
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
-`ek_bill` on the dossier of that number, when the graph holds it.
+`ek_bill` on the dossier of that number, when the graph holds it (else the page is skipped).
 
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
@@ -1460,7 +1476,8 @@ about 100 s the first time (on average 170 KB of XML, 22 KB compressed, the larg
 **Normalize.** Judgment per judgment: by its ECLI (the node a Dutch judgment that cites it
 has), else by item (`echr_<itemid>`); the English item's record, else the French one's, else
 another; `appno`, `title`, `date`, `articles`, `conclusion` (and from it what the Court found
-per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance`. A text
+per article, `echr_findings`, and `outcome`: `core/echr_findings.py`), `importance` (a number;
+another value is a problem and is left out). A text
 record adds
 `text` and `paragraphs` to the node of its `meta.ecli` (see [data model](data-model.md),
 "Judgment").
@@ -1794,7 +1811,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
 | semantic `bwb-publications` | `bwb-amendments` (the publications of the BWB) and `normalize staatsblad` and `staatscourant` (their papers) |
-| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
+| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text and sections from `normalize tk-content`, instrument names |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |

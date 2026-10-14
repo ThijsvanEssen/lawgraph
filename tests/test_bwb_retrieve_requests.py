@@ -14,10 +14,12 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_WTI_GENERAL,
     SOURCE_BWB,
 )
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, external_ids
 
 
 def _meta(bwb_id: str, start: str, end: str = "9999-12-31") -> ToestandMeta:
@@ -64,63 +66,43 @@ class _Client:
         return "<algemene-informatie/>"
 
 
-class _Store(RawSourcesFake):
-    def __init__(self) -> None:
-        self.docs: dict[tuple[str, str], dict[str, Any]] = {}
+pytestmark = pytest.mark.usefixtures("raw_reads")
 
-    def insert_raw_source(self, *, kind: str, external_id: str, **fields: Any) -> None:
-        self.docs[(kind, external_id)] = {"external_id": external_id, **fields}
+# Stored before the last day and the last month: neither resumed nor fresh.
+LONG_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=40))
 
-    def _of(self, source: str, kind: str) -> list[dict[str, Any]]:
-        assert source == SOURCE_BWB
-        return [d for (k, _), d in self.docs.items() if k == kind]
 
-    def waiting_for_retry(self, *, source: str, kind: str, **_kw: Any) -> list[str]:
-        # Remembered as missing: every such record is a fresh one.
-        return [d["external_id"] for d in self._of(source, kind)]
-
-    def stored_since(self, *, source: str, kind: str, **_kw: Any) -> list[str]:
-        # Everything here was stored just now, unless a test made it old.
-        return [d["external_id"] for d in self._of(source, kind) if not d.get("old")]
-
-    def fetch_times(self, *, source: str, kind: str) -> list[dict[str, Any]]:
-        return [
-            {"id": d["external_id"], "at": "2026-01-01T00:00:00Z"}
-            for d in self._of(source, kind)
-        ]
-
-    def state_urls(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "id": d["external_id"],
-                "url": d["meta"].get("state_url"),
-                "end_date": d["meta"].get("end_date"),
-                # stored now, unless a test says when
-                "at": d.get("at") or dt.datetime.now(dt.timezone.utc).isoformat(),
-            }
-            for d in self._of(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
-        ]
+def _toestand_state_urls(store: InMemoryStore) -> Any:
+    return iter(
+        {
+            "id": doc["external_id"],
+            "url": doc["meta"].get("state_url"),
+            "end_date": doc["meta"].get("end_date"),
+            "at": doc["fetched_at"],
+        }
+        for doc in store.raw.values()
+        if doc["source"] == SOURCE_BWB and doc["kind"] == RAW_KIND_BWB_TOESTAND
+    )
 
 
 @pytest.fixture(autouse=True)
 def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The raw_sources queries of the pipeline, answered by the ``_Store``."""
-    monkeypatch.setattr(
-        raw_queries,
-        "ids_waiting_for_retry",
-        lambda store, **kw: iter(store.waiting_for_retry(**kw)),
-    )
-    monkeypatch.setattr(
-        raw_queries,
-        "ids_stored_since",
-        lambda store, **kw: iter(store.stored_since(**kw)),
-    )
-    monkeypatch.setattr(
-        raw_queries, "fetch_times", lambda store, **kw: iter(store.fetch_times(**kw))
-    )
-    monkeypatch.setattr(
-        raw_queries, "toestand_state_urls", lambda store: iter(store.state_urls())
-    )
+    monkeypatch.setattr(raw_queries, "toestand_state_urls", _toestand_state_urls)
+
+
+def _doc(store: InMemoryStore, kind: str, external_id: str) -> dict[str, Any]:
+    return store.raw[raw_key(SOURCE_BWB, kind, external_id)]
+
+
+def _has(store: InMemoryStore, kind: str, external_id: str) -> bool:
+    return raw_key(SOURCE_BWB, kind, external_id) in store.raw
+
+
+def _age(store: InMemoryStore, *kinds: str) -> None:
+    """The records of *kinds* (all when none) as stored long ago."""
+    for doc in store.raw.values():
+        if not kinds or doc["kind"] in kinds:
+            doc["fetched_at"] = LONG_AGO
 
 
 def test_the_current_toestand_is_the_one_in_force_today() -> None:
@@ -156,7 +138,7 @@ def test_a_full_load_asks_no_second_time_for_the_toestand_it_listed() -> None:
     client = _Client(
         {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}
     )
-    store = _Store()
+    store = InMemoryStore()
     result = BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
 
     assert result.created == 4 and result.errors == []
@@ -170,13 +152,12 @@ def test_an_unchanged_toestand_is_not_downloaded_again() -> None:
     client = _Client(
         {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}
     )
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
 
     # A week later: BWBR2 has a new toestand, BWBR1 has not. (Nothing counts as stored in the
     # last 24 hours any more; the WTI records are younger than a month.)
-    for (kind, _), doc in store.docs.items():
-        doc["old"] = kind == RAW_KIND_BWB_TOESTAND
+    _age(store, RAW_KIND_BWB_TOESTAND)
     client.current["BWBR2"] = _meta("BWBR2", "2026-01-01")
     client.requests.clear()
     result = BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
@@ -184,7 +165,7 @@ def test_an_unchanged_toestand_is_not_downloaded_again() -> None:
     assert client.requests == ["listing", "xml BWBR2", "wti BWBR2"]
     assert (result.created, result.skipped) == (2, 1)
     assert (
-        store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR2")]["meta"]["start_date"]
+        _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR2")["meta"]["start_date"]
         == "2026-01-01"
     )
 
@@ -200,13 +181,11 @@ def test_a_toestand_whose_period_changed_or_ended_is_stored_again() -> None:
             "BWBR3": _meta("BWBR3", "2002-01-01", "2003-07-31"),
         }
     )
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
     # BWBR2 was stored before its end; BWBR3, repealed in 2003, long after it
-    for (kind, external_id), doc in store.docs.items():
-        doc["old"] = kind == RAW_KIND_BWB_TOESTAND
-        if external_id == "BWBR2":
-            doc["at"] = "2025-01-05T03:00:00Z"
+    _age(store, RAW_KIND_BWB_TOESTAND)
+    _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR2")["fetched_at"] = "2025-01-05T03:00:00Z"
     client.current["BWBR1"] = _meta("BWBR1", "2024-01-01", "2026-12-31")
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
@@ -218,29 +197,27 @@ def test_a_toestand_whose_period_changed_or_ended_is_stored_again() -> None:
         "xml BWBR2",
         "wti BWBR2",
     ]
-    meta = store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR1")]["meta"]
+    meta = _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR1")["meta"]
     assert meta["end_date"] == "2026-12-31"
 
 
 def test_the_wti_of_an_unchanged_toestand_is_read_again_after_a_month() -> None:
     client = _Client({"BWBR1": _meta("BWBR1", "2024-01-01")})
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
-    for doc in store.docs.values():
-        doc["old"] = True  # the WTI record too
+    _age(store)  # the WTI record too
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
 
     assert client.requests == ["listing", "wti BWBR1"]
-    assert (RAW_KIND_BWB_WTI_GENERAL, "BWBR1") in store.docs
+    assert _has(store, RAW_KIND_BWB_WTI_GENERAL, "BWBR1")
 
 
 def test_an_id_that_is_asked_for_by_name_is_always_downloaded() -> None:
     client = _Client({"BWBR1": _meta("BWBR1", "2024-01-01")})
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
-    for doc in store.docs.values():
-        doc["old"] = True
+    _age(store)
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
 
@@ -264,19 +241,19 @@ def test_a_toestand_the_repository_does_not_serve_is_remembered_not_a_failure() 
                 raise requests.TooManyRedirects("30 redirects", response=response)
             return "<toestand/>"
 
-    store = _Store()
+    store = InMemoryStore()
     client = Client(
         {"BWBR1": _meta("BWBR1", "2020-01-01"), "BWBR2": _meta("BWBR2", "2020-01-01")}
     )
     result = BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
 
     assert result.errors == []
-    missing = store.docs[(RAW_KIND_BWB_TOESTAND + RAW_KIND_MISSING_SUFFIX, "BWBR2")]
+    missing = _doc(store, RAW_KIND_BWB_TOESTAND + RAW_KIND_MISSING_SUFFIX, "BWBR2")
     assert missing["meta"]["status"] == 301
-    assert (RAW_KIND_BWB_TOESTAND, "BWBR1") in store.docs
+    assert _has(store, RAW_KIND_BWB_TOESTAND, "BWBR1")
 
     client.requests.clear()
-    store.docs[(RAW_KIND_BWB_TOESTAND, "BWBR1")]["old"] = True  # not stored today
+    _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR1")["fetched_at"] = LONG_AGO
     BWBRetrievePipeline(store=store, client=client).run_full()  # type: ignore[arg-type]
     assert "xml BWBR2" not in client.requests
 
@@ -298,8 +275,8 @@ def _history_client() -> _Client:
     return client
 
 
-def _history_keys(store: _Store) -> set[str]:
-    return {key for kind, key in store.docs if kind == RAW_KIND_BWB_TOESTAND_ALL}
+def _history_keys(store: InMemoryStore) -> set[str]:
+    return set(external_ids(store, RAW_KIND_BWB_TOESTAND_ALL))
 
 
 @pytest.mark.parametrize("listing", [False, True])
@@ -310,7 +287,7 @@ def test_a_second_history_run_downloads_only_the_new_toestanden(
     toestanden come from one SRU query per regulation or from the listing of them all."""
     monkeypatch.setattr(bwb, "HISTORY_LISTING_FROM", 1 if listing else 1000)
     client = _history_client()
-    store = _Store()
+    store = InMemoryStore()
     first = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
         bwb_ids=["BWBR1", "BWBR2"]
     )
@@ -343,7 +320,7 @@ def test_a_second_history_run_downloads_only_the_new_toestanden(
 
 def test_full_mode_downloads_every_toestand_again() -> None:
     client = _history_client()
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run_history(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
     client.requests.clear()
     result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
@@ -355,7 +332,7 @@ def test_full_mode_downloads_every_toestand_again() -> None:
 
 def test_without_ids_the_history_is_that_of_the_regulations_bwb_stored() -> None:
     client = _history_client()
-    store = _Store()
+    store = InMemoryStore()
     BWBRetrievePipeline(store=store, client=client).run(bwb_ids=["BWBR2"])  # type: ignore[arg-type]
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run_history()  # type: ignore[arg-type]
@@ -381,16 +358,30 @@ def test_a_toestand_without_a_file_is_remembered_and_not_asked_for_again() -> No
 
     client = Client({})
     client.history = _history_client().history
-    store = _Store()
+    store = InMemoryStore()
     result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
         bwb_ids=["BWBR1"]
     )
     assert (result.created, result.errors) == (1, [])
-    assert (
-        RAW_KIND_BWB_TOESTAND_ALL + RAW_KIND_MISSING_SUFFIX,
-        "BWBR1@2020-01-01",
-    ) in (store.docs)
+    assert _has(
+        store, RAW_KIND_BWB_TOESTAND_ALL + RAW_KIND_MISSING_SUFFIX, "BWBR1@2020-01-01"
+    )
 
     client.requests.clear()
     BWBRetrievePipeline(store=store, client=client).run_history(bwb_ids=["BWBR1"])  # type: ignore[arg-type]
     assert client.requests == ["sru BWBR1"]
+
+
+def test_a_toestand_the_sru_lists_without_a_start_date_is_skipped() -> None:
+    client = _history_client()
+    client.history["BWBR2"].append(
+        {**_meta("BWBR2", "x"), "geldigheidsperiode_startdatum": None}
+    )
+    store = InMemoryStore()
+
+    result = BWBRetrievePipeline(store=store, client=client).run_history(  # type: ignore[arg-type]
+        bwb_ids=["BWBR2"]
+    )
+
+    assert (result.created, result.skipped, result.errors) == (1, 1, [])
+    assert _history_keys(store) == {"BWBR2@2023-07-01"}

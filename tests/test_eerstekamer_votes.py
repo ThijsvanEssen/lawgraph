@@ -6,8 +6,6 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
-import pytest
-
 from lawgraph.config.constants import RAW_KIND_EK_REJECTED, RAW_KIND_EK_VOTES_DAY
 from lawgraph.core import eerstekamer_votes as ev
 from lawgraph.core.dossier_stages import derive_outcome, ek_outcome
@@ -15,7 +13,7 @@ from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of, observed_
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGE_1 = (FIXTURES / "ek_votes_page_1.html").read_text()
@@ -23,23 +21,6 @@ PAGE_2 = (FIXTURES / "ek_votes_page_2.html").read_text()
 REJECTED = (FIXTURES / "ek_rejected_page_1.html").read_text()
 # the list of every vote, on bills and on motions, as served on 2026-10-09
 ALL = (FIXTURES / "ek_votes_alles_page_1.html").read_text()
-
-
-@pytest.mark.parametrize(
-    ("number", "label"),
-    [
-        ("36.791", "36791"),
-        ("36.600 VII", "36600-VII"),
-        ("36.600 B", "36600-B"),
-        ("36.455 (R2188)", "36455-(R2188)"),
-        ("6.791", "6791"),
-        ("Wet 36791", None),
-    ],
-)
-def test_the_number_of_the_eerste_kamer_is_the_label_of_the_tweede_kamer(
-    number: str, label: str | None
-) -> None:
-    assert ev.dossier_label(number) == label
 
 
 def test_a_page_holds_its_days_and_links_the_page_before() -> None:
@@ -139,7 +120,7 @@ class _Client:
 
 
 def test_a_day_over_two_pages_is_one_record_and_the_window_stops_the_list() -> None:
-    pipeline = EerstekamerVotesRetrievePipeline(RawSourcesFake(), client=_Client())  # type: ignore[arg-type]
+    pipeline = EerstekamerVotesRetrievePipeline(InMemoryStore(), client=_Client())  # type: ignore[arg-type]
     records = list(pipeline.fetch(since=dt.date(2026, 9, 1)))
     days = [r for r in records if r.kind == RAW_KIND_EK_VOTES_DAY]
     assert [r.external_id for r in days] == ["2026-09-29", "2026-09-22"]

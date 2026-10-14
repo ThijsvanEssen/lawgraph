@@ -30,9 +30,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_composition as composition
 from lawgraph.core import ek_changes
+from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import day_before
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -152,13 +154,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
         last_day = dt.date.today().isoformat()
         for n, (election, source) in enumerate(elections):
             start = starts[n]
-            end = (
-                (
-                    dt.date.fromisoformat(starts[n + 1]) - dt.timedelta(days=1)
-                ).isoformat()
-                if n + 1 < len(starts)
-                else last_day
-            )
+            end = day_before(starts[n + 1]) if n + 1 < len(starts) else last_day
             factions = ek_changes.known_factions(
                 names[0], election.seats, changes, names[1]
             )
@@ -170,7 +166,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
             last = walked.stretches[-1].seats
             if n + 1 == len(elections):
                 mismatches += _against(last, today) if today else []
-            elif sum(last.values()) != ek_changes.SEATS:
+            elif sum(last.values()) != EK_SEATS:
                 mismatches.append(
                     f"{end}: the term ends with {sum(last.values())} seats"
                 )

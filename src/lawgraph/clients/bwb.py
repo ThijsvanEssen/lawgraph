@@ -8,7 +8,7 @@ from typing import TypedDict
 from requests import Session
 
 from lawgraph.clients._sru import number_of_records, parse_response
-from lawgraph.clients.base import BaseClient, response_text
+from lawgraph.clients.base import BaseClient, UnexpectedAnswer, xml_text
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
 from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
@@ -122,6 +122,8 @@ class BWBClient(BaseClient):
                 local_name(e.tag) == "record" for e in root.iter()
             ):
                 return root
+            if attempt + 1 == len(EMPTY_PAGE_SIZES):
+                break
             logger.warning(
                 "BWB SRU returned an empty page at startRecord=%d of type=%s "
                 "(%d records asked); trying again with a smaller page.",
@@ -252,7 +254,7 @@ class BWBClient(BaseClient):
         total = number_of_records(root)
         if total > 500:
             # One page of 500 is asked for; more toestanden than that would be cut silently.
-            raise RuntimeError(
+            raise UnexpectedAnswer(
                 f"BWB {bwb_id} has {total} toestanden, more than one page"
             )
 
@@ -299,7 +301,7 @@ class BWBClient(BaseClient):
             url,
         )
         resp = self._get_raw_absolute_with_retry(url, timeout=actual_timeout)
-        return response_text(resp)
+        return xml_text(resp)
 
     def fetch_wti_general_info(
         self,

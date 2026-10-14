@@ -16,18 +16,13 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
+    listed,
     missing_record,
 )
 
 logger = get_logger(__name__)
-
-# The downloads a run may fail and still succeed: each is asked for again the next run;
-# more than these fails the step (a source that is down stops it sooner: FailureStreak).
-MAX_DOWNLOAD_FAILURES = 25
 
 
 class StaatsbladRetrievePipeline(RetrievePipelineBase):
@@ -68,59 +63,43 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
     def _fetch_publications(
         self, todo: list[tuple[str | None, str]]
     ) -> Iterator[RetrieveRecord]:
-        """The XML of each ``(bwb_id, identifier)``; a publication without XML is skipped."""
-        wanted = set(
-            self._without_missing(
-                SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, [i for _, i in todo]
-            )
-        )
-        todo = [
-            (bwb_id, identifier) for bwb_id, identifier in todo if identifier in wanted
-        ]
-        self.progress.expect(len(todo))
-        streak = FailureStreak("Staatsblad")
-        failed = 0
-        for bwb_id, identifier in todo:
-            try:
-                xml = self.client.fetch_publication_xml(identifier)
-            except Exception as exc:
-                # one publication the source could not serve (an HTTP 500): stored nothing,
-                # so the next run asks for it again; a source that is down still stops
-                # the step (``FailureStreak``)
-                self.progress.skip(
-                    f"download failed ({failure_reason(exc)}), asked again next run",
-                    identifier,
-                )
-                streak.failed(identifier, exc)
-                failed += 1
-                continue
-            streak.ok()
-            if xml is None:
-                self.progress.skip("no XML (HTTP 404)", identifier)
-                # thousands of old publications have none: spread when they come due
-                yield missing_record(
-                    SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, identifier, spread=True
-                )
-                continue
+        """The XML of each ``(bwb_id, identifier)``; a publication without XML is skipped.
+
+        A download that fails is skipped too and asked for again the next run: one
+        publication the source cannot serve (an HTTP 500) must not fail the step.
+        """
+        bwb_ids = {identifier: bwb_id for bwb_id, identifier in todo}
+        wanted = self._without_missing(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, bwb_ids)
+
+        def records(identifier: str, xml: str) -> list[RetrieveRecord]:
             meta = {"identifier": identifier}
-            if bwb_id:
+            if bwb_id := bwb_ids[identifier]:
                 meta["bwb_id"] = bwb_id
-            yield RetrieveRecord(
-                source=SOURCE_STAATSBLAD,
-                kind=RAW_KIND_STB_AMVB,
-                external_id=identifier,
-                payload_text=xml,
-                meta=meta,
-            )
-        if failed:
-            logger.warning(
-                "Staatsblad: %d downloads failed; they are asked for again next run.",
-                failed,
-            )
-        if failed > MAX_DOWNLOAD_FAILURES:
-            self.progress.problem(
-                f"more than {MAX_DOWNLOAD_FAILURES} downloads failed ({failed})"
-            )
+            return [
+                RetrieveRecord(
+                    source=SOURCE_STAATSBLAD,
+                    kind=RAW_KIND_STB_AMVB,
+                    external_id=identifier,
+                    payload_text=xml,
+                    meta=meta,
+                )
+            ]
+
+        yield from self._download_each(
+            wanted,
+            self.client.fetch_publication_xml,
+            records,
+            source="Staatsblad",
+            # thousands of old publications have none: spread when they come due
+            missing=lambda identifier, status: missing_record(
+                SOURCE_STAATSBLAD,
+                RAW_KIND_STB_AMVB,
+                identifier,
+                status=status,
+                spread=True,
+            ),
+            failed_is_skipped=True,
+        )
 
     def _candidates_from_bwb(
         self, store: GraphStore
@@ -158,28 +137,17 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         return {row for row in rows if isinstance(row, str)}
 
     def run_full(self) -> PipelineResult:
-        """Full-load mode: enumerate all AMvBs via SRU and fetch each."""
-        logger.info("Staatsblad full-load: searching for all AMvBs via SRU.")
-        try:
-            amvbs = self.client.search_amvbs()
-        except Exception as exc:
-            result = PipelineResult()
-            msg = f"Staatsblad SRU search failed: {exc}"
-            logger.error(msg)
-            result.add_error(msg)
-            return result
+        """Full-load mode: every AMvB the SRU lists that is new or modified since stored."""
 
-        if not amvbs:
-            result = PipelineResult()
-            result.add_error("The Staatsblad listing is empty; nothing was retrieved.")
-            return result
-        identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
-        logger.info(
-            "Staatsblad full-load: %d AMvBs listed, %d new or modified since they were "
-            "stored.",
-            len(amvbs),
-            len(identifiers),
-        )
-        if not identifiers:
-            return PipelineResult()
-        return self.run(identifiers=identifiers)
+        def listing() -> Iterator[RetrieveRecord]:
+            amvbs = listed(self.client.search_amvbs(), "Staatsblad AMvBs")
+            identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
+            logger.info(
+                "Staatsblad full-load: %d AMvBs listed, %d new or modified since they "
+                "were stored.",
+                len(amvbs),
+                len(identifiers),
+            )
+            yield from self._fetch_publications([(None, i) for i in identifiers])
+
+        return self._store_all(listing(), what="publications")

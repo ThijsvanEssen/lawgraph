@@ -216,6 +216,15 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     )
 $$;
 
+-- A seat (the meta of a MEMBER_OF edge) holds on *today*: it has no last day or one not yet
+-- past, and of the Eerste Kamer, the last snapshot still shows it.
+CREATE OR REPLACE FUNCTION lg_seated(meta json, today text) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT (coalesce(json_typeof(meta -> 'to_date'), 'null') = 'null'
+            OR coalesce(public.lg_str(meta -> 'to_date') >= today, false))
+       AND coalesce(json_typeof(meta -> 'observed_until'), 'null') = 'null'
+$$;
+
 -- The string *field* of every object of a JSON array (``[*].cabinet_key``).
 CREATE OR REPLACE FUNCTION lg_path_array(v json, field text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -1621,6 +1630,39 @@ END $$""",
     return statements
 
 
+def signed_date_sql(paper: str) -> str:
+    """SQL: the date of the paper, case or other node *paper* (an SQL text value) signed.
+    ``lg_signed_date`` is made of it; a query that reads it for many rows writes it in
+    itself, which is many times faster than the call of the function per row."""
+    return f"""CASE
+        WHEN starts_with({paper}, '{COLLECTION_DOCUMENTS}/') THEN
+            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = {paper})
+        WHEN starts_with({paper}, '{COLLECTION_CASES}/') THEN
+            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+             WHERE k.id = {paper})
+        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n
+              WHERE n.id = {paper})
+    END"""
+
+
+def dossiers_of_sql(paper: str) -> str:
+    """SQL: the ids of the dossiers of the paper (or the case) *paper* (an SQL text value),
+    directly and through the cases it is part of, each once. ``lg_dossiers_of`` is made of
+    it; a query that reads it for many rows writes it in itself, as a subquery."""
+    part_of = RELATION_PART_OF
+    return f"""
+        SELECT p.to_id FROM public.edges p
+        WHERE p.from_id = {paper} AND p.relation = '{part_of}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+        UNION
+        SELECT p2.to_id FROM public.edges p1
+        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
+         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
+        WHERE p1.from_id = {paper} AND p1.relation = '{part_of}'
+          AND p1.to_collection = '{COLLECTION_CASES}'
+    """
+
+
 # Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
@@ -1668,29 +1710,13 @@ def member_authored() -> list[str]:
         f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
 LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
 BEGIN
-    RETURN CASE
-        WHEN starts_with(paper, '{COLLECTION_DOCUMENTS}/') THEN
-            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = paper)
-        WHEN starts_with(paper, '{COLLECTION_CASES}/') THEN
-            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
-             WHERE k.id = paper)
-        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n WHERE n.id = paper)
-    END;
+    RETURN {signed_date_sql("paper")};
 END $$""",
         # the dossiers of a paper (or a case): directly, and through the cases it is part of
         f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
-    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}') FROM (
-        SELECT p.to_id AS d FROM public.edges p
-        WHERE p.from_id = paper AND p.relation = '{part_of}'
-          AND p.to_collection = '{COLLECTION_DOSSIERS}'
-        UNION
-        SELECT p2.to_id FROM public.edges p1
-        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
-         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
-        WHERE p1.from_id = paper AND p1.relation = '{part_of}'
-          AND p1.to_collection = '{COLLECTION_CASES}'
-    ) found
+    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}')
+    FROM ({dossiers_of_sql("paper")}) found(d)
 $$""",
         f"""CREATE OR REPLACE FUNCTION lg_keep_authored() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -2292,10 +2318,10 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         if present is None:
             continue  # not there yet: it is created as the schema says
         missing = columns - present - added.get(table, set())
-        differences += [f"{table}.{c} ontbreekt" for c in sorted(missing)]
+        differences += [f"{table}.{c} is missing" for c in sorted(missing)]
         extra = present - columns
         differences += [
-            f"{table}.{c} staat niet in het schema en is verplicht (NOT NULL zonder default)"
+            f"{table}.{c} is not in the schema and is required (NOT NULL without a default)"
             for c in sorted(extra & required.get(table, set()))
         ]
         for column in sorted(extra - required.get(table, set())):
@@ -2307,11 +2333,11 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
             )
         was, wanted = actual_generated.get(table, set()), generated.get(table, set())
         differences += [
-            f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
+            f"{table}.{c} is generated, the schema fills it with a trigger"
             for c in sorted((was - wanted) & columns)
         ]
         differences += [
-            f"{table}.{c} is niet gegenereerd" for c in sorted((wanted - was) & present)
+            f"{table}.{c} is not generated" for c in sorted((wanted - was) & present)
         ]
     return differences
 
@@ -2338,7 +2364,9 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
         differences = schema_drift(conn)
         if differences:
             raise SchemaOutdated(
-                "schema verouderd: herbouw nodig (" + "; ".join(differences) + ")"
+                "schema outdated, build the database again ("
+                + "; ".join(differences)
+                + ")"
             )
         for statement in statements():
             conn.execute(statement.encode())

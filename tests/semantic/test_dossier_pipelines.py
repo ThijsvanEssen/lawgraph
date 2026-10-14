@@ -14,10 +14,12 @@ from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore, count_calls
+
+pytestmark = pytest.mark.usefixtures("edge_removals")
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
     """Holds the matches the queries of both pipelines return."""
 
     def __init__(self, rows: list[dict[str, Any]]) -> None:
@@ -59,7 +61,7 @@ def test_staatsblad_nvt_creates_explains_instrument_edge() -> None:
             "match_type": "bwb_id",
         }
     ]
-    store = _FakeStore(rows=rows)
+    store = _Store(rows=rows)
     pipeline = StaatsbladSemanticPipeline(store=store)
     result = pipeline.run()
 
@@ -85,7 +87,7 @@ def test_staatscourant_regeling_creates_explains_instrument_edge() -> None:
         }
     ]
     # The match by bwb_id and the match by title return the same row: one edge.
-    store = _FakeStore(rows=rows)
+    store = _Store(rows=rows)
     pipeline = StaatscourantSemanticPipeline(store=store)
     result = pipeline.run()
 
@@ -108,16 +110,12 @@ def test_semantic_edges_are_written_in_bulk_batches() -> None:
         for n in range(1200)
     ]
 
-    class _CountingStore(_FakeStore):
-        bulk_calls = 0
-
-        def bulk_insert_or_update_edges(self, docs):
-            type(self).bulk_calls += 1
-            return super().bulk_insert_or_update_edges(docs)
-
-    store = _CountingStore(rows=rows)
+    store = _Store(rows=rows)
+    calls = count_calls(store, "bulk_insert_or_update_edges")
     result = StaatsbladSemanticPipeline(store=store).run()
 
     assert result.created == 1200
     assert len(store.edges) == 1200
-    assert store.bulk_calls == 2  # 1000 + 200: the batches of `EdgeWriter`
+    assert (
+        calls["bulk_insert_or_update_edges"] == 2
+    )  # 1000 + 200: the batches of `EdgeWriter`

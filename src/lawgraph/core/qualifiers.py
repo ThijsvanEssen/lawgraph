@@ -49,7 +49,9 @@ _ORDINALS = {
     "negentiende": 19,
     "twintigste": 20,
 }
-_ORDINAL = rf"(?:{'|'.join(_ORDINALS)}|\d+(?:e|de|ste))"
+# An ordinal in digits ("2e", "2de", "1ste"); in a citation it can also be an article number.
+DIGIT_ORDINAL = r"\d+(?:e|de|ste)"
+ORDINAL = rf"(?:{'|'.join(_ORDINALS)}|{DIGIT_ORDINAL})"
 _LID_NUMBER = r"\d+[a-z]?(?![A-Za-z0-9:°]|\.\d)"
 # Words of two letters or fewer that follow "onder" in ordinary sentences, not an onderdeel.
 _NOT_A_PART = "de|het|een|dat|die|deze|in|is|op|of|en|te|er|om|na|nu|ze|zo|bij|uit|van|voor|wie|dan"
@@ -57,7 +59,7 @@ _SUB_TOKEN = rf"(?!(?:{_NOT_A_PART})\b)(?:[a-z]{{1,2}}|\d{{1,2}}[°º]?)(?![A-Za
 _SEPARATOR = r"\s*(?:,|\ben\b|\bof\b|\btot en met\b|\bt/m\b|\btot\b)\s*"
 
 _LID_ORDINALS = re.compile(
-    rf"\b(?P<items>{_ORDINAL}(?:{_SEPARATOR}{_ORDINAL})*)\s+lid(?:en)?\b", re.IGNORECASE
+    rf"\b(?P<items>{ORDINAL}(?:{_SEPARATOR}{ORDINAL})*)\s+lid(?:en)?\b", re.IGNORECASE
 )
 _LID_NUMBERS = re.compile(
     rf"\b(?:lid|leden)\s+(?P<items>{_LID_NUMBER}"
@@ -128,7 +130,7 @@ def parse_qualifier(text: str | None) -> Qualifier:
     leden = [
         number
         for match in _LID_ORDINALS.finditer(text)
-        for number in _items(match["items"], _ordinal_number)
+        for number in _items(match["items"], ordinal_number)
     ] + [
         number
         for match in _LID_NUMBERS.finditer(text)
@@ -146,7 +148,8 @@ def parse_qualifier(text: str | None) -> Qualifier:
     )
 
 
-def _ordinal_number(word: str) -> str:
+def ordinal_number(word: str) -> str:
+    """The number an ordinal of :data:`ORDINAL` stands for: "elfde" and "11e" are "11"."""
     word = word.strip().lower()
     if word in _ORDINALS:
         return str(_ORDINALS[word])

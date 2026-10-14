@@ -14,24 +14,14 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 
 from .base import (
+    FETCH_WORKERS,
     RESUME_WITHIN_HOURS,
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
-    fetched_side_by_side,
-    is_not_found,
     missing_record,
 )
 
 logger = get_logger(__name__)
-
-
-def resolve_courts(names: Sequence[str]) -> list[str]:
-    """OWMS terms of courts (an ECLI code: ``HR``, ``GHAMS``) or tiers (``gerechtshof``), from
-    the court table (``core.courts.owms_terms``); unknown names raise. ``all`` is every court:
-    no terms, so the index is not filtered by court."""
-    return owms_terms(names)
 
 
 class RechtspraakRetrievePipeline(RetrievePipelineBase):
@@ -80,7 +70,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
     ) -> Iterator[RetrieveRecord]:
         """Yield the content of each judgment as it is downloaded.
 
-        *courts* (names as in ``resolve_courts``) selects judgments through the index, by
+        *courts* (names as in ``core.courts.owms_terms``) selects judgments through the index, by
         decision date when *date_from* is given; a judgment already stored and not changed
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
         *referrals* (by case number and date) are looked up in the index of their date.
@@ -94,7 +84,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
 
         if courts:
             skipped = 0
-            terms = resolve_courts(courts)
+            terms = owms_terms(courts)
             listings = [
                 self.rs.iter_index(courts=terms, date_from=date_from, date_to=date_to)
             ]
@@ -128,37 +118,34 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 todo.setdefault(ecli, None)
 
         wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
-        self.progress.expect(len(wanted))
-        streak = FailureStreak("Rechtspraak")
-        # Side by side: a judgment takes longer to arrive than the host asks between two.
-        for ecli, xml in fetched_side_by_side(wanted, self.rs.fetch_ecli_content):
+
+        def records(ecli: str, xml: str) -> list[RetrieveRecord]:
             updated = todo[ecli]
-            if isinstance(xml, Exception):
-                exc = xml
-                if is_not_found(exc):
-                    self.progress.skip("no content (HTTP 404)", ecli)
-                    streak.ok()
-                    yield missing_record(
-                        SOURCE_RECHTSPRAAK,
-                        RAW_KIND_RS_CONTENT,
-                        ecli,
-                        listed=updated
-                        is not None,  # named by the index, not by a citation
-                    )
-                else:
-                    # An error of the step (exit 1), not a skip: a source that refuses
-                    # everything must not end as "N skipped".
-                    self.progress.fail(f"download failed ({failure_reason(exc)})", ecli)
-                    streak.failed(ecli, exc)
-                continue
-            streak.ok()
-            yield RetrieveRecord(
-                source=SOURCE_RECHTSPRAAK,
-                kind=RAW_KIND_RS_CONTENT,
-                external_id=ecli,
-                payload_text=xml,
-                meta={
-                    "ecli": ecli,
-                    "updated": updated.isoformat() if updated else None,
-                },
-            )
+            return [
+                RetrieveRecord(
+                    source=SOURCE_RECHTSPRAAK,
+                    kind=RAW_KIND_RS_CONTENT,
+                    external_id=ecli,
+                    payload_text=xml,
+                    meta={
+                        "ecli": ecli,
+                        "updated": updated.isoformat() if updated else None,
+                    },
+                )
+            ]
+
+        # Side by side: a judgment takes longer to arrive than the host asks between two.
+        yield from self._download_each(
+            wanted,
+            self.rs.fetch_ecli_content,
+            records,
+            source="Rechtspraak",
+            missing=lambda ecli, status: missing_record(
+                SOURCE_RECHTSPRAAK,
+                RAW_KIND_RS_CONTENT,
+                ecli,
+                listed=todo[ecli] is not None,  # named by the index, not by a citation
+                status=status,
+            ),
+            workers=FETCH_WORKERS,
+        )

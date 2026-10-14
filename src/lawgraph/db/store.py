@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import contextvars
+import dataclasses
 import datetime as dt
 import hashlib
 import os
@@ -142,6 +143,16 @@ WRITE_RETRY_WAITS = (2.0, 10.0, 30.0)
 # nor cancelled it (``57014``, a statement that ran past ``LAWGRAPH_WRITE_TIMEOUT_MS``: sent
 # again, it would run as long).
 _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03", "08000", "08003", "08006"})
+
+
+class DatabaseUnavailable(ConnectionError):
+    """The database cannot be reached: not running, starting up or shutting down."""
+
+
+def _unavailable(exc: Exception) -> DatabaseUnavailable:
+    return DatabaseUnavailable(
+        redacted(f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}): {exc}")
+    )
 
 
 def _is_unreachable(exc: Exception) -> bool:
@@ -379,6 +390,35 @@ class RequestCancelled(ReadTimedOut):
     """The client of the request went away: its reads were cancelled."""
 
 
+@dataclasses.dataclass
+class Budget:
+    """Whether the reads of a ``read_budget`` block ran past it."""
+
+    ran_out: bool = False
+
+
+@contextlib.contextmanager
+def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[Budget]:
+    """The reads of the block end within *seconds*, or within what the request has left
+    less *reserve* when that ends first. A block that runs past it ends there, logged:
+    ``ran_out``, and the caller answers without what it read (a computation of the cache
+    it waited for goes on). A request whose client went away (``RequestCancelled``) ends
+    as ever."""
+    left = read_time_left()
+    capped = seconds if left is None else min(seconds, left - reserve)
+    token = set_read_deadline(max(0.0, capped))
+    budget = Budget()
+    try:
+        yield budget
+    except RequestCancelled:
+        raise
+    except ReadTimedOut:
+        budget.ran_out = True
+        logger.info("%s took over %s s: answered without it.", what, seconds)
+    finally:
+        reset_read_deadline(token)
+
+
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
     """The statements of this process that have run for over *min_seconds*: ``{pid, state,
     seconds, wait, query}``, the longest first. On a connection of its own, so a pool whose
@@ -446,6 +486,8 @@ class GraphStore:
     def __init__(self) -> None:
         self.name = DB_NAME
         _create_database_if_missing()
+        self._background_pool: ConnectionPool | None = None
+        self._background_lock = threading.Lock()
         try:
             # Every connection is opened at the start: no request waits for a new one.
             self.pool = ConnectionPool(
@@ -458,19 +500,16 @@ class GraphStore:
                 configure=_configure,
                 kwargs={"application_name": APPLICATION_NAME},
             )
-            self._background_pool: ConnectionPool | None = None
-            self._background_lock = threading.Lock()
+        except psycopg.OperationalError as exc:
+            raise _unavailable(exc) from exc
+        try:
             with self.pool.connection() as conn:
                 ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
-        except Exception as exc:
-            if getattr(self, "pool", None) is not None:
-                self.pool.close()  # its workers would go on connecting
-            raise ConnectionError(
-                redacted(
-                    f"Cannot connect to PostgreSQL at {DB_URL} (db={DB_NAME}). "
-                    f"Original error: {exc}"
-                )
-            ) from exc
+        except BaseException as exc:
+            self.pool.close()  # its workers would go on connecting
+            if isinstance(exc, psycopg.OperationalError | PoolTimeout):
+                raise _unavailable(exc) from exc
+            raise
 
         self.payloads: PayloadStore = open_payload_store(
             PAYLOAD_STORE,
@@ -530,9 +569,12 @@ class GraphStore:
         }
 
     def ping(self) -> None:
-        """Raise when the database cannot be reached."""
-        with self.pool.connection() as conn:
-            conn.execute("SELECT 1")
+        """``DatabaseUnavailable`` when the database cannot be reached."""
+        try:
+            with self.pool.connection() as conn:
+                conn.execute("SELECT 1")
+        except (psycopg.OperationalError, PoolTimeout) as exc:
+            raise _unavailable(exc) from exc
 
     @staticmethod
     def _node_table(collection: str) -> sql.Identifier:
@@ -693,6 +735,10 @@ class GraphStore:
             raise ReadTimedOut(
                 "No connection of the pool came free before the deadline of the request."
             ) from exc
+        except psycopg.OperationalError as exc:
+            if _is_unreachable(exc):
+                raise _unavailable(exc) from exc
+            raise
 
     def _read(
         self,
@@ -755,13 +801,26 @@ class GraphStore:
         none (a table emptied and filled again). Sent again when the database was
         unreachable."""
 
-        def run() -> None:
-            with self.pool.connection() as conn:
-                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
-                for statement, params in statements:
-                    conn.execute(_query(statement), params)
+        def run(conn: psycopg.Connection[Any]) -> None:
+            for statement, params in statements:
+                conn.execute(_query(statement), params)
 
-        _retry_write("statements together", run)
+        self.in_transaction("statements together", run)
+
+    def in_transaction(
+        self, what: str, write: Callable[[psycopg.Connection[Any]], T]
+    ) -> T:
+        """Run *write* on a connection in one transaction, each statement under the ceiling
+        of a write: for a write that needs the connection itself (a table built aside and
+        swapped in, the rows a statement changed). A reader sees all of it or none. Run
+        again when the database was unreachable; *what* names it in the log."""
+
+        def run() -> T:
+            with self.pool.connection() as conn, conn.transaction():
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
+                return write(conn)
+
+        return _retry_write(what, run)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
@@ -904,17 +963,14 @@ class GraphStore:
             """
         ).format(table=table)
         rows = [split_node(doc, collection) for doc in docs]
-        return self._upsert_rounds(f"documents of {collection}", statement, rows, "id")
+        return self._upsert_rounds(statement, rows, "id")
 
     def _upsert_rounds(
-        self, what: str, statement: Statement, rows: list[dict[str, Any]], key: str
+        self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
         created = updated = 0
         for batch in _rounds(rows, key):
-            answer = _retry_write(
-                f"{len(batch)} {what}",
-                lambda batch=batch: self.execute(statement, {"rows": Json(batch)}),  # type: ignore[misc]
-            )
+            answer = self.execute(statement, {"rows": Json(batch)})
             new = sum(1 for was_new in answer if was_new)
             created += new
             updated += len(answer) - new
@@ -1024,7 +1080,7 @@ class GraphStore:
             """
         )
         rows = [split_edge(doc) for doc in docs]
-        return self._upsert_rounds("edges", statement, rows, "key")
+        return self._upsert_rounds(statement, rows, "key")
 
 
 def _text(statement: Statement) -> str:

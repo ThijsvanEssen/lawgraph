@@ -11,10 +11,9 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 
 from .base import (
-    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
-    failure_reason,
+    listed,
     missing_record,
 )
 
@@ -43,13 +42,11 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         stored and not modified since is left alone. Those stored in the last 24 hours are
         skipped: they were done by an interrupted run.
         """
-        listed = not identifiers
-        if listed:
+        from_listing = not identifiers
+        if from_listing:
             listing = self.client.search_ministeriele_regelingen(since=since)
-            if not listing and since is None:
-                raise RuntimeError(
-                    "The Staatscourant listing is empty; nothing was retrieved."
-                )
+            if since is None:
+                listed(listing, "Staatscourant ministeriele regelingen")
             # What is stored and not modified since is left alone; that is also what an
             # interrupted run did, so no 24-hour rule here: it would hide a publication that
             # is modified on the day it was stored until it has left the window.
@@ -65,39 +62,31 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         else:
             done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
             wanted = [i for i in identifiers or [] if i not in done]
-        todo = self._without_missing(
-            SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, wanted
+        # One publication that always answers 500 must not end every run at the same
+        # place: the rest is fetched, and a dead source ends the step.
+        yield from self._download_each(
+            self._without_missing(
+                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, wanted
+            ),
+            self.client.fetch_publication_xml,
+            lambda identifier, xml: [
+                RetrieveRecord(
+                    source=SOURCE_STAATSCOURANT,
+                    kind=RAW_KIND_STCRT_REGELING,
+                    external_id=identifier,
+                    payload_text=xml,
+                    meta={"identifier": identifier},
+                )
+            ],
+            source="Staatscourant",
+            missing=lambda identifier, status: missing_record(
+                SOURCE_STAATSCOURANT,
+                RAW_KIND_STCRT_REGELING,
+                identifier,
+                listed=from_listing,
+                status=status,
+            ),
         )
-        self.progress.expect(len(todo))
-        streak = FailureStreak("Staatscourant")
-        for identifier in todo:
-            try:
-                xml = self.client.fetch_publication_xml(identifier)
-            except Exception as exc:
-                # One publication that always answers 500 must not end every run at the
-                # same place: the rest is fetched, and a dead source ends the step.
-                self.progress.fail(
-                    f"download failed ({failure_reason(exc)})", identifier
-                )
-                streak.failed(identifier, exc)
-                continue
-            streak.ok()
-            if xml is None:
-                self.progress.skip("no XML (HTTP 404)", identifier)
-                yield missing_record(
-                    SOURCE_STAATSCOURANT,
-                    RAW_KIND_STCRT_REGELING,
-                    identifier,
-                    listed=listed,
-                )
-                continue
-            yield RetrieveRecord(
-                source=SOURCE_STAATSCOURANT,
-                kind=RAW_KIND_STCRT_REGELING,
-                external_id=identifier,
-                payload_text=xml,
-                meta={"identifier": identifier},
-            )
 
     def run_full(self) -> PipelineResult:
         """Enumerate all ministeriele regelingen via SRU and fetch them."""

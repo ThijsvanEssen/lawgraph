@@ -22,9 +22,7 @@ from lawgraph.config.constants import COLLECTION_JUDGMENTS, RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db import EdgeWriter, NodeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 from .base import SemanticPipelineBase
 
@@ -82,28 +80,21 @@ class ECHRVersionsSemanticPipeline(SemanticPipelineBase):
         )
         kept = versions_kept(rows)
         self._write_same_as(rows, kept, result)
-        written: dict[str, set[str]] = {}
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for row in rows:
             best = kept.get(row["id"])
-            if best is not None and edges.add(
-                row["id"],
-                best["id"],
-                RELATION_SAME_AS,
-                source=SEMANTIC_SOURCE,
-                confidence=1.0,
-                meta={"basis": BASIS},
-            ):
-                written.setdefault(row["id"], set()).add(
-                    edge_key(row["id"], RELATION_SAME_AS, best["id"])
+            if best is not None:
+                edges.add(
+                    row["id"],
+                    best["id"],
+                    RELATION_SAME_AS,
+                    source=SEMANTIC_SOURCE,
+                    confidence=1.0,
+                    meta={"basis": BASIS},
                 )
         edges.flush_into(result)
-        removed = semantic_edges.remove_edges_from(
-            self.store,
-            RELATION_SAME_AS,
-            SEMANTIC_SOURCE,
-            sorted(row["id"] for row in rows),
-            written,
+        removed = edges.remove_stale(
+            RELATION_SAME_AS, SEMANTIC_SOURCE, sorted(row["id"] for row in rows)
         )
         logger.info(
             "%d ECHR versions are another version of a decision kept; removed %d "

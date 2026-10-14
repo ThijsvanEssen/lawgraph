@@ -21,8 +21,8 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, label
-from lawgraph.core.eerstekamer_composition import text
+from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, ek_dossier_label
+from lawgraph.core.xml import html_text
 
 PLENARY_PATH = "/menukeuze_plenair"  # forwards to the next plenary sitting
 COMMITTEE_DAYS_PATH = "/commissievergaderingen_op"  # the next day of committee meetings
@@ -36,6 +36,8 @@ _BLOCK = re.compile(
     re.S,
 )
 _TIME = re.compile(r"^(\d{1,2}\.\d{2}\s*-\s*\d{1,2}\.\d{2})\s*uur\s*(.*)$")
+# The parts of a decision point's reference: ``28.973 / 29.683``, ``E260009 - 36.954``.
+_REFERENCE_PARTS = re.compile(r"/| - ")
 _NUMBERED = re.compile(rf"\(([0-9.]+{NUMBER_SUFFIX})\)\s*$")
 _LINKED_PAPER = re.compile(r'<a href="(/[^"]+)" class="grid-x">(.*?)</a>', re.S)
 _MEETING = re.compile(
@@ -114,9 +116,11 @@ def _nav(page: str) -> tuple[str | None, str | None]:
 
 
 def reference_dossiers(reference: str) -> list[str]:
-    """``28.973 / 29.683 / 32.793, AA`` -> the dossiers ``28973``, ``29683``, ``32793``."""
+    """``28.973 / 29.683 / 32.793, AA`` -> the dossiers ``28973``, ``29683``, ``32793``;
+    ``E260009 - 36.954, D`` -> ``36954``. A part that is no dossier number names none."""
     numbers, _, _letter = reference.partition(",")
-    return [label(part) for part in numbers.split("/") if part.strip()]
+    labels = (ek_dossier_label(part) for part in _REFERENCE_PARTS.split(numbers))
+    return [label for label in labels if label]
 
 
 def plenary(path: str, page: str) -> Plenary:
@@ -124,7 +128,7 @@ def plenary(path: str, page: str) -> Plenary:
     day = _PLENARY_DATE.search(path)
     items = []
     for block_id, heading, papers in _BLOCK.findall(page):
-        head = text(heading)
+        head = html_text(heading)
         timed = _TIME.match(head)
         items.append(
             AgendaItem(
@@ -132,9 +136,10 @@ def plenary(path: str, page: str) -> Plenary:
                 time=timed[1].replace(" ", "") if timed else None,
                 title=(timed[2] if timed else head).strip(),
                 dossiers=[
-                    label(number[1])
+                    label
                     for _, name in _LINKED_PAPER.findall(papers)
-                    if (number := _NUMBERED.search(text(name)))
+                    if (number := _NUMBERED.search(html_text(name)))
+                    and (label := ek_dossier_label(number[1]))
                 ],
             )
         )
@@ -155,23 +160,23 @@ def _meeting(block: str) -> Meeting | None:
     points = []
     for number, point_id, reference, rest in _POINT.findall(block):
         subject, decision = _SUBJECT.search(rest), _DECISION.search(rest)
-        ref = text(reference)
+        ref = html_text(reference)
         points.append(
             DecisionPoint(
                 id=point_id,
-                number=text(number),
+                number=html_text(number),
                 reference=ref,
                 dossiers=reference_dossiers(ref),
-                subject=text(subject[1]) or None if subject else None,
-                decision=text(decision[1]) or None if decision else None,
+                subject=html_text(subject[1]) or None if subject else None,
+                decision=html_text(decision[1]) or None if decision else None,
             )
         )
     return Meeting(
         path=link[1],
         date=f"{link[2]}-{link[3]}-{link[4]}",
-        committees=text(link[5]),
-        kind=text(kind[1]) or None if kind else None,
-        time=text(hour[1]) or None if hour else None,
+        committees=html_text(link[5]),
+        kind=html_text(kind[1]) or None if kind else None,
+        time=html_text(hour[1]) or None if hour else None,
         points=points,
     )
 

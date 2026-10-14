@@ -22,30 +22,21 @@ ways the sources write a name. A curated name no source names is left out.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
-import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
+
+from lawgraph.core.text_fold import plain_words
+from lawgraph.core.time import day_before, shift_day
 
 SOURCE_TOOI = "tooi"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_CURATED = "curated"
 
 
-def _plain(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return " ".join(re.findall(r"[a-z0-9]+", plain))
-
-
 def _day(value: str | None) -> str | None:
     return value[:10] if value else None
-
-
-def _shift(day: str, days: int) -> str:
-    return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
 
 
 def _values(item: dict[str, Any], name: str) -> list[str]:
@@ -107,7 +98,7 @@ def tooi_names(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ):
             until = _day(_one(version, "einddatumHV"))
             names.append(_name(uri, version, start, until, ended.get(version["@id"])))
-            start = _shift(until, 1) if until else None
+            start = shift_day(until, 1) if until else None
         names.append(
             _name(
                 uri, ministry, start, _day(_one(ministry, "einddatum")), ended.get(uri)
@@ -160,14 +151,17 @@ def _name_on(names: list[dict[str, Any]], tooi: str, day: str) -> dict[str, Any]
 def _key_for(name: dict[str, Any], by_name: dict[str, str], taken: set[str]) -> str:
     """The key of a name: the one the table has for it, else its abbreviation in lower
     case (``aenm`` of ``AenM``)."""
-    known = by_name.get(_plain(name["name"]))
+    known = by_name.get(plain_words(name["name"]))
     if known:
         return known
-    key = _plain(name["abbreviation"] or name["name"]).replace(" ", "") or "ministerie"
+    key = (
+        plain_words(name["abbreviation"] or name["name"]).replace(" ", "")
+        or "ministerie"
+    )
     while key in taken:
         key += "_"
     taken.add(key)
-    by_name[_plain(name["name"])] = key
+    by_name[plain_words(name["name"])] = key
     return key
 
 
@@ -184,7 +178,7 @@ def tooi_periods(
     for name, key in zip(names, keys, strict=True):
         successor = None
         if name["until"]:
-            day = _shift(name["until"], 1)
+            day = shift_day(name["until"], 1)
             following = _name_on(names, mergers.get(name["tooi"], name["tooi"]), day)
             if following:
                 successor = keys[names.index(following)]
@@ -247,7 +241,7 @@ def page_period(
     handover = bool(last and successor in spans and last in spans[successor or ""][2])
     return {
         "from": first,
-        "until": _shift(last, -1) if handover and last else None,
+        "until": day_before(last) if handover and last else None,
         "successor": successor,
         "basis": None,
         "source": SOURCE_RIJKSOVERHEID,
@@ -270,7 +264,7 @@ def build_ministries(
     list lacks comes at the end, keyed by its abbreviation."""
     order = curated["ministries"]
     successions = curated.get("successions") or {}
-    by_name = {_plain(m["name"]): m["key"] for m in order}
+    by_name = {plain_words(m["name"]): m["key"] for m in order}
     taken = {m["key"] for m in order}
     official = tooi_periods(tooi, by_name, taken)
     spans = page_spans(cabinets)

@@ -15,10 +15,12 @@ from lawgraph.pipelines.semantic.tk_mvt import (
     SEMANTIC_SOURCE_SECTIONS,
     TKMvtSemanticPipeline,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore
+
+pytestmark = pytest.mark.usefixtures("edge_removals")
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
     """Holds the rows the single targets query would produce."""
 
     def __init__(self, rows: list[dict[str, Any]]) -> None:
@@ -32,7 +34,7 @@ def _targets(monkeypatch: pytest.MonkeyPatch) -> None:
     """``memorandum_targets`` answers with the rows of the store, and records the read."""
 
     def memorandum_targets(
-        store: _FakeStore, *, sections_source: str
+        store: _Store, *, sections_source: str
     ) -> Iterator[dict[str, Any]]:
         store.reads.append(sections_source)
         return iter(list(store.rows))
@@ -41,7 +43,7 @@ def _targets(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             {
                 "document": "documents/mvt-1",
@@ -66,7 +68,7 @@ def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None
 
 
 def test_pipeline_falls_back_to_the_instrument() -> None:
-    store = _FakeStore(
+    store = _Store(
         [{"document": "documents/nvt-1", "targets": ["instruments/bwbr0009999"]}]
     )
 
@@ -78,7 +80,7 @@ def test_pipeline_falls_back_to_the_instrument() -> None:
 
 
 def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
-    store = _FakeStore(
+    store = _Store(
         [
             {"document": f"documents/mvt-{n}", "targets": [f"articles/a{n}"]}
             for n in range(50)
@@ -93,7 +95,7 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
 
 
 def test_pipeline_returns_empty_when_no_documents() -> None:
-    store = _FakeStore([])
+    store = _Store([])
 
     result = TKMvtSemanticPipeline(store=store).run()
 
@@ -102,7 +104,7 @@ def test_pipeline_returns_empty_when_no_documents() -> None:
 
 
 def test_pipeline_skips_rows_without_targets() -> None:
-    store = _FakeStore([{"document": "documents/mvt-1", "targets": []}])
+    store = _Store([{"document": "documents/mvt-1", "targets": []}])
 
     result = TKMvtSemanticPipeline(store=store).run()
 

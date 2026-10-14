@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 import pytest
 
 from lawgraph.core import bwb_xml
 from lawgraph.core.bwb_xml import article_version_key, historical_article_key
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
@@ -18,7 +18,7 @@ from lawgraph.pipelines.normalize.bwb_history import (
     BWBHistoryNormalizePipeline,
     valid_until_by_key,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 XML = (
     pathlib.Path(__file__).parent.parent / "fixtures" / "bwb_grondwet_toestand.xml"
@@ -26,53 +26,20 @@ XML = (
 GRONDWET = "BWBR0001840"
 
 
-class _Store(RawSourcesFake):
-    """In-memory store: upserts merge props like the real bulk upsert does."""
+class _Store(InMemoryStore):
+    """The shared store, with the BWB normalize queries it was asked in ``queries``."""
 
-    def __init__(self, nodes: dict[str, dict[str, dict]] | None = None) -> None:
-        self.nodes: dict[str, dict[str, dict]] = nodes or {}
-        self.edges: dict[str, dict] = {}
+    def __init__(
+        self, nodes: dict[str, Iterable[dict[str, Any]]] | None = None
+    ) -> None:
+        super().__init__(nodes)
         self.queries: list[str] = []
-        self.existence_calls = 0
-
-    def _put(self, collection: str, doc: dict) -> bool:
-        """Merge *doc* into the collection; True when the key was new."""
-        bucket = self.nodes.setdefault(collection, {})
-        created = doc["_key"] not in bucket
-        old = bucket.get(doc["_key"], {"props": {}})
-        bucket[doc["_key"]] = {"props": {**old["props"], **doc.get("props", {})}}
-        return created
-
-    def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
-        created = sum(self._put(collection, doc) for doc in docs)
-        return created, len(docs) - created
-
-    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
-        created = self._put(node.collection, node.to_document())
-        stored = Node(
-            collection=node.collection,
-            type=node.type,
-            key=node.key,
-            props=dict(self.nodes[node.collection][node.key]["props"]),
-            _skip_validation=True,
-        )
-        return stored, created
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]):
-        created = sum(doc["_key"] not in self.edges for doc in docs)
-        for doc in docs:
-            self.edges[doc["_key"]] = doc
-        return created, len(docs) - created
-
-    def existing_keys(self, collection: str, keys) -> set[str]:
-        self.existence_calls += 1
-        return set(keys) & set(self.nodes.get(collection, {}))
 
 
 def patch_store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of the BWB normalize pipelines, answered from the nodes of a ``_Store``;
-    each call is recorded in ``store.queries``. No raw record is stored, and no toestand
-    start: a version ends where the next one begins."""
+    each call is recorded in ``store.queries``. No toestand start is stored: a version
+    ends where the next one begins."""
 
     def recorded(name: str, answer: Any) -> Any:
         def recording(store: _Store, *args: Any, **kwargs: Any) -> Any:
@@ -115,12 +82,10 @@ def patch_store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         ("update_instrument_abbreviations", lambda store, rows: 0),
     ):
         monkeypatch.setattr(normalize_bwb, name, recorded(name, answer))
-    monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)
-    monkeypatch.setattr(raw_queries, "iter_raw_records", lambda *_, **__: iter([]))
 
 
 @pytest.fixture(autouse=True)
-def _store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
+def _store_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     patch_store_queries(monkeypatch)
 
 
@@ -280,11 +245,12 @@ def test_incremental_run_fixes_the_previous_version_from_the_database() -> None:
 def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
     store = _Store(
         {
-            "articles": {
-                make_node_key(GRONDWET, "7"): {
-                    "props": {"bwb_id": GRONDWET, "stam_id": "2990103"}
+            "articles": [
+                {
+                    "_key": make_node_key(GRONDWET, "7"),
+                    "props": {"bwb_id": GRONDWET, "stam_id": "2990103"},
                 }
-            }
+            ]
         }
     )
 
@@ -321,9 +287,12 @@ def test_an_identity_missing_from_the_current_toestand_gets_a_historical_article
 def test_existing_instruments_are_not_overwritten_by_history() -> None:
     store = _Store(
         {
-            "instruments": {
-                make_node_key(GRONDWET): {"props": {"title": "Grondwet (current)"}}
-            }
+            "instruments": [
+                {
+                    "_key": make_node_key(GRONDWET),
+                    "props": {"title": "Grondwet (current)"},
+                }
+            ]
         }
     )
 
@@ -455,3 +424,107 @@ def test_only_the_current_toestand_is_normalized_not_the_history(
     list(BWBNormalizePipeline(store=_Store()).fetch_raw())
     assert asked == [[RAW_KIND_BWB_TOESTAND]]
     assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]
+
+
+def _run_history_pipeline(
+    store: _Store, records: list[dict[str, Any]]
+) -> PipelineResult:
+    pipeline = BWBHistoryNormalizePipeline(store=store)
+    pipeline.fetch_raw = lambda *, since=None: records  # type: ignore[method-assign]
+    return pipeline.run()
+
+
+@pytest.mark.parametrize("start", [None, "2020-13-40"])
+def test_a_toestand_without_a_valid_start_date_is_skipped_not_dated_unknown(
+    start: str | None,
+) -> None:
+    store = _Store()
+    undated = _record(_older(XML), "2002-03-21", "2023-02-21")
+    undated["meta"]["start_date"] = start
+
+    result = _run_history_pipeline(
+        store, [undated, _record(XML, "2023-02-22", "9999-12-31")]
+    )
+
+    assert (result.skipped, result.errors) == (1, [])
+    assert list(store.nodes["instrument_versions"]) == [
+        make_node_key(GRONDWET, "2023-02-22")
+    ]
+    seen = {d["props"]["last_seen"] for d in store.nodes["article_versions"].values()}
+    assert seen == {"2023-02-22"}
+
+
+def test_a_toestand_with_an_unreadable_end_date_is_skipped() -> None:
+    store = _Store()
+
+    result = _run_history_pipeline(
+        store,
+        [
+            _record(_older(XML), "2002-03-21", "2023-02-31"),
+            _record(XML, "2023-02-22", "9999-12-31"),
+        ],
+    )
+
+    assert (result.skipped, result.errors) == (1, [])
+    assert len(store.nodes["instrument_versions"]) == 1
+
+
+def test_an_unreadable_toestand_fails_the_step_and_names_the_record() -> None:
+    store = _Store()
+
+    result = _run_history_pipeline(
+        store,
+        [
+            _record("<toestand><bad", "2002-03-21", "2023-02-21"),
+            _record(XML, "2023-02-22", "9999-12-31"),
+        ],
+    )
+
+    assert result.skipped == 1
+    (error,) = result.errors
+    assert "not XML" in error and f"{GRONDWET}@2002-03-21" in error
+    assert len(store.nodes["instrument_versions"]) == 1
+
+
+def test_a_current_toestand_without_payload_is_skipped_and_one_not_xml_fails() -> None:
+    pipeline = BWBNormalizePipeline(store=_Store())
+    progress = pipeline.progress
+    empty = {**_record(XML, "2023-02-22", "9999-12-31"), "payload_text": ""}
+    broken = _record("<toestand><bad", "2023-02-22", "9999-12-31")
+    result = PipelineResult()
+
+    pipeline.normalize_nodes(
+        [empty, broken, _record(XML, "2023-02-22", "9999-12-31")], result
+    )
+    pipeline.add_outcomes(result)
+
+    assert progress.skips == {"no payload or BWB id": 1}
+    assert progress.failures == {"toestand not XML": 1}
+    assert result.skipped == 2
+    (error,) = result.errors
+    assert "toestand not XML" in error and GRONDWET in error
+
+
+def test_a_wti_record_without_payload_is_skipped_and_one_not_xml_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL
+
+    wti = [
+        {"_key": "w-1", "external_id": "BWBR0002656", "payload_text": ""},
+        {"_key": "w-2", "external_id": GRONDWET, "payload_text": "<wti><bad"},
+    ]
+
+    def iter_raw_records(store: Any, *, kinds: list[str], **_: Any) -> Iterator:
+        return iter(wti if kinds == [RAW_KIND_BWB_WTI_GENERAL] else [])
+
+    monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
+    pipeline = BWBNormalizePipeline(store=_Store())
+    result = PipelineResult()
+
+    pipeline.normalize_nodes([], result)
+    pipeline.add_outcomes(result)
+
+    assert result.skipped == 2
+    (error,) = result.errors
+    assert "WTI not XML" in error and GRONDWET in error

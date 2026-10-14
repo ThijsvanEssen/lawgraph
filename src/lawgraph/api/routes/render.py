@@ -20,27 +20,18 @@ from __future__ import annotations
 from typing import Annotated, Any
 from urllib.parse import unquote, urlencode
 
-import psycopg
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages import PAGES, Page, cut, title_of
-from lawgraph.core.logging import get_logger
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup, seo
 from lawgraph.db.schema import NODE_COLLECTIONS
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 
-logger = get_logger(__name__)
 router = APIRouter()
 
 # The seconds the reads of one page may take: past them the page is the shell with its
@@ -179,13 +170,10 @@ def render_page(
     canonical = pad_href(pad)
     if unquote(canonical) != unquote(pathname):
         return _redirect(canonical + _query(request))
-    left = read_time_left()
-    token = set_read_deadline(
-        RENDER_BUDGET if left is None else min(RENDER_BUDGET, left)
-    )
     node_id: str | None = None
-    timed_out = False
-    try:
+    with read_budget(
+        RENDER_BUDGET, f"The render of {pathname} (its title alone)"
+    ) as budget:
         node_id = seo.node_of(store, pad)
         if node_id is None:
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
@@ -193,19 +181,7 @@ def render_page(
             return _redirect(same + _query(request))
         source = _source_page(store, pad, node_id)
         stamp = store.data_version()
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
-        logger.warning(
-            "Render of %s past %.1f s: its title alone.", pathname, RENDER_BUDGET
-        )
-        timed_out = True
-    except psycopg.OperationalError:
-        # the database is gone: Caddy serves the static shell on a 503
-        return Response(status_code=503, headers={"Retry-After": "30"})
-    finally:
-        reset_read_deadline(token)
-    if timed_out:
+    if budget.ran_out:
         return _html(
             request, _title_page(store, node_id, canonical), 200, "no-store", None
         )
@@ -225,13 +201,11 @@ def _title_page(store: GraphStore, node_id: str | None, path: str) -> Page:
     if node_id is None:
         return Page("", "", path)
     collection, _, key = node_id.partition("/")
-    token = set_read_deadline(TITLE_BUDGET)
-    try:
+    doc = None
+    with read_budget(TITLE_BUDGET, f"The title of {path}") as budget:
         doc = store.get_document(collection, key)
-    except ReadTimedOut:
+    if budget.ran_out:
         return Page("", "", path, focus=node_id)
-    finally:
-        reset_read_deadline(token)
     if not isinstance(doc, dict):
         return Page("", "", path)
     title, description = title_of(node_id, doc.get("props") or {})

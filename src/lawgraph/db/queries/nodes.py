@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
-from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
+from lawgraph.core.models import (
+    COLLECTION_OF_TYPE,
+    DIRECTIONS,
+    TYPE_OF_COLLECTION,
+    Direction,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
     canvas_edge_doc,
@@ -17,25 +22,14 @@ from lawgraph.db._rows import (
     light_props,
 )
 from lawgraph.db.queries._helpers import _extract_confidence
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.queries.not_found import require_node
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
-
-
-class NodeNotFoundError(ValueError):
-    """Raised when a requested node does not exist in the collection."""
 
 
 class UnsupportedCollectionError(ValueError):
     """Raised when a collection name is not in the allowed set."""
 
-
-Direction = Literal["outbound", "inbound"]
-DIRECTIONS: tuple[Direction, ...] = ("outbound", "inbound")
 
 # Every node collection can be explored: one per node type.
 _ALLOWED_NODE_COLLECTIONS = frozenset(TYPE_OF_COLLECTION)
@@ -164,10 +158,7 @@ class NodeGraphData:
 def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if collection not in _ALLOWED_NODE_COLLECTIONS:
         raise UnsupportedCollectionError("unsupported collection")
-    node = store.get_document(collection, key)
-    if node is None:
-        raise NodeNotFoundError("node not found")
-    return node
+    return require_node(store, collection, key, "Node")
 
 
 def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:
@@ -351,17 +342,9 @@ def _kept_lids(
 
     if wait:
         return kept()
-    left = read_time_left()
-    token = set_read_deadline(
-        LIGHT_LIDS_WAIT if left is None else min(LIGHT_LIDS_WAIT, left)
-    )
-    try:
-        with stale_wait(0.0):
-            return kept()
-    except ReadTimedOut:
-        return None
-    finally:
-        reset_read_deadline(token)
+    with read_budget(LIGHT_LIDS_WAIT, "The lid counts"), stale_wait(0.0):
+        return kept()
+    return None
 
 
 # How long the lid counts of an article are kept (seconds); a newer count is made in the

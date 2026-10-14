@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import collections
 import faulthandler
 import ipaddress
 import logging
@@ -14,12 +13,13 @@ from typing import Annotated, Any
 
 import anyio
 import anyio.to_thread
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
+from lawgraph import __version__
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import (
@@ -55,11 +55,14 @@ from lawgraph.config.settings import (
     API_TRUSTED_PROXIES,
     API_WARM_UP,
 )
-from lawgraph.core.logging import setup_logging
+from lawgraph.core.logging import describe, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
+from lawgraph.db.queries.not_found import NotFound
+from lawgraph.db.schema import CollationMismatch, SchemaOutdated
 from lawgraph.db.store import (
     Cancellation,
+    DatabaseUnavailable,
     ReadTimedOut,
     RequestCancelled,
     reset_cancellation,
@@ -96,7 +99,7 @@ class _DataVersion:
                     lambda: self._store().data_version()
                 )
             except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
-                _logger.warning("No data version: %s: %s", type(exc).__name__, exc)
+                _logger.warning("No data version: %s", describe(exc))
                 self._value = None
             self._read_at = time.monotonic()
         return self._value
@@ -233,8 +236,36 @@ class _CancelOnDisconnectMiddleware:
             reset_cancellation(token)
 
 
+def _network(host: str, ipv4_prefix: int, ipv6_prefix: int) -> str:
+    """The network of *host* with the prefix for its version; what is no address (``-``,
+    a name) is left as it is."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        address = address.ipv4_mapped
+    prefix = ipv4_prefix if address.version == 4 else ipv6_prefix
+    return str(
+        ipaddress.ip_network(f"{address}/{prefix}", strict=False).network_address
+    )
+
+
+def rate_limit_key(host: str) -> str:
+    """Whom the rate limit counts: an IPv4 address, or the /64 of an IPv6 address (one
+    subscriber, who can take a new address in it for every request)."""
+    return _network(host, ipv4_prefix=32, ipv6_prefix=64)
+
+
+def truncated_ip(host: str) -> str:
+    """The network of *host*, not the host: an IPv4 address to its /24 (``203.0.113.0``),
+    an IPv6 address to its /48. The full address is in no log line; only the rate limiter
+    holds it (of IPv6 its /64), in memory."""
+    return _network(host, ipv4_prefix=24, ipv6_prefix=48)
+
+
 class _RateLimitMiddleware:
-    """Simple sliding-window rate limiter keyed by client IP.
+    """Sliding-window rate limiter keyed by ``rate_limit_key`` of the client.
 
     Every request counts, also one with the ``Origin`` of our own front end: any client
     can send that header, and a visitor of the front end has an address of their own.
@@ -255,16 +286,16 @@ class _RateLimitMiddleware:
 
     _LOOPBACK_PROXIES = frozenset({"127.0.0.1", "::1"})
 
-    def __init__(self, app) -> None:
+    def __init__(self, app, clock: Callable[[], float] = time.monotonic) -> None:
         self._app = app
+        self._clock = clock
         self._calls = API_RATE_LIMIT_CALLS
         self._period = API_RATE_LIMIT_PERIOD
         # X-Forwarded-For is honoured only from these hops; loopback is always trusted so
         # a reverse proxy on the same host works.
         self._trusted_proxies = API_TRUSTED_PROXIES | self._LOOPBACK_PROXIES
-        self._history: collections.defaultdict[str, list[float]] = (
-            collections.defaultdict(list)
-        )
+        self._history: dict[str, list[float]] = {}
+        self._swept_at = clock()
 
     @staticmethod
     def _client_ip(
@@ -285,27 +316,30 @@ class _RateLimitMiddleware:
                 return hop
         return hop_ip
 
+    def _sweep(self, cutoff: float) -> None:
+        """Forget every client without a request inside the window."""
+        self._history = {
+            key: times
+            for key, times in self._history.items()
+            if times and times[-1] > cutoff
+        }
+        self._swept_at = self._clock()
+
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
 
         headers = dict(scope.get("headers") or [])
-        ip = self._client_ip(scope, headers, self._trusted_proxies)
-        now = time.time()
+        key = rate_limit_key(self._client_ip(scope, headers, self._trusted_proxies))
+        now = self._clock()
         cutoff = now - self._period
+        if now - self._swept_at >= self._period:
+            self._sweep(cutoff)
 
-        # Prune stale timestamps; delete the key entirely when empty so the
-        # dict doesn't grow unboundedly for long-lived servers with many IPs.
-        bucket = self._history.get(ip)
-        if bucket is not None:
-            pruned = [t for t in bucket if t > cutoff]
-            if pruned:
-                self._history[ip] = pruned
-            else:
-                del self._history[ip]
-
-        if len(self._history.get(ip, [])) >= self._calls:
+        recent = [t for t in self._history.get(key, ()) if t > cutoff]
+        if len(recent) >= self._calls:
+            self._history[key] = recent
             body = b'{"detail":"Rate limit exceeded. Try again later."}'
             response = StarletteResponse(
                 content=body,
@@ -316,13 +350,13 @@ class _RateLimitMiddleware:
             await response(scope, receive, send)
             return
 
-        self._history[ip].append(now)
+        self._history[key] = [*recent, now]
         await self._app(scope, receive, send)
 
 
 app = FastAPI(
     title="Lawgraph API",
-    version="0.79.56",
+    version=__version__,
     description=(
         "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
@@ -362,43 +396,29 @@ app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 app.include_router(render.router)
 
 
-def truncated_ip(host: str) -> str:
-    """The network of *host*, not the host: an IPv4 address to its /24 (``203.0.113.0``),
-    an IPv6 address to its /48. The full address is in no log line; only the rate limiter
-    holds it, in memory. What is no address (``-``, a name) is left as it is."""
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        return host
-    prefix = 24 if address.version == 4 else 48
-    return str(
-        ipaddress.ip_network(f"{address}/{prefix}", strict=False).network_address
-    )
-
-
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - start) * 1000
-    response.headers["X-Request-ID"] = request_id
     # the path without its query string (a search term may name a person) and the
     # network of the client, never its address
-    path = request.url.path
-    client = truncated_ip(request.client.host) if request.client else "-"
-    size = response.headers.get("content-length", "-")
-    _logger.info(
-        "[%s] %s %s %s → %d %sb (%.1fms)",
-        request_id[:8],
-        client,
-        request.method,
-        path,
-        response.status_code,
-        size,
-        duration_ms,
+    line = (
+        f"[{request_id[:8]}] "
+        f"{truncated_ip(request.client.host) if request.client else '-'} "
+        f"{request.method} {request.url.path} →"
     )
+    try:
+        response = await call_next(request)
+    except Exception:
+        # an error no handler answers: the server answers 500, this is its line
+        duration_ms = (time.perf_counter() - start) * 1000
+        _logger.exception("%s 500 (%.1fms)", line, duration_ms)
+        raise
+    duration_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Request-ID"] = request_id
+    size = response.headers.get("content-length", "-")
+    _logger.info("%s %d %sb (%.1fms)", line, response.status_code, size, duration_ms)
     return response
 
 
@@ -442,37 +462,33 @@ async def health(
     pool its size, the free connections and the reads waiting for one; ``busy`` what the
     threads of the shared pools and of the background (the cache, the warm-up) run now,
     and how long."""
-    try:
-        store.ping()
-        answer: dict[str, Any] = {
-            "status": "ok",
-            "version": app.version,
-            "database": "connected",
-            "warm": None,
-        }
-        if API_WARM_UP:
-            from lawgraph.api.warm import is_warm, warmed_version
+    store.ping()
+    answer: dict[str, Any] = {
+        "status": "ok",
+        "version": app.version,
+        "database": "connected",
+        "warm": None,
+    }
+    if API_WARM_UP:
+        from lawgraph.api.warm import is_warm, warmed_version
 
-            answer |= {
-                "warm": is_warm(store),
-                "warm_version": warmed_version(),
-                "data_version": store.data_version(),
-                "computing": version_cache.computing(store),
-            }
-        return HealthDTO.model_validate(
-            answer
-            | {
-                "pools": store.pool_usage(),
-                "busy": sorted(
-                    busy_calls() + version_cache.busy(),
-                    key=lambda call: -call["seconds"],
-                ),
-            }
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503, detail=f"Database unavailable: {exc}"
-        ) from exc
+        data_version = store.data_version()
+        answer |= {
+            "warm": is_warm(data_version),
+            "warm_version": warmed_version(),
+            "data_version": data_version,
+            "computing": version_cache.computing(store),
+        }
+    return HealthDTO.model_validate(
+        answer
+        | {
+            "pools": store.pool_usage(),
+            "busy": sorted(
+                busy_calls() + version_cache.busy(),
+                key=lambda call: -call["seconds"],
+            ),
+        }
+    )
 
 
 def _start_warm_up() -> None:
@@ -487,7 +503,7 @@ def _start_warm_up() -> None:
     try:
         version_cache.warm(store_of(), settle=0)
     except Exception as exc:  # noqa: BLE001 — the API starts without its warm-up
-        _logger.warning("No warm-up at the start: %s: %s", type(exc).__name__, exc)
+        _logger.warning("No warm-up at the start: %s", describe(exc), exc_info=True)
 
 
 def _thread_dump_on_signal() -> None:
@@ -504,8 +520,36 @@ app.router.on_startup.append(search_terms.start)
 app.router.on_shutdown.append(search_terms.stop)
 
 
-# How long a client waits before it asks again after a read ran past its ceiling.
+# How long a client waits before it asks again after a read ran past its ceiling, or
+# while the database is unavailable.
 READ_TIMEOUT_RETRY_AFTER = 30
+_RETRY_AFTER = {"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)}
+
+
+# What a client is told when the database is unavailable, or refused by this version.
+_DATABASE_ERRORS: dict[type[Exception], str] = {
+    DatabaseUnavailable: "The database is unavailable. Try again later.",
+    SchemaOutdated: "The database schema is outdated.",
+    CollationMismatch: "The database sorts by another collation.",
+}
+
+
+async def _database_unavailable(request: Request, exc: Exception) -> StarletteResponse:
+    """A database the API cannot reach, or one this version refuses: 503 with
+    ``Retry-After``; the cause goes to the log, not to the client. A page of ``/render``
+    gets no body: Caddy serves the shell of the front end on a 503."""
+    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
+    if request.url.path.startswith("/render/"):
+        return StarletteResponse(status_code=503, headers=_RETRY_AFTER)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": _DATABASE_ERRORS[type(exc)]},
+        headers=_RETRY_AFTER,
+    )
+
+
+for _error in _DATABASE_ERRORS:
+    app.add_exception_handler(_error, _database_unavailable)
 
 
 @app.exception_handler(ReadTimedOut)
@@ -521,8 +565,14 @@ async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
     return JSONResponse(
         status_code=503,
         content={"detail": "The query took too long. Try again later, or narrow it."},
-        headers={"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)},
+        headers=_RETRY_AFTER,
     )
+
+
+@app.exception_handler(NotFound)
+async def _not_found(request: Request, exc: NotFound) -> JSONResponse:
+    """What a query or route did not find is a 404; any other error stays a 500."""
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
 def _run_server() -> None:

@@ -31,7 +31,8 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.xml import after_nonspace, collapse_ws, local_name
+from lawgraph.core.qualifiers import ORDINAL, ordinal_number
+from lawgraph.core.xml import after_nonspace, child_named, collapse_ws, local_name
 
 logger = get_logger(__name__)
 
@@ -231,9 +232,8 @@ class _Flattener:
         for item in element:
             if local_name(item.tag) != "li":
                 continue
-            number = next(
-                (self._inline(c) for c in item if local_name(c.tag) == "li.nr"), ""
-            )
+            marker = child_named(item, "li.nr")
+            number = self._inline(marker) if marker is not None else ""
             body = self._inline(item, skip={"li.nr", "lijst"})
             self._body(collapse_ws(f"{number} {body}"))
             for nested in item:
@@ -361,21 +361,8 @@ _PART_RE = re.compile(
     rf"|^(?P<letters>{_PART_LETTERS}(?:\s*(?:,|en|t/m|tot en met)\s*{_PART_LETTERS})*)\s*\.?$",
     re.IGNORECASE,
 )
-_ORDINALS = {
-    "eerste": "1",
-    "tweede": "2",
-    "derde": "3",
-    "vierde": "4",
-    "vijfde": "5",
-    "zesde": "6",
-    "zevende": "7",
-    "achtste": "8",
-    "negende": "9",
-    "tiende": "10",
-}
-_ORDINAL = rf"(?:{'|'.join(_ORDINALS)}|\d{{1,2}}e)"
 _PARAGRAPH_RE = re.compile(
-    rf"^(?P<ord>{_ORDINAL})(?:\s*(?:,|en)\s*{_ORDINAL})*\s+lid\b"
+    rf"^(?P<ord>{ORDINAL})(?:\s*(?:,|en)\s*{ORDINAL})*\s+lid\b"
     r"|^lid\s+(?P<n>\d{1,2}[a-z]?)\b|^leden\s+(?P<first>\d{1,2})"
     r"|^ad\s+(?P<ad>\d{1,2}[a-z]?)(?![\w])",
     re.IGNORECASE,
@@ -550,11 +537,8 @@ def _classify(number: str | None, core: str, top: bool) -> _Heading:
 
 
 def _paragraph_number(match: re.Match[str]) -> str | None:
-    ordinal = (match["ord"] or "").lower()
-    if ordinal in _ORDINALS:
-        return _ORDINALS[ordinal]
-    if ordinal:  # "2e"
-        return ordinal[:-1]
+    if match["ord"]:
+        return ordinal_number(match["ord"])
     return match["n"] or match["first"] or match["ad"]
 
 
@@ -829,11 +813,11 @@ def parse_kamerstuk(
         return ParsedKamerstuk()
     try:
         return _parse(root, dialect, max_chars, structure=True)
-    except Exception:  # a paper that is odd in a way nobody expected still has its text
+    except Exception:  # noqa: BLE001 — a paper that is odd in a way nobody expected still has its text
         logger.warning("Kamerstuk XML could not be structured; keeping the text only.")
     try:
         return _parse(root, dialect, max_chars, structure=False)
-    except Exception:
+    except Exception:  # noqa: BLE001 — a paper that cannot be parsed has no text
         return ParsedKamerstuk()
 
 

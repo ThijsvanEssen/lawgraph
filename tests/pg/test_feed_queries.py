@@ -45,6 +45,7 @@ from lawgraph.db.queries.feed import (
     get_feed_summary,
 )
 from tests.databases import fresh_database
+from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
 
 # TK GUIDs: a member's key is its GUID made a node key.
@@ -520,6 +521,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "series": "stb",
         "year": 2026,
         "number": "10",
+        "citation": "Stb. 2026, 10",
         "instruments": [
             {
                 "key": "bwbr0000001",
@@ -929,6 +931,55 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
         "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
         "38004": (None, None, None),
     }
+
+
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        (
+            "Artikel III\nDeze wet wordt aangehaald als: Wet sterkere archieven.",
+            "Wet sterkere archieven",
+        ),
+        (
+            "Deze wet wordt aangehaald als: Wet sterkere archieven",
+            "Wet sterkere archieven",
+        ),
+        ("Deze wet wordt aangehaald als:Spoedwet zorg.", "Spoedwet zorg"),
+        (
+            "Deze wet wordt aangehaald als: Wet open overheid .\r\nArtikel IV",
+            "Wet open overheid",
+        ),
+    ],
+)
+def test_the_citation_title_of_a_bill_is_its_whole_name(
+    store: GraphStore, text: str, title: str
+) -> None:
+    """The name after "wordt aangehaald als", up to the full stop or the end of its line."""
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _node(
+                    COLLECTION_DOSSIERS,
+                    NodeType.DOSSIER,
+                    "38001",
+                    number="38001",
+                    label="38001",
+                    title="Wijziging van enige wetten",
+                ),
+                _document(
+                    "bill_101", "Voorstel van wet", "2026-06-01", "38001", text=text
+                ),
+            ]
+        )
+    _serve(store)
+    try:
+        items = _feed(_test_client(), kind="Voorstel van wet")["items"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [
+        (item["dossier"]["short_title"], item["dossier"]["short_title_basis"])
+        for item in items
+    ] == [(title, "citation")]
 
 
 def test_a_page_after_a_cursor_counts_the_whole_window(client: TestClient) -> None:
@@ -1626,7 +1677,7 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     """Under a filter not counted before (an ``until``: a minute or more on the full
     graph, cold), the page answers within ``COUNTS_BUDGET`` without its total and facets,
     ``partial``; they are counted on, and the next request has them."""
-    import time
+    import threading
 
     from lawgraph.db import version_cache
     from lawgraph.db.queries import feed as feed_queries
@@ -1636,22 +1687,24 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     assert expected["partial"] is False and expected["total"]
     version_cache.clear()
     counts = feed_queries._counts_per_kind
+    release = threading.Event()
 
     def slow(store: GraphStore, filters: Any) -> Any:
-        time.sleep(2)
+        release.wait(PATIENCE)
         return counts(store, filters)
 
     monkeypatch.setattr(feed_queries, "_counts_per_kind", slow)
     monkeypatch.setattr(feed_queries, "COUNTS_BUDGET", 0.3)
-    started = time.monotonic()
-    first = _feed(client, until="2026-12-31")
-    assert time.monotonic() - started < 1.5
+    try:
+        first = _feed(client, until="2026-12-31")
+        assert not release.is_set()  # answered while they are counted
+    finally:
+        release.set()
     assert first["partial"] is True
     assert first["total"] is None and first["facets"] is None
     assert _ids(first) == _ids(expected)
-    time.sleep(2.5)
+    assert until(lambda: _feed(client, until="2026-12-31")["partial"] is False)
     again = _feed(client, until="2026-12-31")
-    assert again["partial"] is False
     assert again["total"] == expected["total"]
     assert again["facets"] == expected["facets"]
 

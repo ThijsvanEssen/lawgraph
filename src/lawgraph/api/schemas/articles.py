@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
     VALID_UNTIL,
     ArticleCitationSpan,
     ArticleRelationDTO,
+    ChangeEffect,
     DefinitionDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
@@ -38,6 +39,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
+from lawgraph.core.display import shorten
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
@@ -45,6 +47,7 @@ from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.xml import collapse_ws
 
 ExplanationTarget = Literal["article", "article_version"]
 ExplanationScope = Literal["dossier", "article"]
@@ -624,7 +627,7 @@ class LegislativeHistoryEntry(BaseModel):
         None,
         description="Document kind of a bill, publication kind (`Stb`) of a publication.",
     )
-    change: Literal["establishes", "amends", "introduces", "repeals"] = Field(
+    change: ChangeEffect = Field(
         ...,
         description="`establishes`: the publication that enacted the regulation set the "
         "article; else the change it made or a bill proposes.",
@@ -677,15 +680,9 @@ def passage_excerpt(opening: Any, heading: str | None) -> str | None:
     if not isinstance(opening, str):
         return None
     first, _, rest = opening.partition("\n")
-    if heading and " ".join(first.split()) == " ".join(heading.split()):
+    if heading and collapse_ws(first) == collapse_ws(heading):
         opening = rest
-    text = " ".join(opening.split())
-    if not text:
-        return None
-    if len(text) <= EXCERPT_CHARS:
-        return text
-    head = text[: EXCERPT_CHARS - 1].rsplit(" ", 1)[0].rstrip(",;:.")
-    return f"{head}…"
+    return shorten(collapse_ws(opening), EXCERPT_CHARS) or None
 
 
 class ArticleExplanationDTO(BaseModel):

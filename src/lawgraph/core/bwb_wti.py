@@ -12,14 +12,14 @@ label.
 
 from __future__ import annotations
 
-import re
-import unicodedata
 import xml.etree.ElementTree as ET
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
+from lawgraph.core.slugs import claim_numbered
+from lawgraph.core.text_fold import ascii_slug
 from lawgraph.core.xml import collapse_ws, first_named, iter_named
 
 GENERAL_INFO_START = "<algemene-informatie"
@@ -65,13 +65,6 @@ def parse_subjects(general_info_xml: str) -> tuple[list[dict[str, Any]], list[st
     return areas, domains
 
 
-def slugify(text: str) -> str:
-    """``staats-en-bestuursrecht`` for "Staats- en bestuursrecht": lower case ASCII words
-    joined by ``-``."""
-    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
-
-
 def assign_slugs(concepts: Sequence[tuple[str, str, str | None]]) -> dict[str, str]:
     """``key -> slug`` of the *concepts* ``(key, label, broader key)`` of one list, each
     slug once in the list. A slug is that of the label; a narrower concept whose slug is
@@ -82,14 +75,10 @@ def assign_slugs(concepts: Sequence[tuple[str, str, str | None]]) -> dict[str, s
     slugs: dict[str, str] = {}
     taken: set[str] = set()
     for key, label, broader in ordered:
-        slug = slugify(label) or "concept"
+        slug = ascii_slug(label) or "concept"
         if slug in taken and broader in slugs:
             slug = f"{slugs[broader]}-{slug}"
-        base, n = slug, 2
-        while slug in taken:
-            slug, n = f"{base}-{n}", n + 1
-        slugs[key] = slug
-        taken.add(slug)
+        slugs[key] = claim_numbered(slug, taken)
     return slugs
 
 
@@ -240,9 +229,7 @@ def choose_short_titles(
     chosen: dict[str, str | None] = {}
     for regulation_id, abbreviations in abbreviations_by_id.items():
         own = [
-            a
-            for a in abbreviations
-            if claims[a.upper()] == 1 and a.upper() not in CODE_FAMILIES
+            a for a in abbreviations if claims[a.upper()] == 1 and not is_code_family(a)
         ]
         chosen[regulation_id] = (
             min(own, key=lambda a: (len(a), not _citation_form(a))) if own else None

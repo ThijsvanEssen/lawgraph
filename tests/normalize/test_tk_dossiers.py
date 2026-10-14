@@ -32,51 +32,38 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, count_calls
 
 SOURCE = "test"
 
 
-class _Store(RawSourcesFake):
-    """The slice of GraphStore the normalizers use, recorded in memory."""
+def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
+    """A store holding the nodes of *existing* (collection -> keys)."""
+    return InMemoryStore(
+        {
+            collection: [{"_key": key, "props": {}} for key in keys]
+            for collection, keys in (existing or {}).items()
+        }
+    )
 
-    def __init__(self, existing: dict[str, set[str]] | None = None) -> None:
-        self.existing = existing or {}
-        self.edge_meta: dict[tuple[str, str, str], dict | None] = {}
-        self.written_nodes: dict[tuple[str, str], dict] = {}
-        self.existence_calls = 0
-        self.bulk_edge_calls = 0
-        self.bulk_node_calls = 0
 
-    def existing_keys(self, collection: str, keys: Any) -> set[str]:
-        self.existence_calls += 1
-        return set(keys) & self.existing.get(collection, set())
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
-        self.bulk_edge_calls += 1
-        for doc in docs:
-            self.edge_meta[(doc["_from"], doc["relation"], doc["_to"])] = (
-                doc.get("meta") or None
-            )
-        return len(docs), 0
-
-    def bulk_insert_or_update_nodes(
-        self, collection: str, docs: list[dict]
-    ) -> tuple[int, int]:
-        self.bulk_node_calls += 1
-        for doc in docs:
-            self.written_nodes[(collection, doc["_key"])] = dict(doc["props"])
-        return len(docs), 0
+def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
+    """The meta of every stored edge, by its endpoints and relation."""
+    return {
+        (edge["_from"], edge["relation"], edge["_to"]): edge.get("meta") or None
+        for edge in store.edges.values()
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -153,7 +140,7 @@ def test_every_edge_this_pipeline_writes_is_in_the_catalogue(
 
 
 def test_documents_are_part_of_their_cases_and_dossiers() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}, COLLECTION_CASES: {"z_1"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}, COLLECTION_CASES: {"z_1"}})
     documents = [
         _document(
             "a", case_ids=["z-1", "z-unknown"], dossier_numbers=["36000", "99999"]
@@ -163,14 +150,14 @@ def test_documents_are_part_of_their_cases_and_dossiers() -> None:
 
     tk_cases.link_subjects(store, documents, RELATION_PART_OF, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_DOCUMENTS}/a", RELATION_PART_OF, f"{COLLECTION_CASES}/z_1"),
         (f"{COLLECTION_DOCUMENTS}/a", RELATION_PART_OF, f"{COLLECTION_DOSSIERS}/36000"),
     }
 
 
 def test_activities_and_decisions_are_about_their_subjects() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
     activity = _node(
         COLLECTION_ACTIVITIES, NodeType.ACTIVITY, "a1", dossier_numbers=["36000"]
     )
@@ -181,7 +168,7 @@ def test_activities_and_decisions_are_about_their_subjects() -> None:
     tk_cases.link_subjects(store, [activity], RELATION_ABOUT, source=SOURCE)
     tk_cases.link_subjects(store, [decision], RELATION_ABOUT, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_ACTIVITIES}/a1", RELATION_ABOUT, f"{COLLECTION_DOSSIERS}/36000"),
         (f"{COLLECTION_DECISIONS}/s1", RELATION_ABOUT, f"{COLLECTION_DOSSIERS}/36000"),
     }
@@ -195,17 +182,17 @@ def test_cases_are_part_of_the_dossiers_they_name(
         {"id": f"{COLLECTION_CASES}/z2", "dossier_numbers": []},
     ]
     monkeypatch.setattr(normalize_tk, "case_dossier_numbers", lambda store: iter(rows))
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
 
     tk_cases.link_cases_to_dossiers(store, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_CASES}/z1", RELATION_PART_OF, f"{COLLECTION_DOSSIERS}/36000")
     }
 
 
 def test_an_activity_is_led_by_its_lead_committee_only() -> None:
-    store = _Store(existing={COLLECTION_COMMITTEES: {"c1"}})
+    store = _store(existing={COLLECTION_COMMITTEES: {"c1"}})
     activities = {
         "a1": _node(COLLECTION_ACTIVITIES, NodeType.ACTIVITY, "a1", committee_id="c1"),
         # A plenary activity has none.
@@ -217,7 +204,7 @@ def test_an_activity_is_led_by_its_lead_committee_only() -> None:
 
     tk_cases.link_activities_to_committees(store, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (f"{COLLECTION_ACTIVITIES}/a1", RELATION_LED_BY, f"{COLLECTION_COMMITTEES}/c1")
     }
 
@@ -226,7 +213,7 @@ def test_an_activity_is_led_by_its_lead_committee_only() -> None:
 
 
 def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
     activities = {
         "a1": _node(
             COLLECTION_ACTIVITIES,
@@ -250,7 +237,7 @@ def test_a_commitment_is_made_in_an_activity_and_about_its_dossiers() -> None:
 
     tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (
             f"{COLLECTION_COMMITMENTS}/t1",
             RELATION_MADE_IN,
@@ -269,7 +256,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 ):
     # 2026A04251 (Wetgevingsoverleg 36835, Verplaatst) kept no agenda; the Kamer replaced
     # it by 2026A06208 (VervangenDoor), whose agenda holds the cases of 36835
-    store = _Store(existing={COLLECTION_DOSSIERS: {"36835"}})
+    store = _store(existing={COLLECTION_DOSSIERS: {"36835"}})
     activities = {
         "moved": _node(
             COLLECTION_ACTIVITIES,
@@ -310,7 +297,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 
     tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
 
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         # made in the activity it names, about what the replacement discussed
         (
             f"{COLLECTION_COMMITMENTS}/t1",
@@ -334,7 +321,7 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
 
 
 def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() -> None:
-    store = _Store(existing={COLLECTION_MEMBERS: {"p1"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p1"}})
     documents = {
         "d1": _document(
             "d1",
@@ -356,7 +343,7 @@ def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() ->
 
     tk_cases.link_authors(store, documents, source=SOURCE)
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_AUTHORED,
@@ -373,7 +360,7 @@ def test_only_people_author_a_document_and_their_role_and_capacity_are_kept() ->
 
 
 def test_a_committee_seat_carries_one_representative_period() -> None:
-    store = _Store(
+    store = _store(
         existing={COLLECTION_COMMITTEES: {"c1"}, COLLECTION_MEMBERS: {"p1", "p2"}}
     )
     raws = [
@@ -414,7 +401,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
 
     tk_members.link_members_to_committees(store, raws, source=SOURCE)
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
@@ -436,7 +423,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
 
 
 def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
-    store = _Store()
+    store = _store()
     faction = _node(
         COLLECTION_FACTIONS,
         NodeType.FACTION,
@@ -461,10 +448,14 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
     tk_members.link_members_to_factions(
-        store, raws, {"p1": member}, {"f-vvd": faction}, source=SOURCE
+        PipelineBase(store),  # type: ignore[arg-type]
+        raws,
+        {"p1": member},
+        {"f-vvd": faction},
+        source=SOURCE,
     )
 
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p1",
             RELATION_MEMBER_OF,
@@ -476,7 +467,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
             "record_ids": ["s1"],
         }
     }
-    written = store.written_nodes[(COLLECTION_MEMBERS, "p1")]
+    written = store.nodes[COLLECTION_MEMBERS]["p1"]["props"]
     assert written["party"] == "VVD"
     assert written["display_name"] == "Jan (VVD)"
     assert written["faction_memberships"] == [
@@ -520,15 +511,15 @@ def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order(
     }
     metas = []
     for order in ([first, second], [second, first]):
-        store = _Store()
+        store = _store()
         tk_members.link_members_to_factions(
-            store,
+            PipelineBase(store),  # type: ignore[arg-type]
             [_raw(payload) for payload in order],
             {"p1": member},
             {"f-sp": faction},
             source=SOURCE,
         )
-        metas.append(store.edge_meta)
+        metas.append(_edge_meta(store))
     assert (
         metas[0]
         == metas[1]
@@ -572,13 +563,13 @@ def _vote_raw(**overrides: Any) -> dict[str, Any]:
 
 
 def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
-    store = _Store()
+    store = _store()
     raws = [
         _vote_raw(Id="v-1"),
         _vote_raw(Id="v-2", Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
         _vote_raw(Id="v-3", Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-x"),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {
         "f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd"),
@@ -588,7 +579,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision_id = f"{COLLECTION_DECISIONS}/{decisions['b-1'].key}"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, decision_id): {
             "choice": "Voor",
             "seats": 24,
@@ -603,7 +594,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
 
 
 def test_a_roll_call_is_cast_by_the_members() -> None:
-    store = _Store(existing={COLLECTION_MEMBERS: {"p_1"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p_1"}})
     raws = [
         _vote_raw(
             Id="v-1",
@@ -619,7 +610,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
             Besluit={"StemmingsSoort": "Hoofdelijk"},
         ),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
@@ -627,7 +618,7 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
 
     decision = decisions["b-1"]
     assert decision.props["vote_kind"] == "member"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p_1",
             RELATION_VOTED,
@@ -639,13 +630,13 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
 def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     """A faction vote in which members voted apart: the faction votes with its seats
     without them, each of them from their member node with one seat."""
-    store = _Store(existing={COLLECTION_MEMBERS: {"p_3", "p_4"}})
+    store = _store(existing={COLLECTION_MEMBERS: {"p_3", "p_4"}})
     raws = [
         _vote_raw(Id="v-1", Soort="Tegen", FractieGrootte=7),
         _vote_raw(Id="v-3", Soort="Voor", FractieGrootte=7, Persoon_Id="p-3"),
         _vote_raw(Id="v-4", Soort="Voor", FractieGrootte=7, Persoon_Id="p-4"),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
@@ -654,7 +645,7 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     decision = decisions["b-1"]
     assert decision.props["vote_kind"] == "faction"
     target = f"{COLLECTION_DECISIONS}/{decision.key}"
-    assert store.edge_meta == {
+    assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, target): {
             "choice": "Tegen",
             "seats": 5,
@@ -682,7 +673,7 @@ def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> Non
             Id="v-4", Besluit_Id="b-2", Besluit={"Id": "b-2", "Verwijderd": True}
         ),
     ]
-    votes = tk_votes.read_votes(raws)
+    votes = tk_votes.read_votes(PipelineBase(_store()), raws)  # type: ignore[arg-type]
     assert list(votes.by_decision) == ["b-1"]
     assert votes.deleted.ids == {"v-2"}
     assert votes.struck.ids == {"b-2"}
@@ -715,12 +706,13 @@ def test_linking_does_not_look_items_up_one_by_one(
 ) -> None:
     ran = _count_queries(monkeypatch)
     n = 2000
-    store = _Store(
+    store = _store(
         existing={
             COLLECTION_DOSSIERS: {str(i) for i in range(n)},
             COLLECTION_MEMBERS: {f"p{i}" for i in range(n)},
         }
     )
+    lookups = count_calls(store, "existing_keys")
     documents = {
         f"d{i}": _document(
             f"d{i}",
@@ -733,14 +725,15 @@ def test_linking_does_not_look_items_up_one_by_one(
     tk_cases.link_subjects(store, documents.values(), RELATION_PART_OF, source=SOURCE)
     tk_cases.link_authors(store, documents, source=SOURCE)
 
-    assert len(store.edge_meta) == 2 * n
+    assert len(_edge_meta(store)) == 2 * n
     assert ran == []
     # One existence lookup for the dossiers, one for the signatories.
-    assert store.existence_calls == 2
+    assert lookups["existing_keys"] == 2
 
 
 def test_normalizing_activities_writes_nodes_in_bulk() -> None:
-    store = _Store()
+    store = _store()
+    writes = count_calls(store, "bulk_insert_or_update_nodes")
     raws = [
         _raw(
             {
@@ -764,25 +757,27 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
         for i in range(700)
     ]
 
-    nodes = tk_cases.normalize_activities(store, raws)
+    nodes = tk_cases.normalize_activities(PipelineBase(store), raws)  # type: ignore[arg-type]
 
     assert len(nodes) == 700
     assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
     assert nodes["act1"].props["dossier_numbers"] == ["36000"]
-    assert store.bulk_node_calls == 2  # 500 + 200, not 700 single upserts
+    assert (
+        writes["bulk_insert_or_update_nodes"] == 2
+    )  # 500 + 200, not 700 single upserts
 
 
 def test_a_written_node_keeps_only_what_the_edges_need() -> None:
     """130K documents with their API payload are over a gigabyte; the edges read a few props."""
-    store = _Store()
+    store = _store()
     raws = (  # a generator: the records are walked once, as they stream in
         _raw({"Id": f"doc{i}", "Soort": "Motie", "Titel": "Motie " * 50})
         for i in range(3)
     )
 
-    nodes = tk_cases.normalize_documents(store, raws)
+    nodes = tk_cases.normalize_documents(PipelineBase(store), raws)  # type: ignore[arg-type]
 
-    written = store.written_nodes[(COLLECTION_DOCUMENTS, "doc1")]
+    written = store.nodes[COLLECTION_DOCUMENTS]["doc1"]["props"]
     assert written["title"].startswith("Motie") and "raw" in written
     assert set(nodes) == {"doc0", "doc1", "doc2"}
     assert set(nodes["doc1"].props) <= set(tk_cases.LINK_PROPS)
@@ -806,7 +801,7 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_a: 0)
 
-    raw = TKDossiersNormalizePipeline(store=_Store()).fetch_raw()
+    raw = TKDossiersNormalizePipeline(store=InMemoryStore()).fetch_raw()
     assert asked == []  # nothing is read before it is walked
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
@@ -875,7 +870,7 @@ DEBATE = "a76eec4d-9cde-48de-aefa-6385e69dd0e1"
 def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_letter() -> (
     None
 ):
-    store = _Store(
+    store = _store(
         existing={
             COLLECTION_DOCUMENTS: {
                 "9cd4c32c_77fb_4713_821d_faf5ebd49b61",
@@ -894,8 +889,9 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
         ("report", {"attached_to_ids": ["letter"]}),
         ("memo", {"attached_to_ids": ["letter"]}),  # the same edge as the letter's
     ]
+    lookups = count_calls(store, "existing_keys")
     tk_cases.link_documents(store, links, source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         (
             "documents/9cd4c32c_77fb_4713_821d_faf5ebd49b61",
             RELATION_MADE_IN,
@@ -905,11 +901,11 @@ def test_a_stenogram_is_made_in_its_debate_and_an_attachment_accompanies_its_let
         ("documents/report", RELATION_ACCOMPANIES, "documents/letter"),
     }
     # one lookup per collection, whatever the number of documents
-    assert store.existence_calls == 2
+    assert lookups["existing_keys"] == 2
 
 
 def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
-    store = _Store(existing={COLLECTION_DOCUMENTS: {"letter"}})
+    store = _store(existing={COLLECTION_DOCUMENTS: {"letter"}})
     commitment = _node(
         COLLECTION_COMMITMENTS,
         NodeType.COMMITMENT,
@@ -917,19 +913,288 @@ def test_a_letter_answers_the_commitment_it_fulfils_when_it_is_stored() -> None:
         letter_ids=["LETTER", "absent"],
     )
     tk_cases.link_letters_to_commitments(store, [commitment], source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         ("documents/letter", RELATION_ANSWERS, "commitments/tz1")
     }
 
 
 def test_a_decision_is_made_in_the_activity_of_its_agenda_item() -> None:
-    store = _Store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
+    store = _store(existing={COLLECTION_ACTIVITIES: {"act_1"}})
     decisions = [
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b1", activity_id="ACT-1"),
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b2", activity_id="gone"),
         _node(COLLECTION_DECISIONS, NodeType.DECISION, "b3"),
     ]
     tk_cases.link_decisions_to_activities(store, decisions, source=SOURCE)
-    assert set(store.edge_meta) == {
+    assert set(_edge_meta(store)) == {
         ("decisions/b1", RELATION_MADE_IN, "activities/act_1")
     }
+
+
+# ── a record that gives nothing says why ─────────────────────────────────────
+
+_GONE = {"Id": "gone", "Verwijderd": True}
+
+
+@pytest.fixture
+def _no_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """What an earlier run made of a deleted record: nothing here."""
+    monkeypatch.setattr(normalize_edges, "remove_nodes", lambda *_a: 0)
+    monkeypatch.setattr(normalize_edges, "remove_nodes_of_records", lambda *_a: 0)
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    raws = [_raw(_GONE), {"_key": "k-1", "payload_json": {"Soort": "Motie"}}]
+
+    nodes = tk_cases.normalize_documents(pipeline, [*raws, _raw({"Id": "doc1"})])
+
+    assert set(nodes) == {"doc1"}
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+    from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    nameless = {"_key": "k-1", "payload_json": {"Soort": "Motie"}}
+    cases = TKNormalizePipeline(_store())  # type: ignore[arg-type]
+    written = cases.normalize_nodes([_raw(_GONE), nameless], PipelineResult())
+    dossiers = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
+    nodes = dossiers._normalize_dossiers([_raw(_GONE), nameless])
+
+    assert (written, nodes) == (0, {})
+    assert cases.progress.skips == {DELETED: 1, "no Zaak identifier": 1}
+    assert dossiers.progress.skips == {DELETED: 1, "no Id or number": 1}
+
+
+@pytest.mark.parametrize("module", ["tk_document_links", "tk_case_actors"])
+def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
+    module: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    links = importlib.import_module(f"lawgraph.pipelines.normalize.{module}")
+    written: list[Any] = []
+    if module == "tk_document_links":
+        monkeypatch.setattr(
+            links.tk_cases, "link_documents", lambda _s, rows, **_: written.extend(rows)
+        )
+        pipeline = links.TKDocumentLinksNormalizePipeline(store=_store())
+    else:
+        monkeypatch.setattr(
+            links,
+            "link_case_actors",
+            lambda _s, rows, **_: written.extend(rows) or 0,
+        )
+        pipeline = links.TKCaseActorsNormalizePipeline(store=_store())
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1 and [row[0] for row in written] == ["doc1"]
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+    assert result.skipped == 2
+
+
+@pytest.fixture
+def _no_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(normalize_edges, "remove_edges_of_records", lambda *_a: 0)
+
+
+@pytest.mark.usefixtures("_no_removals")
+def test_a_deleted_or_nameless_committee_member_or_faction_is_skipped_with_its_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    monkeypatch.setattr(raw_queries, "vote_labels_of_factions", lambda *_a: [])
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    committees = tk_members.normalize_committees(
+        pipeline,
+        [_raw(_GONE), _raw({"Id": "c-nameless"}), _raw({"Id": "c1", "NaamNL": "Fin"})],
+    )
+    members = tk_members.normalize_members(
+        pipeline, [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
+    )
+    factions = tk_members.normalize_factions(
+        pipeline,
+        [_raw(_GONE), _raw({"Id": "f-nameless"}), _raw({"Id": "f1", "Afkorting": "X"})],
+        [],
+    )
+
+    assert (set(committees), set(members), set(factions)) == ({"c1"}, {"p1"}, {"f1"})
+    assert pipeline.progress.skips == {
+        DELETED: 3,
+        "no Id or name": 1,
+        "no Id": 1,
+        "no abbreviation or name": 1,
+    }
+
+
+@pytest.mark.usefixtures("_no_edge_removals")
+def test_a_seat_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    store = _store()
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
+    member = _node(COLLECTION_MEMBERS, NodeType.MEMBER, "p1", name="Jan")
+    seat = {"Persoon_Id": "p1", "FractieZetel": {"Fractie_Id": "f-vvd"}}
+
+    tk_members.link_members_to_factions(
+        pipeline,
+        [
+            _raw(_GONE),
+            _raw({"Id": "s-0", "Persoon_Id": "p1"}),
+            _raw({**seat, "Id": "s-1", "Persoon_Id": "nobody"}),
+            _raw({**seat, "Id": "s-2", "Van": "2020-01-01"}),
+        ],
+        {"p1": member},
+        {"f-vvd": faction},
+        source=SOURCE,
+    )
+
+    assert len(_edge_meta(store)) == 1
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "no person or faction": 1,
+        "member or faction not in the graph": 1,
+    }
+
+
+def test_a_vacancy_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    store = _store()
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
+    seat = {"FractieZetel": {"Fractie_Id": "f-vvd", "Id": "z1"}}
+
+    tk_members.keep_faction_vacancies(
+        pipeline,
+        [
+            _raw(_GONE),
+            _raw({"Id": "v-0", "FractieZetel": {}}),
+            _raw({**seat, "Id": "v-1", "Van": "2021-01-01", "TotEnMet": "2020-01-01"}),
+            _raw({**seat, "Id": "v-2", "Van": "2021-01-01", "FractieZetel": {}}),
+            _raw(
+                {"Id": "v-3", "Van": "2021-01-01", "FractieZetel": {"Fractie_Id": "x"}}
+            ),
+            _raw({**seat, "Id": "v-4", "Van": "2021-01-01"}),
+        ],
+        [
+            _raw(
+                {
+                    "Id": "h-1",
+                    "FractieZetel": {"Id": "z1"},
+                    "Van": "2015-01-01",
+                    "TotEnMet": "2020-12-31",
+                }
+            )
+        ],
+        {"f-vvd": faction},
+    )
+
+    assert faction.props["vacancies"]
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "no faction or start, or an end before the start": 3,
+        "faction not in the graph": 1,
+    }
+
+
+def test_a_vote_left_out_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+
+    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    struck = {"Id": "b-gone", "Verwijderd": True}
+
+    votes = tk_votes.read_votes(
+        pipeline,
+        [
+            _raw(_GONE),
+            _vote_raw(Id="v-1", Besluit_Id="b-gone", Besluit=struck),
+            _vote_raw(Id="v-2", Besluit_Id=None),
+            _vote_raw(Id="v-3"),
+        ],
+    )
+
+    assert set(votes.by_decision) == {"b-1"}
+    assert pipeline.progress.skips == {
+        DELETED: 1,
+        "on a decision the Kamer deleted": 1,
+        "no Besluit_Id": 1,
+    }
+
+
+def test_a_deleted_or_nameless_besluit_is_skipped_with_its_reason() -> None:
+    from lawgraph.pipelines.normalize._tk_deleted import DELETED
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    pipeline = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
+    pipeline._incremental = False
+    votes = tk_votes.Votes()
+
+    pipeline._add_bill_decisions(
+        votes,
+        [_raw({"Id": "b-gone", "Verwijderd": True}), _raw({}), _raw({"Id": "b-1"})],
+    )
+
+    assert set(votes.by_decision) == {"b-1"}
+    assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
+
+
+def _fail(*args: Any, **_: Any) -> dict[str, Any]:
+    """A step that cannot read one record."""
+    pipeline = next(arg for arg in args if isinstance(arg, PipelineBase))
+    pipeline.progress.fail("not readable", "r-1")
+    return {}
+
+
+@pytest.mark.parametrize(
+    ("mode", "step"),
+    [
+        ("persons", "normalize_members"),
+        ("factions", "normalize_factions"),
+        ("committees", "normalize_committees"),
+        ("seats", "link_members_to_factions"),
+        ("mixed_votes", "read_votes"),
+    ],
+)
+def test_a_mode_of_one_kind_reports_what_it_left_out(
+    mode: str, step: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+
+    monkeypatch.setattr(normalize_tk, "nodes_by_external_id", lambda *_a: [])
+    monkeypatch.setattr(normalize_tk, "mixed_vote_decisions", lambda *_a: ["b-1"])
+    monkeypatch.setattr(raw_queries, "vote_rows_of_decisions", lambda *_a: [])
+    monkeypatch.setattr(
+        tk_members, "link_members_to_committees", lambda *_a, **_k: None
+    )
+    module = tk_votes if step == "read_votes" else tk_members
+    monkeypatch.setattr(
+        module,
+        step,
+        (lambda *a, **k: _fail(*a, **k) or tk_votes.Votes())
+        if step == "read_votes"
+        else _fail,
+    )
+    pipeline = TKDossiersNormalizePipeline(_store(), **{mode: True})  # type: ignore[arg-type]
+
+    result = pipeline.run()
+
+    assert result.skipped == 1
+    assert result.errors == ["1 x not readable (first: r-1)"]

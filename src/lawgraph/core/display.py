@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # What is taken off the end of a shortened text before the ellipsis.
-_TRAILING = " \t\n,;:–—-(/"
+_TRAILING = " \t\n.,;:–—-(/"
 
 
 def shorten(text: str, limit: int) -> str:

@@ -7,56 +7,23 @@ from typing import Any
 import pytest
 import requests
 
-from lawgraph.config.constants import RAW_KIND_EU_CELEX, RAW_KIND_MISSING_SUFFIX
-from lawgraph.db.queries import raw as raw_queries
+from lawgraph.config.constants import (
+    RAW_KIND_EU_CELEX,
+    RAW_KIND_MISSING_SUFFIX,
+    SOURCE_EURLEX,
+)
+from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
+from tests.fakes import InMemoryStore, http_error
+
+pytestmark = pytest.mark.usefixtures("raw_reads")
 
 MISSING_KIND = RAW_KIND_EU_CELEX + RAW_KIND_MISSING_SUFFIX
 
 
-def _http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status} Client Error", response=response)
-
-
-class _Store:
-    """raw_sources as ``{(kind, external_id): doc}``."""
-
-    def __init__(self) -> None:
-        self.docs: dict[tuple[str, str], dict[str, Any]] = {}
-
-    def insert_raw_sources(self, docs: list[dict[str, Any]]) -> list:
-        for doc in docs:
-            self.docs[(doc["kind"], doc["external_id"])] = doc
-        return []
-
-
-@pytest.fixture(autouse=True)
-def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The 'waiting for a retry' and 'stored since' reads, answered from ``_Store.docs``."""
-
-    def waiting(
-        store: _Store, *, source: str, kind: str, now_iso: str | None
-    ) -> list[str]:
-        return [
-            external_id
-            for (k, external_id), doc in store.docs.items()
-            if k == kind and doc["meta"]["retry_after"] > now_iso
-        ]
-
-    def stored_since(
-        store: _Store, *, source: str, kind: str, cutoff_iso: str | None
-    ) -> list[str]:
-        return [
-            external_id
-            for (k, external_id), doc in store.docs.items()
-            if k == kind and doc["fetched_at"] >= cutoff_iso
-        ]
-
-    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", waiting)
-    monkeypatch.setattr(raw_queries, "ids_stored_since", stored_since)
+def _missing(store: InMemoryStore, celex: str) -> dict[str, Any]:
+    return store.raw[raw_key(SOURCE_EURLEX, MISSING_KIND, celex)]
 
 
 class _Eu:
@@ -73,13 +40,13 @@ class _Eu:
 
 
 def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
-    store = _Store()
-    eu = _Eu({"32010L0064": "<html/>", "31958R0001(01)": _http_error(404)})
+    store = InMemoryStore()
+    eu = _Eu({"32010L0064": "<html/>", "31958R0001(01)": http_error(404)})
     ids = ["32010L0064", "31958R0001(01)"]
 
     first = EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=ids)  # type: ignore[arg-type]
     assert (first.created, first.skipped, first.errors) == (1, 1, [])
-    missing = store.docs[(MISSING_KIND, "31958R0001(01)")]
+    missing = _missing(store, "31958R0001(01)")
     assert missing["payload_text"] is None
     assert {k: missing["meta"][k] for k in ("kind", "status")} == {
         "kind": RAW_KIND_EU_CELEX,
@@ -96,31 +63,29 @@ def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
 
 
 def test_a_missing_document_is_tried_again_after_thirty_days() -> None:
-    store = _Store()
-    eu = _Eu({"31958R0001(01)": _http_error(404)})
+    store = InMemoryStore()
+    eu = _Eu({"31958R0001(01)": http_error(404)})
     EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["31958R0001(01)"])  # type: ignore[arg-type]
 
-    store.docs[(MISSING_KIND, "31958R0001(01)")]["meta"]["retry_after"] = (
-        "2020-01-01T00:00:00Z"
-    )
+    _missing(store, "31958R0001(01)")["meta"]["retry_after"] = "2020-01-01T00:00:00Z"
     eu.asked.clear()
     EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["31958R0001(01)"])  # type: ignore[arg-type]
     assert eu.asked == ["31958R0001(01)"]
 
 
 def test_a_failure_that_is_not_a_404_is_not_remembered() -> None:
-    store = _Store()
-    eu = _Eu({"32010L0064": _http_error(503)})
+    store = InMemoryStore()
+    eu = _Eu({"32010L0064": http_error(503)})
     EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["32010L0064"])  # type: ignore[arg-type]
-    assert store.docs == {}
+    assert store.raw == {}
 
 
 def test_a_run_of_4xx_answers_does_not_mean_the_source_is_down() -> None:
     streak = FailureStreak("EUR-Lex", limit=3)
     for _ in range(10):
-        streak.failed("some act", _http_error(400))
+        streak.failed("some act", http_error(400))
     for status in (500, 429):
-        streak.failed("some act", _http_error(status))
+        streak.failed("some act", http_error(status))
     with pytest.raises(SourceDown):
         streak.failed("some act", requests.ConnectionError("no route"))
 
@@ -147,4 +112,4 @@ def test_a_source_that_refuses_everything_is_down_not_a_list_of_skips() -> None:
     streak = FailureStreak("Rechtspraak", limit=3)
     with pytest.raises(SourceDown):
         for _ in range(3):
-            streak.failed("some judgment", _http_error(403))
+            streak.failed("some judgment", http_error(403))

@@ -22,10 +22,11 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key
-from lawgraph.core.notation import native_article_number
+from lawgraph.core.publications import parse_koop_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import _committee
 
@@ -53,14 +54,10 @@ ANSWER_PROPS = (
 
 # "36600-VIII", "36455-(R2188)", "36799": the number of a dossier and its suffix.
 _DOSSIER = re.compile(r"^(?P<number>\d{1,6})(?:-(?P<suffix>.+))?$")
-# The ids of officielebekendmakingen.nl a publication and a paper are known by.
-_PUBLICATION_ID = re.compile(
-    r"^(?P<series>stb|stcrt|trb)-(?P<year>\d{4})-(?P<number>\d+)$"
-)
+# The id of officielebekendmakingen.nl a paper is known by.
 _PAPER_ID = re.compile(
     r"^kst-(?P<dossier>\d{1,6}(?:-[^-]+)?)-(?P<number>[0-9A-Za-z]+)$"
 )
-SERIES = ("stb", "stcrt", "trb")
 
 
 def _one(store: GraphStore, statement: str, params: dict[str, Any]) -> str | None:
@@ -139,9 +136,7 @@ def find_article(store: GraphStore, law: str, number: str) -> str | None:
     column = "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
     if column is None:
         return None
-    native = (
-        native_article_number(law, number.strip()) if column == "bwb_id" else number
-    )
+    native = native_number(law, number.strip()) if column == "bwb_id" else number
     return _one(
         store,
         f"""
@@ -204,10 +199,9 @@ def find_official(store: GraphStore, official_id: str) -> str | None:
     """The node of an id of officielebekendmakingen.nl: ``stb-2026-94``, ``kst-36799-31``.
     A Handelingen id (``h-tk-…``) is no node of the graph."""
     official_id = official_id.strip().lower()
-    if publication := _PUBLICATION_ID.match(official_id):
-        return find_publication(
-            store, publication["series"], publication["year"], publication["number"]
-        )
+    if publication := parse_koop_id(official_id):
+        series, year, number = publication
+        return find_publication(store, series, str(year), number)
     if paper := _PAPER_ID.match(official_id):
         return find_document(store, paper["dossier"], paper["number"])
     return None

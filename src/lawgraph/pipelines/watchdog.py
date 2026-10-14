@@ -6,6 +6,7 @@ never ends is then in the log with its plan's statement, not only in ``pg_stat_a
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections.abc import Iterator
@@ -67,6 +68,18 @@ def report(now: float | None = None) -> None:
         )
 
 
+def report_safely(*, first_failure: bool) -> bool:
+    """``report()``, which never ends a run: a failure is logged with its traceback, as a
+    warning when it is the *first_failure*. Whether it reported."""
+    try:
+        report()
+    except Exception:  # noqa: BLE001 — the watchdog never ends a run
+        level = logging.WARNING if first_failure else logging.DEBUG
+        logger.log(level, "The watchdog could not report.", exc_info=True)
+        return False
+    return True
+
+
 def _start() -> None:
     """The one thread of the process (``_lock`` held)."""
     global _thread
@@ -75,12 +88,11 @@ def _start() -> None:
 
     def watch_forever() -> None:
         with log_step("watchdog"):
+            failed_before = False
             while True:
                 time.sleep(WATCHDOG_MINUTES * 60)
-                try:
-                    report()
-                except Exception as exc:  # the watchdog never ends a run
-                    logger.debug("The watchdog could not report: %s", exc)
+                if not report_safely(first_failure=not failed_before):
+                    failed_before = True
 
     _thread = threading.Thread(
         target=watch_forever, name="lawgraph-watchdog", daemon=True

@@ -8,9 +8,9 @@ GET /api/documents/{key}/passages — the passages of a memorandum that explain 
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import parse_choices
@@ -22,6 +22,7 @@ from lawgraph.api.schemas.documents import (
     PassageDTO,
     readable_sections,
 )
+from lawgraph.config.constants import Chamber
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import get_document_decisions
@@ -33,6 +34,7 @@ from lawgraph.db.queries.documents import (
     list_documents,
 )
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 
@@ -53,7 +55,7 @@ router = APIRouter()
 def list_chamber_documents(
     store: Annotated[GraphStore, Depends(get_store)],
     chamber: Annotated[
-        Literal["TK", "EK"] | None, Query(description="One chamber; both by default.")
+        Chamber | None, Query(description="One chamber; both by default.")
     ] = None,
     kind: Annotated[
         str | None,
@@ -115,9 +117,7 @@ def get_document_text(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DocumentTextResponse:
-    doc = get_document(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
+    doc = require(get_document(store, key), "Document", key)
     return DocumentTextResponse.from_document(
         doc,
         get_document_links(store, doc["_id"]),
@@ -154,9 +154,7 @@ def get_document_article_passages(
         ),
     ],
 ) -> DocumentPassagesResponse:
-    doc = get_document(store, key)
-    if doc is None:
-        raise HTTPException(status_code=404, detail=f"Document '{key}' not found.")
+    doc = require(get_document(store, key), "Document", key)
     props = doc.get("props") or {}
     text: str | None = props.get("text")
     if not text:

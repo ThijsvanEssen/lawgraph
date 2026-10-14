@@ -226,10 +226,11 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
 ) -> None:
     """A request does not wait ``STALE_WAIT`` for the new counts (2.2 s on 10 Oct): it
     takes those of before while they compute; the warm-up waits for them."""
-    import time
+    import threading
 
     from lawgraph.api.routes import stats as stats_route
     from lawgraph.db import store as store_module
+    from tests.fakes import PATIENCE
 
     monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
     assert stats_route.coverage_data(store) == ["old"]
@@ -237,16 +238,18 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
         "judgments", [{"_key": "j", "type": "judgment", "labels": [], "props": {}}]
     )
 
+    release = threading.Event()
+
     def slow(s: Any) -> list[str]:
-        time.sleep(0.5)
+        release.wait(PATIENCE)
         return ["new"]
 
     monkeypatch.setattr(stats_route, "get_judgment_coverage", slow)
     token = store_module.set_read_deadline(5.0)
     try:
-        started = time.monotonic()
         assert stats_route.coverage_data(store) == ["old"]
-        assert time.monotonic() - started < 0.3
+        assert not release.is_set()  # answered while the new counts compute
     finally:
         store_module.reset_read_deadline(token)
+        release.set()
     assert stats_route.coverage_data(store) == ["new"]  # the warm-up waits

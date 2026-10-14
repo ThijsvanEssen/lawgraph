@@ -9,18 +9,19 @@ from typing import Any
 import pytest
 import requests
 
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_VERDRAG,
     RAW_KIND_VERDRAG_XML,
 )
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from tests.fakes import FakeResponse, RawSourcesFake
+from tests.fakes import FakeResponse, InMemoryStore, http_error
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # Convention for the protection of the architectural heritage of Europe (Granada, 1985)
@@ -150,17 +151,13 @@ def _client(answer: Any) -> VerdragenbankClient:
     return client
 
 
-def _http_error(status: int) -> requests.HTTPError:
-    response = requests.Response()
-    response.status_code = status
-    return requests.HTTPError(f"{status}", response=response)
-
-
-def test_the_client_returns_the_item_xml_and_none_for_a_404() -> None:
+def test_the_client_returns_the_item_xml_and_raises_for_what_is_not() -> None:
     assert _client(GRANADA).fetch_treaty_xml("https://x/000004.xml") == GRANADA
-    assert _client(_http_error(404)).fetch_treaty_xml("https://x/000009.xml") is None
-    with pytest.raises(requests.HTTPError):
-        _client(_http_error(503)).fetch_treaty_xml("https://x/000004.xml")
+    for status in (404, 503):
+        with pytest.raises(requests.HTTPError):
+            _client(http_error(status)).fetch_treaty_xml("https://x/000004.xml")
+    with pytest.raises(UnexpectedAnswer):
+        _client("<html>Bad gateway").fetch_treaty_xml("https://x/000026.xml")
 
 
 # ── the retrieve ─────────────────────────────────────────────────────────────
@@ -184,7 +181,7 @@ class _Client:
             for identifier in self.items
         ]
 
-    def fetch_treaty_xml(self, item_url: str) -> str | None:
+    def fetch_treaty_xml(self, item_url: str) -> str:
         self.asked.append(item_url)
         answer = self.items[item_url.rsplit("/", 1)[-1].removesuffix(".xml")]
         if isinstance(answer, Exception):
@@ -196,7 +193,7 @@ def _retrieve(
     items: dict[str, Any], unchanged: set[str] = frozenset()
 ) -> tuple[list, _Client]:
     client = _Client(items)
-    pipeline = VerdragenbankRetrievePipeline(RawSourcesFake(), client=client)  # type: ignore[arg-type]
+    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
     pipeline._changed = lambda source, kind, listed: [  # type: ignore[method-assign]
         t["identifier"] for t in listed if t["identifier"] not in unchanged
     ]
@@ -221,7 +218,9 @@ def test_the_retrieve_keeps_the_summary_and_the_item_xml_of_each_treaty() -> Non
 
 
 def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
-    records, _ = _retrieve({"000009": None, "000026": "<html>Bad gateway"})
+    records, _ = _retrieve(
+        {"000009": http_error(404), "000026": UnexpectedAnswer("not XML")}
+    )
 
     items = [r for r in records if r.kind != RAW_KIND_VERDRAG]
     assert [(r.kind, r.external_id) for r in items] == [
@@ -231,7 +230,7 @@ def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
 
 def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
     client = _Client({"000004": GRANADA, "004630": PROTOCOL_2})
-    pipeline = VerdragenbankRetrievePipeline(RawSourcesFake(), client=client)  # type: ignore[arg-type]
+    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
     pipeline.progress = Progress("Verdragenbank")
     pipeline._stored_at = lambda source, kind: {"004630": None}  # type: ignore[method-assign,assignment]
     pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]  # type: ignore[method-assign]
@@ -246,16 +245,17 @@ def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
 # ── the normalize ────────────────────────────────────────────────────────────
 
 
-class _Store(RawSourcesFake):
-    def __init__(self) -> None:
-        self.docs: list[dict[str, Any]] = []
+def _written(store: InMemoryStore) -> list[dict[str, Any]]:
+    """The node documents *store* is given from now on, write by write."""
+    written: list[dict[str, Any]] = []
+    write = store.bulk_insert_or_update_nodes
 
-    def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict[str, Any]]):
-        self.docs.extend(docs)
-        return len(docs), 0
+    def spy(collection: str, docs: list[dict[str, Any]]) -> tuple[int, int]:
+        written.extend(docs)
+        return write(collection, docs)
 
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return None
+    store.bulk_insert_or_update_nodes = spy  # type: ignore[method-assign]
+    return written
 
 
 def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
@@ -275,14 +275,15 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
         "kind": RAW_KIND_VERDRAG_XML,
         "payload_text": GRANADA,
     }
-    store = _Store()
+    store = InMemoryStore()
+    written = _written(store)
 
     count = VerdragenbankNormalizePipeline(store=store).normalize_nodes(
         [summary, item], PipelineResult()
     )
 
     assert count == 2
-    [doc] = store.docs  # one batch, one node
+    [doc] = written  # one batch, one node
     assert doc["props"]["title"].startswith(
         "Verdrag tot bescherming van het architectonisch"
     )
@@ -291,20 +292,22 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
     assert doc["props"]["tractatenblad"][0]["official_id"] == "trb-1985-163"
 
 
-def test_an_item_that_cannot_be_read_is_skipped() -> None:
+def test_an_item_that_cannot_be_read_fails_and_names_the_treaty() -> None:
     result = PipelineResult()
     item = {
         "external_id": "000026",
         "kind": RAW_KIND_VERDRAG_XML,
         "payload_text": "<html>",
     }
+    pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
 
-    count = VerdragenbankNormalizePipeline(store=_Store()).normalize_nodes(
-        [item], result
-    )
+    count = pipeline.normalize_nodes([item], result)
+    pipeline.add_outcomes(result)
 
     assert count == 0
     assert result.skipped == 1
+    (error,) = result.errors
+    assert "000026" in error
 
 
 # ── the API ──────────────────────────────────────────────────────────────────

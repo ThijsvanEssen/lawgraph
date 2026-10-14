@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 
 from lawgraph.config.settings import SEARCH_STATS_DIR
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.search_stats import SearchTermCounter
 
 logger = get_logger(__name__)
@@ -23,7 +23,7 @@ def flush() -> None:
     try:
         COUNTER.flush(SEARCH_STATS_DIR)
     except OSError as exc:
-        logger.warning("Search terms not written: %s: %s", type(exc).__name__, exc)
+        logger.warning("Search terms not written: %s", describe(exc))
 
 
 async def _flush_every_while() -> None:

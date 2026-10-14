@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
+from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db.counting import Store
 
 # The papers of one statement: their text is read (a few kilobytes each).
@@ -15,16 +16,16 @@ BATCH = 2_000
 # ``Amendement (gewijzigd/nader/vervangend)``) with text after *after*, those without a dictum
 # (a motion) or an explanation (an amendment) yet unless *every*; by their index of the kind.
 _PAPERS = f"""
-SELECT d.id, d.key, starts_with(d.kind, 'Motie') AS motion,
+SELECT d.id, d.key, starts_with(d.kind, '{KIND_MOTION}') AS motion,
        lg_str(d.props -> 'text') AS text,
-       CASE WHEN starts_with(d.kind, 'Amendement') THEN d.props -> 'sections' END
+       CASE WHEN starts_with(d.kind, '{KIND_AMENDMENT}') THEN d.props -> 'sections' END
            AS sections
 FROM {COLLECTION_DOCUMENTS} d
-WHERE (starts_with(d.kind, 'Motie') OR starts_with(d.kind, 'Amendement'))
+WHERE (starts_with(d.kind, '{KIND_MOTION}') OR starts_with(d.kind, '{KIND_AMENDMENT}'))
   AND d.id > %(after)s
   AND coalesce(json_typeof(d.props -> 'text'), 'null') = 'string'
   AND (%(every)s OR coalesce(json_typeof(d.props -> CASE
-          WHEN starts_with(d.kind, 'Motie') THEN 'dictum' ELSE 'explanation' END),
+          WHEN starts_with(d.kind, '{KIND_MOTION}') THEN 'dictum' ELSE 'explanation' END),
        'null') = 'null')
 ORDER BY d.id
 LIMIT %(batch)s

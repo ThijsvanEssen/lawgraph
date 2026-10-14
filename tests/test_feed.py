@@ -308,15 +308,55 @@ def test_the_feed_title_and_page_say_the_filters() -> None:
         "Concordans: moties en stemmingen, dossier 36600, Financiën, D66"
     )
     assert feed_title(FeedFilters(), page) == "Concordans"
-    assert site_query(filters) == {
-        "soort": "Motie,stemming",
-        "ministerie": "fin",
-        "dossier": "36600",
-        "fractie": "d66",
-    }
+    assert site_query(filters) == [
+        ("soort", "Motie,stemming"),
+        ("ministerie", "fin"),
+        ("dossier", "36600"),
+        ("fractie", "d66"),
+    ]
     split = FeedFilters(kinds=("stemming",), coalition="split")
     assert feed_title(split, page) == "Concordans: stemmingen, coalitie verdeeld"
-    assert site_query(split) == {"soort": "stemming", "coalitie": "split"}
+    assert site_query(split) == [("soort", "stemming"), ("coalitie", "verdeeld")]
+
+
+def test_the_feed_links_the_page_with_the_parameters_it_reads() -> None:
+    """/actueel reads ``wet`` and ``artikel``, one word per ``q``, no tier."""
+    page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)])
+    filters = FeedFilters(
+        instrument="BWBR0005289", article="6:162", tiers=("hoge_raad",), q=("a", "b")
+    )
+    assert feed_title(filters, page) == (
+        "Concordans: hoge raad, artikel 6:162 BWBR0005289, ‘a’ of ‘b’"
+    )
+    assert site_query(filters) == [
+        ("q", "a"),
+        ("q", "b"),
+        ("wet", "BWBR0005289"),
+        ("artikel", "6:162"),
+    ]
+
+
+def test_every_filter_is_a_parameter_of_the_page_or_named_as_none() -> None:
+    from dataclasses import fields
+
+    from lawgraph.api.routes.feed import _NOT_ON_SITE, _SITE_PARAMETERS
+
+    names = {field.name for field in fields(FeedFilters)}
+    assert names == set(_SITE_PARAMETERS) | _NOT_ON_SITE
+    assert not set(_SITE_PARAMETERS) & _NOT_ON_SITE
+
+
+def test_every_kind_and_coalition_value_has_its_words() -> None:
+    from lawgraph.api.routes.feed import (
+        _COALITION_WORDS,
+        _KIND_PLURALS,
+        _SITE_COALITION,
+    )
+    from lawgraph.core.feed import FEED_COALITION
+
+    assert set(_KIND_PLURALS) == set(FEED_KINDS)
+    assert set(_COALITION_WORDS) == set(FEED_COALITION)
+    assert set(_SITE_COALITION) == set(FEED_COALITION)
 
 
 def test_the_coalition_filter_of_the_route_takes_the_values_the_feed_counts() -> None:
@@ -483,6 +523,7 @@ def test_a_new_version_says_it_is_new_and_where_it_came_from() -> None:
         "series": "stb",
         "year": 2026,
         "number": "204",
+        "citation": "Stb. 2026, 204",
         "path": None,
     }
     assert commencement.based_on is not None
@@ -534,3 +575,23 @@ def test_a_letter_names_the_motion_and_the_commitment_it_answers() -> None:
         {"term": "Moties", "field": "title"}
     ]
     assert (item.via, item.replaces, item.cites) == (None, None, [])
+
+
+def test_a_publication_says_how_it_is_cited() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "publicatie",
+            "id": "instruments/stb_2026_94",
+            "date": "2026-03-01",
+            "props": {
+                "publication_kind": "Stb",
+                "publication_year": 2026,
+                "publication_number": "94",
+            },
+        }
+    )
+    assert item.publication is not None
+    assert (item.publication.series, item.publication.citation) == (
+        "stb",
+        "Stb. 2026, 94",
+    )

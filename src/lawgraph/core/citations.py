@@ -34,12 +34,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
-from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.identifiers import CELEX_KIND_TO_LETTER, parse_celex
-from lawgraph.core.logging import get_logger
-from lawgraph.core.xml import XML_TAG_RE
-
-logger = get_logger(__name__)
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
+from lawgraph.core.identifiers import EU_ACT_KINDS, EUInstrumentKind, parse_celex
+from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
+from lawgraph.core.xml import XML_TAG_RE, collapse_ws
 
 # ---------------------------------------------------------------------------
 # Types
@@ -119,29 +117,18 @@ def normalize_code_aliases(mapping: dict[str, str]) -> dict[str, str]:
     return normalized
 
 
-def format_celex(
-    kind: Literal["directive", "regulation", "decision", "framework_decision"],
-    year: str,
-    number: str,
-) -> str:
-    """Render a numeric CELEX identifier.
+def format_celex(kind: EUInstrumentKind, year: str, number: str) -> str:
+    """The CELEX number of an EU act: ``format_celex("directive", "2010", "64")`` is
+    ``32010L0064`` (the letters are those of :data:`lawgraph.core.identifiers.EU_ACT_KINDS`).
 
-    Supported kinds and their CELEX sector-3 letters (see
-    :data:`lawgraph.core.identifiers.CELEX_KIND_TO_LETTER`):
-    - ``"directive"`` → ``L``
-    - ``"regulation"`` → ``R``
-    - ``"decision"`` → ``D``
-    - ``"framework_decision"`` → ``F``
-
-    Example: ``format_celex("directive", "2010", "64")`` → ``"32010L0064"``
+    Raises ``ValueError`` for an unknown kind or a number that is not one.
     """
-    letter = CELEX_KIND_TO_LETTER.get(kind, "L")
-    padded = 0
-    try:
-        padded = int(number)
-    except ValueError:
-        logger.debug("Could not parse CELEX number %r; using 0 as fallback", number)
-    return f"3{year}{letter}{padded:04d}"
+    act = EU_ACT_KINDS.get(kind)
+    if act is None:
+        raise ValueError(f"no kind of EU act: {kind!r}")
+    if not (number.isascii() and number.isdigit()):
+        raise ValueError(f"no number of an EU act: {number!r}")
+    return f"3{year}{act.letter}{int(number):04d}"
 
 
 def hit_reason(hit: CitationHit) -> str:
@@ -167,8 +154,7 @@ def coerce_text(value: object) -> str | None:
 
 def strip_xml(text: str) -> str:
     """Remove XML/HTML tags and collapse whitespace for clean regex matching."""
-    stripped = XML_TAG_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", stripped).strip()
+    return collapse_ws(XML_TAG_RE.sub(" ", text))
 
 
 # ---------------------------------------------------------------------------
@@ -187,16 +173,9 @@ _BOOK_CODE_RE = re.compile(r"^(?P<family>[A-Z]{2,})(?P<book>\d{1,2}[A-Z]?)$")
 # family and the book.
 _BOOK_NAME_RE = re.compile(r"^(?P<family>.+?)\s+boek\s+(?P<book>\d{1,2}[a-z]?)$")
 
-# Ordinal words used in "lid" qualifiers
-_ORDINALS_PAT = (
-    r"eerste|tweede|derde|vierde|vijfde|zesde|zevende|achtste|negende|tiende|\d+e"
-)
-
 # Qualifiers of an article: "derde lid", "eerste en tweede lid", "lid 5", "leden 1 en 2",
 # "aanhef en onder a", "onder 1°", "onderdeel b", "sub c", "tweede volzin", "eerste zin"
-_LID_ORD_PAT = (
-    rf"(?:{_ORDINALS_PAT})(?:\s*(?:,|en|of)\s*(?:{_ORDINALS_PAT}))*\s+lid(?:en)?"
-)
+_LID_ORD_PAT = rf"{ORDINAL}(?:\s*(?:,|en|of)\s*{ORDINAL})*\s+lid(?:en)?"
 _LID_NUM_PAT = (
     r"(?:lid|leden)\s+\d+[a-z]?"
     r"(?:\s*(?:,|en|of|t/m|tot en met)\s*(?:lid\s+)?\d+[a-z]?)*"
@@ -207,7 +186,7 @@ _SUB_PAT = (
     rf"|(?:onder(?:deel)?|sub)\s+{_SUB_TOKEN}"
     rf"(?:\s+(?:en|of)\s+(?:onder(?:deel)?\s+)?{_SUB_TOKEN})?)"
 )
-_ZIN_PAT = rf"(?:(?:{_ORDINALS_PAT}|laatste)\s+(?:volzin|zin)|volzin)"
+_ZIN_PAT = rf"(?:(?:{ORDINAL}|laatste)\s+(?:volzin|zin)|volzin)"
 _QUALIFIER_PAT = (
     rf"(?:\s*,?\s*(?:{_LID_ORD_PAT}|{_LID_NUM_PAT}|{_SUB_PAT}|{_ZIN_PAT}))*"
 )
@@ -220,11 +199,15 @@ _NUM_PAREN_PAT = rf"{ARTICLE_NUMBER_PATTERN}(?:\s*\((?:lid|leden|of|en)[^)]{{1,2
 _ART_RANGE_PAT = (
     rf"{ARTICLE_NUMBER_PATTERN}\s+tot\s+en\s+met\s+{ARTICLE_NUMBER_PATTERN}"
 )
+# A further number of an enumeration. The "2e" of "artikel 5, 2e lid" (and "2e en 3e lid") is a
+# lid, the "257e" of "artikelen 255a en 257e, achtste lid" an article.
+_DIGIT_LID_PAT = rf"{DIGIT_ORDINAL}(?:\s*(?:,|en|of)\s*{DIGIT_ORDINAL})*\s+lid"
+_NEXT_NUM_PAT = rf"(?!{_DIGIT_LID_PAT}){_NUM_PAREN_PAT}"
 # Enumeration: "36e", "36e en 36f", "282a, 282b en 282c", "338 (lid 2) en 339"
 _ART_ENUM_PAT = (
     rf"{_NUM_PAREN_PAT}"
-    rf"(?:\s*,\s*{_NUM_PAREN_PAT})*"
-    rf"(?:\s+(?:en|of)\s+{_NUM_PAREN_PAT})?"
+    rf"(?:\s*,\s*{_NEXT_NUM_PAT})*"
+    rf"(?:\s+(?:en|of)\s+{_NEXT_NUM_PAT})?"
 )
 # Range takes priority over enum to avoid "2 tot" being parsed as just "2"
 ARTICLE_NUMBERS_PATTERN = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
@@ -477,7 +460,7 @@ class DutchCitationExtractor:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
-            if k and v and k.strip().upper() not in CODE_FAMILIES
+            if k and v and not is_code_family(k)
         }
         # "CBW" -> "Cbw": a code of one word as its source writes it, when *as_written*
         self._spelling: dict[str, str] = (
@@ -523,7 +506,7 @@ class DutchCitationExtractor:
                 if key.strip()
                 and " " not in key.strip()
                 and key.strip().upper() not in self._code_map
-                and key.strip().upper() not in CODE_FAMILIES
+                and not is_code_family(key)
             }
             if as_written
             else {}

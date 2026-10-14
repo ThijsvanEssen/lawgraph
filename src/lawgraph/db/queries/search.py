@@ -12,7 +12,6 @@ their order is held to D3.
 
 from __future__ import annotations
 
-import datetime as dt
 import functools
 import hashlib
 import json
@@ -24,13 +23,21 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    COLLECTION_INSTRUMENTS,
+    RELATION_LEGISLATED_IN,
+)
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.logging import get_logger
+from lawgraph.core.dutch_names import PARTICLES, TITLES
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
+from lawgraph.core.text_fold import ACCENTS
+from lawgraph.core.time import shift_day
 from lawgraph.core.word_forms import word_forms
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
@@ -43,15 +50,8 @@ from lawgraph.db.schema import (
     search_words,
     start_of_value_sql,
 )
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import STALE_WAIT, cached, stale_wait
-
-logger = get_logger(__name__)
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -126,8 +126,7 @@ class Period:
         if self.start:
             found["_period_from"] = self.start
         if self.end:
-            day = dt.date.fromisoformat(self.end) + dt.timedelta(days=1)
-            found["_period_until"] = day.isoformat()
+            found["_period_until"] = shift_day(self.end, 1)
         return found
 
     def keeps(self, table: str) -> bool:
@@ -315,15 +314,9 @@ def kept_notation_parser(store: GraphStore, wait: float) -> NotationParser | Non
     left): None when none is kept yet and it is not computed by then (after a start, before
     the warm-up computed it, behind the slow computations of the pool). A search then goes
     on without it, the query taken as words, instead of waiting."""
-    left = read_time_left()
-    token = set_read_deadline(wait if left is None else min(wait, left))
-    try:
+    with read_budget(wait, "The parser of citations (searched as words)"):
         return load_notation_parser(store)
-    except ReadTimedOut:
-        logger.info("No parser of citations within %s s: searched as words.", wait)
-        return None
-    finally:
-        reset_read_deadline(token)
+    return None
 
 
 # ── Per-type search helpers ───────────────────────────────────────────────────
@@ -896,9 +889,7 @@ PERSON_MIN = 3
 # wethouders") is in far more, and the first found stand for them.
 PERSON_CANDIDATES = 2_000
 # The words of a name a query may leave out: a title, an article or a particle.
-_NAME_EXTRAS = frozenset(
-    "mr dr drs prof ir ing de het der den van ten ter te op in uit la le du da".split()
-)
+_NAME_EXTRAS = frozenset(TITLES) | PARTICLES
 _PERSON_HIT = """
     json_build_object(
         'id', doc.id, 'key', doc.key,
@@ -1141,8 +1132,8 @@ def _search_documents(
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
                 'sequence', doc.props -> 'sequence',
                 'number', CASE {_CHAMBER}
-                              WHEN 'EK' THEN doc.props ->> 'number'
-                              WHEN 'TK' THEN doc.props ->> 'sequence'
+                              WHEN '{CHAMBER_EK}' THEN doc.props ->> 'number'
+                              WHEN '{CHAMBER_TK}' THEN doc.props ->> 'sequence'
                           END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}
@@ -1442,18 +1433,14 @@ _NAME_LIST_FIELDS = ("aliases",)
 _CONTEXT_LIST_FIELDS = ("division_titles",)
 
 
-# The marks ``lg_fold`` takes off a letter after NFD (U+0300-U+036F).
-_ACCENTS = re.compile("[\u0300-\u036f]")
-
-
 def _folded(value: Any) -> str:
     """*value* as ``lg_fold`` folds it (lower case, without accents: "yesilgoz" is part of
     "Yeşilgöz-Zegerius"), its spaces one each."""
     if not value:
         return ""
     plain = unicodedata.normalize("NFD", str(value).lower())
-    plain = unicodedata.normalize("NFC", _ACCENTS.sub("", plain))
-    return " ".join(plain.split())
+    plain = unicodedata.normalize("NFC", ACCENTS.sub("", plain))
+    return collapse_ws(plain)
 
 
 def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:
@@ -1936,15 +1923,9 @@ def _within_budget(
     """The hits of *search* within *budget* seconds (``LIVE_BUDGET`` without one; or what
     the request has left); none and cut off when it takes longer. A computation of the
     cache it waited for goes on."""
-    budget = LIVE_BUDGET if budget is None else budget
-    left = read_time_left()
-    token = set_read_deadline(budget if left is None else min(budget, left))
-    try:
+    with read_budget(LIVE_BUDGET if budget is None else budget, "A live search"):
         return search(), False
-    except ReadTimedOut:
-        return [], True
-    finally:
-        reset_read_deadline(token)
+    return [], True
 
 
 def _judgments_with_words(

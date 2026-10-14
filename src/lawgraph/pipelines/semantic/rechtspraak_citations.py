@@ -62,9 +62,7 @@ from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_para
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
-from lawgraph.db.store import edge_key
 
 from . import _echr_citations
 from .base import SemanticPipelineBase
@@ -170,26 +168,25 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
         ecli_to_id = self._resolve_eclis(all_cited_eclis) if pending else {}
         tied = self._procedural_pairs(sorted({from_id for from_id, _ in pending}))
-        kept = self._emit_edges(pending, ecli_to_id, tied, result)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
+        self._emit_edges(pending, ecli_to_id, tied, edges)
         if by_appno:
-            for from_id, keys in _echr_citations.link(
-                self.store,
+            _echr_citations.link(
+                edges,
                 by_appno,
                 _echr_citations.decisions_index(self.store),
                 source=SEMANTIC_SOURCE,
-                result=result,
                 places=self._echr_places,
-            ).items():
-                kept.setdefault(from_id, set()).update(keys)
-        removed = semantic_edges.remove_edges_from(
-            self.store, RELATION_REFERS_TO, SEMANTIC_SOURCE, read, kept
-        )
+            )
+        edges.flush_into(result)
+        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
         if self.after or self.limit is not None:
             last = self.last_judgment_read
             logger.info("The last read was %s (go on with --after %s).", last, last)
+        self.add_outcomes(result)
         return result
 
     def _collect_references(
@@ -204,15 +201,16 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         for judgment, xml in self._judgment_texts(
             since_iso, after=self.after, limit=self.limit
         ):
+            source_ecli = str(judgment.props["ecli"]).upper()
             try:
                 root = parse_judgment(xml)
-                text = body_text(root)
-            except ValueError:
+            except ValueError as exc:
+                self.progress.fail("unreadable judgment XML", f"{source_ecli}: {exc}")
                 continue
+            text = body_text(root)
             if not judgment.node_id:
                 continue
             read.append(judgment.node_id)
-            source_ecli = str(judgment.props["ecli"]).upper()
             by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
             paragraphs, footnotes = judgment_text(root)
             by_ecli, by_number = judgment_mentions(
@@ -263,13 +261,10 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         pending: list[tuple[str, str]],
         ecli_to_id: dict[str, str],
         tied: set[tuple[str, str]],
-        result: PipelineResult,
-    ) -> dict[str, set[str]]:
-        """Write the edges, but none between judgments *tied* by a procedural edge; the
-        keys of those written, per citing judgment."""
-        kept: dict[str, set[str]] = {}
+        edges: EdgeWriter,
+    ) -> None:
+        """Queue the edges, but none between judgments *tied* by a procedural edge."""
         left_out: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store, what=None)
         for from_id, cited_ecli in pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
@@ -285,26 +280,21 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             to_node = Node(
                 collection=to_coll, type=NodeType.JUDGMENT, key=to_key, props={}
             )
-            edge_doc = self._make_edge_doc(
-                from_node=from_node,
-                to_node=to_node,
-                relation=RELATION_REFERS_TO,
-                source=SEMANTIC_SOURCE,
-                confidence=CONFIDENCE,
-                meta={
-                    "cited_ecli": cited_ecli,
-                    **self._places.get((from_id, cited_ecli), {}),
-                },
-                status=EDGE_STATUS_CANONIEK,
-            )
-            if edge_doc:
-                edges.add_doc(edge_doc)
-                kept.setdefault(from_id, set()).add(
-                    edge_key(from_id, RELATION_REFERS_TO, to_id)
+            edges.add_doc(
+                self._make_edge_doc(
+                    from_node=from_node,
+                    to_node=to_node,
+                    relation=RELATION_REFERS_TO,
+                    source=SEMANTIC_SOURCE,
+                    confidence=CONFIDENCE,
+                    meta={
+                        "cited_ecli": cited_ecli,
+                        **self._places.get((from_id, cited_ecli), {}),
+                    },
+                    status=EDGE_STATUS_CANONIEK,
                 )
-        edges.flush_into(result)
+            )
         logger.info(
             "Left out %d citations between judgments tied by a procedural edge.",
             len(left_out),
         )
-        return kept

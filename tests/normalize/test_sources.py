@@ -2,7 +2,7 @@
 
 Staatsblad, Staatscourant, ECHR and Verdragenbank. Each test
 drives the parse/normalize logic directly without a real database by supplying
-a minimal FakeStore and representative raw_sources records.
+an ``InMemoryStore`` and representative raw_sources records.
 """
 
 from __future__ import annotations
@@ -14,29 +14,14 @@ import pytest
 
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db.queries import raw as raw_queries
-from tests.fakes import RawSourcesFake
-
-# ---------------------------------------------------------------------------
-# Shared FakeStore — just enough surface to support normalize_nodes()
-# ---------------------------------------------------------------------------
+from tests.fakes import InMemoryStore
 
 
-class _FakeStore(RawSourcesFake):
-    def __init__(self) -> None:
-        self.upserted: list[Node] = []
-
-    def insert_or_update(self, node: Node) -> tuple[Node, bool]:
-        self.upserted.append(node)
-        return node, True
-
-    def bulk_insert_or_update_nodes(
-        self, collection: str, docs: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        self.upserted.extend(Node.from_document(collection, d) for d in docs)
-        return len(docs), 0
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return None
+def _written(store: InMemoryStore) -> Node:
+    """The one node normalize_nodes wrote."""
+    [(collection, docs)] = store.nodes.items()
+    [doc] = docs.values()
+    return Node.from_document(collection, doc)
 
 
 def _raw(
@@ -73,14 +58,14 @@ _STB_XML = """<?xml version="1.0"?>
 def test_staatsblad_normalize_creates_publication():
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult()
     )
 
     assert nodes == 1
-    node = store.upserted[-1]
+    node = _written(store)
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2015"
     assert node.props["number"] == "134"
@@ -95,15 +80,15 @@ def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
     xml = (Path(__file__).parents[1] / "fixtures" / "stb_2025_263.xml").read_text()
-    store = _FakeStore()
+    store = InMemoryStore()
     StaatsbladNormalizePipeline(store=store).normalize_nodes(
         [_raw("stb-2025-263", payload_text=xml)], PipelineResult()
     )
-    text = store.upserted[-1].props["text"]
+    text = _written(store).props["text"]
     assert text.startswith("NOTA VAN TOELICHTING") and len(text) > 5000
     assert "Mediabesluit 2008" in text
     # its title is the publication's (``DC.title``), not the masthead "Staatsblad"
-    assert store.upserted[-1].props["title"] == (
+    assert _written(store).props["title"] == (
         "Besluit van 29 september 2025 tot wijziging van het Mediabesluit 2008 in "
         "verband met het stellen van nadere regels omtrent een investeringsverplichting "
         "voor Nederlands cultureel audiovisueel product"
@@ -115,19 +100,19 @@ def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():
     explains, not BWBR0001234, the first law its text cites."""
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     pipeline.normalize_nodes(
         [_raw("stb-2015-134", payload_text=_STB_XML, meta={"bwb_id": "BWBR0009999"})],
         PipelineResult(),
     )
-    assert store.upserted[-1].props["bwb_id"] == "BWBR0009999"
+    assert _written(store).props["bwb_id"] == "BWBR0009999"
 
 
 def test_staatsblad_normalize_skips_empty_payload():
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("stb-2020-1", payload_text="")], PipelineResult()
@@ -154,14 +139,14 @@ def test_staatscourant_normalize_creates_publication():
         StaatscourantNormalizePipeline,
     )
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult()
     )
 
     assert nodes == 1
-    node = store.upserted[-1]
+    node = _written(store)
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2020"
     assert node.props["bwb_id"] == "BWBR0005821"
@@ -172,7 +157,7 @@ def test_staatscourant_normalize_skips_empty_payload():
         StaatscourantNormalizePipeline,
     )
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("stcrt-2020-55", payload_text="")], PipelineResult()
@@ -200,14 +185,14 @@ _ECHR_PAYLOAD = {
 def test_echr_normalize_creates_judgment():
     from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = ECHRNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult()
     )
 
     assert nodes == 1
-    node = store.upserted[-1]
+    node = _written(store)
     assert node.type == NodeType.JUDGMENT
     assert node.props["appno"] == "12345/67"
     assert node.props["respondent"] == "Netherlands"
@@ -217,10 +202,67 @@ def test_echr_normalize_creates_judgment():
 def test_echr_normalize_skips_empty_payload():
     from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = ECHRNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
     assert nodes == 0
+
+
+def test_echr_names_why_a_record_gives_no_judgment():
+    from lawgraph.config.constants import RAW_KIND_ECHR_TEXT
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    english = {**_ECHR_PAYLOAD, "ecli": "ECLI:CE:ECHR:2022:0315JUD001234567"}
+    french = {**english, "itemid": "001-12346", "languageisocode": "FRE"}
+    text = {"kind": RAW_KIND_ECHR_TEXT}
+    pipeline = ECHRNormalizePipeline(store=InMemoryStore())
+    progress = pipeline.progress
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [
+            _raw("001-1", payload_json=None),
+            _raw("", payload_json={"docname": "CASE OF NOBODY"}),
+            _raw("001-12345", payload_json={**english, "languageisocode": "ENG"}),
+            _raw("001-12346", payload_json=french),
+            {**_raw("001-2", payload_text=""), **text},
+            {**_raw("001-3", payload_text="<w:document"), **text},
+        ],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1
+    assert progress.skips == {
+        "no payload": 1,
+        "no item id": 1,
+        "a translation; a better language is kept": 1,
+        "no text": 1,
+    }
+    assert progress.failures == {"text not readable": 1}
+    assert result.skipped == 5
+    (error,) = result.errors
+    assert "001-3" in error
+
+
+@pytest.mark.parametrize(
+    ("importance", "kept"), [("2", 2), (1, 1), (None, None), ("", None), ("key", None)]
+)
+def test_echr_importance_is_a_number_or_left_out(importance: Any, kept: Any) -> None:
+    from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+
+    store = InMemoryStore()
+    pipeline = ECHRNormalizePipeline(store=store)
+    progress = pipeline.progress
+    pipeline.normalize_nodes(
+        [_raw("001-12345", payload_json={**_ECHR_PAYLOAD, "importance": importance})],
+        PipelineResult(),
+    )
+
+    assert _written(store).props.get("importance") == kept
+    assert progress.problems == (
+        {"importance not a number": 1} if importance == "key" else {}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -245,14 +287,14 @@ def test_verdragenbank_normalize_creates_instrument():
         VerdragenbankNormalizePipeline,
     )
 
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
     nodes = pipeline.normalize_nodes(
         [_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult()
     )
 
     assert nodes == 1
-    node = store.upserted[-1]
+    node = _written(store)
     assert node.type == NodeType.INSTRUMENT
     assert node.props["kind"] == "bilateraalverdrag"
     assert node.props["status"] == "Inwerkinggetreden"
@@ -270,11 +312,11 @@ def test_verdragenbank_normalize_multilateral():
         "treaty_type": "Multilateraal",
         "uri": "https://vb/99",
     }
-    store = _FakeStore()
+    store = InMemoryStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
     pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
 
-    node = store.upserted[-1]
+    node = _written(store)
     assert node.props["kind"] == "multilateraalverdrag"
 
 
@@ -285,15 +327,46 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
 
     def in_force(status: str) -> bool:
         payload = {**_VERDRAG_PAYLOAD, "status": status}
-        store = _FakeStore()
+        store = InMemoryStore()
         VerdragenbankNormalizePipeline(store=store).normalize_nodes(
             [_raw("12345", payload_json=payload)], PipelineResult()
         )
-        return store.upserted[-1].props["in_force"]
+        return _written(store).props["in_force"]
 
     assert in_force("Inwerkinggetreden") is True
     for status in ("Buitenwerkinggetreden", "Totstandgekomen", "Geratificeerd"):
         assert in_force(status) is False
+
+
+def test_verdragenbank_names_why_a_record_gives_no_treaty():
+    from lawgraph.config.constants import RAW_KIND_VERDRAG_XML
+    from lawgraph.pipelines.normalize.verdragenbank import (
+        VerdragenbankNormalizePipeline,
+    )
+
+    item = {"kind": RAW_KIND_VERDRAG_XML}
+    pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
+    progress = pipeline.progress
+    result = PipelineResult()
+
+    count = pipeline.normalize_nodes(
+        [
+            _raw("1", payload_json=None),
+            _raw("", payload_json={"title_nl": "Verdrag zonder nummer"}),
+            {**_raw("2", payload_text=""), **item},
+            {**_raw("3", payload_text="<verdrag"), **item},
+            _raw("12345", payload_json=_VERDRAG_PAYLOAD),
+        ],
+        result,
+    )
+    pipeline.add_outcomes(result)
+
+    assert count == 1
+    assert progress.skips == {"no payload": 1, "no treaty id": 1, "no item XML": 1}
+    assert progress.failures == {"item XML not read": 1}
+    assert result.skipped == 4
+    (error,) = result.errors
+    assert "3" in error and "not XML" in error
 
 
 # ---------------------------------------------------------------------------
@@ -337,7 +410,7 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing(
         (VerdragenbankNormalizePipeline, False),
     ):
         batch_sizes.clear()
-        pipeline = cls(store=_FakeStore())
+        pipeline = cls(store=InMemoryStore())
         raw = pipeline.fetch_raw()
         assert not isinstance(raw, list), cls.__name__
         with pytest.raises(StopIteration):

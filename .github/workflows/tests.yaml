@@ -1,8 +1,7 @@
 name: tests
 
-# On every pull request, and on a push to develop or main (release.yml waits for the run of the
-# push of a develop commit). A newer push to a pull request cancels its run still going; a run
-# of a push to develop or main is never cancelled.
+# On every pull request, and on a push to develop or main. A newer push to a pull request
+# cancels its run still going; a run of a push to develop or main is never cancelled.
 on:
   push:
     branches: [develop, main]
@@ -115,8 +114,11 @@ jobs:
             tests: tests/integration/test_[jp-qsu]*.py
             dist: loadgroup
 
+    # A PostgreSQL that does not answer fails the shard (ALLOW_DB_TESTS); there is no S3
+    # server here, so the tests of the payload store in a bucket are skipped (ALLOW_S3_TESTS).
     env:
       ALLOW_DB_TESTS: '1'
+      ALLOW_S3_TESTS: '0'
       LAWGRAPH_TEST_DB_URL: postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph
 
     steps:

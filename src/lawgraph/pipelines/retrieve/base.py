@@ -3,22 +3,26 @@ from __future__ import annotations
 import datetime as dt
 import zlib
 from collections import deque
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+import requests
+
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
+from lawgraph.pipelines.retrieve._gaps import waiting_for_retry
 
 T = TypeVar("T")
+S = TypeVar("S", bound=Sized)
 
 logger = get_logger(__name__)
 
@@ -47,6 +51,10 @@ class SourceDown(RuntimeError):
     """A source failed too many requests in a row."""
 
 
+# What a download fails with when the source is at fault: a request that failed, or an answer
+# that is not what was asked for. Any other exception is a bug and ends the step.
+DOWNLOAD_FAILURES = (requests.RequestException, UnexpectedAnswer)
+
 # 4xx answers that are about us and not about the document: not allowed (a ban answers 403
 # to everything) or too many requests.
 _SOURCE_REFUSES = (401, 403, 429)
@@ -74,7 +82,7 @@ class FailureStreak:
         HTTP 4xx (but 429) says something about the document that was asked for, and a
         source that answers is not down: a run of those must not end the step.
         """
-        status = getattr(getattr(exc, "response", None), "status_code", None)
+        status = status_of(exc)
         if status is not None and 400 <= status < 500 and status not in _SOURCE_REFUSES:
             self.count = 0
             return
@@ -143,10 +151,21 @@ def failure_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def add_outcome(result: PipelineResult, progress: Progress) -> None:
-    """What *progress* counted next to the stored records: skips, and one error per cause."""
-    result.skipped += progress.skipped + progress.failed
-    result.errors.extend(progress.errors())
+def listed(items: S, what: str) -> S:
+    """*items*, the listing of every *what* of a source; an empty one raises.
+
+    A listing without a window holds thousands: empty, it is a broken question or a broken
+    source, not "nothing to do".
+    """
+    if not items:
+        raise RuntimeError(f"The listing of {what} is empty; nothing was retrieved.")
+    return items
+
+
+def is_server_error(exc: Exception) -> bool:
+    """The request ended with HTTP 5xx, after the retries of the client."""
+    status = status_of(exc)
+    return status is not None and 500 <= status < 600
 
 
 def is_not_found(exc: Exception) -> bool:
@@ -181,7 +200,7 @@ def fetched_side_by_side(
     def attempt(one: str) -> T | Exception:
         try:
             return fetch(one)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — the failure is the answer for this id
             return exc
 
     window: deque[tuple[str, Future[T | Exception]]] = deque()
@@ -212,8 +231,6 @@ class RetrievePipelineBase(PipelineBase):
     number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
     """
 
-    progress: Progress  # of the records being stored; made by ``_store_all``
-
     def run(self, **kwargs: Any) -> PipelineResult:
         def records() -> Iterator[RetrieveRecord]:
             # Inside the loop, so a ``fetch`` that raises before its first record is an
@@ -235,7 +252,7 @@ class RetrievePipelineBase(PipelineBase):
         with its count).
         """
         result = PipelineResult()
-        progress = self.progress = Progress(what)
+        progress = self._loop(what)
         by_products: set[str] = set()
 
         def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
@@ -246,6 +263,7 @@ class RetrievePipelineBase(PipelineBase):
             for doc, reason in failures:
                 where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
                 progress.fail("could not be stored", where)
+            self._on_stored(stored)
 
         try:
             with RawSourceWriter(self.store, on_flush=written) as writer:
@@ -268,14 +286,21 @@ class RetrievePipelineBase(PipelineBase):
             # entity type of tk-dossiers) must not go on downloading what it cannot store.
             logger.error("Stopping after %d records were stored.", result.created)
             raise
-        except Exception as exc:
-            msg = f"fetch() failed after {result.created} records were stored: {exc}"
-            logger.error(msg)
+        except Exception as exc:  # noqa: BLE001 — what was stored stays, the step fails
+            msg = f"fetch() failed after {result.created} records were stored: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
         finally:
             progress.finish()
-        add_outcome(result, progress)
+        self.add_outcomes(result)
         return result
+
+    def _on_stored(self, docs: list[dict[str, Any]]) -> None:
+        """Called with every buffer of records the writer has stored, in the order yielded.
+
+        For a pipeline that keeps where it got to: what it keeps must not run ahead of what
+        is stored, or a crash loses the buffer for good.
+        """
 
     def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         """Return (or yield) the raw source records that should be stored.
@@ -283,6 +308,47 @@ class RetrievePipelineBase(PipelineBase):
         Yield them where fetching is slow, so each is stored as soon as it is there.
         """
         return []
+
+    def _download_each(
+        self,
+        ids: Sequence[str],
+        fetch: Callable[[str], T],
+        records: Callable[[str, T], Iterable[RetrieveRecord]],
+        *,
+        source: str,
+        missing: Callable[[str, int], RetrieveRecord],
+        is_missing: Callable[[Exception], bool] = is_not_found,
+        workers: int = 1,
+        failed_is_skipped: bool = False,
+    ) -> Iterator[RetrieveRecord]:
+        """The *records* of what *fetch* gets for each of *ids*, *workers* at a time.
+
+        A document the source does not have (*is_missing*: by default HTTP 404 or a redirect
+        that leads nowhere, ``is_not_found``) is skipped and yields *missing* with the status
+        it was answered with. A download that fails (``DOWNLOAD_FAILURES``) fails the id, or
+        skips it with *failed_is_skipped*; either way nothing is stored and the next run asks
+        again. ``MAX_FAILURES_IN_A_ROW`` of those, or of server errors that mean a document
+        is missing, stop the step (``SourceDown``). Any other exception is a bug and ends it.
+        """
+        self.progress.expect(len(ids))
+        streak = FailureStreak(source)
+        for one, got in fetched_side_by_side(ids, fetch, workers=workers):
+            if not isinstance(got, Exception):
+                streak.ok()
+                yield from records(one, got)
+            elif is_missing(got):
+                if is_server_error(got):
+                    streak.failed(one, got)
+                else:
+                    streak.ok()
+                self.progress.skip(f"not at the source ({failure_reason(got)})", one)
+                yield missing(one, status_of(got) or 200)
+            elif isinstance(got, DOWNLOAD_FAILURES):
+                count = self.progress.skip if failed_is_skipped else self.progress.fail
+                count(f"download failed ({failure_reason(got)})", one)
+                streak.failed(one, got)
+            else:
+                raise got
 
     def _without_missing(self, source: str, kind: str, ids: Iterable[str]) -> list[str]:
         """*ids* without those the source answered HTTP 404 for not long ago.
@@ -292,15 +358,7 @@ class RetrievePipelineBase(PipelineBase):
         its ``retry_after`` has passed a document is tried once more.
         """
         ids = list(ids)
-        missing = {
-            str(external_id)
-            for external_id in raw_queries.ids_waiting_for_retry(
-                self.store,
-                source=source,
-                kind=kind + RAW_KIND_MISSING_SUFFIX,
-                now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
-            )
-        }
+        missing = waiting_for_retry(self.store, source, kind)
         todo = [external_id for external_id in ids if external_id not in missing]
         if len(todo) < len(ids):
             logger.info(
@@ -365,14 +423,16 @@ class RetrievePipelineBase(PipelineBase):
         """``{external_id: fetched_at}`` of every stored record of *kind*.
 
         For sources that say when a record last changed: what is stored and newer than that
-        does not have to be fetched again.
+        does not have to be fetched again. ``fetched_at`` is always written as a moment
+        (``iso_timestamp``): one that is not fails the step, naming its record.
         """
         stored: dict[str, dt.datetime] = {}
         for row in raw_queries.fetch_times(self.store, source=source, kind=kind):
             try:
                 at = dt.datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
-            except (KeyError, ValueError):
-                continue
+            except ValueError as exc:
+                exc.add_note(f"fetched_at of {source} {kind} {row['id']}")
+                raise
             if row.get("id"):
                 stored[str(row["id"])] = (
                     at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)

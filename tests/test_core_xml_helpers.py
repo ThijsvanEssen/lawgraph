@@ -13,6 +13,21 @@ def _el(xml: str) -> ET.Element:
     return ET.fromstring(xml)
 
 
+def test_children_named_and_child_named() -> None:
+    root = _el('<a xmlns="urn:x"><b>1</b><c><b>deep</b></c><b>2</b></a>')
+    assert [b.text for b in core_xml.children_named(root, "b")] == ["1", "2"]
+    assert core_xml.children_named(None, "b") == []
+    first = core_xml.child_named(root, "b")
+    assert first is not None and first.text == "1"
+    assert core_xml.child_named(root, "d") is None
+    assert core_xml.child_named(None, "b") is None
+
+
+def test_words_of() -> None:
+    assert core_xml.words_of(_el("<p> a\n<b>b </b> c</p>")) == "a b c"
+    assert core_xml.words_of(None) == ""
+
+
 def test_collapse_ws_and_text_of() -> None:
     assert core_xml.collapse_ws(" a \n b\t c ") == "a b c"
     assert core_xml.collapse_ws("") == ""
@@ -53,7 +68,7 @@ def test_normalize_instrument_id() -> None:
 
 
 def test_the_gaps_report_names_a_law_from_its_sru_record_without_downloading_it(
-    monkeypatch,
+    monkeypatch, caplog
 ) -> None:
     """The report needs a name; the toestand is the whole law, fetched by the gaps run."""
     from lawgraph.commands import gaps
@@ -62,7 +77,7 @@ def test_the_gaps_report_names_a_law_from_its_sru_record_without_downloading_it(
 
     class _FakeClient:
         def latest_toestand(self, bwb_id: str) -> dict | None:
-            if bwb_id == "BWBR3":
+            if bwb_id in ("BWBR3", "BWBR4"):
                 raise RuntimeError("SRU error")
             return {"bwb_id": bwb_id, "title": titles[bwb_id]}
 
@@ -70,7 +85,14 @@ def test_the_gaps_report_names_a_law_from_its_sru_record_without_downloading_it(
             raise AssertionError("the toestand is not needed for a name")
 
     monkeypatch.setattr(gaps, "BWBClient", _FakeClient)
-    result = gaps._resolve_names_from_bwb(
-        ["BWBR1", "BWBR2", "BWBR3"], {"BWBR9": "Bekend"}
-    )
+    with caplog.at_level("DEBUG"):
+        result = gaps._resolve_names_from_bwb(
+            ["BWBR1", "BWBR2", "BWBR3", "BWBR4"], {"BWBR9": "Bekend"}
+        )
     assert result == {"BWBR9": "Bekend", "BWBR1": "Wet op X"}
+    assert [(r.levelname, r.getMessage()) for r in caplog.records] == [
+        (
+            "WARNING",
+            "2 law titles not fetched; the first, BWBR3: RuntimeError: SRU error",
+        )
+    ]

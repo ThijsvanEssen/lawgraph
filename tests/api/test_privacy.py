@@ -1,6 +1,6 @@
 """What the API keeps of a visitor: the network of its address in the request log, never
-the address or the query string; the full address only in the rate limiter's memory; the
-terms of /api/search counted without who asked."""
+the address or the query string; the address (of IPv6 its /64) only in the rate limiter's
+memory; the terms of /api/search counted without who asked."""
 
 from __future__ import annotations
 
@@ -23,7 +23,10 @@ def test_an_address_is_cut_to_its_network() -> None:
 
 
 def test_the_request_log_holds_no_address_and_no_query_string(caplog) -> None:
-    client = TestClient(app, client=("203.0.113.77", 4711))
+    # the stub store makes it a 500: its line holds no more than any other
+    client = TestClient(
+        app, client=("203.0.113.77", 4711), raise_server_exceptions=False
+    )
     with caplog.at_level(logging.INFO, logger=app_module.__name__):
         client.get("/api/health?q=rechtszaak+Jansen")
     lines = [r.getMessage() for r in caplog.records if r.name == app_module.__name__]

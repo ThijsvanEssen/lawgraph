@@ -59,6 +59,20 @@ def test_a_meeting_has_its_kind_when_the_agenda_gives_one() -> None:
 def test_a_reference_names_its_dossiers() -> None:
     assert ea.reference_dossiers("36.889") == ["36889"]
     assert ea.reference_dossiers("36.945 XXII, A") == ["36945-XXII"]
+    assert ea.reference_dossiers("28.973 / 29.683 / 32.793, AA") == [
+        "28973",
+        "29683",
+        "32793",
+    ]
+
+
+def test_a_reference_names_no_dossier_for_what_is_no_dossier_number() -> None:
+    assert ea.reference_dossiers("Brief regering / 36.600 VII, B") == ["36600-VII"]
+    assert ea.reference_dossiers("E260009 - 36.954, D") == ["36954"]
+    assert ea.reference_dossiers("E250028") == []
+    assert ea.reference_dossiers("COM(2026)660") == []
+    assert ea.reference_dossiers("Rondvraag") == []
+    assert ea.reference_dossiers("Gespreksverzoek premier Aruba, dhr. Mike Eman") == []
 
 
 def test_a_rijkswet_on_the_agenda_names_its_dossier() -> None:

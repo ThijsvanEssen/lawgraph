@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.tk_records import FIRST_SIGNATORY
 from lawgraph.db import CountingStore, GraphStore
 from lawgraph.db.queries.government import (
-    ROLE_FIRST_SIGNATORY,
     cabinet_periods,
     commitment_makers,
     dossier_first_signatures,
@@ -40,7 +40,7 @@ def _signed(key: str, member: str, document: str, capacity: str, **meta: Any) ->
         f"members/{member}",
         f"documents/{document}",
         "AUTHORED",
-        role=meta.pop("role", ROLE_FIRST_SIGNATORY),
+        role=meta.pop("role", FIRST_SIGNATORY),
         capacity=capacity,
         **meta,
     )

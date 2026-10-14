@@ -19,20 +19,15 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION, VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.schema import search_words
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
 
 
@@ -88,7 +83,7 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
     """The conditions on the decision ``d`` but for kind and outcome."""
     clauses: list[str] = [] if filters.unvoted else ["d.passed IS NOT NULL"]
     if filters.chamber is not None:
-        # TK decisions carry the label "TK", EK ones "EK".
+        # TK decisions carry the label ``TK``, EK ones ``EK``.
         clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
     if filters.dossier:
@@ -424,31 +419,18 @@ def get_decisions(
     _add_motions(store, items)
     if not facets:
         return {"total": None, "items": items, "facets": None}
-    left = read_time_left()
-    token = set_read_deadline(
-        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
-    )
-    page: dict[str, Any]
-    try:
+    page: dict[str, Any] = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
+    with read_budget(COUNTS_BUDGET, "The counts of the decisions") as budget:
         counts = decision_counts(store, filters)
-        page = {"total": counts["total"], "items": items, "facets": counts["facets"]}
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
+        page.update(total=counts["total"], facets=counts["facets"])
+    if budget.ran_out:
         # counted on for the next request (``lasting``); this one shows the page now
-        page = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
         page["partial"] = True
-    finally:
-        reset_read_deadline(token)
     if filters.party_votes:
         _add_party_votes(store, filters, page)
     return page
 
 
-# The seconds a request waits for the total and facets of a filter not counted before:
-# past them the page comes without them, ``partial``, and they are counted on for a later
-# request.
-COUNTS_BUDGET = 3.0
 # How long the total and facets under a filter are kept for one version of the decisions
 # (seconds): a new version (a poll) counts again; the coalition of a vote and the votes of
 # a party, which raise no version of the decisions, follow within it.
@@ -506,13 +488,9 @@ def counted_total(store: GraphStore, filters: DecisionFilters) -> int | None:
     it: None while it is not counted for this version of the decisions (it is counted on,
     in the background)."""
     version = store.data_version((COLLECTION_DECISIONS,))
-    token = set_read_deadline(0.0)
-    try:
+    with read_budget(0.0, "The total of the decisions"):
         return _kept_counts(store, filters, version)["total"]  # type: ignore[no-any-return]
-    except ReadTimedOut:
-        return None
-    finally:
-        reset_read_deadline(token)
+    return None
 
 
 def _kept_counts(
@@ -604,8 +582,6 @@ WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(about)s
   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
 ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
 """
-# The kinds of case whose paper is the motion or amendment a decision is about.
-MOTION_KINDS = ("Motie", "Amendement")
 
 
 def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -628,7 +604,7 @@ def motion_papers(
     motion, or a motion without text."""
     cases = [
         f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
-        if d.get("primary_case_kind") in MOTION_KINDS and d.get("primary_case_id")
+        if d.get("primary_case_kind") in DECIDED_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
     ]
@@ -643,7 +619,7 @@ def motion_papers(
         }
     # a decision on a motion without a case of its own: of the Eerste Kamer
     others = sorted({str(d["id"]) for d, c in zip(decisions, cases, strict=True)
-                     if c is None and d.get("id") and d.get("kind") in MOTION_KINDS})  # fmt: skip
+                     if c is None and d.get("id") and d.get("kind") in DECIDED_KINDS})  # fmt: skip
     by_decision: dict[str, dict[str, Any]] = {}
     if others:
         by_decision = {
@@ -655,7 +631,7 @@ def motion_papers(
     found = []
     for decision, case in zip(decisions, cases, strict=True):
         row = by_case.get(case) if case else by_decision.get(str(decision.get("id")))
-        motion = decision.get("primary_case_kind") == "Motie" and case is not None
+        motion = decision.get("primary_case_kind") == KIND_MOTION and case is not None
         dictum = ((row or {}).get("light") or {}).get("dictum") if motion else None
         found.append((_paper(row), dictum))
     return found
@@ -702,18 +678,10 @@ def _add_party_votes(
 ) -> None:
     """``facets.party_votes`` of *page*, or ``partial`` when they take longer than
     ``PARTY_VOTES_BUDGET``."""
-    left = read_time_left()
-    token = set_read_deadline(
-        PARTY_VOTES_BUDGET if left is None else min(PARTY_VOTES_BUDGET, left)
-    )
-    try:
+    with read_budget(PARTY_VOTES_BUDGET, "The votes per party") as budget:
         page["facets"]["party_votes"] = party_votes(store, filters)
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
+    if budget.ran_out:
         page["partial"] = True
-    finally:
-        reset_read_deadline(token)
 
 
 # How long ``party_votes`` under a filter are kept (seconds), whatever the data does: every

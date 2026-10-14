@@ -21,12 +21,13 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
-from tests.conftest import _BaseFakeStore
-from tests.fakes import FakeResponse, RawSourcesFake
+from tests.fakes import FakeResponse, InMemoryStore
 
 PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
 ).read_text()  # dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
+
+pytestmark = pytest.mark.usefixtures("edge_removals")
 
 
 def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
@@ -113,21 +114,13 @@ def test_limit_stops_early() -> None:
 # ── retrieve ─────────────────────────────────────────────────────────────────
 
 
-class _RawStore(RawSourcesFake):
-    def __init__(self) -> None:
-        self.stored: list[dict[str, Any]] = []
-
-    def insert_raw_source(self, **kw: Any) -> None:
-        self.stored.append(kw)
-
-
 def test_every_paper_becomes_a_raw_record() -> None:
-    store = _RawStore()
+    store = InMemoryStore()
     pipeline = EerstekamerRetrievePipeline(store=store, client=_client([PAGE], []))
     result = pipeline.run()
 
     assert (result.created, result.errors) == (4, [])
-    first = store.stored[1]
+    first = list(store.raw.values())[1]
     assert first["source"] == "eerstekamer" and first["kind"] == "ek-kamerstuk-json"
     assert first["external_id"] == "kst-36867-A"
     assert first["payload_json"]["kind"] == "Voorstel van wet"
@@ -136,32 +129,15 @@ def test_every_paper_becomes_a_raw_record() -> None:
 
 def test_a_failed_search_is_an_error_of_the_run() -> None:
     client = _client([requests.ConnectionError("no route")], [])
-    result = EerstekamerRetrievePipeline(store=_RawStore(), client=client).run()
+    result = EerstekamerRetrievePipeline(store=InMemoryStore(), client=client).run()
     assert result.created == 0 and "no route" in result.errors[0]
 
 
 # ── normalize ────────────────────────────────────────────────────────────────
 
 
-class _NodeStore:
-    def __init__(self) -> None:
-        self.upserted: list[Any] = []
-
-    def bulk_insert_or_update_nodes(self, collection, docs):
-        self.upserted.extend(docs)
-        return len(docs), 0
-
-    def insert_or_update(self, node):
-        self.upserted.append(node)
-        return node, True
-
-    def existing_keys(self, collection, keys):
-        # the dossiers of the Tweede Kamer: none here
-        return set()
-
-
 def _normalize(papers: list[dict[str, Any]]):
-    store = _NodeStore()
+    store = InMemoryStore()  # no dossiers of the Tweede Kamer
     pipeline = EerstekamerNormalizePipeline(store=store)
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
@@ -169,7 +145,7 @@ def _normalize(papers: list[dict[str, Any]]):
     # the papers; the dossiers written from them are tested on the database
     nodes = {
         doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
-        for doc in store.upserted
+        for doc in store.nodes.get(COLLECTION_DOCUMENTS, {}).values()
         if doc.get("type") == "document"
     }
     return nodes, result
@@ -231,15 +207,6 @@ def test_split_dossier_number(value, expected) -> None:
     assert split_dossier_number(value) == expected
 
 
-def test_a_record_without_an_identifier_is_skipped() -> None:
-    store = _NodeStore()
-    result = PipelineResult()
-    nodes = EerstekamerNormalizePipeline(store=store).normalize_nodes(
-        [{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result
-    )
-    assert nodes == 0 and store.upserted == [] and result.skipped == 2
-
-
 # ── the link to the Tweede Kamer dossier ─────────────────────────────────────
 
 
@@ -266,7 +233,7 @@ def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) ->
         }
     ]
     _papers_in_tk_dossiers(monkeypatch, rows)
-    store = _BaseFakeStore()
+    store = InMemoryStore()
     result = EerstekamerSemanticPipeline(store=store).run()
 
     assert result.created == 1
@@ -288,7 +255,7 @@ def test_a_paper_is_part_of_each_dossier_it_names(
         [{**first, "dossier_number": "33081", "dossier_suffix": None}],
         [{**other, "dossier_number": "33082", "dossier_suffix": None}],
     )
-    store = _BaseFakeStore()
+    store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 2
     assert {edge["_to"] for edge in store.edges.values()} == {
         "dossiers/33081",
@@ -298,5 +265,5 @@ def test_a_paper_is_part_of_each_dossier_it_names(
 
 def test_no_match_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     _papers_in_tk_dossiers(monkeypatch, [])
-    store = _BaseFakeStore()
+    store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 0

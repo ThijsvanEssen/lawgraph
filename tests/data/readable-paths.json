@@ -14,6 +14,13 @@
       "path": "/uitspraken/ECLI:NL:RBDHA:2015:7145"
     },
     {
+      "focus": "judgments/ecli_be_cass_2019_arr_20190101_1",
+      "props": {
+        "ecli": "ECLI:BE:CASS:2019:ARR.20190101.1"
+      },
+      "path": "/uitspraken/ECLI:BE:CASS:2019:ARR.20190101.1"
+    },
+    {
       "focus": "instruments/bwbr0005289",
       "props": {},
       "path": "/wetten/BWBR0005289"
@@ -321,6 +328,8 @@
     "/wetten/32022L2555/bijlage/I",
     "/wetten/BWBR0005289/hoofdstuk/1",
     "/uitspraken/geen-ecli",
+    "/uitspraken/ECLI:NL:HR:2019:20_06",
+    "/uitspraken/ECLI:NLD:HR:2019:2006",
     "/dossiers/12",
     "/kamerstukken/36799/31/extra",
     "/kamerstukken/36799/ABCD",
@@ -336,5 +345,39 @@
     "/zaken/2025Z15468/x",
     "/activiteiten/01323",
     "/activiteiten/2026A01323/x"
+  ],
+  "focus": [
+    {
+      "path": "/uitspraken/ECLI:NL:HR:2019:2006",
+      "focus": "judgments/ecli_nl_hr_2019_2006"
+    },
+    {
+      "path": "/uitspraken/ECLI:BE:CASS:2019:ARR.20190101.1",
+      "focus": "judgments/ecli_be_cass_2019_arr_20190101_1"
+    },
+    {
+      "path": "/wetten/BWBR0005289",
+      "focus": "instruments/bwbr0005289"
+    },
+    {
+      "path": "/wetten/32022L2555",
+      "focus": "instruments/32022l2555"
+    },
+    {
+      "path": "/dossiers/36600-VIII",
+      "focus": "dossiers/36600_viii"
+    },
+    {
+      "path": "/kabinetten/rutte_iv",
+      "focus": "cabinets/rutte_iv"
+    },
+    {
+      "path": "/fracties/d66",
+      "focus": "factions/d66"
+    },
+    {
+      "path": "/zaken/2025Z15468",
+      "focus": null
+    }
   ]
 }

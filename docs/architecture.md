@@ -140,7 +140,7 @@ against the plans of its statements).
 | Layer | Rule |
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env` |
-| `core/` | logic and shared definitions, each defined once: node and props models, the relation catalogue, BWB XML, citation extraction, dossier stages, identifiers, XML and time helpers, batching, the TTL cache. Imports only `config` and `core`; no network or database, but it reads (and the build commands write) the data files of `data/` |
+| `core/` | logic and shared definitions, each defined once: node and props models, the relation catalogue, BWB XML, citation extraction, dossier stages, identifiers, XML and time helpers, batching. Imports only `config` and `core`; no network or database, but it reads (and the build commands write) the data files of `data/` |
 | `db/` | all database access: `GraphStore`, `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/` as a function in the terms of its caller (`get_dossier_hub(store, number)`) |
 | `clients/` | HTTP only; one class per source on `BaseClient`, paced per host |
 | `pipelines/` | the phases; depend on `config`, `core`, `db`, `clients` |
@@ -163,6 +163,7 @@ and looks up by set.
 | Need | Use | Not |
 |------|-----|-----|
 | write edges | `EdgeWriter` (`db/edges.py`): `add(from, to, relation, ...)`, then `flush()` or `with` | one insert per edge |
+| remove the edges a step no longer derives | `EdgeWriter(remembers=True)`: after the writes, `remove_stale` (per node read, from its end), `remove_stale_to` (into it) or `remove_stale_of_source` (all of the step) | a list of kept keys beside the writer |
 | build an edge document | `make_edge_doc` (the one edge shape: key, `created_at`, confidence check) | a hand-built dict |
 | write raw records | `RawSourceWriter` (`db/raw.py`) through `RetrievePipelineBase._store_all`: one request per 500 records, 8 MB or 5 seconds, written on every exit | one insert per record |
 | write nodes | `NodeWriter` (`db/nodes.py`) or `NormalizePipelineBase._upsert_nodes` | `insert_or_update` per record |
@@ -212,11 +213,12 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | McCabe complexity at most 15 | ruff `C901` |
 | A command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when its `run` takes it | `tests/test_pipeline_cli.py` |
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
-| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/test_conventions.py` |
-| A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/test_conventions.py` |
-| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/test_conventions.py` |
-| A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/test_conventions.py` |
-| Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/test_conventions.py` |
+| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
+| A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
+| A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
+| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
+| A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/conventions/test_sparse_joins.py`, `tests/conventions/test_semantic_reads.py` |
+| Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |
 | Relation names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend, introduce or repeal; the `RELATION_*` constants are the catalogue; the generated tables of `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
 | A node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `core/props.py`, `tests/test_props_validation.py` |
 | `PART_OF` points from the child (article, annex) to the instrument | `tests/test_part_of_direction.py` |

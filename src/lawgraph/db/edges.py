@@ -3,7 +3,8 @@
 ``make_edge_doc`` is the single edge-document shape (key scheme, ``created_at``,
 confidence validation). ``EdgeWriter`` collects edges and writes them with bulk
 upserts, so a pipeline pays one database round-trip per batch instead of one
-per edge.
+per edge. A writer that remembers what it wrote removes the edges a run no longer
+derives (``remove_stale``).
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
+from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.store import edge_key
 
 logger = get_logger(__name__)
@@ -68,6 +71,10 @@ class EdgeWriter:
     Edges with the same key are de-duplicated inside the buffer (last one
     wins). The buffer is flushed automatically every ``batch_size`` edges, so
     memory stays bounded on large runs. A failing batch is logged and re-raised.
+
+    A step that derives its edges in full says ``remembers=True``: the writer then keeps
+    the key of every edge it wrote, and its ``remove_stale*`` methods remove the edges of
+    the step that it did not write. An edge not written (an id missing) is not kept.
     """
 
     def __init__(
@@ -76,17 +83,27 @@ class EdgeWriter:
         *,
         what: str | None,
         batch_size: int = DEFAULT_BATCH_SIZE,
+        remembers: bool = False,
     ) -> None:
         """*what* names the edges ("VOTED edges"): the writer then reports how far it is.
 
         For a phase that only writes edges. A loop that tracks its own records (a semantic
         pipeline and its documents) says ``what=None``: one pipeline shows one line. The
-        argument has no default, so neither is chosen by forgetting.
+        argument has no default, so neither is chosen by forgetting. *remembers*: keep the
+        key of every edge written, for ``remove_stale`` (a writer that only writes does not
+        pay for it).
         """
         self._store = store
         self._batch_size = batch_size
         self._pending: dict[str, dict[str, Any]] = {}
         self.progress = Progress(what) if what else None
+        # relation -> from id -> to id -> edge key, of every edge written
+        self._written: dict[str, dict[str, dict[str, str]]] | None = (
+            {} if remembers else None
+        )
+        # relation -> to id -> edge keys: for a relation removed by its end, made when
+        # first asked and kept up from then on
+        self._into: dict[str, dict[str, set[str]]] = {}
         self.added = 0
         self.created = 0
         self.updated = 0
@@ -110,6 +127,13 @@ class EdgeWriter:
         if doc is None:
             return
         self._pending[doc["_key"]] = doc
+        if self._written is not None:
+            relation, to_id, key = doc["relation"], doc["_to"], doc["_key"]
+            self._written.setdefault(relation, {}).setdefault(doc["_from"], {})[
+                to_id
+            ] = key
+            if relation in self._into:
+                self._into[relation].setdefault(to_id, set()).add(key)
         self.added += 1
         if len(self._pending) >= self._batch_size:
             self._write_pending()
@@ -151,6 +175,72 @@ class EdgeWriter:
         result.updated += self.updated
         result.unchanged += self.unchanged
         self.created = self.updated = self.unchanged = 0
+
+    def written(self, relation: str) -> int:
+        """How many edges of *relation* this writer wrote, each once."""
+        return sum(len(targets) for targets in self._remembered(relation).values())
+
+    def remove_stale(self, relation: str, source: str, from_ids: list[str]) -> int:
+        """Remove the *relation* edges of *source* from *from_ids* that this writer did not
+        write: the edges of those nodes are derived in full. How many went."""
+        return semantic_edges.remove_edges_from(
+            self._store, relation, source, from_ids, self._keys_from(relation, from_ids)
+        )
+
+    def removed_stale(
+        self, relation: str, source: str, from_ids: list[str]
+    ) -> list[tuple[str, str]]:
+        """``remove_stale``, answering ``(from_id, to_id)`` of every edge that went."""
+        return semantic_edges.removed_edges_from(
+            self._store, relation, source, from_ids, self._keys_from(relation, from_ids)
+        )
+
+    def remove_stale_to(
+        self, relations: list[str], source: str, to_ids: list[str]
+    ) -> int:
+        """Remove the edges of *relations* and *source* into *to_ids* that this writer did
+        not write: the edges into those nodes are derived in full. How many went."""
+        keep: dict[str, set[str]] = {}
+        for relation in relations:
+            into = self._keys_into(relation)
+            for to_id in to_ids:
+                if to_id in into:
+                    keep.setdefault(to_id, set()).update(into[to_id])
+        return semantic_edges.remove_edges_to(
+            self._store, relations, source, to_ids, keep
+        )
+
+    def remove_stale_of_source(self, relation: str, source: str | None) -> int:
+        """Remove the *relation* edges of *source* (of any source: None) that this writer
+        did not write: the step derives all of them on every run. How many went."""
+        keep = [
+            key
+            for targets in self._remembered(relation).values()
+            for key in targets.values()
+        ]
+        if source is None:
+            return normalize_edges.remove_edges_except(self._store, relation, keep)
+        return semantic_edges.remove_edges_of_source_except(
+            self._store, relation, source, keep
+        )
+
+    def _keys_from(self, relation: str, from_ids: list[str]) -> dict[str, set[str]]:
+        written = self._remembered(relation)
+        return {i: set(written[i].values()) for i in from_ids if i in written}
+
+    def _keys_into(self, relation: str) -> dict[str, set[str]]:
+        if relation not in self._into:
+            into: dict[str, set[str]] = {}
+            for targets in self._remembered(relation).values():
+                for to_id, key in targets.items():
+                    into.setdefault(to_id, set()).add(key)
+            self._into[relation] = into
+        return self._into[relation]
+
+    def _remembered(self, relation: str) -> dict[str, dict[str, str]]:
+        if self._written is None:
+            raise RuntimeError("EdgeWriter(remembers=False) keeps no keys to remove by")
+        return self._written.get(relation, {})
 
     def __enter__(self) -> EdgeWriter:
         return self

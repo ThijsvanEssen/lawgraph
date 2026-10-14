@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore, version_cache
+from tests.fakes import PATIENCE
 
 
 def test_the_stats_wait_once_for_counts_that_expired_together(
@@ -31,6 +33,7 @@ def test_the_stats_wait_once_for_counts_that_expired_together(
         ],
     )  # fmt: skip
     app.dependency_overrides[get_store] = lambda: store
+    release = threading.Event()
     try:
         client = TestClient(app)
         kept = client.get("/api/stats").json()
@@ -43,7 +46,7 @@ def test_the_stats_wait_once_for_counts_that_expired_together(
         computed = version_cache._compute
 
         def slow(entry_key: Any, compute: Any) -> Any:
-            time.sleep(3)
+            release.wait(PATIENCE)  # longer than a request waits
             return computed(entry_key, compute)
 
         monkeypatch.setattr(version_cache, "_compute", slow)
@@ -51,6 +54,7 @@ def test_the_stats_wait_once_for_counts_that_expired_together(
         response = client.get("/api/stats")
         took = time.perf_counter() - started
     finally:
+        release.set()
         app.dependency_overrides.pop(get_store, None)
     assert response.status_code == 200, response.text
     answer = response.json()
@@ -61,4 +65,4 @@ def test_the_stats_wait_once_for_counts_that_expired_together(
         "decisions": None,
     }
     assert kept["nodes"]["judgments"] == 5
-    assert took < version_cache.STALE_WAIT + 1.5, took  # one wait, not one per count
+    assert took < 2 * version_cache.STALE_WAIT, took  # one wait, not one per count

@@ -6,6 +6,7 @@ paper is never read; that of an article is (it is the page).
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -46,13 +47,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
-from lawgraph.db.store import (
-    ReadTimedOut,
-    RequestCancelled,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
 T = TypeVar("T")
@@ -220,16 +215,9 @@ def law_of(store: GraphStore, bwb_id: str) -> dict[str, Any] | None:
 def _within_budget(read: Callable[[], T], instead: T) -> T:
     """What *read* gives within ``CITED_BUDGET``, else *instead*: what is not kept yet goes
     on computing in the background for the next page."""
-    left = read_time_left()
-    token = set_read_deadline(CITED_BUDGET if left is None else min(CITED_BUDGET, left))
-    try:
+    with read_budget(CITED_BUDGET, "The citing or authored nodes of a page"):
         return read()
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
-        return instead
-    finally:
-        reset_read_deadline(token)
+    return instead
 
 
 def cited(store: GraphStore, node_id: str) -> list[str]:
@@ -458,13 +446,6 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 # ── people and bodies of the chambers and the government ──────────────────────
 
-# A membership not ended: a seat of the Tweede Kamer without its last day, one of the
-# Eerste Kamer still on its page.
-_CURRENT = (
-    "lg_str(e.doc -> 'meta' -> 'to_date') IS NULL"
-    " AND lg_str(e.doc -> 'meta' -> 'observed_until') IS NULL"
-)
-
 
 def _node(store: GraphStore, table: str, node_id: str) -> dict[str, Any] | None:
     return _first(
@@ -536,11 +517,17 @@ def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
             WHERE e.to_id = %(id)s AND e.relation = %(member_of)s
-              AND e.from_collection = '{COLLECTION_MEMBERS}' AND {_CURRENT}
+              AND e.from_collection = '{COLLECTION_MEMBERS}'
+              AND lg_seated(e.doc -> 'meta', %(today)s)
             ORDER BY lg_str(m.props -> 'family_name') ASC NULLS LAST, name ASC NULLS LAST, m.id
             LIMIT %(limit)s
             """,
-            {"id": node_id, "member_of": RELATION_MEMBER_OF, "limit": MEMBERS},
+            {
+                "id": node_id,
+                "member_of": RELATION_MEMBER_OF,
+                "limit": MEMBERS,
+                "today": dt.date.today().isoformat(),
+            },
         )
     )
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -13,9 +13,10 @@ from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NodeNeighborhoodEdge,
 )
-from lawgraph.api.schemas.paths import PathDTO, PathsResponse
+from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.queries.paths import Followed, Path, get_paths
 from lawgraph.db.schema import NODE_COLLECTIONS
 
@@ -79,7 +80,7 @@ def get_paths_route(
         bool, Query(description="Let a path pass through a law by its articles.")
     ] = False,
     expand: Annotated[
-        Literal["none", "members"],
+        PathExpand,
         Query(
             description="`members`: a group of `ids` (a law, a faction, a committee, a "
             "cabinet, a dossier) is joined through its children too (articles, members, "
@@ -100,7 +101,7 @@ def get_paths_route(
         if not store.has_node(*i.split("/", 1))  # type: ignore[arg-type]
     ]
     if missing:
-        raise HTTPException(status_code=404, detail=f"not found: {', '.join(missing)}")
+        raise NotFound("Nodes", ", ".join(missing))
     data = get_paths(
         store,
         asked,

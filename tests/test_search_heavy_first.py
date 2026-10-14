@@ -4,13 +4,13 @@ thread of the request meanwhile, so that the slow types overlap instead of addin
 from __future__ import annotations
 
 import threading
-import time
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 
 from lawgraph.db.queries import search as search_queries
+from tests.fakes import PATIENCE
 
 ALL_TYPES = sorted(
     [
@@ -33,10 +33,15 @@ def _recording(threads: dict[str, str]) -> Callable[..., dict[str, Any]]:
     """Searches of every type that note the thread they run in."""
 
     def searches(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        handed_out = threading.Event()  # the first type run in the caller's own thread
+
         def run(table: str) -> list[dict[str, Any]]:
-            threads[table] = threading.current_thread().name
-            # a thread of the pool stays busy while the others are handed out
-            time.sleep(0.1)
+            threads[table] = name = threading.current_thread().name
+            if name.startswith("search"):
+                # a thread of the pool stays busy while the others are handed out
+                handed_out.wait(PATIENCE)
+            else:
+                handed_out.set()
             return [{"key": table, "collection": table, "display_name": table}]
 
         return {t: (lambda t=t: run(t)) for t in ALL_TYPES}

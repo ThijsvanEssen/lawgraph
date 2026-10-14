@@ -8,16 +8,17 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_CASES,
-    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_AUTHORED,
     RELATION_PART_OF,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    FIRST_SIGNATORY,
+)
 from lawgraph.db.counting import Store
-
-# The role of the one who signs a document first.
-ROLE_FIRST_SIGNATORY = "Eerste ondertekenaar"
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 
 
 def _keep(props: str, *fields: str) -> str:
@@ -106,8 +107,7 @@ def commitment_makers(
 
 
 # The first signature of the earliest document of a dossier (directly or through a case)
-# that a Kamerlid or a bewindspersoon signed first. The date of a paper is that of its
-# document; an AUTHORED edge to a node of another collection reads it from that node.
+# that a Kamerlid or a bewindspersoon signed first, each paper on its own day.
 _FIRST_SIGNATURES_SQL = f"""
 WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
@@ -127,13 +127,7 @@ signatures AS (
     FROM papers
     JOIN edges a ON a.to_id = papers.paper_id AND a.relation = %(authored)s
     -- the date read once per signature, not once for each place that names it
-    CROSS JOIN LATERAL (
-        SELECT CASE WHEN a.to_collection = '{COLLECTION_DOCUMENTS}'
-                    THEN (SELECT d.date FROM documents d WHERE d.id = a.to_id)
-                    ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = a.to_id)
-               END AS date
-        OFFSET 0
-    ) dated
+    CROSS JOIN LATERAL (SELECT {signed_date_sql("a.to_id")} AS date OFFSET 0) dated
     WHERE lg_str(a.doc -> 'meta' -> 'role') = %(first_role)s
       AND lg_str(a.doc -> 'meta' -> 'capacity') = ANY(%(capacities)s)
 ),
@@ -186,7 +180,7 @@ def dossier_first_signatures(
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
-            "first_role": ROLE_FIRST_SIGNATORY,
+            "first_role": FIRST_SIGNATORY,
             "capacities": [CAPACITY_MEMBER, CAPACITY_GOVERNMENT],
             "ids": ids,
         },
@@ -213,26 +207,10 @@ touched AS (
     WHERE a.relation = %(authored)s AND a.created_at >= %(since)s
       AND a.to_collection <> '{COLLECTION_CASES}'
 ),
-up AS (
-    SELECT e.to_id AS dossier_id, t.paper_id
-    FROM touched t
-    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
-     AND e.to_collection = '{COLLECTION_DOSSIERS}'
-    UNION
-    SELECT c.to_id, t.paper_id
-    FROM touched t
-    JOIN edges e ON e.from_id = t.paper_id AND e.relation = %(part_of)s
-     AND e.to_collection = '{COLLECTION_CASES}'
-    JOIN edges c ON c.from_id = e.to_id AND c.relation = %(part_of)s
-     AND c.to_collection = '{COLLECTION_DOSSIERS}'
-),
 dated AS (
-    SELECT up.dossier_id, up.paper_id,
-           CASE WHEN split_part(up.paper_id, '/', 1) = '{COLLECTION_DOCUMENTS}'
-                THEN (SELECT d.date FROM documents d WHERE d.id = up.paper_id)
-                ELSE (SELECT lg_str(n.props -> 'date') FROM nodes n WHERE n.id = up.paper_id)
-           END AS date
-    FROM up
+    SELECT up.dossier_id, t.paper_id, {signed_date_sql("t.paper_id")} AS date
+    FROM touched t
+    CROSS JOIN LATERAL ({dossiers_of_sql("t.paper_id")}) AS up(dossier_id)
     JOIN ids ON ids.id = up.dossier_id
 ),
 changed AS (
@@ -273,5 +251,4 @@ def first_may_change_params(
         "seeds": seeds,
         "since": since_iso,
         "authored": RELATION_AUTHORED,
-        "part_of": RELATION_PART_OF,
     }

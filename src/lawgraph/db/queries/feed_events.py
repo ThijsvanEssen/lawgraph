@@ -22,7 +22,8 @@ from typing import Any
 import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
-from lawgraph.core.feed import EVENT_VOTE, FEED_KINDS
+from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
+from lawgraph.core.tk_records import KIND_AMENDMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries.feed import (
@@ -143,13 +144,13 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 #   decision that singles it out (``primary_case_id``), of those the latest with an outcome
 #   (``passed``), else the latest; ``aangenomen``, ``verworpen``, else ``other``
 #   (withdrawn, held, postponed, lapsed, not voted yet).
-CHAINS = """
+CHAINS = f"""
 WITH RECURSIVE papers AS (
     SELECT l.id, lg_str(l.props -> 'date') AS date, lg_num(l.props -> 'sequence') AS number
     FROM lg_document_light l
     WHERE json_typeof(l.props -> 'case_kinds') = 'array'
       AND EXISTS (SELECT 1 FROM json_array_elements_text(l.props -> 'case_kinds') k
-                  WHERE k = 'Amendement')
+                  WHERE k = '{KIND_AMENDMENT}')
 ),
 revises AS (
     SELECT DISTINCT e.from_id AS newer, e.to_id AS older
@@ -210,7 +211,8 @@ def _write_chains(conn: psycopg.Connection) -> int:
 def write_all(store: GraphStore) -> int:
     """Write every event into a new table with its indexes, which then takes the place of
     the old one in one transaction: a reader sees the old rows or the new, never none."""
-    with store.pool.connection() as conn, conn.transaction():
+
+    def swap(conn: psycopg.Connection) -> int:
         conn.execute(f"DROP TABLE IF EXISTS {_NEW}")
         conn.execute(f"CREATE TABLE {_NEW} ({FEED_EVENTS_COLUMNS})")
         written = _execute(conn, insert_query(_NEW), {"since": "0"})
@@ -224,20 +226,25 @@ def write_all(store: GraphStore) -> int:
         conn.execute(f"ANALYZE {FEED_EVENTS_TABLE}")
         _write_chains(conn)
         conn.execute(_STATE, {"since": None})
-    return written
+        return written
+
+    return store.in_transaction("the feed events", swap)
 
 
 def write_since(store: GraphStore, since: str) -> int:
     """Write the events dated from *since* again, in place: those of the days a poll
     changes, between two writes of all of them."""
-    with store.pool.connection() as conn, conn.transaction():
+
+    def rewrite(conn: psycopg.Connection) -> int:
         conn.execute(
             f"DELETE FROM {FEED_EVENTS_TABLE} WHERE date >= %(since)s", {"since": since}
         )
         written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
         _write_chains(conn)
         conn.execute(_STATE, {"since": since})
-    return written
+        return written
+
+    return store.in_transaction("the feed events since", rewrite)
 
 
 def _execute(conn: psycopg.Connection, statement: str, bind: dict[str, Any]) -> int:
@@ -270,9 +277,7 @@ def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
     for n, word in enumerate(words):
         bind[f"q_{n}"] = word
         bind[f"w_{n}"] = _words.whole(word)
-    with store.pool.connection() as conn:
-        row = conn.execute(f"SELECT {statement}", bind).fetchone()
-    return list(row or ())
+    return list(next(iter(store.query(f"SELECT ARRAY[{statement}]", bind))))
 
 
 def _words_filter(
@@ -511,10 +516,10 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
         by_period.setdefault(row["period"], {})[row["kind"]] = row["n"]
     chains = (
         _count_chains(store, filters, per, queries)
-        if not filters.kinds or AMENDMENT in filters.kinds
+        if not filters.kinds or EVENT_AMENDMENT in filters.kinds
         else None
     )
-    order = {kind: n for n, kind in enumerate(FEED_KINDS)}
+    order: dict[str, int] = {kind: n for n, kind in enumerate(FEED_KINDS)}
     periods = sorted(set(by_period) | set(chains or {}))
     return [
         {
@@ -536,8 +541,6 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
     ]
 
 
-# The kind of event of an amendment (``core.feed``): its chains are counted beside it.
-AMENDMENT = "Amendement"
 OUTCOMES = ("aangenomen", "verworpen", "other")
 
 
@@ -552,7 +555,7 @@ def _count_chains(
     is an event under *filters* (of whatever day), each once, in the period of its first
     paper and by its outcome."""
     ctes, where, bind = _matching(
-        replace(filters, kinds=(AMENDMENT,), since=None, until=None), queries
+        replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )
     bind["since"] = filters.since or "0"
     period = _period(per).replace("e.date", "c.first_date")

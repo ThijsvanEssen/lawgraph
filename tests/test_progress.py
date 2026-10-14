@@ -12,7 +12,7 @@ import pytest
 from lawgraph.core import logging as lg
 from lawgraph.core.progress import PeriodicLog, Progress
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 
 class _Clock:
@@ -98,11 +98,6 @@ def test_periodic_log_is_due_once_per_interval() -> None:
 # ── through a retrieve pipeline ──────────────────────────────────────────────
 
 
-class _Store(RawSourcesFake):
-    def insert_raw_source(self, **_kw: Any) -> None:
-        pass
-
-
 class _Pipeline(RetrievePipelineBase):
     def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
         self.progress.expect(10_000)
@@ -117,17 +112,13 @@ def test_a_retrieve_of_ten_thousand_records_logs_a_handful_of_lines(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.INFO):
-        result = _Pipeline(_Store()).run()  # type: ignore[arg-type]
+        result = _Pipeline(InMemoryStore()).run()  # type: ignore[arg-type]
 
     assert (result.created, result.skipped, result.errors) == (7_500, 2_500, [])
     assert len([r for r in caplog.records if r.levelno >= logging.INFO]) < 50
 
 
 def test_a_cause_of_failure_is_one_error_of_the_result() -> None:
-    class Failing(_Store):
-        def insert_raw_source(self, **_kw: Any) -> None:
-            raise RuntimeError("write failed")
-
     records = (
         RetrieveRecord("test", "kind", str(n), payload_json={}) for n in range(30)
     )
@@ -136,11 +127,9 @@ def test_a_cause_of_failure_is_one_error_of_the_result() -> None:
         def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
             return records
 
-    result = P(Failing()).run()  # type: ignore[arg-type]
+    result = P(InMemoryStore(refuse={str(n) for n in range(30)})).run()  # type: ignore[arg-type]
     assert result.created == 0 and result.skipped == 30
-    assert result.errors == [
-        "30 x could not be stored (first: test/kind/0: write failed)"
-    ]
+    assert result.errors == ["30 x could not be stored (first: test/kind/0: 0 refused)"]
 
 
 # ── step context and JSON mode ───────────────────────────────────────────────
@@ -227,3 +216,14 @@ def test_an_instant_loop_that_met_nothing_gets_no_summary_line(
     assert [m for m in caplog.messages if "done" in m] == [
         "0 tk-document records done; 1 skipped (no payload: 1) in 0s."
     ]
+
+
+def test_track_does_not_count_a_record_the_loop_skipped_or_failed_as_done() -> None:
+    progress = Progress("records")
+    for number in progress.track(range(4)):
+        if number == 1:
+            progress.skip("no payload", number)
+        if number == 2:
+            progress.fail("not XML", number)
+    assert (progress.done, progress.skipped, progress.failed) == (2, 1, 1)
+    assert progress.handled == 4
