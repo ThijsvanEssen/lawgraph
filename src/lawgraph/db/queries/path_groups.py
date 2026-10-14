@@ -8,6 +8,7 @@ most telling first, up to a cap; the total says how many there are.
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 
 from lawgraph.config.constants import (
@@ -58,8 +59,7 @@ _MEMBERS = f"""
         -- each member once, by the membership seated now, else the latest
         SELECT DISTINCT ON (e.from_id) e.from_id AS child, e.to_id AS parent,
                e.key AS edge,
-               coalesce(json_typeof(e.doc -> 'meta' -> 'to_date'), 'null') = 'null'
-                   AS seated,
+               lg_seated(e.doc -> 'meta', %(today)s) AS seated,
                lg_str(e.doc -> 'meta' -> 'from_date') AS since
         FROM edges e
         WHERE e.to_id = %(id)s AND e.relation = '{RELATION_MEMBER_OF}'
@@ -137,7 +137,8 @@ def children_of(store: GraphStore, group: str, cap: int) -> Children:
     """The children of *group*, the *cap* most telling, and how many it has. A paper of a
     case of a dossier is kept only with its case."""
     statement = _KEPT.format(children=_GROUPS[group.split("/", 1)[0]])
-    (row,) = store.query(statement, {"id": group, "cap": cap})
+    today = dt.date.today().isoformat()
+    (row,) = store.query(statement, {"id": group, "cap": cap, "today": today})
     kept: list[Child] = []
     reached = {group}
     for child, parent, edge in row["kept"]:
