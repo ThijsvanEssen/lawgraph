@@ -1,8 +1,7 @@
 name: tests
 
-# On every pull request, and on a push to develop or main (release.yml waits for the run of the
-# push of a develop commit). A newer push to a pull request cancels its run still going; a run
-# of a push to develop or main is never cancelled.
+# On every pull request, and on a push to develop or main. A newer push to a pull request
+# cancels its run still going; a run of a push to develop or main is never cancelled.
 on:
   push:
     branches: [develop, main]
