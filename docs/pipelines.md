@@ -946,7 +946,8 @@ the laws the graph refers to and lacks: those with at least `--min-stubs` referr
 every law a loaded regulation is issued under (its "Gelet op"). A regulation stored in the last
 24 hours is not fetched again. In full mode a regulation whose toestand is the stored one is not
 downloaded; its WTI file is read again after 30 days (`WTI_REFRESH_DAYS`), since an
-abbreviation can change on its own.
+abbreviation can change on its own. A page that is not XML is not stored, and 25 failed
+downloads in a row fail the step (also in `bwb-history`).
 
 `retrieve bwb-history` fetches every toestand of a regulation that is not stored yet (`--mode
 full`: every one again), of the given ids or of every regulation whose current toestand is
@@ -1180,7 +1181,9 @@ the pages must add up to the reported total, and an SRU diagnostic or a failed r
 **Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
 `<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
 `publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
-regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU.
+regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU. A page that
+is not XML is not stored; a download that fails is skipped and asked for again the next run,
+and 25 failures in a row fail the step.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
