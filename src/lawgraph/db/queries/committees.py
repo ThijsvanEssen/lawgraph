@@ -388,17 +388,6 @@ def _led_activities(
     return {"total": total, "items": items}
 
 
-def _member_name(table: str) -> str:
-    """SQL: the name a member goes by (AQL ``name OR known_as OR government_name``); a TK
-    person without one: the name Rijksoverheid gives."""
-    name, known_as = (f"{table}.props -> '{f}'" for f in ("name", "known_as"))
-    return (
-        f"CASE WHEN lg_truthy({name}) THEN {table}.props ->> 'name'"
-        f" WHEN lg_truthy({known_as}) THEN {table}.props ->> 'known_as'"
-        f" ELSE {table}.props ->> 'government_name' END"
-    )
-
-
 # A member who is seated: one of their faction memberships has no end date.
 _SEATED = f"""EXISTS (
     SELECT 1 FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)

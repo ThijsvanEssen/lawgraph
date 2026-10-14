@@ -35,19 +35,11 @@ from lawgraph.db.version_cache import lasting
 KIND_BILL = "Wetgeving"
 
 
-def _name(member: str) -> str:
-    """SQL: the name *member* goes by (AQL ``name OR known_as OR government_name``); for a
-    TK person without one, the name Rijksoverheid gives (``David van Weel``, else
-    ``D.M. van Weel``)."""
-    name, known_as = f"{member}.props -> 'name'", f"{member}.props -> 'known_as'"
-    return truthy_or(name, known_as, f"{member}.props -> 'government_name'")
-
-
 def _person(member: str) -> str:
     """SQL: the member as a list and detail item name it, ``{key, name, slug}`` (the slug
     for its readable address)."""
     return (
-        f"json_build_object('key', {member}.key, 'name', {_name(member)},"
+        f"json_build_object('key', {member}.key, 'name', {member}.list_name,"
         f" 'slug', {member}.props -> 'slug')"
     )
 

@@ -18,7 +18,7 @@ from lawgraph.config.constants import RELATION_ANSWERS
 from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.relations import BASIS_FORMAL
+from lawgraph.core.provenance import BASIS_FORMAL, BASIS_REFERRAL_TEXT, Basis
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -27,10 +27,9 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-referral-linker"
-BASIS_TEXT = "referral_text"
-CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_TEXT: 0.9}
+CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_REFERRAL_TEXT: 0.9}
 
-Link = tuple[str, str, str]  # (ruling ECLI, referring ECLI, basis)
+Link = tuple[str, str, Basis]  # (ruling ECLI, referring ECLI, basis)
 
 
 def by_case_number(
@@ -69,7 +68,7 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                 ]
                 continue
             for referral in read_referrals(row["paragraphs"]):
-                links += [(ruling, e, BASIS_TEXT) for e in referral.eclis]
+                links += [(ruling, e, BASIS_REFERRAL_TEXT) for e in referral.eclis]
                 if referral.case_numbers and referral.date:
                     by_text.append((ruling, referral))
 
@@ -84,7 +83,7 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
             self.store, sorted({e for _, eclis in found for e in eclis})
         )
         links += [
-            (ruling, referring, BASIS_TEXT)
+            (ruling, referring, BASIS_REFERRAL_TEXT)
             for ruling, eclis in found
             for referring in eclis
             if referring not in conclusions

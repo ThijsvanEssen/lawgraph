@@ -12,7 +12,8 @@ def test_every_pipeline_reports_progress() -> None:
     ways = {
         # the one retrieve loop, through ``fetch`` or called by name; tk-content updates
         "retrieve": ("def fetch(", "_store_all(", "Progress("),
-        "normalize": ("_iter_raw_sources(", "RawRecords("),  # the tracked raw readers
+        # the tracked raw readers, or the base that reads through them
+        "normalize": ("_iter_raw_sources(", "RawRecords(", "(LinkRecordsPipelineBase)"),
         "semantic": (
             "self._track(",
             "self._judgment_texts(",

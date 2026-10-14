@@ -24,7 +24,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Hashable, Iterator
-from typing import Any, TypeVar
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
@@ -39,6 +39,28 @@ from lawgraph.db.store import (
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+
+
+@runtime_checkable
+class VersionedStore(Protocol):
+    """A store whose answers the cache keeps: it tells the version of its data
+    (``GraphStore``). A store without it (a fake) keeps nothing."""
+
+    def data_version(self) -> str: ...
+
+
+@runtime_checkable
+class TableVersionedStore(VersionedStore, Protocol):
+    """A store that also tells the version of each of its tables: an answer of
+    ``cached(tables=...)`` is kept by those. Without it, by its data version."""
+
+    def table_versions(self) -> dict[str, int]: ...
+
+
+def _database(store: object) -> str:
+    """The name of the database of *store* (none for a fake without one)."""
+    return str(getattr(store, "name", ""))
+
 
 # The data version is read at most this often (seconds): a run of the pipelines shows within
 # it. The tests set it to 0.
@@ -192,10 +214,11 @@ def warm(store: Any, *, settle: float | None = None) -> None:
     of the same database that waits; one that runs finishes or stops on its own."""
     global _warm_worker
     wait = WARM_UP_SETTLE if settle is None else settle
-    name = str(getattr(store, "name", ""))
+    name = _database(store)
     try:
         known: str | None = store.data_version()
-    except Exception:  # noqa: BLE001 — the worker reads it again when it is due
+    except Exception as exc:  # noqa: BLE001 — the worker reads it again when it is due
+        _unread(exc)
         known = None
     with _lock:
         _polled[name] = store
@@ -213,7 +236,8 @@ def superseded(store: Any, version: str | None) -> bool:
     stops between its parts."""
     try:
         return bool(store.data_version() != version)
-    except Exception:  # noqa: BLE001 — no answer is no reason to stop
+    except Exception as exc:  # noqa: BLE001 — no answer is no reason to stop
+        _unread(exc)
         return False
 
 
@@ -263,7 +287,7 @@ def _warm_forever() -> None:
 def computing(store: Any) -> bool:
     """Whether anything is computed for *store* now: a warm-up that waits or runs, or an
     answer of the cache (``/api/health``: a newer version is on its way)."""
-    name = str(getattr(store, "name", ""))
+    name = _database(store)
     with _lock:
         return (
             name in _wanted
@@ -283,16 +307,15 @@ def _quietly(function: Callable[[Any], None], store: Any) -> None:
 
 
 def _version(
-    store: Any, tables: tuple[str, ...] | None = None
+    store: object, tables: tuple[str, ...] | None = None
 ) -> tuple[str, str] | None:
     """``(database, data version)`` of *store*, or of *tables* of it, read at most every
     ``VERSION_TTL``; None when it has none or the database cannot be read. A data version
     this process did not know starts the warm-up. A store without versions per table (a
     fake) gives its data version for any *tables*."""
-    read = getattr(store, "data_version", None)
-    if read is None:
+    if not isinstance(store, VersionedStore):
         return None
-    name = str(getattr(store, "name", ""))
+    name = _database(store)
     now = time.monotonic()
     with _lock:
         known, per_table, read_at = _versions.get(name, (None, None, float("-inf")))
@@ -310,17 +333,44 @@ def _version(
     return (name, f"{','.join(tables)}@{version_stamp(per_table, tables)}")
 
 
-def _read_versions(store: Any) -> tuple[str | None, dict[str, int] | None]:
+def _read_versions(
+    store: VersionedStore,
+) -> tuple[str | None, dict[str, int] | None]:
     """The data version of *store* and the version of each of its tables (None for a
     store that has no ``table_versions``)."""
+    found: tuple[str | None, dict[str, int] | None]
     try:
-        per_table = getattr(store, "table_versions", None)
-        if per_table is None:
-            return store.data_version(), None
-        versions = per_table()
-        return version_stamp(versions), versions
-    except Exception:  # noqa: BLE001 — without a version nothing is kept
+        if not isinstance(store, TableVersionedStore):
+            found = store.data_version(), None
+        else:
+            versions = store.table_versions()
+            found = version_stamp(versions), versions
+    except Exception as exc:  # noqa: BLE001 — without a version nothing is kept
+        _unread(exc)
         return None, None
+    _unread(None)
+    return found
+
+
+# The failure to read a data version last logged (``_unread``).
+_last_unread: str | None = None
+
+
+def _unread(exc: Exception | None) -> None:
+    """Log that a data version could not be read (*exc*), once until another failure or
+    a read (*exc* None) comes: without a version nothing is kept, and every request
+    computes its answer itself."""
+    global _last_unread
+    failure = None if exc is None else describe(exc)
+    with _lock:
+        if failure == _last_unread:
+            return
+        _last_unread = failure
+    if failure is not None:
+        logger.warning(
+            "The data version cannot be read; every answer is computed anew: %s",
+            failure,
+        )
 
 
 def cached(
@@ -353,20 +403,15 @@ def cached(
         if entry_key in _values and not _too_old(entry_key, tables):
             _values.move_to_end(entry_key)
             return _values[entry_key]  # type: ignore[no-any-return]
+        last = _latest.get((version[0], key), _NONE)
     if inline:
         return _keep(entry_key, compute())
-    with _lock:
-        nested = _in_cache_worker()
-        future = _running.get(entry_key)
-        if future is None and not nested:
-            future = _pool.submit(_compute, entry_key, compute)
-            _running[entry_key] = future
-        last = _latest.get((version[0], key), _NONE)
-    if nested:
-        _nested(key)
-        return _compute(entry_key, compute)
-    assert future is not None
-    return _answer(future, last, key)
+    return _compute_or_wait(
+        entry_key,
+        lambda: _compute(entry_key, compute),
+        last,
+        key,
+    )
 
 
 def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
@@ -391,9 +436,9 @@ def lasting(
     ``STALE_WAIT`` at most, then takes the one it had. From ``REFRESH_AHEAD`` of its age on
     a request takes the kept one at once while the new one computes, and the warm-up (no
     deadline) waits for the new one; *inline* as ``cached``."""
-    if getattr(store, "data_version", None) is None:
+    if not isinstance(store, VersionedStore):
         return compute()
-    entry_key = ((str(getattr(store, "name", "")), "lasting"), key)
+    entry_key = ((_database(store), "lasting"), key)
     with _lock:
         kept = _lasting.get(entry_key)
         age = None if kept is None else time.monotonic() - kept[1]
@@ -417,17 +462,34 @@ def lasting(
         with _lock:
             _lasting[entry_key] = (value, time.monotonic())
         return value
+    return _compute_or_wait(
+        entry_key,
+        lambda: _compute_lasting(entry_key, compute),
+        _NONE if kept is None else kept[0],
+        key,
+    )
+
+
+def _compute_or_wait(
+    entry_key: tuple[tuple[str, str], Hashable],
+    run: Callable[[], T],
+    last: Any,
+    key: Hashable,
+) -> T:
+    """The answer *run* computes and keeps for *entry_key*: computed once on the pool
+    while this request waits for it (``_answer``, with *last* the answer it had), or here
+    when a computation of the cache asked for it (``_nested``)."""
     with _lock:
         nested = _in_cache_worker()
         future = _running.get(entry_key)
         if future is None and not nested:
-            future = _pool.submit(_compute_lasting, entry_key, compute)
+            future = _pool.submit(run)
             _running[entry_key] = future
     if nested:
         _nested(key)
-        return _compute_lasting(entry_key, compute)
+        return run()
     assert future is not None
-    return _answer(future, _NONE if kept is None else kept[0], key)
+    return _answer(future, last, key)  # type: ignore[no-any-return]
 
 
 def _in_cache_worker() -> bool:
@@ -472,6 +534,25 @@ def _compute_lasting(
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute one answer of ``lasting`` and keep it with the moment it was computed."""
+
+    def keep(value: T) -> T:
+        with _lock:
+            _lasting[entry_key] = (value, time.monotonic())
+            _running.pop(entry_key, None)
+        return value
+
+    return _run_tracked(entry_key, compute, keep)
+
+
+def _run_tracked(
+    entry_key: tuple[tuple[str, str], Hashable],
+    compute: Callable[[], T],
+    keep: Callable[[T], T],
+) -> T:
+    """Compute one answer and *keep* it (in a thread of the pool: no request deadline,
+    the read ceiling alone, on a connection of the background pool), counted in ``busy``;
+    *keep* ends its run (``_running``). A failure is not kept: the next request asks
+    again."""
     try:
         with in_background(), doing(f"cache: {_kind(entry_key[1])}"):
             value = compute()
@@ -479,10 +560,7 @@ def _compute_lasting(
         with _lock:
             _running.pop(entry_key, None)
         raise
-    with _lock:
-        _lasting[entry_key] = (value, time.monotonic())
-        _running.pop(entry_key, None)
-    return value
+    return keep(value)
 
 
 # What each thread of the background (the workers of ``_pool``, the warm-up) computes now,
@@ -532,17 +610,8 @@ def _kind(key: Hashable) -> str:
 def _compute(
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
-    """Compute and keep one answer (in a thread of the pool: no request deadline, the read
-    ceiling alone, on a connection of the background pool); a failure is not kept, the
-    next request asks again."""
-    try:
-        with in_background(), doing(f"cache: {_kind(entry_key[1])}"):
-            value = compute()
-    except BaseException:
-        with _lock:
-            _running.pop(entry_key, None)
-        raise
-    return _keep(entry_key, value)
+    """Compute one answer of ``cached`` and keep it."""
+    return _run_tracked(entry_key, compute, lambda value: _keep(entry_key, value))
 
 
 def _keep(entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
@@ -572,15 +641,9 @@ def cached_rows(
 ) -> list[Any]:
     """The rows of *statement* with *params*, kept per data version (of *tables* when
     given, see ``cached``): for a count or a facet that every visitor asks the same."""
-    key = (
-        "rows",
-        _text(statement),
-        _frozen(params or {}),
-        tuple(sorted(options.items())),
-    )
     return cached(
         store,
-        key,
+        _rows_key(statement, params, options),
         lambda: list(store.query(statement, params, **options)),
         tables=tables,
     )
@@ -597,14 +660,23 @@ def lasting_rows(
     """The rows of *statement* with *params*, kept *max_age* seconds whatever the data does
     (``lasting``): for a count every visitor of a filter asks, that a run of the pipelines
     hardly moves and that reads many rows."""
-    key = (
+    return lasting(
+        store,
+        _rows_key(statement, params, options),
+        lambda: list(store.query(statement, params, **options)),
+        max_age,
+    )
+
+
+def _rows_key(
+    statement: Any, params: dict[str, Any] | None, options: dict[str, Any]
+) -> Hashable:
+    """The key of the rows of *statement* with *params* and *options*."""
+    return (
         "rows",
         _text(statement),
         _frozen(params or {}),
         tuple(sorted(options.items())),
-    )
-    return lasting(
-        store, key, lambda: list(store.query(statement, params, **options)), max_age
     )
 
 
@@ -616,7 +688,7 @@ def once_true(store: Any, key: Hashable, check: Callable[[], bool]) -> bool:
     """*check* of *store*, until it answers True, then True without asking again: for a
     state that only ever comes to hold (a side table filled once, ``member_authored``), read
     on every request. A False is not kept: it is asked again, until it holds."""
-    entry_key = (str(getattr(store, "name", "")), key)
+    entry_key = (_database(store), key)
     if entry_key in _true:
         return True
     found = check()
@@ -639,6 +711,7 @@ def clear() -> None:
         _wanted.clear()
         _warm_started.clear()
         _polled.clear()
+    _unread(None)
 
 
 def _frozen(value: Any) -> Hashable:

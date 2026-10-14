@@ -59,7 +59,7 @@ def coalition_of_day(store: GraphStore, day: str) -> Coalition:
     return Coalition(
         cabinet={"key": cabinet["key"], "name": cabinet.get("name")},
         factions=factions,
-        names=_names(store, posts, factions),
+        names=_names(posts, factions, faction_abbreviations(store, factions)),
     )
 
 
@@ -79,18 +79,17 @@ def cabinet_seats(
     posts = cabinet_posts(store, cabinet["_key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
-        tk = seat_timeline(
-            posts,
-            memberships_between(store, start, end),
-            start,
-            end,
-            vacancies_between(store, start, end),
-        )
-        abbreviations = faction_abbreviations(
-            store, {f["key"] for segment in tk for f in segment["factions"]}
-        )
         memberships = memberships_between(store, start, end)
         vacancies = vacancies_between(store, start, end)
+        tk = seat_timeline(posts, memberships, start, end, vacancies)
+    # the abbreviations of the factions of both: of the Tweede Kamer's seats and of the
+    # cabinet's parties, by which the Eerste Kamer's are matched
+    abbreviations = faction_abbreviations(
+        store,
+        {f["key"] for segment in tk or [] for f in segment["factions"]}
+        | _post_factions(posts),
+    )
+    if tk is not None:
         previous: set[str] | None = None
         for segment in tk:
             for faction in segment["factions"]:
@@ -100,7 +99,7 @@ def cabinet_seats(
                 segment["from_date"], memberships, vacancies, previous, now
             )
             previous = now
-    return {"tk": tk, "ek": _ek_stretches(store, posts, start, end)}
+    return {"tk": tk, "ek": _ek_stretches(store, posts, abbreviations, start, end)}
 
 
 def _last_day(store: GraphStore, key: str, to_date: str) -> str:
@@ -116,7 +115,11 @@ def _last_day(store: GraphStore, key: str, to_date: str) -> str:
 
 
 def _ek_stretches(
-    store: GraphStore, posts: list[dict[str, Any]], start: str, end: str
+    store: GraphStore,
+    posts: list[dict[str, Any]],
+    abbreviations: dict[str, str],
+    start: str,
+    end: str,
 ) -> list[dict[str, Any]] | None:
     """The stretches of the Eerste Kamer in *start*..*end* (``lg_ek_seats``), clipped to it,
     in the shape of the Tweede Kamer's: each faction with its seats and whether it is of the
@@ -134,7 +137,7 @@ def _ek_stretches(
     for row in rows:
         first = max(row["from_date"], start)
         last = min(row["to_date"] or end, end)
-        names = _names(store, posts, coalition_on(posts, first))
+        names = _names(posts, coalition_on(posts, first), abbreviations)
         ranked = sorted(
             (
                 (name, n, name.upper() in names)
@@ -185,18 +188,27 @@ def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _post_factions(posts: list[dict[str, Any]]) -> set[str]:
+    """The factions of the parties of *posts*: those ``coalition_on`` can name."""
+    return {
+        str(faction)
+        for post in posts
+        if (faction := (post.get("party") or {}).get("faction"))
+    }
+
+
 def _names(
-    store: GraphStore, posts: list[dict[str, Any]], factions: set[str]
+    posts: list[dict[str, Any]], factions: set[str], abbreviations: dict[str, str]
 ) -> set[str]:
     """The names the parties of *factions* go by, upper case: the short name of each post's
-    party and the abbreviation of each faction; what a faction of the Eerste Kamer is
-    matched by."""
+    party and the abbreviation of each faction (of *abbreviations*, faction key -> its
+    abbreviation); what a faction of the Eerste Kamer is matched by."""
     names = {
         str((post.get("party") or {}).get("short") or "").upper()
         for post in posts
         if (post.get("party") or {}).get("faction") in factions
     }
-    names |= {str(a).upper() for a in faction_abbreviations(store, factions).values()}
+    names |= {str(abbreviations[f]).upper() for f in factions if f in abbreviations}
     names.discard("")
     return names
 

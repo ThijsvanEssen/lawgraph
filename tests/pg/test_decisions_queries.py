@@ -416,6 +416,30 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
     assert get_decision_detail(votes, "nope") is None
 
 
+def test_a_decision_with_what_the_coalition_did(votes: GraphStore) -> None:
+    """With a row of ``lg_decision_coalition`` the detail has its eight fields, in order."""
+    votes.execute(
+        "INSERT INTO lg_decision_coalition (id, cabinet, coalition_for, coalition_against,"
+        " opposition_for, opposition_against, pattern, carried, decisive)"
+        " VALUES ('decisions/s1', 'schoof', 88, 0, 12, 50, 'coalitie', true, false)"
+    )
+    detail = get_decision_detail(votes, "s1")
+    assert detail is not None
+    assert json.dumps(detail["coalition"]) == json.dumps(
+        {
+            "cabinet": "schoof",
+            "coalition_for": 88,
+            "coalition_against": 0,
+            "opposition_for": 12,
+            "opposition_against": 50,
+            "pattern": "coalitie",
+            "carried": True,
+            "decisive": False,
+        }
+    )
+    assert get_decision_detail(votes, "s3")["coalition"] is None  # type: ignore[index]
+
+
 def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
@@ -564,6 +588,71 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     (motion,) = get_document_decisions(store, "documents/motie")
     assert motion["votes"][0]["voter_key"] == "vvd"
     assert motion["votes"][0]["choice"] == "Voor"
+    assert motion == get_decision_detail(store, "s_motie")
+
+
+def _statements(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The statements *store* runs from now on, in order."""
+    run: list[str] = []
+    query = store.query
+
+    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        run.append(str(statement))
+        return query(statement, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", counted)
+    return run
+
+
+def test_the_votes_on_a_document_are_read_together(
+    votes: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """However many decisions were taken on a document, their details are one statement:
+    the decisions, the named cases with a document, and the details."""
+    votes.bulk_insert_or_update_nodes(
+        "cases",
+        [
+            {
+                "_key": "z_1",
+                "type": "case",
+                "labels": [],
+                "props": {"external_id": "Z-1"},
+            }
+        ],
+    )
+    votes.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "_key": "motie",
+                "type": "document",
+                "labels": [],
+                "props": {"kind": "Motie"},
+            }
+        ],
+    )
+    votes.bulk_insert_or_update_edges(
+        [_part_of("p1", "motie", "z_1")]
+        + [
+            {
+                "_key": f"a_{key}",
+                "_from": f"decisions/{key}",
+                "_to": "cases/z_1",
+                "relation": "ABOUT",
+                "source": "test",
+            }
+            for key in ("s0", "s1", "s2")
+        ]
+    )
+    votes.execute(
+        'UPDATE decisions SET props = lg_merge(props, \'{"primary_case_id": "Z-1"}\')'
+        " WHERE key IN ('s0', 's1', 's2')"
+    )
+    expected = [get_decision_detail(votes, key) for key in ("s0", "s1", "s2")]
+    run = _statements(votes, monkeypatch)
+    found = get_document_decisions(votes, "documents/motie")
+    assert sorted(found, key=lambda d: d["_key"]) == expected
+    assert len(run) == 3
 
 
 @pytest.mark.parametrize(

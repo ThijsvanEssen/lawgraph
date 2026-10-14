@@ -11,7 +11,7 @@ progress of the pipeline, with its reason.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -461,11 +461,9 @@ def name_nameless_members(
         for cast in votes:
             if cast.person_id in nameless and cast.actor_name:
                 names.setdefault(cast.person_id, Counter())[cast.actor_name] += 1
-    for document in document_nodes.values():
-        for actor in document.props.get("actors") or []:
-            person_id = actor.get("person_id")
-            if person_id in nameless and actor.get("name"):
-                names.setdefault(person_id, Counter())[actor["name"]] += 1
+    for person_id, signed in _signatures(document_nodes):
+        if person_id in nameless:
+            names.setdefault(person_id, Counter())[signed] += 1
     updated = []
     for person_id, counted in names.items():
         name = tk_records.display_person_name(counted.most_common(1)[0][0])
@@ -480,3 +478,11 @@ def name_nameless_members(
         "Named %d members the Kamer gives no name by their votes and signatures.",
         len(updated),
     )
+
+
+def _signatures(document_nodes: dict[str, Node]) -> Iterator[tuple[str, str]]:
+    """``(Persoon_Id, name)`` of every signature of the papers that names both."""
+    for document in document_nodes.values():
+        for actor in document.props.get("actors") or []:
+            if (person_id := actor.get("person_id")) and actor.get("name"):
+                yield person_id, actor["name"]

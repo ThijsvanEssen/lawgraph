@@ -173,7 +173,8 @@ and looks up by set.
 | read raw records | `_iter_raw_sources`: a stream, 20 at a time for XML and 1,000 for small JSON, each with its text from the payload store (`store.with_payloads`, 16 objects side by side); `RawRecords` for a kind that is walked more than once | a list of all records |
 
 Write each node as it is read, and keep at most the props its edges need
-(`_tk_cases.link_node`): never a dict of all nodes.
+(`_tk_cases.link_node`): never a dict of all nodes. Each reader of such a node declares the
+props it reads in `_tk_cases.LINK_READS`, and a test holds it to that.
 
 Both writers de-duplicate by key inside their buffer (the last wins), flush at 500 nodes or
 16 MB and at 1,000 edges, and re-raise a failed batch. A bulk write returns no document: keep
@@ -215,6 +216,7 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
 | SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
 | A test of, or fallback for, a json value in SQL (present, absent, truthy `||`, array or `[]`, length, kept props, a period) is spelled once, in `db/queries/_json_sql.py`; its tests never give SQL NULL | `tests/conventions/test_json_sql.py`, `tests/pg/test_json_sql.py` |
+| A node key is made in SQL with `lg_node_key`, never with `lower`/`replace`; a json shape shown in several places (coalition on a vote, a judgment as a link or list row, an activity's lead committee) is built once; a member's name is `members.list_name` (the feed spells out its expression, which keeps its plan) | `tests/conventions/test_node_key_sql.py`, `tests/pg/test_node_key_sql.py`, `tests/conventions/test_sql_shapes.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
 | A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
 | A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/conventions/test_vote_words.py` |

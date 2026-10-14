@@ -714,12 +714,20 @@ def _read_party_votes(
 
 
 def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
-    """One decision with every vote cast on it.
+    """One decision with every vote cast on it (``get_decision_details``)."""
+    return next(iter(get_decision_details(store, [key])), None)
+
+
+def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, Any]]:
+    """The decisions *keys* that exist, in that order, each with every vote cast on it, in
+    one statement.
 
     Each vote is a VOTED edge — from a member on a roll-call, from a faction
     otherwise — so the voter's node carries the name to show. The most seats first, then
     by the voter's name and key.
     """
+    if not keys:
+        return []
     rows = store.query(
         f"""
         SELECT d.id, d.key, d.type, d.labels, d.props, (
@@ -747,27 +755,21 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
             WHERE e.to_id = d.id AND e.relation = %(voted)s
         ) AS votes,
         (
-            SELECT json_build_object(
-                'cabinet', c.cabinet,
-                'coalition_for', c.coalition_for,
-                'coalition_against', c.coalition_against,
-                'opposition_for', c.opposition_for,
-                'opposition_against', c.opposition_against,
-                'pattern', c.pattern,
-                'carried', c.carried,
-                'decisive', c.decisive
-            )
+            SELECT {coalition_object("c")}
             FROM lg_decision_coalition c WHERE c.id = d.id
         ) AS coalition
         FROM decisions d
-        WHERE d.key = %(key)s
+        WHERE d.key = ANY(%(keys)s)
         """,
-        {"key": key, "voted": RELATION_VOTED},
+        {"keys": keys, "voted": RELATION_VOTED},
     )
-    row = next(rows, None)
-    if row is None:
-        return None
-    # MERGE(decision, {votes}): the keys of the document in byte order, then ``votes``.
+    found = {row["key"]: _decision_detail(row) for row in rows}
+    return [found[key] for key in keys if key in found]
+
+
+def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
+    """MERGE(decision, {votes, coalition}): the keys of the document in byte order, then
+    ``votes`` and ``coalition``."""
     doc = node_doc(row)
     return {
         "_id": doc["_id"],
@@ -947,4 +949,4 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
             == document_id
         )
     ]
-    return [d for key in keys if (d := get_decision_detail(store, key)) is not None]
+    return get_decision_details(store, keys)
