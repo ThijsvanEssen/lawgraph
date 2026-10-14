@@ -23,6 +23,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from lawgraph.config.constants import DATA_DIR
+from lawgraph.core.curated import LISTS
+
 POST_PRIME_MINISTER = "minister-president"
 POST_DEPUTY_PRIME_MINISTER = "viceminister-president"
 POST_MINISTER = "minister"
@@ -76,8 +79,7 @@ class Ministry:
         return self.periods[-1].successor if self.periods else None
 
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "ministries.json"
-CURATED = Path(__file__).resolve().parents[1] / "data" / "curated" / "ministries.json"
+DATA = DATA_DIR / "ministries.json"
 
 
 def load_ministries(path: Path = DATA) -> tuple[Ministry, ...]:
@@ -135,10 +137,7 @@ _NAMES: dict[str, str] = {
     **{_plain(m.abbreviation): m.key for m in MINISTRIES if m.abbreviation},
     # the other ways the sources write a name (curated)
     **{
-        _plain(alias): key
-        for alias, key in json.loads(CURATED.read_text(encoding="utf-8"))[
-            "aliases"
-        ].items()
+        _plain(alias): key for alias, key in LISTS["ministry-aliases"].entries().items()
     },
 }
 

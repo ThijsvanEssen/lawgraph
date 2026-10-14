@@ -43,8 +43,9 @@ from lawgraph.api.schemas.committees import (
 )
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
-from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
+from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.eerstekamer_votes import VOTES_PATH
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_actor_dossiers,
@@ -532,7 +533,7 @@ def list_faction_votes(
             for item in raw.get("items") or []
         ],
         source=EkSourceDTO(
-            url=EERSTEKAMER_SITE.rstrip("/") + VOTES_PATH,
+            url=ek_url(VOTES_PATH),
             retrieved_on=None,  # each vote has its own day of reading
             composition_date=None,
             data_since=None,

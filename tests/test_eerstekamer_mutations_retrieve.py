@@ -10,6 +10,7 @@ from typing import Any
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_MUTATION, RAW_KIND_EK_MUTATIONS
 from lawgraph.core import ek_changes
+from lawgraph.core.official_urls import ek_url
 from lawgraph.pipelines.retrieve import eerstekamer_mutations as retrieve
 
 CURRENT = (
@@ -26,10 +27,10 @@ class _Client(EerstekamerSiteClient):
         super().__init__()
         self.read: list[str] = []
 
-    def _page(self, url: str) -> str:
-        path = url.removeprefix(self.url(""))
-        self.read.append("/" + path.lstrip("/"))
-        return CURRENT if path.lstrip("/") == "personele_mutaties" else "<html></html>"
+    def page(self, path: str) -> tuple[str, str]:
+        self.read.append(path)
+        page = CURRENT if path == ek_changes.MUTATIONS_PATH else "<html></html>"
+        return ek_url(path), page
 
 
 def _read(stored_terms: list[str]) -> list[str]:

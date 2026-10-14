@@ -27,7 +27,7 @@ class _Client:
             ListedBill("/wetsvoorstel/1_a", "1", FINISHED),
         ]
 
-    def bill_page(self, path: str) -> tuple[str, str]:
+    def page(self, path: str) -> tuple[str, str]:
         return SITE + path, f"<html>{path}</html>"
 
 

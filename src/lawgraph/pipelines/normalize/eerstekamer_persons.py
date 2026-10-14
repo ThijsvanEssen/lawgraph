@@ -21,6 +21,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_MEMBERS,
     RAW_KIND_EK_PERSON,
     SOURCE_EERSTEKAMER,
@@ -156,7 +157,7 @@ def _period(
         "name": (faction or {}).get("name") or period.faction,
         "from_date": period.from_date,
         "to_date": period.to_date,
-        "chamber": "EK",
+        "chamber": CHAMBER_EK,
     }
 
 

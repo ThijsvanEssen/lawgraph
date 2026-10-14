@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+# The data the package carries: the tables built from the sources and, under ``curated/``,
+# the lists kept by hand (``core.curated``).
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
 # ── Collection name constants ─────────────────────────────────────────────────
 
 COLLECTION_INSTRUMENTS = "instruments"
@@ -164,6 +170,8 @@ LABEL_RIJKSOVERHEID = "Rijksoverheid"
 # The chambers of the States General, as a document or decision carries them in its labels.
 CHAMBER_TK = "TK"
 CHAMBER_EK = "EK"
+# The label the nodes taken over from the Eerste Kamer carry besides ``CHAMBER_EK``.
+LABEL_EERSTE_KAMER = "EersteKamer"
 
 # A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
 # contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.

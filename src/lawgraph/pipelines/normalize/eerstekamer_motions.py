@@ -24,17 +24,19 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_MEMBERS,
+    LABEL_EERSTE_KAMER,
     RAW_KIND_EK_MOTION,
     RAW_KIND_EK_PERSON,
     RELATION_AUTHORED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import NodeWriter
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -61,10 +63,6 @@ class Written:
 
     motions: list[tuple[str, ek_motions.MotionPage]]
     members: dict[str, dict[str, Any]]
-
-
-def _url(path: str | None) -> str | None:
-    return EERSTEKAMER_SITE.rstrip("/") + path if path else None
 
 
 class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
@@ -180,14 +178,14 @@ def _paper_node(
         collection=COLLECTION_DOCUMENTS,
         type=NodeType.DOCUMENT,
         key=paper.split("/", 1)[1],
-        labels=["EersteKamer", "EK"],
+        labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
         props={
             "summary": page.summary,
             "submitted_on": page.submitted_on,
             "debate": page.debate,
             "status": page.status,
-            "motion_url": _url(path),
-            "pdf_url": _url(page.pdf_path),
+            "motion_url": ek_url(path),
+            "pdf_url": ek_url(page.pdf_path),
             "actors": actors,
         },
     )

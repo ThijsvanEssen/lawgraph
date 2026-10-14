@@ -19,7 +19,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
 from lawgraph.core.xml import collapse_ws, first_named, iter_named
 
 GENERAL_INFO_START = "<algemene-informatie"
@@ -240,9 +240,7 @@ def choose_short_titles(
     chosen: dict[str, str | None] = {}
     for regulation_id, abbreviations in abbreviations_by_id.items():
         own = [
-            a
-            for a in abbreviations
-            if claims[a.upper()] == 1 and a.upper() not in CODE_FAMILIES
+            a for a in abbreviations if claims[a.upper()] == 1 and not is_code_family(a)
         ]
         chosen[regulation_id] = (
             min(own, key=lambda a: (len(a), not _citation_form(a))) if own else None

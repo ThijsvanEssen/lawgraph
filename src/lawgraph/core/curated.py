@@ -24,7 +24,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-CURATED = Path(__file__).resolve().parents[1] / "data" / "curated"
+from lawgraph.config.constants import DATA_DIR
+
+CURATED = DATA_DIR / "curated"
 
 Entries = dict[str, Any]
 
