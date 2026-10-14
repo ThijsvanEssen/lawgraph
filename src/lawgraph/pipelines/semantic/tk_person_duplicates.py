@@ -13,6 +13,7 @@ from __future__ import annotations
 from lawgraph.config.constants import RELATION_SAME_AS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.provenance import BASIS_SAME_PERSON
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -37,7 +38,7 @@ class TKPersonDuplicatesSemanticPipeline(SemanticPipelineBase):
                 RELATION_SAME_AS,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
-                meta={"basis": "birth_date_surname_initials"},
+                meta={"basis": BASIS_SAME_PERSON},
             )
         edges.flush_into(result)
         removed = edges.remove_stale(

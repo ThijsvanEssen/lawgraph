@@ -51,29 +51,58 @@ def _graph(store: GraphStore) -> None:
     )
 
 
+# The heat of ``_graph`` per window, highest first, the id settling ties: the edges
+# created in the window plus the citations of an article (whenever they were made).
+_HEAT = {
+    3: [("articles/a", 3), ("articles/b", 1), ("dossiers/1", 1)],
+    6: [("articles/a", 3), ("dossiers/1", 2), ("articles/b", 1)],
+    12: [("articles/a", 3), ("dossiers/1", 2), ("dossiers/2", 2), ("articles/b", 1)],
+    24: [
+        ("articles/a", 3),
+        ("dossiers/1", 2),
+        ("dossiers/2", 2),
+        ("articles/b", 1),
+        ("dossiers/3", 1),
+    ],
+}
+
+
 def test_the_kept_heat_of_every_window_is_its_own_count(store: GraphStore) -> None:
     _graph(store)
     version = store.data_version()
     assert overlay.stored_heat(store, 3, 1, 10) is None  # never kept
     assert overlay.store_heat(store, 50) == 15  # one pass for every window
-    for months in overlay.HEAT_WINDOWS:
+    assert sorted(_HEAT) == sorted(overlay.HEAT_WINDOWS)
+    for months, ranked in _HEAT.items():
         for min_count in (1, 2):
             for limit in (1, 2, 3, 10):
+                expected = dict([(i, c) for i, c in ranked if c >= min_count][:limit])
                 assert overlay.stored_heat(store, months, min_count, limit) == (
-                    overlay.get_heat_counts(
-                        store, months=months, min_count=min_count, limit=limit
-                    )
+                    expected
                 ), (months, min_count, limit)
-    assert overlay.stored_heat(store, 3, 1, 10) == {
-        "articles/a": 3,
-        "articles/b": 1,
-        "dossiers/1": 1,
-    }
     assert overlay.stored_heat(store, 5, 1, 1) == {"articles/a": 3}  # 5 counts as 6
+    assert overlay.stored_heat(store, 5, 2, 10) == {"articles/a": 3, "dossiers/1": 2}
+    assert overlay.stored_heat(store, 36, 1, 10) == dict(_HEAT[24])  # the widest
     # keeping it is not a change of the graph: the caches of the API stay
     assert store.data_version() == version
     state = list(store.query("SELECT computed_at, data_version FROM lg_heat_state"))
     assert len(state) == 1 and state[0]["data_version"] == version
+
+
+def test_the_heat_of_named_nodes_per_window(store: GraphStore) -> None:
+    """Counted per request for the nodes a view names, over exactly *months* months."""
+    _graph(store)
+    named = ["articles/a", "dossiers/1", "dossiers/2", "dossiers/4", "instruments/x"]
+    for months, ranked in _HEAT.items():
+        for min_count in (0, 1, 2):
+            assert overlay.get_heat_counts(
+                store, months=months, min_count=min_count, ids=named
+            ) == {i: c for i, c in ranked if i in named and c >= min_count}, months
+    # not rounded to a kept window: four months are 120 days, without the ABOUT of 150
+    assert overlay.get_heat_counts(store, months=4, ids=["dossiers/1"]) == {
+        "dossiers/1": 1
+    }
+    assert overlay.get_heat_counts(store, ids=[]) == {}
 
 
 def test_keeping_the_heat_again_replaces_it(store: GraphStore) -> None:

@@ -16,7 +16,9 @@ Everything here is idempotent: ``ensure_schema`` runs on every connect.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 import psycopg
 
@@ -50,6 +52,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import PAPER_OUTCOME_PROPS
+from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
 
 logger = get_logger(__name__)
 
@@ -501,14 +504,21 @@ TRIGRAMS = "CREATE EXTENSION IF NOT EXISTS pg_trgm"
 # ── node tables ──────────────────────────────────────────────────────────────
 
 
+# The GIN index of a column: on its values, on its trigrams, or none.
+Index = Literal["gin", "trgm"] | None
+
+
 @dataclass(frozen=True)
 class Column:
     """A derived column of a node table: *name*, its SQL type and the props it holds
-    (*expression*, over ``props``). The trigger of the table computes it (``_derive``)."""
+    (*expression*, over ``props``). The trigger of the table computes it (``_derive``).
+    *index*: the GIN index a search reads it by, on its values (``gin``) or on its
+    trigrams (``trgm``); none by default."""
 
     name: str
     sql_type: str
     expression: str
+    index: Index = None
 
 
 def _str(field: str, name: str | None = None) -> Column:
@@ -878,12 +888,19 @@ SEARCH_WEIGHTS: dict[str, dict[str, str]] = {
 }
 
 
+# The last letter of the name of the column a search under an analyzer reads.
+SEARCH_COLUMN_SUFFIXES = {
+    "identity": "v",
+    "text": "t",
+    "norm": "n",
+    "ngram": "g",
+    "prefix": "p",
+}
+
+
 def search_column(field: str, analyzer: str) -> str:
     """The column of *field* a search under *analyzer* reads."""
-    suffix = {"identity": "v", "text": "t", "norm": "n", "ngram": "g", "prefix": "p"}[
-        analyzer
-    ]
-    return f"s_{field.replace('.', '_')}_{suffix}"
+    return f"s_{field.replace('.', '_')}_{SEARCH_COLUMN_SUFFIXES[analyzer]}"
 
 
 def start_of_value_sql(table: str, field: str, word: str, row: str = "doc") -> str:
@@ -913,28 +930,31 @@ def _values_sql(field: str) -> str:
     return f"lg_values(props -> '{field}')"
 
 
+# Per analyzer: the SQL type, the expression over the values of a field and the index of
+# its column. ``prefix``: every value after a separator, so a prefix of a value is an
+# indexed part of it.
+_ANALYZED: dict[str, Callable[[str], tuple[str, str, Index]]] = {
+    "identity": lambda values: ("text[]", values, None),
+    "text": lambda values: ("text[]", f"lg_tokens_all({values})", "gin"),
+    "norm": lambda values: ("text[]", f"lg_fold_all({values})", "gin"),
+    "ngram": lambda values: ("text", f"lg_join(lg_fold_all({values}))", "trgm"),
+    "prefix": lambda values: ("text", f"chr(31) || lg_join({values})", "trgm"),
+}
+
+
 def _search_columns(collection: str) -> list[Column]:
     columns: list[Column] = []
     weighted: list[str] = []
     for field, analyzers in SEARCH_FIELDS.get(collection, {}).items():
         values = _values_sql(field)
-        expressions = {
-            "identity": ("text[]", values),
-            "text": ("text[]", f"lg_tokens_all({values})"),
-            "norm": ("text[]", f"lg_fold_all({values})"),
-            "ngram": ("text", f"lg_join(lg_fold_all({values}))"),
-        }
-        for analyzer in analyzers:
-            sql_type, expression = expressions[analyzer]
-            columns.append(Column(search_column(field, analyzer), sql_type, expression))
+        # an identity is matched whole on its own column, a prefix of it on ``prefix``
+        columns.extend(
+            Column(search_column(field, analyzer), *_ANALYZED[analyzer](values))
+            for analyzer in analyzers
+        )
         if "identity" in analyzers:
-            # every value after a separator: a prefix of a value is an indexed part of it
             columns.append(
-                Column(
-                    search_column(field, "prefix"),
-                    "text",
-                    f"chr(31) || lg_join({values})",
-                )
+                Column(search_column(field, "prefix"), *_ANALYZED["prefix"](values))
             )
         if "text" in analyzers:
             weight = SEARCH_WEIGHTS.get(collection, {}).get(field, "D")
@@ -989,16 +1009,13 @@ def _search_indexes(collection: str) -> list[str]:
             f" USING gin (({folded}) gin_trgm_ops)"
         )
     for column in _search_columns(collection):
-        name = f"{collection}_{column.name}"
-        if column.name.endswith(("_t", "_n")):
-            statements.append(
-                f"CREATE INDEX IF NOT EXISTS {name} ON {collection} USING gin ({column.name})"
-            )
-        elif column.name.endswith(("_g", "_p")):
-            statements.append(
-                f"CREATE INDEX IF NOT EXISTS {name} ON {collection}"
-                f" USING gin ({column.name} gin_trgm_ops)"
-            )
+        if column.index is None:
+            continue
+        operators = " gin_trgm_ops" if column.index == "trgm" else ""
+        statements.append(
+            f"CREATE INDEX IF NOT EXISTS {collection}_{column.name} ON {collection}"
+            f" USING gin ({column.name}{operators})"
+        )
     return statements
 
 
@@ -1274,6 +1291,58 @@ CREATE TABLE IF NOT EXISTS lg_heat_state (
 )
 """
 
+# ── side tables ──────────────────────────────────────────────────────────────
+
+_ALL_EVENTS = ("INSERT", "UPDATE", "DELETE")
+
+
+def _after_each_statement(
+    table: str, name: str, function: str, events: tuple[str, ...] = _ALL_EVENTS
+) -> list[str]:
+    """The triggers ``{table}_{name}_{event}`` that run *function* after each statement
+    of *events* on *table*, with the rows it wrote (or deleted) as ``changed``."""
+    return [
+        f"CREATE OR REPLACE TRIGGER {table}_{name}_{event.lower()}"
+        f" AFTER {event} ON {table}"
+        f" REFERENCING {'OLD' if event == 'DELETE' else 'NEW'} TABLE AS changed"
+        f" FOR EACH STATEMENT EXECUTE FUNCTION {function}()"
+        for event in events
+    ]
+
+
+def case_date_sql(case: str) -> str:
+    """SQL: the date of the row *case* of ``cases`` (from its props; the table has no
+    column of it)."""
+    return f"public.lg_str({case}.props -> 'date')"
+
+
+def _follow_dates(
+    side: str, alias: str, id_column: str, name: str, tables: dict[str, str]
+) -> list[str]:
+    """The functions and triggers that give the rows of the side table *side* (as
+    *alias*) whose *id_column* names a row written to one of *tables* the date of that row
+    again (*tables*: per table the SQL of the date of its row ``c``): a row written after
+    the one that refers to it, or its date changed. Named ``lg_keep_{name}_{table}_date``
+    and ``{table}_{name}_date_{event}``."""
+    statements = []
+    for table, date in tables.items():
+        function = f"lg_keep_{name}_{table}_date"
+        statements.append(
+            f"""CREATE OR REPLACE FUNCTION {function}() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE public.{side} {alias} SET date = {date}
+    FROM changed c
+    WHERE {alias}.{id_column} = c.id AND {alias}.date IS DISTINCT FROM {date};
+    RETURN NULL;
+END $$"""
+        )
+        statements += _after_each_statement(
+            table, f"{name}_date", function, ("INSERT", "UPDATE")
+        )
+    return statements
+
+
 # What a judgment is as a neighbour, a node of a neighbourhood or of a path (the props the
 # explorer reads of it there, in their stored order; its summary as long as a preview needs),
 # kept apart from its props, which hold its whole text: a neighbour reads these, not the text.
@@ -1303,12 +1372,12 @@ JUDGMENT_LIGHT_PROPS = (
     "echr_findings",
 )
 # The characters of a summary kept: one more than a neighbour shows, so it knows to cut.
-JUDGMENT_LIGHT_SUMMARY = 401
+JUDGMENT_LIGHT_SUMMARY = NEIGHBOUR_SUMMARY_CHARS + 1
 
 
 def judgment_light() -> list[str]:
     keys = ", ".join(f"'{key}'" for key in JUDGMENT_LIGHT_PROPS)
-    statements = [
+    return [
         """CREATE TABLE IF NOT EXISTS lg_judgment_light (
     id text PRIMARY KEY,
     props json NOT NULL
@@ -1337,14 +1406,8 @@ BEGIN
     END IF;
     RETURN NULL;
 END $$""",
+        *_after_each_statement("judgments", "light", "lg_keep_judgment_light"),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER judgments_light_{event.lower()}"
-            f" AFTER {event} ON judgments REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_judgment_light()"
-        )
-    return statements
 
 
 # The persons a judgment names, which the search finds it by (``queries/search``): each party
@@ -1488,13 +1551,8 @@ BEGIN
     END IF;
     RETURN NULL;
 END $$""",
+        *_after_each_statement("documents", "light", "lg_keep_document_light"),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER documents_light_{event.lower()}"
-            f" AFTER {event} ON documents REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_document_light()"
-        )
     # a paper by its dossier and number (``queries/lookup.find_document``): one index probe,
     # where the props of every paper of a budget dossier were read for it
     statements.append(
@@ -1512,7 +1570,7 @@ END $$""",
 # every write of an instrument; ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version.
 def instrument_names() -> list[str]:
-    statements = [
+    return [
         """CREATE TABLE IF NOT EXISTS lg_instrument_names (
     id text PRIMARY KEY,
     title text NOT NULL,
@@ -1533,14 +1591,8 @@ BEGIN
     END IF;
     RETURN NULL;
 END $$""",
+        *_after_each_statement("instruments", "names", "lg_keep_instrument_names"),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER instruments_names_{event.lower()}"
-            f" AFTER {event} ON instruments REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_instrument_names()"
-        )
-    return statements
 
 
 # Every vote of a faction (a ``VOTED`` edge from ``factions``) with the date, key and kind of
@@ -1551,7 +1603,7 @@ END $$""",
 # ``lg_faction_votes_state``, before which the page walks the decisions. Not a table of the
 # graph: writing it raises no data version.
 def faction_votes() -> list[str]:
-    statements = [
+    return [
         """CREATE TABLE IF NOT EXISTS lg_faction_votes (
     edge_key text PRIMARY KEY,
     faction_id text NOT NULL,
@@ -1609,20 +1661,13 @@ BEGIN
     END IF;
     RETURN NULL;
 END $$""",
+        *_after_each_statement(
+            "edges", "faction_votes", "lg_keep_faction_votes_of_edges"
+        ),
+        *_after_each_statement(
+            "decisions", "faction_votes", "lg_keep_faction_votes_of_decisions"
+        ),
     ]
-    for table, function in (
-        ("edges", "lg_keep_faction_votes_of_edges"),
-        ("decisions", "lg_keep_faction_votes_of_decisions"),
-    ):
-        for event, transition in (
-            ("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")
-        ):  # fmt: skip
-            statements.append(
-                f"CREATE OR REPLACE TRIGGER {table}_faction_votes_{event.lower()}"
-                f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
-                f" FOR EACH STATEMENT EXECUTE FUNCTION {function}()"
-            )
-    return statements
 
 
 def signed_date_sql(paper: str) -> str:
@@ -1633,7 +1678,7 @@ def signed_date_sql(paper: str) -> str:
         WHEN starts_with({paper}, '{COLLECTION_DOCUMENTS}/') THEN
             (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = {paper})
         WHEN starts_with({paper}, '{COLLECTION_CASES}/') THEN
-            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+            (SELECT {case_date_sql("k")} FROM public.{COLLECTION_CASES} k
              WHERE k.id = {paper})
         ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n
               WHERE n.id = {paper})
@@ -1673,7 +1718,7 @@ def dossiers_of_sql(paper: str) -> str:
 # it raises no data version.
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
-    statements = [
+    return [
         """CREATE TABLE IF NOT EXISTS lg_authored (
     edge_key text PRIMARY KEY,
     member_id text NOT NULL,
@@ -1752,36 +1797,16 @@ BEGIN
     );
     RETURN NULL;
 END $$""",
+        *_after_each_statement("edges", "authored", "lg_keep_authored"),
+        # a paper or a case written after its signature, or its date changed
+        *_follow_dates(
+            "lg_authored",
+            "a",
+            "document_id",
+            "authored",
+            {COLLECTION_DOCUMENTS: "c.date", COLLECTION_CASES: case_date_sql("c")},
+        ),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER edges_authored_{event.lower()}"
-            f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored()"
-        )
-    # a paper or a case written after its signature, or its date changed: the signatures of
-    # it take the date again
-    for table, date in (
-        (COLLECTION_DOCUMENTS, "c.date"),
-        (COLLECTION_CASES, "public.lg_str(c.props -> 'date')"),
-    ):
-        statements.append(
-            f"""CREATE OR REPLACE FUNCTION lg_keep_authored_{table}_date() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-    UPDATE public.lg_authored a SET date = {date}
-    FROM changed c
-    WHERE a.document_id = c.id AND a.date IS DISTINCT FROM {date};
-    RETURN NULL;
-END $$"""
-        )
-        for event in ("INSERT", "UPDATE"):
-            statements.append(
-                f"CREATE OR REPLACE TRIGGER {table}_authored_date_{event.lower()}"
-                f" AFTER {event} ON {table} REFERENCING NEW TABLE AS changed"
-                f" FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_authored_{table}_date()"
-            )
-    return statements
 
 
 # What each committee leads: every ``LED_BY`` edge into a committee (from an activity or a
@@ -1795,7 +1820,7 @@ END $$"""
 # it raises no data version.
 def committee_led() -> list[str]:
     led_by, about = RELATION_LED_BY, RELATION_ABOUT
-    statements = [
+    return [
         """CREATE TABLE IF NOT EXISTS lg_led (
     edge_key text PRIMARY KEY,
     committee_id text NOT NULL,
@@ -1826,7 +1851,7 @@ LANGUAGE sql STABLE PARALLEL SAFE AS $$
         WHEN starts_with(item, '{COLLECTION_ACTIVITIES}/') THEN
             (SELECT a.date FROM public.{COLLECTION_ACTIVITIES} a WHERE a.id = item)
         WHEN starts_with(item, '{COLLECTION_CASES}/') THEN
-            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+            (SELECT {case_date_sql("k")} FROM public.{COLLECTION_CASES} k
              WHERE k.id = item)
     END
 $$""",
@@ -1854,35 +1879,16 @@ BEGIN
     );
     RETURN NULL;
 END $$""",
+        *_after_each_statement("edges", "led", "lg_keep_led"),
+        # an activity or a case written after the edge that leads it, or its date changed
+        *_follow_dates(
+            "lg_led",
+            "l",
+            "item_id",
+            "led",
+            {COLLECTION_ACTIVITIES: "c.date", COLLECTION_CASES: case_date_sql("c")},
+        ),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER edges_led_{event.lower()}"
-            f" AFTER {event} ON edges REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_led()"
-        )
-    # an activity or a case written after the edge that leads it, or its date changed
-    for table, date in (
-        (COLLECTION_ACTIVITIES, "c.date"),
-        (COLLECTION_CASES, "public.lg_str(c.props -> 'date')"),
-    ):
-        statements.append(
-            f"""CREATE OR REPLACE FUNCTION lg_keep_led_{table}_date() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-    UPDATE public.lg_led l SET date = {date}
-    FROM changed c
-    WHERE l.item_id = c.id AND l.date IS DISTINCT FROM {date};
-    RETURN NULL;
-END $$"""
-        )
-        for event in ("INSERT", "UPDATE"):
-            statements.append(
-                f"CREATE OR REPLACE TRIGGER {table}_led_date_{event.lower()}"
-                f" AFTER {event} ON {table} REFERENCING NEW TABLE AS changed"
-                f" FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_led_{table}_date()"
-            )
-    return statements
 
 
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
@@ -2092,16 +2098,10 @@ END $$
 
 
 def data_version_triggers(table: str) -> list[str]:
-    statements = [
-        f"INSERT INTO lg_data_version (collection) VALUES ('{table}') ON CONFLICT DO NOTHING"
+    return [
+        f"INSERT INTO lg_data_version (collection) VALUES ('{table}') ON CONFLICT DO NOTHING",
+        *_after_each_statement(table, "version", "lg_bump_data_version"),
     ]
-    for event, transition in (("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")):
-        statements.append(
-            f"CREATE OR REPLACE TRIGGER {table}_version_{event.lower()}"
-            f" AFTER {event} ON {table} REFERENCING {transition} TABLE AS changed"
-            " FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version()"
-        )
-    return statements
 
 
 # ── nodes view ───────────────────────────────────────────────────────────────

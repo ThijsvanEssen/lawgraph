@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.provenance import BASIS_OFFICIAL_ID
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -48,7 +49,7 @@ class BWBPublicationsSemanticPipeline(SemanticPipelineBase):
                     RELATION_SAME_AS,
                     source=SEMANTIC_SOURCE,
                     confidence=1.0,
-                    meta={"basis": "official_id"},
+                    meta={"basis": BASIS_OFFICIAL_ID},
                 )
             logger.info(
                 "%s: %d papers SAME_AS the BWB publication of their id.",

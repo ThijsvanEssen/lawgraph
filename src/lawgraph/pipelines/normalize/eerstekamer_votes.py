@@ -67,15 +67,13 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "eerstekamer-votes"
 
 
-# The choice of a faction in each list of a vote, as the VOTED edge carries it.
+# Each list of a vote: the choice of a faction in it, as the VOTED edge carries it, and
+# the prop of the decision that names its factions.
 CHOICES = {
-    LABEL_FOR: VOTE_FOR,
-    LABEL_AGAINST: VOTE_AGAINST,
-    LABEL_NOTED: VOTE_NOTED,
+    LABEL_FOR: (VOTE_FOR, "factions_for"),
+    LABEL_AGAINST: (VOTE_AGAINST, "factions_against"),
+    LABEL_NOTED: (VOTE_NOTED, "factions_noted"),
 }
-
-# Decisions whose other VOTED edges are removed in one query.
-_DECISION_CHUNK = 500
 
 
 def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
@@ -106,9 +104,10 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
             "result": vote.result,
             "passed": vote.result == RESULT_ADOPTED,
             "method": vote.method,
-            "factions_for": vote.factions.get(LABEL_FOR) or [],
-            "factions_against": vote.factions.get(LABEL_AGAINST) or [],
-            "factions_noted": vote.factions.get(LABEL_NOTED) or [],
+            **{
+                field: vote.factions.get(label) or []
+                for label, (_, field) in CHOICES.items()
+            },
             "bill_url": ek_url(vote.bill_path),
             "source_url": ek_url(vote.report_path),
             "retrieved_on": retrieved_on,
@@ -289,8 +288,8 @@ def link_faction_votes(
             continue
         keys = written.setdefault(node.node_id, [])
         date = node.props.get("date")
-        for label, choice in CHOICES.items():
-            for name in node.props.get(f"factions_{_FIELD[label]}") or []:
+        for choice, field in CHOICES.values():
+            for name in node.props.get(field) or []:
                 faction = eerstekamer_votes.faction_of(factions, name, date)
                 if faction is None:
                     pipeline.progress.skip("name of no faction", f"{name} ({date})")
@@ -310,22 +309,7 @@ def link_faction_votes(
                 keys.append(edge["_key"])
                 writer.add_doc(edge)
     writer.flush()
-    removed = sum(
-        removals.remove_edges_into_except(
-            store,
-            RELATION_VOTED,
-            chunk,
-            [key for decision in chunk for key in written[decision]],
-        )
-        for chunk in _chunks(sorted(written))
-    )
+    removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)
     logger.info(
         "Wrote %d VOTED edges of EK factions; removed %d.", writer.added, removed
     )
-
-
-_FIELD = {LABEL_FOR: "for", LABEL_AGAINST: "against", LABEL_NOTED: "noted"}
-
-
-def _chunks(ids: list[str]) -> list[list[str]]:
-    return [ids[i : i + _DECISION_CHUNK] for i in range(0, len(ids), _DECISION_CHUNK)]

@@ -287,7 +287,10 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
         ),
     }
 
-    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+    # as the run keeps them after the write (``link_node``)
+    written = {key: tk_cases.link_node(node) for key, node in activities.items()}
+
+    tk_cases.link_commitments(store, commitments, written, source=SOURCE)
 
     assert set(_edge_meta(store)) == {
         # made in the activity it names, about what the replacement discussed
@@ -623,7 +626,8 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    assert decision.props["vote_kind"] == "member"
+    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    assert written["vote_kind"] == "member"
     assert _edge_meta(store) == {
         (
             f"{COLLECTION_MEMBERS}/p_1",
@@ -649,7 +653,8 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    assert decision.props["vote_kind"] == "faction"
+    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    assert written["vote_kind"] == "faction"
     target = f"{COLLECTION_DECISIONS}/{decision.key}"
     assert _edge_meta(store) == {
         (f"{COLLECTION_FACTIONS}/vvd", RELATION_VOTED, target): {
@@ -989,18 +994,15 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
 
     links = importlib.import_module(f"lawgraph.pipelines.normalize.{module}")
     written: list[Any] = []
-    if module == "tk_document_links":
-        monkeypatch.setattr(
-            links.tk_cases, "link_documents", lambda _s, rows, **_: written.extend(rows)
-        )
-        pipeline = links.TKDocumentLinksNormalizePipeline(store=_store())
-    else:
-        monkeypatch.setattr(
-            links,
-            "link_case_actors",
-            lambda _s, rows, **_: written.extend(rows) or 0,
-        )
-        pipeline = links.TKCaseActorsNormalizePipeline(store=_store())
+    kind = getattr(
+        links,
+        {
+            "tk_document_links": "TKDocumentLinksNormalizePipeline",
+            "tk_case_actors": "TKCaseActorsNormalizePipeline",
+        }[module],
+    )
+    monkeypatch.setattr(kind, "link", lambda _s, rows, **_: written.extend(rows) or 0)
+    pipeline = kind(store=_store())
     result = PipelineResult()
 
     count = pipeline.normalize_nodes(

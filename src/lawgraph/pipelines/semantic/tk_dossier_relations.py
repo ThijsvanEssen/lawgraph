@@ -52,6 +52,7 @@ from lawgraph.core.dossier_relations import (
 from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
+from lawgraph.core.provenance import REASON_MOVED, REASON_SUBMITTED
 from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
@@ -176,7 +177,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 row["activity"],
                 RELATION_MADE_IN,
                 source=SEMANTIC_SOURCE,
-                meta={"reason": "ingediend"},
+                meta={"reason": REASON_SUBMITTED},
             )
             count += 1
         return count
@@ -192,7 +193,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 moved,
                 RELATION_CONTINUES,
                 source=SEMANTIC_SOURCE,
-                meta={"reason": "verplaatst"},
+                meta={"reason": REASON_MOVED},
             )
             count += 1
         return count
