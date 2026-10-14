@@ -54,6 +54,8 @@ atom_router = APIRouter()
 
 # A dossier label or the start of one: 36600, 36600-VII, 37020- (its chapters).
 DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
+# A BWB id in any case: BWBR0052872, a treaty BWBV0001000.
+BWB_ID_PATTERN = r"^[Bb][Ww][Bb][RrVv]\d+$"
 ATOM_MEDIA_TYPE = "application/atom+xml"
 
 _EVENTS = (
@@ -115,9 +117,11 @@ def scope_filters(
         list[str] | None,
         Query(
             description="Words of the title, or of the title of the event's dossier, "
-            "in any case: each from the start of a word, one of at most four characters "
-            f"as a whole word. Repeat it (at most {MAX_WORDS} times, each "
-            f"{MAX_WORD_LENGTH} characters at most) for events that hold any of them.",
+            "or of a publication the names of the laws it enacts or changes, in any "
+            "case: each from the start of a word, one of at most four characters as a "
+            f"whole word. Repeat it (at most {MAX_WORDS} times, each "
+            f"{MAX_WORD_LENGTH} characters at most) for events that hold any of them; "
+            "``matched`` says where each item holds them.",
         ),
     ] = None,
     chamber: Annotated[
@@ -146,8 +150,30 @@ def scope_filters(
             f"are those of {', '.join(FEED_TIERS)}."
         ),
     ] = None,
+    instrument: Annotated[
+        str | None,
+        Query(
+            description="A BWB id: the events tied to that law, each with ``via``: the "
+            "publications that enact or change it, the papers that propose to change "
+            "it, the events of the dossiers it or a publication of it was legislated in "
+            "and of the dossiers of those papers, its new versions and those of the "
+            "regulations issued under it, the judgments that cite it.",
+            pattern=BWB_ID_PATTERN,
+        ),
+    ] = None,
+    article: Annotated[
+        str | None,
+        Query(
+            description="With ``instrument``, an article number of that law (``3:2``): "
+            "the events tied to that article; not the dossiers of the law itself, nor "
+            "its enactment.",
+            max_length=MAX_WORD_LENGTH,
+        ),
+    ] = None,
 ) -> FeedFilters:
     """The filters of every feed route but its dates."""
+    if article and not instrument:
+        raise HTTPException(status_code=422, detail="`article` needs `instrument`.")
     return FeedFilters(
         kinds=parse_choices(kind, FEED_KINDS, "kind"),
         cabinet=cabinet or None,
@@ -159,6 +185,8 @@ def scope_filters(
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
         coalition=coalition,
+        instrument=instrument.upper() if instrument else None,
+        article=(article.strip() or None) if article else None,
     )
 
 
@@ -372,6 +400,9 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(_faction_name(page, filters.faction))
     if filters.coalition:
         parts.append(_COALITION_WORDS[filters.coalition])
+    if filters.instrument:
+        article = f"artikel {filters.article} " if filters.article else ""
+        parts.append(f"{article}{filters.instrument}")
     if filters.q:
         parts.append(" of ".join(f"‘{word}’" for word in filters.q))
     if filters.since:

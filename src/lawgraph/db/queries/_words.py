@@ -21,6 +21,12 @@ def words(q: str) -> str:
     return q.strip().lower()
 
 
+def whole(q: str) -> bool:
+    """Whether the words *q* (``words``) are matched as a whole word at their end: a short
+    word that ends in a letter or digit (``ai``, ``huur``; not ``c.v.``)."""
+    return len(q) <= WHOLE_WORD_MAX and q[-1:].isalnum()
+
+
 def word_pattern(q: str) -> str:
     """The regular expression of the words *q* (``words``): a character that is no letter,
     digit or space escaped; a word start before it and, when it is short, a word end after
@@ -28,7 +34,7 @@ def word_pattern(q: str) -> str:
     dot)."""
     escaped = "".join(c if c.isalnum() or c == " " else f"\\{c}" for c in q)
     start = r"\m" if q[:1].isalnum() else ""
-    end = r"\M" if len(q) <= WHOLE_WORD_MAX and q[-1:].isalnum() else ""
+    end = r"\M" if whole(q) else ""
     return f"{start}{escaped}{end}"
 
 
