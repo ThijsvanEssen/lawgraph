@@ -17,6 +17,8 @@ from lawgraph.pipelines.semantic.tk_mvt import (
 )
 from tests.fakes import InMemoryStore
 
+pytestmark = pytest.mark.usefixtures("edge_removals")
+
 
 class _Store(InMemoryStore):
     """Holds the rows the single targets query would produce."""

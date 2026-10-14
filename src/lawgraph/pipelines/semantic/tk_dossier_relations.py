@@ -18,6 +18,7 @@ the day its case started that has the case on its agenda and took no decision on
 
 Runs over every dossier, every related case and every activity, since a node loaded today can be
 the other end of a relation stated earlier. Writes an edge only where both ends are in the graph.
+Derived in full on every run: an edge of these relations no rule gives any more goes.
 """
 
 from __future__ import annotations
@@ -60,6 +61,14 @@ logger = get_logger(__name__)
 SEMANTIC_SOURCE = "tk-dossier-relations"
 # The kinds of a motion start with it: "Motie", "Motie (gewijzigd/nader)".
 MOTION = "Motie"
+RELATIONS = (
+    RELATION_RELATED_TO,
+    RELATION_REVISES,
+    RELATION_ACCOMPANIES,
+    RELATION_SECOND_READING_OF,
+    RELATION_CONTINUES,
+    RELATION_MADE_IN,
+)
 
 
 class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
@@ -106,8 +115,9 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         written["replaced papers"] = self._revise_replaced(edges)
         written["motions submitted in a debate"] = self._motions_made_in(edges)
         edges.flush_into(result)
-        written["MADE_IN removed"] = edges.remove_stale_of_source(
-            RELATION_MADE_IN, SEMANTIC_SOURCE
+        written["removed"] = sum(
+            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+            for relation in RELATIONS
         )
         logger.info(
             "Dossier relations: %s.",

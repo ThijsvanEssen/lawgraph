@@ -330,11 +330,28 @@ def _remove_edges_to(
     return _removed(store, "_to", relations, source, to_ids, keep)
 
 
+def _remove_edges_of_source_except(
+    store: InMemoryStore, relation: str, source: str, keep: list[str]
+) -> int:
+    gone = [
+        key
+        for key, edge in store.edges.items()
+        if (edge.get("relation"), edge.get("source")) == (relation, source)
+        and key not in keep
+    ]
+    for key in gone:
+        del store.edges[key]
+    return len(gone)
+
+
 def patch_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``remove_edges_from`` and ``remove_edges_to`` of ``db/queries/semantic/edges.py``, on
-    the ``edges`` of an ``InMemoryStore``."""
+    """``remove_edges_from``, ``remove_edges_to`` and ``remove_edges_of_source_except`` of
+    ``db/queries/semantic/edges.py``, on the ``edges`` of an ``InMemoryStore``."""
     monkeypatch.setattr(semantic_edges, "remove_edges_from", _remove_edges_from)
     monkeypatch.setattr(semantic_edges, "remove_edges_to", _remove_edges_to)
+    monkeypatch.setattr(
+        semantic_edges, "remove_edges_of_source_except", _remove_edges_of_source_except
+    )
 
 
 _ALIAS_FIELDS = (

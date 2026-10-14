@@ -15,6 +15,8 @@ from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
 from tests.fakes import InMemoryStore
 
+pytestmark = pytest.mark.usefixtures("edge_removals")
+
 FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "fixtures"
 AMVB_XML = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
 
