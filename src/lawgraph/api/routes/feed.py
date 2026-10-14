@@ -29,6 +29,7 @@ from lawgraph.api.schemas.feed import (
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import SITE_URL
+from lawgraph.core.coalition import TK_SEATS
 from lawgraph.core.courts import TIERS
 from lawgraph.core.feed import (
     EVENT_AMENDMENT,
@@ -460,7 +461,7 @@ def get_feed_summary_route(
         int,
         Query(
             ge=0,
-            le=150,
+            le=TK_SEATS,
             description="A vote this close (seats for minus against) "
             "is shown one by one.",
         ),
