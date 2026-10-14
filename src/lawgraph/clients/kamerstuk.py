@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from lawgraph.clients._sru import fetch_publication_xml
 from lawgraph.clients.base import BaseClient, UnexpectedAnswer
-from lawgraph.config.settings import KAMERSTUK_REPO_BASE
+from lawgraph.config.sources import KOOP_REPOSITORY
 from lawgraph.core.identifiers import KST_ID_PATTERN
 
 
@@ -19,7 +19,7 @@ class KamerstukClient(BaseClient):
     """Fetches the XML of a Kamerstuk by its identifier."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(base_url=KAMERSTUK_REPO_BASE, session=session)
+        super().__init__(base_url=KOOP_REPOSITORY.base_url, session=session)
 
     def fetch_kamerstuk_xml(self, identifier: str) -> str:
         """The XML of ``kst-<dossier>-<number>`` (``_sru.fetch_publication_xml``)."""

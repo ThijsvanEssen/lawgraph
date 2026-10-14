@@ -24,13 +24,14 @@ import re
 from typing import Any, overload
 
 from lawgraph.config.constants import SOURCE_ECHR
-from lawgraph.config.settings import EERSTEKAMER_SITE
+from lawgraph.config.sources import EERSTEKAMER_SITE
 
 WETTEN = "https://wetten.overheid.nl"
 EUR_LEX = "https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:{celex}"
 OFFICIELE_BEKENDMAKINGEN = "https://zoek.officielebekendmakingen.nl/{identifier}.html"
 RECHTSPRAAK = "https://uitspraken.rechtspraak.nl/details?id={ecli}"
 HUDOC = "https://hudoc.echr.coe.int/eng?i={itemid}"
+VERDRAGENBANK = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{identifier}"
 # The first year zoek.officielebekendmakingen.nl holds.
 FIRST_PUBLICATION_YEAR = 1995
 
@@ -94,7 +95,7 @@ def judgment_url(props: dict[str, Any]) -> str | None:
     )
 
 
-_EK_SITE = EERSTEKAMER_SITE.rstrip("/")
+_EK_SITE = EERSTEKAMER_SITE.base_url.rstrip("/")
 
 
 @overload

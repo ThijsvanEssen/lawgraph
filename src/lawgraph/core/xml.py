@@ -131,6 +131,13 @@ def find_own_text(element: ET.Element, name: str) -> str | None:
     return (node.text or "").strip() or None
 
 
+def own_texts(element: ET.Element, name: str) -> list[str]:
+    """The stripped ``.text`` of every descendant-or-self *name* that has one, each once,
+    in document order."""
+    texts = ((node.text or "").strip() for node in iter_named(element, name))
+    return list(dict.fromkeys(text for text in texts if text))
+
+
 def extract_section_text(element: ET.Element, *names: str) -> str | None:
     """All text of the first matching descendant-or-self, fragments joined by a space.
 

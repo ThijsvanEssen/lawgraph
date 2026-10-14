@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import requests
 
+from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.eerstekamer import EerstekamerClient
 from lawgraph.config.constants import COLLECTION_DOCUMENTS, RELATION_PART_OF
 from lawgraph.core.models import Node, NodeType, PipelineResult
@@ -21,7 +22,7 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
-from tests.fakes import FakeResponse, InMemoryStore
+from tests.fakes import InMemoryStore, ScriptedSession
 
 PAGE = (
     pathlib.Path(__file__).parent / "fixtures" / "sru_eerstekamer_kamerstukken_page.xml"
@@ -31,25 +32,22 @@ pytestmark = pytest.mark.usefixtures("edge_removals")
 
 
 def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
-    client = EerstekamerClient.__new__(EerstekamerClient)
-    client.base_url = "https://repository.overheid.nl/sru"
+    return EerstekamerClient(session=ScriptedSession(*responses, asked=calls))
 
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append(params)
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return FakeResponse(response)
 
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+def _papers(client: EerstekamerClient, **kwargs: Any) -> list[dict[str, Any]]:
+    return list(client.iter_kamerstukken(**kwargs))
+
+
+# A request that fails at every attempt.
+NO_ROUTE = [requests.ConnectionError("no route")] * ATTEMPTS
 
 
 # ── the client ───────────────────────────────────────────────────────────────
 
 
 def test_the_papers_of_a_real_page_are_parsed() -> None:
-    papers = _client([PAGE], []).search_kamerstukken()
+    papers = _papers(_client([PAGE], []))
 
     assert [p["identifier"] for p in papers] == [
         "kst-1259252",
@@ -77,7 +75,7 @@ def test_a_paper_on_more_than_one_dossier_names_each() -> None:
         + "<overheidwetgeving:dossiernummer>36600 VII</overheidwetgeving:dossiernummer>"
         + "<overheidwetgeving:dossiernummer>CXIX</overheidwetgeving:dossiernummer>",
     )
-    papers = _client([page], []).search_kamerstukken()
+    papers = _papers(_client([page], []))
     assert papers[3]["dossier_number"] == "36867"
     assert papers[3]["dossier_numbers"] == ["36867", "36600 VII", "CXIX"]
     assert dossier_labels(papers[3]) == ["36867", "36600-VII"]  # CXIX is no dossier
@@ -87,14 +85,14 @@ def test_a_paper_on_more_than_one_dossier_names_each() -> None:
 
 
 def test_a_paper_numbered_by_its_own_id_has_no_dossier_in_the_identifier() -> None:
-    paper = _client([PAGE], []).search_kamerstukken()[0]
+    paper = _papers(_client([PAGE], []))[0]
     assert paper["identifier"] == "kst-1259252"
     assert paper["dossier_number"] == "36867"
 
 
 def test_only_eerste_kamer_kamerstukken_without_attachments_are_asked_for() -> None:
     calls: list[dict] = []
-    _client([PAGE], calls).search_kamerstukken(since="2026-09-01")
+    _papers(_client([PAGE], calls), since="2026-09-01")
     query = calls[0]["query"]
     assert 'dt.creator=="Eerste Kamer der Staten-Generaal"' in query
     assert "w.publicatienaam==Kamerstuk" in query and "dt.type==Kamerstuk" in query
@@ -102,13 +100,13 @@ def test_only_eerste_kamer_kamerstukken_without_attachments_are_asked_for() -> N
     assert "x-connection" not in calls[0]
 
 
-def test_a_failing_request_raises_instead_of_an_empty_result() -> None:
+def test_a_failing_request_raises_instead_of_an_empty_result(slept) -> None:
     with pytest.raises(requests.ConnectionError):
-        _client([requests.ConnectionError("no route")], []).search_kamerstukken()
+        _papers(_client(NO_ROUTE, []))
 
 
 def test_limit_stops_early() -> None:
-    assert len(_client([PAGE], []).search_kamerstukken(limit=2)) == 2
+    assert len(_papers(_client([PAGE], []), limit=2)) == 2
 
 
 # ── retrieve ─────────────────────────────────────────────────────────────────
@@ -127,8 +125,8 @@ def test_every_paper_becomes_a_raw_record() -> None:
     assert first["meta"]["dossier_number"] == "36867"
 
 
-def test_a_failed_search_is_an_error_of_the_run() -> None:
-    client = _client([requests.ConnectionError("no route")], [])
+def test_a_failed_search_is_an_error_of_the_run(slept) -> None:
+    client = _client(NO_ROUTE, [])
     result = EerstekamerRetrievePipeline(store=InMemoryStore(), client=client).run()
     assert result.created == 0 and "no route" in result.errors[0]
 
@@ -152,7 +150,7 @@ def _normalize(papers: list[dict[str, Any]]):
 
 
 def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
-    papers = _client([PAGE], []).search_kamerstukken()
+    papers = _papers(_client([PAGE], []))
     nodes, result = _normalize(papers)
 
     node = nodes["ek_kst_36867_c"]

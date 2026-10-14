@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import requests
 
+from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-from tests.fakes import InMemoryStore, http_error, raw_record
+from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -23,18 +23,23 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 
 
 def _client(pages: list[Any], queries: list[str]) -> EUClient:
-    client = EUClient.__new__(EUClient)  # no HTTP session needed
+    """A client answered the CELEX numbers of *pages* in turn (or an exception); the
+    queries it sends go into *queries*."""
 
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        queries.append(params["query"])
-        page = pages.pop(0)
+    def page_of(page: Any, variable: str = "celex") -> Any:
         if isinstance(page, Exception):
-            raise page
-        bindings = [{"celex": {"value": celex}} for celex in page]
-        return SimpleNamespace(json=lambda: {"results": {"bindings": bindings}})
+            return page
+        return {"results": {"bindings": [{variable: {"value": c}} for c in page]}}
 
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+    def step(page: Any):
+        def answer(sent: Sent) -> Any:
+            queries.append(sent.params["query"])
+            variable = sent.params["query"].split("SELECT DISTINCT ?")[1].split()[0]
+            return page_of(page, variable)
+
+        return answer
+
+    return EUClient(session=ScriptedSession(*map(step, pages)))
 
 
 def test_only_directives_are_listed_by_default() -> None:
@@ -67,17 +72,83 @@ def test_a_failing_page_raises_instead_of_returning_a_cut_off_list() -> None:
 
 
 def test_a_page_that_is_not_json_raises_with_its_offset() -> None:
-    client = _client([], [])
-
-    def not_json(url, *, params=None, timeout=30, **_kw):
-        def read() -> Any:
-            raise requests.JSONDecodeError("Expecting value", "<html>", 0)
-
-        return SimpleNamespace(json=read)
-
-    client._get_raw_absolute_with_retry = not_json  # type: ignore[method-assign]
+    client = EUClient(session=ScriptedSession("<html>Bad gateway</html>"))
     with pytest.raises(RuntimeError, match="offset 0 is not JSON"):
         client.enumerate_all_ids()
+
+
+def test_an_id_found_twice_comes_back_once_in_the_order_found() -> None:
+    """Under two types, and under both predicates of the proposals."""
+    ids = _client([["A", "B"], ["B", "C"]], []).enumerate_all_ids(
+        cdm_types=("directive", "regulation")
+    )
+    assert ids == ["A", "B", "C"]
+    proposals = _client([["5X", "5Y"], ["5Y"]], []).enumerate_com_ids(celex_ids=["A"])
+    assert proposals == ["5X", "5Y"]
+
+
+def test_the_celex_numbers_of_a_query_are_asked_in_batches_and_escaped() -> None:
+    queries: list[str] = []
+    celex = [f"32010R{n:04d}" for n in range(51)] + ['bad"\\id']
+    _client([[], []], queries).enumerate_cjeu_ids(celex_ids=celex)
+    assert len(queries) == 2  # 50 and 2
+    assert '"32010R0000", "32010R0001"' in queries[0]
+    assert '"32010R0050", "bad\\"\\\\id"' in queries[1]
+
+
+@pytest.mark.parametrize(
+    ("builder", "args", "snapshot"),
+    [
+        (
+            eu._acts_of_type_sparql,
+            ("directive", 500),
+            "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
+            "?celex WHERE { ?s a cdm:directive ; cdm:resource_legal_id_celex ?celex . "
+            'FILTER(!CONTAINS(?celex, "(")) } ORDER BY ?celex LIMIT 500 OFFSET 500',
+        ),
+        (
+            eu._implemented_acts_sparql,
+            ("NLD", 0),
+            "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
+            "?celex WHERE { ?eu_act cdm:resource_legal_id_celex ?celex . ?nim "
+            "cdm:measure_national_implementing_implements_resource_legal ?eu_act ; "
+            "cdm:measure_national_implementing_implemented_by_country "
+            "<http://publications.europa.eu/resource/authority/country/NLD> . } "
+            "ORDER BY ?celex LIMIT 500 OFFSET 0",
+        ),
+        (
+            eu._country_judgments_sparql,
+            ("NLD", 0),
+            "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
+            "?celex WHERE { ?j a cdm:judgment ; cdm:resource_legal_id_celex ?celex ; "
+            "cdm:case_law_relates_to_country "
+            "<http://publications.europa.eu/resource/authority/country/NLD> . } "
+            "ORDER BY ?celex LIMIT 500 OFFSET 0",
+        ),
+        (
+            eu._judgments_citing_sparql,
+            ('"32016R0679"', 0),
+            "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
+            "?judgment_celex WHERE { ?j a cdm:judgment ; cdm:resource_legal_id_celex "
+            "?judgment_celex ; cdm:work_cites_work ?cited . ?cited "
+            "cdm:resource_legal_id_celex ?cited_celex . "
+            'FILTER(?cited_celex IN ("32016R0679")) } '
+            "ORDER BY ?judgment_celex LIMIT 500 OFFSET 0",
+        ),
+        (
+            eu._proposals_of_sparql,
+            ("cdm:act_based_on_proposal", '"32016R0679"', 0),
+            "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
+            "?com_celex WHERE { ?act cdm:resource_legal_id_celex ?act_celex ; "
+            "cdm:act_based_on_proposal ?proposal . ?proposal "
+            "cdm:resource_legal_id_celex ?com_celex . "
+            'FILTER(?act_celex IN ("32016R0679")) } '
+            "ORDER BY ?com_celex LIMIT 500 OFFSET 0",
+        ),
+    ],
+)
+def test_a_query_builder_writes_what_it_always_wrote(builder, args, snapshot) -> None:
+    assert builder(*args) == snapshot
 
 
 # ── retrieving ───────────────────────────────────────────────────────────────

@@ -1,4 +1,6 @@
-# src/lawgraph/clients/eu.py
+"""Client for EU law in CELLAR, the repository of the Publications Office: CELEX numbers
+listed by SPARQL, and the text of an act by content negotiation."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
@@ -7,8 +9,8 @@ from typing import Any
 
 import requests
 
-from lawgraph.clients.base import BaseClient, response_text
-from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
+from lawgraph.clients.base import PAGE_TIMEOUT, QUERY_TIMEOUT, BaseClient
+from lawgraph.config.sources import CELLAR, CELLAR_SPARQL
 from lawgraph.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,78 +19,24 @@ _CDM = "http://publications.europa.eu/ontology/cdm#"
 _CMR = "http://publications.europa.eu/ontology/cdm/cmr#"
 _COUNTRY = "http://publications.europa.eu/resource/authority/country/"
 _PAGE_SIZE = 500
+# The end of a listing by offset, whatever the endpoint still has.
+MAX_RECORDS = 200_000
+# CELEX numbers asked for in one query.
+CELEX_BATCH = 50
 # What a national implementing measure says, by the name of its SPARQL variable.
 _MEASURE_FIELDS = ("journal", "number", "date", "type", "title")
 
 
 class EUClient(BaseClient):
-    """
-    Basic client voor EU-wetgeving (EUR-Lex / CELEX).
-    """
+    """Client for CELLAR: CELEX numbers by SPARQL, and the HTML of an act."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(
-            base_url=EURLEX_BASE_URL,
-            session=session,
-        )
-
-    def _paginate_sparql(
-        self,
-        sparql_factory: Callable[[int], str],
-        *,
-        result_var: str,
-        max_records: int,
-        all_ids: list[str],
-        seen: set[str],
-        log_context: str = "",
-    ) -> None:
-        """Run a SPARQL query with LIMIT/OFFSET pagination, appending results to all_ids.
-
-        A page that fails raises: the endpoint answers HTTP 500 from offset 10000 on, and
-        a list cut off there must not pass for the whole result.
-        """
-        offset = 0
-        ctx = f" ({log_context})" if log_context else ""
-        while offset < max_records:
-            page = f"SPARQL page{ctx} at offset {offset}"
-            try:
-                resp = self._get_raw_absolute_with_retry(
-                    EURLEX_SPARQL_ENDPOINT,
-                    params={
-                        "query": sparql_factory(offset),
-                        "format": "application/sparql-results+json",
-                    },
-                    timeout=120,
-                )
-            except requests.RequestException as exc:
-                exc.add_note(page)
-                raise
-            try:
-                data = resp.json()
-            except ValueError as exc:
-                raise RuntimeError(f"{page} is not JSON: {exc}") from exc
-
-            bindings = data.get("results", {}).get("bindings", [])
-            for binding in bindings:
-                celex = binding.get(result_var, {}).get("value", "")
-                if celex and celex not in seen:
-                    seen.add(celex)
-                    all_ids.append(celex)
-
-            if len(bindings) < _PAGE_SIZE:
-                break
-            offset += _PAGE_SIZE
+        super().__init__(base_url=CELLAR.base_url, session=session)
 
     def enumerate_all_ids(
-        self,
-        *,
-        cdm_types: tuple[str, ...] = ("directive",),
-        max_records: int = 200000,
+        self, *, cdm_types: tuple[str, ...] = ("directive",)
     ) -> list[str]:
-        """Enumerate CELEX IDs via the CELLAR SPARQL endpoint, one query per CDM type.
-
-        Paginates with LIMIT/OFFSET until the page is smaller than the page size or
-        ``max_records`` is reached. Returns all unique CELEX identifiers found.
+        """The CELEX numbers of the acts of each CDM type, each once, in the order found.
 
         Corrigenda and republications (``31983L0091R(03)``, an id with a bracket) are left
         out: CELLAR has no text page for them. The endpoint is incomplete for recent years
@@ -96,69 +44,47 @@ class EUClient(BaseClient):
         why only directives are listed by default; regulations and decisions are better
         fetched by the CELEX numbers that loaded records refer to (``--mode gaps``).
         """
-        all_ids: list[str] = []
-        seen: set[str] = set()
-
+        found: dict[str, None] = {}
         for cdm_type in cdm_types:
             logger.info("Enumerating EUR-Lex CELEX IDs for cdm_type=%s", cdm_type)
-            self._paginate_sparql(
-                partial(_acts_of_type_sparql, cdm_type),
-                result_var="celex",
-                max_records=max_records,
-                all_ids=all_ids,
-                seen=seen,
-                log_context=f"cdm_type={cdm_type}",
+            found.update(
+                dict.fromkeys(
+                    self._paged(
+                        partial(_acts_of_type_sparql, cdm_type),
+                        "celex",
+                        f"cdm_type={cdm_type}",
+                    )
+                )
             )
             logger.info(
                 "Enumerated %d unique CELEX IDs so far (cdm_type=%s done).",
-                len(all_ids),
+                len(found),
                 cdm_type,
             )
+        logger.info("EUR-Lex enumeration complete: %d unique IDs total.", len(found))
+        return list(found)
 
-        logger.info("EUR-Lex enumeration complete: %d unique IDs total.", len(all_ids))
-        return all_ids
-
-    def enumerate_nim_ids(
-        self,
-        *,
-        country_code: str = "NLD",
-        max_records: int = 200000,
-    ) -> list[str]:
-        """Enumerate CELEX IDs of EU acts that have national implementation measures
-        for the given country (default ``"NLD"`` = Netherlands).
-
-        Paginates with LIMIT/OFFSET using the same approach as ``enumerate_all_ids()``.
-        Returns all unique CELEX identifiers found.
-        """
-        all_ids: list[str] = []
-        seen: set[str] = set()
-
+    def enumerate_nim_ids(self, *, country_code: str = "NLD") -> list[str]:
+        """The CELEX numbers of the EU acts that have national implementing measures of
+        *country_code* (``NLD``), each once."""
         logger.info(
             "Enumerating EUR-Lex CELEX IDs with NIM for country=%s", country_code
         )
-        self._paginate_sparql(
-            lambda offset: (
-                f"PREFIX cdm: <{_CDM}> "
-                "SELECT DISTINCT ?celex WHERE { "
-                "?eu_act cdm:resource_legal_id_celex ?celex . "
-                "?nim cdm:measure_national_implementing_implements_resource_legal ?eu_act ; "
-                "cdm:measure_national_implementing_implemented_by_country "
-                f"<{_COUNTRY}{country_code}> . "
-                "} "
-                f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
-            ),
-            result_var="celex",
-            max_records=max_records,
-            all_ids=all_ids,
-            seen=seen,
-            log_context=f"country={country_code}",
+        found = list(
+            dict.fromkeys(
+                self._paged(
+                    partial(_implemented_acts_sparql, country_code),
+                    "celex",
+                    f"country={country_code}",
+                )
+            )
         )
         logger.info(
             "EUR-Lex NIM enumeration complete: %d unique IDs (country=%s).",
-            len(all_ids),
+            len(found),
             country_code,
         )
-        return all_ids
+        return found
 
     def national_measures(
         self, *, country_code: str = "NLD", since: str | None = None
@@ -174,16 +100,12 @@ class EUClient(BaseClient):
         """
         last = ""
         while True:
-            resp = self._get_raw_absolute_with_retry(
-                EURLEX_SPARQL_ENDPOINT,
-                params={
-                    "query": _measures_sparql(country_code, since, last),
-                    "format": "application/sparql-results+json",
-                },
-                timeout=120,
+            measures = _measures(
+                self._bindings(
+                    _measures_sparql(country_code, since, last),
+                    f"SPARQL page (country={country_code}) after {last!r}",
+                )
             )
-            bindings = resp.json().get("results", {}).get("bindings", [])
-            measures = _measures(bindings)
             yield from measures
             if len(measures) < _PAGE_SIZE:
                 return
@@ -194,119 +116,129 @@ class EUClient(BaseClient):
         *,
         celex_ids: list[str] | None = None,
         country_code: str = "NLD",
-        max_records: int = 200_000,
     ) -> list[str]:
-        """Enumerate CELEX IDs for CJEU judgments.
-
-        Two modes:
-        - If ``celex_ids`` provided: find judgments that cite any of those instruments
-          (batched in groups of 50).
-        - Otherwise: find judgments related to the given country (default NLD).
-
-        Returns a deduplicated list of CELEX IDs.
-        """
-        all_ids: list[str] = []
-        seen: set[str] = set()
-        batch_size = 50
-
+        """The CELEX numbers of CJEU judgments, each once: those that cite one of
+        *celex_ids* (asked ``CELEX_BATCH`` at a time), or without them those related to
+        *country_code*."""
         if celex_ids:
-            for batch_start in range(0, len(celex_ids), batch_size):
-                batch = celex_ids[batch_start : batch_start + batch_size]
-                celex_values = ", ".join(f'"{c}"' for c in batch)
-                self._paginate_sparql(
-                    partial(_judgments_citing_sparql, celex_values),
-                    result_var="judgment_celex",
-                    max_records=max_records,
-                    all_ids=all_ids,
-                    seen=seen,
-                    log_context=f"batch={batch_start}",
+            found = dict.fromkeys(
+                celex
+                for start, batch in _batches(celex_ids)
+                for celex in self._paged(
+                    partial(_judgments_citing_sparql, batch),
+                    "judgment_celex",
+                    f"batch={start}",
                 )
+            )
         else:
             logger.info(
                 "Enumerating CJEU judgment CELEX IDs for country=%s", country_code
             )
-            self._paginate_sparql(
-                lambda offset: (
-                    f"PREFIX cdm: <{_CDM}> "
-                    "SELECT DISTINCT ?celex WHERE { "
-                    "?j a cdm:judgment ; "
-                    "cdm:resource_legal_id_celex ?celex ; "
-                    "cdm:case_law_relates_to_country "
-                    f"<http://publications.europa.eu/resource/authority/country/{country_code}> . "
-                    "} "
-                    f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
-                ),
-                result_var="celex",
-                max_records=max_records,
-                all_ids=all_ids,
-                seen=seen,
-                log_context=f"country={country_code}",
-            )
-
-        logger.info("CJEU enumeration complete: %d unique judgment IDs.", len(all_ids))
-        return all_ids
-
-    def enumerate_com_ids(
-        self,
-        *,
-        celex_ids: list[str],
-        max_records: int = 200_000,
-    ) -> list[str]:
-        """Enumerate COM proposal CELEX IDs for the given instrument CELEX IDs.
-
-        Batches the input in groups of 50 and tries two SPARQL predicates:
-        ``cdm:based_on_regulation`` and ``cdm:act_based_on_proposal``.
-
-        Returns a deduplicated list of COM CELEX IDs (typically starting with '5').
-        """
-        all_ids: list[str] = []
-        seen: set[str] = set()
-        batch_size = 50
-
-        predicates = [
-            "cdm:based_on_regulation",
-            "cdm:act_based_on_proposal",
-        ]
-
-        for predicate in predicates:
-            for batch_start in range(0, len(celex_ids), batch_size):
-                batch = celex_ids[batch_start : batch_start + batch_size]
-                celex_values = ", ".join(f'"{c}"' for c in batch)
-                self._paginate_sparql(
-                    partial(_proposals_of_sparql, predicate, celex_values),
-                    result_var="com_celex",
-                    max_records=max_records,
-                    all_ids=all_ids,
-                    seen=seen,
-                    log_context=f"predicate={predicate}, batch={batch_start}",
+            found = dict.fromkeys(
+                self._paged(
+                    partial(_country_judgments_sparql, country_code),
+                    "celex",
+                    f"country={country_code}",
                 )
+            )
+        logger.info("CJEU enumeration complete: %d unique judgment IDs.", len(found))
+        return list(found)
 
-        logger.info(
-            "COM proposal enumeration complete: %d unique COM IDs.", len(all_ids)
+    def enumerate_com_ids(self, *, celex_ids: list[str]) -> list[str]:
+        """The CELEX numbers of the Commission proposals (typically starting with '5') the
+        acts *celex_ids* are based on, each once, by two predicates:
+        ``cdm:based_on_regulation`` and ``cdm:act_based_on_proposal``; asked
+        ``CELEX_BATCH`` acts at a time."""
+        found = list(
+            dict.fromkeys(
+                celex
+                for predicate in (
+                    "cdm:based_on_regulation",
+                    "cdm:act_based_on_proposal",
+                )
+                for start, batch in _batches(celex_ids)
+                for celex in self._paged(
+                    partial(_proposals_of_sparql, predicate, batch),
+                    "com_celex",
+                    f"predicate={predicate}, batch={start}",
+                )
+            )
         )
-        return all_ids
+        logger.info("COM proposal enumeration complete: %d unique COM IDs.", len(found))
+        return found
 
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
-        """Download the EUR-Lex HTML via the Publications Office CELLAR content server.
+        """The HTML of the act *celex*, from the CELLAR content server.
 
         The main eur-lex.europa.eu website is behind AWS WAF and returns HTTP 202
-        bot-challenge responses to automated clients.  The CELLAR server at
-        publications.europa.eu accepts content-negotiation requests without
-        bot-protection and redirects to the actual document (XHTML).
+        bot-challenge responses to automated clients. CELLAR accepts content-negotiation
+        requests without bot-protection and redirects to the actual document (XHTML).
         """
-        url = f"https://publications.europa.eu/resource/celex/{celex}"
         lang_lower = lang.lower()
         headers = {
             "Accept": "text/html, application/xhtml+xml",
             "Accept-Language": f"{lang_lower}, {lang_lower}-{lang.upper()};q=0.9",
         }
         logger.debug("Fetching CELEX %s (%s) via CELLAR", celex, lang)
-        # CELLAR negotiates the content on these headers and redirects to the document.
-        resp = self._get_raw_absolute_with_retry(url, headers=headers, timeout=60)
-        return response_text(resp)
+        return self.get_text(
+            self._build_url(f"resource/celex/{celex}"),
+            headers=headers,
+            timeout=PAGE_TIMEOUT,
+        )
+
+    def _paged(
+        self, sparql: Callable[[int], str], variable: str, context: str
+    ) -> Iterator[str]:
+        """The values of *variable* in the rows of the query *sparql* of an offset, page by
+        page by offset until a page is short or ``MAX_RECORDS`` is reached.
+
+        A page that fails raises: the endpoint answers HTTP 500 from offset 10000 on, and
+        a list cut off there must not pass for the whole result.
+        """
+        for offset in range(0, MAX_RECORDS, _PAGE_SIZE):
+            bindings = self._bindings(
+                sparql(offset), f"SPARQL page ({context}) at offset {offset}"
+            )
+            for binding in bindings:
+                value = binding.get(variable, {}).get("value", "")
+                if value:
+                    yield value
+            if len(bindings) < _PAGE_SIZE:
+                return
+
+    def _bindings(self, query: str, page: str) -> list[dict[str, Any]]:
+        """The rows of the answer to *query*; *page* names it in an error."""
+        try:
+            response = self.get(
+                CELLAR_SPARQL,
+                params={"query": query, "format": "application/sparql-results+json"},
+                timeout=QUERY_TIMEOUT,
+            )
+        except requests.RequestException as exc:
+            exc.add_note(page)
+            raise
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise RuntimeError(f"{page} is not JSON: {exc}") from exc
+        return data.get("results", {}).get("bindings", [])
 
 
-# ── the SPARQL of one page; ``partial`` fixes all but the offset ─────────────
+def _batches(celex_ids: list[str]) -> Iterator[tuple[int, str]]:
+    """``(start, values)`` of every ``CELEX_BATCH`` of *celex_ids*, the values as the list
+    of a SPARQL ``IN``."""
+    for start in range(0, len(celex_ids), CELEX_BATCH):
+        batch = celex_ids[start : start + CELEX_BATCH]
+        yield start, ", ".join(map(_sparql_string, batch))
+
+
+def _sparql_string(value: str) -> str:
+    """*value* as a SPARQL string literal."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+# ── the SPARQL of one page; ``partial`` fixes all but the offset or the key ──
 
 
 def _measures_sparql(country_code: str, since: str | None, after: str) -> str:
@@ -365,6 +297,32 @@ def _acts_of_type_sparql(cdm_type: str, offset: int) -> str:
         f"?s a cdm:{cdm_type} ; "
         "cdm:resource_legal_id_celex ?celex . "
         'FILTER(!CONTAINS(?celex, "(")) '
+        "} "
+        f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
+    )
+
+
+def _implemented_acts_sparql(country_code: str, offset: int) -> str:
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT DISTINCT ?celex WHERE { "
+        "?eu_act cdm:resource_legal_id_celex ?celex . "
+        "?nim cdm:measure_national_implementing_implements_resource_legal ?eu_act ; "
+        "cdm:measure_national_implementing_implemented_by_country "
+        f"<{_COUNTRY}{country_code}> . "
+        "} "
+        f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
+    )
+
+
+def _country_judgments_sparql(country_code: str, offset: int) -> str:
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT DISTINCT ?celex WHERE { "
+        "?j a cdm:judgment ; "
+        "cdm:resource_legal_id_celex ?celex ; "
+        "cdm:case_law_relates_to_country "
+        f"<{_COUNTRY}{country_code}> . "
         "} "
         f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
     )

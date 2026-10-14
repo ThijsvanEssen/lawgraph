@@ -29,6 +29,18 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
 )
+from lawgraph.config.sources import (
+    BWB_SEARCH,
+    CELLAR,
+    EERSTEKAMER_SITE,
+    HUDOC,
+    KIESRAAD,
+    KOOP_REPOSITORY,
+    RECHTSPRAAK,
+    RIJKSOVERHEID,
+    TOOI,
+    TWEEDE_KAMER,
+)
 from lawgraph.pipelines.command import Command, PipelineCommand
 from lawgraph.pipelines.inputs import Reads, reading
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
@@ -202,19 +214,6 @@ SOURCES: dict[str, str] = {
 # How a source is spelled in a class name, where capitalising it is not enough.
 _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 
-# Retrieve pipelines that share a server run one after the other.
-LANE_TWEEDE_KAMER = "tweede_kamer"
-# repository.overheid.nl: SRU and publications
-LANE_KOOP_REPOSITORY = "koop_repository"
-# www.eerstekamer.nl: its votes and composition
-LANE_EERSTEKAMER_SITE = "eerstekamer_site"
-# zoekservice.overheid.nl and repository.officiele-overheidspublicaties.nl
-LANE_BWB = "bwb"
-# data.rechtspraak.nl: judgments and the Instanties value list
-LANE_RECHTSPRAAK = "rechtspraak"
-# eur-lex.europa.eu and its CELLAR SPARQL endpoint
-LANE_EURLEX = "eurlex"
-
 RetrieveMode = Literal["incremental", "full"]
 
 
@@ -237,8 +236,8 @@ class Pipeline:
     command: Command
     description: str  # printed by ``lawgraph sources`` and in the first log line
     # Retrieve only (every retrieve pipeline has it). ``argv_for_all`` turns the options of
-    # ``retrieve all`` into those of the command; ``lane`` names the server it talks to, so no
-    # server gets two request streams.
+    # ``retrieve all`` into those of the command; ``lane`` is that of the host it talks to
+    # (``config/sources.py``), so no host gets two request streams.
     # Retrieve and normalize: ``after`` names pipelines of the same phase that must have
     # ended first, because this one reads what they wrote (normalize: the nodes of the
     # Ordering table in docs/pipelines.md; registry order already keeps them before it).
@@ -477,7 +476,7 @@ RETRIEVE: list[Pipeline] = [
         retrieve_tk,
         "Tweede Kamer cases (Zaak) from the OData API.",
         argv_for_all=_windowed_argv,
-        lane=LANE_TWEEDE_KAMER,
+        lane=TWEEDE_KAMER.lane,
     ),
     _pipeline(
         retrieve_tk_dossiers,
@@ -486,7 +485,7 @@ RETRIEVE: list[Pipeline] = [
             " and documents."
         ),
         argv_for_all=_tk_dossiers_argv,
-        lane=LANE_TWEEDE_KAMER,
+        lane=TWEEDE_KAMER.lane,
         fills_gaps=True,
     ),
     _pipeline(
@@ -496,7 +495,7 @@ RETRIEVE: list[Pipeline] = [
             " of (a stenogram: its debate), its attachments, the letters it is attached to."
         ),
         argv_for_all=_windowed_argv,
-        lane=LANE_TWEEDE_KAMER,
+        lane=TWEEDE_KAMER.lane,
     ),
     _pipeline(
         retrieve_tk_case_actors,
@@ -505,7 +504,7 @@ RETRIEVE: list[Pipeline] = [
             " committee leads it."
         ),
         argv_for_all=_windowed_argv,
-        lane=LANE_TWEEDE_KAMER,
+        lane=TWEEDE_KAMER.lane,
     ),
     _pipeline(
         retrieve_tk_content,
@@ -514,7 +513,7 @@ RETRIEVE: list[Pipeline] = [
             "repository: those of which none is stored yet, one XML per paper."
         ),
         argv_for_all=_no_argv,
-        lane=LANE_KOOP_REPOSITORY,  # the papers come from repository.overheid.nl
+        lane=KOOP_REPOSITORY.lane,  # the papers come from repository.overheid.nl
         after=("tk-dossiers",),
         fills_gaps=True,
         reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
@@ -526,7 +525,7 @@ RETRIEVE: list[Pipeline] = [
             "with --ecli."
         ),
         argv_for_all=_windowed_argv,
-        lane=LANE_RECHTSPRAAK,
+        lane=RECHTSPRAAK.lane,
         fills_gaps=True,
     ),
     _pipeline(
@@ -534,7 +533,7 @@ RETRIEVE: list[Pipeline] = [
         "The Instanties value list of the Rechtspraak (every court an ECLI names); "
         "`lawgraph courts build` makes data/courts.json from it.",
         argv_for_all=_no_argv,
-        lane=LANE_RECHTSPRAAK,
+        lane=RECHTSPRAAK.lane,
     ),
     _pipeline(
         retrieve_eurlex,
@@ -543,7 +542,7 @@ RETRIEVE: list[Pipeline] = [
             " ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
-        lane=LANE_EURLEX,
+        lane=CELLAR.lane,
         fills_gaps=True,
         # the acts already in the graph; full and nim list them at EUR-Lex, gaps reads BWB
         reads=(
@@ -557,7 +556,7 @@ RETRIEVE: list[Pipeline] = [
             "changed in the window, all with --mode full."
         ),
         argv_for_all=_windowed_argv,
-        lane=LANE_EURLEX,
+        lane=CELLAR.lane,
     ),
     _pipeline(
         retrieve_bwb,
@@ -566,7 +565,7 @@ RETRIEVE: list[Pipeline] = [
             "regulation."
         ),
         argv_for_all=_mode_argv,
-        lane=LANE_BWB,
+        lane=BWB_SEARCH.lane,
         fills_gaps=True,
     ),
     _pipeline(
@@ -576,7 +575,7 @@ RETRIEVE: list[Pipeline] = [
             "those not stored yet."
         ),
         argv_for_all=_mode_argv,
-        lane=LANE_BWB,  # after bwb in its lane: it reads which regulations bwb stored
+        lane=BWB_SEARCH.lane,  # after bwb in its lane: it reads which regulations bwb stored
     ),
     _pipeline(
         retrieve_staatsblad,
@@ -585,41 +584,41 @@ RETRIEVE: list[Pipeline] = [
             " stored BWB XML refers to."
         ),
         argv_for_all=_no_argv,
-        lane=LANE_KOOP_REPOSITORY,
+        lane=KOOP_REPOSITORY.lane,
         after=("bwb",),
     ),
     _pipeline(
         retrieve_staatscourant,
         "Ministerial regulations from the Staatscourant as XML, via the KOOP SRU.",
         argv_for_all=_windowed_argv,
-        lane=LANE_KOOP_REPOSITORY,
+        lane=KOOP_REPOSITORY.lane,
     ),
     _pipeline(
         retrieve_eerstekamer,
         "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
         argv_for_all=_windowed_argv,
-        lane=LANE_KOOP_REPOSITORY,
+        lane=KOOP_REPOSITORY.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_votes,
         "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
         "bills it rejected (since 1996), from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_composition,
         "The factions (with their seats and boards) and committees of the Eerste Kamer "
         "and who sits in them, as eerstekamer.nl shows them today.",
         argv_for_all=_no_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_mutations,
         "The changes in the composition of the Eerste Kamer, term by term, as "
         "eerstekamer.nl tells them (/personele_mutaties): the lists, and each change once.",
         argv_for_all=_no_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_persons,
@@ -627,14 +626,14 @@ RETRIEVE: list[Pipeline] = [
         "lists and every person a stored change links, each once, again when a change "
         "names them later (--sitting: every sitting member's again, the weekly run).",
         argv_for_all=_no_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_motions,
         "The page of every motion of the Eerste Kamer voted on (/motiedossier): what it "
         "asks, its key data and who submitted and co-signed it; each page once.",
         argv_for_all=_no_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
         # the motions voted on: the motion_url of its decisions on a motion
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
@@ -643,20 +642,21 @@ RETRIEVE: list[Pipeline] = [
         "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
         "Kiesraad's databank: each election once.",
         argv_for_all=_no_argv,
+        lane=KIESRAAD.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_agenda,
         "The agendas of the plenary sittings and committee meetings of the Eerste Kamer, "
         "from eerstekamer.nl: those planned and those of the window.",
         argv_for_all=_windowed_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
     ),
     _pipeline(
         retrieve_eerstekamer_bills,
         "The pages of the bills of the Eerste Kamer: those its committees list (now and "
         "lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
-        lane=LANE_EERSTEKAMER_SITE,
+        lane=EERSTEKAMER_SITE.lane,
         # those it voted on: the bill_url of its decisions
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
@@ -664,13 +664,14 @@ RETRIEVE: list[Pipeline] = [
         retrieve_echr,
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
+        lane=HUDOC.lane,
         fills_gaps=True,
     ),
     _pipeline(
         retrieve_verdragenbank,
         "Treaties the Netherlands is party to, from the KOOP SRU.",
         argv_for_all=_no_argv,
-        lane=LANE_KOOP_REPOSITORY,
+        lane=KOOP_REPOSITORY.lane,
         fills_gaps=True,
     ),
     _pipeline(
@@ -678,18 +679,20 @@ RETRIEVE: list[Pipeline] = [
         "The TOOI value list of every ministry (names, dates, mergers since about 2010); "
         "`lawgraph ministries build` makes data/ministries.json from it.",
         argv_for_all=_no_argv,
+        lane=TOOI.lane,
     ),
     _pipeline(
         retrieve_rijksoverheid,
         "The page of every cabinet since 1945 (posts, holders, dates), from rijksoverheid.nl.",
         argv_for_all=_no_argv,
+        lane=RIJKSOVERHEID.lane,
     ),
     _pipeline(
         retrieve_staatscourant_posts,
         "Per cabinet post whose function names no ministry: which ministries issued the "
         "publications naming it (Staatscourant and Staatsblad, from 1995).",
         argv_for_all=_no_argv,
-        lane=LANE_KOOP_REPOSITORY,
+        lane=KOOP_REPOSITORY.lane,
         after=("rijksoverheid",),
     ),
 ]
