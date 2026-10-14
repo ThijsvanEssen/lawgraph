@@ -12,6 +12,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_REPEALS,
     EFFECT_REPUBLISHES,
     effect_kind,
+    expiry_date,
     instrument_props,
     parse_jci,
     parse_toestand,
@@ -391,3 +392,29 @@ def test_a_treaty_names_its_verdragenbank_id() -> None:
     assert instrument_props(treaty, "BWBV0001000")["treaty_number"] == "005132"
     assert law.treaty_number is None
     assert "treaty_number" not in instrument_props(law, "BWBR0001854")
+
+
+@pytest.mark.parametrize(
+    ("end_date", "read_at", "expired"),
+    [
+        # the Huurwet: its last toestand ran to 2003-07-31
+        ("2003-07-31", "2026-09-20T04:00:00Z", "2003-08-01"),
+        # in force, with an open end, or until a toestand still to come
+        ("9999-12-31", "2026-09-20T04:00:00Z", None),
+        ("2026-12-31", "2026-09-20T04:00:00Z", None),
+        # read on its last day: still in force
+        ("2026-09-20", "2026-09-20T04:00:00Z", None),
+        (None, "2026-09-20T04:00:00Z", None),
+        ("2003-07-31", None, None),
+    ],
+)
+def test_a_regulation_expired_the_day_after_its_last_toestand_ended(
+    end_date: str | None, read_at: str | None, expired: str | None
+) -> None:
+    assert expiry_date(end_date, read_at) == expired
+
+
+def test_the_expiry_of_a_regulation_is_always_written(grondwet) -> None:
+    assert instrument_props(grondwet, "BWBR0001840")["date_expired"] is None
+    props = instrument_props(grondwet, "BWBR0001840", date_expired="2003-08-01")
+    assert props["date_expired"] == "2003-08-01"

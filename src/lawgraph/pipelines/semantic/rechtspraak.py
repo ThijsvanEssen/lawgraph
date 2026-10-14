@@ -61,15 +61,17 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         since_iso = iso_timestamp(since)
 
-        mapping = self._load_code_aliases()
+        mapping, shared = self._load_code_choices()
         instrument_aliases = self._load_instrument_aliases()
         # "EP" is the First Protocol in a judgment that also names the EVRM; a judgment
-        # cites no law that came to be after its date
+        # cites no law that came to be after its date, and by a code several laws have
+        # the one in force on its date
         extractor = build_extractor(
             mapping,
             instrument_aliases,
             self._load_context_aliases(mapping),
             self._load_law_dates(),
+            shared,
         )
 
         def detector(on: str | None) -> Callable[[str], list[CitationHit]]:

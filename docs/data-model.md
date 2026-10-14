@@ -222,7 +222,11 @@ statutes made by the legislator:
   and `dossier_numbers` are those of that publication, `date_in_force` the
   `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
   it): the `meta-data` of `<wetgeving>` names the last change to the structure of the law, not
-  the law. `version_date_in_force` is the start of the toestand. A Celex link
+  the law. `version_date_in_force` is the start of the toestand. `date_expired` is the first
+  day the regulation was no longer in force (repealed or lapsed): the day after the end of the
+  validity period (`geldigheidsperiode_einddatum`) of its last toestand in the SRU, when that end
+  had passed as `retrieve bwb` read it (`bwb_xml.expiry_date`); null while it is in force. A
+  regulation repealed before 2002 has no toestand in the BWB at all. A Celex link
   whose id has an impossible year in the source is rebuilt from the text of the link
   ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records

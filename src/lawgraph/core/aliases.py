@@ -49,7 +49,21 @@ def code_aliases(
     curated: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, str]:
     """Abbreviation, as its source spells it -> the BWB id or CELEX number of the one law it
-    stands for.
+    stands for (``code_choices``)."""
+    return code_choices(rows, curated)[0]
+
+
+def code_choices(
+    rows: Iterable[Mapping[str, Any]],
+    curated: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    """The abbreviations of the laws: ``(codes, shared)``.
+
+    *codes* maps an abbreviation, as its source spells it, to the BWB id or CELEX number of
+    the one law it stands for. *shared* maps an abbreviation (upper case) that several laws
+    have to each of them, with its spelling there: "BRO" -> the Besluit op de ruimtelijke
+    ordening 1985 ("BRO") and the Besluit ruimtelijke ordening ("Bro"); which one a text
+    means depends on its date (``DutchCitationExtractor``).
 
     *rows* are ``{bwb_id, celex, short_title, aliases, citation_title, title}`` of the
     instruments in the graph; *curated* adds abbreviations by law id (``curated
@@ -58,9 +72,9 @@ def code_aliases(
     then the curated ones. An abbreviation is decided by the first of them that has it,
     whatever the others say, and is the law's only when one law has it there, or when the
     others are versions of it (``_base_law``: Rv beside Rv "(geldt in geval van
-    niet-digitaal procederen)"). Comparison ignores case. A code whose books are
-    regulations of their own (``BW``) and an alias that starts with a digit (``6 BW``: the
-    number of a citation stands there) are no abbreviation of one law.
+    niet-digitaal procederen)"); else it is shared. Comparison ignores case. A code whose
+    books are regulations of their own (``BW``) and an alias that starts with a digit
+    (``6 BW``: the number of a citation stands there) are no abbreviation of one law.
     """
     tiers: list[dict[str, dict[str, str]]] = [{}, {}, {}]  # upper -> law id -> spelling
     titles: dict[str, str] = {}
@@ -83,6 +97,7 @@ def code_aliases(
                 if key and not key[0].isdigit() and key not in CODE_FAMILIES:
                     tier.setdefault(key, {}).setdefault(law_id, spelled)
     found: dict[str, str] = {}
+    shared: dict[str, dict[str, str]] = {}
     decided: set[str] = set()
     for tier in tiers:
         for key, laws in tier.items():
@@ -94,15 +109,18 @@ def code_aliases(
                 found[spelled] = law_id
             elif base := _base_law(list(laws), titles):
                 found[laws[base]] = base
-    return found
+            else:
+                shared[key] = dict(laws)
+    return found, shared
 
 
 def law_dates(rows: Iterable[Mapping[str, Any]]) -> dict[str, LawDates]:
     """Law id -> ``LawDates`` of the instruments whose source dates them.
 
-    *rows* are ``{bwb_id, celex, date_signed, date_published, date_in_force}``; ``start``
-    is the earliest of the three (a law that is signed or published exists, also before
-    it comes into force), ``in_force`` the day it came into force, else ``start``.
+    *rows* are ``{bwb_id, celex, date_signed, date_published, date_in_force,
+    date_expired}``; ``start`` is the earliest of the first three (a law that is signed or
+    published exists, also before it comes into force), ``in_force`` the day it came into
+    force, else ``start``, ``expired`` the first day it was no longer in force.
     """
     dates: dict[str, LawDates] = {}
     for row in rows:
@@ -112,8 +130,13 @@ def law_dates(rows: Iterable[Mapping[str, Any]]) -> dict[str, LawDates]:
             for field in ("date_signed", "date_published", "date_in_force")
         }
         known = [day for day in days.values() if day]
-        if law_id and known:
-            dates[law_id] = LawDates(min(known), days["date_in_force"] or min(known))
+        expired = str(row.get("date_expired") or "").strip()[:10] or None
+        if law_id and (known or expired):
+            dates[law_id] = LawDates(
+                min(known) if known else None,
+                days["date_in_force"] or (min(known) if known else None),
+                expired,
+            )
     return dates
 
 

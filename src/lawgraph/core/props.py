@@ -156,6 +156,7 @@ class InstrumentProps(_CommonProps):
     date_signed: str | None = None  # of the instrument itself, not of an amendment
     date_in_force: str | None = None
     version_date_in_force: str | None = None  # BWB: the start of the toestand in force
+    date_expired: str | None = None  # BWB: the first day it was no longer in force
     # a treaty of the Verdragenbank (its item XML, ``core.verdragenbank_xml``)
     place_signed: str | None = None
     tractatenblad: list[TreatyPublicationProps] | None = None

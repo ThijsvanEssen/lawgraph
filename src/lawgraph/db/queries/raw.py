@@ -267,10 +267,13 @@ def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, A
 
 
 def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
-    """``{id, url}`` (BWB id, ``meta.state_url``) of the stored current toestanden."""
+    """``{id, url, end_date, at}`` (BWB id, ``meta.state_url``, ``meta.end_date``,
+    ``fetched_at``) of the stored current toestanden."""
     return store.query(
         f"""
-        SELECT external_id AS id, doc -> 'meta' -> 'state_url' AS url FROM raw_sources
+        SELECT external_id AS id, doc -> 'meta' -> 'state_url' AS url,
+               doc -> 'meta' -> 'end_date' AS end_date, fetched_at AS at
+        FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s
         {_ORDER}
         """,
