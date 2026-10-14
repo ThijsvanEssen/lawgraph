@@ -350,22 +350,27 @@ def test_a_judgment_with_its_articles(detail: GraphStore) -> None:
 
 def test_the_judgments_it_cites_and_the_same_decision(detail: GraphStore) -> None:
     data = judgment_queries.get_judgment_with_relations(detail, HR1)
+    # each with the meta and confidence of its edge: where it is cited (none here)
+    edge = {"meta": None, "confidence": None}
     assert data.cited_judgments == [
         {
             "_id": _jid(HR10),
             "_key": _key(HR10),
             "props": {"display_name": "HR 10", "ecli": HR10},
+            **edge,
         },
         {
             "_id": _jid(RB),
             "_key": _key(RB),
             "props": {"display_name": "Rb 7", "ecli": RB},
+            **edge,
         },
         # no date sorts last; a missing ECLI is null
         {
             "_id": _jid(ECHR),
             "_key": _key(ECHR),
             "props": {"display_name": "X v. NL", "ecli": None},
+            **edge,
         },
     ]
     assert [j["_id"] for j in data.same_as] == [_jid(COPY), _jid(RB)]
