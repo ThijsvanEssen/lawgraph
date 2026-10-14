@@ -16,28 +16,25 @@ from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, count_calls
 
 FIXTURES = pathlib.Path(__file__).parents[1] / "fixtures"
 
 
-class _Store(RawSourcesFake):
-    """The nodes that exist, and what is written to them."""
+def _store(*documents: str) -> InMemoryStore:
+    """A store with the Documents that exist, each without props yet."""
+    return InMemoryStore(
+        {"documents": [{"_key": key, "props": {}} for key in documents]}
+    )
 
-    def __init__(self, documents: set[str]) -> None:
-        self.documents = documents
-        self.upserted: list[Node] = []
-        self.lookups: list[list[str]] = []
 
-    def existing_keys(self, collection: str, keys: Any) -> set[str]:
-        self.lookups.append(sorted(keys))
-        return {key for key in keys if key in self.documents}
-
-    def bulk_insert_or_update_nodes(
-        self, collection: str, docs: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        self.upserted.extend(Node.from_document(collection, d) for d in docs)
-        return 0, len(docs)
+def _written(store: InMemoryStore) -> list[Node]:
+    """The Documents the pipeline wrote props on."""
+    return [
+        Node.from_document("documents", doc)
+        for doc in store.nodes["documents"].values()
+        if doc["props"]
+    ]
 
 
 def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, Any]:
@@ -49,17 +46,17 @@ def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, A
     }
 
 
-def _run(store: _Store, *records: dict[str, Any]) -> tuple[PipelineResult, int]:
+def _run(store: InMemoryStore, *records: dict[str, Any]) -> tuple[PipelineResult, int]:
     pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
     result = PipelineResult()
     return result, pipeline.normalize_nodes(iter(records), result)
 
 
 def test_the_text_and_the_sections_are_written_on_the_existing_document() -> None:
-    store = _Store({"doc-1"})
+    store = _store("doc-1")
     result, count = _run(store, _raw("kst-36750-3", "kst_36750_3", "doc-1"))
     assert count == 1 and result.skipped == 0
-    (node,) = store.upserted
+    (node,) = _written(store)
     assert (node.collection, node.key, node.type) == (
         "documents",
         "doc-1",
@@ -84,9 +81,9 @@ def test_the_text_and_the_sections_are_written_on_the_existing_document() -> Non
 
 def test_only_the_props_of_the_text_are_written() -> None:
     """A shallow merge: what ``normalize tk-dossiers`` wrote stays."""
-    store = _Store({"doc-1"})
+    store = _store("doc-1")
     _run(store, _raw("kst-36750-3", "kst_36750_3", "doc-1"))
-    assert set(store.upserted[0].props) == {
+    assert set(_written(store)[0].props) == {
         "text",
         "text_source",
         "text_truncated",
@@ -103,18 +100,18 @@ def test_only_the_props_of_the_text_are_written() -> None:
 def test_a_paper_without_a_document_is_left_for_a_run_after_normalize_tk_dossiers() -> (
     None
 ):
-    store = _Store({"doc-2"})
+    store = _store("doc-2")
     result, count = _run(
         store,
         _raw("kst-36750-3", "kst_36750_3", "doc-1"),
         _raw("kst-25823-3", "kst_25823_3", "doc-2"),
     )
     assert count == 1 and result.skipped == 1
-    assert [n.key for n in store.upserted] == ["doc-2"]
+    assert [n.key for n in _written(store)] == ["doc-2"]
 
 
 def test_a_record_that_cannot_be_read_is_skipped_and_the_rest_goes_on() -> None:
-    store = _Store({"doc-1", "doc-2", "doc-3", "doc-4"})
+    store = _store("doc-1", "doc-2", "doc-3", "doc-4")
     broken = {
         "external_id": "kst-1-1",
         "payload_text": "<html>Bad gateway",
@@ -128,14 +125,15 @@ def test_a_record_that_cannot_be_read_is_skipped_and_the_rest_goes_on() -> None:
         _raw("kst-25823-3", "kst_25823_3", "doc-4"),
     )
     assert count == 1 and result.skipped == 3
-    assert [n.key for n in store.upserted] == ["doc-4"]
+    assert [n.key for n in _written(store)] == ["doc-4"]
 
 
 def test_documents_are_looked_up_a_batch_at_a_time_not_one_by_one() -> None:
-    store = _Store({f"doc-{n}" for n in range(45)})
+    store = _store(*(f"doc-{n}" for n in range(45)))
+    lookups = count_calls(store, "existing_keys")
     records = [_raw(f"kst-{n}-1", "kst_28844_269", f"doc-{n}") for n in range(45)]
     _, count = _run(store, *records)
-    assert count == 45 and len(store.lookups) == 3  # 20 + 20 + 5
+    assert count == 45 and lookups["existing_keys"] == 3  # 20 + 20 + 5
 
 
 def test_reading_asks_for_the_xml_records_of_tk_only(
@@ -149,7 +147,7 @@ def test_reading_asks_for_the_xml_records_of_tk_only(
 
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
-    pipeline = TKContentNormalizePipeline(store=_Store(set()))  # type: ignore[arg-type]
+    pipeline = TKContentNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
     list(pipeline.fetch_raw())
     assert [(a["source"], a["kinds"]) for a in asked] == [
         (SOURCE_TK, [RAW_KIND_TK_KAMERSTUK_XML])

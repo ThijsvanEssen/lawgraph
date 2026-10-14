@@ -593,7 +593,8 @@ mypy                                  # src, configured in pyproject.toml
 ```
 
 The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
-functions of `db/queries/` the code calls (a fake store keeps only the bulk writes and lookups);
+functions of `db/queries/` the code calls, answered from one store in memory (`tests/fakes.py`,
+with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
 no unit test runs or reads a query (`tests/test_conventions.py`), what a query does is tested in
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
 statement (`ALLOW_DB_TESTS=1`, a scratch database of its own).

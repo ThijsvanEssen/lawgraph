@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+from collections.abc import Iterable
 from types import SimpleNamespace
 from typing import Any
 
@@ -9,9 +11,12 @@ import pytest
 import requests
 
 from lawgraph.clients.eu import EUClient
-from lawgraph.db.queries import raw as raw_queries
+from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore, raw_record
+
+pytestmark = pytest.mark.usefixtures("raw_reads")
 
 
 def _http_error(status: int) -> requests.HTTPError:
@@ -66,7 +71,7 @@ def test_a_failing_page_raises_instead_of_returning_a_cut_off_list() -> None:
 
 def test_a_failed_listing_is_an_error_of_the_full_run() -> None:
     pipeline = EurlexRetrievePipeline(
-        store=_Store(), eu_client=_client([requests.HTTPError("500")], [])
+        store=InMemoryStore(), eu_client=_client([requests.HTTPError("500")], [])
     )
     result = pipeline.run_full()
     assert result.errors and "enumeration failed" in result.errors[0]
@@ -74,7 +79,9 @@ def test_a_failed_listing_is_an_error_of_the_full_run() -> None:
 
 
 def test_an_empty_nim_listing_is_an_error_not_a_silent_success() -> None:
-    pipeline = EurlexRetrievePipeline(store=_Store(), eu_client=_client([[]], []))
+    pipeline = EurlexRetrievePipeline(
+        store=InMemoryStore(), eu_client=_client([[]], [])
+    )
     result = pipeline.run_nim()
     assert result.errors and "no national implementation measures" in result.errors[0]
 
@@ -82,28 +89,35 @@ def test_an_empty_nim_listing_is_an_error_not_a_silent_success() -> None:
 # ── retrieving ───────────────────────────────────────────────────────────────
 
 
-class _Store(RawSourcesFake):
-    def __init__(
-        self, events: list[str] | None = None, recent: list[str] | None = None
-    ) -> None:
-        self.stored: list[str] = []
-        self.events = events if events is not None else []
-        self.recent = (
-            recent or []
-        )  # what an interrupted run stored in the last 24 hours
-
-    def insert_raw_source(self, *, external_id: str, **_kw: Any) -> None:
-        self.stored.append(external_id)
-        self.events.append(f"store {external_id}")
+# When an interrupted run stored what a rerun finds.
+AN_HOUR_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1))
 
 
-@pytest.fixture(autouse=True)
-def _raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
-    """What the last 24 hours stored is ``_Store.recent``; nothing is known to be missing."""
-    monkeypatch.setattr(
-        raw_queries, "ids_stored_since", lambda store, **_kw: list(store.recent)
+def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
+    """A store that adds a ``store`` event per record written to *events*."""
+    store = InMemoryStore(
+        raw=[
+            raw_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex, fetched_at=AN_HOUR_AGO)
+            for celex in recent
+        ]
     )
-    monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", lambda *_a, **_kw: [])
+    write = store.insert_raw_sources
+
+    def logged(docs: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
+        events.extend(f"store {doc['external_id']}" for doc in docs)
+        return write(docs)
+
+    store.insert_raw_sources = logged  # type: ignore[method-assign]
+    return store
+
+
+def _written(store: InMemoryStore) -> list[str]:
+    """The acts this run stored."""
+    return [
+        doc["external_id"]
+        for doc in store.raw.values()
+        if doc["fetched_at"] != AN_HOUR_AGO
+    ]
 
 
 class _Eu:
@@ -119,9 +133,9 @@ class _Eu:
         return outcome
 
 
-def _run(outcomes: dict[str, Any]) -> tuple[Any, _Store, list[str]]:
+def _run(outcomes: dict[str, Any]) -> tuple[Any, InMemoryStore, list[str]]:
     events: list[str] = []
-    store = _Store(events)
+    store = _store(events)
     pipeline = EurlexRetrievePipeline(store=store, eu_client=_Eu(outcomes, events))
     return pipeline.run(celex_ids=list(outcomes)), store, events
 
@@ -131,7 +145,10 @@ def test_an_act_without_html_is_skipped_not_an_error() -> None:
         {"32010L0064": "<html/>", "31983L0091R(03)": _http_error(404)}
     )
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
-    assert sorted(store.stored) == ["31983L0091R(03)", "32010L0064"]  # one as missing
+    assert sorted(_written(store)) == [
+        "31983L0091R(03)",
+        "32010L0064",
+    ]  # one as missing
 
 
 def test_other_failures_are_skipped_too_and_the_run_continues() -> None:
@@ -143,12 +160,12 @@ def test_other_failures_are_skipped_too_and_the_run_continues() -> None:
         }
     )
     assert (result.created, result.skipped) == (1, 2)
-    assert store.stored == ["31990L0003"]
+    assert _written(store) == ["31990L0003"]
 
 
 def test_an_interrupted_run_keeps_what_it_stored() -> None:
     events: list[str] = []
-    store = _Store(events)
+    store = _store(events)
 
     class Interrupted(_Eu):
         def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
@@ -162,16 +179,13 @@ def test_an_interrupted_run_keeps_what_it_stored() -> None:
     )
     with pytest.raises(KeyboardInterrupt):
         pipeline.run(celex_ids=["32010L0064", "32010L0065"])
-    assert store.stored == ["32010L0064"]
+    assert _written(store) == ["32010L0064"]
 
 
 def test_a_store_failure_is_an_error() -> None:
-    class Broken(_Store):
-        def insert_raw_source(self, **kw: Any) -> None:
-            raise RuntimeError("database gone")
-
     pipeline = EurlexRetrievePipeline(
-        store=Broken(), eu_client=_Eu({"32010L0064": "<html/>"}, [])
+        store=InMemoryStore(refuse={"32010L0064"}),
+        eu_client=_Eu({"32010L0064": "<html/>"}, []),
     )
     result = pipeline.run(celex_ids=["32010L0064"])
     assert result.created == 0
@@ -191,11 +205,11 @@ def test_retrieve_all_never_lists_eu_acts() -> None:
 
 def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:
     events: list[str] = []
-    store = _Store(events, recent=["32010L0064"])
+    store = _store(events, recent=["32010L0064"])
     eu = _Eu({"32010L0064": "<html/>", "32010L0065": "<html/>"}, events)
     result = EurlexRetrievePipeline(store=store, eu_client=eu).run(
         celex_ids=["32010L0064", "32010L0065"]
     )
-    assert store.stored == ["32010L0065"]
+    assert _written(store) == ["32010L0065"]
     assert events == ["fetch 32010L0065", "store 32010L0065"]
     assert result.created == 1

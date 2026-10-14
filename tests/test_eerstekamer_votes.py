@@ -15,7 +15,7 @@ from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of, observed_
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGE_1 = (FIXTURES / "ek_votes_page_1.html").read_text()
@@ -139,7 +139,7 @@ class _Client:
 
 
 def test_a_day_over_two_pages_is_one_record_and_the_window_stops_the_list() -> None:
-    pipeline = EerstekamerVotesRetrievePipeline(RawSourcesFake(), client=_Client())  # type: ignore[arg-type]
+    pipeline = EerstekamerVotesRetrievePipeline(InMemoryStore(), client=_Client())  # type: ignore[arg-type]
     records = list(pipeline.fetch(since=dt.date(2026, 9, 1)))
     days = [r for r in records if r.kind == RAW_KIND_EK_VOTES_DAY]
     assert [r.external_id for r in days] == ["2026-09-29", "2026-09-22"]
