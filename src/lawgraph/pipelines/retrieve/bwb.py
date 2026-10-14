@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.identifiers import clean_ids
-from lawgraph.core.logging import describe, get_logger
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
@@ -25,6 +25,7 @@ from .base import (
     RetrievePipelineBase,
     RetrieveRecord,
     failure_reason,
+    listed,
     missing_record,
 )
 
@@ -93,15 +94,19 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         left alone when the stored toestand is the same one; an id given without it is
         always looked up and downloaded.
         """
-        normalized = clean_ids(bwb_ids)
-        result = PipelineResult()
+        return self._store_all(
+            self._fetch_current(clean_ids(bwb_ids), current or {}), what="regulations"
+        )
 
+    def _fetch_current(
+        self, normalized: Sequence[str], current: Mapping[str, ToestandMeta]
+    ) -> Iterator[RetrieveRecord]:
+        """The WTI general information of each regulation, followed by its current toestand."""
         if not normalized:
             logger.warning("BWB retrieve: no IDs to process.")
-            return result
-
+            return
         done = self._recently_stored(SOURCE_BWB, RAW_KIND_BWB_TOESTAND)
-        todo = self._without_missing(
+        bwb_ids = self._without_missing(
             SOURCE_BWB,
             RAW_KIND_BWB_TOESTAND,
             [bwb_id for bwb_id in normalized if bwb_id not in done],
@@ -109,16 +114,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         logger.info(
             "Starting BWB retrieve for %d IDs (%d already stored in the last 24 hours).",
             len(normalized),
-            len(normalized) - len(todo),
+            len(normalized) - len(bwb_ids),
         )
-        return self._store_all(
-            self._fetch_current(todo, current or {}), what="regulations"
-        )
-
-    def _fetch_current(
-        self, bwb_ids: Sequence[str], current: Mapping[str, ToestandMeta]
-    ) -> Iterator[RetrieveRecord]:
-        """The WTI general information of each regulation, followed by its current toestand."""
         stored = self._stored_toestanden() if current else {}
         today = dt.date.today().isoformat()
         wti_fresh = (
@@ -128,7 +125,6 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if current
             else set()
         )
-        self.progress.expect(len(bwb_ids))
 
         def download(bwb_id: str) -> _Download:
             """What one regulation needs of the network; the outcome is reported below."""
@@ -293,7 +289,6 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, list(todo)
         )
         logger.info("%d toestanden are not stored yet.", len(wanted))
-        self.progress.expect(len(wanted))
 
         def download(external_id: str) -> str:
             return self.client.fetch_toestand_xml(todo[external_id])
@@ -331,26 +326,13 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         )
 
     def run_full(self) -> PipelineResult:
-        """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch each.
+        """Full-load mode: every regulation the SRU lists (``BWBClient.enumerate_latest``,
+        with its current toestand), downloaded when new or changed. Safe to interrupt and
+        re-run."""
 
-        ``BWBClient.enumerate_latest()`` lists every regulation with its current toestand;
-        ``run`` downloads those that are new or changed. Safe to interrupt and re-run.
-        """
-        logger.info("BWB full-load: enumerating all BWBR IDs via SRU wildcard.")
-        try:
-            current = self.client.enumerate_latest()
-        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
-            result = PipelineResult()
-            msg = f"BWB SRU enumeration failed: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
-            return result
+        def listing() -> Iterator[RetrieveRecord]:
+            current = listed(self.client.enumerate_latest(), "BWB regulations")
+            logger.info("BWB full-load: %d regulations listed.", len(current))
+            yield from self._fetch_current(list(current), current)
 
-        if not current:
-            # Thousands of regulations exist: an empty listing is a broken question or a
-            # broken source, not "nothing to do".
-            result = PipelineResult()
-            result.add_error("The BWB listing is empty; nothing was retrieved.")
-            return result
-        logger.info("BWB full-load: %d IDs found; starting retrieval.", len(current))
-        return self.run(bwb_ids=list(current), current=current)
+        return self._store_all(listing(), what="regulations")

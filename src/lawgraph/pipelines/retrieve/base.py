@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import zlib
 from collections import deque
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
@@ -19,8 +19,10 @@ from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
+from lawgraph.pipelines.retrieve._gaps import waiting_for_retry
 
 T = TypeVar("T")
+S = TypeVar("S", bound=Sized)
 
 logger = get_logger(__name__)
 
@@ -80,7 +82,7 @@ class FailureStreak:
         HTTP 4xx (but 429) says something about the document that was asked for, and a
         source that answers is not down: a run of those must not end the step.
         """
-        status = getattr(getattr(exc, "response", None), "status_code", None)
+        status = status_of(exc)
         if status is not None and 400 <= status < 500 and status not in _SOURCE_REFUSES:
             self.count = 0
             return
@@ -147,6 +149,23 @@ def failure_reason(exc: Exception) -> str:
     if response is not None and getattr(response, "status_code", None):
         return f"HTTP {response.status_code}"
     return type(exc).__name__
+
+
+def listed(items: S, what: str) -> S:
+    """*items*, the listing of every *what* of a source; an empty one raises.
+
+    A listing without a window holds thousands: empty, it is a broken question or a broken
+    source, not "nothing to do".
+    """
+    if not items:
+        raise RuntimeError(f"The listing of {what} is empty; nothing was retrieved.")
+    return items
+
+
+def is_server_error(exc: Exception) -> bool:
+    """The request ended with HTTP 5xx, after the retries of the client."""
+    status = status_of(exc)
+    return status is not None and 500 <= status < 600
 
 
 def is_not_found(exc: Exception) -> bool:
@@ -292,39 +311,44 @@ class RetrievePipelineBase(PipelineBase):
 
     def _download_each(
         self,
-        ids: Iterable[str],
-        fetch: Callable[[str], T | None],
+        ids: Sequence[str],
+        fetch: Callable[[str], T],
         records: Callable[[str, T], Iterable[RetrieveRecord]],
         *,
         source: str,
         missing: Callable[[str, int], RetrieveRecord],
+        is_missing: Callable[[Exception], bool] = is_not_found,
         workers: int = 1,
         failed_is_skipped: bool = False,
     ) -> Iterator[RetrieveRecord]:
         """The *records* of what *fetch* gets for each of *ids*, *workers* at a time.
 
-        A document the source does not have (*fetch* gives ``None``, or HTTP 404 or a
-        redirect that leads nowhere: ``is_not_found``) is skipped and yields *missing* with
-        that status. A download that fails (``DOWNLOAD_FAILURES``) fails the id, or skips it
-        with *failed_is_skipped*; either way nothing is stored and the next run asks again.
-        ``MAX_FAILURES_IN_A_ROW`` of those stop the step (``SourceDown``).
+        A document the source does not have (*is_missing*: by default HTTP 404 or a redirect
+        that leads nowhere, ``is_not_found``) is skipped and yields *missing* with the status
+        it was answered with. A download that fails (``DOWNLOAD_FAILURES``) fails the id, or
+        skips it with *failed_is_skipped*; either way nothing is stored and the next run asks
+        again. ``MAX_FAILURES_IN_A_ROW`` of those, or of server errors that mean a document
+        is missing, stop the step (``SourceDown``). Any other exception is a bug and ends it.
         """
+        self.progress.expect(len(ids))
         streak = FailureStreak(source)
         for one, got in fetched_side_by_side(ids, fetch, workers=workers):
-            if isinstance(got, Exception) and not is_not_found(got):
-                if not isinstance(got, DOWNLOAD_FAILURES):
-                    raise got
+            if not isinstance(got, Exception):
+                streak.ok()
+                yield from records(one, got)
+            elif is_missing(got):
+                if is_server_error(got):
+                    streak.failed(one, got)
+                else:
+                    streak.ok()
+                self.progress.skip(f"not at the source ({failure_reason(got)})", one)
+                yield missing(one, status_of(got) or 200)
+            elif isinstance(got, DOWNLOAD_FAILURES):
                 count = self.progress.skip if failed_is_skipped else self.progress.fail
                 count(f"download failed ({failure_reason(got)})", one)
                 streak.failed(one, got)
-                continue
-            streak.ok()
-            if got is None or isinstance(got, Exception):
-                status = 404 if got is None else status_of(got) or 404
-                self.progress.skip(f"not at the source (HTTP {status})", one)
-                yield missing(one, status)
-                continue
-            yield from records(one, got)
+            else:
+                raise got
 
     def _without_missing(self, source: str, kind: str, ids: Iterable[str]) -> list[str]:
         """*ids* without those the source answered HTTP 404 for not long ago.
@@ -334,15 +358,7 @@ class RetrievePipelineBase(PipelineBase):
         its ``retry_after`` has passed a document is tried once more.
         """
         ids = list(ids)
-        missing = {
-            str(external_id)
-            for external_id in raw_queries.ids_waiting_for_retry(
-                self.store,
-                source=source,
-                kind=kind + RAW_KIND_MISSING_SUFFIX,
-                now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
-            )
-        }
+        missing = waiting_for_retry(self.store, source, kind)
         todo = [external_id for external_id in ids if external_id not in missing]
         if len(todo) < len(ids):
             logger.info(

@@ -31,6 +31,7 @@ from lawgraph.db.queries.instruments import (
     get_instrument_amended_by,
     get_instrument_dossiers,
 )
+from lawgraph.db.queries.not_found import NotFound
 
 LAW = "BWBR0009100"
 OTHER_LAW = "BWBR0009200"
@@ -185,7 +186,7 @@ def test_an_article_without_versions_has_no_history_and_no_dossiers(
 
 
 def test_the_history_of_an_unknown_article_is_an_error(store: GraphStore) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(NotFound):
         get_article_history(store, LAW, "999")
 
 

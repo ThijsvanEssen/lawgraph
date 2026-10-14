@@ -25,6 +25,7 @@ from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
 )
+from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, seed
 
 # The seed makes two memoranda: papers 0 and 25 of the dossiers 36000 and 36025.
@@ -41,9 +42,11 @@ class _Repository:
         self.papers = papers
         self.fetched: list[str] = []
 
-    def fetch_kamerstuk_xml(self, identifier: str) -> str | None:
+    def fetch_kamerstuk_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
-        return self.papers.get(identifier)
+        if (xml := self.papers.get(identifier)) is None:
+            raise http_error(404)
+        return xml
 
 
 def _xml(name: str) -> str:

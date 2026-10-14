@@ -6,12 +6,12 @@ from __future__ import annotations
 import datetime as dt
 import pathlib
 from collections.abc import Iterable
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import requests
 
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -25,7 +25,13 @@ from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
 )
-from tests.fakes import FakeResponse, InMemoryStore, external_ids, raw_record
+from tests.fakes import (
+    FakeResponse,
+    InMemoryStore,
+    external_ids,
+    http_error,
+    raw_record,
+)
 
 FIXTURE = (
     pathlib.Path(__file__).parent / "fixtures" / "kst_37020_x_1.xml"
@@ -89,19 +95,24 @@ def test_a_paper_is_filed_under_its_dossier() -> None:
     )
 
 
-def test_a_missing_paper_is_none_and_other_failures_raise() -> None:
-    not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
-    assert _client([not_found], []).fetch_kamerstuk_xml("kst-37020-2") is None
-    error = requests.HTTPError("500", response=SimpleNamespace(status_code=500))
-    with pytest.raises(requests.HTTPError):
-        _client([error], []).fetch_kamerstuk_xml("kst-37020-2")
+@pytest.mark.parametrize("status", [404, 500])
+def test_a_failed_request_raises_with_its_status(status: int) -> None:
+    with pytest.raises(requests.HTTPError) as raised:
+        _client([http_error(status)], []).fetch_kamerstuk_xml("kst-37020-2")
+    assert raised.value.response.status_code == status
 
 
 def test_an_identifier_that_is_not_a_kamerstuk_is_not_requested() -> None:
     calls: list[str] = []
-    assert _client([], calls).fetch_kamerstuk_xml("kst-1259252") is None
-    assert _client([], calls).fetch_kamerstuk_xml("stb-2020-1") is None
+    for identifier in ("kst-1259252", "stb-2020-1"):
+        with pytest.raises(UnexpectedAnswer):
+            _client([], calls).fetch_kamerstuk_xml(identifier)
     assert calls == []
+
+
+def test_an_error_page_that_answered_200_is_not_the_paper() -> None:
+    with pytest.raises(UnexpectedAnswer):
+        _client(["<html>Bad gateway"], []).fetch_kamerstuk_xml("kst-37020-2")
 
 
 # ── the pipeline ─────────────────────────────────────────────────────────────
@@ -148,7 +159,7 @@ class _Client:
         self.xml = xml
         self.fetched: list[str] = []
 
-    def fetch_kamerstuk_xml(self, identifier: str) -> str | None:
+    def fetch_kamerstuk_xml(self, identifier: str) -> str:
         self.fetched.append(identifier)
         outcome = self.xml.get(identifier, FIXTURE)
         if isinstance(outcome, Exception):
@@ -254,8 +265,7 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
 
 
 def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:
-    not_found = _Client({})
-    not_found.fetch_kamerstuk_xml = lambda identifier: None  # type: ignore[method-assign]
+    not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_paper("36867", 3)])
     result = TKContentRetrievePipeline(store=store, client=not_found).run()
     assert (result.created, result.skipped, result.errors) == (0, 1, [])
@@ -275,8 +285,7 @@ def _retry_after(days_old: int) -> dt.datetime:
     day = (
         dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=days_old)
     ).isoformat()
-    not_found = _Client({})
-    not_found.fetch_kamerstuk_xml = lambda identifier: None  # type: ignore[method-assign]
+    not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_paper("36867", 3, date=day)])
     TKContentRetrievePipeline(store=store, client=not_found).run()
     (record,) = store.raw.values()
@@ -314,12 +323,22 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
     result, store, client = _run(papers, {f"kst-{n}-1": down for n in range(1, 61)})
     assert result.created == 0 and store.raw == {}
     assert any("seems to be down" in e for e in result.errors)
-    assert len(client.fetched) == 25  # it stopped at the 25th failure in a row
+    # it stopped at the 25th failure in a row, with the few asked ahead of it
+    assert 25 <= len(client.fetched) < 30
 
 
 def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> None:
-    result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": "<html>Bad gateway"})
-    assert store.raw == {} and "cannot be read" in result.errors[0]
+    page = UnexpectedAnswer("an HTML page: kst-36867-3")
+    result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": page})
+    assert store.raw == {}
+    assert result.errors == [
+        "1 x download failed (UnexpectedAnswer) (first: kst-36867-3)"
+    ]
+
+
+def test_a_paper_whose_number_makes_no_kamerstuk_identifier_is_no_gap() -> None:
+    result, _, client = _run([_paper("1", 1), _paper("2", "2 bis")])  # type: ignore[arg-type]
+    assert client.fetched == ["kst-1-1"]
 
 
 def test_a_limit_fetches_the_first_papers_and_leaves_the_rest_for_the_next_run() -> (

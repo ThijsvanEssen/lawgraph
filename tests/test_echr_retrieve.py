@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 import requests
 
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.echr import EchrClient
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
@@ -18,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline, text_items
-from tests.fakes import InMemoryStore, raw_record
+from tests.fakes import InMemoryStore, http_error, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -266,7 +267,7 @@ def test_a_text_hudoc_has_no_document_for_is_remembered_as_missing() -> None:
     client = _client([{"results": []}], [])
 
     def no_docx(item_id: str) -> str:
-        raise ValueError(f"HUDOC {item_id}: no DOCX")
+        raise UnexpectedAnswer(f"HUDOC {item_id}: no DOCX")
 
     client.fetch_document_xml = no_docx  # type: ignore[method-assign]
     texts = _texts_of(_stored_before(), client)
@@ -327,19 +328,13 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
     assert props["paragraphs"][15]["id"] == "par-1"
 
 
-def _http_error(status: int) -> requests.HTTPError:
-    return requests.HTTPError(
-        f"{status} Server Error", response=SimpleNamespace(status_code=status)
-    )
-
-
 def test_a_text_hudoc_answers_http_500_for_is_skipped_and_remembered() -> None:
     """HUDOC answers HTTP 500, run after run, for an item it cannot convert (001-208029):
     one such document is no failure of the run."""
     client = _client([{"results": []}], [])
 
     def cannot_convert(item_id: str) -> str:
-        raise _http_error(500)
+        raise http_error(500)
 
     client.fetch_document_xml = cannot_convert  # type: ignore[method-assign]
     result, written = _written(_stored_before(), client)
@@ -359,7 +354,7 @@ def test_a_text_hudoc_answers_http_204_for_is_skipped_and_remembered() -> None:
     client = _client([{"results": []}], [])
 
     def empty(item_id: str) -> str:
-        raise _http_error(204)
+        raise http_error(204)
 
     client.fetch_document_xml = empty  # type: ignore[method-assign]
     result, written = _written(_stored_before(), client)
@@ -377,7 +372,7 @@ def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
     client = _client([{"results": []}], [])
 
     def down(item_id: str) -> str:
-        raise _http_error(500)
+        raise http_error(500)
 
     client.fetch_document_xml = down  # type: ignore[method-assign]
     result = ECHRRetrievePipeline(store=store, client=client).run(respondent="NLD")

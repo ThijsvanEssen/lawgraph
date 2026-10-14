@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.ecli import LJN_ECLI
 from lawgraph.core.judgments import (
     CONCLUSION_ONLY_COURTS,
     DOCUMENT_TYPE_CONCLUSION,
@@ -157,9 +158,7 @@ def judgment_ids_by_ecli(store: Store, eclis: list[str]) -> Iterator[dict[str, A
 def eclis_with_an_ljn(store: Store) -> Iterator[str]:
     """The ECLIs of the judgments in the graph whose number is an LJN (published before
     2013), from the index on ``ecli``."""
-    return store.query(
-        "SELECT ecli FROM judgments WHERE ecli ~ '^ECLI:NL:[A-Z]+:[0-9]{4}:[A-Z]{2}[0-9]{4}$'"
-    )
+    return store.query(f"SELECT ecli FROM judgments WHERE ecli ~ '{LJN_ECLI}'")
 
 
 def judgments_with_related_eclis(

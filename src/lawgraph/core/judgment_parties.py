@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 from lawgraph.core.judgments import (
@@ -29,11 +30,44 @@ SIDE_FIRST = "first"
 SIDE_SECOND = "second"
 SIDE_OTHER = "other"
 
-ROLE_PARTY = "Partij"  # no role applies
+
+class Role(StrEnum):
+    """The role of a party, as the judgment's own label."""
+
+    SUSPECT = "Verdachte"
+    INVOLVED = "Betrokkene"
+    COMPLAINANT = "Klager"
+    CONVICT = "Veroordeelde"
+    CLAIMANT = "Eiser"
+    DEFENDANT = "Gedaagde"
+    APPLICANT = "Verzoeker"
+    RESPONDENT = "Verweerder"
+    APPELLANT = "Appellant"
+    APPELLEE = "Geïntimeerde"
+    INTERESTED_PARTY = "Belanghebbende"
+    OPPONENT = "Opposant"
+    COUNTERPARTY = "Wederpartij"
+    PROSECUTOR = "Officier van justitie"
+    PARTY = "Partij"  # no role applies
+
 
 REPRESENTATIVE_LAWYER = "advocaat"
 REPRESENTATIVE_AGENT = "gemachtigde"
 REPRESENTATIVE_COUNSEL = "raadsman"  # of a suspect, in a criminal case only
+
+
+def representative_role(word: str | None, *, criminal: bool) -> str | None:
+    """The role the text's *word* gives one who acts for a party ("advocaat", "zijn
+    gemachtigde", "raadsvrouw"), else ``None``; a raadsman outside a criminal case is a
+    gemachtigde."""
+    word = (word or "").lower()
+    if word.startswith("advoca"):
+        return REPRESENTATIVE_LAWYER
+    if word.startswith("gemachtig"):
+        return REPRESENTATIVE_AGENT
+    if word.startswith("raads"):
+        return REPRESENTATIVE_COUNSEL if criminal else REPRESENTATIVE_AGENT
+    return None
 
 
 def representative(
@@ -46,24 +80,24 @@ def representative(
 
 # A role word as the judgment writes it (lower case, singular or plural, male or
 # female) -> the role label.
-ROLE_WORDS: dict[str, str] = {
-    "Verdachte": r"verdachten?",
-    "Betrokkene": r"betrokkenen?",
-    "Klager": r"klagers?|klaagsters?",
-    "Veroordeelde": r"veroordeelden?|terbeschikkinggestelden?",
-    "Eiser": r"eisers?|eiseres(?:sen)?|eisende\s+partij(?:en)?",
-    "Gedaagde": r"gedaagden?(?:\s+partij)?",
-    "Verzoeker": r"verzoekers?|verzoeksters?|verzoekende\s+partij(?:en)?|"
+ROLE_WORDS: dict[Role, str] = {
+    Role.SUSPECT: r"verdachten?",
+    Role.INVOLVED: r"betrokkenen?",
+    Role.COMPLAINANT: r"klagers?|klaagsters?",
+    Role.CONVICT: r"veroordeelden?|terbeschikkinggestelden?",
+    Role.CLAIMANT: r"eisers?|eiseres(?:sen)?|eisende\s+partij(?:en)?",
+    Role.DEFENDANT: r"gedaagden?(?:\s+partij)?",
+    Role.APPLICANT: r"verzoekers?|verzoeksters?|verzoekende\s+partij(?:en)?|"
     r"requestrant(?:e|en|es)?",
-    "Verweerder": r"verweerders?|verweersters?|verwerende\s+partij(?:en)?|"
+    Role.RESPONDENT: r"verweerders?|verweersters?|verwerende\s+partij(?:en)?|"
     r"gerequestreerden?",
-    "Appellant": r"appellant(?:e|en|es)?|"
+    Role.APPELLANT: r"appellant(?:e|en|es)?|"
     r"die\s+(?:het\s+)?hoger\s+beroep\s+heeft\s+ingesteld",
-    "Geïntimeerde": r"ge[ïi]ntimeerden?",
-    "Belanghebbende": r"(?:derde[-\s]?)?belanghebbenden?|"
+    Role.APPELLEE: r"ge[ïi]ntimeerden?",
+    Role.INTERESTED_PARTY: r"(?:derde[-\s]?)?belanghebbenden?|"
     r"tussen(?:ge)?kom(?:en|ende)\s+partij(?:en)?|gevoegde\s+partij(?:en)?",
-    "Opposant": r"opposant(?:e|en|es)?",
-    "Wederpartij": r"wederpartij(?:en)?",
+    Role.OPPONENT: r"opposant(?:e|en|es)?",
+    Role.COUNTERPARTY: r"wederpartij(?:en)?",
 }
 
 
@@ -75,7 +109,7 @@ _ROLE_PREFIX = re.compile(
 )
 
 
-def role_label(text: str) -> str | None:
+def role_label(text: str) -> Role | None:
     """The role label of *text* when it opens with a role word ("eiseres in cassatie",
     "de verdachte"), else ``None``."""
     text = _ROLE_PREFIX.sub("", text.strip(" ([,.;:"))
@@ -105,51 +139,104 @@ _SEPARATOR = re.compile(
     r"^[-–\s]*(?P<word>tegen|en\s*tegen|en|versus|contra)[-–\s]*:?$", re.IGNORECASE
 )
 
+
+class OpenerKind(StrEnum):
+    """What follows an opener: the parties (``open``), the other side (``against``), the
+    parties of the case an appeal was against (``earlier``), parties of neither side
+    (``other``), a list of parties (``list``), the appellants (``appeal``)."""
+
+    OPEN = "open"
+    AGAINST = "against"
+    EARLIER = "earlier"
+    OTHER = "other"
+    LIST = "list"
+    APPEAL = "appeal"
+
+
+@dataclass(frozen=True)
+class _Opener:
+    pattern: re.Pattern[str]
+    role: Role | None  # the role the opener names: the parties after it have it
+    kind: OpenerKind
+    # "tegen" at the end of a line: it opens the other side, or within a block parts them
+    parts_sides: bool = False
+
+
+def _opener_rule(
+    pattern: str,
+    role: Role | None,
+    kind: OpenerKind,
+    *,
+    parts_sides: bool = False,
+) -> _Opener:
+    return _Opener(re.compile(pattern, re.IGNORECASE), role, kind, parts_sides)
+
+
 # An opener: the parties follow. The role it names, if any, is theirs.
-_OPENERS: tuple[tuple[re.Pattern[str], str | None, str], ...] = tuple(
-    (re.compile(pattern, re.IGNORECASE), role, kind)
-    for pattern, role, kind in (
-        # "Uitspraak op het hoger beroep van:", "op de hoger beroepen van:"
-        (r"\bhoger\s+beroep(?:en)?\s+van\s*:?\s*$", "Appellant", "appeal"),
-        # the case the appeal was against: "in het geding tussen:"
-        (r"\bin\s+het\s+geding\s+tussen\s*:?\s*$", None, "earlier"),
-        (r"\bgeding(?:en)?\s+tussen(?:\s+onder\s+meer)?\s*:?\s*$", None, "open"),
-        (r"\bberoep(?:en)?\s+(?:in\s+cassatie\s+)?van\s*:?\s*$", None, "open"),
-        (
-            r"\b(?:verzoek(?:schrift)?|rekest)\s+(?:\w+\s+){0,3}van\s*:?\s*$",
-            "Verzoeker",
-            "open",
-        ),
-        (r"\b(?:klaagschrift|beklag)\s+(?:\w+\s+){0,3}van\s*:?\s*$", "Klager", "open"),
-        (r"\bverzet\s+van\s*:?\s*$", "Opposant", "open"),
-        (r"\btegen\s+de\s+verdachte\s*:?\s*$", "Verdachte", "against"),
-        (r"\b(?:straf)?zaak\s+tegen\s*:?\s*$", None, "against"),
-        (r"^partijen\s*:?\s*$", None, "list"),
-        (
-            r"^als\s+belanghebbenden?\s+(?:wordt|worden|zijn|is)\s+aangemerkt\s*:?$",
-            "Belanghebbende",
-            "other",
-        ),
-        (r"^(?:derde-?)?belanghebbenden?\s*:$", "Belanghebbende", "other"),
-        (
-            r"^(?:en\s*)?(?:in\s*zake|in\s+de\s+zak(?:e|en)\b(?:.*?\b(?:van|tussen)\b)?|"
-            r"tussen|in\s+het\s+geding\s+tussen)\b\s*:?",
-            None,
-            "open",
-        ),
-        (
-            r"\b(?:van|door)\s*:\s*$|"
-            r"\b(?:tussen|inzake|in\s+de\s+zaak\s+van|betreffende|ten\s+aanzien\s+van)"
-            r"\s*:?\s*$",
-            None,
-            "open",
-        ),
-        # "Conclusie inzake: [verdachte]", "CONCLUSIE inzake: Stichting X,"
-        (r"\binzake\s*:", None, "open"),
-        (r"^(?:van|door|tussen|in\s+de\s+zaak\s*:?)$", None, "open"),
-        (r"\btegen\s*:?\s*$", None, "against"),
-    )
+_OPENERS: tuple[_Opener, ...] = (
+    # "Uitspraak op het hoger beroep van:", "op de hoger beroepen van:"
+    _opener_rule(
+        r"\bhoger\s+beroep(?:en)?\s+van\s*:?\s*$", Role.APPELLANT, OpenerKind.APPEAL
+    ),
+    # the case the appeal was against: "in het geding tussen:"
+    _opener_rule(r"\bin\s+het\s+geding\s+tussen\s*:?\s*$", None, OpenerKind.EARLIER),
+    _opener_rule(
+        r"\bgeding(?:en)?\s+tussen(?:\s+onder\s+meer)?\s*:?\s*$", None, OpenerKind.OPEN
+    ),
+    _opener_rule(
+        r"\bberoep(?:en)?\s+(?:in\s+cassatie\s+)?van\s*:?\s*$", None, OpenerKind.OPEN
+    ),
+    _opener_rule(
+        r"\b(?:verzoek(?:schrift)?|rekest)\s+(?:\w+\s+){0,3}van\s*:?\s*$",
+        Role.APPLICANT,
+        OpenerKind.OPEN,
+    ),
+    _opener_rule(
+        r"\b(?:klaagschrift|beklag)\s+(?:\w+\s+){0,3}van\s*:?\s*$",
+        Role.COMPLAINANT,
+        OpenerKind.OPEN,
+    ),
+    _opener_rule(r"\bverzet\s+van\s*:?\s*$", Role.OPPONENT, OpenerKind.OPEN),
+    _opener_rule(
+        r"\btegen\s+de\s+verdachte\s*:?\s*$",
+        Role.SUSPECT,
+        OpenerKind.AGAINST,
+        parts_sides=True,
+    ),
+    _opener_rule(r"\b(?:straf)?zaak\s+tegen\s*:?\s*$", None, OpenerKind.AGAINST),
+    _opener_rule(r"^partijen\s*:?\s*$", None, OpenerKind.LIST),
+    _opener_rule(
+        r"^als\s+belanghebbenden?\s+(?:wordt|worden|zijn|is)\s+aangemerkt\s*:?$",
+        Role.INTERESTED_PARTY,
+        OpenerKind.OTHER,
+    ),
+    _opener_rule(
+        r"^(?:derde-?)?belanghebbenden?\s*:$", Role.INTERESTED_PARTY, OpenerKind.OTHER
+    ),
+    _opener_rule(
+        r"^(?:en\s*)?(?:in\s*zake|in\s+de\s+zak(?:e|en)\b(?:.*?\b(?:van|tussen)\b)?|"
+        r"tussen|in\s+het\s+geding\s+tussen)\b\s*:?",
+        None,
+        OpenerKind.OPEN,
+    ),
+    _opener_rule(
+        r"\b(?:van|door)\s*:\s*$|"
+        r"\b(?:tussen|inzake|in\s+de\s+zaak\s+van|betreffende|ten\s+aanzien\s+van)"
+        r"\s*:?\s*$",
+        None,
+        OpenerKind.OPEN,
+    ),
+    # "Conclusie inzake: [verdachte]", "CONCLUSIE inzake: Stichting X,"
+    _opener_rule(r"\binzake\s*:", None, OpenerKind.OPEN),
+    _opener_rule(r"^(?:van|door|tussen|in\s+de\s+zaak\s*:?)$", None, OpenerKind.OPEN),
+    _opener_rule(r"\btegen\s*:?\s*$", None, OpenerKind.AGAINST, parts_sides=True),
 )
+# The side the parties after an opener of a kind are on; the first unless named here.
+_OPENER_SIDE = {
+    OpenerKind.AGAINST: SIDE_SECOND,
+    OpenerKind.EARLIER: SIDE_SECOND,
+    OpenerKind.OTHER: SIDE_OTHER,
+}
 
 # An opener that names the role: "ingediend door de verzoeker:", "strafzaak inzake de
 # verdachte".
@@ -300,18 +387,20 @@ _PERSON = re.compile(r"(?:mr|dr|prof)\.?\s", re.IGNORECASE)
 
 
 @dataclass
-class _Party:
+class Party:
+    """A party of a judgment as it is read; ``as_dict`` is what is stored."""
+
     name: str
     side: str
-    role: str | None = None
+    role: Role | None = None
     role_stated: bool = False
     alias: str | None = None
     representatives: list[dict[str, Any]] = field(default_factory=list)
     # every role the judgment names for the party, in its order: "geïntimeerde in principaal
     # hoger beroep, appellante in incidenteel hoger beroep"
-    stated_roles: list[str] = field(default_factory=list)
+    stated_roles: list[Role] = field(default_factory=list)
 
-    def state(self, role: str) -> None:
+    def state(self, role: Role) -> None:
         """The judgment names *role* for the party: its role when it has none stated yet,
         and one of its ``roles`` in any case."""
         if not self.role_stated:
@@ -320,11 +409,11 @@ class _Party:
             self.stated_roles.append(role)
 
     def as_dict(self) -> dict[str, Any]:
-        role = self.role or ROLE_PARTY
+        role = str(self.role or Role.PARTY)
         return {
             "name": self.name,
             "role": role,
-            "roles": self.stated_roles or [role],
+            "roles": [str(r) for r in self.stated_roles] or [role],
             "role_stated": self.role_stated,
             "side": self.side,
             "alias": self.alias,
@@ -345,7 +434,7 @@ def _same(a: str, b: str) -> bool:
     return shorter > 0 and wa[:shorter] == wb[:shorter]
 
 
-def _anonymised_role(name: str) -> str | None:
+def _anonymised_role(name: str) -> Role | None:
     """The role an anonymised name is: "[verdachte]", "[klager 1]", "[Appellante]"."""
     match = re.fullmatch(r"\[\s*([^\]]+?)\s*\]", name)
     return role_label(re.sub(r"\d+$", "", match[1])) if match else None
@@ -369,17 +458,10 @@ _REPRESENTATIVE_PLACE = re.compile(
 )
 
 
-def _representatives(kind: str, names: str) -> list[dict[str, Any]]:
-    """The persons a representative line names, with the role its word gives (a raadsman
-    stays one only in a criminal case: ``read_parties``) and where they practise."""
-    word = kind.lower()
-    role = (
-        REPRESENTATIVE_AGENT
-        if word.startswith("gemachtig")
-        else REPRESENTATIVE_COUNSEL
-        if word.startswith("raads")
-        else REPRESENTATIVE_LAWYER
-    )
+def _representatives(kind: str, names: str, criminal: bool) -> list[dict[str, Any]]:
+    """The persons a representative line names, with the role its word gives (a lawyer
+    when it gives none: "procureur") and where they practise."""
+    role = representative_role(kind, criminal=criminal) or REPRESENTATIVE_LAWYER
     place = _REPRESENTATIVE_PLACE.search(names.strip())
     names = _REPRESENTATIVE_TAIL.sub("", names.strip())
     parts = re.split(
@@ -397,12 +479,12 @@ class _Name:
     """What one party line says: the name and what stands behind it."""
 
     name: str
-    role: str | None = None
+    role: Role | None = None
     alias: str | None = None
     representatives: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _read_name(line: str) -> _Name | None:
+def _read_name(line: str, criminal: bool) -> _Name | None:
     """The party a line names, else ``None``."""
     text = _ENUMERATOR.sub("", line.strip())
     found = _Name(name="")
@@ -412,7 +494,9 @@ def _read_name(line: str) -> _Name | None:
     for inner in _PARENTHETICAL.findall(text):
         inner = inner.strip()
         if rep := _REPRESENTATIVE.match(inner):
-            found.representatives += _representatives(rep["kind"], rep["names"])
+            found.representatives += _representatives(
+                rep["kind"], rep["names"], criminal
+            )
         elif alias := _ALIAS.match(inner):
             text_alias = _clean(alias["alias"])
             if (label := role_label(text_alias)) and not text_alias.startswith("["):
@@ -490,22 +574,23 @@ def _is_name(name: str) -> bool:
 class _Reader:
     """Reads the parties from the lines of a kop, one line at a time."""
 
-    def __init__(self) -> None:
-        self.parties: list[_Party] = []
+    def __init__(self, *, criminal: bool) -> None:
+        self.criminal = criminal  # a raadsman is one only in a criminal case
+        self.parties: list[Party] = []
         self.active = False  # between an opener and the end of the party block
         self.side = SIDE_FIRST
-        self.opener_role: str | None = None
-        self.kind = "open"
+        self.opener_role: Role | None = None
+        self.kind = OpenerKind.OPEN
         self.saw_against = False
-        self.since_role: list[_Party] = []  # the parties a role line holds for
-        self.group: list[_Party] = []  # the parties an alias or a representative is of
+        self.since_role: list[Party] = []  # the parties a role line holds for
+        self.group: list[Party] = []  # the parties an alias or a representative is of
         self.appeal = False  # an appeal was named: its earlier case adds counterparties
         self.designations = False  # after "als volgt worden aangeduid:"
         # the parties of the representative line above, and what it calls them
-        self.represented: list[_Party] = []
+        self.represented: list[Party] = []
         self.represented_as = ""
         # the party the line above named after its number ("2. Nederlandse Aardolie")
-        self.numbered: _Party | None = None
+        self.numbered: Party | None = None
 
     def read(self, line: str) -> None:
         line = _despace(line.strip())
@@ -548,7 +633,9 @@ class _Reader:
             return False
         self.represented = represented
         for party in represented:
-            party.representatives += _representatives(self.represented_as, line)
+            party.representatives += _representatives(
+                self.represented_as, line, self.criminal
+            )
         return True
 
     def _ends(self, line: str) -> bool:
@@ -574,39 +661,33 @@ class _Reader:
         if (match := _ROLE_OPENER.search(line)) and (
             label := role_label(match["role"])
         ):
-            self._open("against" if match["how"].lower() == "tegen" else "open", label)
+            against = match["how"].lower() == "tegen"
+            self._open(OpenerKind.AGAINST if against else OpenerKind.OPEN, label)
             return True
-        for pattern, role, kind in _OPENERS:
-            match = pattern.search(line)
+        for opener in _OPENERS:
+            match = opener.pattern.search(line)
             if not match:
                 continue
-            rest = line[match.end() :].strip() if kind == "open" else ""
-            if kind == "earlier" and not self.appeal:
-                kind = "open"
-            if (
-                self.active
-                and kind == "against"
-                and pattern.pattern.startswith(r"\btegen")
-            ):
+            kind = opener.kind
+            rest = line[match.end() :].strip() if kind == OpenerKind.OPEN else ""
+            if kind == OpenerKind.EARLIER and not self.appeal:
+                kind = OpenerKind.OPEN
+            if self.active and opener.parts_sides:
                 # "tegen" at the end of a party block parts the sides
                 if not self.parties or len(line) < 12:
                     return False
-            self._open(kind, role)
+            self._open(kind, opener.role)
             if rest and not _CASE_NUMBER.match(rest):
                 self._party(rest)
             return True
         return False
 
-    def _open(self, kind: str, role: str | None) -> None:
+    def _open(self, kind: OpenerKind, role: Role | None) -> None:
         self.active, self.kind, self.opener_role = True, kind, role
         self.since_role, self.group = [], []
-        self.saw_against = kind == "against"
-        self.side = {
-            "against": SIDE_SECOND,
-            "earlier": SIDE_SECOND,
-            "other": SIDE_OTHER,
-        }.get(kind, SIDE_FIRST)
-        self.appeal = self.appeal or kind == "appeal"
+        self.saw_against = kind == OpenerKind.AGAINST
+        self.side = _OPENER_SIDE.get(kind, SIDE_FIRST)
+        self.appeal = self.appeal or kind == OpenerKind.APPEAL
 
     def _separator(self, line: str) -> bool:
         match = _SEPARATOR.match(line)
@@ -617,10 +698,10 @@ class _Reader:
             if not self.saw_against and self.side == SIDE_SECOND:
                 # "A en B tegen C": the parties after "en" were on the first side
                 for party in self.parties:
-                    if party.side == SIDE_SECOND and self.kind != "earlier":
+                    if party.side == SIDE_SECOND and self.kind != OpenerKind.EARLIER:
                         party.side = SIDE_FIRST
             self.saw_against = True
-        if self.kind != "earlier":
+        if self.kind != OpenerKind.EARLIER:
             self.side = SIDE_SECOND
         self.opener_role = None
         self.since_role, self.group = [], []
@@ -670,7 +751,7 @@ class _Reader:
         match = _REPRESENTATIVE.match(line) or _REPRESENTATIVE_SENTENCE.match(line)
         if not match:
             return False
-        representatives = _representatives(match["kind"], match["names"])
+        representatives = _representatives(match["kind"], match["names"], self.criminal)
         self.represented, self.represented_as = (
             self.group or self.parties[-1:],
             match["kind"],
@@ -697,12 +778,12 @@ class _Reader:
             known.state(label)
         return True
 
-    def _known(self, name: str) -> _Party | None:
+    def _known(self, name: str) -> Party | None:
         """The party *name* names again: by its name, or in the case an appeal was against
         by what the judgment calls it ("de vreemdeling") or by what it is ("de
         vreemdelingen" for [vreemdeling 1] and [vreemdeling 2])."""
         known = next((p for p in self.parties if _same(p.name, name)), None)
-        if known is not None or self.kind != "earlier":
+        if known is not None or self.kind != OpenerKind.EARLIER:
             return known
         known = next(
             (p for p in self.parties if p.alias and _same(p.alias, name)), None
@@ -714,7 +795,7 @@ class _Reader:
         return known
 
     def _party(self, line: str) -> None:
-        found = _read_name(line)
+        found = _read_name(line, self.criminal)
         if found is None:
             return
         existing = self._known(found.name)
@@ -722,9 +803,9 @@ class _Reader:
             # a party named again: in the earlier case of an appeal, or in a joined case
             party = existing
         else:
-            party = _Party(name=found.name, side=self.side)
+            party = Party(name=found.name, side=self.side)
             self.parties.append(party)
-            if self.kind == "list":
+            if self.kind == OpenerKind.LIST:
                 self.side = SIDE_SECOND  # "Partijen:": the first against the rest
         if found.role:
             party.state(found.role)
@@ -750,7 +831,7 @@ _SUB = re.compile(r"\s*\(sub\s+([\d\s,en]+)\)\s*$", re.IGNORECASE)
 _QUOTES = "'\"‘’“”"
 
 
-def _named_later(line: str, parties: list[_Party]) -> bool:
+def _named_later(line: str, parties: list[Party]) -> bool:
     """Read a sentence that says what parties are called from here on, and give each party
     named one by one its alias. A name for a whole group ("de vrachtvliegers", "UMCG c.s.")
     is no party's alias. Whether the line holds such a sentence."""
@@ -764,7 +845,7 @@ def _named_later(line: str, parties: list[_Party]) -> bool:
     return bool(matches)
 
 
-def _name_parties(match: re.Match[str], parties: list[_Party]) -> None:
+def _name_parties(match: re.Match[str], parties: list[Party]) -> None:
     clauses = [(match["who"], match["names"])]
     if match["rest"] and len(parts := match["rest"].split(None, 1)) == 2:
         clauses.append((parts[0], parts[1]))
@@ -789,7 +870,7 @@ def _split_outside_parentheses(names: str) -> list[str]:
     return [re.sub("\x00", lambda _: next(restored), part) for part in parts]
 
 
-def _name_one_by_one(targets: list[_Party], names: str) -> None:
+def _name_one_by_one(targets: list[Party], names: str) -> None:
     slots: list[str] = []
     for name in _split_outside_parentheses(names.strip()):
         sub = _SUB.search(name)
@@ -843,53 +924,47 @@ _PROSECUTION = re.compile(
     r"\b(?:officier\s+van\s+justitie|openbaar\s+ministerie|advocaat-generaal)\b",
     re.IGNORECASE,
 )
-ROLE_PROSECUTOR = "Officier van justitie"
 
 
 def _derived_role(
-    party: _Party, area: str | None, *, request: bool, appeal: bool
-) -> str | None:
+    party: Party, area: str | None, *, request: bool, appeal: bool
+) -> Role | None:
     if _AUTHORITY.search(party.name):
         # the role the procedure gives the authority, or none
         if area == AREA_CRIMINAL:
-            return ROLE_PROSECUTOR if _PROSECUTION.search(party.name) else None
+            return Role.PROSECUTOR if _PROSECUTION.search(party.name) else None
         if area == AREA_ADMINISTRATIVE and party.side == SIDE_SECOND:
-            return "Verweerder"
+            return Role.RESPONDENT
         return None
     if area == AREA_CRIMINAL:
-        return "Verdachte"
+        return Role.SUSPECT
     if party.side == SIDE_OTHER:
-        return "Belanghebbende"
+        return Role.INTERESTED_PARTY
     if area == AREA_CIVIL:
         if party.side == SIDE_FIRST:
-            return "Verzoeker" if request else "Eiser"
-        return "Geïntimeerde" if appeal else "Verweerder"
+            return Role.APPLICANT if request else Role.CLAIMANT
+        return Role.APPELLEE if appeal else Role.RESPONDENT
     if area == AREA_ADMINISTRATIVE:
-        return "Appellant" if party.side == SIDE_FIRST else "Verweerder"
-    return ROLE_PARTY
+        return Role.APPELLANT if party.side == SIDE_FIRST else Role.RESPONDENT
+    return Role.PARTY
 
 
 def read_parties(lines: list[str], subjects: list[str] | None) -> list[dict[str, Any]]:
     """The parties the kop *lines* name: ``{name, role, role_stated, side, alias,
     representatives}`` each, in the order the kop names them."""
-    reader = _Reader()
+    area = area_of_law(subjects)
+    reader = _Reader(criminal=area == AREA_CRIMINAL)
     for line in lines:
         reader.read(line)
     parties = reader.parties
     for index, party in enumerate(parties):
         if not party.role_stated and (label := _anonymised_role(party.name)):
             party.state(label)
-        if party.role == "Belanghebbende" and index > 0:
+        if party.role == Role.INTERESTED_PARTY and index > 0:
             party.side = SIDE_OTHER
-    area = area_of_law(subjects)
     request = any(re.search(r"\bbeschikking\b", line, re.IGNORECASE) for line in lines)
-    appeal = any(p.role == "Appellant" and p.role_stated for p in parties)
+    appeal = any(p.role == Role.APPELLANT and p.role_stated for p in parties)
     for party in parties:
         if not party.role_stated:
             party.role = _derived_role(party, area, request=request, appeal=appeal)
-        if area != AREA_CRIMINAL:
-            # a raadsman is of a suspect: in another case, a gemachtigde
-            for found in party.representatives:
-                if found["role"] == REPRESENTATIVE_COUNSEL:
-                    found["role"] = REPRESENTATIVE_AGENT
     return [party.as_dict() for party in parties]
