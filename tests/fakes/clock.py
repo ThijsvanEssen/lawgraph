@@ -39,6 +39,9 @@ class ManualClock:
     def now(self) -> float:
         return self._now
 
+    def advance(self, seconds: float) -> None:
+        self._now += seconds
+
     def wait(self, condition: threading.Condition, timeout: float) -> bool:
         """Like ``condition.wait(timeout)`` (*condition* held), in the time of this clock.
         It waits without a timeout of its own: a notify that comes as a short wait ends is
