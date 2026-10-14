@@ -129,46 +129,42 @@ class BaseClient:
 
         A ``Retry-After`` of the server is followed when it is longer than the backoff.
         """
-        last_exc: Exception = RuntimeError("unreachable")
         for attempt in range(retries):
             try:
-                resp = self._get_raw_absolute(
+                return self._get_raw_absolute(
                     url,
                     params=params,
                     timeout=timeout,
                     stream=stream,
                     headers=headers,
                 )
-                # _get_raw_absolute already calls raise_for_status, but 429/503 need retry
-                return resp
             except requests.exceptions.HTTPError as exc:
                 if (
-                    exc.response is not None
-                    and exc.response.status_code in RETRY_STATUSES
+                    exc.response is None
+                    or exc.response.status_code not in RETRY_STATUSES
+                    or attempt + 1 == retries
                 ):
-                    last_exc = exc
-                    wait = max(
-                        backoff_factor**attempt,
-                        retry_after_seconds(exc.response) or 0.0,
-                    )
-                    # Not a warning per request: the pacer reports a throttling host once
-                    # a minute, and the last failure is raised to the caller.
-                    logger.debug(
-                        "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
-                        exc.response.status_code,
-                        url,
-                        attempt + 1,
-                        retries,
-                        wait,
-                    )
-                    time.sleep(wait)
-                    continue
-                raise  # non-retryable HTTP error
+                    raise
+                wait = max(
+                    backoff_factor**attempt,
+                    retry_after_seconds(exc.response) or 0.0,
+                )
+                # Not a warning per request: the pacer reports a throttling host once
+                # a minute, and the last failure is raised to the caller.
+                logger.debug(
+                    "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
+                    exc.response.status_code,
+                    url,
+                    attempt + 1,
+                    retries,
+                    wait,
+                )
             except (
                 requests.exceptions.Timeout,
                 requests.exceptions.ConnectionError,
             ) as exc:
-                last_exc = exc
+                if attempt + 1 == retries:
+                    raise
                 wait = backoff_factor**attempt
                 logger.debug(
                     "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
@@ -178,8 +174,8 @@ class BaseClient:
                     wait,
                     exc,
                 )
-                time.sleep(wait)
-        raise last_exc
+            time.sleep(wait)
+        raise ValueError(f"retries must be at least 1, not {retries}")
 
     def _get_json(
         self,

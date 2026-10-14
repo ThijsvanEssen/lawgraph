@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 import pytest
 
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
+from tests.fakes import InMemoryStore, external_ids
 
 
 class _Clock:
@@ -19,23 +20,33 @@ class _Clock:
         return self.now
 
 
-class _Store:
-    """Counts the requests to the database and what each of them stored."""
+def _store(
+    refuse: Iterable[str] = (),
+) -> tuple[InMemoryStore, list[list[str]]]:
+    """A store, and the requests to it with what each of them stored."""
+    store = InMemoryStore(refuse=refuse)
+    requests: list[list[str]] = []
+    write = store.insert_raw_sources
 
-    def __init__(self, refuse: set[str] | None = None) -> None:
-        self.requests: list[list[str]] = []
-        self.refuse = refuse or set()
+    def counted(docs: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
+        failures = write(docs)
+        refused = [doc for doc, _ in failures]
+        requests.append([d["external_id"] for d in docs if d not in refused])
+        return failures
 
-    @property
-    def stored(self) -> list[str]:
-        return [external_id for request in self.requests for external_id in request]
+    store.insert_raw_sources = counted  # type: ignore[method-assign]
+    return store, requests
 
-    def insert_raw_sources(self, docs: list[dict[str, Any]]) -> list[tuple[dict, str]]:
-        refused = [d for d in docs if d["external_id"] in self.refuse]
-        self.requests.append(
-            [d["external_id"] for d in docs if d["external_id"] not in self.refuse]
-        )
-        return [(d, "document too large") for d in refused]
+
+def _gone(error: Exception) -> InMemoryStore:
+    """A store whose database cannot be reached."""
+    store = InMemoryStore()
+
+    def insert_raw_sources(docs: list[dict[str, Any]]) -> list[tuple[dict, str]]:
+        raise error
+
+    store.insert_raw_sources = insert_raw_sources  # type: ignore[method-assign]
+    return store
 
 
 def _doc(number: int, text: str | None = None) -> dict[str, Any]:
@@ -54,61 +65,61 @@ def test_the_key_is_that_of_source_kind_and_id_and_a_missing_id_gets_its_own() -
 
 
 def test_many_small_records_are_one_request_per_five_hundred() -> None:
-    store = _Store()
+    store, requests = _store()
     with RawSourceWriter(store, clock=_Clock()) as writer:  # type: ignore[arg-type]
         for number in range(1_200):
             writer.add(_doc(number))
-    assert [len(r) for r in store.requests] == [500, 500, 200]
+    assert [len(r) for r in requests] == [500, 500, 200]
     assert writer.written == 1_200
 
 
 def test_large_records_are_written_by_size() -> None:
-    store = _Store()
+    store, requests = _store()
     with RawSourceWriter(store, max_bytes=1_000, clock=_Clock()) as writer:  # type: ignore[arg-type]
         for number in range(6):
             writer.add(_doc(number, "x" * 400))
-    assert [len(r) for r in store.requests] == [3, 3]
+    assert [len(r) for r in requests] == [3, 3]
 
 
 def test_a_slow_source_is_written_every_few_seconds() -> None:
-    store, clock = _Store(), _Clock()
+    (store, requests), clock = _store(), _Clock()
     writer = RawSourceWriter(store, max_seconds=5, clock=clock)  # type: ignore[arg-type]
     for number in range(30):  # one record per second
         clock.now += 1
         writer.add(_doc(number))
-    assert all(len(request) <= 6 for request in store.requests)
+    assert all(len(request) <= 6 for request in requests)
     assert (
-        len(store.stored) >= 30 - 6
+        len(external_ids(store)) >= 30 - 6
     )  # a crash now loses the records of 5 seconds at most
 
 
 def test_a_crash_loses_at_most_the_last_buffer() -> None:
     """The process dies without any clean-up: whatever is lost sat in one buffer."""
-    store = _Store()
+    store, _ = _store()
     writer = RawSourceWriter(store, max_records=100, clock=_Clock())  # type: ignore[arg-type]
     for number in range(1_050):
         writer.add(_doc(number))
         assert len(writer) < 100
     # No flush, no ``with``: the crash.
-    assert len(store.stored) == 1_000
-    assert store.stored == [str(n) for n in range(1_000)]
+    assert len(external_ids(store)) == 1_000
+    assert external_ids(store) == [str(n) for n in range(1_000)]
 
 
 def test_the_same_record_twice_in_a_buffer_is_stored_once_with_the_last_payload() -> (
     None
 ):
-    store = _Store()
+    store, requests = _store()
     with RawSourceWriter(store, clock=_Clock()) as writer:  # type: ignore[arg-type]
         writer.add(_doc(1, "old"))
         writer.add(_doc(1, "new"))
-    assert store.requests == [["1"]]
+    assert requests == [["1"]]
 
 
 # ── through a retrieve pipeline ──────────────────────────────────────────────
 
 
 class _Pipeline(RetrievePipelineBase):
-    def __init__(self, store: _Store, source: Iterator[RetrieveRecord]) -> None:
+    def __init__(self, store: InMemoryStore, source: Iterator[RetrieveRecord]) -> None:
         super().__init__(store)  # type: ignore[arg-type]
         self.source = source
 
@@ -124,16 +135,16 @@ def _records(count: int, then: BaseException | None = None) -> Iterator[Retrieve
 
 
 def test_an_interrupt_writes_the_buffer_before_it_ends_the_run() -> None:
-    store = _Store()
+    store, _ = _store()
     with pytest.raises(KeyboardInterrupt):
         _Pipeline(store, _records(7, then=KeyboardInterrupt())).run()
-    assert store.stored == [str(n) for n in range(7)]
+    assert external_ids(store) == [str(n) for n in range(7)]
 
 
 def test_a_failing_source_writes_the_buffer_and_counts_what_was_stored() -> None:
-    store = _Store()
+    store, _ = _store()
     result = _Pipeline(store, _records(7, then=ConnectionError("dropped"))).run()
-    assert store.stored == [str(n) for n in range(7)]
+    assert external_ids(store) == [str(n) for n in range(7)]
     assert result.created == 7
     assert result.errors == [
         "fetch() failed after 7 records were stored: ConnectionError: dropped"
@@ -141,30 +152,25 @@ def test_a_failing_source_writes_the_buffer_and_counts_what_was_stored() -> None
 
 
 def test_a_record_the_database_refuses_is_an_error_and_the_rest_is_stored() -> None:
-    store = _Store(refuse={"3"})
+    store, _ = _store(refuse={"3"})
     result = _Pipeline(store, _records(6)).run()
-    assert store.stored == ["0", "1", "2", "4", "5"]
+    assert external_ids(store) == ["0", "1", "2", "4", "5"]
     assert (result.created, result.skipped) == (5, 1)
-    assert result.errors == [
-        "1 x could not be stored (first: test/kind/3: document too large)"
-    ]
+    assert result.errors == ["1 x could not be stored (first: test/kind/3: 3 refused)"]
 
 
 def test_a_failing_last_write_does_not_hide_the_interrupt() -> None:
-    class Gone(_Store):
-        def insert_raw_sources(
-            self, docs: list[dict[str, Any]]
-        ) -> list[tuple[dict, str]]:
-            raise ConnectionError("database gone")
-
     with pytest.raises(KeyboardInterrupt):
-        _Pipeline(Gone(), _records(2, then=KeyboardInterrupt())).run()
+        _Pipeline(
+            _gone(ConnectionError("database gone")),
+            _records(2, then=KeyboardInterrupt()),
+        ).run()
 
 
 def test_ten_thousand_records_are_twenty_requests_not_ten_thousand() -> None:
-    store = _Store()
+    store, requests = _store()
     result = _Pipeline(store, _records(10_000)).run()
-    assert result.created == 10_000 and len(store.requests) == 20
+    assert result.created == 10_000 and len(requests) == 20
 
 
 # ── a database that is away ──────────────────────────────────────────────────
@@ -246,12 +252,6 @@ def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
     from lawgraph.db.raw import StoreUnavailable
     from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 
-    class Gone(_Store):
-        def insert_raw_sources(
-            self, docs: list[dict[str, Any]]
-        ) -> list[tuple[dict, str]]:
-            raise ConnectionAbortedError("Can't connect")
-
     asked: list[str] = []
 
     class Client:
@@ -267,14 +267,16 @@ def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
             return fetch
 
     with pytest.raises(StoreUnavailable):
-        TKDossiersRetrievePipeline(store=Gone(), client=Client()).run()  # type: ignore[arg-type]
+        TKDossiersRetrievePipeline(
+            store=_gone(ConnectionAbortedError("Can't connect")), client=Client()
+        ).run()  # type: ignore[arg-type]
     assert asked == ["dossiers"]
 
 
 def test_a_stop_request_ends_the_step_after_storing_what_it_has() -> None:
     from lawgraph.pipelines.base import STOP
 
-    store = _Store()
+    store, _ = _store()
 
     def records() -> Iterator[RetrieveRecord]:
         for number in range(100):
@@ -287,4 +289,4 @@ def test_a_stop_request_ends_the_step_after_storing_what_it_has() -> None:
             _Pipeline(store, records()).run()
     finally:
         STOP.clear()
-    assert store.stored == [str(n) for n in range(7)]
+    assert external_ids(store) == [str(n) for n in range(7)]
