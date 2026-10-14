@@ -4,22 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import WithPath
+from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.core.documents import chamber_of, document_sender, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
-
-# Props a node response leaves out by default: none (the graph views drop the large ones).
-_DROP_PROPS_KEYS: tuple[str, ...] = ()
-
-
-# Props the graph views leave out of every node, the node itself too (``db/_rows.py``; a
-# neighbour leaves out more, in its SQL: ``NEIGHBOUR_PROPS_LEFT_OUT``).
-DROP_PROPS_KEYS_GRAPH = GRAPH_PROPS_LEFT_OUT
 
 
 def node_type_of(collection: str) -> str:
@@ -27,16 +19,16 @@ def node_type_of(collection: str) -> str:
     return node_type.value if node_type else ""
 
 
-def _build_node_payload(
-    doc: dict[str, Any], *, drop_props_keys: tuple[str, ...] | None = None
-) -> dict[str, Any]:
+def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str, Any]:
+    """The fields of ``BaseNodeDTO``: in a graph view without the props it leaves out of
+    every node (``GRAPH_PROPS_LEFT_OUT``; a neighbour leaves out more, in its SQL:
+    ``NEIGHBOUR_PROPS_LEFT_OUT``)."""
     props: dict[str, Any] = {}
     raw_props = doc.get("props")
     if isinstance(raw_props, dict):
         props = raw_props
-    sanitized = {
-        key: value for key, value in props.items() if key not in (drop_props_keys or ())
-    }
+    left_out = GRAPH_PROPS_LEFT_OUT if graph else ()
+    sanitized = {key: value for key, value in props.items() if key not in left_out}
     link = tk_url(doc.get("type"), props)
     if link:
         sanitized["tk_url"] = link
@@ -65,8 +57,6 @@ def _build_node_payload(
 class BaseNodeDTO(WithPath):
     """Common node representation used by multiple responses."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     key: str
     collection: str
@@ -76,19 +66,30 @@ class BaseNodeDTO(WithPath):
     props: dict[str, Any] | None
 
     @classmethod
+    def fields_of(
+        cls,
+        doc: dict[str, Any],
+        *,
+        graph: bool = False,
+        names: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """The fields of a node document, in a *graph* view without its large props; with
+        *names* a paper, an activity or a decision gets the name of its first dossier
+        (``with_dossier_short_title``)."""
+        payload = _build_node_payload(doc, graph=graph)
+        if names is not None:
+            with_dossier_short_title(payload, names)
+        return payload
+
+    @classmethod
     def from_document(
         cls,
         doc: dict[str, Any],
         *,
-        drop_props_keys: tuple[str, ...] | None = _DROP_PROPS_KEYS,
+        graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,
     ) -> BaseNodeDTO:
-        """From a node document; with *names* a paper, an activity or a decision gets the
-        name of its first dossier (``with_dossier_short_title``)."""
-        payload = _build_node_payload(doc, drop_props_keys=drop_props_keys)
-        if names is not None:
-            with_dossier_short_title(payload, names)
-        return cls(**payload)
+        return cls(**cls.fields_of(doc, graph=graph, names=names))
 
 
 # The neighbours that carry the short title of their first dossier (``NeighborDTO``).
@@ -112,18 +113,9 @@ def with_dossier_short_title(
     props["dossier_short_title"] = (names.get(first) or {}).get("short_title")
 
 
-class NeighborDTO(WithPath):
+class NeighborDTO(BaseNodeDTO):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    key: str
-    collection: str
-    type: str
-    display_name: str | None
-    labels: list[str]
-    props: dict[str, Any] | None
     edge_id: str
     relation: str | None
     direction: Direction
@@ -143,12 +135,9 @@ class NeighborDTO(WithPath):
         """From the neighbour and its edge; a paper, an activity or a decision has in its
         props ``dossier_short_title``, the name its first dossier goes by (by *names*,
         ``load_dossier_names``; null without one)."""
-        payload = _build_node_payload(doc, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
-        if names is not None:
-            with_dossier_short_title(payload, names)
         meta = edge.get("meta")
         return cls(
-            **payload,
+            **BaseNodeDTO.fields_of(doc, graph=True, names=names),
             edge_id=edge["_key"],
             relation=edge.get("relation"),
             direction=direction,
@@ -158,10 +147,8 @@ class NeighborDTO(WithPath):
         )
 
 
-class NeighborBucketDTO(BaseModel):
+class NeighborBucketDTO(StrictModel):
     """The neighbours that share a relation, a direction and a collection: one page of them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: str | None
     direction: Direction
@@ -190,19 +177,15 @@ class NeighborBucketDTO(BaseModel):
     items: list[NeighborDTO]
 
 
-class NodeNeighborsDTO(BaseModel):
+class NodeNeighborsDTO(StrictModel):
     """Neighbors returned by /api/nodes/{collection}/{key}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int
     buckets: list[NeighborBucketDTO] = Field(default_factory=list)
 
 
-class NodeGraphResponse(BaseModel):
+class NodeGraphResponse(StrictModel):
     """Response for GET /api/nodes/{collection}/{key}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     node: BaseNodeDTO
     neighbors: NodeNeighborsDTO
@@ -225,10 +208,8 @@ class NodeGraphResponse(BaseModel):
     )
 
 
-class EdgePassage(BaseModel):
+class EdgePassage(StrictModel):
     """A place where a judgment cites, as the edge keeps it: to show without the judgment."""
-
-    model_config = ConfigDict(extra="forbid")
 
     paragraph_id: str = Field(
         description="The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`; of a "
@@ -246,10 +227,8 @@ class EdgePassage(BaseModel):
     end: int
 
 
-class NodeNeighborhoodEdge(BaseModel):
+class NodeNeighborhoodEdge(StrictModel):
     """Edge in a BFS-neighborhood response."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     source: str
@@ -283,11 +262,9 @@ class NodeNeighborhoodEdge(BaseModel):
         )
 
 
-class NeighborhoodCollectionDTO(BaseModel):
+class NeighborhoodCollectionDTO(StrictModel):
     """Of the focal node's own neighbours in one collection: how many, and how many the
     neighbourhood holds under its cap."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     total: int = Field(
@@ -298,10 +275,8 @@ class NeighborhoodCollectionDTO(BaseModel):
     kept: int = Field(..., description="Of those, the ones in `nodes`.")
 
 
-class NodeNeighborhoodResponse(BaseModel):
+class NodeNeighborhoodResponse(StrictModel):
     """One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."""
-
-    model_config = ConfigDict(extra="forbid")
 
     focal_id: str
     nodes: list[BaseNodeDTO]

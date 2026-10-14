@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import ArticleRelationDTO
+from lawgraph.api.schemas.common import ArticleRelationDTO, StrictModel
 
 
-class AnnexEntryDTO(BaseModel):
+class AnnexEntryDTO(StrictModel):
     """One entry (list item) inside an annex."""
-
-    model_config = ConfigDict(extra="forbid")
 
     index: int | None = None
     name: str | None = Field(
@@ -31,10 +29,8 @@ class AnnexEntryDTO(BaseModel):
     )
 
 
-class AnnexDTO(BaseModel):
+class AnnexDTO(StrictModel):
     """Annex metadata plus structured entries."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -73,20 +69,16 @@ class AnnexDTO(BaseModel):
         )
 
 
-class AnnexReferencedByItem(BaseModel):
+class AnnexReferencedByItem(StrictModel):
     """An article that references an annex, with scope metadata."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article: ArticleRelationDTO
     scope_type: str = "fixed"
     explanation: str | None = None
 
 
-class AnnexDetailResponse(BaseModel):
+class AnnexDetailResponse(StrictModel):
     """Response for GET /api/annexes/{key}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     annex: AnnexDTO
     referenced_by: list[AnnexReferencedByItem] = Field(default_factory=list)

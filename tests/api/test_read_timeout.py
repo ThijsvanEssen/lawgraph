@@ -46,7 +46,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
         seen.append(store_module._read_budget_ms())
         return []
 
-    monkeypatch.setattr("lawgraph.api.app.API_REQUEST_TIMEOUT_MS", 1000)
+    monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 1000)
     monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 600_000)
     monkeypatch.setattr(government, "get_cabinets", two_reads)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
@@ -58,7 +58,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
         store_module._read_budget_ms()
         return []
 
-    monkeypatch.setattr("lawgraph.api.app.API_REQUEST_TIMEOUT_MS", 200)
+    monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 200)
     monkeypatch.setattr(government, "get_cabinets", past)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
     assert response.status_code == 503

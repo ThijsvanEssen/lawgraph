@@ -16,6 +16,12 @@ from lawgraph.core.ministries import MINISTRIES, POSTS
 from lawgraph.core.models import article_id, key_of
 from lawgraph.db.schema import NODE_COLLECTIONS
 
+# A dossier number as the API takes it: 29684, or its label with the addition of a
+# budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
+DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
+# A dossier label or the start of one: 36600, 36600-VII, 37020- (its chapters).
+DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
+
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
 Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]

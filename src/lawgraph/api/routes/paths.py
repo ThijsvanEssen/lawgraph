@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import EdgeMeta, is_node_id, parse_choices
 from lawgraph.api.schemas.nodes import (
-    DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NodeNeighborhoodEdge,
 )
@@ -118,10 +117,7 @@ def get_paths_route(
             )
             for p in data["paths"]
         ],
-        nodes=[
-            BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
-            for n in data["nodes"]
-        ],
+        nodes=[BaseNodeDTO.from_document(n, graph=True) for n in data["nodes"]],
         edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         capped=data["capped"],
         expand=expand,

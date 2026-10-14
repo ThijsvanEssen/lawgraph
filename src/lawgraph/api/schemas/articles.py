@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
@@ -18,12 +18,15 @@ from lawgraph.api.schemas.common import (
     DefinitionDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
+    PathSource,
     PublicationDTO,
     QualifierFields,
+    StrictModel,
     TermSpanDTO,
     WithPath,
     address_of,
     judgment_outcome_fields,
+    regulation_kind,
     semantic_fields,
 )
 from lawgraph.api.schemas.documents import (
@@ -38,7 +41,12 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
-from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
+from lawgraph.core.delegations import (
+    BasisKind,
+    DelegationClause,
+    DelegationKind,
+    basis_qualifier,
+)
 from lawgraph.core.display import shorten
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
@@ -58,12 +66,10 @@ _TARGET_OF_COLLECTION: dict[str, ExplanationTarget] = {
 }
 
 
-class ArticlePartSpanDTO(BaseModel):
+class ArticlePartSpanDTO(StrictModel):
     """A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.
 
     The parts and the printed numbers between them cover the whole text."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         description="Where the part sits: `aanhef`, `lid-2`, `lid-2-aanhef`, `lid-2-onder-a`, "
@@ -133,11 +139,9 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
     return parts
 
 
-class DelegationClauseDTO(BaseModel):
+class DelegationClauseDTO(StrictModel):
     """A delegation formula in the text of an article ("bij of krachtens algemene maatregel
     van bestuur"), as a span of its `text`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start: int = Field(
         description="Offset of the formula in the `text` of the article."
@@ -159,16 +163,20 @@ class DelegationClauseDTO(BaseModel):
     lid: str | None = Field(description="The number of the lid it stands in.")
 
     @classmethod
+    def fields_of(cls, clause: DelegationClause) -> dict[str, Any]:
+        return {
+            "start": clause.start,
+            "end": clause.end,
+            "text": clause.text,
+            "kind": clause.kind,
+            "krachtens": clause.krachtens,
+            "part": clause.part,
+            "lid": clause.lid,
+        }
+
+    @classmethod
     def from_clause(cls, clause: DelegationClause) -> DelegationClauseDTO:
-        return cls(
-            start=clause.start,
-            end=clause.end,
-            text=clause.text,
-            kind=clause.kind,
-            krachtens=clause.krachtens,
-            part=clause.part,
-            lid=clause.lid,
-        )
+        return cls(**DelegationClauseDTO.fields_of(clause))
 
 
 class ArticleReferenceDTO(QualifierFields):
@@ -213,8 +221,7 @@ def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
 class ArticleSummaryDTO(WithPath):
     """Summary of an article: its identifiers and text."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -272,8 +279,6 @@ class ArticleSummaryDTO(WithPath):
 class ArticleRelationshipWithType(QualifierFields):
     """An article-to-article relationship enriched with its semantic layer."""
 
-    model_config = ConfigDict(extra="forbid")
-
     edge_id: str
     relation: str
     target_article: ArticleRelationDTO
@@ -324,10 +329,8 @@ class ArticleRelationshipWithType(QualifierFields):
         )
 
 
-class ScopeArticleReference(BaseModel):
+class ScopeArticleReference(StrictModel):
     """Annex that scopes the applicability of an article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     annex_id: str
     annex_key: str
@@ -360,10 +363,8 @@ class ScopeArticleReference(BaseModel):
         )
 
 
-class ArticleDetailResponse(BaseModel):
+class ArticleDetailResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
@@ -445,7 +446,7 @@ class DelegatedRegulationDTO(QualifierFields):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
-        description="Its BWB type as stored: `amvb`, `ministeriele-regeling`, `kb`, …"
+        description="Its BWB type, lower case: `amvb`, `ministeriele-regeling`, `kb`, …"
     )
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
@@ -460,6 +461,25 @@ class DelegatedRegulationDTO(QualifierFields):
         "regulation.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> DelegatedRegulationDTO:
+        """From a row of ``get_delegated_regulations``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        meta = row.get("meta") or {}
+        text = meta.get("text") if isinstance(meta.get("text"), str) else None
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            text=text,
+            basis_kind=basis_kind_of(meta),
+            articles=[
+                DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []
+            ],
+            **basis_qualifier(text).to_dict(),
+        )
+
 
 class DelegatedClauseDTO(DelegationClauseDTO):
     """A delegation formula with the regulations that fill it."""
@@ -472,10 +492,8 @@ class DelegatedClauseDTO(DelegationClauseDTO):
     )
 
 
-class ArticleDelegatedResponse(BaseModel):
+class ArticleDelegatedResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/delegated."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     clauses: list[DelegatedClauseDTO] = Field(
@@ -494,8 +512,7 @@ class ArticleDelegatedResponse(BaseModel):
 class CitedByJudgment(JudgmentOutcomeFields, WithPath):
     """The judgment of a passage that cites an article, with how it ended."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str
@@ -579,10 +596,8 @@ class ArticleCitedByItem(QualifierFields):
         )
 
 
-class ArticleCitedByResponse(BaseModel):
+class ArticleCitedByResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     items: list[ArticleCitedByItem]
@@ -602,11 +617,9 @@ class ArticleCitedByResponse(BaseModel):
     )
 
 
-class LegislativeHistoryEntry(BaseModel):
+class LegislativeHistoryEntry(StrictModel):
     """One change of an article in one dossier: the dossier, and the amending publication
     (enacted) or the bill (proposed) that made or proposes the change."""
-
-    model_config = ConfigDict(extra="forbid")
 
     dossier_id: str | None = Field(
         None,
@@ -641,10 +654,8 @@ class LegislativeHistoryEntry(BaseModel):
     )
 
 
-class ArticleLegislativeHistoryResponse(BaseModel):
+class ArticleLegislativeHistoryResponse(StrictModel):
     """Legislative history for an article."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     entries: list[LegislativeHistoryEntry]
@@ -654,7 +665,7 @@ class ArticleLegislativeHistoryResponse(BaseModel):
 class ExplainingDocumentDTO(DocumentOrigin, WithPath):
     """The explanatory document of an explanation."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str = Field(..., description="Arango _id of the document.")
     key: str
@@ -685,10 +696,8 @@ def passage_excerpt(opening: Any, heading: str | None) -> str | None:
     return shorten(collapse_ws(opening), EXCERPT_CHARS) or None
 
 
-class ArticleExplanationDTO(BaseModel):
+class ArticleExplanationDTO(StrictModel):
     """One document that explains an article, and the node its EXPLAINS edge points at."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document: ExplainingDocumentDTO
     target: ExplanationTarget = Field(
@@ -775,10 +784,8 @@ class ArticleExplanationDTO(BaseModel):
         )
 
 
-class ArticleExplanationsResponse(BaseModel):
+class ArticleExplanationsResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/explained-by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     total: int = Field(
@@ -787,10 +794,8 @@ class ArticleExplanationsResponse(BaseModel):
     items: list[ArticleExplanationDTO]
 
 
-class ArticlePassagesDTO(BaseModel):
+class ArticlePassagesDTO(StrictModel):
     """A paper that explains an article in a passage, and its passages."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document: DocumentEntryDTO
     target: ExplanationTarget = Field(
@@ -862,20 +867,16 @@ def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
     )
 
 
-class ArticlePassagesResponse(BaseModel):
+class ArticlePassagesResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/explanations."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article_id: str
     total: int
     items: list[ArticlePassagesDTO]
 
 
-class ArticleVersionDTO(BaseModel):
+class ArticleVersionDTO(StrictModel):
     """One dated version of an article, with the publication that produced it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     article_number: str | None = None
@@ -944,10 +945,8 @@ class ArticleVersionDTO(BaseModel):
         )
 
 
-class ArticleHistoryResponse(BaseModel):
+class ArticleHistoryResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/history."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str
     article_number: str

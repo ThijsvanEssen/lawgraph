@@ -25,7 +25,6 @@ from lawgraph.api.schemas.judgments import (
     RelatedJudgmentDTO,
     mentions_of,
 )
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.mentions import mention_texts
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
@@ -251,33 +250,13 @@ def _citation_spans(
             )
 
     for relation in relations:
-        props = relation.article.get("props") or {}
         add(
-            ArticleCitationTarget(
-                id=relation.article["_id"],
-                key=relation.article["_key"],
-                collection=COLLECTION_ARTICLES,
-                bwb_id=props.get("bwb_id"),
-                article_number=props.get("article_number"),
-                display_name=props.get("display_name"),
-            ),
+            ArticleCitationTarget.from_document(relation.article),
             relation.meta,
             "article",
         )
     for doc in cited:
-        props = doc.get("props") or {}
-        add(
-            ArticleCitationTarget(
-                id=doc["_id"],
-                key=doc["_key"],
-                collection=COLLECTION_JUDGMENTS,
-                bwb_id=None,
-                article_number=None,
-                display_name=props.get("display_name") or props.get("ecli"),
-            ),
-            doc.get("meta") or {},
-            "judgment",
-        )
+        add(ArticleCitationTarget.from_document(doc), doc.get("meta") or {}, "judgment")
     for found in spans.values():
         found.sort(key=lambda span: span.start or 0)
     return spans

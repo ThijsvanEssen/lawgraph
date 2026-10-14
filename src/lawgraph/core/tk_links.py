@@ -16,6 +16,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from lawgraph.config.constants import SOURCE_TK
+from lawgraph.config.sources import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
 from lawgraph.core.models import NodeType
 
 _SITE = "https://www.tweedekamer.nl"
@@ -52,6 +54,15 @@ def activity_page(number: str | None, kind: str | None) -> str | None:
     plenary = (kind or "").strip().lower().startswith(_PLENARY_KINDS)
     template = PLENARY_ACTIVITY_PAGE if plenary else COMMITTEE_ACTIVITY_PAGE
     return template.format(number=number)
+
+
+def document_file_url(props: Mapping[str, Any]) -> str | None:
+    """The file of a Tweede Kamer document in the open data portal (by its record id,
+    ``external_id``); None for one of another source."""
+    external_id = props.get("external_id")
+    if not external_id or props.get("source") != SOURCE_TK:
+        return None
+    return TK_DOCUMENT_RESOURCE_URL_TEMPLATE.format(external_id=external_id)
 
 
 def tk_url(node_type: str | None, props: Mapping[str, Any]) -> str | None:
