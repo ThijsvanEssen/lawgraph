@@ -37,6 +37,7 @@ from lawgraph.core.identifiers import (
     rebuilt_celex,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.publications import koop_id, publication_citation, publication_series
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.xml import find_descendant, iter_named, local_name, text_of
 
@@ -346,9 +347,10 @@ def publication_key(identifier: str) -> str:
 
 def publication_display_name(publication: Mapping[str, Any]) -> str:
     """``Stb. 2019, 33`` — falls back to the publication id when parts are missing."""
-    kind, year, number = (publication.get(k) for k in ("kind", "year", "number"))
-    if kind and year and number:
-        return f"{kind}. {year}, {number}"
+    series = publication_series(publication.get("kind"))
+    year, number = publication.get("year"), publication.get("number")
+    if series and year and number:
+        return publication_citation(series, year, number)
     return str(publication.get("id") or "")
 
 
@@ -420,7 +422,7 @@ def _publication(element: ET.Element | None) -> Publication | None:
     number = text_of(_child(pub, "publicatienr")) or None
     year = int(year_text) if year_text.isdigit() else None
     identifier = pub.get("urlidentifier") or (
-        f"{kind.lower()}-{year}-{number}" if kind and year and number else ""
+        koop_id(kind, year, number) if kind and year and number else ""
     )
     dossiers = tuple(
         dict.fromkeys(

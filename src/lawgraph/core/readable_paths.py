@@ -34,6 +34,7 @@ from urllib.parse import quote, unquote
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
+from lawgraph.core.publications import parse_koop_id
 
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
@@ -55,7 +56,6 @@ ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
 REEKSEN = ("stb", "stcrt", "trb")
-_PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
 
 # The boeken of the Burgerlijk Wetboek and their BWB ids: an article is cited with its
 # book before the number (6:162).
@@ -241,8 +241,11 @@ def _instrument(key: str, props: dict[str, Any]) -> str | None:
     if CELEX.match(celex):
         return pad_href(Pad("wet", celex.upper()))
     official = _text(props.get("official_id")) or key.replace("_", "-")
-    m = _PUBLICATION_ID.match(official.lower())
-    return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None
+    parsed = parse_koop_id(official)
+    if parsed is None:
+        return None
+    series, year, number = parsed
+    return pad_href(Pad("publicatie", series, str(year), number))
 
 
 def _slug(soort: str, pattern: re.Pattern[str]) -> Any:

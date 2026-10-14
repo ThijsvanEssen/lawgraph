@@ -27,6 +27,7 @@ from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
+from lawgraph.core.publications import koop_citation
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, path_of
 from lawgraph.core.time import long_date
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
@@ -1312,7 +1313,6 @@ def committee_page(row: dict[str, Any]) -> Page:
 
 # ── publications, commitments and decisions ───────────────────────────────────
 
-_SERIES = {"stb": "Stb.", "trb": "Trb.", "stcrt": "Stcrt."}
 # What a publication or its nota van toelichting does to a regulation.
 _VERBS = {
     RELATION_ESTABLISHES: "stelt vast",
@@ -1329,8 +1329,7 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
     if name:
         return name
     official = _text(note.get("identifier")) or key.partition("_")[2].replace("_", "-")
-    m = re.match(r"^(stb|trb|stcrt)-(\d{4})-(\d+)$", official.lower())
-    return f"{_SERIES[m[1]]} {m[2]}, {m[3]}" if m else official
+    return koop_citation(official) or official
 
 
 def _note_title(note: dict[str, Any]) -> str:
