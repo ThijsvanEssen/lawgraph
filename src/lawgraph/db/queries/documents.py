@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
@@ -299,7 +299,7 @@ def get_replacements(
         sides[row["side"]].append(
             {
                 "id": row["other"],
-                "key": row["other"].split("/", 1)[1],
+                "key": key_of(row["other"]),
                 "sequence": int(sequence) if sequence is not None else None,
             }
         )

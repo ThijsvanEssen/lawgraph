@@ -25,10 +25,10 @@ from lawgraph.core import (
     eerstekamer_votes,
     judgment_outcome,
     models,
-    paper_outcomes,
     post_ministries,
     publications,
     tk_records,
+    votes,
 )
 from lawgraph.core import documents as core_documents
 from lawgraph.core import feed as core_feed
@@ -178,7 +178,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "paper outcomes",
-        paper_outcomes.OUTCOMES,
+        votes.OUTCOMES,
         (
             "aangenomen",
             "verworpen",
@@ -193,7 +193,11 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
         get_args(tk_records.CommitteeKind),
         ("vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"),
     ),
-    ("vote choices", (tk_records.VOTE_FOR, tk_records.VOTE_AGAINST), ("Voor", "Tegen")),
+    (
+        "vote choices",
+        (votes.VOTE_FOR, votes.VOTE_AGAINST, votes.VOTE_NOTED),
+        ("Voor", "Tegen", "Aantekening gevraagd"),
+    ),
     (
         "vote kinds",
         (tk_records.VOTE_KIND_MEMBER, tk_records.VOTE_KIND_FACTION),

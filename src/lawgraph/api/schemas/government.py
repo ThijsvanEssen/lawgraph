@@ -14,7 +14,7 @@ from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
 from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
-from lawgraph.core.tk_records import NO_DUE_DATE
+from lawgraph.core.tk_records import due_date
 
 # The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
 COMMITMENT_STATUS_DESCRIPTION = (
@@ -630,7 +630,7 @@ class CommitmentDTO(WithPath):
             text=props.get("text"),
             status=props.get("status"),
             date=props.get("made_on"),
-            expected_resolution=due if due and due != NO_DUE_DATE else None,
+            expected_resolution=due_date(due),
             minister_name=props.get("minister_name"),
             member=(
                 CommitmentMemberDTO(

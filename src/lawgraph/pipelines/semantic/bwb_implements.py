@@ -39,7 +39,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.eurlex_nim import measure_publication, measure_summary
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import eu as semantic_eu
 
@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 
 
 def _regulation_id(bwb_id: str) -> str:
-    return f"{COLLECTION_INSTRUMENTS}/{make_node_key(bwb_id)}"
+    return node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id))
 
 
 def _act_key(celex: str) -> str:
@@ -146,7 +146,9 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         )
         for publication, celexes in acts_of.items():
             if publication_key(publication) in present:
-                source_id = f"{COLLECTION_INSTRUMENTS}/{publication_key(publication)}"
+                source_id = node_id(
+                    COLLECTION_INSTRUMENTS, publication_key(publication)
+                )
                 for celex in celexes:
                     self._link(
                         links,
@@ -187,7 +189,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         written: set[tuple[str, str]] = set()
         edges = EdgeWriter(self.store, what=None, remembers=True)
         for (source_id, celex), link in sorted(links.items()):
-            target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
+            target_id = node_id(COLLECTION_INSTRUMENTS, _act_key(celex))
             if celex not in acts or source_id == target_id:
                 continue
             edges.add(
@@ -221,7 +223,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None, remembers=True)
         for source_id, celexes in sorted(named.items()):
             for celex in sorted(celexes):
-                target_id = f"{COLLECTION_INSTRUMENTS}/{_act_key(celex)}"
+                target_id = node_id(COLLECTION_INSTRUMENTS, _act_key(celex))
                 if celex not in acts or (source_id, celex) in implemented:
                     continue
                 if source_id == target_id:

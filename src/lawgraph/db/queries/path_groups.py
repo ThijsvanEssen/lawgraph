@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_SERVED_IN,
 )
+from lawgraph.core.models import parse_node_id
 from lawgraph.db import GraphStore
 
 
@@ -130,13 +131,13 @@ SELECT (SELECT count(*)::int FROM c) AS total,
 
 def is_group(node_id: str) -> bool:
     """Whether *node_id* is a group whose children a path may start from."""
-    return node_id.split("/", 1)[0] in _GROUPS
+    return parse_node_id(node_id)[0] in _GROUPS
 
 
 def children_of(store: GraphStore, group: str, cap: int) -> Children:
     """The children of *group*, the *cap* most telling, and how many it has. A paper of a
     case of a dossier is kept only with its case."""
-    statement = _KEPT.format(children=_GROUPS[group.split("/", 1)[0]])
+    statement = _KEPT.format(children=_GROUPS[parse_node_id(group)[0]])
     today = dt.date.today().isoformat()
     (row,) = store.query(statement, {"id": group, "cap": cap, "today": today})
     kept: list[Child] = []

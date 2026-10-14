@@ -49,7 +49,7 @@ from lawgraph.core.cabinets import faction_of
 from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.post_ministries import (
     SOURCE_PAGE,
     SOURCE_TK_COMMITMENTS,
@@ -425,8 +425,8 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         the edges no post supports any more are removed."""
         docs = [
             make_edge_doc(
-                f"{COLLECTION_MEMBERS}/{member}",
-                f"{COLLECTION_CABINETS}/{cabinet}",
+                node_id(COLLECTION_MEMBERS, member),
+                node_id(COLLECTION_CABINETS, cabinet),
                 RELATION_SERVED_IN,
                 source=SOURCE_RIJKSOVERHEID,
                 meta={"posts": posts},

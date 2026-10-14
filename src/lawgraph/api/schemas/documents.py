@@ -18,10 +18,10 @@ from lawgraph.core.documents import (
 )
 from lawgraph.core.feed import SubmitterRole
 from lawgraph.core.models import NodeType
-from lawgraph.core.paper_outcomes import PaperOutcome
 from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity, submitters
+from lawgraph.core.votes import PaperOutcome
 
 ExplainedCollection = Literal["articles", "instruments"]
 
@@ -244,7 +244,7 @@ _DICTUM = (
 
 class PaperOutcomeFields(BaseModel):
     """How a motion or an amendment ended, and what it says in a line (``semantic
-    tk-paper-outcomes``, ``core/paper_outcomes.py``); every field null for any other paper."""
+    tk-paper-outcomes``, ``core/votes.py``); every field null for any other paper."""
 
     model_config = ConfigDict(extra="forbid")
 

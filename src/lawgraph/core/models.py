@@ -231,9 +231,7 @@ class Node:
 
     @property
     def node_id(self) -> str | None:
-        if self.key is None:
-            return None
-        return f"{self.collection}/{self.key}"
+        return None if self.key is None else node_id(self.collection, self.key)
 
     def to_document(self) -> dict[str, Any]:
         doc: dict[str, Any] = {
@@ -284,15 +282,15 @@ def _sanitize_key(value: str, *, fallback: str = "node") -> str:
     return ascii_slug(value, "_") or fallback
 
 
-def collection_from_id(node_id: str, fallback: str) -> str:
-    """The collection of a node id (``collection/key``); *fallback* for an id without one."""
-    return node_id.split("/")[0] if "/" in node_id else fallback
+def node_id(collection: str, key: str) -> str:
+    """The id of the node *key* in *collection*: ``collection/key``."""
+    return f"{collection}/{key}"
 
 
 def parse_node_id(node_id: str) -> tuple[str, str]:
     """Split a node id into (collection, key).
 
-    Raises ValueError if the ID does not contain a '/'.
+    Raises ValueError if the id does not contain a '/'.
     """
     if "/" not in node_id:
         raise ValueError(f"Not a valid node id: {node_id!r}")
@@ -300,8 +298,18 @@ def parse_node_id(node_id: str) -> tuple[str, str]:
     return collection, key
 
 
+def key_of(node_id: str) -> str:
+    """The key of a node id (``judgments/ecli_nl_hr_2020_1`` -> ``ecli_nl_hr_2020_1``)."""
+    return parse_node_id(node_id)[1]
+
+
 def make_node_key(*parts: str | None, fallback: str = "node") -> str:
     joined = "_".join(part for part in parts if part is not None and part.strip())
     if not joined:
         joined = fallback
     return _sanitize_key(joined, fallback=fallback)
+
+
+def article_id(bwb_id: str, number: str) -> str:
+    """The id of article *number* of the law *bwb_id*."""
+    return node_id(COLLECTION_ARTICLES, make_node_key(bwb_id, number))

@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_ECHR,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 from lawgraph.db.schema import node_of
@@ -36,7 +36,7 @@ from lawgraph.db.schema import node_of
 # BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
 # kind of the instrument is what decides in the end.
 _TREATY_ARTICLE_PREFIXES = [
-    f"{COLLECTION_ARTICLES}/{make_node_key(BWB_TREATY_ID_PREFIX)}",
+    node_id(COLLECTION_ARTICLES, make_node_key(BWB_TREATY_ID_PREFIX)),
 ]
 
 

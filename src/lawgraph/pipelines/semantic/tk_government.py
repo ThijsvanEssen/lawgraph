@@ -41,7 +41,7 @@ from lawgraph.core.cabinets import cabinet_on
 from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
-from lawgraph.core.models import NodeType, PipelineResult
+from lawgraph.core.models import NodeType, PipelineResult, node_id
 from lawgraph.core.time import format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
@@ -201,10 +201,10 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             matched += props["member_key"] is not None
             if props != row.get("props"):
                 commitments.append(self._update(row["key"], NodeType.COMMITMENT, props))
-            commitment = f"{COLLECTION_COMMITMENTS}/{row['key']}"
+            commitment = node_id(COLLECTION_COMMITMENTS, row["key"])
             read.append(commitment)
             if props["member_key"]:
-                member = f"{COLLECTION_MEMBERS}/{props['member_key']}"
+                member = node_id(COLLECTION_MEMBERS, props["member_key"])
                 makers.add(
                     member,
                     commitment,

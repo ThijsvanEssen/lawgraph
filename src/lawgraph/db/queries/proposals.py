@@ -22,9 +22,7 @@ from lawgraph.config.constants import (
     RELATION_ABOUT,
     RELATION_PART_OF,
 )
-from lawgraph.core.paper_outcomes import ADOPTED, REJECTED
-
-WITHDRAWN = "Stemmen - ingetrokken"
+from lawgraph.core.votes import ADOPTED, DECISION_KIND_WITHDRAWN, REJECTED
 
 
 def pending_sql(paper: str) -> str:
@@ -54,7 +52,7 @@ def pending_sql(paper: str) -> str:
             JOIN {COLLECTION_DECISIONS} pdec ON pdec.id = pa.from_id
             WHERE pp.from_id = {paper} AND pp.relation = '{RELATION_PART_OF}'
               AND pp.to_collection = '{COLLECTION_CASES}'
-              AND lg_str(pdec.props -> 'decision_kind') = '{WITHDRAWN}'
+              AND lg_str(pdec.props -> 'decision_kind') = '{DECISION_KIND_WITHDRAWN}'
             OFFSET 0
         )
     )"""
