@@ -66,13 +66,12 @@ def _kinds(*kinds: str) -> str:
     return ", ".join(f"'{kind}'" for kind in kinds)
 
 
-def node_key(identifier: str) -> str:
-    """SQL: the node key of the publication *identifier* (``stb-2026-187`` →
-    ``stb_2026_187``), as ``core.models.make_node_key`` makes it of an ASCII identifier."""
-    return (
-        "trim(both '_' from regexp_replace(regexp_replace("
-        f"lower({identifier}), '[^a-z0-9_]+', '_', 'g'), '_{{2,}}', '_', 'g'))"
-    )
+def bwb_key(bwb: str) -> str:
+    """SQL: the key of the instrument of the BWB id *bwb*: the id in lower case. A BWB id is
+    letters and digits, so ``lg_node_key`` makes the same of it, but the planner prices that
+    higher and turns the plan of the feed's page (an index scan of the instruments for the
+    scan it reads them by)."""
+    return f"lower({bwb})"
 
 
 # The identifier of the publication ``n`` as a regulation names the one that enacted it
@@ -238,7 +237,7 @@ COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_objec
                         ORDER BY versions DESC NULLS LAST, identifier ASC NULLS LAST
                         LIMIT 1
                     ) o
-                    LEFT JOIN {COLLECTION_INSTRUMENTS} p ON p.key = {node_key("o.identifier")}
+                    LEFT JOIN {COLLECTION_INSTRUMENTS} p ON p.key = lg_node_key(o.identifier)
                 ),
                 -- the law its preamble names most articles of (``BASED_ON``)
                 'based_on', (
@@ -254,7 +253,7 @@ COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_objec
                         FROM {COLLECTION_EDGES} e
                         JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
                         WHERE {_BWB} IS NOT NULL
-                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lower({_BWB})
+                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
                           AND e.relation = '{RELATION_BASED_ON}'
                           AND e.to_collection = '{COLLECTION_ARTICLES}'
                           AND a.bwb_id IS NOT NULL
@@ -290,7 +289,7 @@ def followed_ctes(article: bool) -> str:
         if article
         else f"""
         UNION ALL
-        SELECT '{COLLECTION_INSTRUMENTS}/' || {node_key("law.enacted")},
+        SELECT '{COLLECTION_INSTRUMENTS}/' || lg_node_key(law.enacted),
                '{COLLECTION_INSTRUMENTS}'
         FROM law WHERE law.enacted IS NOT NULL"""
     )
@@ -477,7 +476,7 @@ def via(article: bool) -> str:
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind = '{EVENT_COMMENCEMENT}' AND {_BWB} IS NOT NULL
-              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lower({_BWB})
+              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
               AND e.relation = '{RELATION_BASED_ON}'
               AND e.to_collection = '{COLLECTION_ARTICLES}' AND {_of_law("a", article)}
             UNION ALL

@@ -27,18 +27,25 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import GraphStore
 
-_HEAD_SQL = f"""
-SELECT a.id, a.key, a.labels, a.props,
-    (
+
+def lead_committee(activity: str) -> str:
+    """SQL: the committee that leads the activity *activity* (``LED_BY``) as ``{key, slug,
+    name}``, the first by key when two lead it; null when none does (a plenary one)."""
+    return f"""(
         SELECT json_build_object(
             'key', c.key, 'slug', c.props -> 'slug', 'name', c.props -> 'name'
         )
-        FROM {COLLECTION_EDGES} e JOIN {COLLECTION_COMMITTEES} c ON c.id = e.to_id
-        WHERE e.from_id = a.id AND e.relation = %(led_by)s
-          AND e.to_collection = '{COLLECTION_COMMITTEES}'
+        FROM {COLLECTION_EDGES} led JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
+        WHERE led.from_id = {activity}.id AND led.relation = '{RELATION_LED_BY}'
+          AND led.to_collection = '{COLLECTION_COMMITTEES}'
         ORDER BY c.key
         LIMIT 1
-    ) AS committee,
+    )"""
+
+
+_HEAD_SQL = f"""
+SELECT a.id, a.key, a.labels, a.props,
+    {lead_committee("a")} AS committee,
     (
         SELECT coalesce(json_agg(json_build_object(
             'id', m.id, 'key', m.key, 'number', m.props -> 'number',
@@ -68,7 +75,7 @@ def get_activity(store: GraphStore, key: str) -> dict[str, Any] | None:
     (``moved_to``); None when unknown."""
     rows = store.query(
         _HEAD_SQL,
-        {"key": key, "led_by": RELATION_LED_BY, "continues": RELATION_CONTINUES},
+        {"key": key, "continues": RELATION_CONTINUES},
     )
     return next(iter(rows), None)
 

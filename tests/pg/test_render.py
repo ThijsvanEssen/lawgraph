@@ -1341,3 +1341,26 @@ def test_an_article_of_an_eu_act_links_its_act(
     assert article["legislationIdentifier"] == "32022L2555 artikel 21"
     assert article["legislationJurisdiction"] == "EU"
     assert article["isPartOf"]["legislationIdentifier"] == "32022L2555"
+
+
+def test_the_image_of_a_page_is_that_of_its_kind(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    _seed_annex_and_case(store)
+    _seed_debate(store)
+    images = {
+        "/wetten/BWBR0005289": "wet",
+        "/wetten/BWBR0005289/artikel/6:162": "artikel",
+        "/uitspraken/ECLI:NL:HR:2019:2006": "uitspraak",
+        "/kamerstukken/36496/71": "kamerstuk",
+        "/dossiers/36496": "dossier",
+        "/wetten/BWBR0001941/bijlage/II": "wet",
+        "/zaken/2025Z15468": "dossier",
+        "/activiteiten/2026A01323": "dossier",
+        "/leden/rob-jetten": "concordans",
+        "/stemmingen/s_1": "concordans",
+    }
+    for path, image in images.items():
+        page = _head(_get(client, path).text)
+        assert page["og_image"] == f"https://concordans.nl/og/{image}.png", path
