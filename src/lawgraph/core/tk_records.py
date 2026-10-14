@@ -25,6 +25,7 @@ from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.time import iso_date
 from lawgraph.core.values import first_str
+from lawgraph.core.xml import collapse_ws
 
 Payload = dict[str, Any]
 Record = tuple[str, dict[str, Any]]
@@ -494,10 +495,10 @@ def member(payload: Payload) -> Record | None:
     # a member of old the Kamer knows by initials alone: ``W.B. Buma`` (1807-1848)
     initials = _dotted_initials(_text(payload, "Initialen"))
     first = payload.get("Voornamen") or initials
-    full_name = " ".join(f"{first} {surname}".split())
+    full_name = collapse_ws(f"{first} {surname}")
     # the name a person goes by: ``Ard van der Steur``, not ``Gerard Adriaan van der Steur``
     called = payload.get("Roepnaam") or first
-    name = " ".join(f"{called} {surname}".split())
+    name = collapse_ws(f"{called} {surname}")
     props: dict[str, Any] = {
         "external_id": external_id,
         "full_name": full_name or None,
@@ -1309,4 +1310,4 @@ def display_person_name(actor_name: str | None) -> str | None:
     if not actor_name:
         return None
     family, _, initials = actor_name.partition(",")
-    return " ".join(f"{initials.strip()} {family.strip()}".split()) or None
+    return collapse_ws(f"{initials.strip()} {family.strip()}") or None

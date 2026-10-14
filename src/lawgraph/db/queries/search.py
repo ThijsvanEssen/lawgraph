@@ -31,6 +31,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.word_forms import word_forms
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
@@ -1453,7 +1454,7 @@ def _folded(value: Any) -> str:
         return ""
     plain = unicodedata.normalize("NFD", str(value).lower())
     plain = unicodedata.normalize("NFC", _ACCENTS.sub("", plain))
-    return " ".join(plain.split())
+    return collapse_ws(plain)
 
 
 def _folded_list(extra: Mapping[str, Any], fields: tuple[str, ...]) -> list[str]:

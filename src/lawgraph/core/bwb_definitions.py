@@ -30,7 +30,13 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.core.bwb_xml import article_key, article_number, leading_term
-from lawgraph.core.xml import local_name
+from lawgraph.core.xml import (
+    child_named,
+    children_named,
+    collapse_ws,
+    local_name,
+    words_of,
+)
 
 # "… wordt (in deze wet …) verstaan onder:", the last words of an announcement.
 _ANNOUNCES = re.compile(r"\bverstaan\s+onder\s*:\s*$", re.IGNORECASE)
@@ -71,18 +77,6 @@ _PART = {
 _WHOLE = {"wet", "besluit", "regeling", "verordening"}
 
 
-def _text(element: ET.Element) -> str:
-    return " ".join("".join(element.itertext()).split())
-
-
-def _children(element: ET.Element, name: str) -> list[ET.Element]:
-    return [child for child in element if local_name(child.tag) == name]
-
-
-def _first(element: ET.Element, name: str) -> ET.Element | None:
-    return next(iter(_children(element, name)), None)
-
-
 def definitions(bwb_id: str, xml: str) -> list[dict[str, Any]]:
     """Every definition the toestand *xml* of *bwb_id* gives, in the order of the text:
     ``{term, text, article_key, article_number, place, jci, scope: {kind, path},
@@ -110,7 +104,7 @@ def _of_article(article: ET.Element, path: str) -> Iterator[dict[str, Any]]:
         for index, child in enumerate(kids):
             if local_name(child.tag) != "al":
                 continue
-            sentence = _text(child)
+            sentence = words_of(child)
             if _ANNOUNCES.search(sentence):
                 scope = _scope(sentence, path)
                 yield from _after_announcement(kids[index + 1 :], scope)
@@ -138,16 +132,16 @@ def _after_announcement(
             continue
         term = leading_term(element)
         if term is None:
-            more = _text(element)
+            more = words_of(element)
             if found and more:
                 found[-1]["text"] = f"{found[-1]['text']} {more}".rstrip(" ;")
             continue
-        whole = _text(element)
+        whole = words_of(element)
         rest = whole.split(":", 1)[1].strip() if ":" in whole else ""
         if not rest and index + 1 < len(following):
             nxt = following[index + 1]
             if local_name(nxt.tag) == "lijst":
-                rest = _text(nxt)
+                rest = words_of(nxt)
         if rest:
             found.append(_definition(term, rest, element, scope))
     return found
@@ -158,10 +152,10 @@ def _place(item: ET.Element, marked: bool) -> str | None:
     (``type="ongemarkeerd"``), and none whose ``<li.nr>`` holds no letter or digit, a dash
     or a bullet ("–", "−", "•") of a list the BWB calls explicit all the same: a mark
     without a number is no place to cite."""
-    number = _first(item, "li.nr")
+    number = child_named(item, "li.nr")
     if not marked or number is None:
         return None
-    place = _text(number).rstrip(".")
+    place = words_of(number).rstrip(".")
     return place if any(char.isalnum() for char in place) else None
 
 
@@ -169,11 +163,11 @@ def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any
     """The definitions of a ``<lijst>``, each with the number of its onderdeel
     (``_place``)."""
     marked = lijst.get("type") != "ongemarkeerd"
-    for item in _children(lijst, "li"):
-        al = _first(item, "al")
+    for item in children_named(lijst, "li"):
+        al = child_named(item, "al")
         if al is None:
             continue
-        match = _TERM.match(_text(al))
+        match = _TERM.match(words_of(al))
         if match is None:
             continue
         jci = next(
@@ -191,7 +185,7 @@ def _definition(
     term: str, text: str, element: ET.Element, scope: dict[str, str]
 ) -> dict[str, Any]:
     return {
-        "term": " ".join(term.split()),
+        "term": collapse_ws(term),
         "text": text.strip().rstrip(";").strip(),
         "place": None,
         "jci": None,
@@ -208,7 +202,7 @@ def _regulation_named(text: str, element: ET.Element) -> str | None:
     for link in element.iter():
         if local_name(link.tag) != "extref" or "artikel=" in (link.get("doc") or ""):
             continue
-        rest = text.replace(_text(link), "").strip(" ;,.")
+        rest = text.replace(words_of(link), "").strip(" ;,.")
         if rest.lower() in {"", "de", "het"}:
             return link.get("bwb-id")
     return None

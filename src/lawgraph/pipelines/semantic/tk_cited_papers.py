@@ -39,6 +39,7 @@ from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers, motion_papers
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import EdgeWriter, edge_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import edges as semantic_edges
@@ -90,10 +91,10 @@ PASSAGE_CHARS = 400
 def passage(line: str, reference: str) -> str:
     """*line* in one line, or of a longer one the ``PASSAGE_CHARS`` around *reference*,
     cut at words, with an ellipsis where it was cut."""
-    text = " ".join(line.split())
+    text = collapse_ws(line)
     if len(text) <= PASSAGE_CHARS:
         return text
-    at = max(text.find(" ".join(reference.split())), 0)
+    at = max(text.find(collapse_ws(reference)), 0)
     start = max(0, min(at - PASSAGE_CHARS // 2, len(text) - PASSAGE_CHARS))
     end = start + PASSAGE_CHARS
     head = "…" if start else ""

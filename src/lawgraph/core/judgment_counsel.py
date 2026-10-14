@@ -39,6 +39,7 @@ from lawgraph.core.judgment_parties import (
     representative,
 )
 from lawgraph.core.judgments import AREA_CRIMINAL, area_of_law
+from lawgraph.core.xml import collapse_ws
 
 # ── a person ─────────────────────────────────────────────────────────────────
 
@@ -188,13 +189,13 @@ def _persons(
         person = _PERSON.match(text, pos)
         if not person:
             break
-        name = re.sub(r"\s+", " ", person[0]).strip()
+        name = collapse_ws(person[0])
         current = representative(name, _role_of(word, default, criminal))
         found.append(current)
         without.append(current)
         pos = end = person.end()
         if capacity := _CAPACITY.match(text, pos):
-            said = re.sub(r"\s+", " ", capacity["text"]).strip()
+            said = collapse_ws(capacity["text"])
             targets = without if capacity["all"] or _PLURAL.match(said) else [current]
             for target in targets:
                 _give(target, said, criminal, excluded)

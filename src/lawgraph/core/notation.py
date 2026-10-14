@@ -29,6 +29,7 @@ from lawgraph.core.identifiers import (
     is_ecli,
     parse_celex,
 )
+from lawgraph.core.xml import collapse_ws
 
 NotationKind = Literal[
     "ecli",
@@ -185,7 +186,7 @@ class NotationParser:
 
     def parse(self, query: str) -> Notation | None:
         """The notation *query* is, or ``None`` when it is words to search for."""
-        text = " ".join(query.split())
+        text = collapse_ws(query)
         if not text:
             return None
         if is_ecli(text):

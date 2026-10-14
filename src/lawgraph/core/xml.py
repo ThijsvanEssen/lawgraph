@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import html
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 
 XML_TAG_RE = re.compile(r"<[^>]+>")  # any markup tag, for stripping tags from text
+# What a whole HTML page holds that is no text: scripts, styles and comments.
+_PAGE_NOISE_RE = re.compile(r"<script.*?</script>|<style.*?</style>|<!--.*?-->", re.S)
 
 
 def local_name(tag: str) -> str:
@@ -17,6 +20,15 @@ def local_name(tag: str) -> str:
 def collapse_ws(text: str | None) -> str:
     """Collapse every run of whitespace to one space and strip ('' for None)."""
     return " ".join(text.split()) if text else ""
+
+
+def html_text(fragment: str, *, page: bool = False) -> str:
+    """*fragment* of HTML as one line of plain text: every tag a space, entities decoded,
+    whitespace (a no-break space too) collapsed. With *page* a whole page: its scripts,
+    styles and comments are left out first."""
+    if page:
+        fragment = _PAGE_NOISE_RE.sub("", fragment)
+    return collapse_ws(html.unescape(XML_TAG_RE.sub(" ", fragment)))
 
 
 def after_nonspace(text: str, count: int) -> int:
@@ -43,6 +55,25 @@ def text_of(element: ET.Element | None, sep: str = "") -> str:
     if element is None:
         return ""
     return sep.join(element.itertext()).strip()
+
+
+def children_named(element: ET.Element | None, name: str) -> list[ET.Element]:
+    """The children of *element* whose local name is *name* ([] for None)."""
+    if element is None:
+        return []
+    return [node for node in element if local_name(node.tag) == name]
+
+
+def child_named(element: ET.Element | None, name: str) -> ET.Element | None:
+    """The first child of *element* whose local name is *name* (None for none)."""
+    if element is None:
+        return None
+    return next((node for node in element if local_name(node.tag) == name), None)
+
+
+def words_of(element: ET.Element | None) -> str:
+    """The text of *element* and its descendants, its whitespace collapsed."""
+    return collapse_ws(text_of(element))
 
 
 def find_descendant(element: ET.Element, name: str) -> ET.Element | None:

@@ -12,9 +12,6 @@ from lawgraph.core import (
     cabinets,
     court_sources,
     division_anchor,
-    eerstekamer_composition,
-    eerstekamer_votes,
-    ek_changes,
     government,
     judgment_counsel,
     member_slugs,
@@ -22,9 +19,9 @@ from lawgraph.core import (
     ministry_sources,
     models,
     post_ministries,
-    rijksoverheid,
 )
 from lawgraph.core.citations import strip_xml
+from lawgraph.core.xml import html_text
 
 # ── HTML to text ─────────────────────────────────────────────────────────────
 
@@ -51,16 +48,12 @@ FRAGMENT_TEXT = [
 PAGE_TEXT = [*FRAGMENT_TEXT[:4], "tekst", *FRAGMENT_TEXT[5:]]
 
 
-@pytest.mark.parametrize(
-    "read",
-    [eerstekamer_votes.text, eerstekamer_composition.text, rijksoverheid._text],
-)
-def test_html_fragment_text(read: Callable[[str], str]) -> None:
-    assert [read(fragment) for fragment in HTML] == FRAGMENT_TEXT
+def test_html_fragment_text() -> None:
+    assert [html_text(fragment) for fragment in HTML] == FRAGMENT_TEXT
 
 
 def test_html_page_text_leaves_out_script_style_and_comments() -> None:
-    assert [ek_changes.plain(fragment) for fragment in HTML] == PAGE_TEXT
+    assert [html_text(fragment, page=True) for fragment in HTML] == PAGE_TEXT
 
 
 def test_strip_xml_keeps_entities() -> None:
