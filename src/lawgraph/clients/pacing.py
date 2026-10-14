@@ -246,10 +246,9 @@ def _take_lock(host: str) -> bool:
     """Take the lock file of *host*, or keep it; ``False`` when another process holds it."""
     if host in _host_locks:
         return True
-    path = _lock_dir() / f"lawgraph-pacer-{host or 'unknown'}.lock"
     try:
-        handle = path.open("w")
-    except OSError as exc:  # no lock directory: pace as usual
+        handle = (_lock_dir() / f"lawgraph-pacer-{host or 'unknown'}.lock").open("w")
+    except OSError as exc:  # no (writable) lock directory: pace as usual
         logger.debug("No pacer lock for %s: %s", host, exc)
         _host_locks[host] = None
         return True
