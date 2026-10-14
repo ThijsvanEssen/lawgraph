@@ -1014,8 +1014,11 @@ and `check`, see [operations](operations.md#other-commands)) is made from the st
 (`core/code_families.families_from_wti`). A code is an abbreviation that two or more regulations
 list, each of which also lists a book of it (`BW` with `BW Boek 6`): the book is the number of
 that abbreviation (`7A` too), the code keeps the spelling most regulations give it. So the
-families follow the WTI; nothing is kept by hand. A book whose WTI record is not stored is not in
-its family.
+families follow the WTI. Only `names`, the names a code goes by besides its abbreviation
+(`Burgerlijk Wetboek`), which no WTI lists, is kept by hand; a build keeps it. A book whose WTI
+record is not stored is not in its family. `core/code_families` answers every question about a
+code: whether a name is one, in any case (`is_code_family`), and the number an article of a book
+is cited by (`cited_number`: `6:162`) or stored by (`native_number`: `162`).
 
 **Normalize `bwb-history`.** Reads every stored toestand once (`bwb_xml.read_toestand`: the
 text, references and parts of an article are read only for a version it has not met, so a

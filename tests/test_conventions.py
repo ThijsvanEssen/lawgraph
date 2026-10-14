@@ -13,6 +13,11 @@
    answers ``query``/``execute`` and no unit test reads query text. What a query itself
    does is tested against the test database in ``tests/integration/``.
 6. An ECLI is read in ``core/ecli.py`` only: its patterns, its parts and its key.
+7. The package data (``src/lawgraph/data``) is found through ``config.constants.DATA_DIR``,
+   and a curated list is read through ``core.curated.LISTS``.
+8. The website of the Eerste Kamer is addressed through ``core.official_urls.ek_url`` and
+   ``ek_path``; the EK modules name the chamber with ``CHAMBER_EK``.
+9. Whether a name is a code with books (``BW``) is asked of ``core.code_families``.
 """
 
 from __future__ import annotations
@@ -541,3 +546,67 @@ def test_an_ecli_is_only_read_in_core_ecli(path: pathlib.Path) -> None:
     assert not found, (
         f"{path.relative_to(SRC)} reads an ECLI itself ({found}); use core/ecli.py."
     )
+
+
+def test_package_data_is_found_through_data_dir() -> None:
+    offenders = [
+        f"{path.relative_to(SRC)}:{number}"
+        for path in _python_files()
+        if path != SRC / "config" / "constants.py"
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if re.search(r'/\s*"data"', line)
+    ]
+    assert not offenders, f"build the path from DATA_DIR: {offenders}"
+
+
+def test_curated_files_are_read_through_their_list() -> None:
+    """A curated file has one reader: its ``CuratedList`` in ``core.curated.LISTS``."""
+    curated = SRC / "data" / "curated"
+    names = [p.name for p in curated.glob("*.json")]
+    offenders = [
+        f"{path.relative_to(SRC)}:{number}"
+        for path in _python_files()
+        if path != SRC / "core" / "curated.py"
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if '"curated"' in line and any(f'"{name}"' in line for name in names)
+    ]
+    assert names
+    assert not offenders
+
+
+def test_the_eerste_kamer_site_is_addressed_in_one_place() -> None:
+    homes = {SRC / "config" / "settings.py", SRC / "core" / "official_urls.py"}
+    offenders = [
+        str(path.relative_to(SRC))
+        for path in _python_files()
+        if path not in homes and re.search(r"\bEERSTEKAMER_SITE\b", path.read_text())
+    ]
+    assert not offenders, f"use ek_url / ek_path: {offenders}"
+
+
+def test_the_ek_modules_name_their_chamber_by_constant() -> None:
+    modules = [
+        *(SRC / "pipelines" / "normalize").glob("eerstekamer*.py"),
+        SRC / "pipelines" / "semantic" / "eerstekamer.py",
+    ]
+    offenders = [
+        f"{path.relative_to(SRC)}: {literal}"
+        for path in modules
+        for literal in ('"EK"', '"EersteKamer"')
+        if literal in path.read_text()
+    ]
+    assert modules
+    assert not offenders, "use CHAMBER_EK / LABEL_EERSTE_KAMER"
+
+
+def test_a_code_family_is_asked_of_code_families() -> None:
+    """``CODE_FAMILIES`` is keyed in the spelling the WTI gives; a lookup by an upper-cased
+    name misses a family such as ``WvK``. ``is_code_family`` ignores case."""
+    offenders = [
+        f"{path.relative_to(SRC)}:{number}"
+        for path in _python_files()
+        if path != SRC / "core" / "code_families.py"
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if re.search(r"\bin CODE_FAMILIES(?![.\w])|CODE_FAMILIES\.get\(", line)
+    ]
+    assert not offenders

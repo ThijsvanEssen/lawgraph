@@ -20,19 +20,15 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_BILL,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_bills
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
-
-
-def _absolute(url: str) -> str:
-    return url if "://" in url else EERSTEKAMER_SITE.rstrip("/") + url
 
 
 def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
@@ -46,8 +42,7 @@ def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any
             {
                 **{k: v for k, v in asdict(step).items() if k != "papers"},
                 "papers": [
-                    {**asdict(paper), "url": _absolute(paper.url)}
-                    for paper in step.papers
+                    {**asdict(paper), "url": ek_url(paper.url)} for paper in step.papers
                 ],
             }
             for step in bill.progress

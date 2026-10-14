@@ -39,7 +39,6 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_votes
 from lawgraph.core.eerstekamer_votes import (
     LABEL_AGAINST,
@@ -51,6 +50,7 @@ from lawgraph.core.eerstekamer_votes import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
@@ -77,10 +77,6 @@ CHOICES = {
 _DECISION_CHUNK = 500
 
 
-def _url(path: str | None) -> str | None:
-    return EERSTEKAMER_SITE.rstrip("/") + path if path else None
-
-
 def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
     """The decision of a vote: on a bill the *position*-th on it that day (from 1), on a
     motion the one on its letter."""
@@ -90,7 +86,7 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
         motion: dict[str, Any] = {
             "kind": KIND_MOTION,
             "letter": vote.letter,
-            "motion_url": _url(vote.motion_path),
+            "motion_url": ek_url(vote.motion_path),
         }
     else:
         key = make_node_key("ek", vote.date, vote.label, str(position))
@@ -113,8 +109,8 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
             "factions_for": vote.factions.get(LABEL_FOR) or [],
             "factions_against": vote.factions.get(LABEL_AGAINST) or [],
             "factions_noted": vote.factions.get(LABEL_NOTED) or [],
-            "bill_url": _url(vote.bill_path),
-            "source_url": _url(vote.report_path),
+            "bill_url": ek_url(vote.bill_path),
+            "source_url": ek_url(vote.report_path),
             "retrieved_on": retrieved_on,
         },
     )

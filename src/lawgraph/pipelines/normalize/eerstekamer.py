@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
     RAW_KIND_EK_KAMERSTUK,
     SOURCE_EERSTEKAMER,
@@ -202,7 +203,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             collection=COLLECTION_DOCUMENTS,
             type=NodeType.DOCUMENT,
             key=make_node_key("ek", identifier),
-            labels=["EersteKamer", CHAMBER_EK],
+            labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
             props=props,
         )
 

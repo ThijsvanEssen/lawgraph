@@ -31,10 +31,10 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -102,7 +102,7 @@ def committee_activities(page: str, meta: dict[str, Any]) -> list[Node]:
                 ),
                 "decision_points": [asdict(point) for point in meeting.points],
             },
-            {**meta, "url": EERSTEKAMER_SITE.rstrip("/") + meeting.path},
+            {**meta, "url": ek_url(meeting.path)},
         )
         for meeting in agenda.committee_day(page).meetings
     ]

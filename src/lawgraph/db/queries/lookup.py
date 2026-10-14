@@ -22,10 +22,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key
-from lawgraph.core.notation import native_article_number
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import _committee
 
@@ -138,9 +138,7 @@ def find_article(store: GraphStore, law: str, number: str) -> str | None:
     column = "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
     if column is None:
         return None
-    native = (
-        native_article_number(law, number.strip()) if column == "bwb_id" else number
-    )
+    native = native_number(law, number.strip()) if column == "bwb_id" else number
     return _one(
         store,
         f"""

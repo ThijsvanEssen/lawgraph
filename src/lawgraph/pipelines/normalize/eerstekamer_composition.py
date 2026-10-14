@@ -35,10 +35,10 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
@@ -52,10 +52,6 @@ EDGE_SOURCE = "eerstekamer-composition"
 
 def _slug(path: str) -> str:
     return path.rstrip("/").rsplit("/", 1)[-1]
-
-
-def _url(path: str) -> str:
-    return EERSTEKAMER_SITE.rstrip("/") + path
 
 
 def _surname_ends(name: str, family_name: str | None) -> bool:
@@ -189,7 +185,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             ek = {
                 "name": person.name,
                 "path": person.path,
-                "url": _url(person.path),
+                "url": ek_url(person.path),
                 "faction": faction,
                 "abbreviation": listed.abbreviation,
                 "seniority_days": person.seniority_days,
@@ -275,7 +271,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                             }
                             for seat in page.board
                         ],
-                        "url": _url(listed.path),
+                        "url": ek_url(listed.path),
                     },
                 )
             )
@@ -311,7 +307,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                         "abbreviation": listed.abbreviation,
                         "slug": "ek-" + slug.replace("_", "-"),
                         "title": page.title,
-                        "url": _url(listed.path),
+                        "url": ek_url(listed.path),
                     },
                 )
             )
