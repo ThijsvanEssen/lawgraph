@@ -579,9 +579,12 @@ KIND_BODY = "body"
 KIND_SIGNATURE = "signature"
 KIND_TOC = "toc"  # a line of a table of contents: no consideration, no heading
 
-# "5.3 text", "12. text": digits, a dot or a dotted number, then a space. A number alone
-# ("1 februari 2013") is not one: a date opens a sentence too.
-_LEADING_NUMBER = re.compile(r"^(\d{1,3}(?:\.\d{1,2})+\.?|\d{1,3}\.)\s+(?=\S)")
+# "5.3 text", "12. text", "4.100. text": digits, a dot or a dotted number, then a space. A
+# number alone ("1 februari 2013") is not one: a date opens a sentence too; nor is an amount
+# ("1.500 euro"): a part of three digits needs the closing dot.
+_LEADING_NUMBER = re.compile(
+    r"^(\d{1,3}(?:\.\d{1,2})+\.?|\d{1,3}(?:\.\d{1,3})+\.|\d{1,3}\.)\s+(?=\S)"
+)
 _NOT_TEXT = {"title", "footnote", "nr"}
 _BLOCKS = {"para", "parablock", "paragroup", "list", "li", "table", "al"}
 # The elements that print a line of their own: paragraphs, bridgeheads (a bold line), the
@@ -657,6 +660,24 @@ def _split_number(text: str) -> tuple[str | None, str]:
     if not match:
         return None, text
     return match[1].rstrip("."), text[match.end() :]
+
+
+_DOTTED_NUMBER = re.compile(r"\d+(?:\.\d+)*")
+
+
+def _number_parts(number: str) -> tuple[int, ...]:
+    """``(4, 100)`` for ``"4.100"``: the parts of a printed number, as numbers."""
+    return tuple(int(part) for part in number.rstrip(".").split("."))
+
+
+def _follows(number: str | None, previous: str) -> bool:
+    """Is *number* a later consideration of the level of *previous*: ``4.100`` after
+    ``4.99`` (part by part, as numbers), not ``5.1`` nor ``4.99.1`` nor ``1``?"""
+    if not number or not _DOTTED_NUMBER.fullmatch(previous.rstrip(".")):
+        return False
+    *head, last = _number_parts(number)
+    *previous_head, previous_last = _number_parts(previous)
+    return head == previous_head and last > previous_last
 
 
 def _line_elements(element: ET.Element) -> Iterator[ET.Element]:
@@ -998,6 +1019,12 @@ class _Sections:
                 self.flush(number, own, depth)
                 (self.paragroup if name == "paragroup" else self.section)(child, depth)
             elif name not in _NOT_TEXT and id(child) not in self._kop:
+                # a court that writes its next considerations inside the unit (4.100 in
+                # the unit of 4.99): each ends the one before
+                printed, _ = _split_number(_unit_text(child, self._kop))
+                if printed and _follows(printed, number):
+                    self.flush(number, own, depth)
+                    number = printed
                 own.append(child)
         self.flush(number, own, depth)
 
@@ -1008,6 +1035,10 @@ class _Sections:
             (child, text) for child in own if (text := _unit_text(child, self._kop))
         ]
         own.clear()
+        if texts:  # the number a unit's text opens with, when it is the unit's own
+            printed, rest = _split_number(texts[0][1])
+            if printed == number.rstrip("."):
+                texts[0] = (texts[0][0], rest)
         heading = None
         if len(texts) > 1 and _is_heading_line(texts[-1][0]):
             heading = texts.pop()

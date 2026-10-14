@@ -14283,6 +14283,49 @@
 }
 ]
 },
+"rechtspraak_rbdha_2026_29643.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": "MSD",
+"name": "MERCK SHARP & DOHME B.V.",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. G. Kuipers",
+"place": null,
+"role": "advocaat"
+}
+],
+"role": "Eiser",
+"role_stated": true,
+"roles": [
+"Eiser",
+"Verweerder"
+],
+"side": "first"
+},
+{
+"alias": "Halozyme",
+"name": "HALOZYME INC",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. M.G.R. van Gardingen",
+"place": null,
+"role": "advocaat"
+}
+],
+"role": "Gedaagde",
+"role_stated": true,
+"roles": [
+"Gedaagde",
+"Eiser"
+],
+"side": "second"
+}
+]
+},
 "rechtspraak_rbmne_2026_3708.xml": {
 "advocate_general": null,
 "parties": [
