@@ -31,6 +31,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dutch_names import PARTICLES, TITLES
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.text_fold import ACCENTS
@@ -888,9 +889,7 @@ PERSON_MIN = 3
 # wethouders") is in far more, and the first found stand for them.
 PERSON_CANDIDATES = 2_000
 # The words of a name a query may leave out: a title, an article or a particle.
-_NAME_EXTRAS = frozenset(
-    "mr dr drs prof ir ing de het der den van ten ter te op in uit la le du da".split()
-)
+_NAME_EXTRAS = frozenset(TITLES) | PARTICLES
 _PERSON_HIT = """
     json_build_object(
         'id', doc.id, 'key', doc.key,
