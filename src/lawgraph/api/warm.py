@@ -67,9 +67,9 @@ def warmed_version() -> str | None:
     return _warmed
 
 
-def is_warm(store: GraphStore) -> bool:
-    """Whether the warm-up is done for the data as it is now."""
-    return _warmed is not None and _warmed == store.data_version()
+def is_warm(data_version: str) -> bool:
+    """Whether the warm-up is done for the data as it is now (*data_version*)."""
+    return _warmed == data_version
 
 
 # The lists of decisions the explorer opens: of both Kamers and of the Tweede Kamer.

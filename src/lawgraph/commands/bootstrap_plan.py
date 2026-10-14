@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lawgraph import __version__
 from lawgraph.commands.check import main as check_main
 from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.core.models import PipelineResult
@@ -191,13 +192,9 @@ class Code:
 
 
 def current_code() -> Code:
-    from lawgraph.api.app import (
-        app,
-    )  # the version a release sets, without a second copy
-
     root = Path(__file__).resolve().parents[3]  # the checkout of an editable install
     return Code(
-        app.version,
+        __version__,
         _git(root, "describe", "--tags", "--always", "--dirty"),
         _git(root, "rev-parse", "HEAD"),
     )

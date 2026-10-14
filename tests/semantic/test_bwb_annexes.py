@@ -12,14 +12,11 @@ from lawgraph.pipelines.semantic._annex_detect import (
     detect_annex_references,
 )
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
-
-
-class _DummyStore:
-    pass
+from tests.fakes import InMemoryStore
 
 
 def _pipeline() -> BWBAnnexesSemanticPipeline:
-    return BWBAnnexesSemanticPipeline(store=_DummyStore())
+    return BWBAnnexesSemanticPipeline(store=InMemoryStore())
 
 
 # ── text detection ───────────────────────────────────────────────────────────

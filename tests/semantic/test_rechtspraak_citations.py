@@ -16,7 +16,7 @@ from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
-from tests.fakes import RawSourcesFake
+from tests.fakes import InMemoryStore
 
 # ---------------------------------------------------------------------------
 # Pure detection helper
@@ -50,64 +50,23 @@ def test_detect_ecli_references_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore(RawSourcesFake):
+class _Store(InMemoryStore):
+    """The judgments of the graph, and the stored judgments with their XML as
+    ``with_payloads`` passes them on."""
+
     def __init__(
         self,
         *,
         judgment_docs: list[dict[str, Any]],
-        nodes: dict[tuple[str, str], Node] | None = None,
+        judgments: list[Node] | None = None,
     ) -> None:
-        self._judgment_docs = judgment_docs
-        self._nodes = nodes or {}
-        self.edges: dict[str, dict[str, Any]] = {}
-
-    def payload_rows(self) -> list[dict[str, Any]]:
-        """The stored judgments with their XML, as ``with_payloads`` passes them on."""
-        return [
-            {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
-            for d in self._judgment_docs
-        ]
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return self._nodes.get((collection, key))
-
-    def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        k = doc["_key"]
-        created = k not in self.edges
-        self.edges[k] = dict(doc)
-        return self.edges[k], created
-
-    def bulk_insert_or_update_edges(
-        self, docs: list[dict[str, Any]]
-    ) -> tuple[int, int]:
-        created = 0
-        updated = 0
-        for doc in docs:
-            k = doc["_key"]
-            was_created = k not in self.edges
-            self.edges[k] = dict(doc)
-            if was_created:
-                created += 1
-            else:
-                updated += 1
-        return created, updated
-
-    def ensure_stub_node(
-        self,
-        collection: str,
-        key: str,
-        node_type: NodeType,
-        props: dict[str, Any],
-    ) -> Node:
-        node = Node(
-            collection=collection,
-            type=node_type,
-            key=key,
-            props=props,
-            _skip_validation=True,
+        super().__init__(
+            {"judgments": [node.to_document() for node in judgments or []]}
         )
-        self._nodes[(collection, key)] = node
-        return node
+        self.payload_rows = [
+            {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
+            for d in judgment_docs
+        ]
 
 
 @pytest.fixture()
@@ -117,10 +76,10 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     since: list[str | None] = []
 
     def judgment_payload_refs(
-        store: _FakeStore, *, since_iso: str | None, batch_size: int
+        store: _Store, *, since_iso: str | None, batch_size: int
     ) -> Iterator[dict[str, Any]]:
         since.append(since_iso)
-        return iter(store.payload_rows())
+        return iter(store.payload_rows)
 
     monkeypatch.setattr(raw_queries, "count_judgment_records", lambda store: None)
     monkeypatch.setattr(raw_queries, "judgment_payload_refs", judgment_payload_refs)
@@ -173,10 +132,7 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
         props={"ecli": target_ecli},
         _skip_validation=True,
     )
-    store = _FakeStore(
-        judgment_docs=[source_doc],
-        nodes={("judgments", target_key): target_node},
-    )
+    store = _Store(judgment_docs=[source_doc], judgments=[target_node])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
 
@@ -193,7 +149,7 @@ def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:
     doc = _make_judgment(
         make_node_key(ecli), ecli, f"Dit arrest ({ecli}) overweegt dat..."
     )
-    store = _FakeStore(judgment_docs=[doc])
+    store = _Store(judgment_docs=[doc])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
@@ -205,7 +161,7 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     """The judgments read before have their edges; a cited judgment has the key of its stub."""
     import datetime as dt
 
-    pipeline = RechtspraakCitationsSemanticPipeline(store=_FakeStore(judgment_docs=[]))
+    pipeline = RechtspraakCitationsSemanticPipeline(store=_Store(judgment_docs=[]))
     pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
     assert reads == ["2025-01-01T00:00:00Z"]
 
@@ -260,7 +216,7 @@ def test_a_citation_in_a_footnote_says_where_it_stands(reads: list[str | None]) 
     )
     doc = _make_judgment(make_node_key(source_ecli), source_ecli, "")
     doc["props"]["raw_xml"] = xml
-    store = _FakeStore(judgment_docs=[doc])
+    store = _Store(judgment_docs=[doc])
     RechtspraakCitationsSemanticPipeline(store=store).run()
 
     (edge,) = store.edges.values()
