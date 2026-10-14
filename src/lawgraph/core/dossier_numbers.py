@@ -61,6 +61,18 @@ def parse_dossier_query(text: str | None) -> tuple[str, str | None] | None:
     return match.group(1), suffix.upper() if suffix else None
 
 
+# ``36600-VIII``, ``23908-(R1519)``: a number and its suffix as the data and the addresses join
+# them. A digit after the hyphen (``21501-20``) is part of the number, and is cited so.
+_JOINED_SUFFIX = re.compile(r"^(\d+)-([A-Z]+|\([A-Z0-9]+\))$", re.IGNORECASE)
+
+
+def official_number(label: str) -> str:
+    """A dossier number as a citation writes it, its suffix after a space: ``36600 VIII``,
+    ``23908 (R1519)``; ``21501-20`` stays. For the text a reader sees, never for an address
+    or a key."""
+    return _JOINED_SUFFIX.sub(r"\1 \2", label)
+
+
 # "Kamerstukken 35 418", "Kamerstukken II 2019/20, 35 419, nr. 9": the dossier a paper cites.
 _CITED_DOSSIER = re.compile(
     r"\bKamerstukken(?:\s+I{1,2})?(?:\s+\d{4}/\d{2,4})?,?\s+(\d{2})\s?(\d{3})\b"

@@ -129,3 +129,38 @@ def test_an_annex_is_titled_by_the_law_its_page_reads() -> None:
     law = {"bwb_id": "BWBR0002741", "short_title": "Bds 1970", "citation_title": "x"}
     title, _ = title_of("annexes/bwbr0002741_annex_ii", props, law)
     assert title == annex_title(props, law) == "Bijlage II Bds 1970"
+
+
+def test_a_book_of_a_code_is_named_as_it_is_cited() -> None:
+    """``Boek 6 BW``, not the citation title with its short title after it; another law
+    keeps its name."""
+    from lawgraph.api.seo.pages import law_name, title_of
+
+    book = {
+        "bwb_id": "BWBR0005289",
+        "citation_title": "Burgerlijk Wetboek Boek 6",
+        "short_title": "BW6",
+    }
+    assert law_name(book) == "Boek 6 BW"
+    assert title_of("instruments/bwbr0005289", book)[0] == "Boek 6 BW"
+    law = {"bwb_id": "BWBR0002741", "citation_title": "Opiumwet", "short_title": "Ow"}
+    assert law_name(law) == "Opiumwet (Ow)"
+
+
+def test_a_dossier_number_reads_in_its_official_notation() -> None:
+    """``36600 VIII``: the suffix after a space, in the text a reader sees; the address
+    keeps the label (``/dossiers/36600-VIII``). ``21501-20`` is a number of its own."""
+    from lawgraph.api.seo.pages import dossier_page, dossier_title, title_of
+    from lawgraph.core.dossier_numbers import official_number
+
+    assert official_number("36600-VIII") == "36600 VIII"
+    assert official_number("23908-(R1519)") == "23908 (R1519)"
+    assert official_number("21501-20") == "21501-20"
+    assert official_number("36496") == "36496"
+    props = {"label": "36600-VIII", "title": "Vaststelling begroting OCW 2026"}
+    assert dossier_title(props, "36600_viii").startswith("36600 VIII ")
+    assert title_of("dossiers/36600_viii", props)[0].startswith("36600 VIII ")
+    page = dossier_page({"id": "dossiers/36600_viii", "key": "36600_viii",
+                         "props": props, "papers": []})  # fmt: skip
+    assert page.path == "/dossiers/36600-VIII"
+    assert "36600-VIII" not in page.title + page.body
