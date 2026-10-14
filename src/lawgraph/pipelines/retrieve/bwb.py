@@ -19,13 +19,13 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
+    DOWNLOAD_FAILURES,
+    FETCH_WORKERS,
+    FailureStreak,
     RetrievePipelineBase,
     RetrieveRecord,
     failure_reason,
-    fetched_side_by_side,
-    is_not_found,
     missing_record,
-    status_of,
 )
 
 logger = get_logger(__name__)
@@ -65,7 +65,6 @@ class _Download:
 
     records: list[RetrieveRecord] = field(default_factory=list)
     skip: str | None = None
-    fail: str | None = None
     problem: str | None = None
 
 
@@ -141,32 +140,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                 if bwb_id not in wti_fresh:
                     self._add_wti_general_info(meta, got)
                 return got
-            if meta is None:
-                try:
-                    meta = self.client.latest_toestand(bwb_id)
-                except Exception as exc:  # noqa: BLE001 — a failed download is counted per law
-                    reason = f"toestand metadata not fetched ({failure_reason(exc)})"
-                    return _Download(fail=reason)
+            meta = meta or self.client.latest_toestand(bwb_id)
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
-            try:
-                xml_text = self.client.fetch_toestand_xml(meta)
-            except Exception as exc:
-                if not is_not_found(exc):
-                    raise
-                # Listed by the SRU, so asked for again in a few days.
-                return _Download(
-                    records=[
-                        missing_record(
-                            SOURCE_BWB,
-                            RAW_KIND_BWB_TOESTAND,
-                            bwb_id,
-                            listed=True,
-                            status=status_of(exc) or 404,
-                        )
-                    ],
-                    skip=f"no toestand file at the source ({failure_reason(exc)})",
-                )
+            xml_text = self.client.fetch_toestand_xml(meta)
             got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
@@ -186,20 +163,26 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             )
             return got
 
-        # Side by side: a regulation is up to three requests, each slower than the pace the
-        # hosts ask for (3.9 regulations a second in the rebuild, at 0.1 s a request).
-        for bwb_id, got in fetched_side_by_side(bwb_ids, download):
-            if isinstance(got, Exception):
-                self.progress.fail(f"download failed ({failure_reason(got)})", bwb_id)
-                continue
+        def records(bwb_id: str, got: _Download) -> list[RetrieveRecord]:
             if got.problem:
                 self.progress.problem(got.problem, bwb_id)
-            if got.fail:
-                self.progress.fail(got.fail, bwb_id)
-                continue
-            yield from got.records
             if got.skip:
                 self.progress.skip(got.skip, bwb_id)
+            return got.records
+
+        # Side by side: a regulation is up to three requests, each slower than the pace the
+        # hosts ask for (3.9 regulations a second in the rebuild, at 0.1 s a request).
+        # Listed by the SRU, a toestand without a file is asked for again in a few days.
+        yield from self._download_each(
+            bwb_ids,
+            download,
+            records,
+            source="BWB",
+            missing=lambda bwb_id, status: missing_record(
+                SOURCE_BWB, RAW_KIND_BWB_TOESTAND, bwb_id, listed=True, status=status
+            ),
+            workers=FETCH_WORKERS,
+        )
 
     def _stored_toestanden(self) -> dict[str, dict[str, Any]]:
         """``{bwb_id: {url, end_date, at}}`` of the stored current toestanden."""
@@ -215,7 +198,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         bwb_id = meta["bwb_id"]
         try:
             general_info = self.client.fetch_wti_general_info(meta)
-        except Exception as exc:  # noqa: BLE001 — the toestand is kept without its WTI
+        except DOWNLOAD_FAILURES as exc:  # the toestand is kept without its WTI
             got.problem = f"WTI general information not fetched ({failure_reason(exc)})"
             return
         if general_info is None:
@@ -277,13 +260,18 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             for bwb_id in bwb_ids:
                 yield bwb_id, listed.get(bwb_id, [])
             return
+        streak = FailureStreak("BWB SRU")
         for bwb_id in bwb_ids:
             try:
-                yield bwb_id, self.client.search_toestanden(bwb_id)
-            except Exception as exc:  # noqa: BLE001 — a failed list is counted per law
+                toestanden = self.client.search_toestanden(bwb_id)
+            except DOWNLOAD_FAILURES as exc:
                 self.progress.fail(
                     f"toestanden list not fetched ({failure_reason(exc)})", bwb_id
                 )
+                streak.failed(bwb_id, exc)
+                continue
+            streak.ok()
+            yield bwb_id, toestanden
 
     def _fetch_history(
         self, bwb_ids: Sequence[str], stored: set[str]
@@ -310,36 +298,37 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         def download(external_id: str) -> str:
             return self.client.fetch_toestand_xml(todo[external_id])
 
-        for external_id, xml_text in fetched_side_by_side(wanted, download):
+        def records(external_id: str, xml_text: str) -> list[RetrieveRecord]:
             meta = todo[external_id]
-            if isinstance(xml_text, Exception):
-                exc = xml_text
-                if is_not_found(exc):
-                    self.progress.skip("no toestand file at the source", external_id)
-                    yield missing_record(
-                        SOURCE_BWB,
-                        RAW_KIND_BWB_TOESTAND_ALL,
-                        external_id,
-                        listed=True,
-                        status=status_of(exc) or 404,
-                    )
-                else:
-                    self.progress.fail(
-                        f"download failed ({failure_reason(exc)})", external_id
-                    )
-                continue
-            yield RetrieveRecord(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND_ALL,
-                external_id=external_id,
-                payload_text=xml_text,
-                meta={
-                    "bwb_id": meta["bwb_id"],
-                    "state_url": meta["locatie_toestand"],
-                    "start_date": meta["geldigheidsperiode_startdatum"],
-                    "end_date": meta.get("geldigheidsperiode_einddatum"),
-                },
-            )
+            return [
+                RetrieveRecord(
+                    source=SOURCE_BWB,
+                    kind=RAW_KIND_BWB_TOESTAND_ALL,
+                    external_id=external_id,
+                    payload_text=xml_text,
+                    meta={
+                        "bwb_id": meta["bwb_id"],
+                        "state_url": meta["locatie_toestand"],
+                        "start_date": meta["geldigheidsperiode_startdatum"],
+                        "end_date": meta.get("geldigheidsperiode_einddatum"),
+                    },
+                )
+            ]
+
+        yield from self._download_each(
+            wanted,
+            download,
+            records,
+            source="BWB",
+            missing=lambda external_id, status: missing_record(
+                SOURCE_BWB,
+                RAW_KIND_BWB_TOESTAND_ALL,
+                external_id,
+                listed=True,
+                status=status,
+            ),
+            workers=FETCH_WORKERS,
+        )
 
     def run_full(self) -> PipelineResult:
         """Full-load mode: enumerate ALL BWB laws via SRU wildcard, then fetch each.
