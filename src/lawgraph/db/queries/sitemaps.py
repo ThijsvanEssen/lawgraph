@@ -56,14 +56,20 @@ _IN_FORCE = f"""
 
 
 def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
-    """Every law with a BWB id that is no stub, with the day its version in force began."""
+    """Every law with a BWB id that is no stub, with the day its version in force began;
+    and every EU act with an article (whose text was read: ``api/seo/pages.law_page``),
+    without a day (none is kept)."""
     yield from store.query(
         f"""
-        SELECT i.id, json_build_object('bwb_id', i.bwb_id) AS props,
+        SELECT i.id, json_build_object('bwb_id', i.bwb_id, 'celex', i.celex) AS props,
                v.valid_from AS lastmod
         FROM {COLLECTION_INSTRUMENTS} i
         LEFT JOIN ({_IN_FORCE}) v ON v.bwb_id = i.bwb_id
-        WHERE i.bwb_id IS NOT NULL AND i.stub IS NOT TRUE
+        WHERE i.stub IS NOT TRUE
+          AND (i.bwb_id IS NOT NULL
+               OR (i.celex IS NOT NULL AND EXISTS (
+                   SELECT 1 FROM {COLLECTION_ARTICLES} a
+                   WHERE a.celex = i.celex AND a.stub IS NOT TRUE)))
         ORDER BY i.id
         """
     )

@@ -34,6 +34,9 @@ def _seed(store: GraphStore) -> None:
             _node("bwbr0001854", "instrument", bwb_id="BWBR0001854", kind="wet"),
             _node("bwbr0099999", "instrument", bwb_id="BWBR0099999", stub=True),
             _node("stb_2026_94", "instrument", official_id="stb-2026-94"),
+            # an EU act with its articles, and one whose text was not read
+            _node("32022l2555", "instrument", celex="32022L2555"),
+            _node("32019r0881", "instrument", celex="32019R0881"),
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -56,6 +59,8 @@ def _seed(store: GraphStore) -> None:
                   article_number="164", position=164, repealed=True),
             _node("bwbr0001854_1", "article", bwb_id="BWBR0001854",
                   article_number="1", position=1, inbound_citation_count=10),
+            _node("32022l2555_21", "article", celex="32022L2555", article_number="21",
+                  position=21),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -127,8 +132,9 @@ def _paths(kinds: dict[str, Any], kind: str) -> list[tuple[str, str | None]]:
 def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
     _seed(store)
     kinds = command.kinds(store)
-    # no stub, no publication; the day of the version in force
+    # no stub, no publication; the day of the version in force; an EU act with articles
     assert _paths(kinds, "wetten") == [
+        ("/wetten/32022L2555", None),
         ("/wetten/BWBR0001854", None),
         ("/wetten/BWBR0005289", "2025-07-01"),
     ]
@@ -377,7 +383,7 @@ def test_the_command_writes_the_index_and_its_parts(
         result = command.main(["--out", str(out), "--base", "https://concordans.nl/"])
     finally:
         shell.forget()
-    assert result.updated == 11
+    assert result.updated == 12
     listed = (out / "sitemap.xml").read_text()
     assert "<loc>https://concordans.nl/sitemap-moties.xml</loc>" in listed
     assert "<lastmod>2026-09-15</lastmod>" in listed

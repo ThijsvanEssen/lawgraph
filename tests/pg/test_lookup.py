@@ -73,6 +73,7 @@ def client(store: GraphStore) -> Iterator[TestClient]:
         "instruments",
         [
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289"),
+            _node("32016r0679", "instrument", celex="32016R0679"),
             _node(
                 "stb_2016_288",
                 "instrument",
@@ -230,6 +231,9 @@ def test_the_answer_carries_what_the_url_is_built_back_from(client: TestClient) 
     ).json()
     assert annex["props"] == {"bwb_id": "BWBR0002741", "label": "II"}
     assert annex["path"] == "/wetten/BWBR0002741/bijlage/II"
+    # an EU act by its CELEX number, at /wetten as a law of the BWB
+    act = client.get("/api/lookup", params={"kind": "law", "id": "32016r0679"}).json()
+    assert (act["id"], act["path"]) == ("instruments/32016r0679", "/wetten/32016R0679")
     case = client.get(
         "/api/lookup", params={"kind": "case", "number": "2025Z15468"}
     ).json()

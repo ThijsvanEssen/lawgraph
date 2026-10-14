@@ -37,13 +37,13 @@ CELEX_LETTER_TO_KIND: dict[str, str] = {
 # Letters accepted when *matching* CELEX ids in text.  Deliberately lenient:
 # ``C`` is not a sector-3 legislation type, but earlier code generated it for
 # decisions and it may still occur in stored data, so it is still recognised.
-_CELEX_MATCH_LETTERS = "CLRDF"
+CELEX_MATCH_LETTERS = "CLRDF"
 
 # A CELEX id embedded in free text: sector 3, year, type letter, 4-digit number.
 CELEX_PATTERN = re.compile(
-    rf"\b3\d{{4}}[{_CELEX_MATCH_LETTERS}]\d{{4}}\b", re.IGNORECASE
+    rf"\b3\d{{4}}[{CELEX_MATCH_LETTERS}]\d{{4}}\b", re.IGNORECASE
 )
-_CELEX_FULL = re.compile(rf"^3(\d{{4}})([{_CELEX_MATCH_LETTERS}])(\d+)$", re.ASCII)
+_CELEX_FULL = re.compile(rf"^3(\d{{4}})([{CELEX_MATCH_LETTERS}])(\d+)$", re.ASCII)
 
 
 @dataclass(frozen=True)
