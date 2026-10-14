@@ -21,6 +21,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import member_authored
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -91,9 +92,8 @@ def get_cabinets(store: GraphStore) -> list[dict[str, Any]]:
 # The dossiers a member ``m`` signed as a bewindspersoon within the period of the cabinet
 # ``c`` (from its ``period_start``, or from any day when it has none, to its ``period_end``:
 # its end or today; computed once per cabinet, as reading them from ``props`` parses the
-# whole json again on every comparison), directly or through a case (``lg_dossiers_of``),
-# each once; and how many of them are government bills. Each paper on its own day
-# (``lg_signed_date``).
+# whole json again on every comparison), directly or through a case, each once; and how
+# many of them are government bills. Each paper on its own day.
 _SIGNED = f"""
 SELECT count(*)::int AS dossiers,
        (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s)
@@ -103,13 +103,13 @@ FROM (
     FROM (
         -- each date read once: OFFSET 0 keeps the subquery from being inlined into every
         -- comparison of the date below, where it would be read again per comparison
-        SELECT a.to_id, lg_signed_date(a.to_id) AS date
+        SELECT a.to_id, {signed_date_sql("a.to_id")} AS date
         FROM edges a
         WHERE a.from_id = m.id AND a.relation = %(authored)s
           AND lg_str(a.doc -> 'meta' -> 'capacity') = %(government)s
         OFFSET 0
     ) a
-    CROSS JOIN LATERAL unnest(lg_dossiers_of(a.to_id)) AS x(dossier_id)
+    CROSS JOIN LATERAL ({dossiers_of_sql("a.to_id")}) AS x(dossier_id)
     WHERE a.date IS NOT NULL
       AND (c.period_start IS NULL OR a.date >= c.period_start)
       AND a.date <= c.period_end
@@ -127,7 +127,7 @@ SELECT count(*)::int AS dossiers,
 FROM (
     SELECT DISTINCT x.dossier_id
     FROM (
-        SELECT a.dossiers, lg_signed_date(a.document_id) AS date
+        SELECT a.dossiers, {signed_date_sql("a.document_id")} AS date
         FROM lg_authored a
         WHERE a.member_id = m.id
           AND lg_str(a.meta -> 'capacity') = %(government)s

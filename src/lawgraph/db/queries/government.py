@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db.counting import Store
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 
 # The role of the one who signs a document first.
 ROLE_FIRST_SIGNATORY = "Eerste ondertekenaar"
@@ -105,8 +106,7 @@ def commitment_makers(
 
 
 # The first signature of the earliest document of a dossier (directly or through a case)
-# that a Kamerlid or a bewindspersoon signed first, each paper on its own day
-# (``lg_signed_date``).
+# that a Kamerlid or a bewindspersoon signed first, each paper on its own day.
 _FIRST_SIGNATURES_SQL = f"""
 WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
@@ -126,7 +126,7 @@ signatures AS (
     FROM papers
     JOIN edges a ON a.to_id = papers.paper_id AND a.relation = %(authored)s
     -- the date read once per signature, not once for each place that names it
-    CROSS JOIN LATERAL (SELECT lg_signed_date(a.to_id) AS date OFFSET 0) dated
+    CROSS JOIN LATERAL (SELECT {signed_date_sql("a.to_id")} AS date OFFSET 0) dated
     WHERE lg_str(a.doc -> 'meta' -> 'role') = %(first_role)s
       AND lg_str(a.doc -> 'meta' -> 'capacity') = ANY(%(capacities)s)
 ),
@@ -207,9 +207,9 @@ touched AS (
       AND a.to_collection <> '{COLLECTION_CASES}'
 ),
 dated AS (
-    SELECT up.dossier_id, t.paper_id, lg_signed_date(t.paper_id) AS date
+    SELECT up.dossier_id, t.paper_id, {signed_date_sql("t.paper_id")} AS date
     FROM touched t
-    CROSS JOIN LATERAL unnest(lg_dossiers_of(t.paper_id)) AS up(dossier_id)
+    CROSS JOIN LATERAL ({dossiers_of_sql("t.paper_id")}) AS up(dossier_id)
     JOIN ids ON ids.id = up.dossier_id
 ),
 changed AS (

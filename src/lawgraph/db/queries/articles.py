@@ -45,7 +45,7 @@ from lawgraph.db.queries._helpers import (
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_light import outcome_pairs
 from lawgraph.db.queries.not_found import require_node
-from lawgraph.db.schema import node_of
+from lawgraph.db.schema import dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
 
 
@@ -308,7 +308,7 @@ _CHANGES_SQL = f"""
 SELECT
     ARRAY(
         SELECT substr(found.id, {_DOSSIER_KEY_FROM}) AS k FROM (
-            SELECT unnest(lg_dossiers_of(e.from_id)) AS id
+            {dossiers_of_sql("e.from_id")}
             UNION
             SELECT e2.to_id
             FROM {COLLECTION_EDGES} e2

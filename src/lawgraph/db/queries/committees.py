@@ -29,6 +29,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import committee_led
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
+from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
@@ -1081,7 +1082,7 @@ _FACTION_AUTHORED = f"""
     FROM {COLLECTION_EDGES} seat
     JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
     JOIN {COLLECTION_EDGES} a ON a.from_id = m.id AND a.relation = %(authored)s
-    CROSS JOIN LATERAL (SELECT lg_signed_date(a.to_id) AS date) d
+    CROSS JOIN LATERAL (SELECT {signed_date_sql("a.to_id")} AS date) d
     WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
       AND d.date IS NOT NULL
       AND EXISTS (
@@ -1104,11 +1105,11 @@ def _distinct(field: str, condition: str) -> str:
 
 # The dossiers of the papers of ``authored`` (``document_id``, ``meta``): directly, or through
 # a case.
-_WALKED_FOUND = """
+_WALKED_FOUND = f"""
         found AS (
             SELECT ids.dossier_id, a.document_id, a.meta
             FROM authored a
-            CROSS JOIN LATERAL unnest(lg_dossiers_of(a.document_id)) AS ids(dossier_id)
+            CROSS JOIN LATERAL ({dossiers_of_sql("a.document_id")}) AS ids(dossier_id)
         ),
 """
 # The same, of a faction, from ``lg_authored``: of each member who sat in it its periods in
