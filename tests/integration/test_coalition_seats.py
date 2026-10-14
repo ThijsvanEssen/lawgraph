@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RELATION_SERVED_IN
+from lawgraph.config.constants import COLLECTION_CABINETS, RELATION_SERVED_IN
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries import ek_seats
+from lawgraph.db.queries.coalition import cabinet_seats
+from lawgraph.db.queries.not_found import require_node
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -188,3 +191,26 @@ def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
         "ek_vvd": True,
         "ek_sp": False,
     }
+
+
+def test_the_seats_of_a_cabinet_read_each_statement_once(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The memberships, vacancies and abbreviations are read once, whatever the number of
+    stretches of either Kamer."""
+    store = GraphStore()
+    _seed(store)
+    _seed_ek(store)
+    cabinet = require_node(store, COLLECTION_CABINETS, "schoof", "Cabinet")
+    expected = cabinet_seats(store, cabinet, "2026-10-14")
+    run: list[str] = []
+    query = store.query
+
+    def counted(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        run.append(str(statement))
+        return query(statement, *args, **kwargs)
+
+    monkeypatch.setattr(store, "query", counted)
+    assert cabinet_seats(store, cabinet, "2026-10-14") == expected
+    assert len(expected["ek"]) == 2
+    assert len(run) == len(set(run)), [s.split()[:6] for s in run]
