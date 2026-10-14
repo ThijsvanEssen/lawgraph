@@ -138,12 +138,9 @@ _ITEM_PROPS = (
     *OUTCOME_KEYS,
     "source",
 )
-# The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven."
-# The AQL wrote ``\s`` and ``\.`` in a string literal, which made them ``s`` and ``.`` (any
-# character but a line end); this is the pattern ArangoDB matched, in any case.
-_CITED = "wordt aangehaald als:?s*([^.\n]{3,150})[^\n\r\u0085  ]"
-# What AQL's TRIM takes off.
-_TRIM = " \t\r\n"
+# The name a bill gives itself: "Deze wet wordt aangehaald als: Wet sterkere archieven.",
+# up to the full stop or the end of its line, without the spaces around it.
+_CITED = r"wordt aangehaald als:?\s*([^.\s][^.\n]{1,148}[^.\s])"
 
 _EMPTY = "'[]'::json"
 _JSON_TEXT = "#>> '{}'"
@@ -1109,7 +1106,7 @@ def _official_short(label: str) -> str:
     return f"""(
             SELECT CASE
                 WHEN os.cited IS NOT NULL THEN json_build_object(
-                    'title', btrim(os.cited, %(trim)s), 'basis', 'citation'::text)
+                    'title', os.cited, 'basis', 'citation'::text)
                 WHEN os.case_title IS NOT NULL THEN json_build_object(
                     'title', os.case_title, 'basis', 'case'::text)
                 WHEN {_not_null("law.props -> 'bwb_id'")}
@@ -1362,7 +1359,6 @@ def _base_bind(filters: FeedFilters, limit: int) -> dict[str, Any]:
         "since": filters.since or "0",
         "page_size": limit + 1,
         "cited": _CITED,
-        "trim": _TRIM,
         "item_props": list(_ITEM_PROPS),
     }
     if filters.instrument:

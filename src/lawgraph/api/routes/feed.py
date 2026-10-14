@@ -28,7 +28,21 @@ from lawgraph.api.schemas.feed import (
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.courts import TIERS
-from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
+from lawgraph.core.feed import (
+    EVENT_AMENDMENT,
+    EVENT_AMENDMENT_NOTE,
+    EVENT_BILL,
+    EVENT_COMMENCEMENT,
+    EVENT_COMMITMENT,
+    EVENT_GOVERNMENT_LETTER,
+    EVENT_JUDGMENT,
+    EVENT_MOTION,
+    EVENT_PUBLICATION,
+    EVENT_VOTE,
+    FEED_KINDS,
+    FEED_TIERS,
+    FeedCursor,
+)
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
@@ -307,20 +321,21 @@ def get_feed_atom(
     return Response(content=body, media_type=ATOM_MEDIA_TYPE)
 
 
-# How Concordans names the kinds in the plural, and the parameters of its page /actueel.
+# How Concordans names the kinds in the plural.
 _KIND_PLURALS = {
-    "toezegging": "toezeggingen",
-    "Voorstel van wet": "wetsvoorstellen",
-    "Nota van wijziging": "nota's van wijziging",
-    "Amendement": "amendementen",
-    "Motie": "moties",
-    "stemming": "stemmingen",
-    "publicatie": "publicaties",
-    "inwerkingtreding": "inwerkingtredingen",
-    "Brief regering": "brieven van de regering",
-    "uitspraak": "uitspraken",
+    EVENT_COMMITMENT: "toezeggingen",
+    EVENT_BILL: "wetsvoorstellen",
+    EVENT_AMENDMENT_NOTE: "nota's van wijziging",
+    EVENT_AMENDMENT: "amendementen",
+    EVENT_MOTION: "moties",
+    EVENT_VOTE: "stemmingen",
+    EVENT_PUBLICATION: "publicaties",
+    EVENT_COMMENCEMENT: "inwerkingtredingen",
+    EVENT_GOVERNMENT_LETTER: "brieven van de regering",
+    EVENT_JUDGMENT: "uitspraken",
 }
 _CHAMBERS = {"TK": "Tweede Kamer", "EK": "Eerste Kamer"}
+# The filters as the parameters the page /actueel of Concordans reads.
 _SITE_PARAMETERS = {
     "kinds": "soort",
     "since": "van",
@@ -332,8 +347,18 @@ _SITE_PARAMETERS = {
     "faction": "fractie",
     "q": "q",
     "chamber": "kamer",
-    "tiers": "instantie",
     "coalition": "coalitie",
+    "instrument": "wet",
+    "article": "artikel",
+}
+# The filters /actueel has no parameter for.
+_NOT_ON_SITE = frozenset({"tiers"})
+# The coalition value in the words of /actueel.
+_SITE_COALITION = {
+    "together": "eensgezind",
+    "split": "verdeeld",
+    "wissel": "wisselmeerderheid",
+    "decisive": "doorslaggevend",
 }
 _COALITION_WORDS = {
     "together": "coalitie eensgezind",
@@ -343,13 +368,22 @@ _COALITION_WORDS = {
 }
 
 
-def site_query(filters: FeedFilters) -> dict[str, str]:
-    """The filters as the parameters of the page /actueel of Concordans."""
-    query = {}
+def site_query(filters: FeedFilters) -> list[tuple[str, str]]:
+    """The filters as the query of the page /actueel of Concordans: the kinds joined by
+    commas, each word of ``q`` a parameter of its own."""
+    query: list[tuple[str, str]] = []
     for field, parameter in _SITE_PARAMETERS.items():
         value = getattr(filters, field)
-        if value:
-            query[parameter] = ",".join(value) if isinstance(value, tuple) else value
+        if not value:
+            continue
+        if field == "q":
+            query.extend((parameter, word) for word in value)
+        elif field == "coalition":
+            query.append((parameter, _SITE_COALITION[value]))
+        else:
+            query.append(
+                (parameter, ",".join(value) if isinstance(value, tuple) else value)
+            )
     return query
 
 

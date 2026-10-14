@@ -785,13 +785,26 @@ class GraphStore:
         none (a table emptied and filled again). Sent again when the database was
         unreachable."""
 
-        def run() -> None:
-            with self.pool.connection() as conn:
-                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
-                for statement, params in statements:
-                    conn.execute(_query(statement), params)
+        def run(conn: psycopg.Connection[Any]) -> None:
+            for statement, params in statements:
+                conn.execute(_query(statement), params)
 
-        _retry_write("statements together", run)
+        self.in_transaction("statements together", run)
+
+    def in_transaction(
+        self, what: str, write: Callable[[psycopg.Connection[Any]], T]
+    ) -> T:
+        """Run *write* on a connection in one transaction, each statement under the ceiling
+        of a write: for a write that needs the connection itself (a table built aside and
+        swapped in, the rows a statement changed). A reader sees all of it or none. Run
+        again when the database was unreachable; *what* names it in the log."""
+
+        def run() -> T:
+            with self.pool.connection() as conn, conn.transaction():
+                conn.execute(f"SET LOCAL statement_timeout = {WRITE_TIMEOUT_MS}")
+                return write(conn)
+
+        return _retry_write(what, run)
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
