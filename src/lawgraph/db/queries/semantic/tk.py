@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     EXPLANATORY_KIND_MARKER,
     RELATION_ABOUT,
     RELATION_AMENDS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
@@ -47,7 +48,13 @@ from lawgraph.db.queries.semantic import (
 )
 from lawgraph.db.schema import feed_title
 
-_CHANGE_RELATIONS = (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+# What a dossier did to an article: changed it, or set it by enacting a new law.
+_CHANGE_RELATIONS = (
+    RELATION_AMENDS,
+    RELATION_INTRODUCES,
+    RELATION_REPEALS,
+    RELATION_ESTABLISHES,
+)
 
 # ``CONTAINS(LOWER(doc.props.kind || ""), marker)`` of the document ``d``: the kind column
 # holds a string kind without reading the payload; another kind is read as its text.

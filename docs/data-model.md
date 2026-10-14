@@ -189,7 +189,7 @@ tk-mvt-articles` (a section that is about the article; `source` `mvt-section-lin
 |-------|---------|
 | `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
 | `match_type` | `heading_target`, `body_named_law`, `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`) |
-| `changed` | whether the dossier changed the article, which corroborates the match |
+| `changed` | whether the dossier changed the article, or established it as an article of the law it made, which corroborates the match |
 | `explanation` | what the match rests on, in Dutch |
 | `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
 

@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from lawgraph.config.constants import RELATION_AMENDS, RELATION_INTRODUCES
+from lawgraph.config.constants import (
+    RELATION_AMENDS,
+    RELATION_ESTABLISHES,
+    RELATION_INTRODUCES,
+)
 from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
 from lawgraph.core.mvt_articles import (
@@ -24,7 +28,7 @@ from lawgraph.core.mvt_articles import (
     article_id,
     explained_targets,
     find_references,
-    is_introduction,
+    new_law,
 )
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -451,10 +455,78 @@ def test_a_law_is_new_when_the_dossier_changed_none_of_it_but_to_introduce_it() 
         _change("1", relation=RELATION_INTRODUCES),
         _change("2", relation=RELATION_INTRODUCES),
     ]
-    assert is_introduction([], WONINGWET)  # a law whose history is not loaded
-    assert is_introduction(own, WONINGWET)
-    assert not is_introduction([*own, _change("3")], WONINGWET)
-    assert is_introduction([_change("3")], "BWBR0000003")  # a change of another law
+    assert new_law([WONINGWET], []) == WONINGWET  # a law whose history is not loaded
+    assert new_law([WONINGWET], own) == WONINGWET
+    assert new_law([WONINGWET], [*own, _change("3")]) is None
+    assert new_law(["BWBR0000003"], [_change("3")]) == "BWBR0000003"
+    assert new_law([WONINGWET, "BWBR0000003"], own) is None  # which of the two
+
+
+def test_a_law_is_new_when_a_publication_of_the_dossier_established_it() -> None:
+    """36764: Stb. 2026, 187 establishes the Cyberbeveiligingswet and changes other laws;
+    the law need not name the dossier itself, and the laws that do are no new law."""
+    established = Change(
+        NEW_LAW, "21", article_id(NEW_LAW, "21"), "v_21", RELATION_ESTABLISHES
+    )
+    changes = [established, _change("3")]
+    assert new_law([], changes) == NEW_LAW
+    assert new_law([NEW_LAW], changes) == NEW_LAW
+    assert new_law([WONINGWET], changes) == NEW_LAW
+    assert new_law([NEW_LAW, WONINGWET], changes) == NEW_LAW
+    other = Change(AWB, "1", article_id(AWB, "1"), None, RELATION_ESTABLISHES)
+    assert new_law([], [*changes, other]) is None  # two laws established
+    assert new_law([AWB], [*changes, other]) == AWB  # of which the dossier names one
+    assert new_law([WONINGWET], [*changes, other]) is None
+
+
+def test_an_established_article_is_explained_as_established() -> None:
+    established = Change(
+        NEW_LAW, "21", article_id(NEW_LAW, "21"), "v_21", RELATION_ESTABLISHES
+    )
+    ref = Reference("s-1", "Artikel 21", 2, 0, 9, NEW_LAW, "21", MATCH_OWN_NUMBER)
+
+    explained = explained_targets([ref], [established], lambda article: False)
+
+    ((target, (found,)),) = explained.items()
+    assert target == "article_versions/v_21"
+    assert found.changed and found.confidence == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
+    assert found.explanation == (
+        "De kop 'Artikel 21' is een artikel van de nieuwe wet; het dossier stelt het "
+        "artikel vast."
+    )
+
+
+def test_a_number_under_an_article_of_the_new_law_is_not_of_the_law_it_changes() -> (
+    None
+):
+    """Under "Artikel 21" of a new law that changes one other law, "artikel 22" is the new
+    law's own number, not that of the law it changes; under "Artikel 99 (wijziging
+    Woningwet)" a number is the Woningwet's."""
+    paper = _Paper()
+    paper.add(
+        "Artikel 21 (zorgplicht)",
+        "Artikel 21 hangt samen met artikel 22.",
+        number="21",
+        scheme="arabic",
+        refs=[("21", "self")],
+    )
+    paper.add(
+        "Artikel 99 (wijziging Woningwet)",
+        "Artikel 22 van de Woningwet vervalt.",
+        number="99",
+        scheme="arabic",
+        refs=[("99", "self")],
+        law="Woningwet",
+    )
+    laws = [Law(WONINGWET, ("Woningwet",))]
+
+    refs = find_references(paper.text, paper.sections, laws, own_bwb_id=NEW_LAW)
+
+    assert _found(refs) == [
+        ("s-0", NEW_LAW, "21", MATCH_OWN_NUMBER),
+        ("s-1", NEW_LAW, "99", MATCH_OWN_NUMBER),
+        ("s-1", WONINGWET, "22", MATCH_BODY_NAMED_LAW),
+    ]
 
 
 # ── the onderdelen of the bill ───────────────────────────────────────────────

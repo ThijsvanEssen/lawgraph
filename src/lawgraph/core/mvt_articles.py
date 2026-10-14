@@ -6,7 +6,8 @@ that toelichting is about is written in the paper: in a new law the article of t
 article of the law; in a law that changes other laws, the words say which article of which law
 ("Artikel I, onderdeel B (artikel 1a)", "artikel 2 van de Tijdelijke wet Klimaatfonds").
 ``find_references`` reads the words; ``explained_targets`` matches them with what the dossier
-changed, which the graph records.
+changed, which the graph records. Which law is new is read from the graph as well
+(``new_law``): the one a publication of the dossier established.
 
 A section that names no article of a law the dossier is about has no reference: the dossier-level
 edges of ``semantic tk-mvt`` are all the graph knows for it.
@@ -22,6 +23,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
 )
 from lawgraph.core.bill_parts import (
@@ -145,7 +147,8 @@ class Law:
 
 @dataclass(frozen=True)
 class Change:
-    """An article the dossier changed, as the change edge of the amending publication says."""
+    """An article the dossier changed, as the change edge of the amending publication says;
+    the articles of a law it made are established (``ESTABLISHES``)."""
 
     bwb_id: str
     number: str
@@ -174,6 +177,7 @@ class Reference:
     number: str
     match_type: str
     changed: bool = True  # the dossier changed the article (``explained_targets``)
+    established: bool = False  # ... by making the law it is an article of
     # "Artikelen 15 tot en met 15l": the last article of a range that begins at ``number``;
     # the articles between are those of the law the dossier changed
     last: str | None = None
@@ -191,7 +195,12 @@ class Reference:
         if len(heading) > _HEADING_CHARS:
             heading = heading[: _HEADING_CHARS - 1] + "…"
         rests_on = _RESTS_ON[self.match_type].format(heading=heading)
-        changed = "wijzigt het artikel" if self.changed else "wijzigt het artikel niet"
+        if self.established:
+            changed = "stelt het artikel vast"
+        elif self.changed:
+            changed = "wijzigt het artikel"
+        else:
+            changed = "wijzigt het artikel niet"
         return f"{rests_on[:1].upper()}{rests_on[1:]}; het dossier {changed}."
 
 
@@ -263,9 +272,11 @@ class _Outline:
         self,
         sections: Sequence[Mapping[str, Any]],
         bill: Mapping[tuple[str, str], BillPart] | None = None,
+        own_bwb_id: str | None = None,
     ) -> None:
         self.by_id = {str(s["id"]): s for s in sections}
         self.bill = bill or {}
+        self.own_bwb_id = own_bwb_id
         first_child: dict[str, int] = {}
         # the heading of an article of the bill before a section, under the same parent
         # ("ARTIKEL II – WETBOEK VAN STRAFRECHT", "Artikel II, onderdeel D")
@@ -294,11 +305,15 @@ class _Outline:
         self, section: Mapping[str, Any], registry: _Registry
     ) -> str | None:
         """The law the section is about: the one the nearest heading names, else the only one
-        the dossier changes. A law that is named and not known is no reason to guess."""
+        the dossier changes. A law that is named and not known is no reason to guess; under
+        the heading of an article of the new law that names no law, a number is one of the
+        new law's own."""
         node: Mapping[str, Any] | None = section
         while node is not None:
             if node.get("law"):
                 return registry.resolve(str(node["law"]))
+            if self.own_bwb_id and _is_own_article(node):
+                return None
             before = self._bill_article.get(str(node["id"]))
             if before is not None:
                 law = self.bill_article_law(before, registry)
@@ -321,6 +336,16 @@ class _Outline:
             return law
         article = heading_parts(text)
         return _bill_article_law(article[0], self.bill, registry) if article else None
+
+
+def _is_own_article(section: Mapping[str, Any]) -> bool:
+    """Whether a heading is that of an article of the bill numbered as a law is ("Artikel
+    21 (zorgplicht)"): in a new law, an article of that law."""
+    return (
+        section["kind"] == KIND_ARTICLE
+        and section.get("number_scheme") in _NUMBER_SCHEMES
+        and any(ref["of"] == OF_SELF for ref in section.get("article_refs") or [])
+    )
 
 
 def _bill_article_law(
@@ -375,20 +400,17 @@ def _heading_targets(
             law = outline.context_law(section, registry)
             if law:
                 found.append((law, number, MATCH_HEADING_TARGET))
-        elif (
-            of == OF_SELF
-            and section["kind"] == KIND_ARTICLE
-            and section.get("number_scheme") in _NUMBER_SCHEMES
-            and not section.get("law")  # "Artikel 3 (Woningwet)": 3 is the bill's own
-        ):
+        elif _is_own_article(section) and of == OF_SELF:
             # An Arabic number is the article of the law the heading names ("Artikel 11
-            # Sr"), else of the law when the bill is the law; in a bill that changes
-            # another law it is the number of the article it changes.
+            # Sr"), else of the law when the bill is the law, also where its heading says
+            # which law that article changes ("Artikel 99 (wijziging Telecommunicatiewet)");
+            # in a bill that changes another law it is the number of the article it
+            # changes, and "Artikel 3 (Woningwet)" is the bill's own 3.
             if number_key(number) in named:
                 found.append((named[number_key(number)], number, MATCH_HEADING_TARGET))
             elif own_bwb_id:
                 found.append((own_bwb_id, number, MATCH_OWN_NUMBER))
-            else:
+            elif not section.get("law"):
                 law = outline.context_law(section, registry)
                 if law:
                     found.append((law, number, MATCH_INFERRED_LAW))
@@ -506,7 +528,7 @@ def find_references(
     surest way it does so counts.
     """
     registry = _Registry(laws)
-    outline = _Outline(sections, bill)
+    outline = _Outline(sections, bill, own_bwb_id)
     best: dict[tuple[str, str, str], Reference] = {}
     for section in sections:
         if section["kind"] not in _ARTICLE_KINDS:
@@ -643,31 +665,45 @@ def explained_targets(
     explained: dict[str, list[Reference]] = {}
     for reference in references:
         if reference.last is not None:
-            inside = [
+            last = reference.last
+            hits = [
                 c
                 for c in changes
                 if c.bwb_id == reference.bwb_id
-                and _order(reference.number) < _order(c.number) < _order(reference.last)
+                and _order(reference.number) < _order(c.number) < _order(last)
             ]
-            for target in sorted({c.target for c in inside}):
-                explained.setdefault(target, []).append(reference)
-            continue
-        hits = [
-            change
-            for key in _number_keys(reference.number)
-            for change in changed.get((reference.bwb_id, key), [])
-        ]
-        targets = {change.target for change in hits}
-        if not targets and reference.match_type in _STATED_MATCHES:
+        else:
+            hits = [
+                change
+                for key in _number_keys(reference.number)
+                for change in changed.get((reference.bwb_id, key), [])
+            ]
+        targets = _established(hits)
+        if (
+            not targets
+            and reference.last is None
+            and reference.match_type in _STATED_MATCHES
+        ):
             candidates = [
                 article_id(reference.bwb_id, key)
                 for key in _number_keys(reference.number)
             ]
-            targets = {c for c in candidates if article_exists(c)}
+            targets = {c: False for c in candidates if article_exists(c)}
             reference = replace(reference, changed=False)
-        for target in sorted(targets):
-            explained.setdefault(target, []).append(reference)
+        for target, established in sorted(targets.items()):
+            explained.setdefault(target, []).append(
+                replace(reference, established=True) if established else reference
+            )
     return explained
+
+
+def _established(changes: Sequence[Change]) -> dict[str, bool]:
+    """``{target: whether every change of it established it}``."""
+    targets: dict[str, bool] = {}
+    for change in changes:
+        established = change.relation == RELATION_ESTABLISHES
+        targets[change.target] = targets.get(change.target, True) and established
+    return targets
 
 
 def _order(number: str) -> list[tuple[int, str]]:
@@ -675,11 +711,23 @@ def _order(number: str) -> list[tuple[int, str]]:
     return [(int(n), s) for n, s in re.findall(r"(\d+)([a-z]*)", number_key(number))]
 
 
-def is_introduction(changes: Sequence[Change], bwb_id: str) -> bool:
-    """Whether the bill is the law: the dossier changed no article of it but to introduce it.
-
-    A law that the dossier amends or repeals articles of is no new law, whatever the dossier
-    references of the law say: its memorandum is about the articles of the bill, not of the law.
+def new_law(own: Sequence[str], changes: Sequence[Change]) -> str | None:
+    """The law the bill is, whose articles are those of the bill: the one a publication of
+    the dossier established (``ESTABLISHES``), of several the one that names the dossier
+    (*own*, the BWB ids of the instruments ``LEGISLATED_IN`` it); without one, the one
+    instrument that names the dossier when the dossier changed no article of it but to
+    introduce it. A law that the dossier amends or repeals articles of is no new law,
+    whatever its dossier references say: its memorandum is about the articles of the bill.
     """
-    of_law = [c for c in changes if c.bwb_id == bwb_id]
-    return all(c.relation == RELATION_INTRODUCES for c in of_law)
+    established = sorted(
+        {c.bwb_id for c in changes if c.relation == RELATION_ESTABLISHES}
+    )
+    if len(established) > 1:
+        named = [bwb_id for bwb_id in established if bwb_id in own]
+        return named[0] if len(named) == 1 else None
+    if established:
+        return established[0]
+    if len(own) != 1:
+        return None
+    of_law = [c for c in changes if c.bwb_id == own[0]]
+    return own[0] if all(c.relation == RELATION_INTRODUCES for c in of_law) else None
