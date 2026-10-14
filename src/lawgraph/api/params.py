@@ -10,6 +10,7 @@ from fastapi import HTTPException, Query
 
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
+from lawgraph.db.schema import NODE_COLLECTIONS
 
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
@@ -56,3 +57,10 @@ def parse_choices(
             ),
         )
     return chosen
+
+
+def is_node_id(value: str) -> bool:
+    """Whether *value*, as a request names it, is ``collection/key`` of a node collection
+    with a key."""
+    collection, slash, key = value.partition("/")
+    return bool(slash and key) and collection in NODE_COLLECTIONS

@@ -25,7 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult, make_node_key
+from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, Store
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._tk_deleted import kept
@@ -66,8 +66,8 @@ def link_case_actors(
             member = make_node_key(submitter["person_id"])
             if member in members:
                 writer.add(
-                    f"{COLLECTION_MEMBERS}/{member}",
-                    f"{COLLECTION_CASES}/{case}",
+                    node_id(COLLECTION_MEMBERS, member),
+                    node_id(COLLECTION_CASES, case),
                     RELATION_AUTHORED,
                     source=source,
                     meta={
@@ -79,8 +79,8 @@ def link_case_actors(
         for committee in map(make_node_key, of["committee_ids"]):
             if committee in committees:
                 writer.add(
-                    f"{COLLECTION_CASES}/{case}",
-                    f"{COLLECTION_COMMITTEES}/{committee}",
+                    node_id(COLLECTION_CASES, case),
+                    node_id(COLLECTION_COMMITTEES, committee),
                     RELATION_LED_BY,
                     source=source,
                 )

@@ -25,13 +25,14 @@ from lawgraph.api.schemas.documents import (
     outcome_fields,
     sender_of,
 )
-from lawgraph.config.constants import Chamber, EdgeStatus
+from lawgraph.config.constants import COLLECTION_COMMITTEES, Chamber, EdgeStatus
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.paper_outcomes import VoteOutcome
+from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity
+from lawgraph.core.votes import VoteOutcome
 
 # A dossier number as the API takes it: 29684, or its label with the addition of a
 # budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
@@ -127,7 +128,7 @@ class TimelineCommitteeDTO(WithPath):
     def _id_of_key(cls, data: Any) -> Any:
         """``committees/<key>`` where the row names the committee by its key alone."""
         if isinstance(data, dict) and not data.get("id") and data.get("key"):
-            return {**data, "id": f"committees/{data['key']}"}
+            return {**data, "id": node_id(COLLECTION_COMMITTEES, data["key"])}
         return data
 
 
@@ -1146,11 +1147,10 @@ class DossierMutationNode(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierMutationNode:
-        node_id = doc.get("_id", "")
         return cls(
-            id=node_id,
+            id=doc["_id"],
             key=doc.get("_key", ""),
-            collection=node_id.split("/")[0] if "/" in node_id else "",
+            collection=parse_node_id(doc["_id"])[0],
             type=doc.get("type", ""),
             display_name=(doc.get("props") or {}).get("display_name"),
             labels=list(doc.get("labels") or []),

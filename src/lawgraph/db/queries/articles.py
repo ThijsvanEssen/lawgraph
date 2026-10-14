@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core import models
 from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
@@ -349,7 +350,7 @@ def get_article_legislative_history(
     documents are found by ``get_article_explanations``.
     """
     if article_id is None:
-        article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+        article_id = models.article_id(bwb_id, article_number)
 
     changes = list(
         store.query(

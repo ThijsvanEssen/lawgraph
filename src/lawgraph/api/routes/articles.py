@@ -45,7 +45,13 @@ from lawgraph.core.delegations import (
     kind_rank,
 )
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.models import (
+    article_id,
+    key_of,
+    make_node_key,
+    node_id,
+    parse_node_id,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -138,7 +144,7 @@ def _defined_terms(
     if data.instrument is not None:
         instrument_id = data.instrument["_id"]
     elif props.get("bwb_id"):
-        instrument_id = f"{COLLECTION_INSTRUMENTS}/{make_node_key(props['bwb_id'])}"
+        instrument_id = node_id(COLLECTION_INSTRUMENTS, make_node_key(props["bwb_id"]))
     else:
         return [], {}, []
     # one per entry, in its order, so a ref lands on its citation; one without a place
@@ -222,13 +228,12 @@ def get_article_cited_by_passages(
     ] = "date_desc",
 ) -> ArticleCitedByResponse:
     article_number = native_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    if not store.has_node(COLLECTION_ARTICLES, article_key):
-        raise NotFound("Article", article_key)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
+    article = article_id(bwb_id, article_number)
+    if not store.has_node(COLLECTION_ARTICLES, key_of(article)):
+        raise NotFound("Article", key_of(article))
     cited_by = get_article_cited_by(
         store,
-        article_id,
+        article,
         court=court,
         tier=tier.value if tier else None,
         lid=lid,
@@ -240,7 +245,7 @@ def get_article_cited_by_passages(
         item for row in cited_by.rows if (item := ArticleCitedByItem.from_row(row))
     ]
     return ArticleCitedByResponse(
-        article_id=article_id,
+        article_id=article,
         items=items,
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
@@ -303,10 +308,9 @@ def get_legislative_history(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
     article_number = native_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
+    article = article_id(bwb_id, article_number)
     raw_entries = get_article_legislative_history(
-        store, bwb_id, article_number, article_id=article_id
+        store, bwb_id, article_number, article_id=article
     )
     entries = [
         LegislativeHistoryEntry(
@@ -315,7 +319,7 @@ def get_legislative_history(
         for e in raw_entries
     ]
     return ArticleLegislativeHistoryResponse(
-        article_id=article_id,
+        article_id=article,
         entries=entries,
         total=len(entries),
     )
@@ -348,12 +352,12 @@ def get_explained_by(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
     article_number = native_number(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    article = article_id(bwb_id, article_number)
     page = get_article_explanations(
         store, bwb_id, article_number, limit=limit, offset=offset
     )
     return ArticleExplanationsResponse(
-        article_id=article_id,
+        article_id=article,
         total=page["total"],
         items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
     )
@@ -381,10 +385,10 @@ def get_explanations(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticlePassagesResponse:
     article_number = native_number(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
+    article = article_id(bwb_id, article_number)
     rows = get_article_explanation_passages(store, bwb_id, article_number)
     return ArticlePassagesResponse(
-        article_id=article_id,
+        article_id=article,
         total=len(rows),
         items=[ArticlePassagesDTO.from_row(row) for row in rows],
     )

@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.ecli import is_ecli
 from lawgraph.core.judgments import case_number_keys
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
@@ -129,7 +129,7 @@ def _conclusions(store: GraphStore, eclis: Any) -> list[dict[str, Any]]:
     named = [str(e) for e in eclis or [] if e]
     if not named:
         return []
-    ids = {f"{COLLECTION_JUDGMENTS}/{make_node_key(ecli)}": ecli for ecli in named}
+    ids = {node_id(COLLECTION_JUDGMENTS, make_node_key(ecli)): ecli for ecli in named}
     light = {
         row["id"]: row["light"] or {}
         for row in store.query(

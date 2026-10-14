@@ -46,7 +46,7 @@ is one unit of work in one phase for one source, and it has an address:
 <phase> <source>[-<part>]                 normalize tk-dossiers
 lawgraph normalize tk-dossiers            what one types
 [normalize tk-dossiers]                   the label of its log lines, its row in the table
-pipelines/normalize/tk_dossiers.py        its module (retrieve: retrieve_tk_dossiers in retrieve_commands.py)
+pipelines/normalize/tk_dossiers.py        its module (a retrieve with options: retrieve_tk_dossiers in retrieve_commands.py)
 TKDossiersNormalizePipeline               its class
 LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS       its skip variable
 ```
@@ -218,6 +218,8 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | A node key is made in SQL with `lg_node_key`, never with `lower`/`replace`; a json shape shown in several places (coalition on a vote, a judgment as a link or list row, an activity's lead committee) is built once, a member's name is `members.list_name` | `tests/conventions/test_node_key_sql.py`, `tests/pg/test_node_key_sql.py`, `tests/conventions/test_sql_shapes.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
 | A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
+| A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/conventions/test_vote_words.py` |
+| A node id is built with `node_id`, `article_id` or `Node.skeleton` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/conventions/test_node_ids.py` |
 | No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
 | A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/conventions/test_sparse_joins.py`, `tests/conventions/test_semantic_reads.py` |
 | Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |

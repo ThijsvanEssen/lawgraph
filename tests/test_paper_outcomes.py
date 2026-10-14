@@ -1,8 +1,8 @@
-"""How a motion or an amendment ended (``core/paper_outcomes.py``)."""
+"""How a motion or an amendment ended (``core/votes.py``)."""
 
 from __future__ import annotations
 
-from lawgraph.core.paper_outcomes import decision_outcome, paper_outcome
+from lawgraph.core.votes import decision_outcome, paper_outcome
 
 
 def _decision(key: str, date: str, passed: bool | None, kind: str, **rest):

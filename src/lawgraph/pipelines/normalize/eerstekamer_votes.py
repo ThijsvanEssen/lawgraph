@@ -52,6 +52,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
@@ -68,9 +69,9 @@ EDGE_SOURCE = "eerstekamer-votes"
 
 # The choice of a faction in each list of a vote, as the VOTED edge carries it.
 CHOICES = {
-    LABEL_FOR: "Voor",
-    LABEL_AGAINST: "Tegen",
-    LABEL_NOTED: "Aantekening gevraagd",
+    LABEL_FOR: VOTE_FOR,
+    LABEL_AGAINST: VOTE_AGAINST,
+    LABEL_NOTED: VOTE_NOTED,
 }
 
 # Decisions whose other VOTED edges are removed in one query.

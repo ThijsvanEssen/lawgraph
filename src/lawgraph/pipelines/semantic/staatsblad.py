@@ -6,12 +6,10 @@ Derived in full on every run: an edge no publication supports any more goes.
 from __future__ import annotations
 
 from lawgraph.config.constants import (
-    COLLECTION_DOCUMENTS,
-    COLLECTION_INSTRUMENTS,
     RELATION_EXPLAINS,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, collection_from_id
+from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -45,9 +43,7 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
 
         for row in self._track(rows, "publications", total=len(rows)):
             pub_id = row.get("pub_id")
-            pub_key = row.get("pub_key")
             inst_id = row.get("inst_id")
-            inst_key = row.get("inst_key")
             match_type = row.get("match_type", "bwb_id")
 
             if not pub_id or not inst_id:
@@ -63,19 +59,8 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
                 raise ValueError(f"Unknown match_type: {match_type!r}")
             confidence = _CONFIDENCE_BY_MATCH_TYPE[match_type]
 
-            pub_collection = collection_from_id(pub_id, COLLECTION_DOCUMENTS)
-            inst_collection = collection_from_id(inst_id, COLLECTION_INSTRUMENTS)
-
-            pub_node = Node(
-                collection=pub_collection,
-                key=pub_key,
-                props={},
-            )
-            inst_node = Node(
-                collection=inst_collection,
-                key=inst_key,
-                props={},
-            )
+            pub_node = Node.skeleton(*parse_node_id(pub_id))
+            inst_node = Node.skeleton(*parse_node_id(inst_id))
 
             edges.add_doc(
                 self._make_edge_doc(

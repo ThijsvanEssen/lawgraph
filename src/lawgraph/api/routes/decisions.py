@@ -25,7 +25,7 @@ from lawgraph.api.schemas.decisions import (
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
-from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import (

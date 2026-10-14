@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -1132,7 +1133,7 @@ def get_actor_dossiers(
     for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
     of documents; newest opened first. Returns ``{total, items}``.
     """
-    is_faction = actor_id.startswith(f"{COLLECTION_FACTIONS}/")
+    is_faction = parse_node_id(actor_id)[0] == COLLECTION_FACTIONS
     # the papers and their dossiers from ``lg_authored`` once it is filled (of a faction those
     # its members signed within their periods in it, by the day of the paper), else by the
     # walk over the edges
