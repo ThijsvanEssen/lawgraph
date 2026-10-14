@@ -4,7 +4,8 @@ Every function here takes the raw TK records for one entity and returns the
 nodes it wrote, keyed by the TK identifier the other builders join on. Reads
 and writes are bulk: one existence lookup per collection, one edge flush.
 A record the Kamer deleted (``Verwijderd``, its id and nothing else) is no node or
-edge, and what an earlier run wrote of it is removed.
+edge, and what an earlier run wrote of it is removed. A record left out is skipped on the
+progress of the pipeline, with its reason.
 """
 
 from __future__ import annotations
@@ -28,7 +29,8 @@ from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import OPEN_END
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.base import PipelineBase
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 
 logger = get_logger(__name__)
 
@@ -37,18 +39,23 @@ _RECORD_ID = "_record_id"
 
 
 def normalize_committees(
-    store: Store, raw_records: Iterable[dict[str, Any]]
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Commissie nodes, keyed by TK ``Id``; the node of a committee the Kamer deleted is
     removed."""
+    store = pipeline.store
     nodes: dict[str, Node] = {}
     deleted = Deleted(COLLECTION_COMMITTEES)
     for raw in raw_records:
         payload = payload_json(raw)
         if deleted(payload):
+            pipeline.progress.skip(DELETED, payload.get("Id"))
             continue
         parsed = tk_records.committee(payload)
         if parsed is None:
+            pipeline.progress.skip(
+                "no Id or name", payload.get("Id") or raw.get("_key")
+            )
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -68,17 +75,20 @@ def normalize_committees(
 
 
 def normalize_members(
-    store: Store, raw_records: Iterable[dict[str, Any]]
+    pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]
 ) -> dict[str, Node]:
     """Persoon nodes, keyed by TK ``Id``; the node of a person the Kamer deleted is removed."""
+    store = pipeline.store
     nodes: dict[str, Node] = {}
     deleted = Deleted(COLLECTION_MEMBERS)
     for raw in raw_records:
         payload = payload_json(raw)
         if deleted(payload):
+            pipeline.progress.skip(DELETED, payload.get("Id"))
             continue
         parsed = tk_records.member(payload)
         if parsed is None:
+            pipeline.progress.skip("no Id", raw.get("_key"))
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -97,7 +107,7 @@ def normalize_members(
 
 
 def normalize_factions(
-    store: Store,
+    pipeline: PipelineBase,
     faction_raws: Iterable[dict[str, Any]],
     seat_raws: Iterable[dict[str, Any]],
 ) -> dict[str, Node]:
@@ -112,15 +122,19 @@ def normalize_factions(
     them; a faction whose every record is deleted is removed. *seat_raws* are every
     FractieZetelPersoon record: the seats date the faction (``seat_periods.seated_bounds``).
     """
+    store = pipeline.store
     by_key: dict[str, list[dict[str, Any]]] = {}
     deleted = Deleted(COLLECTION_FACTIONS, key=None)  # keyed by the abbreviation
     for raw in faction_raws:
         payload = payload_json(raw)
         if deleted(payload):
-            continue
-        label = tk_records.faction_label(payload)
-        if label:
+            pipeline.progress.skip(DELETED, payload.get("Id"))
+        elif label := tk_records.faction_label(payload):
             by_key.setdefault(make_node_key(label), []).append(payload)
+        else:
+            pipeline.progress.skip(
+                "no abbreviation or name", payload.get("Id") or raw.get("_key")
+            )
 
     seats: dict[str, list[seat_periods.Period]] = {}
     for raw in seat_raws:
@@ -143,6 +157,7 @@ def normalize_factions(
             current, tk_records.faction_aliases(current, own), records
         )
         if parsed is None:
+            pipeline.progress.skip("no Id", tk_records.faction_label(current))
             continue
         key, props = parsed
         props["active_from"], props["active_until"] = seat_periods.seated_bounds(
@@ -221,7 +236,7 @@ def _recency(period: dict[str, Any], record_id: str) -> tuple[str, bool, str, st
 
 
 def link_members_to_factions(
-    store: Store,
+    pipeline: PipelineBase,
     seat_raws: Iterable[dict[str, Any]],
     member_nodes: dict[str, Node],
     faction_nodes: dict[str, Node],
@@ -238,6 +253,7 @@ def link_members_to_factions(
     fractievoorzitters at once, a person in two factions on one day). The edge of a seat
     the Kamer deleted goes.
     """
+    store = pipeline.store
     seats: dict[str, dict[str, Any]] = {}  # edge key -> the edge
     ranks: dict[
         str, tuple[str, bool, str, str]
@@ -249,12 +265,19 @@ def link_members_to_factions(
     holdings: list[seat_periods.Holding] = []
     for raw in seat_raws:
         payload = payload_json(raw)
-        parsed = None if deleted(payload) else tk_records.seat_holding(payload)
+        if deleted(payload):
+            pipeline.progress.skip(DELETED, payload.get("Id"))
+            continue
+        parsed = tk_records.seat_holding(payload)
         if parsed is None:
+            pipeline.progress.skip("no person or faction", payload.get("Id"))
             continue
         person_id, faction_id, period = parsed
         faction_node = faction_nodes.get(faction_id)
         if not (person_id in member_nodes and faction_node):
+            pipeline.progress.skip(
+                "member or faction not in the graph", payload.get("Id")
+            )
             continue
         day = tk_records.seat_changed_on(payload)
         if day and faction_node.key and day > changed.get(faction_node.key, ""):
@@ -346,7 +369,7 @@ def _write_timelines(
 
 
 def keep_faction_vacancies(
-    store: Store,
+    pipeline: PipelineBase,
     vacancy_raws: Iterable[dict[str, Any]],
     holding_raws: Iterable[dict[str, Any]],
     faction_nodes: dict[str, Node],
@@ -354,7 +377,9 @@ def keep_faction_vacancies(
     """``vacancies`` on each faction: the periods a seat of it was held by no member
     (``tk_records.seat_vacancy``), only the days no one held that seat
     (``tk_records.vacant_periods`` over the FractieZetelPersoon records of the seat), sorted;
-    written when they changed, also to none."""
+    written when they changed, also to none. *holding_raws* are read for the days a seat
+    was held only: ``link_members_to_factions`` reports what it leaves out of them."""
+    store = pipeline.store
     held: dict[str, list[dict[str, Any]]] = {}
     for raw in holding_raws:
         holding = tk_records.holding_of_seat(payload_json(raw))
@@ -365,7 +390,15 @@ def keep_faction_vacancies(
         payload = payload_json(raw)
         parsed = tk_records.seat_vacancy(payload)
         node = faction_nodes.get(parsed[0]) if parsed else None
-        if parsed and node is not None and node.key:
+        if tk_records.is_deleted(payload):
+            pipeline.progress.skip(DELETED, payload.get("Id"))
+        elif parsed is None:
+            pipeline.progress.skip(
+                "no faction or start, or an end before the start", payload.get("Id")
+            )
+        elif node is None or not node.key:
+            pipeline.progress.skip("faction not in the graph", payload.get("Id"))
+        else:
             seat = tk_records.vacancy_seat(payload)
             found.setdefault(node.key, []).extend(
                 tk_records.vacant_periods(parsed[1], held.get(seat or "", []))

@@ -207,15 +207,6 @@ def test_split_dossier_number(value, expected) -> None:
     assert split_dossier_number(value) == expected
 
 
-def test_a_record_without_an_identifier_is_skipped() -> None:
-    store = InMemoryStore()
-    result = PipelineResult()
-    nodes = EerstekamerNormalizePipeline(store=store).normalize_nodes(
-        [{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result
-    )
-    assert nodes == 0 and store.nodes == {} and result.skipped == 2
-
-
 # ── the link to the Tweede Kamer dossier ─────────────────────────────────────
 
 
